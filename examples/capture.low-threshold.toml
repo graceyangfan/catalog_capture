@@ -1,0 +1,30 @@
+[runtime]
+capture_seconds = 15
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-LOW-THRESHOLD-001"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-low-threshold"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 3
+flush_interval_ms = 250
+max_buffer_bytes = 65536
+queue_capacity = 100
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "binance_futures_test_low_threshold"
+kind = "binance_futures"
+environment = "testnet"
+product_type = "usd_m"
+
+[[capture.instruments]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.quotes]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.mark_prices]]
+instrument_id = "ETHUSDT-PERP.BINANCE"

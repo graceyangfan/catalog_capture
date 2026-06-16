@@ -1,0 +1,36 @@
+[workspace]
+members = [
+  "crates/catalog-capture-core",
+  "crates/catalog-capture-runtime-adapter",
+  "crates/catalog-capture-plugin-adapter",
+  "crates/catalog-capture-cli",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+authors = ["yfclark", "Codex"]
+license = "Proprietary"
+publish = false
+
+[workspace.dependencies]
+ahash = "0.8"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+dotenvy = "0.15"
+parquet = "58.3.0"
+rust_decimal = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+toml = "0.8"
+nautilus-binance = { path = "/Users/yfclark/nautilus_trader/crates/adapters/binance", features = ["examples"] }
+nautilus-common = { path = "/Users/yfclark/nautilus_trader/crates/common" }
+nautilus-core = { path = "/Users/yfclark/nautilus_trader/crates/core" }
+nautilus-hyperliquid = { path = "/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid", features = ["arrow", "python"] }
+nautilus-live = { path = "/Users/yfclark/nautilus_trader/crates/live", default-features = false, features = ["node"] }
+nautilus-model = { path = "/Users/yfclark/nautilus_trader/crates/model" }
+nautilus-persistence = { path = "/Users/yfclark/nautilus_trader/crates/persistence" }
+nautilus-serialization = { path = "/Users/yfclark/nautilus_trader/crates/serialization", features = ["arrow"] }

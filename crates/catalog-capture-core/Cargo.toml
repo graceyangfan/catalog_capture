@@ -1,0 +1,26 @@
+[package]
+name = "catalog-capture-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["high-precision"]
+high-precision = [
+  "nautilus-model/high-precision",
+  "nautilus-persistence/high-precision",
+  "nautilus-serialization/high-precision",
+]
+
+[dependencies]
+ahash.workspace = true
+anyhow.workspace = true
+nautilus-core.workspace = true
+nautilus-model.workspace = true
+nautilus-persistence.workspace = true
+nautilus-serialization.workspace = true
+parquet.workspace = true
+serde.workspace = true
+thiserror.workspace = true

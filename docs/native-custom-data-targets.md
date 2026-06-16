@@ -1,0 +1,292 @@
+# Native Custom Data Targets
+
+## Goal
+
+Identify Nautilus Trader adapter-emitted custom data families that are strong candidates for
+capture in this project **without introducing any project-local schema invention**.
+
+This document answers:
+
+- which custom types already exist in Nautilus adapters
+- whether they are stream-like or request-like
+- whether they are Arrow/catalog friendly today
+- how useful they are for research, backtest enrichment, and ML datasets
+
+## Recording modes
+
+Before choosing a custom data family, we should classify the intended business mode.
+
+### `targeted_derivatives`
+
+This is the default mode for the current project stage.
+
+Use it when we are recording data for:
+
+- one options chain
+- one or a few derivatives underlyings
+- a perp / futures strategy tied to specific symbols
+- a vol, skew, carry, or basis research workflow around one underlying family
+
+Typical capture set:
+
+- option instruments
+- hedge underlyings
+- spot / perp / futures references
+- mark prices
+- index prices
+- funding rates
+- real-time open interest
+- optional liquidation flow
+- optional volatility index
+
+### `cross_sectional_market`
+
+Use this only when the strategy or research workflow is intentionally market-wide.
+
+Typical use cases:
+
+- cross-sectional ranking
+- panel ML
+- market-wide lead/lag
+- broad venue-state or contagion studies
+
+Typical custom families:
+
+- all-market mids
+- venue-wide asset context snapshots
+- all-market liquidation streams
+
+### `historical_backfill`
+
+Use this for request/batch-oriented historical enrichment rather than live runtime capture.
+
+Typical use cases:
+
+- bootstrap a research dataset
+- fill missing history
+- pre-load slow moving reference panels
+
+Typical families:
+
+- historical open interest
+- request-style aggregate snapshots
+
+## Current default stance
+
+For now, this project should prioritize **`targeted_derivatives`**.
+
+That means:
+
+- prefer instrument-scoped or underlying-scoped custom families
+- do not default to all-market feeds
+- treat historical request families as follow-on backfill work rather than the main runtime path
+
+## Selection rules
+
+A custom data family is a good target for this project when all of the following are true:
+
+- the type is already emitted by a Nautilus adapter
+- the adapter already uses Nautilus `CustomData` / `DataType`
+- the data carries real research or strategy value
+- the family can be described declaratively in `CapturePlan` / CLI config
+- the resulting parquet should be meaningful to read later through Nautilus catalog surfaces
+
+## P0 targets
+
+These are the best next targets for direct capture support in **`targeted_derivatives`** mode.
+
+### `BinanceFuturesLiquidation`
+
+- Adapter: Binance Futures
+- Source shape: live stream
+- Why it matters:
+  - direct liquidation flow is useful for crowding, stress, and momentum studies
+  - naturally complements quotes, trades, mark prices, and funding
+- Emission path:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/binance/src/futures/data.rs:610`
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/binance/src/data_types.rs:319`
+- Notes:
+  - already partitioned by instrument through `DataType` metadata when subscribed per instrument
+  - stream-native and very aligned with our runtime capture model
+  - should be used primarily for selected underlyings, not as the default all-market stream
+
+### `HyperliquidOpenInterest`
+
+- Adapter: Hyperliquid
+- Source shape: live stream from asset context updates
+- Why it matters:
+  - strong derivatives-research value
+  - close to the open-interest family we discussed, but importantly **already exists in Nautilus**
+- Emission path:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid/src/websocket/handler.rs:963`
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid/src/data_types.rs:53`
+- Notes:
+  - Arrow/catalog capable when adapter builds with Arrow support
+  - ideal first “open interest” family because we do not need to invent any local type
+  - this is the preferred first OI family because it is real-time and instrument-scoped
+  - validated in this project with:
+    - `/Users/yfclark/nautilus_catalog_capture/crates/catalog-capture-runtime-adapter/examples/write_hyperliquid_open_interest_fixture.rs`
+    - `/Users/yfclark/nautilus_catalog_capture/tests/python_hyperliquid_open_interest_smoke.py`
+
+### `DeribitVolatilityIndex`
+
+- Adapter: Deribit
+- Source shape: live stream
+- Why it matters:
+  - directly relevant to options and volatility research
+  - a very clean derivatives-native reference series
+- Emission path:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/deribit/src/websocket/handler.rs:1844`
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/deribit/src/data_types.rs:29`
+- Notes:
+  - one of the most natural P0 custom families for the options roadmap
+  - likely easier to validate than more complex venue-specific aggregates
+  - especially well-matched to options-chain recording around specific underlyings
+
+## P1 targets
+
+These are strong, but slightly less central to the immediate **runtime** derivatives roadmap.
+
+### `BinanceFuturesOpenInterest`
+
+- Adapter: Binance Futures
+- Source shape: request/snapshot style
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/binance/src/data_types.rs:37`
+- Why it matters:
+  - useful for snapshots and point-in-time OI enrichment
+- Caveat:
+  - request/snapshot-oriented rather than naturally streaming
+  - still worth supporting, but should come after the first real-time OI family
+
+### `BinanceFuturesOpenInterestHist`
+
+- Adapter: Binance Futures
+- Source shape: request/batch style
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/binance/src/data_types.rs:151`
+- Why it matters:
+  - good for research backfills and carry term studies
+- Caveat:
+  - should be treated as a `historical_backfill` family, not a default live runtime target
+
+### `HyperliquidAllMids`
+
+- Adapter: Hyperliquid
+- Source shape: live stream
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid/src/data_types.rs:31`
+- Why it matters:
+  - useful cross-market snapshot for lead-lag and panel studies
+- Caveat:
+  - this is more naturally a `cross_sectional_market` family than a targeted-derivatives default
+  - aggregate snapshot semantics differ from per-instrument families
+
+### `HyperliquidAllDexsAssetCtxs`
+
+- Adapter: Hyperliquid
+- Source shape: live aggregate snapshot
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid/src/data_types.rs:113`
+- Why it matters:
+  - rich research payload: funding, open interest, oracle, mark, premium, impact prices
+- Caveat:
+  - this is more naturally a `cross_sectional_market` family than a targeted-derivatives default
+  - currently `no_arrow`, JSON-backed, live-only by design
+  - valuable, but should come after our simpler Arrow/catalog-native families
+
+## P2 targets
+
+These are valid custom families, but less central for the immediate derivatives capture product.
+
+### `DatabentoImbalance`
+
+- Adapter: Databento
+- Source shape: market microstructure feed
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/databento/src/types.rs:88`
+- Why it matters:
+  - very useful for auction and microstructure research
+- Caveat:
+  - more equities/venue-microstructure oriented than our current derivatives-first roadmap
+
+### `DatabentoStatistics`
+
+- Adapter: Databento
+- Source shape: market statistics feed
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/databento/src/types.rs:226`
+- Why it matters:
+  - useful for generalized research datasets
+- Caveat:
+  - less immediately connected to options/perp capture than our P0 set
+
+### Betfair custom families
+
+- Adapter: Betfair
+- Examples:
+  - `BetfairTicker`
+  - `BetfairStartingPrice`
+  - `BetfairBspBookDelta`
+  - `BetfairRaceRunnerData`
+  - `BetfairRaceProgress`
+- Type definitions:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/betfair/src/data_types.rs:55`
+- Why it matters:
+  - excellent proof that rich adapter-native custom families can be catalog-persisted cleanly
+- Caveat:
+  - domain is different from our near-term derivatives/ML roadmap
+
+### `PolymarketResolveRequestSummaryData`
+
+- Adapter: Polymarket
+- Source shape: request/result summary
+- Type definition:
+  - `/Users/yfclark/nautilus_trader/crates/adapters/polymarket/src/resolve.rs:123`
+- Why it matters:
+  - operationally informative and request-debug useful
+- Caveat:
+  - not really a market-data recording family for our current product goal
+
+## Recommended P0 implementation order
+
+If we want the next custom-data work to stay maximally aligned with real Nautilus adapter outputs,
+while staying focused on **specific derivatives underlyings rather than all-market recording**,
+the best order is:
+
+1. `HyperliquidOpenInterest`
+2. `DeribitVolatilityIndex`
+3. `BinanceFuturesLiquidation`
+4. `BinanceFuturesOpenInterest`
+5. `BinanceFuturesOpenInterestHist`
+
+## Why this order
+
+- `HyperliquidOpenInterest` gives us a true adapter-native open-interest family without inventing a
+  local schema.
+- `DeribitVolatilityIndex` supports the options roadmap immediately.
+- `BinanceFuturesLiquidation` is high-value, stream-native, and easy to reason about.
+- Binance real-time/snapshot open-interest is useful next, but still secondary to the first
+  continuously emitted OI family.
+- Binance historical open-interest should stay in the backlog as a backfill mode rather than
+  diluting the first runtime implementation.
+
+## Practical project guidance
+
+For now, this project should do **only** the following for custom data:
+
+- subscribe to adapter-emitted `DataType`
+- record the `CustomData` payload exactly as emitted
+- preserve adapter-chosen `type_name`, metadata, and identifier
+- validate catalog discoverability and, where available, PyO3 typed readback
+
+It should **not**:
+
+- invent new research schemas
+- rename custom families into project-local names
+- normalize multiple venue families into one synthetic type before capture
+
+Those may become useful later, but only after a separate design decision.
