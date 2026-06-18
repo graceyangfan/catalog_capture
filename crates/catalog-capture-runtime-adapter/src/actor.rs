@@ -238,6 +238,29 @@ impl CatalogCaptureActor {
         Ok(FlushResult::default())
     }
 
+    /// Bootstrap instrument metadata before market-data subscriptions.
+    ///
+    /// Adapters load definitions into cache during `connect` (HTTP bulk on Binance,
+    /// Bybit, Deribit, OKX). `subscribe_instrument` is often a no-op and does not
+    /// replay connect-time events, so we snapshot cache here. When cache is cold
+    /// (e.g. Derive lazy_load), fall back to `request_instrument`. Runtime updates
+    /// still arrive via `on_instrument` after `subscribe_instrument` (Deribit WS).
+    fn bootstrap_instruments(&mut self) -> Result<()> {
+        for instrument_id in self.plan.planned_instrument_ids() {
+            self.subscribe_instrument(instrument_id, None, None);
+            self.subscribe_instrument_status(instrument_id, None, None);
+
+            let cached = self.cache().instrument(&instrument_id).cloned();
+            if let Some(instrument) = cached {
+                self.on_instrument(&instrument)?;
+            } else {
+                self.request_instrument(instrument_id, None, None, None, None)?;
+            }
+        }
+
+        Ok(())
+    }
+
     fn submit_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
         for delta in &deltas.deltas {
             self.book_delta_runtime.submit(CaptureItem {
@@ -323,10 +346,7 @@ impl Debug for CatalogCaptureActor {
 
 impl DataActor for CatalogCaptureActor {
     fn on_start(&mut self) -> Result<()> {
-        let instrument_specs = self.plan.instruments.clone();
-        for spec in instrument_specs {
-            self.subscribe_instrument(spec.instrument_id, None, None);
-        }
+        self.bootstrap_instruments()?;
 
         let custom_data_specs = self.plan.custom_data.clone();
         for spec in custom_data_specs {
@@ -346,11 +366,6 @@ impl DataActor for CatalogCaptureActor {
         let funding_rate_specs = self.plan.funding_rates.clone();
         for spec in funding_rate_specs {
             self.subscribe_funding_rates(spec.instrument_id, None, None);
-        }
-
-        let instrument_status_specs = self.plan.instrument_statuses.clone();
-        for spec in instrument_status_specs {
-            self.subscribe_instrument_status(spec.instrument_id, None, None);
         }
 
         let instrument_close_specs = self.plan.instrument_closes.clone();

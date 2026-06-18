@@ -58,6 +58,7 @@ fn build_instrument(instrument_id: InstrumentId, ts: UnixNanos) -> InstrumentAny
         None,
         None,
         None,
+        None,
         ts,
         ts,
     ))

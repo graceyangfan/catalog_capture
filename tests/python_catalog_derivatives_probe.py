@@ -45,19 +45,9 @@ def main() -> int:
     mark_prices = catalog.query_mark_price_updates([instrument_id])
     index_prices = catalog.query_index_price_updates([instrument_id])
 
-    instruments = []
-    try:
-        instruments = catalog.instruments(instrument_ids=[instrument_id])
-    except OSError as exc:
-        print(f"WARN: instrument readback skipped ({exc})")
-
-    if instruments:
-        assert str(instruments[0].id) == instrument_id
-    else:
-        print(
-            f"WARN: no instrument metadata in catalog for {instrument_id}; "
-            "Step 1 market-data families are still validated"
-        )
+    instruments = catalog.instruments(instrument_ids=[instrument_id])
+    assert instruments, f"expected instrument metadata in catalog for {instrument_id}"
+    assert str(instruments[0].id) == instrument_id
 
     assert len(quotes) >= min_rows, (
         f"expected at least {min_rows} quotes for {instrument_id}, got {len(quotes)}"
