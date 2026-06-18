@@ -1,14 +1,17 @@
+# Step 1 profile: Binance Futures perpetual built-in WS families (A1–A4).
+# Captures quotes, mark prices, index prices, and funding rates for basis/carry research.
+
 [runtime]
-capture_seconds = 30
+capture_seconds = 60
 shutdown_timeout_secs = 10
 delay_post_stop_secs = 2
-node_name = "CATALOG-CAPTURE-CLI-001"
+node_name = "CATALOG-CAPTURE-BINANCE-PERP-WS"
 
 [output]
-catalog_uri = "file:///tmp/nautilus-catalog-capture"
+catalog_uri = "file:///tmp/nautilus-catalog-capture-binance-perp-ws"
 compression = "snappy"
 layout_compatibility = "rust_canonical_with_python_legacy_mirror"
-flush_rows = 5000
+flush_rows = 1000
 flush_interval_ms = 1000
 max_buffer_bytes = 33554432
 queue_capacity = 10000
@@ -34,18 +37,3 @@ instrument_id = "ETHUSDT-PERP.BINANCE"
 
 [[capture.funding_rates]]
 instrument_id = "ETHUSDT-PERP.BINANCE"
-
-[[capture.instrument_statuses]]
-instrument_id = "ETHUSDT-PERP.BINANCE"
-
-[[capture.instrument_closes]]
-instrument_id = "ETHUSDT-PERP.BINANCE"
-
-[[capture.option_greeks]]
-instrument_id = "ETHUSDT-PERP.BINANCE"
-
-# Example custom data capture:
-#
-# [[capture.custom_data]]
-# type_name = "<adapter-emitted-custom-type>"
-# identifier = "ETHUSDT-PERP.BINANCE"

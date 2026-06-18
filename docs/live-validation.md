@@ -168,12 +168,49 @@ At minimum, record:
    - or for legacy compatibility:
    - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
 
-## Follow-up after the first successful run
+## Step 1 follow-up: derivatives state WS families
 
-Once the first Binance Futures `QuoteTick` run succeeds, the next two immediate follow-ups should be:
+After the first `QuoteTick` run succeeds, Step 1 adds the built-in WS families needed for basis and carry research:
 
-1. Add `TradeTick` capture for the same instrument.
-2. Run a minimal backtest that reads the captured catalog directly.
+- `mark_prices`
+- `index_prices`
+- `funding_rates`
+
+Reference assets:
+
+- `examples/capture.binance-perp.ws.toml`
+- `crates/catalog-capture-runtime-adapter/examples/binance_futures_derivatives_state_capture.rs`
+- `tests/python_catalog_derivatives_probe.py`
+
+Suggested command sequence:
+
+1. Validate the Step 1 TOML profile:
+
+   - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.binance-perp.ws.toml`
+
+2. Run the Step 1 live capture (CLI or example):
+
+   - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.binance-perp.ws.toml`
+   - or:
+   - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo +1.96.0 run -p catalog-capture-runtime-adapter --example binance_futures_derivatives_state_capture`
+
+3. Probe all four market-data families:
+
+   - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
+
+Step 1 success criteria:
+
+- quotes, mark prices, and index prices are queryable and time-ordered
+- funding rate parquet is discoverable under `data/funding_rate_update/<instrument_id>/`
+- instrument metadata is present for the same instrument
+
+## Follow-up after Step 1
+
+Once Step 1 succeeds, the next immediate follow-ups should be:
+
+1. Add `instrument_statuses` and `instrument_closes` live validation (Step 2).
+2. Add `TradeTick` capture for the same instrument (Step 6).
+3. Run a minimal backtest that reads the captured catalog directly.
 
 That will give us a complete proof of the target workflow:
 
