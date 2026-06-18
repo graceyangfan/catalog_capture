@@ -34,3 +34,7 @@ nautilus-live = { path = "/Users/yfclark/nautilus_trader/crates/live", default-f
 nautilus-model = { path = "/Users/yfclark/nautilus_trader/crates/model" }
 nautilus-persistence = { path = "/Users/yfclark/nautilus_trader/crates/persistence" }
 nautilus-serialization = { path = "/Users/yfclark/nautilus_trader/crates/serialization", features = ["arrow"] }
+
+[patch.crates-io]
+# Align with nautilus_trader: PyO3 0.29 needs the patched pyo3-stub-gen crate.
+pyo3-stub-gen = { path = "/Users/yfclark/nautilus_trader/patches/pyo3-stub-gen" }
