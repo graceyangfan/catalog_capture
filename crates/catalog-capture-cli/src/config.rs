@@ -9,6 +9,10 @@ use catalog_capture_core::{
     plan::{BarCaptureSpec, BookDeltasCaptureSpec},
 };
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
+use nautilus_deribit::{
+    common::enums::DeribitEnvironment,
+    http::models::DeribitProductType,
+};
 use nautilus_core::Params;
 use nautilus_model::{
     data::{BarType, DataType},
@@ -149,6 +153,9 @@ pub struct VenueConfig {
     pub environment: String,
     #[serde(default = "default_binance_product_type")]
     pub product_type: String,
+    /// Deribit-only: product types to load (e.g. `future`, `option`).
+    #[serde(default)]
+    pub product_types: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -157,6 +164,11 @@ pub enum VenueRuntimeConfig {
         id: String,
         environment: BinanceEnvironment,
         product_type: BinanceProductType,
+    },
+    Deribit {
+        id: String,
+        environment: DeribitEnvironment,
+        product_types: Vec<DeribitProductType>,
     },
 }
 
@@ -357,7 +369,14 @@ fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             environment: parse_binance_environment(&venue.environment)?,
             product_type: parse_binance_product_type(&venue.product_type)?,
         }),
-        other => bail!("unsupported venue kind {other}; currently supported: binance_futures"),
+        "deribit" => Ok(VenueRuntimeConfig::Deribit {
+            id: venue.id,
+            environment: parse_deribit_environment(&venue.environment)?,
+            product_types: parse_deribit_product_types(&venue.product_types)?,
+        }),
+        other => bail!(
+            "unsupported venue kind {other}; currently supported: binance_futures, deribit"
+        ),
     }
 }
 
@@ -397,6 +416,34 @@ fn parse_binance_environment(value: &str) -> Result<BinanceEnvironment> {
         "demo" => Ok(BinanceEnvironment::Demo),
         other => bail!("unsupported Binance environment {other}; expected live|testnet|demo"),
     }
+}
+
+fn parse_deribit_environment(value: &str) -> Result<DeribitEnvironment> {
+    match value.to_ascii_lowercase().as_str() {
+        "mainnet" | "live" => Ok(DeribitEnvironment::Mainnet),
+        "testnet" => Ok(DeribitEnvironment::Testnet),
+        other => bail!("unsupported Deribit environment {other}; expected mainnet|testnet"),
+    }
+}
+
+fn parse_deribit_product_types(values: &[String]) -> Result<Vec<DeribitProductType>> {
+    if values.is_empty() {
+        return Ok(vec![DeribitProductType::Future, DeribitProductType::Option]);
+    }
+
+    values
+        .iter()
+        .map(|value| match value.to_ascii_lowercase().as_str() {
+            "future" => Ok(DeribitProductType::Future),
+            "option" => Ok(DeribitProductType::Option),
+            "spot" => Ok(DeribitProductType::Spot),
+            "future_combo" => Ok(DeribitProductType::FutureCombo),
+            "option_combo" => Ok(DeribitProductType::OptionCombo),
+            other => bail!(
+                "unsupported Deribit product_type {other}; expected future|option|spot|future_combo|option_combo"
+            ),
+        })
+        .collect()
 }
 
 fn parse_binance_product_type(value: &str) -> Result<BinanceProductType> {

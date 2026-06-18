@@ -3,6 +3,7 @@ use std::{fs, path::PathBuf, time::Duration};
 use anyhow::{Context, Result, bail};
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
+use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
 use nautilus_common::enums::Environment;
 use nautilus_live::node::LiveNode;
 use nautilus_model::{
@@ -45,6 +46,27 @@ pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
                     Box::new(BinanceDataClientConfig {
                         product_type: *product_type,
                         environment: *environment,
+                        api_key: None,
+                        api_secret: None,
+                        ..Default::default()
+                    }),
+                )?;
+            }
+            VenueRuntimeConfig::Deribit {
+                id,
+                environment,
+                product_types,
+            } => {
+                println!(
+                    "Configuring venue {} (product_types={product_types:?}, {environment:?})",
+                    id
+                );
+                builder = builder.add_data_client(
+                    None,
+                    Box::new(DeribitDataClientFactory::new()),
+                    Box::new(DeribitDataClientConfig {
+                        environment: *environment,
+                        product_types: product_types.clone(),
                         api_key: None,
                         api_secret: None,
                         ..Default::default()

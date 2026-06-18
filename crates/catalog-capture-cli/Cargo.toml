@@ -13,6 +13,7 @@ catalog-capture-core = { path = "../catalog-capture-core" }
 catalog-capture-runtime-adapter = { path = "../catalog-capture-runtime-adapter" }
 dotenvy.workspace = true
 nautilus-binance.workspace = true
+nautilus-deribit.workspace = true
 nautilus-common.workspace = true
 nautilus-core.workspace = true
 nautilus-live.workspace = true
