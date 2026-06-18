@@ -168,6 +168,29 @@ At minimum, record:
    - or for legacy compatibility:
    - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
 
+## Step 2: instrument metadata and contract state
+
+Reference profile:
+
+- `examples/capture.binance-perp.ws.toml` (includes `instrument_statuses` / `instrument_closes`)
+- `tests/python_catalog_derivatives_probe.py`
+  - live short runs: assert `instruments` + market-data families
+  - fixture mode: add `--require-contract-state` after `pyo3_market_readback_smoke.py`
+
+Binance Futures polls instrument status about every 3600s, so a 60s live run may legitimately produce zero status/close rows while still passing the probe.
+
+## Step 3: Deribit perp + option greeks
+
+Reference profile:
+
+- `examples/capture.deribit-btc.toml`
+- `tests/python_catalog_deribit_probe.py`
+
+Run:
+
+- `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc.toml`
+- `python3 tests/python_catalog_deribit_probe.py /tmp/nautilus-catalog-capture-deribit-btc`
+
 ## Step 1 follow-up: derivatives state WS families
 
 After the first `QuoteTick` run succeeds, Step 1 adds the built-in WS families needed for basis and carry research:

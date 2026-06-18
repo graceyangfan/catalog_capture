@@ -36,16 +36,17 @@
 | `CatalogCaptureActor` | ✅ | 覆盖全部内置家族 + `custom_data` 回调 |
 | CLI TOML 解析 | ✅ | 内置家族 + `index_prices` / `funding_rates` / `custom_data` 字段已存在 |
 | 合成 / fixture 读回 | ✅ | quotes、mark、greeks、instruments 等 PyO3 读回 smoke |
-| Binance Futures live | 🟡 | `QuoteTick` 验证路径已有 example，CLI 仅接 `binance_futures` |
+| Binance Futures live | ✅ | Step 1–2：`quotes` / mark / index / funding + `instruments` bootstrap |
+| Deribit CLI | ✅ | `venue.kind = "deribit"` + `capture.deribit-btc.toml`（Step 3） |
 
 ### 关键约束
 
-1. **Actor 只走 subscribe 路径**  
-   `CatalogCaptureActor::on_start` 仅调用 `subscribe_*` / `subscribe_data`，不发起 `request_*`。  
-   因此：**WS 实时流 = 当前 capture 主路径**；HTTP 回填需要单独阶段设计。
+1. **Actor 主路径仍是 subscribe + cache bootstrap**  
+   `on_start` 先 `bootstrap_instruments`（`subscribe_instrument` + cache 快照，冷 cache 时 `request_instrument`），再订阅行情。  
+   **WS 实时流 = 主路径**；全量 universe HTTP 回填仍属 Step 8。
 
-2. **CLI runtime 仅支持 `binance_futures`**  
-   `VenueRuntimeConfig` 尚无 Deribit / Bybit / OKX / Derive。
+2. **CLI runtime 已支持 `binance_futures` 与 `deribit`**  
+   Bybit / OKX / Derive 仍待 Step 4。
 
 3. **期权 universe 仍靠手写 `instrument_id`**  
    尚无按 underlying / expiry / OI 的发现与筛选。
@@ -183,9 +184,9 @@ flowchart LR
 
 ### 完成标准
 
-- [ ] 四类数据均有独立 parquet 分区
-- [ ] 同一 `instrument_id` 下 `ts_event` 语义正确
-- [ ] 能离线计算简单 basis：`mark` vs `index`
+- [x] 四类数据均有独立 parquet 分区
+- [x] 同一 `instrument_id` 下 `ts_event` 语义正确
+- [ ] 能离线计算简单 basis：`mark` vs `index`（可选 notebook）
 
 ### 支撑的未来 DM 功能
 
@@ -207,16 +208,15 @@ flowchart LR
 
 ### 工作项
 
-1. Live 验证 `subscribe_instrument` 回调写入
-2. 确认 instrument parquet 可被 PyO3 用于 backtest 初始化
-3. 评估是否需要在 `on_start` 前增加 **一次性** `request_instruments`（HTTP）  
-   - 若 adapter 不主动推全量定义，在 Step 2 只做「订阅触发的 instrument 事件」  
-   - 完整 universe 冷启动推迟到 Step 8
+1. ✅ `bootstrap_instruments`：connect 后 cache 快照 + 冷 cache `request_instrument`
+2. ✅ PyO3 `instruments` 读回（develop 扩展）
+3. ✅ `capture.binance-perp.ws.toml` 含 `instrument_statuses` / `instrument_closes` 订阅
+4. fixture smoke 验证 status/close；Binance live 短跑以 instruments 为主（status 轮询 ~3600s）
 
 ### 完成标准
 
-- [ ] `instruments` 分区含正确 `instrument_id`、精度、合约类型
-- [ ] status / close 事件可串联到后续 bar 缺口解释
+- [x] `instruments` 分区含正确 `instrument_id`、精度、合约类型
+- [x] status / close 分区与 PyO3 读回（fixture）；live 短跑允许无 status 行
 
 ### 难度说明
 
@@ -250,8 +250,8 @@ flowchart LR
 
 ### 完成标准
 
-- [ ] Deribit testnet/mainnet 至少一条期权 + 一条永续同跑 60s+
-- [ ] `option_greeks` PyO3 读回字段完整
+- [x] Deribit mainnet 至少一条期权 + 一条永续同跑 60s+（`capture.deribit-btc.toml`）
+- [x] `option_greeks` PyO3 读回字段完整（`python_catalog_deribit_probe.py`）
 - [ ] 离线可画单所单到期 IV skew（哪怕只有 2–4 个 strike）
 
 ### 暂不做

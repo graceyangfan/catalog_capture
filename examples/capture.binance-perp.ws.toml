@@ -1,5 +1,6 @@
-# Step 1 profile: Binance Futures perpetual built-in WS families (A1–A4).
-# Captures quotes, mark prices, index prices, and funding rates for basis/carry research.
+# Step 1–2 profile: Binance Futures perpetual built-in WS (A1–A6).
+# Captures quotes, mark/index/funding, instrument metadata, and contract state subscriptions.
+# Note: Binance instrument_status polling is ~3600s; short runs may only validate instruments.
 
 [runtime]
 capture_seconds = 60
@@ -36,4 +37,10 @@ instrument_id = "ETHUSDT-PERP.BINANCE"
 instrument_id = "ETHUSDT-PERP.BINANCE"
 
 [[capture.funding_rates]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.instrument_statuses]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.instrument_closes]]
 instrument_id = "ETHUSDT-PERP.BINANCE"

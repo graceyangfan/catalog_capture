@@ -11,13 +11,22 @@ Current examples and planned validation paths:
     - `cargo +1.96.0 run -p catalog-capture-cli -- print-effective-config --config /Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
     - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
 - `examples/capture.binance-perp.ws.toml`
-  - Step 1 profile: Binance Futures built-in WS families only
-  - captures `quotes`, `mark_prices`, `index_prices`, `funding_rates`
+  - Step 1–2 profile: Binance Futures built-in WS + instrument bootstrap
+  - captures `quotes`, `mark_prices`, `index_prices`, `funding_rates`, `instruments`, `instrument_statuses`, `instrument_closes`
   - intended to be used with:
     - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.binance-perp.ws.toml`
     - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.binance-perp.ws.toml`
   - verify with:
-    - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
+    - `python3 /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
+    - fixture contract-state: add `--require-contract-state` after `pyo3_market_readback_smoke.py`
+- `examples/capture.deribit-btc.toml`
+  - Step 3 profile: Deribit BTC perp + near-term ATM call/put
+  - captures `instruments`, `quotes`, `mark_prices`, `index_prices`, `funding_rates`, `option_greeks`
+  - intended to be used with:
+    - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc.toml`
+    - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc.toml`
+  - verify with:
+    - `python3 /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_deribit_probe.py <catalog_dir>`
 - `examples/capture.low-threshold.toml`
   - intentionally aggressive validation profile
   - useful for forcing fast parquet chunk creation and multi-file behavior
