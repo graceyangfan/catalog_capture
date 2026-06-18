@@ -19,7 +19,7 @@ use nautilus_model::{
         OptionGreeks, OrderBookDelta, OrderBookDeltas, QuoteTick, TradeTick,
         close::InstrumentClose,
     },
-    identifiers::ActorId,
+    identifiers::{ActorId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
 };
 
@@ -247,18 +247,21 @@ impl CatalogCaptureActor {
     /// still arrive via `on_instrument` after `subscribe_instrument` (Deribit WS).
     fn bootstrap_instruments(&mut self) -> Result<()> {
         for instrument_id in self.plan.planned_instrument_ids() {
-            self.subscribe_instrument(instrument_id, None, None);
-            self.subscribe_instrument_status(instrument_id, None, None);
-
-            let cached = self.cache().instrument(&instrument_id).cloned();
-            if let Some(instrument) = cached {
-                self.on_instrument(&instrument)?;
-            } else {
-                self.request_instrument(instrument_id, None, None, None, None)?;
-            }
+            self.bootstrap_instrument(instrument_id)?;
         }
 
         Ok(())
+    }
+
+    fn bootstrap_instrument(&mut self, instrument_id: InstrumentId) -> Result<()> {
+        self.subscribe_instrument(instrument_id, None, None);
+        self.subscribe_instrument_status(instrument_id, None, None);
+
+        let instrument = self.cache().instrument(&instrument_id).cloned();
+        match instrument {
+            Some(instrument) => self.on_instrument(&instrument),
+            None => self.request_instrument(instrument_id, None, None, None, None).map(|_| ()),
+        }
     }
 
     fn submit_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
@@ -348,53 +351,44 @@ impl DataActor for CatalogCaptureActor {
     fn on_start(&mut self) -> Result<()> {
         self.bootstrap_instruments()?;
 
-        let custom_data_specs = self.plan.custom_data.clone();
-        for spec in custom_data_specs {
-            self.subscribe_data(spec.data_type, None, None);
+        let plan = self.plan.clone();
+        for spec in &plan.custom_data {
+            self.subscribe_data(spec.data_type.clone(), None, None);
         }
 
-        let mark_price_specs = self.plan.mark_prices.clone();
-        for spec in mark_price_specs {
+        for spec in &plan.mark_prices {
             self.subscribe_mark_prices(spec.instrument_id, None, None);
         }
 
-        let index_price_specs = self.plan.index_prices.clone();
-        for spec in index_price_specs {
+        for spec in &plan.index_prices {
             self.subscribe_index_prices(spec.instrument_id, None, None);
         }
 
-        let funding_rate_specs = self.plan.funding_rates.clone();
-        for spec in funding_rate_specs {
+        for spec in &plan.funding_rates {
             self.subscribe_funding_rates(spec.instrument_id, None, None);
         }
 
-        let instrument_close_specs = self.plan.instrument_closes.clone();
-        for spec in instrument_close_specs {
+        for spec in &plan.instrument_closes {
             self.subscribe_instrument_close(spec.instrument_id, None, None);
         }
 
-        let option_greeks_specs = self.plan.option_greeks.clone();
-        for spec in option_greeks_specs {
+        for spec in &plan.option_greeks {
             self.subscribe_option_greeks(spec.instrument_id, None, None);
         }
 
-        let quote_specs = self.plan.quotes.clone();
-        for spec in quote_specs {
+        for spec in &plan.quotes {
             self.subscribe_quotes(spec.instrument_id, None, None);
         }
 
-        let trade_specs = self.plan.trades.clone();
-        for spec in trade_specs {
+        for spec in &plan.trades {
             self.subscribe_trades(spec.instrument_id, None, None);
         }
 
-        let bar_specs = self.plan.bars.clone();
-        for spec in bar_specs {
+        for spec in &plan.bars {
             self.subscribe_bars(spec.bar_type, None, None);
         }
 
-        let delta_specs = self.plan.book_deltas.clone();
-        for spec in delta_specs {
+        for spec in &plan.book_deltas {
             self.subscribe_book_deltas(
                 spec.instrument_id,
                 spec.book_type,

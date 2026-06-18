@@ -100,43 +100,28 @@ impl CapturePlan {
             && self.custom_data.is_empty()
     }
 
-    /// Union of every `instrument_id` referenced by any capture family.
+    /// Union of every `instrument_id` referenced by any instrument-scoped family.
+    ///
+    /// `bars` and `custom_data` are excluded because they are not keyed by
+    /// `InstrumentId` alone.
     #[must_use]
     pub fn planned_instrument_ids(&self) -> Vec<InstrumentId> {
         let mut ids = BTreeSet::new();
-
-        for spec in &self.instruments {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.quotes {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.trades {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.book_deltas {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.mark_prices {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.index_prices {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.funding_rates {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.instrument_statuses {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.instrument_closes {
-            ids.insert(spec.instrument_id);
-        }
-        for spec in &self.option_greeks {
-            ids.insert(spec.instrument_id);
-        }
-
+        self.extend_planned_instrument_ids(&mut ids);
         ids.into_iter().collect()
+    }
+
+    fn extend_planned_instrument_ids(&self, ids: &mut BTreeSet<InstrumentId>) {
+        ids.extend(self.instruments.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.quotes.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.trades.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.book_deltas.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.mark_prices.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.index_prices.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.funding_rates.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.instrument_statuses.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.instrument_closes.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.option_greeks.iter().map(|spec| spec.instrument_id));
     }
 }
 
@@ -180,5 +165,31 @@ mod tests {
         };
 
         assert_eq!(plan.planned_instrument_ids(), vec![btc, eth]);
+    }
+
+    #[test]
+    fn planned_instrument_ids_ignores_bars_and_custom_data() {
+        let eth = eth_perp();
+        let plan = CapturePlan {
+            bars: vec![BarCaptureSpec {
+                bar_type: BarType::from_str("ETHUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL").unwrap(),
+            }],
+            custom_data: vec![CustomDataCaptureSpec {
+                data_type: DataType::new("SomeCustom", None, None),
+            }],
+            ..CapturePlan::default()
+        };
+
+        assert!(plan.planned_instrument_ids().is_empty());
+
+        let plan = CapturePlan {
+            quotes: vec![QuoteCaptureSpec { instrument_id: eth }],
+            bars: vec![BarCaptureSpec {
+                bar_type: BarType::from_str("ETHUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL").unwrap(),
+            }],
+            ..CapturePlan::default()
+        };
+
+        assert_eq!(plan.planned_instrument_ids(), vec![eth]);
     }
 }
