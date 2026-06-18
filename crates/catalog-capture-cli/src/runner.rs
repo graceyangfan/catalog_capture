@@ -3,7 +3,9 @@ use std::{fs, path::PathBuf, time::Duration};
 use anyhow::{Context, Result, bail};
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
+use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
+use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 use nautilus_common::enums::Environment;
 use nautilus_live::node::LiveNode;
 use nautilus_model::{
@@ -69,6 +71,51 @@ pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
                         product_types: product_types.clone(),
                         api_key: None,
                         api_secret: None,
+                        ..Default::default()
+                    }),
+                )?;
+            }
+            VenueRuntimeConfig::Bybit {
+                id,
+                environment,
+                product_types,
+            } => {
+                println!(
+                    "Configuring venue {} (product_types={product_types:?}, {environment:?})",
+                    id
+                );
+                builder = builder.add_data_client(
+                    None,
+                    Box::new(BybitDataClientFactory::new()),
+                    Box::new(BybitDataClientConfig {
+                        environment: *environment,
+                        product_types: product_types.clone(),
+                        api_key: None,
+                        api_secret: None,
+                        ..Default::default()
+                    }),
+                )?;
+            }
+            VenueRuntimeConfig::Okx {
+                id,
+                environment,
+                instrument_types,
+                instrument_families,
+            } => {
+                println!(
+                    "Configuring venue {} (instrument_types={instrument_types:?}, families={instrument_families:?}, {environment:?})",
+                    id
+                );
+                builder = builder.add_data_client(
+                    None,
+                    Box::new(OKXDataClientFactory::new()),
+                    Box::new(OKXDataClientConfig {
+                        environment: *environment,
+                        instrument_types: instrument_types.clone(),
+                        instrument_families: instrument_families.clone(),
+                        api_key: None,
+                        api_secret: None,
+                        api_passphrase: None,
                         ..Default::default()
                     }),
                 )?;

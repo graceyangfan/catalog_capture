@@ -1,0 +1,59 @@
+# Step 4c profile: OKX BTC-USD swap + near-term ATM options.
+
+[runtime]
+capture_seconds = 60
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-OKX-BTC"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-okx-btc"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 1000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+queue_capacity = 10000
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "okx_main"
+kind = "okx"
+environment = "live"
+instrument_types = ["swap", "option"]
+instrument_families = ["BTC-USD"]
+
+# Swap hedge leg
+[[capture.instruments]]
+instrument_id = "BTC-USD-SWAP.OKX"
+
+[[capture.quotes]]
+instrument_id = "BTC-USD-SWAP.OKX"
+
+[[capture.mark_prices]]
+instrument_id = "BTC-USD-SWAP.OKX"
+
+[[capture.index_prices]]
+instrument_id = "BTC-USD-SWAP.OKX"
+
+[[capture.funding_rates]]
+instrument_id = "BTC-USD-SWAP.OKX"
+
+# Near-term ATM options (refresh when expiry rolls)
+[[capture.instruments]]
+instrument_id = "BTC-USD-260620-65500-C.OKX"
+
+[[capture.instruments]]
+instrument_id = "BTC-USD-260620-65500-P.OKX"
+
+[[capture.quotes]]
+instrument_id = "BTC-USD-260620-65500-C.OKX"
+
+[[capture.quotes]]
+instrument_id = "BTC-USD-260620-65500-P.OKX"
+
+[[capture.option_greeks]]
+instrument_id = "BTC-USD-260620-65500-C.OKX"
+
+[[capture.option_greeks]]
+instrument_id = "BTC-USD-260620-65500-P.OKX"

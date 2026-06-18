@@ -45,8 +45,8 @@
    `on_start` 先 `bootstrap_instruments`（`subscribe_instrument` + cache 快照，冷 cache 时 `request_instrument`），再订阅行情。  
    **WS 实时流 = 主路径**；全量 universe HTTP 回填仍属 Step 8。
 
-2. **CLI runtime 已支持 `binance_futures` 与 `deribit`**  
-   Bybit / OKX / Derive 仍待 Step 4。
+2. **CLI runtime 已支持 `binance_futures`、`deribit`、`bybit`、`okx`**  
+   Derive 仍待 Step 4d；多 venue 单 job 已验证（Deribit + Binance）。
 
 3. **期权 universe 仍靠手写 `instrument_id`**  
    尚无按 underlying / expiry / OI 的发现与筛选。
@@ -295,9 +295,9 @@ flowchart LR
 
 ### 完成标准
 
-- [ ] 至少 **Deribit + Binance** 双 venue 同跑成功
-- [ ] 四所 adapter 均有「最小期权 + 永续」配置模板
-- [ ] 跨所读取时 `ts_event` / `venue` 可区分
+- [x] 至少 **Deribit + Binance** 双 venue 同跑成功（`capture.multi-deribit-binance.toml`）
+- [x] Bybit / OKX 各有「最小期权 + 永续」配置模板（Derive 待接）
+- [x] 跨所读取时 `instrument_id` 后缀区分 venue（`.BINANCE` / `.DERIBIT` / `.BYBIT` / `.OKX`）
 
 ### 支撑的未来 DM 功能
 

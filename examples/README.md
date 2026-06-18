@@ -27,6 +27,17 @@ Current examples and planned validation paths:
     - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc.toml`
   - verify with:
     - `python3 /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_deribit_probe.py <catalog_dir>`
+- `examples/capture.bybit-btc.toml`
+  - Step 4b profile: Bybit linear perp + ATM call/put
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc.toml`
+  - verify: `python3 tests/python_catalog_bybit_probe.py /tmp/nautilus-catalog-capture-bybit-btc`
+- `examples/capture.okx-btc.toml`
+  - Step 4c profile: OKX BTC-USD swap + ATM call/put
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.okx-btc.toml`
+  - verify: `python3 tests/python_catalog_okx_probe.py /tmp/nautilus-catalog-capture-okx-btc`
+- `examples/capture.multi-deribit-binance.toml`
+  - Step 4 dual-venue: Binance testnet ETH perp + Deribit BTC perp in one job
+  - verify: `python3 tests/python_catalog_multi_venue_probe.py /tmp/nautilus-catalog-capture-multi-deribit-binance`
 - `examples/capture.low-threshold.toml`
   - intentionally aggressive validation profile
   - useful for forcing fast parquet chunk creation and multi-file behavior

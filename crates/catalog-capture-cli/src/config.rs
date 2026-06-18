@@ -9,10 +9,12 @@ use catalog_capture_core::{
     plan::{BarCaptureSpec, BookDeltasCaptureSpec},
 };
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
+use nautilus_bybit::common::enums::{BybitEnvironment, BybitProductType};
 use nautilus_deribit::{
     common::enums::DeribitEnvironment,
     http::models::DeribitProductType,
 };
+use nautilus_okx::common::enums::{OKXEnvironment, OKXInstrumentType};
 use nautilus_core::Params;
 use nautilus_model::{
     data::{BarType, DataType},
@@ -153,9 +155,15 @@ pub struct VenueConfig {
     pub environment: String,
     #[serde(default = "default_binance_product_type")]
     pub product_type: String,
-    /// Deribit-only: product types to load (e.g. `future`, `option`).
+    /// Deribit / Bybit: product types to load (e.g. `future`, `option`, `linear`).
     #[serde(default)]
     pub product_types: Vec<String>,
+    /// OKX-only: instrument types to load (e.g. `swap`, `option`).
+    #[serde(default)]
+    pub instrument_types: Vec<String>,
+    /// OKX-only: instrument families for options (e.g. `BTC-USD`).
+    #[serde(default)]
+    pub instrument_families: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -169,6 +177,17 @@ pub enum VenueRuntimeConfig {
         id: String,
         environment: DeribitEnvironment,
         product_types: Vec<DeribitProductType>,
+    },
+    Bybit {
+        id: String,
+        environment: BybitEnvironment,
+        product_types: Vec<BybitProductType>,
+    },
+    Okx {
+        id: String,
+        environment: OKXEnvironment,
+        instrument_types: Vec<OKXInstrumentType>,
+        instrument_families: Option<Vec<String>>,
     },
 }
 
@@ -374,8 +393,19 @@ fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             environment: parse_deribit_environment(&venue.environment)?,
             product_types: parse_deribit_product_types(&venue.product_types)?,
         }),
+        "bybit" => Ok(VenueRuntimeConfig::Bybit {
+            id: venue.id,
+            environment: parse_bybit_environment(&venue.environment)?,
+            product_types: parse_bybit_product_types(&venue.product_types)?,
+        }),
+        "okx" => Ok(VenueRuntimeConfig::Okx {
+            id: venue.id,
+            environment: parse_okx_environment(&venue.environment)?,
+            instrument_types: parse_okx_instrument_types(&venue.instrument_types)?,
+            instrument_families: parse_okx_instrument_families(&venue.instrument_families)?,
+        }),
         other => bail!(
-            "unsupported venue kind {other}; currently supported: binance_futures, deribit"
+            "unsupported venue kind {other}; currently supported: binance_futures, deribit, bybit, okx"
         ),
     }
 }
@@ -423,6 +453,72 @@ fn parse_deribit_environment(value: &str) -> Result<DeribitEnvironment> {
         "mainnet" | "live" => Ok(DeribitEnvironment::Mainnet),
         "testnet" => Ok(DeribitEnvironment::Testnet),
         other => bail!("unsupported Deribit environment {other}; expected mainnet|testnet"),
+    }
+}
+
+fn parse_bybit_environment(value: &str) -> Result<BybitEnvironment> {
+    match value.to_ascii_lowercase().as_str() {
+        "mainnet" | "live" => Ok(BybitEnvironment::Mainnet),
+        "testnet" => Ok(BybitEnvironment::Testnet),
+        "demo" => Ok(BybitEnvironment::Demo),
+        other => bail!("unsupported Bybit environment {other}; expected mainnet|testnet|demo"),
+    }
+}
+
+fn parse_bybit_product_types(values: &[String]) -> Result<Vec<BybitProductType>> {
+    if values.is_empty() {
+        return Ok(vec![BybitProductType::Linear, BybitProductType::Option]);
+    }
+
+    values
+        .iter()
+        .map(|value| match value.to_ascii_lowercase().as_str() {
+            "linear" => Ok(BybitProductType::Linear),
+            "inverse" => Ok(BybitProductType::Inverse),
+            "spot" => Ok(BybitProductType::Spot),
+            "option" => Ok(BybitProductType::Option),
+            other => bail!(
+                "unsupported Bybit product_type {other}; expected linear|inverse|spot|option"
+            ),
+        })
+        .collect()
+}
+
+fn parse_okx_environment(value: &str) -> Result<OKXEnvironment> {
+    match value.to_ascii_lowercase().as_str() {
+        "live" | "mainnet" => Ok(OKXEnvironment::Live),
+        "demo" => Ok(OKXEnvironment::Demo),
+        other => bail!("unsupported OKX environment {other}; expected live|demo"),
+    }
+}
+
+fn parse_okx_instrument_types(values: &[String]) -> Result<Vec<OKXInstrumentType>> {
+    if values.is_empty() {
+        return Ok(vec![OKXInstrumentType::Swap, OKXInstrumentType::Option]);
+    }
+
+    values
+        .iter()
+        .map(|value| match value.to_ascii_lowercase().as_str() {
+            "swap" => Ok(OKXInstrumentType::Swap),
+            "option" => Ok(OKXInstrumentType::Option),
+            "spot" => Ok(OKXInstrumentType::Spot),
+            "margin" => Ok(OKXInstrumentType::Margin),
+            "futures" => Ok(OKXInstrumentType::Futures),
+            "any" => Ok(OKXInstrumentType::Any),
+            "events" => Ok(OKXInstrumentType::Events),
+            other => bail!(
+                "unsupported OKX instrument_type {other}; expected swap|option|spot|margin|futures|any|events"
+            ),
+        })
+        .collect()
+}
+
+fn parse_okx_instrument_families(values: &[String]) -> Result<Option<Vec<String>>> {
+    if values.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(values.to_vec()))
     }
 }
 

@@ -1,0 +1,58 @@
+# Step 4b profile: Bybit BTC linear perp + near-term ATM options.
+
+[runtime]
+capture_seconds = 60
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BYBIT-BTC"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-bybit-btc"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 1000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+queue_capacity = 10000
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "bybit_main"
+kind = "bybit"
+environment = "mainnet"
+product_types = ["linear", "option"]
+
+# Linear perp hedge leg
+[[capture.instruments]]
+instrument_id = "BTCUSDT-LINEAR.BYBIT"
+
+[[capture.quotes]]
+instrument_id = "BTCUSDT-LINEAR.BYBIT"
+
+[[capture.mark_prices]]
+instrument_id = "BTCUSDT-LINEAR.BYBIT"
+
+[[capture.index_prices]]
+instrument_id = "BTCUSDT-LINEAR.BYBIT"
+
+[[capture.funding_rates]]
+instrument_id = "BTCUSDT-LINEAR.BYBIT"
+
+# Near-term ATM options (refresh when expiry rolls)
+[[capture.instruments]]
+instrument_id = "BTC-25SEP26-64000-C-USDT-OPTION.BYBIT"
+
+[[capture.instruments]]
+instrument_id = "BTC-25SEP26-64000-P-USDT-OPTION.BYBIT"
+
+[[capture.quotes]]
+instrument_id = "BTC-25SEP26-64000-C-USDT-OPTION.BYBIT"
+
+[[capture.quotes]]
+instrument_id = "BTC-25SEP26-64000-P-USDT-OPTION.BYBIT"
+
+[[capture.option_greeks]]
+instrument_id = "BTC-25SEP26-64000-C-USDT-OPTION.BYBIT"
+
+[[capture.option_greeks]]
+instrument_id = "BTC-25SEP26-64000-P-USDT-OPTION.BYBIT"

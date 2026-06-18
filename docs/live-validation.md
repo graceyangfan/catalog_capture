@@ -191,6 +191,16 @@ Run:
 - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc.toml`
 - `python3 tests/python_catalog_deribit_probe.py /tmp/nautilus-catalog-capture-deribit-btc`
 
+## Step 4: Bybit, OKX, and multi-venue capture
+
+Profiles:
+
+- `examples/capture.bybit-btc.toml` → `tests/python_catalog_bybit_probe.py`
+- `examples/capture.okx-btc.toml` → `tests/python_catalog_okx_probe.py`
+- `examples/capture.multi-deribit-binance.toml` → `tests/python_catalog_multi_venue_probe.py`
+
+OKX options require `instrument_families` (e.g. `BTC-USD`) when `instrument_types` includes `option`.
+
 ## Step 1 follow-up: derivatives state WS families
 
 After the first `QuoteTick` run succeeds, Step 1 adds the built-in WS families needed for basis and carry research:

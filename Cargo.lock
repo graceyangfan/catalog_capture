@@ -1497,10 +1497,13 @@ dependencies = [
  "clap",
  "dotenvy",
  "nautilus-binance",
+ "nautilus-bybit",
  "nautilus-common",
  "nautilus-core",
+ "nautilus-deribit",
  "nautilus-live",
  "nautilus-model",
+ "nautilus-okx",
  "serde",
  "serde_json",
  "tokio",
@@ -4122,6 +4125,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "nautilus-bybit"
+version = "0.59.0"
+dependencies = [
+ "ahash 0.8.12",
+ "anyhow",
+ "arc-swap",
+ "async-stream",
+ "async-trait",
+ "aws-lc-rs",
+ "bon",
+ "chrono",
+ "dashmap",
+ "derive_builder",
+ "dotenvy",
+ "futures-util",
+ "log",
+ "nautilus-common",
+ "nautilus-core",
+ "nautilus-live",
+ "nautilus-model",
+ "nautilus-network",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "serde_urlencoded",
+ "strum 0.28.0",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "ustr",
+ "zeroize",
+]
+
+[[package]]
 name = "nautilus-common"
 version = "0.59.0"
 dependencies = [
@@ -4214,6 +4253,41 @@ dependencies = [
  "serde",
  "serde_json",
  "ustr",
+]
+
+[[package]]
+name = "nautilus-deribit"
+version = "0.59.0"
+dependencies = [
+ "ahash 0.8.12",
+ "anyhow",
+ "arc-swap",
+ "async-stream",
+ "async-trait",
+ "aws-lc-rs",
+ "bon",
+ "chrono",
+ "derive_builder",
+ "dotenvy",
+ "futures-util",
+ "log",
+ "nautilus-common",
+ "nautilus-core",
+ "nautilus-live",
+ "nautilus-model",
+ "nautilus-network",
+ "nautilus-persistence-macros",
+ "nautilus-serialization",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "strum 0.28.0",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "ustr",
+ "zeroize",
 ]
 
 [[package]]
@@ -4382,6 +4456,42 @@ dependencies = [
  "url",
  "ustr",
  "webpki-roots 1.0.8",
+]
+
+[[package]]
+name = "nautilus-okx"
+version = "0.59.0"
+dependencies = [
+ "ahash 0.8.12",
+ "anyhow",
+ "arc-swap",
+ "async-stream",
+ "async-trait",
+ "aws-lc-rs",
+ "base64",
+ "bon",
+ "chrono",
+ "dashmap",
+ "derive_builder",
+ "dotenvy",
+ "futures-util",
+ "log",
+ "nautilus-common",
+ "nautilus-core",
+ "nautilus-live",
+ "nautilus-model",
+ "nautilus-network",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "strum 0.28.0",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "ustr",
+ "zeroize",
 ]
 
 [[package]]
@@ -6202,6 +6312,17 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_repr"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "175ee3e80ae9982737ca543e96133087cbd9a485eecc3bc4de9c1a37b47ea59c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
