@@ -20,13 +20,40 @@ Current examples and planned validation paths:
     - `python3 /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
     - fixture contract-state: add `--require-contract-state` after `pyo3_market_readback_smoke.py`
 - `examples/capture.deribit-btc.toml`
-  - Step 3 profile: Deribit BTC perp + near-term ATM call/put
+  - Step 3 profile: Deribit BTC perp + near-term ATM call/put (hard-coded instrument IDs)
   - captures `instruments`, `quotes`, `mark_prices`, `index_prices`, `funding_rates`, `option_greeks`
   - intended to be used with:
     - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc.toml`
     - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc.toml`
   - verify with:
     - `python3 /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_deribit_probe.py <catalog_dir>`
+- `examples/capture.deribit-btc-universe.toml`
+  - Step 9a-lite profile: Deribit BTC option universe resolved once at startup
+  - declares `[[capture.option_universe]]` instead of concrete option `instrument_id`s
+  - resolve without running capture:
+    - `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.deribit-btc-universe.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe.toml --dry-run-resolve --print-option-universe`
+  - run:
+    - `cargo run -p catalog-capture-cli -- validate --config examples/capture.deribit-btc-universe.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe.toml`
+- `examples/capture.deribit-btc-universe-autorefresh.toml`
+  - V1.5 profile: same logical universe as above, plus runtime refresh (Deribit only)
+  - enable with `[runtime.option_universe_refresh]` (`interval_secs` controls re-resolve cadence)
+  - on ATM drift or expiry rollover, the actor subscribes to new instruments and unsubscribes removed ones
+  - resolve preview:
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe-autorefresh.toml --dry-run-resolve --print-option-universe`
+  - run:
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe-autorefresh.toml`
+  - refresh logs appear only when the resolved member set changes:
+    - `Option universe refresh venue_id=... add=[...] remove=[...]`
+- `examples/capture.bybit-btc-universe.toml`
+  - Bybit BTC option universe (CLI resolve only; runtime autorefresh is not supported)
+  - resolve: `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.bybit-btc-universe.toml`
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc-universe.toml`
+- `examples/capture.okx-btc-universe.toml`
+  - OKX BTC option universe (CLI resolve only; runtime autorefresh is not supported)
+  - resolve: `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.okx-btc-universe.toml`
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.okx-btc-universe.toml`
 - `examples/capture.bybit-btc.toml`
   - Step 4b profile: Bybit linear perp + ATM call/put
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc.toml`

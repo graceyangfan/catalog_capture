@@ -45,7 +45,8 @@ V1 does not attempt to provide:
 - OI-ranked or volume-ranked selection
 - `OptionChainSlice` as the primary capture artifact
 - multi-consumer runtime intent merging
-- dynamic unsubscribe / resubscribe during a running capture job
+- Bybit / OKX runtime unsubscribe / resubscribe during a running capture job
+  (Deribit autorefresh is implemented separately; see V1.5)
 - a generic cross-adapter DSL accepted upstream immediately
 
 ## What Problem Are We Actually Solving?
@@ -112,14 +113,12 @@ currently:
 2. bootstraps instruments from cache or `request_instrument`
 3. subscribes once in `on_start`
 
-It does not currently expose an API to:
-
-- mutate the plan
-- apply a universe delta
-- add and remove subscriptions dynamically
-
-Therefore, any design claiming runtime refresh without actor changes would be
-incorrect.
+Stock Nautilus capture actors do not expose a generic API to mutate plans or
+apply universe deltas. V1.5 adds a project-local path in
+`catalog-capture-runtime-adapter` (`DynamicOptionUniverseManager` +
+`CatalogCaptureActor::apply_dynamic_option_universe_refresh`) for Deribit only.
+Any design claiming runtime refresh without actor changes would still be
+incorrect for upstream Nautilus today.
 
 ### Adapter behavior on missing instruments
 
@@ -302,8 +301,9 @@ Suggested fields:
 - `unchanged_instruments`
 - `rollover_reason`
 
-V1 does not need this in code yet, but the abstraction should be defined now
-because V1.5 will depend on it.
+V1.5 implements `DynamicOptionUniverseDelta` / `DynamicOptionUniverseChange`
+in `catalog-capture-runtime-adapter`. V2 may extend rollover metadata
+(`rollover_reason`, persisted resolution snapshots).
 
 ## Placement
 
@@ -407,7 +407,8 @@ resolved plan is static for the life of the job.
 
 V1 means:
 
-- resolve once per capture job
+- resolve once per capture job (default when `runtime.option_universe_refresh`
+  is disabled or omitted)
 - job remains static after startup
 - rerun the job to pick up a new expiry or ATM shift
 
@@ -417,32 +418,36 @@ This is already enough to eliminate manual profile edits.
 
 ### V1.5
 
-Add runtime refresh semantics, but only after adding explicit runtime
-capabilities. This phase **does require runtime changes**.
+**Status: implemented for Deribit (2026-06).**
 
-Needed capabilities:
+Enable with `[runtime.option_universe_refresh]` in TOML. Example:
+[examples/capture.deribit-btc-universe-autorefresh.toml](/Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc-universe-autorefresh.toml).
 
-- a home for a long-lived `OptionUniverseManager`
-- a way to emit `OptionUniverseDelta`
-- a way for the capture runtime to apply added instruments
-- likely a way to record universe-resolution metadata
+Shipped capabilities:
 
-Possible runtime integration options:
+- `DynamicOptionUniverseManager` in `catalog-capture-runtime-adapter`
+- periodic cache-backed re-resolve via `refresh_from_cache`
+- `DynamicOptionUniverseDelta` with per-universe add/remove instrument lists
+- actor applies bootstrap + subscribe/unsubscribe on non-empty deltas
+- `OnlineOptionMetricsObserver::apply_universe_change` keeps metrics in sync
+- `active_capture_plan()` merges static explicit capture entries with the
+  current dynamic universe plan
 
-- `apply_universe_delta(...)` on the capture actor
-- or runner-level orchestration that tears down and rebuilds the actor
+Constraints:
 
-Until one of those exists, V1.5 should be treated as future work, not an
-implied continuation of V1.
+- **Deribit only** at runtime (`OptionUniverseVenueKind::supports_runtime_refresh`)
+- Bybit / OKX support CLI resolve only; autorefresh is rejected at startup
+- universe-resolution metadata is not yet persisted to parquet
 
 ### V2
 
 Potential future features:
 
-- dynamic removals / unsubscribe
-- expiry rollover smoothing
+- Bybit / OKX runtime refresh
+- expiry rollover smoothing and persisted resolution metadata
 - multi-consumer sharing
 - strategy and dashboard consumers
+- OI-ranked / liquidity-ranked selection (full Step 9a)
 
 ## Resolve Algorithm For V1
 
@@ -594,8 +599,8 @@ Mapping:
 | Underlying-based discovery | yes | yes | yes |
 | Expiry window | yes | yes | yes |
 | ATM-relative selection | yes | yes | yes |
-| Timed refresh | no | yes | yes |
-| `request_instruments`-driven refresh | limited / startup only | yes | yes |
+| Timed refresh | no | yes (Deribit) | yes |
+| `request_instruments`-driven refresh | limited / startup only | yes (Deribit cache) | yes |
 | `top_n_by_open_interest` | no | no | yes |
 | full-chain + liquidity-ranked universe | no | partial | yes |
 
@@ -676,7 +681,7 @@ At minimum:
    connect/load instruments -> resolve universes -> build final plan
 4. add Deribit BTC-only support for V1
 5. add example profile and tests
-6. only then discuss runtime refresh
+6. add Deribit runtime refresh (V1.5) — done; extend to other venues in V2
 
 ## Summary
 
@@ -691,12 +696,18 @@ The right V1 is:
 - a reusable logical `OptionUniverseSpec`
 - cache-backed post-connect resolution
 - one-shot expansion into a deduped `CapturePlan`
-- unchanged capture actor for the lifetime of the job
+- unchanged capture actor for the lifetime of the job (unless V1.5 refresh is
+  enabled)
 
-The right longer-term direction is:
+V1.5 (Deribit) adds:
 
-- a real runtime `OptionUniverseManager`
-- delta-based refresh
+- `DynamicOptionUniverseManager` with delta-based refresh
+- actor-side subscribe/unsubscribe and metrics sync on rotation
+
+The right longer-term direction (V2) is:
+
+- multi-venue runtime refresh
+- persisted resolution metadata
 - reuse by both capture and strategy consumers
 
 That path is closest to Nautilus Trader’s existing style and most likely to
