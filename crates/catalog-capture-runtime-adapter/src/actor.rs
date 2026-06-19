@@ -241,10 +241,9 @@ impl CatalogCaptureActor {
     /// Bootstrap instrument metadata before market-data subscriptions.
     ///
     /// Adapters load definitions into cache during `connect` (HTTP bulk on Binance,
-    /// Bybit, Deribit, OKX). `subscribe_instrument` is often a no-op and does not
-    /// replay connect-time events, so we snapshot cache here. When cache is cold
-    /// (e.g. Derive lazy_load), fall back to `request_instrument`. Runtime updates
-    /// still arrive via `on_instrument` after `subscribe_instrument` (Deribit WS).
+    /// Bybit, Deribit, OKX), so snapshot cache first. When cache is cold (e.g.
+    /// Derive lazy_load), fall back to `request_instrument` and then subscribe for
+    /// adapters that support instrument update streams.
     /// Instrument status is subscribed only when declared in `capture.instrument_statuses`.
     fn bootstrap_instruments(&mut self) -> Result<()> {
         for instrument_id in self.plan.planned_instrument_ids() {
@@ -255,12 +254,13 @@ impl CatalogCaptureActor {
     }
 
     fn bootstrap_instrument(&mut self, instrument_id: InstrumentId) -> Result<()> {
-        self.subscribe_instrument(instrument_id, None, None);
-
-        let instrument = self.cache().instrument(&instrument_id).cloned();
-        match instrument {
-            Some(instrument) => self.on_instrument(&instrument),
-            None => self.request_instrument(instrument_id, None, None, None, None).map(|_| ()),
+        let instrument = { self.cache().instrument(&instrument_id).cloned() };
+        if let Some(instrument) = instrument {
+            self.on_instrument(&instrument)
+        } else {
+            self.request_instrument(instrument_id, None, None, None, None)?;
+            self.subscribe_instrument(instrument_id, None, None);
+            Ok(())
         }
     }
 
