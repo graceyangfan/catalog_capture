@@ -328,15 +328,16 @@ flowchart LR
 
 ### 工作项
 
-1. CLI 取消 `custom_data`「仅注释、未验证」状态；完善 `examples/capture.toml` 示例
+1. CLI 取消 `custom_data`「仅注释、未验证」状态；补 `examples/capture.deribit-dvol.toml` / `capture.hyperliquid-open-interest.toml`
 2. 启动前调用 adapter `register_*_custom_data()`（参考 `write_hyperliquid_open_interest_fixture.rs`）
-3. 新增 smoke：`tests/python_custom_readback_smoke.py` 扩展至 DVOL / liquidation
+3. 新增 probe / smoke：`tests/python_deribit_dvol_smoke.py`、`tests/python_catalog_hyperliquid_open_interest_probe.py`
 4. 文档化每个 `type_name` 的 `identifier` / `metadata` 填法
 
 ### 完成标准
 
-- [ ] `DeribitVolatilityIndex` live 写入且 PyO3 可读
+- [x] `DeribitVolatilityIndex` fixture 写入且 PyO3 可读；live profile 已补
 - [ ] `BinanceFuturesLiquidation` 与永续 capture 并行无串分区
+- [x] `HyperliquidOpenInterest` fixture 写入可读；CLI venue/profile/probe 已补
 - [ ] custom parquet 路径与 `type_name` 一致，满足 `custom-data-contract.md`
 
 ### 支撑的未来 DM 功能

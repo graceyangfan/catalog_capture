@@ -201,6 +201,32 @@ Profiles:
 
 OKX options require `instrument_families` (e.g. `BTC-USD`) when `instrument_types` includes `option`.
 
+## Step 5: custom data live validation
+
+### Deribit DVOL
+
+Reference profile:
+
+- `examples/capture.deribit-dvol.toml`
+- `tests/python_deribit_dvol_smoke.py`
+
+Run:
+
+- `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml`
+- `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_deribit_dvol_smoke.py`
+
+### Hyperliquid open interest
+
+Reference profile:
+
+- `examples/capture.hyperliquid-open-interest.toml`
+- `tests/python_catalog_hyperliquid_open_interest_probe.py`
+
+Run:
+
+- `cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-open-interest.toml`
+- `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_hyperliquid_open_interest_probe.py /tmp/nautilus-catalog-capture-hyperliquid-open-interest ETH-USD-PERP.HYPERLIQUID 1 --min-quotes 1`
+
 ## Step 1 follow-up: derivatives state WS families
 
 After the first `QuoteTick` run succeeds, Step 1 adds the built-in WS families needed for basis and carry research:

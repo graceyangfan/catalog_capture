@@ -28,7 +28,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "tim
 toml = "0.8"
 nautilus-binance = { path = "/Users/yfclark/nautilus_trader/crates/adapters/binance", features = ["examples"] }
 nautilus-bybit = { path = "/Users/yfclark/nautilus_trader/crates/adapters/bybit" }
-nautilus-deribit = { path = "/Users/yfclark/nautilus_trader/crates/adapters/deribit" }
+nautilus-deribit = { path = "/Users/yfclark/nautilus_trader/crates/adapters/deribit", features = ["arrow"] }
 nautilus-okx = { path = "/Users/yfclark/nautilus_trader/crates/adapters/okx" }
 nautilus-common = { path = "/Users/yfclark/nautilus_trader/crates/common" }
 nautilus-core = { path = "/Users/yfclark/nautilus_trader/crates/core" }

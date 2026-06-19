@@ -5,10 +5,16 @@ use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorCo
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
+use nautilus_hyperliquid::{
+    config::HyperliquidDataClientConfig,
+    factories::HyperliquidDataClientFactory,
+};
+use nautilus_hyperliquid::data_types::register_hyperliquid_custom_data;
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 use nautilus_common::enums::Environment;
 use nautilus_live::node::LiveNode;
 use nautilus_model::{
+    data::DataType,
     identifiers::{ActorId, TraderId},
     stubs::TestDefault,
 };
@@ -19,6 +25,8 @@ pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
     let catalog_dir = resolve_catalog_dir(&config.capture.catalog_uri)?;
     fs::create_dir_all(&catalog_dir)
         .with_context(|| format!("failed to create catalog dir {}", catalog_dir.display()))?;
+
+    register_known_custom_data_types(&config.plan.custom_data);
 
     let capture_actor = CatalogCaptureActor::new(CatalogCaptureActorConfig {
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-CLI")),
@@ -96,6 +104,18 @@ pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
                     }),
                 )?;
             }
+            VenueRuntimeConfig::Hyperliquid { id, environment } => {
+                println!("Configuring venue {} ({environment:?})", id);
+                builder = builder.add_data_client(
+                    None,
+                    Box::new(HyperliquidDataClientFactory::new()),
+                    Box::new(HyperliquidDataClientConfig {
+                        environment: *environment,
+                        private_key: None,
+                        ..Default::default()
+                    }),
+                )?;
+            }
             VenueRuntimeConfig::Okx {
                 id,
                 environment,
@@ -161,7 +181,73 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     if config.venues.is_empty() {
         bail!("at least one venue is required");
     }
+    validate_known_custom_data_types(&config.plan.custom_data)?;
     let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
+    Ok(())
+}
+
+fn register_known_custom_data_types(custom_data: &[catalog_capture_core::CustomDataCaptureSpec]) {
+    for spec in custom_data {
+        match spec.data_type.type_name() {
+            "DeribitVolatilityIndex" => nautilus_deribit::data_types::register_deribit_custom_data(),
+            "HyperliquidOpenInterest" => register_hyperliquid_custom_data(),
+            _ => {}
+        }
+    }
+}
+
+fn validate_known_custom_data_types(
+    custom_data: &[catalog_capture_core::CustomDataCaptureSpec],
+) -> Result<()> {
+    for spec in custom_data {
+        validate_known_custom_data_type(&spec.data_type)?;
+    }
+    Ok(())
+}
+
+fn validate_known_custom_data_type(data_type: &DataType) -> Result<()> {
+    match data_type.type_name() {
+        "BinanceFuturesLiquidation" => {
+            bail!(
+                "custom_data BinanceFuturesLiquidation is not yet supported for direct parquet \
+                 capture in this workspace because the upstream type lacks Arrow batch encoding"
+            );
+        }
+        "DeribitVolatilityIndex" => {
+            let Some(index_name) = data_type
+                .metadata()
+                .as_ref()
+                .and_then(|metadata| metadata.get("index_name"))
+                .and_then(|value| value.as_str())
+            else {
+                bail!(
+                    "custom_data DeribitVolatilityIndex requires metadata.index_name \
+                     (for example `btc_usd`)"
+                );
+            };
+            if index_name.trim().is_empty() {
+                bail!("custom_data DeribitVolatilityIndex metadata.index_name must be non-empty");
+            }
+        }
+        "HyperliquidOpenInterest" => {
+            let Some(instrument_id) = data_type
+                .metadata()
+                .as_ref()
+                .and_then(|metadata| metadata.get("instrument_id"))
+                .and_then(|value| value.as_str())
+            else {
+                bail!(
+                    "custom_data HyperliquidOpenInterest requires metadata.instrument_id \
+                     (for example `ETH-USD-PERP.HYPERLIQUID`)"
+                );
+            };
+            if instrument_id.trim().is_empty() {
+                bail!("custom_data HyperliquidOpenInterest metadata.instrument_id must be non-empty");
+            }
+        }
+        _ => {}
+    }
+
     Ok(())
 }
 

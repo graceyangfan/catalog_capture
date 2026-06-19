@@ -14,6 +14,7 @@ use nautilus_deribit::{
     common::enums::DeribitEnvironment,
     http::models::DeribitProductType,
 };
+use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 use nautilus_okx::common::enums::{OKXEnvironment, OKXInstrumentType};
 use nautilus_core::Params;
 use nautilus_model::{
@@ -182,6 +183,10 @@ pub enum VenueRuntimeConfig {
         id: String,
         environment: BybitEnvironment,
         product_types: Vec<BybitProductType>,
+    },
+    Hyperliquid {
+        id: String,
+        environment: HyperliquidEnvironment,
     },
     Okx {
         id: String,
@@ -398,6 +403,10 @@ fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             environment: parse_bybit_environment(&venue.environment)?,
             product_types: parse_bybit_product_types(&venue.product_types)?,
         }),
+        "hyperliquid" => Ok(VenueRuntimeConfig::Hyperliquid {
+            id: venue.id,
+            environment: parse_hyperliquid_environment(&venue.environment)?,
+        }),
         "okx" => {
             let instrument_types = parse_okx_instrument_types(&venue.instrument_types)?;
             let instrument_families = parse_okx_instrument_families(&venue.instrument_families)?;
@@ -416,7 +425,7 @@ fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             })
         }
         other => bail!(
-            "unsupported venue kind {other}; currently supported: binance_futures, deribit, bybit, okx"
+            "unsupported venue kind {other}; currently supported: binance_futures, deribit, bybit, hyperliquid, okx"
         ),
     }
 }
@@ -473,6 +482,14 @@ fn parse_bybit_environment(value: &str) -> Result<BybitEnvironment> {
         "testnet" => Ok(BybitEnvironment::Testnet),
         "demo" => Ok(BybitEnvironment::Demo),
         other => bail!("unsupported Bybit environment {other}; expected mainnet|testnet|demo"),
+    }
+}
+
+fn parse_hyperliquid_environment(value: &str) -> Result<HyperliquidEnvironment> {
+    match value.to_ascii_lowercase().as_str() {
+        "mainnet" | "live" => Ok(HyperliquidEnvironment::Mainnet),
+        "testnet" => Ok(HyperliquidEnvironment::Testnet),
+        other => bail!("unsupported Hyperliquid environment {other}; expected mainnet|testnet"),
     }
 }
 
@@ -629,6 +646,7 @@ fn default_binance_product_type() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::validate_runtime;
 
     #[test]
     fn okx_default_instrument_types_is_swap_only() {
@@ -669,5 +687,155 @@ mod tests {
 
         let runtime = parse_venue(venue).expect("valid okx option venue");
         assert!(matches!(runtime, VenueRuntimeConfig::Okx { .. }));
+    }
+
+    #[test]
+    fn validate_runtime_rejects_deribit_dvol_without_index_name() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "DeribitVolatilityIndex".to_string(),
+                    identifier: None,
+                    metadata: Default::default(),
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "deribit_main".to_string(),
+                kind: "deribit".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective).expect_err("missing index_name should fail");
+        assert!(err.to_string().contains("metadata.index_name"));
+    }
+
+    #[test]
+    fn validate_runtime_accepts_deribit_dvol_with_index_name() {
+        let mut metadata = std::collections::BTreeMap::new();
+        metadata.insert("index_name".to_string(), "btc_usd".to_string());
+
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "DeribitVolatilityIndex".to_string(),
+                    identifier: None,
+                    metadata,
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "deribit_main".to_string(),
+                kind: "deribit".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        validate_runtime(&effective).expect("valid dvol config should pass");
+    }
+
+    #[test]
+    fn validate_runtime_rejects_binance_liquidation_until_arrow_support_exists() {
+        let mut metadata = std::collections::BTreeMap::new();
+        metadata.insert("instrument_id".to_string(), "ETHUSDT-PERP.BINANCE".to_string());
+
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "BinanceFuturesLiquidation".to_string(),
+                    identifier: Some("ETHUSDT-PERP.BINANCE".to_string()),
+                    metadata,
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "binance_main".to_string(),
+                kind: "binance_futures".to_string(),
+                environment: "testnet".to_string(),
+                product_type: "usd_m".to_string(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective).expect_err("liquidation should fail early");
+        assert!(err.to_string().contains("Arrow batch encoding"));
+    }
+
+    #[test]
+    fn hyperliquid_environment_aliases_parse() {
+        assert_eq!(
+            parse_hyperliquid_environment("live").expect("live should parse"),
+            HyperliquidEnvironment::Mainnet
+        );
+        assert_eq!(
+            parse_hyperliquid_environment("testnet").expect("testnet should parse"),
+            HyperliquidEnvironment::Testnet
+        );
+    }
+
+    #[test]
+    fn parse_hyperliquid_venue_is_supported() {
+        let venue = VenueConfig {
+            id: "hl_main".to_string(),
+            kind: "hyperliquid".to_string(),
+            environment: "testnet".to_string(),
+            product_type: default_binance_product_type(),
+            product_types: Vec::new(),
+            instrument_types: Vec::new(),
+            instrument_families: Vec::new(),
+        };
+
+        let runtime = parse_venue(venue).expect("valid hyperliquid venue");
+        assert!(matches!(runtime, VenueRuntimeConfig::Hyperliquid { .. }));
+    }
+
+    #[test]
+    fn validate_runtime_accepts_hyperliquid_open_interest() {
+        let mut metadata = std::collections::BTreeMap::new();
+        metadata.insert(
+            "instrument_id".to_string(),
+            "ETH-USD-PERP.HYPERLIQUID".to_string(),
+        );
+
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "HyperliquidOpenInterest".to_string(),
+                    identifier: Some("ETH-USD-PERP.HYPERLIQUID".to_string()),
+                    metadata,
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "hl_main".to_string(),
+                kind: "hyperliquid".to_string(),
+                environment: "testnet".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        validate_runtime(&effective).expect("valid hyperliquid OI config should pass");
     }
 }

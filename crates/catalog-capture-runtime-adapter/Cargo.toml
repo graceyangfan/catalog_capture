@@ -25,6 +25,7 @@ nautilus-persistence.workspace = true
 [dev-dependencies]
 dotenvy.workspace = true
 nautilus-binance.workspace = true
+nautilus-deribit.workspace = true
 nautilus-hyperliquid.workspace = true
 nautilus-live.workspace = true
 nautilus-serialization.workspace = true

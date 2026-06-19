@@ -38,6 +38,16 @@ Current examples and planned validation paths:
 - `examples/capture.multi-deribit-binance.toml`
   - Step 4 dual-venue: Binance testnet ETH perp + Deribit BTC perp in one job
   - verify: `python3 tests/python_catalog_multi_venue_probe.py /tmp/nautilus-catalog-capture-multi-deribit-binance`
+- `examples/capture.deribit-dvol.toml`
+  - Step 5a profile: Deribit BTC perp + `DeribitVolatilityIndex`
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml`
+  - validate: `cargo run -p catalog-capture-cli -- validate --config examples/capture.deribit-dvol.toml`
+- `examples/capture.hyperliquid-open-interest.toml`
+  - Step 5b profile: Hyperliquid perp + `HyperliquidOpenInterest`
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-open-interest.toml`
+  - validate: `cargo run -p catalog-capture-cli -- validate --config examples/capture.hyperliquid-open-interest.toml`
+  - verify:
+    - `python3 tests/python_catalog_hyperliquid_open_interest_probe.py /tmp/nautilus-catalog-capture-hyperliquid-open-interest ETH-USD-PERP.HYPERLIQUID 1 --min-quotes 1`
 - `examples/capture.low-threshold.toml`
   - intentionally aggressive validation profile
   - useful for forcing fast parquet chunk creation and multi-file behavior
@@ -71,6 +81,10 @@ Current examples and planned validation paths:
   - demonstrates the P0 targeted-derivatives custom-data path using an adapter-emitted type rather than a project-local schema
   - intended to be consumed by:
     - `tests/python_hyperliquid_open_interest_smoke.py`
+- `crates/catalog-capture-runtime-adapter/examples/write_deribit_dvol_fixture.rs`
+  - writes native Deribit `DeribitVolatilityIndex` custom data through `CatalogCaptureActor`
+  - intended to be consumed by:
+    - `tests/python_deribit_dvol_smoke.py`
 - `crates/catalog-capture-runtime-adapter/examples/binance_futures_quote_capture.rs`
   - connects to the Nautilus Binance Futures data client
   - runs a market-data-only live capture for a fixed duration

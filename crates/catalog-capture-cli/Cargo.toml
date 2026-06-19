@@ -15,6 +15,7 @@ dotenvy.workspace = true
 nautilus-binance.workspace = true
 nautilus-bybit.workspace = true
 nautilus-deribit.workspace = true
+nautilus-hyperliquid.workspace = true
 nautilus-okx.workspace = true
 nautilus-common.workspace = true
 nautilus-core.workspace = true
