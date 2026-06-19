@@ -1,7 +1,10 @@
 use std::collections::BTreeSet;
 
 use anyhow::Result;
-use catalog_capture_core::{OptionUniverseSpec, ResolvedOptionUniverse};
+use catalog_capture_core::{
+    OptionUniverseResolutionEventKind, OptionUniverseResolutionRecord, OptionUniverseSpec,
+    ResolvedOptionUniverse,
+};
 use nautilus_model::identifiers::InstrumentId;
 use serde::Serialize;
 
@@ -13,6 +16,7 @@ pub struct OptionUniverseResolutionReport {
     pub selected_expiry_ns: u64,
     pub selected_expiry_iso8601: String,
     pub atm_reference: String,
+    pub atm_reference_source: String,
     pub selected_strikes: Vec<String>,
     pub perp_instrument_id: Option<String>,
     pub option_instrument_ids: Vec<String>,
@@ -47,6 +51,10 @@ pub fn build_option_universe_resolution_report(
             resolved.selected_expiry_ns,
         ),
         atm_reference: resolved.atm_reference.to_string(),
+        atm_reference_source: resolved
+            .atm_reference_source
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string()),
         selected_strikes: resolved
             .selected_strikes
             .iter()
@@ -65,6 +73,31 @@ pub fn build_option_universe_resolution_report(
             .collect(),
         overlapping_instrument_ids,
         new_instrument_ids,
+    }
+}
+
+pub fn startup_resolution_record_from_report(
+    report: &OptionUniverseResolutionReport,
+) -> OptionUniverseResolutionRecord {
+    OptionUniverseResolutionRecord {
+        event_kind: OptionUniverseResolutionEventKind::Startup,
+        venue_id: report.venue_id.clone(),
+        underlying: report.underlying.clone(),
+        resolved_at_ns: report.resolved_at_ns,
+        resolved_at_iso8601: nautilus_core::datetime::unix_nanos_to_iso8601(
+            nautilus_core::UnixNanos::from(report.resolved_at_ns),
+        ),
+        selected_expiry_ns: report.selected_expiry_ns,
+        selected_expiry_iso8601: report.selected_expiry_iso8601.clone(),
+        atm_reference: report.atm_reference.clone(),
+        atm_reference_source: report.atm_reference_source.clone(),
+        selected_strikes: report.selected_strikes.clone(),
+        perp_instrument_id: report.perp_instrument_id.clone(),
+        option_instrument_ids: report.option_instrument_ids.clone(),
+        all_instrument_ids: report.all_instrument_ids.clone(),
+        added_instrument_ids: report.new_instrument_ids.clone(),
+        removed_instrument_ids: Vec::new(),
+        rollover_reason: None,
     }
 }
 

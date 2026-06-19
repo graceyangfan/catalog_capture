@@ -14,7 +14,8 @@ use crate::config::EffectiveConfig;
 pub use discovery::resolve_option_universe_spec;
 pub use report::{
     build_option_universe_resolution_report, render_option_universe_reports_json,
-    render_option_universe_reports_text, OptionUniverseResolutionReport,
+    render_option_universe_reports_text, startup_resolution_record_from_report,
+    OptionUniverseResolutionReport,
 };
 pub use validate::validate_option_universes;
 

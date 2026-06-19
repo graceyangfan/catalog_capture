@@ -436,7 +436,8 @@ Constraints:
 
 - runtime refresh is limited to Deribit / Bybit / OKX
   (`OptionUniverseVenueKind::supports_runtime_refresh`)
-- universe-resolution metadata is not yet persisted to parquet
+- universe-resolution metadata is persisted as catalog JSONL (not yet a typed
+  parquet family)
 
 ### V2
 
@@ -579,8 +580,10 @@ At minimum, each universe resolution event should be loggable with:
 
 For V1 this can live in logs and job metadata.
 
-For V1.5+, we should consider persisting explicit universe-resolution metadata
-so rollover boundaries can be correlated with parquet partitions.
+V1.5+ persists universe-resolution metadata as JSONL at
+`metadata/option_universe_resolutions.jsonl` under the catalog root. Startup
+resolve and runtime refresh rotations append one record per event so rollover
+boundaries can be correlated with parquet partitions via `resolved_at_ns`.
 
 ## Mapping To Roadmap Step 9a
 

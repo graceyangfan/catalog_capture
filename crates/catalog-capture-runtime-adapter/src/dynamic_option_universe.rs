@@ -2,9 +2,10 @@ use std::collections::BTreeSet;
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    derive_perp_instrument_id, expand_option_universe, merge_capture_plans, resolve_option_universe,
-    CapturePlan, MarkPriceCaptureSpec, OptionUniverseSpec, OptionUniverseVenueKind,
-    QuoteCaptureSpec, ResolvedOptionUniverse,
+    derive_perp_instrument_id, expand_option_universe, merge_capture_plans,
+    refresh_resolution_record, resolve_option_universe, select_cache_atm_reference, CapturePlan,
+    MarkPriceCaptureSpec, OptionUniverseResolutionRecord, OptionUniverseSpec,
+    OptionUniverseVenueKind, QuoteCaptureSpec, ResolvedOptionUniverse,
 };
 use nautilus_common::cache::Cache;
 use nautilus_core::UnixNanos;
@@ -37,6 +38,7 @@ pub struct DynamicOptionUniverseDelta {
     pub add: CapturePlan,
     pub remove: CapturePlan,
     pub changes: Vec<DynamicOptionUniverseChange>,
+    pub resolution_records: Vec<OptionUniverseResolutionRecord>,
 }
 
 impl DynamicOptionUniverseDelta {
@@ -114,6 +116,7 @@ impl DynamicOptionUniverseManager {
         let previous_dynamic_plan = self.current_dynamic_plan.clone();
         let mut next_dynamic_plan = CapturePlan::default();
         let mut changes = Vec::new();
+        let mut resolution_records = Vec::new();
 
         for state in &mut self.universes {
             match resolve_runtime_option_universe(
@@ -128,6 +131,9 @@ impl DynamicOptionUniverseManager {
                     let previous_ids = plan_instrument_ids(&state.current_plan);
                     let next_ids = plan_instrument_ids(&next_plan);
                     if next_ids != previous_ids {
+                        let added_instrument_ids = instrument_id_difference(&next_ids, &previous_ids);
+                        let removed_instrument_ids =
+                            instrument_id_difference(&previous_ids, &next_ids);
                         changes.push(DynamicOptionUniverseChange {
                             venue_id: state.spec.venue_id.clone(),
                             underlying: state.spec.underlying.clone(),
@@ -138,15 +144,22 @@ impl DynamicOptionUniverseManager {
                             option_instrument_ids: resolved.option_instrument_ids.clone(),
                             previous_count: previous_ids.len(),
                             next_count: next_ids.len(),
-                            added_instrument_ids: instrument_id_difference(
-                                &next_ids,
-                                &previous_ids,
-                            ),
-                            removed_instrument_ids: instrument_id_difference(
-                                &previous_ids,
-                                &next_ids,
-                            ),
+                            added_instrument_ids: added_instrument_ids.clone(),
+                            removed_instrument_ids: removed_instrument_ids.clone(),
                         });
+                        resolution_records.push(refresh_resolution_record(
+                            &state.spec.venue_id,
+                            &state.spec.underlying,
+                            &resolved,
+                            added_instrument_ids
+                                .iter()
+                                .map(ToString::to_string)
+                                .collect(),
+                            removed_instrument_ids
+                                .iter()
+                                .map(ToString::to_string)
+                                .collect(),
+                        ));
                     }
                     state.current_plan = next_plan.clone();
                     next_dynamic_plan = merge_capture_plans(&next_dynamic_plan, &next_plan);
@@ -166,6 +179,7 @@ impl DynamicOptionUniverseManager {
             add: capture_plan_difference(&next_dynamic_plan, &previous_dynamic_plan),
             remove: capture_plan_difference(&previous_dynamic_plan, &next_dynamic_plan),
             changes,
+            resolution_records,
         };
         self.current_dynamic_plan = next_dynamic_plan;
         Ok(delta)
@@ -195,31 +209,37 @@ fn resolve_runtime_option_universe(
         .collect::<Vec<InstrumentAny>>();
 
     let reference_perp = derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
-    let atm_reference = select_runtime_atm_reference(cache, reference_perp)
-        .with_context(|| format!("failed to determine ATM reference from {}", reference_perp))?;
+    let (atm_reference, atm_reference_source) =
+        select_runtime_atm_reference(cache, reference_perp).with_context(|| {
+            format!("failed to determine ATM reference from {}", reference_perp)
+        })?;
     let perp_instrument_id = spec.include_perp.then_some(reference_perp);
 
-    Ok(resolve_option_universe(
+    let mut resolved = resolve_option_universe(
         spec,
         &option_instruments,
         now,
         atm_reference,
         perp_instrument_id,
-    )?)
+    )?;
+    resolved.atm_reference_source = Some(atm_reference_source);
+    Ok(resolved)
 }
 
-fn select_runtime_atm_reference(cache: &Cache, instrument_id: InstrumentId) -> Result<Price> {
-    if let Some(quote) = cache.quote(&instrument_id) {
-        return Ok(quote.extract_price(PriceType::Mid));
-    }
-    if let Some(mark_price) = cache.mark_price(&instrument_id) {
-        return Ok(mark_price.value);
-    }
-    if let Some(index_price) = cache.index_price(&instrument_id) {
-        return Ok(index_price.value);
+fn select_runtime_atm_reference(
+    cache: &Cache,
+    instrument_id: InstrumentId,
+) -> Result<(Price, String)> {
+    let quote_mid = cache
+        .quote(&instrument_id)
+        .map(|quote| quote.extract_price(PriceType::Mid));
+    let mark = cache.mark_price(&instrument_id).map(|update| update.value);
+    let index = cache.index_price(&instrument_id).map(|update| update.value);
+    if let Some((price, source)) = select_cache_atm_reference(mark, quote_mid, index) {
+        return Ok((price, source.as_str().to_string()));
     }
 
-    bail!("no quote/mark/index price available in cache")
+    bail!("no mark/quote/index price available in cache for {}", instrument_id)
 }
 
 fn capture_plan_difference(left: &CapturePlan, right: &CapturePlan) -> CapturePlan {
@@ -610,6 +630,11 @@ mod tests {
         let delta = manager.refresh_from_cache(&cache, now).unwrap();
 
         assert_eq!(delta.changes.len(), 1);
+        assert_eq!(delta.resolution_records.len(), 1);
+        assert_eq!(
+            delta.resolution_records[0].atm_reference_source,
+            "cache_quote_mid"
+        );
         let change = &delta.changes[0];
         assert_eq!(change.venue_id, "deribit_main");
         assert_eq!(change.underlying, "BTC");

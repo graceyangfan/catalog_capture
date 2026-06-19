@@ -3,16 +3,17 @@ use std::str::FromStr;
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
     derive_perp_instrument_id, okx_instrument_family, resolve_option_universe,
-    select_nearest_expiry_reference_instrument_id, OptionUniverseSpec, OptionUniverseVenueKind,
-    ResolvedOptionUniverse,
+    select_http_perp_ticker_atm_reference, select_nearest_expiry_reference_instrument_id,
+    AtmReferenceSource, OptionUniverseSpec, OptionUniverseVenueKind, ResolvedOptionUniverse,
 };
 use nautilus_bybit::{
     common::{enums::BybitEnvironment, urls::bybit_http_base_url},
-    http::{client::BybitHttpClient, models::BybitTickerOption},
+    http::{client::BybitHttpClient, query::BybitTickersParams},
 };
+use nautilus_bybit::common::enums::BybitProductType;
 use nautilus_deribit::{
     common::enums::{DeribitCurrency, DeribitEnvironment},
-    http::{client::DeribitHttpClient, models::DeribitBookSummary, models::DeribitProductType},
+    http::{client::DeribitHttpClient, models::DeribitProductType},
 };
 use nautilus_model::instruments::InstrumentAny;
 use nautilus_model::{identifiers::InstrumentId, types::Price};
@@ -60,20 +61,23 @@ struct ResolvedVenueInputs {
     spec_for_resolution: OptionUniverseSpec,
     option_instruments: Vec<InstrumentAny>,
     atm_reference: Price,
+    atm_reference_source: String,
     perp_instrument_id: Option<InstrumentId>,
 }
 
 fn finalize_option_universe_resolution(
     inputs: ResolvedVenueInputs,
 ) -> Result<ResolvedOptionUniverse> {
-    resolve_option_universe(
+    let mut resolved = resolve_option_universe(
         &inputs.spec_for_resolution,
         &inputs.option_instruments,
         inputs.resolved_at_ns,
         inputs.atm_reference,
         inputs.perp_instrument_id,
     )
-    .map_err(anyhow::Error::from)
+    .map_err(anyhow::Error::from)?;
+    resolved.atm_reference_source = Some(inputs.atm_reference_source);
+    Ok(resolved)
 }
 
 fn normalized_resolution_spec(
@@ -111,7 +115,7 @@ async fn resolve_deribit_option_universe(
             )
         })?;
 
-    let atm_reference = request_deribit_atm_reference(&client, spec).await?;
+    let (atm_reference, atm_reference_source) = request_deribit_atm_reference(&client, spec).await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, OptionUniverseVenueKind::Deribit).map_err(anyhow::Error::from))
@@ -122,6 +126,7 @@ async fn resolve_deribit_option_universe(
         spec_for_resolution: normalized_resolution_spec(spec, false),
         option_instruments,
         atm_reference,
+        atm_reference_source,
         perp_instrument_id,
     })
 }
@@ -156,7 +161,7 @@ async fn resolve_bybit_option_universe(
             )
         })?;
 
-    let atm_reference = request_bybit_atm_reference(&client, spec).await?;
+    let (atm_reference, atm_reference_source) = request_bybit_atm_reference(&client, spec).await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, OptionUniverseVenueKind::Bybit).map_err(anyhow::Error::from))
@@ -167,6 +172,7 @@ async fn resolve_bybit_option_universe(
         spec_for_resolution: normalized_resolution_spec(spec, false),
         option_instruments,
         atm_reference,
+        atm_reference_source,
         perp_instrument_id,
     })
 }
@@ -196,7 +202,7 @@ async fn resolve_okx_option_universe(
         client.cache_instrument(instrument.clone());
     }
 
-    let atm_reference = request_okx_atm_reference(
+    let (atm_reference, atm_reference_source) = request_okx_atm_reference(
         &client,
         spec,
         &normalized_spec,
@@ -214,6 +220,7 @@ async fn resolve_okx_option_universe(
         spec_for_resolution: normalized_spec,
         option_instruments,
         atm_reference,
+        atm_reference_source,
         perp_instrument_id,
     })
 }
@@ -221,35 +228,69 @@ async fn resolve_okx_option_universe(
 async fn request_deribit_atm_reference(
     client: &DeribitHttpClient,
     spec: &OptionUniverseSpec,
-) -> Result<Price> {
-    let summaries = client
-        .request_book_summaries(&spec.underlying)
+) -> Result<(Price, String)> {
+    let perp_name = format!("{}-PERPETUAL", spec.underlying);
+    let ticker = client
+        .request_ticker(&perp_name)
         .await
-        .with_context(|| {
-            format!(
-                "failed to request Deribit option book summaries for underlying {}",
-                spec.underlying
-            )
-        })?;
+        .with_context(|| format!("failed to request Deribit ticker for {perp_name}"))?;
+    let mark = ticker.mark_price.as_ref().map(ToString::to_string);
+    let index = ticker.index_price.as_ref().map(ToString::to_string);
+    let bid = ticker.best_bid_price.as_ref().map(ToString::to_string);
+    let ask = ticker.best_ask_price.as_ref().map(ToString::to_string);
+    if let Some((price, source)) = select_http_perp_ticker_atm_reference(
+        mark.as_deref(),
+        index.as_deref(),
+        bid.as_deref(),
+        ask.as_deref(),
+    ) {
+        return Ok((price, source.as_str().to_string()));
+    }
 
-    select_deribit_atm_reference(&summaries, &spec.underlying)
+    bail!("no Deribit perpetual ticker reference available for {perp_name}")
 }
 
 async fn request_bybit_atm_reference(
     client: &BybitHttpClient,
     spec: &OptionUniverseSpec,
-) -> Result<Price> {
+) -> Result<(Price, String)> {
+    let perp_instrument_id =
+        derive_perp_instrument_id(spec, OptionUniverseVenueKind::Bybit).map_err(anyhow::Error::from)?;
+    let params = BybitTickersParams {
+        category: BybitProductType::Linear,
+        symbol: Some(perp_instrument_id.symbol.to_string()),
+        base_coin: None,
+        exp_date: None,
+    };
     let tickers = client
-        .request_option_tickers_raw(&spec.underlying)
+        .request_tickers(&params)
         .await
         .with_context(|| {
             format!(
-                "failed to request Bybit option tickers for underlying {}",
-                spec.underlying
+                "failed to request Bybit linear ticker for {}",
+                perp_instrument_id.symbol
             )
         })?;
+    let Some(ticker) = tickers.first() else {
+        bail!(
+            "no Bybit linear ticker returned for {}",
+            perp_instrument_id.symbol
+        );
+    };
 
-    select_bybit_atm_reference(&tickers, &spec.underlying)
+    if let Some((price, source)) = select_http_perp_ticker_atm_reference(
+        ticker.mark_price.as_deref(),
+        ticker.index_price.as_deref(),
+        Some(ticker.bid1_price.as_str()),
+        Some(ticker.ask1_price.as_str()),
+    ) {
+        return Ok((price, source.as_str().to_string()));
+    }
+
+    bail!(
+        "no Bybit linear ticker reference available for {}",
+        perp_instrument_id.symbol
+    )
 }
 
 async fn request_okx_atm_reference(
@@ -258,7 +299,7 @@ async fn request_okx_atm_reference(
     normalized_spec: &OptionUniverseSpec,
     option_instruments: &[InstrumentAny],
     resolved_at_ns: nautilus_core::UnixNanos,
-) -> Result<Price> {
+) -> Result<(Price, String)> {
     let reference_instrument_id = select_nearest_expiry_reference_instrument_id(
         normalized_spec,
         option_instruments,
@@ -275,44 +316,11 @@ async fn request_okx_atm_reference(
             )
         })?;
 
-    select_okx_atm_reference(&forward_prices, &spec.underlying)
-}
-
-fn select_deribit_atm_reference(
-    summaries: &[DeribitBookSummary],
-    underlying: &str,
-) -> Result<Price> {
-    let Some(summary) = summaries
-        .iter()
-        .find(|summary| summary.underlying_price.is_some())
-    else {
-        bail!(
-            "no Deribit option book summary returned an underlying_price for {}",
-            underlying
-        );
-    };
-
-    Ok(Price::from(
-        summary
-            .underlying_price
-            .expect("summary filtered to underlying_price")
-            .to_string()
-            .as_str(),
+    let price = select_okx_atm_reference(&forward_prices, &spec.underlying)?;
+    Ok((
+        price,
+        AtmReferenceSource::HttpPerpForwardPrice.as_str().to_string(),
     ))
-}
-
-fn select_bybit_atm_reference(tickers: &[BybitTickerOption], underlying: &str) -> Result<Price> {
-    let Some(ticker) = tickers
-        .iter()
-        .find(|ticker| !ticker.underlying_price.trim().is_empty())
-    else {
-        bail!(
-            "no Bybit option ticker returned a non-empty underlying_price for {}",
-            underlying
-        );
-    };
-
-    Ok(Price::from(ticker.underlying_price.as_str()))
 }
 
 fn select_okx_atm_reference(

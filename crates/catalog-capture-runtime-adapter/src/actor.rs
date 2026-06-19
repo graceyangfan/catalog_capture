@@ -1,13 +1,12 @@
 use std::{fmt::Debug, mem::size_of};
 
 use anyhow::Result;
+use std::path::PathBuf;
+
 use catalog_capture_core::{
-    background::BackgroundCaptureRuntime,
-    config::CaptureConfig,
-    item::{CaptureItem, PartitionKey},
-    plan::CapturePlan,
-    runtime::FlushResult,
-    sink::NautilusCatalogSink,
+    append_option_universe_resolution_records, background::BackgroundCaptureRuntime,
+    catalog_root_from_uri, config::CaptureConfig, item::{CaptureItem, PartitionKey},
+    plan::CapturePlan, runtime::FlushResult, sink::NautilusCatalogSink,
 };
 use nautilus_common::{
     actor::{DataActor, DataActorConfig, DataActorCore},
@@ -68,6 +67,7 @@ pub struct CatalogCaptureActor {
     book_delta_runtime: BackgroundCaptureRuntime<OrderBookDelta, NautilusCatalogSink>,
     online_option_metrics: Option<OnlineOptionMetricsObserver>,
     dynamic_option_universe: Option<DynamicOptionUniverseManager>,
+    catalog_root: PathBuf,
 }
 
 impl CatalogCaptureActor {
@@ -93,6 +93,7 @@ impl CatalogCaptureActor {
         let trade_sink = NautilusCatalogSink::from_config(&config.capture)?;
         let bar_sink = NautilusCatalogSink::from_config(&config.capture)?;
         let book_delta_sink = NautilusCatalogSink::from_config(&config.capture)?;
+        let catalog_root = catalog_root_from_uri(&config.capture.catalog_uri)?;
 
         Ok(Self {
             core: DataActorCore::new(actor_config),
@@ -139,6 +140,7 @@ impl CatalogCaptureActor {
             dynamic_option_universe: config
                 .dynamic_option_universe
                 .map(DynamicOptionUniverseManager::new),
+            catalog_root,
         })
     }
 
@@ -482,6 +484,12 @@ impl CatalogCaptureActor {
                 if let Some(observer) = &mut self.online_option_metrics {
                     observer.apply_universe_change(change);
                 }
+            }
+            if !delta.resolution_records.is_empty() {
+                append_option_universe_resolution_records(
+                    &self.catalog_root,
+                    &delta.resolution_records,
+                )?;
             }
             for instrument_id in delta.add.planned_instrument_ids() {
                 self.bootstrap_instrument(instrument_id)?;

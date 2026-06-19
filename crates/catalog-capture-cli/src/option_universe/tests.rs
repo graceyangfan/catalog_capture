@@ -72,6 +72,7 @@ fn expand_option_universe_builds_capture_plan_from_resolved_snapshot() {
         resolved_at_ns: 1.into(),
         selected_expiry_ns: 2.into(),
         atm_reference: Price::from("62000"),
+        atm_reference_source: Some("http_perp_ticker_mark".to_string()),
         selected_strikes: vec![Price::from("62000"), Price::from("62500")],
         perp_instrument_id: Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
         option_instrument_ids: vec![
@@ -113,6 +114,7 @@ fn build_option_universe_resolution_report_renders_expected_fields() {
         resolved_at_ns: 11.into(),
         selected_expiry_ns: 22.into(),
         atm_reference: Price::from("62393.25"),
+        atm_reference_source: Some("http_perp_ticker_mark".to_string()),
         selected_strikes: vec![Price::from("62000"), Price::from("62500")],
         perp_instrument_id: Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
         option_instrument_ids: vec![
@@ -146,6 +148,7 @@ fn render_option_universe_reports_json_pretty_prints() {
         selected_expiry_ns: 2,
         selected_expiry_iso8601: "1970-01-01T00:00:00.000000002Z".to_string(),
         atm_reference: "62469.8".to_string(),
+        atm_reference_source: "http_forward_price".to_string(),
         selected_strikes: vec!["62250".to_string()],
         perp_instrument_id: Some("BTC-USD-SWAP.OKX".to_string()),
         option_instrument_ids: vec!["BTC-USD-260620-62500-C.OKX".to_string()],

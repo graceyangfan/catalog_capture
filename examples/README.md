@@ -46,6 +46,8 @@ Current examples and planned validation paths:
     - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe-autorefresh.toml`
   - refresh logs appear only when the resolved member set changes:
     - `Option universe refresh venue_id=... add=[...] remove=[...]`
+  - resolution lineage is appended to:
+    - `<catalog_dir>/metadata/option_universe_resolutions.jsonl`
 - `examples/capture.bybit-btc-universe.toml`
   - Bybit BTC option universe resolved once at startup
   - resolve: `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.bybit-btc-universe.toml`

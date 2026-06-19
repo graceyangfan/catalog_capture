@@ -2,8 +2,9 @@ use std::{fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    derive_perp_instrument_id, expand_option_universe, merge_capture_plans, CapturePlan,
-    OptionUniverseVenueKind, ResolvedOptionUniverse,
+    append_option_universe_resolution_records, catalog_root_from_uri, derive_perp_instrument_id,
+    expand_option_universe, merge_capture_plans, CapturePlan, OptionUniverseVenueKind,
+    ResolvedOptionUniverse,
 };
 use catalog_capture_runtime_adapter::{
     CatalogCaptureActor, CatalogCaptureActorConfig, OnlineOptionMetricsConfig,
@@ -29,7 +30,8 @@ use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory}
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 use crate::option_universe::{
-    materialize_capture_plan_with_reports, validate_option_universes, OptionUniverseResolutionReport,
+    materialize_capture_plan_with_reports, startup_resolution_record_from_report,
+    validate_option_universes, OptionUniverseResolutionReport,
 };
 
 pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
@@ -42,9 +44,18 @@ pub async fn run_capture_with_plan_and_reports(
     plan: CapturePlan,
     reports: &[OptionUniverseResolutionReport],
 ) -> Result<()> {
-    let catalog_dir = resolve_catalog_dir(&config.capture.catalog_uri)?;
+    let catalog_dir = catalog_root_from_uri(&config.capture.catalog_uri)?;
     fs::create_dir_all(&catalog_dir)
         .with_context(|| format!("failed to create catalog dir {}", catalog_dir.display()))?;
+
+    if !reports.is_empty() {
+        let records = reports
+            .iter()
+            .map(startup_resolution_record_from_report)
+            .collect::<Vec<_>>();
+        append_option_universe_resolution_records(&catalog_dir, &records)
+            .with_context(|| "failed to persist startup option universe resolution metadata")?;
+    }
 
     if plan.is_empty() {
         bail!("capture plan is empty after option universe expansion");
@@ -479,6 +490,7 @@ fn resolved_option_universe_from_report(
         resolved_at_ns: report.resolved_at_ns.into(),
         selected_expiry_ns: report.selected_expiry_ns.into(),
         atm_reference: report.atm_reference.parse().map_err(anyhow::Error::msg)?,
+        atm_reference_source: Some(report.atm_reference_source.clone()),
         selected_strikes,
         perp_instrument_id: report
             .perp_instrument_id
