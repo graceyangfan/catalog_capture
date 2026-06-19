@@ -26,6 +26,7 @@ serde_json = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
 toml = "0.8"
+ustr = "1.1.0"
 nautilus-binance = { path = "/Users/yfclark/nautilus_trader/crates/adapters/binance", features = ["examples"] }
 nautilus-bybit = { path = "/Users/yfclark/nautilus_trader/crates/adapters/bybit" }
 nautilus-deribit = { path = "/Users/yfclark/nautilus_trader/crates/adapters/deribit", features = ["arrow"] }

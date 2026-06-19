@@ -1305,6 +1305,94 @@ mod tests {
     }
 
     #[test]
+    fn validate_runtime_accepts_bybit_option_universe() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "bybit_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: Some("USDT".to_string()),
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                        "index_prices".to_string(),
+                        "funding_rates".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "bybit_main".to_string(),
+                kind: "bybit".to_string(),
+                environment: "mainnet".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["linear".to_string(), "option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        validate_runtime(&effective).expect("valid bybit option universe should pass");
+    }
+
+    #[test]
+    fn validate_runtime_rejects_bybit_option_universe_without_settlement_currency() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "bybit_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: None,
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "bybit_main".to_string(),
+                kind: "bybit".to_string(),
+                environment: "mainnet".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["linear".to_string(), "option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective)
+            .expect_err("missing settlement_currency should fail for bybit");
+        assert!(err.to_string().contains("requires settlement_currency"));
+    }
+
+    #[test]
     fn example_deribit_dvol_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-dvol.toml");
         let loaded = load_config(&path).expect("example should load");
@@ -1323,6 +1411,14 @@ mod tests {
     #[test]
     fn example_deribit_option_universe_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-btc-universe.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_bybit_option_universe_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.bybit-btc-universe.toml");
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");

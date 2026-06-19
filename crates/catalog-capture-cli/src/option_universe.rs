@@ -5,11 +5,16 @@ use catalog_capture_core::{
     expand_option_universe, merge_capture_plans, resolve_option_universe, CapturePlan,
     OptionUniverseFamily, OptionUniverseSpec, ResolvedOptionUniverse,
 };
+use nautilus_bybit::{
+    common::{enums::BybitEnvironment, enums::BybitProductType, urls::bybit_http_base_url},
+    http::{client::BybitHttpClient, models::BybitTickerOption},
+};
 use nautilus_deribit::{
     common::enums::{DeribitCurrency, DeribitEnvironment},
     http::{client::DeribitHttpClient, models::DeribitBookSummary, models::DeribitProductType},
 };
 use nautilus_model::{identifiers::InstrumentId, types::Price};
+use ustr::Ustr;
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 
@@ -22,8 +27,11 @@ pub async fn materialize_capture_plan(config: &EffectiveConfig) -> Result<Captur
             VenueRuntimeConfig::Deribit { environment, .. } => {
                 resolve_deribit_option_universe(spec, *environment).await?
             }
+            VenueRuntimeConfig::Bybit { environment, .. } => {
+                resolve_bybit_option_universe(spec, *environment).await?
+            }
             _ => bail!(
-                "capture.option_universe currently only supports Deribit venues; got venue_id `{}`",
+                "capture.option_universe currently only supports Deribit/Bybit venues; got venue_id `{}`",
                 spec.venue_id
             ),
         };
@@ -68,8 +76,28 @@ fn validate_option_universe(
                 );
             }
         }
+        VenueRuntimeConfig::Bybit { product_types, .. } => {
+            if !product_types.contains(&BybitProductType::Option) {
+                bail!(
+                    "capture.option_universe venue_id `{}` requires bybit product_types to include \"option\"",
+                    spec.venue_id
+                );
+            }
+            if spec.include_perp && !product_types.contains(&BybitProductType::Linear) {
+                bail!(
+                    "capture.option_universe venue_id `{}` with include_perp = true requires bybit product_types to include \"linear\"",
+                    spec.venue_id
+                );
+            }
+            if spec.settlement_currency.is_none() {
+                bail!(
+                    "capture.option_universe venue_id `{}` requires settlement_currency for Bybit option universe resolution",
+                    spec.venue_id
+                );
+            }
+        }
         _ => bail!(
-            "capture.option_universe currently only supports [[venues]] entries with kind = \"deribit\""
+            "capture.option_universe currently only supports [[venues]] entries with kind = \"deribit\" or \"bybit\""
         ),
     }
 
@@ -142,6 +170,51 @@ async fn resolve_deribit_option_universe(
     .map_err(anyhow::Error::from)
 }
 
+async fn resolve_bybit_option_universe(
+    spec: &OptionUniverseSpec,
+    environment: BybitEnvironment,
+) -> Result<ResolvedOptionUniverse> {
+    let client = BybitHttpClient::new(
+        Some(bybit_http_base_url(environment).to_string()),
+        30,
+        3,
+        500,
+        5_000,
+        5_000,
+        None,
+    )
+    .context("failed to create Bybit HTTP client for option universe resolution")?;
+
+    let option_instruments = client
+        .request_instruments(
+            BybitProductType::Option,
+            None,
+            Some(Ustr::from(spec.underlying.as_str())),
+        )
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request Bybit option instruments for underlying {}",
+                spec.underlying
+            )
+        })?;
+
+    let atm_reference = request_bybit_atm_reference(&client, spec).await?;
+    let perp_instrument_id = spec
+        .include_perp
+        .then(|| derive_bybit_linear_perpetual_id(spec))
+        .transpose()?;
+
+    resolve_option_universe(
+        spec,
+        &option_instruments,
+        nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+        atm_reference,
+        perp_instrument_id,
+    )
+    .map_err(anyhow::Error::from)
+}
+
 async fn request_deribit_atm_reference(
     client: &DeribitHttpClient,
     spec: &OptionUniverseSpec,
@@ -157,6 +230,23 @@ async fn request_deribit_atm_reference(
         })?;
 
     select_deribit_atm_reference(&summaries, &spec.underlying)
+}
+
+async fn request_bybit_atm_reference(
+    client: &BybitHttpClient,
+    spec: &OptionUniverseSpec,
+) -> Result<Price> {
+    let tickers = client
+        .request_option_tickers_raw(&spec.underlying)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request Bybit option tickers for underlying {}",
+                spec.underlying
+            )
+        })?;
+
+    select_bybit_atm_reference(&tickers, &spec.underlying)
 }
 
 fn select_deribit_atm_reference(
@@ -182,9 +272,36 @@ fn select_deribit_atm_reference(
     ))
 }
 
+fn select_bybit_atm_reference(tickers: &[BybitTickerOption], underlying: &str) -> Result<Price> {
+    let Some(ticker) = tickers
+        .iter()
+        .find(|ticker| !ticker.underlying_price.trim().is_empty())
+    else {
+        bail!(
+            "no Bybit option ticker returned a non-empty underlying_price for {}",
+            underlying
+        );
+    };
+
+    Ok(Price::from(ticker.underlying_price.as_str()))
+}
+
 fn derive_deribit_perpetual_id(underlying: &str) -> Result<InstrumentId> {
     Ok(InstrumentId::from_str(
         format!("{underlying}-PERPETUAL.DERIBIT").as_str(),
+    )?)
+}
+
+fn derive_bybit_linear_perpetual_id(spec: &OptionUniverseSpec) -> Result<InstrumentId> {
+    let settlement_currency = spec.settlement_currency.as_deref().with_context(|| {
+        format!(
+            "capture.option_universe venue_id `{}` requires settlement_currency to derive the Bybit hedge perpetual",
+            spec.venue_id
+        )
+    })?;
+
+    Ok(InstrumentId::from_str(
+        format!("{}{}-LINEAR.BYBIT", spec.underlying, settlement_currency).as_str(),
     )?)
 }
 
@@ -248,5 +365,88 @@ mod tests {
     fn derive_deribit_perpetual_id_builds_expected_symbol() {
         let instrument_id = derive_deribit_perpetual_id("BTC").expect("perpetual id should build");
         assert_eq!(instrument_id, InstrumentId::from("BTC-PERPETUAL.DERIBIT"));
+    }
+
+    #[test]
+    fn select_bybit_atm_reference_uses_first_non_empty_underlying_price() {
+        let tickers = vec![
+            BybitTickerOption {
+                symbol: Ustr::from("BTC-27JUN26-62000-C-USDT"),
+                bid1_price: String::new(),
+                bid1_size: String::new(),
+                bid1_iv: String::new(),
+                ask1_price: String::new(),
+                ask1_size: String::new(),
+                ask1_iv: String::new(),
+                last_price: String::new(),
+                high_price24h: String::new(),
+                low_price24h: String::new(),
+                mark_price: String::new(),
+                index_price: String::new(),
+                mark_iv: String::new(),
+                underlying_price: String::new(),
+                open_interest: String::new(),
+                turnover24h: String::new(),
+                volume24h: String::new(),
+                total_volume: String::new(),
+                total_turnover: String::new(),
+                delta: String::new(),
+                gamma: String::new(),
+                vega: String::new(),
+                theta: String::new(),
+                predicted_delivery_price: String::new(),
+                change24h: String::new(),
+            },
+            BybitTickerOption {
+                symbol: Ustr::from("BTC-27JUN26-62500-C-USDT"),
+                bid1_price: String::new(),
+                bid1_size: String::new(),
+                bid1_iv: String::new(),
+                ask1_price: String::new(),
+                ask1_size: String::new(),
+                ask1_iv: String::new(),
+                last_price: String::new(),
+                high_price24h: String::new(),
+                low_price24h: String::new(),
+                mark_price: String::new(),
+                index_price: String::new(),
+                mark_iv: String::new(),
+                underlying_price: "62310.5".to_string(),
+                open_interest: String::new(),
+                turnover24h: String::new(),
+                volume24h: String::new(),
+                total_volume: String::new(),
+                total_turnover: String::new(),
+                delta: String::new(),
+                gamma: String::new(),
+                vega: String::new(),
+                theta: String::new(),
+                predicted_delivery_price: String::new(),
+                change24h: String::new(),
+            },
+        ];
+
+        let price = select_bybit_atm_reference(&tickers, "BTC").expect("price should resolve");
+        assert_eq!(price, Price::from("62310.5"));
+    }
+
+    #[test]
+    fn derive_bybit_linear_perpetual_id_builds_expected_symbol() {
+        let spec = OptionUniverseSpec {
+            venue_id: "bybit_main".to_string(),
+            underlying: "BTC".to_string(),
+            settlement_currency: Some("USDT".to_string()),
+            include_perp: true,
+            families: vec![OptionUniverseFamily::Quotes],
+            expiry_policy: catalog_capture_core::ExpiryPolicy::Nearest { days_max: 45 },
+            strike_policy: catalog_capture_core::StrikePolicy::AtmRelative {
+                strikes_above: 1,
+                strikes_below: 1,
+            },
+        };
+
+        let instrument_id =
+            derive_bybit_linear_perpetual_id(&spec).expect("perpetual id should build");
+        assert_eq!(instrument_id, InstrumentId::from("BTCUSDT-LINEAR.BYBIT"));
     }
 }
