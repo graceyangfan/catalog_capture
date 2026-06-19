@@ -218,8 +218,8 @@ Run all supported venues:
 - `python3 tests/probe_option_universe_smoke.py --venue all --seconds 30`
 
 The helper creates a temporary TOML profile under `/tmp`, rewrites `capture_seconds` and
-`catalog_uri`, runs `catalog-capture-cli run --print-option-universe`, then checks these required
-families:
+`catalog_uri`, runs `catalog-capture-cli run --print-option-universe`, parses the resolved
+`perp=` / `options=[...]` output, then checks these required parquet families:
 
 - `instruments`
 - `quotes`
@@ -228,8 +228,15 @@ families:
 - `index_prices`
 - `funding_rate_update`
 
-If `pyarrow` is installed, it also verifies that sampled parquet files contain rows. Use
-`--cleanup` to remove generated catalogs after a successful run.
+If `pyarrow` is installed, it also verifies that sampled parquet files contain rows. By default,
+the helper then runs `tests/python_catalog_option_universe_probe.py` to read the selected
+instruments through Nautilus `ParquetDataCatalog` and assert:
+
+- every selected option has `quotes`, `mark_prices`, and `option_greeks`
+- the hedge perp/swap has `quotes`, `mark_prices`, `index_prices`, and funding parquet rows
+
+Use `--skip-readback-probe` for file-only validation. Use `--cleanup` to remove generated catalogs
+after a successful run.
 
 Current manual smoke results:
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,7 @@ except ImportError:  # pragma: no cover - optional local validation dependency.
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+READBACK_PROBE = PROJECT_ROOT / "tests" / "python_catalog_option_universe_probe.py"
 
 VENUE_CONFIGS = {
     "deribit": PROJECT_ROOT / "examples" / "capture.deribit-btc-universe.toml",
@@ -64,6 +66,11 @@ def main() -> int:
         "--cargo",
         default="cargo",
         help="Cargo executable to use.",
+    )
+    parser.add_argument(
+        "--skip-readback-probe",
+        action="store_true",
+        help="Only validate parquet files; skip Nautilus ParquetDataCatalog readback.",
     )
     args = parser.parse_args()
 
@@ -116,16 +123,83 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
         "text",
     ]
     print(f"[{venue}] running live capture for {args.seconds}s", flush=True)
-    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+    output = run_and_stream(command)
 
     summary = summarize_catalog(catalog_dir)
     print_catalog_summary(venue, catalog_dir, summary)
     validate_summary(summary)
 
+    if not args.skip_readback_probe:
+        perp_id, option_ids = parse_resolution_output(output)
+        run_readback_probe(catalog_dir, perp_id, option_ids)
+
     if args.cleanup:
         shutil.rmtree(catalog_dir)
         temp_config.unlink(missing_ok=True)
         print(f"[{venue}] cleaned up generated catalog and config")
+
+
+def run_and_stream(command: list[str]) -> str:
+    process = subprocess.Popen(
+        command,
+        cwd=PROJECT_ROOT,
+        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert process.stdout is not None
+    lines = []
+    for line in process.stdout:
+        print(line, end="", flush=True)
+        lines.append(line)
+    return_code = process.wait()
+    if return_code != 0:
+        raise subprocess.CalledProcessError(return_code, command)
+    return "".join(lines)
+
+
+def parse_resolution_output(output: str) -> tuple[str, list[str]]:
+    perp_id = None
+    option_ids: list[str] = []
+
+    for raw_line in output.splitlines():
+        line = strip_ansi(raw_line.strip())
+        if line.startswith("perp="):
+            perp_id = line.removeprefix("perp=").strip()
+        elif line.startswith("options=["):
+            options_text = line.removeprefix("options=[").removesuffix("]")
+            option_ids = [
+                value.strip()
+                for value in options_text.split(",")
+                if value.strip()
+            ]
+
+    if not perp_id or perp_id == "-":
+        raise RuntimeError("failed to parse resolved perp id from capture output")
+    if not option_ids:
+        raise RuntimeError("failed to parse resolved option ids from capture output")
+    return perp_id, option_ids
+
+
+def strip_ansi(value: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", value)
+
+
+def run_readback_probe(catalog_dir: Path, perp_id: str, option_ids: list[str]) -> None:
+    print(
+        f"[readback] probing {len(option_ids)} options plus {perp_id}",
+        flush=True,
+    )
+    command = [
+        sys.executable,
+        str(READBACK_PROBE),
+        str(catalog_dir),
+        "--perp-id",
+        perp_id,
+    ]
+    for option_id in option_ids:
+        command.extend(["--option-id", option_id])
+    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
 
 
 def write_temp_config(source: Path, target: Path, catalog_dir: Path, seconds: int) -> None:
