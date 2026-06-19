@@ -398,12 +398,23 @@ fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             environment: parse_bybit_environment(&venue.environment)?,
             product_types: parse_bybit_product_types(&venue.product_types)?,
         }),
-        "okx" => Ok(VenueRuntimeConfig::Okx {
-            id: venue.id,
-            environment: parse_okx_environment(&venue.environment)?,
-            instrument_types: parse_okx_instrument_types(&venue.instrument_types)?,
-            instrument_families: parse_okx_instrument_families(&venue.instrument_families)?,
-        }),
+        "okx" => {
+            let instrument_types = parse_okx_instrument_types(&venue.instrument_types)?;
+            let instrument_families = parse_okx_instrument_families(&venue.instrument_families)?;
+            if instrument_types.contains(&OKXInstrumentType::Option)
+                && instrument_families.as_ref().is_none_or(std::vec::Vec::is_empty)
+            {
+                bail!(
+                    "okx venue requires non-empty instrument_families when instrument_types includes option"
+                );
+            }
+            Ok(VenueRuntimeConfig::Okx {
+                id: venue.id,
+                environment: parse_okx_environment(&venue.environment)?,
+                instrument_types,
+                instrument_families,
+            })
+        }
         other => bail!(
             "unsupported venue kind {other}; currently supported: binance_futures, deribit, bybit, okx"
         ),
@@ -494,7 +505,7 @@ fn parse_okx_environment(value: &str) -> Result<OKXEnvironment> {
 
 fn parse_okx_instrument_types(values: &[String]) -> Result<Vec<OKXInstrumentType>> {
     if values.is_empty() {
-        return Ok(vec![OKXInstrumentType::Swap, OKXInstrumentType::Option]);
+        return Ok(vec![OKXInstrumentType::Swap]);
     }
 
     values
@@ -613,4 +624,50 @@ fn default_binance_environment() -> String {
 
 fn default_binance_product_type() -> String {
     "usd_m".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn okx_default_instrument_types_is_swap_only() {
+        let types = parse_okx_instrument_types(&[]).expect("defaults should parse");
+        assert_eq!(types, vec![OKXInstrumentType::Swap]);
+    }
+
+    #[test]
+    fn okx_option_without_families_is_rejected() {
+        let venue = VenueConfig {
+            id: "okx_main".to_string(),
+            kind: "okx".to_string(),
+            environment: "live".to_string(),
+            product_type: default_binance_product_type(),
+            product_types: Vec::new(),
+            instrument_types: vec!["option".to_string()],
+            instrument_families: Vec::new(),
+        };
+
+        let err = parse_venue(venue).expect_err("option without families should fail");
+        assert!(
+            err.to_string().contains("instrument_families"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn okx_option_with_families_is_accepted() {
+        let venue = VenueConfig {
+            id: "okx_main".to_string(),
+            kind: "okx".to_string(),
+            environment: "live".to_string(),
+            product_type: default_binance_product_type(),
+            product_types: Vec::new(),
+            instrument_types: vec!["swap".to_string(), "option".to_string()],
+            instrument_families: vec!["BTC-USD".to_string()],
+        };
+
+        let runtime = parse_venue(venue).expect("valid okx option venue");
+        assert!(matches!(runtime, VenueRuntimeConfig::Okx { .. }));
+    }
 }

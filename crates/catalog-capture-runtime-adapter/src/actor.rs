@@ -245,6 +245,7 @@ impl CatalogCaptureActor {
     /// replay connect-time events, so we snapshot cache here. When cache is cold
     /// (e.g. Derive lazy_load), fall back to `request_instrument`. Runtime updates
     /// still arrive via `on_instrument` after `subscribe_instrument` (Deribit WS).
+    /// Instrument status is subscribed only when declared in `capture.instrument_statuses`.
     fn bootstrap_instruments(&mut self) -> Result<()> {
         for instrument_id in self.plan.planned_instrument_ids() {
             self.bootstrap_instrument(instrument_id)?;
@@ -255,7 +256,6 @@ impl CatalogCaptureActor {
 
     fn bootstrap_instrument(&mut self, instrument_id: InstrumentId) -> Result<()> {
         self.subscribe_instrument(instrument_id, None, None);
-        self.subscribe_instrument_status(instrument_id, None, None);
 
         let instrument = self.cache().instrument(&instrument_id).cloned();
         match instrument {
@@ -366,6 +366,10 @@ impl DataActor for CatalogCaptureActor {
 
         for spec in &plan.funding_rates {
             self.subscribe_funding_rates(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.instrument_statuses {
+            self.subscribe_instrument_status(spec.instrument_id, None, None);
         }
 
         for spec in &plan.instrument_closes {
