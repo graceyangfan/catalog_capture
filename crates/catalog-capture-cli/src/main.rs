@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use config::{load_config, render_effective_config, resolve_config};
+use option_universe::{render_option_universe_reports_json, resolve_option_universe_reports};
 use runner::{run_capture, validate_runtime};
 
 #[derive(Debug, Parser)]
@@ -28,6 +29,10 @@ enum Command {
         config: PathBuf,
     },
     PrintEffectiveConfig {
+        #[arg(long)]
+        config: PathBuf,
+    },
+    ResolveOptionUniverse {
         #[arg(long)]
         config: PathBuf,
     },
@@ -54,6 +59,13 @@ async fn main() -> Result<()> {
         Command::PrintEffectiveConfig { config } => {
             let loaded = load_config(&config)?;
             println!("{}", render_effective_config(&loaded)?);
+        }
+        Command::ResolveOptionUniverse { config } => {
+            let loaded = load_config(&config)?;
+            let effective = resolve_config(loaded)?;
+            validate_runtime(&effective)?;
+            let reports = resolve_option_universe_reports(&effective).await?;
+            println!("{}", render_option_universe_reports_json(&reports)?);
         }
     }
 

@@ -19,6 +19,7 @@ use nautilus_okx::{
     common::enums::{OKXEnvironment, OKXInstrumentType},
     http::client::OKXHttpClient,
 };
+use serde::Serialize;
 use ustr::Ustr;
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
@@ -32,6 +33,37 @@ pub async fn materialize_capture_plan(config: &EffectiveConfig) -> Result<Captur
     }
 
     Ok(plan)
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct OptionUniverseResolutionReport {
+    pub venue_id: String,
+    pub underlying: String,
+    pub resolved_at_ns: u64,
+    pub selected_expiry_ns: u64,
+    pub atm_reference: String,
+    pub selected_strikes: Vec<String>,
+    pub perp_instrument_id: Option<String>,
+    pub option_instrument_ids: Vec<String>,
+    pub all_instrument_ids: Vec<String>,
+}
+
+pub async fn resolve_option_universe_reports(
+    config: &EffectiveConfig,
+) -> Result<Vec<OptionUniverseResolutionReport>> {
+    let mut reports = Vec::with_capacity(config.option_universes.len());
+    for spec in &config.option_universes {
+        let resolved = resolve_option_universe_spec(spec, &config.venues).await?;
+        reports.push(build_option_universe_resolution_report(spec, &resolved));
+    }
+    Ok(reports)
+}
+
+pub fn render_option_universe_reports_json(
+    reports: &[OptionUniverseResolutionReport],
+) -> Result<String> {
+    serde_json::to_string_pretty(reports)
+        .map_err(|err| anyhow::anyhow!("failed to render option universe resolution report: {err}"))
 }
 
 pub fn validate_option_universes(
@@ -221,6 +253,35 @@ fn normalized_resolution_spec(
         normalized.settlement_currency = None;
     }
     normalized
+}
+
+fn build_option_universe_resolution_report(
+    spec: &OptionUniverseSpec,
+    resolved: &ResolvedOptionUniverse,
+) -> OptionUniverseResolutionReport {
+    OptionUniverseResolutionReport {
+        venue_id: spec.venue_id.clone(),
+        underlying: spec.underlying.clone(),
+        resolved_at_ns: resolved.resolved_at_ns.as_u64(),
+        selected_expiry_ns: resolved.selected_expiry_ns.as_u64(),
+        atm_reference: resolved.atm_reference.to_string(),
+        selected_strikes: resolved
+            .selected_strikes
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+        perp_instrument_id: resolved.perp_instrument_id.map(|id| id.to_string()),
+        option_instrument_ids: resolved
+            .option_instrument_ids
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+        all_instrument_ids: resolved
+            .all_instrument_ids
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+    }
 }
 
 async fn resolve_deribit_option_universe(
@@ -752,5 +813,73 @@ mod tests {
         assert_eq!(plan.instruments.len(), 5);
         assert_eq!(plan.quotes.len(), 5);
         assert_eq!(plan.index_prices.len(), 1);
+    }
+
+    #[test]
+    fn build_option_universe_resolution_report_renders_expected_fields() {
+        let spec = OptionUniverseSpec {
+            venue_id: "deribit_main".to_string(),
+            underlying: "BTC".to_string(),
+            settlement_currency: None,
+            include_perp: true,
+            families: vec![OptionUniverseFamily::Quotes],
+            expiry_policy: ExpiryPolicy::Nearest { days_max: 45 },
+            strike_policy: StrikePolicy::AtmRelative {
+                strikes_above: 1,
+                strikes_below: 1,
+            },
+        };
+        let resolved = ResolvedOptionUniverse {
+            resolved_at_ns: 11.into(),
+            selected_expiry_ns: 22.into(),
+            atm_reference: Price::from("62393.25"),
+            selected_strikes: vec![Price::from("62000"), Price::from("62500")],
+            perp_instrument_id: Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
+            option_instrument_ids: vec![
+                InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT"),
+                InstrumentId::from("BTC-27JUN26-62000-P.DERIBIT"),
+            ],
+            all_instrument_ids: vec![
+                InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT"),
+                InstrumentId::from("BTC-27JUN26-62000-P.DERIBIT"),
+                InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
+            ],
+        };
+
+        let report = build_option_universe_resolution_report(&spec, &resolved);
+        assert_eq!(report.venue_id, "deribit_main");
+        assert_eq!(report.underlying, "BTC");
+        assert_eq!(report.resolved_at_ns, 11);
+        assert_eq!(report.selected_expiry_ns, 22);
+        assert_eq!(report.atm_reference, "62393.25");
+        assert_eq!(report.selected_strikes, vec!["62000", "62500"]);
+        assert_eq!(
+            report.perp_instrument_id.as_deref(),
+            Some("BTC-PERPETUAL.DERIBIT")
+        );
+    }
+
+    #[test]
+    fn render_option_universe_reports_json_pretty_prints() {
+        let reports = vec![OptionUniverseResolutionReport {
+            venue_id: "okx_main".to_string(),
+            underlying: "BTC".to_string(),
+            resolved_at_ns: 1,
+            selected_expiry_ns: 2,
+            atm_reference: "62469.8".to_string(),
+            selected_strikes: vec!["62250".to_string(), "62500".to_string()],
+            perp_instrument_id: Some("BTC-USD-SWAP.OKX".to_string()),
+            option_instrument_ids: vec!["BTC-USD-260620-62500-C.OKX".to_string()],
+            all_instrument_ids: vec![
+                "BTC-USD-260620-62500-C.OKX".to_string(),
+                "BTC-USD-SWAP.OKX".to_string(),
+            ],
+        }];
+
+        let rendered =
+            render_option_universe_reports_json(&reports).expect("json rendering should succeed");
+        assert!(rendered.contains("\"venue_id\": \"okx_main\""));
+        assert!(rendered.contains("\"selected_strikes\""));
+        assert!(rendered.contains('\n'));
     }
 }
