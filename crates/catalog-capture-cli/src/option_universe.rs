@@ -14,6 +14,10 @@ use nautilus_deribit::{
     http::{client::DeribitHttpClient, models::DeribitBookSummary, models::DeribitProductType},
 };
 use nautilus_model::{identifiers::InstrumentId, types::Price};
+use nautilus_okx::{
+    common::enums::{OKXEnvironment, OKXInstrumentType},
+    http::client::OKXHttpClient,
+};
 use ustr::Ustr;
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
@@ -30,8 +34,11 @@ pub async fn materialize_capture_plan(config: &EffectiveConfig) -> Result<Captur
             VenueRuntimeConfig::Bybit { environment, .. } => {
                 resolve_bybit_option_universe(spec, *environment).await?
             }
+            VenueRuntimeConfig::Okx { environment, .. } => {
+                resolve_okx_option_universe(spec, *environment).await?
+            }
             _ => bail!(
-                "capture.option_universe currently only supports Deribit/Bybit venues; got venue_id `{}`",
+                "capture.option_universe currently only supports Deribit/Bybit/OKX venues; got venue_id `{}`",
                 spec.venue_id
             ),
         };
@@ -96,8 +103,42 @@ fn validate_option_universe(
                 );
             }
         }
+        VenueRuntimeConfig::Okx {
+            instrument_types,
+            instrument_families,
+            ..
+        } => {
+            if !instrument_types.contains(&OKXInstrumentType::Option) {
+                bail!(
+                    "capture.option_universe venue_id `{}` requires okx instrument_types to include \"option\"",
+                    spec.venue_id
+                );
+            }
+            if spec.include_perp && !instrument_types.contains(&OKXInstrumentType::Swap) {
+                bail!(
+                    "capture.option_universe venue_id `{}` with include_perp = true requires okx instrument_types to include \"swap\"",
+                    spec.venue_id
+                );
+            }
+            let Some(settlement_currency) = spec.settlement_currency.as_deref() else {
+                bail!(
+                    "capture.option_universe venue_id `{}` requires settlement_currency for OKX option universe resolution",
+                    spec.venue_id
+                );
+            };
+            let expected_family = format!("{}-{settlement_currency}", spec.underlying);
+            if instrument_families
+                .as_ref()
+                .is_none_or(|families| !families.iter().any(|family| family == &expected_family))
+            {
+                bail!(
+                    "capture.option_universe venue_id `{}` requires okx instrument_families to include `{expected_family}`",
+                    spec.venue_id
+                );
+            }
+        }
         _ => bail!(
-            "capture.option_universe currently only supports [[venues]] entries with kind = \"deribit\" or \"bybit\""
+            "capture.option_universe currently only supports [[venues]] entries with kind = \"deribit\", \"bybit\", or \"okx\""
         ),
     }
 
@@ -215,6 +256,46 @@ async fn resolve_bybit_option_universe(
     .map_err(anyhow::Error::from)
 }
 
+async fn resolve_okx_option_universe(
+    spec: &OptionUniverseSpec,
+    environment: OKXEnvironment,
+) -> Result<ResolvedOptionUniverse> {
+    let client = OKXHttpClient::new(None, 30, 3, 500, 5_000, environment, None)
+        .context("failed to create OKX HTTP client for option universe resolution")?;
+    let instrument_family = okx_instrument_family(spec)?;
+    let (option_instruments, _) = client
+        .request_instruments(OKXInstrumentType::Option, Some(instrument_family.clone()))
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request OKX option instruments for family {}",
+                instrument_family
+            )
+        })?;
+    for instrument in &option_instruments {
+        client.cache_instrument(instrument.clone());
+    }
+
+    let atm_reference = request_okx_atm_reference(&client, spec).await?;
+    let perp_instrument_id = spec
+        .include_perp
+        .then(|| derive_okx_swap_id(spec))
+        .transpose()?;
+    let normalized_spec = OptionUniverseSpec {
+        settlement_currency: None,
+        ..spec.clone()
+    };
+
+    resolve_option_universe(
+        &normalized_spec,
+        &option_instruments,
+        nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+        atm_reference,
+        perp_instrument_id,
+    )
+    .map_err(anyhow::Error::from)
+}
+
 async fn request_deribit_atm_reference(
     client: &DeribitHttpClient,
     spec: &OptionUniverseSpec,
@@ -247,6 +328,23 @@ async fn request_bybit_atm_reference(
         })?;
 
     select_bybit_atm_reference(&tickers, &spec.underlying)
+}
+
+async fn request_okx_atm_reference(
+    client: &OKXHttpClient,
+    spec: &OptionUniverseSpec,
+) -> Result<Price> {
+    let forward_prices = client
+        .request_forward_prices(&spec.underlying, None)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request OKX option forward prices for underlying {}",
+                spec.underlying
+            )
+        })?;
+
+    select_okx_atm_reference(&forward_prices, &spec.underlying)
 }
 
 fn select_deribit_atm_reference(
@@ -286,6 +384,22 @@ fn select_bybit_atm_reference(tickers: &[BybitTickerOption], underlying: &str) -
     Ok(Price::from(ticker.underlying_price.as_str()))
 }
 
+fn select_okx_atm_reference(
+    forward_prices: &[nautilus_model::data::ForwardPrice],
+    underlying: &str,
+) -> Result<Price> {
+    let Some(forward_price) = forward_prices.first() else {
+        bail!(
+            "no OKX forward prices were returned for underlying {}",
+            underlying
+        );
+    };
+
+    Ok(Price::from(
+        forward_price.forward_price.to_string().as_str(),
+    ))
+}
+
 fn derive_deribit_perpetual_id(underlying: &str) -> Result<InstrumentId> {
     Ok(InstrumentId::from_str(
         format!("{underlying}-PERPETUAL.DERIBIT").as_str(),
@@ -303,6 +417,22 @@ fn derive_bybit_linear_perpetual_id(spec: &OptionUniverseSpec) -> Result<Instrum
     Ok(InstrumentId::from_str(
         format!("{}{}-LINEAR.BYBIT", spec.underlying, settlement_currency).as_str(),
     )?)
+}
+
+fn derive_okx_swap_id(spec: &OptionUniverseSpec) -> Result<InstrumentId> {
+    Ok(InstrumentId::from_str(
+        format!("{}-SWAP.OKX", okx_instrument_family(spec)?).as_str(),
+    )?)
+}
+
+fn okx_instrument_family(spec: &OptionUniverseSpec) -> Result<String> {
+    let settlement_currency = spec.settlement_currency.as_deref().with_context(|| {
+        format!(
+            "capture.option_universe venue_id `{}` requires settlement_currency for OKX option universe resolution",
+            spec.venue_id
+        )
+    })?;
+    Ok(format!("{}-{settlement_currency}", spec.underlying))
 }
 
 fn log_resolved_option_universe(spec: &OptionUniverseSpec, resolved: &ResolvedOptionUniverse) {
@@ -448,5 +578,54 @@ mod tests {
         let instrument_id =
             derive_bybit_linear_perpetual_id(&spec).expect("perpetual id should build");
         assert_eq!(instrument_id, InstrumentId::from("BTCUSDT-LINEAR.BYBIT"));
+    }
+
+    #[test]
+    fn select_okx_atm_reference_uses_first_forward_price() {
+        let forward_prices = vec![
+            nautilus_model::data::ForwardPrice::new(
+                InstrumentId::from("BTC-USD-260620-62000-C.OKX"),
+                Decimal::from_str("62412.5").unwrap(),
+                Some("BTC-USD".to_string()),
+                1.into(),
+                2.into(),
+            ),
+            nautilus_model::data::ForwardPrice::new(
+                InstrumentId::from("BTC-USD-260620-62500-C.OKX"),
+                Decimal::from_str("62420").unwrap(),
+                Some("BTC-USD".to_string()),
+                1.into(),
+                2.into(),
+            ),
+        ];
+
+        let price = select_okx_atm_reference(&forward_prices, "BTC").expect("price should resolve");
+        assert_eq!(price, Price::from("62412.5"));
+    }
+
+    #[test]
+    fn select_okx_atm_reference_fails_when_missing_forward_prices() {
+        let err =
+            select_okx_atm_reference(&[], "BTC").expect_err("missing forward prices should fail");
+        assert!(err.to_string().contains("forward prices"));
+    }
+
+    #[test]
+    fn derive_okx_swap_id_builds_expected_symbol() {
+        let spec = OptionUniverseSpec {
+            venue_id: "okx_main".to_string(),
+            underlying: "BTC".to_string(),
+            settlement_currency: Some("USD".to_string()),
+            include_perp: true,
+            families: vec![OptionUniverseFamily::Quotes],
+            expiry_policy: catalog_capture_core::ExpiryPolicy::Nearest { days_max: 45 },
+            strike_policy: catalog_capture_core::StrikePolicy::AtmRelative {
+                strikes_above: 1,
+                strikes_below: 1,
+            },
+        };
+
+        let instrument_id = derive_okx_swap_id(&spec).expect("swap id should build");
+        assert_eq!(instrument_id, InstrumentId::from("BTC-USD-SWAP.OKX"));
     }
 }

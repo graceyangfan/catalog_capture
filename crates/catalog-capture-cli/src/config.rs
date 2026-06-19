@@ -1393,6 +1393,138 @@ mod tests {
     }
 
     #[test]
+    fn validate_runtime_accepts_okx_option_universe() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "okx_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: Some("USD".to_string()),
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                        "index_prices".to_string(),
+                        "funding_rates".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "okx_main".to_string(),
+                kind: "okx".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: Vec::new(),
+                instrument_types: vec!["swap".to_string(), "option".to_string()],
+                instrument_families: vec!["BTC-USD".to_string()],
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        validate_runtime(&effective).expect("valid okx option universe should pass");
+    }
+
+    #[test]
+    fn validate_runtime_rejects_okx_option_universe_without_settlement_currency() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "okx_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: None,
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "okx_main".to_string(),
+                kind: "okx".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: Vec::new(),
+                instrument_types: vec!["swap".to_string(), "option".to_string()],
+                instrument_families: vec!["BTC-USD".to_string()],
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective)
+            .expect_err("missing settlement_currency should fail for okx");
+        assert!(err.to_string().contains("requires settlement_currency"));
+    }
+
+    #[test]
+    fn validate_runtime_rejects_okx_option_universe_without_matching_instrument_family() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "okx_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: Some("USD".to_string()),
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "okx_main".to_string(),
+                kind: "okx".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: Vec::new(),
+                instrument_types: vec!["swap".to_string(), "option".to_string()],
+                instrument_families: vec!["ETH-USD".to_string()],
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective)
+            .expect_err("missing matching instrument_family should fail for okx");
+        assert!(err.to_string().contains("instrument_families"));
+    }
+
+    #[test]
     fn example_deribit_dvol_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-dvol.toml");
         let loaded = load_config(&path).expect("example should load");
@@ -1419,6 +1551,14 @@ mod tests {
     #[test]
     fn example_bybit_option_universe_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.bybit-btc-universe.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_okx_option_universe_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.okx-btc-universe.toml");
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");
