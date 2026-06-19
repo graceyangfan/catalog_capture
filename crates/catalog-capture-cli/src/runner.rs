@@ -360,6 +360,7 @@ fn build_dynamic_option_universe_config(
             venue_kind,
             spec: spec.clone(),
             initial_plan,
+            initial_resolved: resolved,
         });
     }
 

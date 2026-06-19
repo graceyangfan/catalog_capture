@@ -151,6 +151,29 @@ pub fn derive_perp_instrument_id(
     })
 }
 
+pub fn option_instrument_ids_at_selected_expiry(
+    spec: &OptionUniverseSpec,
+    instruments: &[InstrumentAny],
+    now: UnixNanos,
+) -> Result<(UnixNanos, Vec<InstrumentId>), OptionUniverseResolveError> {
+    let matching_options = collect_matching_options(spec, instruments, now);
+    if matching_options.is_empty() {
+        return Err(OptionUniverseResolveError::NoMatchingOptions {
+            venue_id: spec.venue_id.clone(),
+            underlying: spec.underlying.clone(),
+        });
+    }
+
+    let selected_expiry_ns = select_expiry(spec, &matching_options, now)?;
+    let instrument_ids = matching_options
+        .iter()
+        .filter(|option| option.expiration_ns == selected_expiry_ns)
+        .map(|option| option.instrument_id)
+        .collect();
+
+    Ok((selected_expiry_ns, instrument_ids))
+}
+
 pub fn select_nearest_expiry_reference_instrument_id(
     spec: &OptionUniverseSpec,
     instruments: &[InstrumentAny],

@@ -81,9 +81,11 @@
   - `option_greeks`
   - `bars`
   - `book_deltas`
-- `custom_data` 目前还没有通过 CLI 暴露。
-- `index_prices`、`funding_rates`、`option_chains` 还没有纳入当前 capture plan。
-- 当前 CLI runtime 仍然主要是 `binance_futures` 验证路径，不是多交易所期权采集框架。
+- `custom_data` 已有示例 profile（如 DVOL / OI），但尚未纳入标准 `option_universe`
+  families 自动展开。
+- `index_prices`、`funding_rates` 已通过 `capture.option_universe.families` 和显式
+  `[[capture.*]]` 支持；`option_chains` 与显式 `ForwardPrice` capture 仍待补齐。
+- 期权 universe 已支持 Deribit / Bybit / OKX；Binance / Derive 仍在 roadmap。
 
 这意味着：  
 当前仓库已经具备“研究级采集器”的基本雏形，但离“真正适合期权 ML 与跨 venue 衍生品研究”的第一版，还缺关键数据面和更好的配置抽象。
@@ -375,10 +377,9 @@
 
 建议录制：
 
-- `custom_data`
-- 后续补 `index_prices`
-- 后续补 `funding_rates`
-- 定时 instrument universe snapshot
+- `custom_data`（OI、DVOL、liquidations）
+- `index_prices` / `funding_rates`（hedge leg；`option_universe` profile 已默认包含）
+- 定时 instrument universe snapshot（`metadata/option_universe_resolutions.jsonl`）
 
 用途：
 
@@ -458,6 +459,19 @@
 - capture job name
 
 这样回头才能解释“为什么这个月和上个月的字段、精度或覆盖范围不一样”。
+
+## Derivatives Monkey 能力映射（capture 视角）
+
+| DM 面板 / 概念 | 所需原始数据 | 当前 `option_universe` 覆盖 | 缺口 |
+|---|---|---|---|
+| Trade Tape | 期权 `trades` | 未默认纳入 universe families | 在 profile 中加 `trades` |
+| IV surface / skew | 全链 quotes + greeks | 近月 ATM±N | Step 9a 全链 / OI-ranked |
+| GEX / Key Levels | greeks + OI + 参考 spot | greeks 有；OI / 参考 spot 无 | `custom_data` + 参考现货 profile |
+| ATM IV vs RV / DVOL | 连续 ATM IV + 波动率指数 | 近月窗口 greeks | DVOL `custom_data` |
+| Cross-venue divergence | 多 venue 同时采集 + provenance | 单 job 单 venue；JSONL lineage 有 | 多 profile 并行 + 更广 universe |
+
+原则不变：**capture 采原始事件，DM 面板离线复算**。Strike 选型使用 per-expiry
+forward（`underlying_price` / forward API），perp 仅作 hedge leg。
 
 ## 对当前仓库的具体建议
 

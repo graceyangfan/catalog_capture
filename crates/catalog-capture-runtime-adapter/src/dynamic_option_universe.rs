@@ -2,8 +2,9 @@ use std::collections::BTreeSet;
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    derive_perp_instrument_id, expand_option_universe, merge_capture_plans,
-    refresh_resolution_record, resolve_option_universe, select_cache_atm_reference, CapturePlan,
+    compute_refresh_rollover_reason, derive_perp_instrument_id, expand_option_universe,
+    merge_capture_plans, option_instrument_ids_at_selected_expiry, refresh_resolution_record,
+    resolve_option_universe, select_cache_perp_strike_fallback, AtmReferenceSource, CapturePlan,
     MarkPriceCaptureSpec, OptionUniverseResolutionRecord, OptionUniverseSpec,
     OptionUniverseVenueKind, QuoteCaptureSpec, ResolvedOptionUniverse,
 };
@@ -31,6 +32,7 @@ pub struct DynamicOptionUniverseEntryConfig {
     pub venue_kind: OptionUniverseVenueKind,
     pub spec: OptionUniverseSpec,
     pub initial_plan: CapturePlan,
+    pub initial_resolved: ResolvedOptionUniverse,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -67,6 +69,8 @@ struct DynamicOptionUniverseState {
     venue_kind: OptionUniverseVenueKind,
     spec: OptionUniverseSpec,
     current_plan: CapturePlan,
+    last_selected_expiry_ns: Option<u64>,
+    last_atm_reference: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +91,8 @@ impl DynamicOptionUniverseManager {
                 venue: entry.venue,
                 venue_kind: entry.venue_kind,
                 spec: entry.spec,
+                last_selected_expiry_ns: Some(entry.initial_resolved.selected_expiry_ns.as_u64()),
+                last_atm_reference: Some(entry.initial_resolved.atm_reference.to_string()),
             })
             .collect();
 
@@ -134,6 +140,12 @@ impl DynamicOptionUniverseManager {
                         let added_instrument_ids = instrument_id_difference(&next_ids, &previous_ids);
                         let removed_instrument_ids =
                             instrument_id_difference(&previous_ids, &next_ids);
+                        let rollover_reason = compute_refresh_rollover_reason(
+                            state.last_selected_expiry_ns,
+                            &resolved,
+                            state.last_atm_reference.as_deref(),
+                            true,
+                        );
                         changes.push(DynamicOptionUniverseChange {
                             venue_id: state.spec.venue_id.clone(),
                             underlying: state.spec.underlying.clone(),
@@ -159,8 +171,11 @@ impl DynamicOptionUniverseManager {
                                 .iter()
                                 .map(ToString::to_string)
                                 .collect(),
+                            rollover_reason,
                         ));
                     }
+                    state.last_selected_expiry_ns = Some(resolved.selected_expiry_ns.as_u64());
+                    state.last_atm_reference = Some(resolved.atm_reference.to_string());
                     state.current_plan = next_plan.clone();
                     next_dynamic_plan = merge_capture_plans(&next_dynamic_plan, &next_plan);
                 }
@@ -208,12 +223,17 @@ fn resolve_runtime_option_universe(
         .cloned()
         .collect::<Vec<InstrumentAny>>();
 
-    let reference_perp = derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
     let (atm_reference, atm_reference_source) =
-        select_runtime_atm_reference(cache, reference_perp).with_context(|| {
-            format!("failed to determine ATM reference from {}", reference_perp)
+        select_runtime_strike_reference(cache, spec, venue, venue_kind, now).with_context(|| {
+            format!(
+                "failed to determine strike reference for venue_id={} underlying={}",
+                spec.venue_id, spec.underlying
+            )
         })?;
-    let perp_instrument_id = spec.include_perp.then_some(reference_perp);
+    let perp_instrument_id = spec
+        .include_perp
+        .then(|| derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from))
+        .transpose()?;
 
     let mut resolved = resolve_option_universe(
         spec,
@@ -226,20 +246,59 @@ fn resolve_runtime_option_universe(
     Ok(resolved)
 }
 
-fn select_runtime_atm_reference(
+fn select_runtime_strike_reference(
     cache: &Cache,
-    instrument_id: InstrumentId,
+    spec: &OptionUniverseSpec,
+    venue: Venue,
+    venue_kind: OptionUniverseVenueKind,
+    now: UnixNanos,
 ) -> Result<(Price, String)> {
+    let underlying = Ustr::from(spec.underlying.as_str());
+    let option_instruments = cache
+        .instruments(&venue, Some(&underlying))
+        .into_iter()
+        .cloned()
+        .collect::<Vec<InstrumentAny>>();
+
+    let (_, instrument_ids) =
+        option_instrument_ids_at_selected_expiry(spec, &option_instruments, now)
+            .map_err(anyhow::Error::from)?;
+
+    for instrument_id in instrument_ids {
+        let Some(greeks) = cache.option_greeks(&instrument_id) else {
+            continue;
+        };
+        let Some(underlying_price) = greeks.underlying_price else {
+            continue;
+        };
+        let price = Price::from(format!("{underlying_price}").as_str());
+        return Ok((
+            price,
+            AtmReferenceSource::CacheGreeksUnderlyingPrice
+                .as_str()
+                .to_string(),
+        ));
+    }
+
+    let reference_perp = derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
     let quote_mid = cache
-        .quote(&instrument_id)
+        .quote(&reference_perp)
         .map(|quote| quote.extract_price(PriceType::Mid));
-    let mark = cache.mark_price(&instrument_id).map(|update| update.value);
-    let index = cache.index_price(&instrument_id).map(|update| update.value);
-    if let Some((price, source)) = select_cache_atm_reference(mark, quote_mid, index) {
+    let mark = cache
+        .mark_price(&reference_perp)
+        .map(|update| update.value);
+    let index = cache
+        .index_price(&reference_perp)
+        .map(|update| update.value);
+    if let Some((price, source)) = select_cache_perp_strike_fallback(mark, quote_mid, index) {
         return Ok((price, source.as_str().to_string()));
     }
 
-    bail!("no mark/quote/index price available in cache for {}", instrument_id)
+    bail!(
+        "no option greeks underlying_price or perp fallback reference available for venue_id={} underlying={}",
+        spec.venue_id,
+        spec.underlying
+    )
 }
 
 fn capture_plan_difference(left: &CapturePlan, right: &CapturePlan) -> CapturePlan {
@@ -327,8 +386,8 @@ mod tests {
     };
     use nautilus_common::cache::Cache;
     use nautilus_model::{
-        data::QuoteTick,
-        enums::OptionKind,
+        data::{OptionGreekValues, OptionGreeks, QuoteTick},
+        enums::{GreeksConvention, OptionKind},
         identifiers::Symbol,
         instruments::{CryptoOption, CryptoPerpetual, InstrumentAny},
         types::{Currency, Money, Quantity},
@@ -493,6 +552,27 @@ mod tests {
         )
     }
 
+    fn make_option_greeks(instrument_id: InstrumentId, underlying_price: f64) -> OptionGreeks {
+        OptionGreeks {
+            instrument_id,
+            convention: GreeksConvention::PriceAdjusted,
+            greeks: OptionGreekValues {
+                delta: 0.5,
+                gamma: 0.1,
+                vega: 0.2,
+                theta: -0.1,
+                rho: 0.01,
+            },
+            bid_iv: None,
+            ask_iv: None,
+            mark_iv: Some(0.45),
+            underlying_price: Some(underlying_price),
+            open_interest: None,
+            ts_event: UnixNanos::default(),
+            ts_init: UnixNanos::default(),
+        }
+    }
+
     #[test]
     fn capture_plan_difference_tracks_added_and_removed_instruments() {
         let btc_perp = InstrumentId::from("BTC-PERPETUAL.DERIBIT");
@@ -583,7 +663,6 @@ mod tests {
     fn refresh_from_cache_reports_atm_rotation_change() {
         let now = UnixNanos::from(1_781_740_800_000_000_000u64);
         let venue = Venue::from("DERIBIT");
-        let perp = InstrumentId::from("BTC-PERPETUAL.DERIBIT");
         let mut cache = Cache::default();
 
         for instrument in make_btc_option_set() {
@@ -601,9 +680,10 @@ mod tests {
         .unwrap_err();
         assert!(missing_reference_error
             .to_string()
-            .contains("failed to determine ATM reference"));
+            .contains("failed to determine strike reference"));
 
-        cache.add_quote(make_quote(perp, "64990", "65010")).unwrap();
+        let reference_call = InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT");
+        cache.add_option_greeks(make_option_greeks(reference_call, 65_000.0));
 
         let initial_resolved = resolve_runtime_option_universe(
             &cache,
@@ -613,6 +693,10 @@ mod tests {
             OptionUniverseVenueKind::Deribit,
         )
         .unwrap();
+        assert_eq!(
+            initial_resolved.atm_reference_source.as_deref(),
+            Some("cache_greeks_underlying_price")
+        );
         let initial_plan = expand_option_universe(&spec(), &initial_resolved);
         let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
@@ -623,17 +707,22 @@ mod tests {
                 venue_kind: OptionUniverseVenueKind::Deribit,
                 spec: spec(),
                 initial_plan,
+                initial_resolved: initial_resolved.clone(),
             }],
         });
 
-        cache.add_quote(make_quote(perp, "65990", "66010")).unwrap();
+        cache.add_option_greeks(make_option_greeks(reference_call, 66_000.0));
         let delta = manager.refresh_from_cache(&cache, now).unwrap();
 
         assert_eq!(delta.changes.len(), 1);
         assert_eq!(delta.resolution_records.len(), 1);
         assert_eq!(
             delta.resolution_records[0].atm_reference_source,
-            "cache_quote_mid"
+            "cache_greeks_underlying_price"
+        );
+        assert_eq!(
+            delta.resolution_records[0].rollover_reason.as_deref(),
+            Some("atm_drift")
         );
         let change = &delta.changes[0];
         assert_eq!(change.venue_id, "deribit_main");
@@ -703,6 +792,7 @@ mod tests {
                 venue_kind: OptionUniverseVenueKind::Deribit,
                 spec: spec(),
                 initial_plan,
+                initial_resolved: initial_resolved.clone(),
             }],
         });
 
@@ -870,7 +960,6 @@ mod tests {
     fn refresh_from_cache_supports_bybit_runtime_resolve() {
         let now = UnixNanos::from(1_781_740_800_000_000_000u64);
         let venue = Venue::from("BYBIT");
-        let perp = InstrumentId::from("BTCUSDT-LINEAR.BYBIT");
         let mut cache = Cache::default();
 
         for instrument in [
@@ -926,7 +1015,8 @@ mod tests {
             cache.add_instrument(instrument).unwrap();
         }
         cache.add_instrument(make_bybit_perpetual()).unwrap();
-        cache.add_quote(make_quote(perp, "64990", "65010")).unwrap();
+        let reference_call = InstrumentId::from("BTC-26JUN26-64000-C.BYBIT");
+        cache.add_option_greeks(make_option_greeks(reference_call, 65_000.0));
 
         let initial_resolved = resolve_runtime_option_universe(
             &cache,
@@ -946,13 +1036,18 @@ mod tests {
                 venue_kind: OptionUniverseVenueKind::Bybit,
                 spec: bybit_spec(),
                 initial_plan,
+                initial_resolved: initial_resolved.clone(),
             }],
         });
 
-        cache.add_quote(make_quote(perp, "65990", "66010")).unwrap();
+        cache.add_option_greeks(make_option_greeks(reference_call, 66_000.0));
         let delta = manager.refresh_from_cache(&cache, now).unwrap();
 
         assert_eq!(delta.changes.len(), 1);
+        assert_eq!(
+            delta.resolution_records[0].rollover_reason.as_deref(),
+            Some("atm_drift")
+        );
         assert_eq!(delta.changes[0].venue_id, "bybit_main");
         assert_eq!(
             delta.changes[0].added_instrument_ids,

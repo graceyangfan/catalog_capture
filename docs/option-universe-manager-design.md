@@ -115,9 +115,9 @@ currently:
 Stock Nautilus capture actors do not expose a generic API to mutate plans or
 apply universe deltas. V1.5 adds a project-local path in
 `catalog-capture-runtime-adapter` (`DynamicOptionUniverseManager` +
-`CatalogCaptureActor::apply_dynamic_option_universe_refresh`) for Deribit only.
-Any design claiming runtime refresh without actor changes would still be
-incorrect for upstream Nautilus today.
+`CatalogCaptureActor::apply_dynamic_option_universe_refresh`) for Deribit,
+Bybit, and OKX. Any design claiming runtime refresh without actor changes would
+still be incorrect for upstream Nautilus today.
 
 ### Adapter behavior on missing instruments
 
@@ -441,11 +441,25 @@ Constraints:
 
 ### V2
 
-Potential future features:
-- expiry rollover smoothing and persisted resolution metadata
+**Status: partially implemented (2026-06).**
+
+Shipped:
+
+- persisted universe-resolution metadata at
+  `metadata/option_universe_resolutions.jsonl`
+- `atm_reference_source` lineage on each resolve/refresh event
+- per-expiry **strike reference** via venue `underlying_price` / forward API
+  (Deribit/Bybit option ticker or book summary; OKX forward price API)
+- runtime refresh rollover reasons: `expiry_roll`, `atm_drift`,
+  `strike_window_shift`
+
+Still future:
+
+- expiry rollover smoothing
 - multi-consumer sharing
 - strategy and dashboard consumers
 - OI-ranked / liquidity-ranked selection (full Step 9a)
+- explicit `ForwardPrice` capture family
 
 ## Resolve Algorithm For V1
 
@@ -464,37 +478,69 @@ For Deribit BTC, the V1 algorithm should be deterministic:
 11. optionally add the perpetual hedge instrument
 12. expand the configured families into explicit capture specs
 
-## ATM Reference Policy
+## Strike Reference vs Hedge Reference
 
-This must be deterministic in V1.
+Universe resolution uses two distinct price concepts:
 
-V1 cannot assume quote / mark / index data already exists in cache at resolve
-time. After data-client connect, instruments are typically available first while
-price-bearing market data may still be absent.
+| Concept | Purpose | Source |
+|---|---|---|
+| `strike_reference` | choose ATM±N strikes | per-expiry forward / `underlying_price` |
+| `hedge_reference` | capture perp/swap hedge leg | perp mark / index / funding families |
 
-Therefore, **V1 ATM resolution uses a venue HTTP/public-data preflight step
-before falling back to cache-resident market data**.
+This matches exchange option semantics (IV is computed against a per-expiry
+forward) and Derivatives Monkey-style analytics, where spot is used for
+**downstream** GEX display rather than strike selection at capture time.
 
-### Deribit BTC fallback order
+### Capture vs analytics (Derivatives Monkey alignment)
 
-Canonical hedge/reference instrument:
+- **Capture layer** (this manager): record raw quotes, trades, greeks, hedge-leg
+  mark/index/funding, and provenance metadata.
+- **Analytics layer** (DM panels): GEX, IV surface, key levels, and cross-venue
+  divergence are offline recomputations from captured raw events.
 
-- `BTC-PERPETUAL.DERIBIT`
+9a-lite does **not** replicate DM full-chain scope. It only keeps a rolling
+near-expiry ATM window continuously recorded.
 
-Canonical index-related reference family:
+## Strike Reference Policy
 
-- `IndexPriceUpdate` for `BTC-PERPETUAL.DERIBIT`
+Strike selection must be deterministic.
 
-Fallback order:
+Startup preflight cannot assume option greeks already exist in cache. Therefore
+**startup strike resolution uses venue HTTP/public data for the selected expiry**
+before any perp hedge fallback.
 
-1. Deribit HTTP/public ticker reference for `BTC-PERPETUAL.DERIBIT`
-2. cached `BTC-PERPETUAL.DERIBIT` mark-like reference if available
-3. cached `BTC-PERPETUAL.DERIBIT` quote midpoint if available
-4. cached `IndexPriceUpdate` for `BTC-PERPETUAL.DERIBIT` if available
-5. fail universe resolution
+### Deribit / Bybit startup order
 
-V1 should **not** silently guess ATM from arbitrary option strikes when no
-underlying reference exists.
+After the nearest expiry is chosen:
+
+1. HTTP option ticker `underlying_price` on a reference contract at that expiry
+2. Deribit only: HTTP book summary `underlying_price` at the same expiry
+3. fail universe resolution (do not use perp mark for strike selection)
+
+### OKX startup order
+
+After the nearest expiry is chosen:
+
+1. OKX forward price API for the reference instrument at that expiry
+2. fail universe resolution
+
+### Runtime refresh order
+
+After the live node has started and greeks are flowing:
+
+1. cached `OptionGreeks.underlying_price` on contracts at the selected expiry
+2. cached perp mark / quote mid / index as **strike fallback only**
+   (`cache_perp_*_strike_fallback` sources)
+3. fail refresh for that universe (keep the previous plan)
+
+### Hedge leg (unchanged)
+
+When `include_perp = true`, the hedge instrument remains venue-native perp/swap
+(for example `BTC-PERPETUAL.DERIBIT`). Capture families `index_prices` and
+`funding_rates` attach to that hedge leg, not to the strike reference.
+
+V1 should **not** silently guess strike reference from arbitrary option strikes
+when no per-expiry forward exists.
 
 ### Tie-break rule
 
@@ -625,8 +671,9 @@ When multiple `[[venues]]` entries exist:
 2. resolve each `OptionUniverseSpec` against its `venue_id`
 3. merge all expanded specs into one final `CapturePlan`
 
-V1 option universe resolution still only targets Deribit, but the lifecycle
-should already be documented in multi-venue terms to avoid future ambiguity.
+V1 option universe resolution targets Deribit, Bybit, and OKX. Binance and
+Derive remain out of scope for V1/V2. The lifecycle is documented in multi-venue
+terms to avoid ambiguity when additional venues are added.
 
 ### Strike policy naming
 

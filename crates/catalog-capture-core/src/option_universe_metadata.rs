@@ -105,13 +105,8 @@ pub fn refresh_resolution_record(
     resolved: &ResolvedOptionUniverse,
     added_instrument_ids: Vec<String>,
     removed_instrument_ids: Vec<String>,
+    rollover_reason: Option<String>,
 ) -> OptionUniverseResolutionRecord {
-    let rollover_reason = if added_instrument_ids.is_empty() && removed_instrument_ids.is_empty() {
-        None
-    } else {
-        Some("instrument_set_changed".to_string())
-    };
-
     resolution_record(
         OptionUniverseResolutionEventKind::Refresh,
         venue_id,
@@ -121,6 +116,33 @@ pub fn refresh_resolution_record(
         removed_instrument_ids,
         rollover_reason,
     )
+}
+
+#[must_use]
+pub fn compute_refresh_rollover_reason(
+    previous_expiry_ns: Option<u64>,
+    resolved: &ResolvedOptionUniverse,
+    previous_atm_reference: Option<&str>,
+    instruments_changed: bool,
+) -> Option<String> {
+    if !instruments_changed {
+        return None;
+    }
+
+    if let Some(previous_expiry_ns) = previous_expiry_ns {
+        if previous_expiry_ns != resolved.selected_expiry_ns.as_u64() {
+            return Some("expiry_roll".to_string());
+        }
+    }
+
+    let current_atm = resolved.atm_reference.to_string();
+    if let Some(previous_atm_reference) = previous_atm_reference {
+        if previous_atm_reference != current_atm.as_str() {
+            return Some("atm_drift".to_string());
+        }
+    }
+
+    Some("strike_window_shift".to_string())
 }
 
 fn resolution_record(
@@ -196,6 +218,38 @@ mod tests {
                 InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
             ],
         }
+    }
+
+    #[test]
+    fn compute_refresh_rollover_reason_prefers_expiry_roll() {
+        let resolved = sample_resolved();
+        assert_eq!(
+            compute_refresh_rollover_reason(
+                Some(resolved.selected_expiry_ns.as_u64().saturating_sub(1)),
+                &resolved,
+                Some("65000"),
+                true
+            ),
+            Some("expiry_roll".to_string())
+        );
+        assert_eq!(
+            compute_refresh_rollover_reason(
+                Some(resolved.selected_expiry_ns.as_u64()),
+                &resolved,
+                Some("64900"),
+                true
+            ),
+            Some("atm_drift".to_string())
+        );
+        assert_eq!(
+            compute_refresh_rollover_reason(
+                Some(resolved.selected_expiry_ns.as_u64()),
+                &resolved,
+                Some("65000"),
+                true
+            ),
+            Some("strike_window_shift".to_string())
+        );
     }
 
     #[test]
