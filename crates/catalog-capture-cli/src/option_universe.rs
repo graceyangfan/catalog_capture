@@ -27,26 +27,7 @@ pub async fn materialize_capture_plan(config: &EffectiveConfig) -> Result<Captur
     let mut plan = config.plan.clone();
 
     for spec in &config.option_universes {
-        let venue = resolve_option_universe_venue(spec, &config.venues)?;
-        let resolved = match venue {
-            VenueRuntimeConfig::Deribit { environment, .. } => {
-                resolve_deribit_option_universe(spec, *environment).await?
-            }
-            VenueRuntimeConfig::Bybit { environment, .. } => {
-                resolve_bybit_option_universe(spec, *environment).await?
-            }
-            VenueRuntimeConfig::Okx { environment, .. } => {
-                resolve_okx_option_universe(spec, *environment).await?
-            }
-            _ => bail!(
-                "capture.option_universe currently only supports Deribit/Bybit/OKX venues; got venue_id `{}`",
-                spec.venue_id
-            ),
-        };
-
-        log_resolved_option_universe(spec, &resolved);
-
-        let expanded = expand_option_universe(spec, &resolved);
+        let expanded = resolve_and_expand_option_universe(spec, &config.venues).await?;
         plan = merge_capture_plans(&plan, &expanded);
     }
 
@@ -171,6 +152,44 @@ fn resolve_option_universe_venue<'a>(
                 spec.venue_id
             )
         })
+}
+
+async fn resolve_and_expand_option_universe(
+    spec: &OptionUniverseSpec,
+    venues: &[VenueRuntimeConfig],
+) -> Result<CapturePlan> {
+    let resolved = resolve_option_universe_spec(spec, venues).await?;
+    log_resolved_option_universe(spec, &resolved);
+    Ok(expand_option_universe(spec, &resolved))
+}
+
+async fn resolve_option_universe_spec(
+    spec: &OptionUniverseSpec,
+    venues: &[VenueRuntimeConfig],
+) -> Result<ResolvedOptionUniverse> {
+    let venue = resolve_option_universe_venue(spec, venues)?;
+    dispatch_option_universe_resolution(spec, venue).await
+}
+
+async fn dispatch_option_universe_resolution(
+    spec: &OptionUniverseSpec,
+    venue: &VenueRuntimeConfig,
+) -> Result<ResolvedOptionUniverse> {
+    match venue {
+        VenueRuntimeConfig::Deribit { environment, .. } => {
+            resolve_deribit_option_universe(spec, *environment).await
+        }
+        VenueRuntimeConfig::Bybit { environment, .. } => {
+            resolve_bybit_option_universe(spec, *environment).await
+        }
+        VenueRuntimeConfig::Okx { environment, .. } => {
+            resolve_okx_option_universe(spec, *environment).await
+        }
+        _ => bail!(
+            "capture.option_universe currently only supports Deribit/Bybit/OKX venues; got venue_id `{}`",
+            spec.venue_id
+        ),
+    }
 }
 
 struct ResolvedVenueInputs {
@@ -471,6 +490,7 @@ fn log_resolved_option_universe(spec: &OptionUniverseSpec, resolved: &ResolvedOp
 
 #[cfg(test)]
 mod tests {
+    use catalog_capture_core::{ExpiryPolicy, StrikePolicy};
     use rust_decimal::Decimal;
 
     use super::*;
@@ -687,5 +707,50 @@ mod tests {
 
         let normalized = normalized_resolution_spec(&spec, true);
         assert_eq!(normalized.settlement_currency, None);
+    }
+
+    #[test]
+    fn resolve_and_expand_option_universe_builds_capture_plan() {
+        let spec = OptionUniverseSpec {
+            venue_id: "deribit_main".to_string(),
+            underlying: "BTC".to_string(),
+            settlement_currency: None,
+            include_perp: true,
+            families: vec![
+                OptionUniverseFamily::Instruments,
+                OptionUniverseFamily::Quotes,
+                OptionUniverseFamily::IndexPrices,
+            ],
+            expiry_policy: ExpiryPolicy::Nearest { days_max: 45 },
+            strike_policy: StrikePolicy::AtmRelative {
+                strikes_above: 1,
+                strikes_below: 0,
+            },
+        };
+        let resolved = ResolvedOptionUniverse {
+            resolved_at_ns: 1.into(),
+            selected_expiry_ns: 2.into(),
+            atm_reference: Price::from("62000"),
+            selected_strikes: vec![Price::from("62000"), Price::from("62500")],
+            perp_instrument_id: Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
+            option_instrument_ids: vec![
+                InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT"),
+                InstrumentId::from("BTC-27JUN26-62000-P.DERIBIT"),
+                InstrumentId::from("BTC-27JUN26-62500-C.DERIBIT"),
+                InstrumentId::from("BTC-27JUN26-62500-P.DERIBIT"),
+            ],
+            all_instrument_ids: vec![
+                InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT"),
+                InstrumentId::from("BTC-27JUN26-62000-P.DERIBIT"),
+                InstrumentId::from("BTC-27JUN26-62500-C.DERIBIT"),
+                InstrumentId::from("BTC-27JUN26-62500-P.DERIBIT"),
+                InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
+            ],
+        };
+
+        let plan = expand_option_universe(&spec, &resolved);
+        assert_eq!(plan.instruments.len(), 5);
+        assert_eq!(plan.quotes.len(), 5);
+        assert_eq!(plan.index_prices.len(), 1);
     }
 }
