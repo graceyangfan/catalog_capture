@@ -19,6 +19,7 @@ except ImportError:  # pragma: no cover - optional local validation dependency.
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 READBACK_PROBE = PROJECT_ROOT / "tests" / "python_catalog_option_universe_probe.py"
+METRICS_PROBE = PROJECT_ROOT / "tests" / "python_option_universe_metrics_probe.py"
 
 VENUE_CONFIGS = {
     "deribit": PROJECT_ROOT / "examples" / "capture.deribit-btc-universe.toml",
@@ -71,6 +72,11 @@ def main() -> int:
         "--skip-readback-probe",
         action="store_true",
         help="Only validate parquet files; skip Nautilus ParquetDataCatalog readback.",
+    )
+    parser.add_argument(
+        "--metrics-probe",
+        action="store_true",
+        help="Print a lightweight ATM/skew metrics snapshot after readback.",
     )
     args = parser.parse_args()
 
@@ -132,6 +138,11 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
     if not args.skip_readback_probe:
         perp_id, option_ids = parse_resolution_output(output)
         run_readback_probe(catalog_dir, perp_id, option_ids)
+        if args.metrics_probe:
+            run_metrics_probe(catalog_dir, perp_id, option_ids)
+    elif args.metrics_probe:
+        perp_id, option_ids = parse_resolution_output(output)
+        run_metrics_probe(catalog_dir, perp_id, option_ids)
 
     if args.cleanup:
         shutil.rmtree(catalog_dir)
@@ -193,6 +204,23 @@ def run_readback_probe(catalog_dir: Path, perp_id: str, option_ids: list[str]) -
     command = [
         sys.executable,
         str(READBACK_PROBE),
+        str(catalog_dir),
+        "--perp-id",
+        perp_id,
+    ]
+    for option_id in option_ids:
+        command.extend(["--option-id", option_id])
+    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+
+
+def run_metrics_probe(catalog_dir: Path, perp_id: str, option_ids: list[str]) -> None:
+    print(
+        f"[metrics] computing snapshot for {len(option_ids)} options plus {perp_id}",
+        flush=True,
+    )
+    command = [
+        sys.executable,
+        str(METRICS_PROBE),
         str(catalog_dir),
         "--perp-id",
         perp_id,

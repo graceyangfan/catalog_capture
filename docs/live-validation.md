@@ -238,16 +238,29 @@ instruments through Nautilus `ParquetDataCatalog` and assert:
 Use `--skip-readback-probe` for file-only validation. Use `--cleanup` to remove generated catalogs
 after a successful run.
 
+Use `--metrics-probe` when the smoke should also compute a lightweight research snapshot from
+the captured parquet:
+
+- `python3 tests/probe_option_universe_smoke.py --venue bybit --seconds 30 --metrics-probe`
+
+The metrics probe reads the same Nautilus catalog and reports:
+
+- latest perp quote mid
+- ATM strike and ATM IV
+- low-put / high-call IV
+- rough risk-reversal and wing-richness proxies
+- per-option latest IV, delta, quote mid, and row counts
+
+These are sanity-check features for validating that the captured option universe can feed later
+Derivatives Monkey-style surface/skew research. They are not a replacement for a full offline
+surface builder or exact 25-delta interpolation.
+
 Current manual smoke results:
 
 - OKX wrote instruments, quotes, option greeks, mark prices, index prices, and funding rates for
   6 BTC options plus `BTC-USD-SWAP.OKX`.
 - Deribit wrote the same required families for 6 BTC options plus `BTC-PERPETUAL.DERIBIT`.
 - Bybit wrote the same required families for 6 BTC options plus `BTCUSDT-LINEAR.BYBIT`.
-
-Bybit currently logs `SubscribeInstrument ... handler not implemented` for explicit instrument
-subscriptions. Instrument metadata still writes from the adapter cache, and the market-data
-families write normally, so this is a known adapter warning rather than a failed universe smoke.
 
 ## Step 5: custom data live validation
 
