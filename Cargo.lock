@@ -1505,6 +1505,7 @@ dependencies = [
  "nautilus-live",
  "nautilus-model",
  "nautilus-okx",
+ "rust_decimal",
  "serde",
  "serde_json",
  "tokio",

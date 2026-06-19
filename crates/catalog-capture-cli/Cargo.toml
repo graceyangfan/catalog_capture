@@ -23,5 +23,6 @@ nautilus-live.workspace = true
 nautilus-model.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+rust_decimal.workspace = true
 tokio.workspace = true
 toml.workspace = true
