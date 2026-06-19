@@ -47,13 +47,19 @@ Current examples and planned validation paths:
   - refresh logs appear only when the resolved member set changes:
     - `Option universe refresh venue_id=... add=[...] remove=[...]`
 - `examples/capture.bybit-btc-universe.toml`
-  - Bybit BTC option universe (CLI resolve only; runtime autorefresh is not supported)
+  - Bybit BTC option universe resolved once at startup
   - resolve: `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.bybit-btc-universe.toml`
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc-universe.toml`
+- `examples/capture.bybit-btc-universe-autorefresh.toml`
+  - Bybit BTC option universe with runtime refresh
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc-universe-autorefresh.toml`
 - `examples/capture.okx-btc-universe.toml`
-  - OKX BTC option universe (CLI resolve only; runtime autorefresh is not supported)
+  - OKX BTC option universe resolved once at startup
   - resolve: `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.okx-btc-universe.toml`
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.okx-btc-universe.toml`
+- `examples/capture.okx-btc-universe-autorefresh.toml`
+  - OKX BTC option universe with runtime refresh
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.okx-btc-universe-autorefresh.toml`
 - `examples/capture.bybit-btc.toml`
   - Step 4b profile: Bybit linear perp + ATM call/put
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc.toml`

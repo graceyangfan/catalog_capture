@@ -331,13 +331,6 @@ fn build_dynamic_option_universe_config(
                 spec.venue_id
             )
         })?;
-        if !venue_kind.supports_runtime_refresh() {
-            bail!(
-                "runtime.option_universe_refresh currently supports Deribit only; got venue_id `{}`",
-                report.venue_id
-            );
-        }
-
         let reference_perp = derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
         if !plan_has_quotes(plan, reference_perp)
             && !plan_has_mark_prices(plan, reference_perp)

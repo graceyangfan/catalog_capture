@@ -1619,4 +1619,20 @@ mod tests {
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");
     }
+
+    #[test]
+    fn example_bybit_option_universe_autorefresh_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.bybit-btc-universe-autorefresh.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_okx_option_universe_autorefresh_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.okx-btc-universe-autorefresh.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
 }

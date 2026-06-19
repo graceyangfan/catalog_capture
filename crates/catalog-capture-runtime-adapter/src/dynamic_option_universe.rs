@@ -748,4 +748,200 @@ mod tests {
             ],
         );
     }
+
+    fn bybit_spec() -> OptionUniverseSpec {
+        OptionUniverseSpec {
+            venue_id: "bybit_main".to_string(),
+            underlying: "BTC".to_string(),
+            settlement_currency: Some("USDT".to_string()),
+            include_perp: true,
+            families: vec![
+                OptionUniverseFamily::Instruments,
+                OptionUniverseFamily::Quotes,
+                OptionUniverseFamily::OptionGreeks,
+                OptionUniverseFamily::IndexPrices,
+                OptionUniverseFamily::FundingRates,
+            ],
+            expiry_policy: ExpiryPolicy::Nearest { days_max: 45 },
+            strike_policy: StrikePolicy::AtmRelative {
+                strikes_above: 1,
+                strikes_below: 1,
+            },
+        }
+    }
+
+    fn make_bybit_option(
+        symbol: &str,
+        strike: &str,
+        kind: OptionKind,
+        expiration_ns: u64,
+    ) -> InstrumentAny {
+        InstrumentAny::CryptoOption(CryptoOption::new(
+            InstrumentId::from(format!("{symbol}.BYBIT").as_str()),
+            Symbol::from(symbol),
+            Currency::from("BTC"),
+            Currency::from("USDT"),
+            Currency::from("USDT"),
+            false,
+            kind,
+            Price::from(strike),
+            UnixNanos::from(1_700_000_000_000_000_000u64),
+            UnixNanos::from(expiration_ns),
+            3,
+            1,
+            Price::from("0.001"),
+            Quantity::from("0.1"),
+            Some(Quantity::from(1)),
+            Some(Quantity::from("0.1")),
+            None,
+            Some(Quantity::from("0.1")),
+            None,
+            Some(Money::new(10.0, Currency::from("USDT"))),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            0.into(),
+            0.into(),
+        ))
+    }
+
+    fn make_bybit_perpetual() -> InstrumentAny {
+        InstrumentAny::CryptoPerpetual(CryptoPerpetual::new(
+            InstrumentId::from("BTCUSDT-LINEAR.BYBIT"),
+            Symbol::from("BTCUSDT"),
+            Currency::from("BTC"),
+            Currency::from("USDT"),
+            Currency::from("USDT"),
+            false,
+            1,
+            1,
+            Price::from("0.5"),
+            Quantity::from("0.1"),
+            None,
+            None,
+            None,
+            None,
+            Some(Money::from("10 USDT")),
+            Some(Money::from("1 USDT")),
+            Some(Price::from("1000000")),
+            Some(Price::from("1")),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            UnixNanos::default(),
+            UnixNanos::default(),
+        ))
+    }
+
+    #[test]
+    fn refresh_from_cache_supports_bybit_runtime_resolve() {
+        let now = UnixNanos::from(1_781_740_800_000_000_000u64);
+        let venue = Venue::from("BYBIT");
+        let perp = InstrumentId::from("BTCUSDT-LINEAR.BYBIT");
+        let mut cache = Cache::default();
+
+        for instrument in [
+            make_bybit_option(
+                "BTC-26JUN26-64000-C",
+                "64000",
+                OptionKind::Call,
+                1_782_432_000_000_000_000,
+            ),
+            make_bybit_option(
+                "BTC-26JUN26-64000-P",
+                "64000",
+                OptionKind::Put,
+                1_782_432_000_000_000_000,
+            ),
+            make_bybit_option(
+                "BTC-26JUN26-65000-C",
+                "65000",
+                OptionKind::Call,
+                1_782_432_000_000_000_000,
+            ),
+            make_bybit_option(
+                "BTC-26JUN26-65000-P",
+                "65000",
+                OptionKind::Put,
+                1_782_432_000_000_000_000,
+            ),
+            make_bybit_option(
+                "BTC-26JUN26-66000-C",
+                "66000",
+                OptionKind::Call,
+                1_782_432_000_000_000_000,
+            ),
+            make_bybit_option(
+                "BTC-26JUN26-66000-P",
+                "66000",
+                OptionKind::Put,
+                1_782_432_000_000_000_000,
+            ),
+            make_bybit_option(
+                "BTC-26JUN26-67000-C",
+                "67000",
+                OptionKind::Call,
+                1_782_432_000_000_000_000,
+            ),
+            make_bybit_option(
+                "BTC-26JUN26-67000-P",
+                "67000",
+                OptionKind::Put,
+                1_782_432_000_000_000_000,
+            ),
+        ] {
+            cache.add_instrument(instrument).unwrap();
+        }
+        cache.add_instrument(make_bybit_perpetual()).unwrap();
+        cache.add_quote(make_quote(perp, "64990", "65010")).unwrap();
+
+        let initial_resolved = resolve_runtime_option_universe(
+            &cache,
+            now,
+            &bybit_spec(),
+            venue,
+            OptionUniverseVenueKind::Bybit,
+        )
+        .unwrap();
+        let initial_plan = expand_option_universe(&bybit_spec(), &initial_resolved);
+        let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
+            refresh_interval_secs: 60,
+            static_plan: CapturePlan::default(),
+            initial_dynamic_plan: initial_plan.clone(),
+            universes: vec![DynamicOptionUniverseEntryConfig {
+                venue,
+                venue_kind: OptionUniverseVenueKind::Bybit,
+                spec: bybit_spec(),
+                initial_plan,
+            }],
+        });
+
+        cache.add_quote(make_quote(perp, "65990", "66010")).unwrap();
+        let delta = manager.refresh_from_cache(&cache, now).unwrap();
+
+        assert_eq!(delta.changes.len(), 1);
+        assert_eq!(delta.changes[0].venue_id, "bybit_main");
+        assert_eq!(
+            delta.changes[0].added_instrument_ids,
+            vec![
+                InstrumentId::from("BTC-26JUN26-67000-C.BYBIT"),
+                InstrumentId::from("BTC-26JUN26-67000-P.BYBIT"),
+            ]
+        );
+        assert_eq!(
+            delta.changes[0].removed_instrument_ids,
+            vec![
+                InstrumentId::from("BTC-26JUN26-64000-C.BYBIT"),
+                InstrumentId::from("BTC-26JUN26-64000-P.BYBIT"),
+            ]
+        );
+    }
 }

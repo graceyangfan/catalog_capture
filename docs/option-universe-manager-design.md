@@ -45,8 +45,7 @@ V1 does not attempt to provide:
 - OI-ranked or volume-ranked selection
 - `OptionChainSlice` as the primary capture artifact
 - multi-consumer runtime intent merging
-- Bybit / OKX runtime unsubscribe / resubscribe during a running capture job
-  (Deribit autorefresh is implemented separately; see V1.5)
+- runtime refresh for venues beyond Deribit / Bybit / OKX
 - a generic cross-adapter DSL accepted upstream immediately
 
 ## What Problem Are We Actually Solving?
@@ -418,7 +417,7 @@ This is already enough to eliminate manual profile edits.
 
 ### V1.5
 
-**Status: implemented for Deribit (2026-06).**
+**Status: implemented for Deribit, Bybit, and OKX (2026-06).**
 
 Enable with `[runtime.option_universe_refresh]` in TOML. Example:
 [examples/capture.deribit-btc-universe-autorefresh.toml](/Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc-universe-autorefresh.toml).
@@ -435,15 +434,13 @@ Shipped capabilities:
 
 Constraints:
 
-- **Deribit only** at runtime (`OptionUniverseVenueKind::supports_runtime_refresh`)
-- Bybit / OKX support CLI resolve only; autorefresh is rejected at startup
+- runtime refresh is limited to Deribit / Bybit / OKX
+  (`OptionUniverseVenueKind::supports_runtime_refresh`)
 - universe-resolution metadata is not yet persisted to parquet
 
 ### V2
 
 Potential future features:
-
-- Bybit / OKX runtime refresh
 - expiry rollover smoothing and persisted resolution metadata
 - multi-consumer sharing
 - strategy and dashboard consumers
@@ -599,8 +596,8 @@ Mapping:
 | Underlying-based discovery | yes | yes | yes |
 | Expiry window | yes | yes | yes |
 | ATM-relative selection | yes | yes | yes |
-| Timed refresh | no | yes (Deribit) | yes |
-| `request_instruments`-driven refresh | limited / startup only | yes (Deribit cache) | yes |
+| Timed refresh | no | yes (Deribit/Bybit/OKX) | yes |
+| `request_instruments`-driven refresh | limited / startup only | yes (venue cache) | yes |
 | `top_n_by_open_interest` | no | no | yes |
 | full-chain + liquidity-ranked universe | no | partial | yes |
 
@@ -699,7 +696,7 @@ The right V1 is:
 - unchanged capture actor for the lifetime of the job (unless V1.5 refresh is
   enabled)
 
-V1.5 (Deribit) adds:
+V1.5 (Deribit / Bybit / OKX) adds:
 
 - `DynamicOptionUniverseManager` with delta-based refresh
 - actor-side subscribe/unsubscribe and metrics sync on rotation

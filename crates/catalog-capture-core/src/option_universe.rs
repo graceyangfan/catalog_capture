@@ -53,7 +53,7 @@ pub enum OptionUniverseVenueKind {
 impl OptionUniverseVenueKind {
     #[must_use]
     pub const fn supports_runtime_refresh(self) -> bool {
-        matches!(self, Self::Deribit)
+        matches!(self, Self::Deribit | Self::Bybit | Self::Okx)
     }
 }
 
@@ -708,6 +708,13 @@ mod tests {
                 instrument_id: InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
             }]
         );
+    }
+
+    #[test]
+    fn supports_runtime_refresh_for_deribit_bybit_and_okx() {
+        assert!(OptionUniverseVenueKind::Deribit.supports_runtime_refresh());
+        assert!(OptionUniverseVenueKind::Bybit.supports_runtime_refresh());
+        assert!(OptionUniverseVenueKind::Okx.supports_runtime_refresh());
     }
 
     #[test]
