@@ -1,6 +1,7 @@
 use std::{fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Context, Result};
+use catalog_capture_core::CapturePlan;
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
@@ -22,11 +23,15 @@ use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 use crate::option_universe::{materialize_capture_plan, validate_option_universes};
 
 pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
+    let plan = materialize_capture_plan(&config).await?;
+    run_capture_with_plan(config, plan).await
+}
+
+pub async fn run_capture_with_plan(config: EffectiveConfig, plan: CapturePlan) -> Result<()> {
     let catalog_dir = resolve_catalog_dir(&config.capture.catalog_uri)?;
     fs::create_dir_all(&catalog_dir)
         .with_context(|| format!("failed to create catalog dir {}", catalog_dir.display()))?;
 
-    let plan = materialize_capture_plan(&config).await?;
     if plan.is_empty() {
         bail!("capture plan is empty after option universe expansion");
     }

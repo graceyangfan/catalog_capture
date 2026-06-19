@@ -8,10 +8,11 @@ use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use config::{load_config, render_effective_config, resolve_config, EffectiveConfig};
 use option_universe::{
-    render_option_universe_reports_json, render_option_universe_reports_text,
-    resolve_option_universe_reports,
+    materialize_capture_plan_with_reports, render_option_universe_reports_json,
+    render_option_universe_reports_text, resolve_option_universe_reports,
+    OptionUniverseResolutionReport,
 };
-use runner::{run_capture, validate_runtime};
+use runner::{run_capture, run_capture_with_plan, validate_runtime};
 
 #[derive(Debug, Parser)]
 #[command(name = "nautilus-capture")]
@@ -73,9 +74,12 @@ async fn main() -> Result<()> {
         } => {
             let effective = load_validated_config(&config)?;
             if print_option_universe || dry_run_resolve {
-                print_option_universe_reports(&effective, option_universe_format).await?;
-            }
-            if dry_run_resolve {
+                let materialized = materialize_capture_plan_with_reports(&effective).await?;
+                print_option_universe_report_values(&materialized.reports, option_universe_format)?;
+                if dry_run_resolve {
+                    return Ok(());
+                }
+                run_capture_with_plan(effective, materialized.plan).await?;
                 return Ok(());
             }
             run_capture(effective).await?;
@@ -121,6 +125,13 @@ async fn print_option_universe_reports(
     format: OptionUniverseOutputFormat,
 ) -> Result<()> {
     let reports = resolve_option_universe_reports(config).await?;
+    print_option_universe_report_values(&reports, format)
+}
+
+fn print_option_universe_report_values(
+    reports: &[OptionUniverseResolutionReport],
+    format: OptionUniverseOutputFormat,
+) -> Result<()> {
     match format {
         OptionUniverseOutputFormat::Json => {
             println!("{}", render_option_universe_reports_json(&reports)?);

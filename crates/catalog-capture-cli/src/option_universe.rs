@@ -26,14 +26,42 @@ use ustr::Ustr;
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 
 pub async fn materialize_capture_plan(config: &EffectiveConfig) -> Result<CapturePlan> {
-    let mut plan = config.plan.clone();
+    Ok(materialize_capture_plan_with_reports(config).await?.plan)
+}
 
+#[derive(Debug, Clone)]
+pub struct MaterializedOptionUniversePlan {
+    pub plan: CapturePlan,
+    pub reports: Vec<OptionUniverseResolutionReport>,
+}
+
+pub async fn materialize_capture_plan_with_reports(
+    config: &EffectiveConfig,
+) -> Result<MaterializedOptionUniversePlan> {
+    let mut plan = config.plan.clone();
+    let mut planned_instrument_ids = plan
+        .planned_instrument_ids()
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    let mut reports = Vec::with_capacity(config.option_universes.len());
     for spec in &config.option_universes {
-        let expanded = resolve_and_expand_option_universe(spec, &config.venues).await?;
+        let resolved = resolve_option_universe_spec(spec, &config.venues).await?;
+        let expanded = expand_option_universe(spec, &resolved);
+        let universe_plan_instrument_ids = expanded
+            .planned_instrument_ids()
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        reports.push(build_option_universe_resolution_report(
+            spec,
+            &resolved,
+            &planned_instrument_ids,
+            &universe_plan_instrument_ids,
+        ));
+        planned_instrument_ids.extend(universe_plan_instrument_ids.iter().copied());
         plan = merge_capture_plans(&plan, &expanded);
     }
 
-    Ok(plan)
+    Ok(MaterializedOptionUniversePlan { plan, reports })
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -55,28 +83,7 @@ pub struct OptionUniverseResolutionReport {
 pub async fn resolve_option_universe_reports(
     config: &EffectiveConfig,
 ) -> Result<Vec<OptionUniverseResolutionReport>> {
-    let mut planned_instrument_ids = config
-        .plan
-        .planned_instrument_ids()
-        .into_iter()
-        .collect::<BTreeSet<_>>();
-    let mut reports = Vec::with_capacity(config.option_universes.len());
-    for spec in &config.option_universes {
-        let resolved = resolve_option_universe_spec(spec, &config.venues).await?;
-        let expanded = expand_option_universe(spec, &resolved);
-        let universe_plan_instrument_ids = expanded
-            .planned_instrument_ids()
-            .into_iter()
-            .collect::<BTreeSet<_>>();
-        reports.push(build_option_universe_resolution_report(
-            spec,
-            &resolved,
-            &planned_instrument_ids,
-            &universe_plan_instrument_ids,
-        ));
-        planned_instrument_ids.extend(universe_plan_instrument_ids.iter().copied());
-    }
-    Ok(reports)
+    Ok(materialize_capture_plan_with_reports(config).await?.reports)
 }
 
 pub fn render_option_universe_reports_json(
@@ -239,15 +246,6 @@ fn resolve_option_universe_venue<'a>(
                 spec.venue_id
             )
         })
-}
-
-async fn resolve_and_expand_option_universe(
-    spec: &OptionUniverseSpec,
-    venues: &[VenueRuntimeConfig],
-) -> Result<CapturePlan> {
-    let resolved = resolve_option_universe_spec(spec, venues).await?;
-    log_resolved_option_universe(spec, &resolved);
-    Ok(expand_option_universe(spec, &resolved))
 }
 
 async fn resolve_option_universe_spec(
@@ -668,18 +666,6 @@ fn okx_instrument_family(spec: &OptionUniverseSpec) -> Result<String> {
         )
     })?;
     Ok(format!("{}-{settlement_currency}", spec.underlying))
-}
-
-fn log_resolved_option_universe(spec: &OptionUniverseSpec, resolved: &ResolvedOptionUniverse) {
-    println!(
-        "Resolved option universe {} {} expiry={} atm={} strikes={:?} instruments={:?}",
-        spec.venue_id,
-        spec.underlying,
-        resolved.selected_expiry_ns.as_u64(),
-        resolved.atm_reference,
-        resolved.selected_strikes,
-        resolved.all_instrument_ids
-    );
 }
 
 #[cfg(test)]
