@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
@@ -46,15 +47,32 @@ pub struct OptionUniverseResolutionReport {
     pub perp_instrument_id: Option<String>,
     pub option_instrument_ids: Vec<String>,
     pub all_instrument_ids: Vec<String>,
+    pub overlapping_instrument_ids: Vec<String>,
+    pub new_instrument_ids: Vec<String>,
 }
 
 pub async fn resolve_option_universe_reports(
     config: &EffectiveConfig,
 ) -> Result<Vec<OptionUniverseResolutionReport>> {
+    let explicit_plan_instrument_ids = config
+        .plan
+        .planned_instrument_ids()
+        .into_iter()
+        .collect::<BTreeSet<_>>();
     let mut reports = Vec::with_capacity(config.option_universes.len());
     for spec in &config.option_universes {
         let resolved = resolve_option_universe_spec(spec, &config.venues).await?;
-        reports.push(build_option_universe_resolution_report(spec, &resolved));
+        let expanded = expand_option_universe(spec, &resolved);
+        let universe_plan_instrument_ids = expanded
+            .planned_instrument_ids()
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        reports.push(build_option_universe_resolution_report(
+            spec,
+            &resolved,
+            &explicit_plan_instrument_ids,
+            &universe_plan_instrument_ids,
+        ));
     }
     Ok(reports)
 }
@@ -82,7 +100,9 @@ pub fn render_option_universe_reports_text(reports: &[OptionUniverseResolutionRe
              atm_reference={}\n\
              strikes=[{}]\n\
              perp={}\n\
-             options=[{}]",
+             options=[{}]\n\
+             overlap=[{}]\n\
+             new=[{}]",
             report.venue_id,
             report.underlying,
             report.selected_expiry_ns,
@@ -90,6 +110,8 @@ pub fn render_option_universe_reports_text(reports: &[OptionUniverseResolutionRe
             strikes,
             perp,
             options,
+            report.overlapping_instrument_ids.join(", "),
+            report.new_instrument_ids.join(", "),
         ));
     }
 
@@ -288,7 +310,20 @@ fn normalized_resolution_spec(
 fn build_option_universe_resolution_report(
     spec: &OptionUniverseSpec,
     resolved: &ResolvedOptionUniverse,
+    explicit_plan_instrument_ids: &BTreeSet<InstrumentId>,
+    universe_plan_instrument_ids: &BTreeSet<InstrumentId>,
 ) -> OptionUniverseResolutionReport {
+    let overlapping_instrument_ids = universe_plan_instrument_ids
+        .iter()
+        .filter(|instrument_id| explicit_plan_instrument_ids.contains(instrument_id))
+        .map(ToString::to_string)
+        .collect();
+    let new_instrument_ids = universe_plan_instrument_ids
+        .iter()
+        .filter(|instrument_id| !explicit_plan_instrument_ids.contains(instrument_id))
+        .map(ToString::to_string)
+        .collect();
+
     OptionUniverseResolutionReport {
         venue_id: spec.venue_id.clone(),
         underlying: spec.underlying.clone(),
@@ -311,6 +346,8 @@ fn build_option_universe_resolution_report(
             .iter()
             .map(ToString::to_string)
             .collect(),
+        overlapping_instrument_ids,
+        new_instrument_ids,
     }
 }
 
@@ -876,7 +913,12 @@ mod tests {
             ],
         };
 
-        let report = build_option_universe_resolution_report(&spec, &resolved);
+        let report = build_option_universe_resolution_report(
+            &spec,
+            &resolved,
+            &BTreeSet::new(),
+            &resolved.all_instrument_ids.iter().copied().collect(),
+        );
         assert_eq!(report.venue_id, "deribit_main");
         assert_eq!(report.underlying, "BTC");
         assert_eq!(report.resolved_at_ns, 11);
@@ -887,6 +929,8 @@ mod tests {
             report.perp_instrument_id.as_deref(),
             Some("BTC-PERPETUAL.DERIBIT")
         );
+        assert!(report.overlapping_instrument_ids.is_empty());
+        assert_eq!(report.new_instrument_ids.len(), 3);
     }
 
     #[test]
@@ -904,6 +948,8 @@ mod tests {
                 "BTC-USD-260620-62500-C.OKX".to_string(),
                 "BTC-USD-SWAP.OKX".to_string(),
             ],
+            overlapping_instrument_ids: vec![],
+            new_instrument_ids: vec!["BTC-USD-260620-62500-C.OKX".to_string()],
         }];
 
         let rendered =
@@ -928,6 +974,11 @@ mod tests {
                 "BTC-USD-260620-62250-P.OKX".to_string(),
             ],
             all_instrument_ids: vec![],
+            overlapping_instrument_ids: vec!["BTC-USD-SWAP.OKX".to_string()],
+            new_instrument_ids: vec![
+                "BTC-USD-260620-62250-C.OKX".to_string(),
+                "BTC-USD-260620-62250-P.OKX".to_string(),
+            ],
         }];
 
         let rendered = render_option_universe_reports_text(&reports);
@@ -935,6 +986,8 @@ mod tests {
         assert!(rendered.contains("strikes=[62250, 62500]"));
         assert!(rendered.contains("perp=BTC-USD-SWAP.OKX"));
         assert!(rendered.contains("options=[BTC-USD-260620-62250-C.OKX"));
+        assert!(rendered.contains("overlap=[BTC-USD-SWAP.OKX]"));
+        assert!(rendered.contains("new=[BTC-USD-260620-62250-C.OKX"));
     }
 
     #[test]
