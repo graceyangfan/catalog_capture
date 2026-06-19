@@ -477,6 +477,8 @@
    - `okx`
 4. 增加期权 universe 发现与选择机制
 
+具体设计草案见 `docs/option-universe-manager-design.md`。
+
 其中第 4 点非常关键。  
 期权不能像单一永续那样把 `instrument_id` 硬编码完事，更现实的做法是支持：
 

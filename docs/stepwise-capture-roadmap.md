@@ -458,6 +458,7 @@ flowchart LR
 
 - `underlying = "BTC"` + `expiry_days <= 45` + `top_n_by_open_interest`
 - 定时 `request_instruments` 刷新 universe
+- 设计参考见 `docs/option-universe-manager-design.md`
 
 **9b — 离线派生 job（独立仓库或 `research/`）**
 
