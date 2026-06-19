@@ -1,10 +1,14 @@
 use std::{fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Context, Result};
-use catalog_capture_core::CapturePlan;
+use catalog_capture_core::{
+    CapturePlan, ResolvedOptionUniverse, expand_option_universe, merge_capture_plans,
+};
 use catalog_capture_runtime_adapter::{
     CatalogCaptureActor, CatalogCaptureActorConfig, OnlineOptionMetricsConfig,
-    OnlineOptionMetricsUniverseConfig,
+    OnlineOptionMetricsUniverseConfig, DynamicOptionUniverseConfig,
+    DynamicOptionUniverseEntryConfig, plan_has_index_prices, plan_has_mark_prices,
+    plan_has_quotes,
 };
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
@@ -52,6 +56,7 @@ pub async fn run_capture_with_plan_and_reports(
         capture: config.capture.clone(),
         plan: plan.clone(),
         online_option_metrics: build_online_option_metrics_config(&config, &plan, reports)?,
+        dynamic_option_universe: build_dynamic_option_universe_config(&config, &plan, reports)?,
     })?;
 
     let trader_id = TraderId::test_default();
@@ -203,6 +208,11 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     {
         bail!("runtime.online_option_metrics.snapshot_interval_secs must be > 0");
     }
+    if config.runtime.option_universe_refresh.enabled
+        && config.runtime.option_universe_refresh.interval_secs == 0
+    {
+        bail!("runtime.option_universe_refresh.interval_secs must be > 0");
+    }
     if config.venues.is_empty() {
         bail!("at least one venue is required");
     }
@@ -282,6 +292,59 @@ fn build_online_option_metrics_config(
 
     Ok(Some(OnlineOptionMetricsConfig {
         snapshot_interval_secs: config.runtime.online_option_metrics.snapshot_interval_secs,
+        universes,
+    }))
+}
+
+fn build_dynamic_option_universe_config(
+    config: &EffectiveConfig,
+    plan: &CapturePlan,
+    reports: &[OptionUniverseResolutionReport],
+) -> Result<Option<DynamicOptionUniverseConfig>> {
+    if !config.runtime.option_universe_refresh.enabled {
+        return Ok(None);
+    }
+    if reports.is_empty() {
+        bail!("runtime.option_universe_refresh.enabled requires capture.option_universe entries");
+    }
+
+    let mut initial_dynamic_plan = CapturePlan::default();
+    let mut universes = Vec::with_capacity(reports.len());
+
+    for (spec, report) in config.option_universes.iter().zip(reports.iter()) {
+        let resolved = resolved_option_universe_from_report(report)?;
+        let venue = report_venue(report)?;
+        if !venue.as_str().ends_with("DERIBIT") {
+            bail!(
+                "runtime.option_universe_refresh currently supports Deribit only; got venue_id `{}`",
+                report.venue_id
+            );
+        }
+
+        let reference_perp = derive_deribit_perpetual_id(&spec.underlying)?;
+        if !plan_has_quotes(plan, reference_perp)
+            && !plan_has_mark_prices(plan, reference_perp)
+            && !plan_has_index_prices(plan, reference_perp)
+        {
+            bail!(
+                "runtime.option_universe_refresh requires perp quote/mark/index capture for `{}`",
+                reference_perp
+            );
+        }
+
+        let initial_plan = expand_option_universe(spec, &resolved);
+        initial_dynamic_plan = merge_capture_plans(&initial_dynamic_plan, &initial_plan);
+        universes.push(DynamicOptionUniverseEntryConfig {
+            venue,
+            spec: spec.clone(),
+            initial_plan,
+        });
+    }
+
+    Ok(Some(DynamicOptionUniverseConfig {
+        refresh_interval_secs: config.runtime.option_universe_refresh.interval_secs,
+        static_plan: config.plan.clone(),
+        initial_dynamic_plan,
         universes,
     }))
 }
@@ -380,6 +443,59 @@ fn validate_known_custom_data_type(
     }
 
     Ok(())
+}
+
+fn resolved_option_universe_from_report(
+    report: &OptionUniverseResolutionReport,
+) -> Result<ResolvedOptionUniverse> {
+    let selected_strikes = report
+        .selected_strikes
+        .iter()
+        .map(|value| value.parse().map_err(anyhow::Error::msg))
+        .collect::<Result<Vec<_>>>()?;
+    let option_instrument_ids = report
+        .option_instrument_ids
+        .iter()
+        .map(|value| value.parse())
+        .collect::<Result<Vec<_>, _>>()?;
+    let all_instrument_ids = report
+        .all_instrument_ids
+        .iter()
+        .map(|value| value.parse())
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(ResolvedOptionUniverse {
+        resolved_at_ns: report.resolved_at_ns.into(),
+        selected_expiry_ns: report.selected_expiry_ns.into(),
+        atm_reference: report.atm_reference.parse().map_err(anyhow::Error::msg)?,
+        selected_strikes,
+        perp_instrument_id: report
+            .perp_instrument_id
+            .as_deref()
+            .map(str::parse)
+            .transpose()?,
+        option_instrument_ids,
+        all_instrument_ids,
+    })
+}
+
+fn report_venue(report: &OptionUniverseResolutionReport) -> Result<nautilus_model::identifiers::Venue> {
+    let sample = report
+        .all_instrument_ids
+        .first()
+        .or(report.perp_instrument_id.as_ref())
+        .with_context(|| {
+            format!(
+                "option universe report for venue_id `{}` did not contain any instrument ids",
+                report.venue_id
+            )
+        })?;
+    let instrument_id: nautilus_model::identifiers::InstrumentId = sample.parse()?;
+    Ok(instrument_id.venue)
+}
+
+fn derive_deribit_perpetual_id(underlying: &str) -> Result<nautilus_model::identifiers::InstrumentId> {
+    Ok(format!("{underlying}-PERPETUAL.DERIBIT").parse()?)
 }
 
 #[derive(Clone, Copy)]

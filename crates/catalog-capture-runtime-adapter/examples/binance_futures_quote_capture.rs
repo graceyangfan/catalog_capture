@@ -101,6 +101,7 @@ async fn main() -> Result<()> {
         capture: capture.clone(),
         plan,
         online_option_metrics: None,
+        dynamic_option_universe: None,
     })?;
 
     let trader_id = TraderId::test_default();

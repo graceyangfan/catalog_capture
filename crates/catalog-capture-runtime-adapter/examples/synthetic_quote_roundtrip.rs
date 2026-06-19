@@ -74,6 +74,7 @@ fn main() -> Result<()> {
         capture,
         plan,
         online_option_metrics: None,
+        dynamic_option_universe: None,
     };
 
     let mut actor = CatalogCaptureActor::new(config)?;

@@ -12,6 +12,7 @@ use catalog_capture_core::{
 use nautilus_common::{
     actor::{DataActor, DataActorConfig, DataActorCore},
     nautilus_actor,
+    timer::TimeEvent,
 };
 use nautilus_model::{
     data::{
@@ -23,7 +24,10 @@ use nautilus_model::{
     instruments::{Instrument, InstrumentAny},
 };
 
+use crate::dynamic_option_universe::{DynamicOptionUniverseConfig, DynamicOptionUniverseManager};
 use crate::online_option_metrics::{OnlineOptionMetricsConfig, OnlineOptionMetricsObserver};
+
+const OPTION_UNIVERSE_REFRESH_TIMER: &str = "OPTION_UNIVERSE_REFRESH";
 
 #[derive(Debug, Clone)]
 pub struct CatalogCaptureActorConfig {
@@ -31,6 +35,7 @@ pub struct CatalogCaptureActorConfig {
     pub capture: CaptureConfig,
     pub plan: CapturePlan,
     pub online_option_metrics: Option<OnlineOptionMetricsConfig>,
+    pub dynamic_option_universe: Option<DynamicOptionUniverseConfig>,
 }
 
 impl CatalogCaptureActorConfig {
@@ -41,6 +46,7 @@ impl CatalogCaptureActorConfig {
             capture,
             plan,
             online_option_metrics: None,
+            dynamic_option_universe: None,
         }
     }
 }
@@ -61,6 +67,7 @@ pub struct CatalogCaptureActor {
     bar_runtime: BackgroundCaptureRuntime<Bar, NautilusCatalogSink>,
     book_delta_runtime: BackgroundCaptureRuntime<OrderBookDelta, NautilusCatalogSink>,
     online_option_metrics: Option<OnlineOptionMetricsObserver>,
+    dynamic_option_universe: Option<DynamicOptionUniverseManager>,
 }
 
 impl CatalogCaptureActor {
@@ -114,6 +121,9 @@ impl CatalogCaptureActor {
             online_option_metrics: config
                 .online_option_metrics
                 .map(OnlineOptionMetricsObserver::new),
+            dynamic_option_universe: config
+                .dynamic_option_universe
+                .map(DynamicOptionUniverseManager::new),
         })
     }
 
@@ -319,48 +329,8 @@ impl CatalogCaptureActor {
             self.book_delta_runtime.shutdown()?,
         ])
     }
-}
 
-nautilus_actor!(CatalogCaptureActor);
-
-impl Debug for CatalogCaptureActor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CatalogCaptureActor")
-            .field("plan", &self.plan)
-            .field("instrument_queue_depth", &self.instrument_runtime.queue_depth())
-            .field("custom_data_queue_depth", &self.custom_data_runtime.queue_depth())
-            .field("mark_price_queue_depth", &self.mark_price_runtime.queue_depth())
-            .field("index_price_queue_depth", &self.index_price_runtime.queue_depth())
-            .field("funding_rate_queue_depth", &self.funding_rate_runtime.queue_depth())
-            .field(
-                "instrument_status_queue_depth",
-                &self.instrument_status_runtime.queue_depth(),
-            )
-            .field(
-                "instrument_close_queue_depth",
-                &self.instrument_close_runtime.queue_depth(),
-            )
-            .field(
-                "option_greeks_queue_depth",
-                &self.option_greeks_runtime.queue_depth(),
-            )
-            .field("quote_queue_depth", &self.quote_runtime.queue_depth())
-            .field("trade_queue_depth", &self.trade_runtime.queue_depth())
-            .field("bar_queue_depth", &self.bar_runtime.queue_depth())
-            .field(
-                "book_delta_queue_depth",
-                &self.book_delta_runtime.queue_depth(),
-            )
-            .field("online_option_metrics", &self.online_option_metrics.is_some())
-            .finish()
-    }
-}
-
-impl DataActor for CatalogCaptureActor {
-    fn on_start(&mut self) -> Result<()> {
-        self.bootstrap_instruments()?;
-
-        let plan = self.plan.clone();
+    fn subscribe_plan(&mut self, plan: &CapturePlan) {
         for spec in &plan.custom_data {
             self.subscribe_data(spec.data_type.clone(), None, None);
         }
@@ -411,12 +381,146 @@ impl DataActor for CatalogCaptureActor {
                 None,
             );
         }
+    }
+
+    fn unsubscribe_plan(&mut self, plan: &CapturePlan) {
+        for spec in &plan.custom_data {
+            self.unsubscribe_data(spec.data_type.clone(), None, None);
+        }
+
+        for spec in &plan.mark_prices {
+            self.unsubscribe_mark_prices(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.index_prices {
+            self.unsubscribe_index_prices(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.funding_rates {
+            self.unsubscribe_funding_rates(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.instrument_statuses {
+            self.unsubscribe_instrument_status(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.instrument_closes {
+            self.unsubscribe_instrument_close(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.option_greeks {
+            self.unsubscribe_option_greeks(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.quotes {
+            self.unsubscribe_quotes(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.trades {
+            self.unsubscribe_trades(spec.instrument_id, None, None);
+        }
+
+        for spec in &plan.bars {
+            self.unsubscribe_bars(spec.bar_type, None, None);
+        }
+
+        for spec in &plan.book_deltas {
+            self.unsubscribe_book_deltas(spec.instrument_id, None, None);
+        }
+    }
+
+    fn apply_dynamic_option_universe_refresh(&mut self) -> Result<()> {
+        if self.dynamic_option_universe.is_none() {
+            return Ok(());
+        }
+
+        let now = self.clock().timestamp_ns();
+        let cache_rc = self.cache_rc();
+        let cache = cache_rc.borrow();
+        let delta = self
+            .dynamic_option_universe
+            .as_mut()
+            .expect("checked above")
+            .refresh_from_cache(&cache, now)?;
+        if delta.is_empty() {
+            return Ok(());
+        }
+
+        for instrument_id in delta.add.planned_instrument_ids() {
+            self.bootstrap_instrument(instrument_id)?;
+        }
+        self.subscribe_plan(&delta.add);
+        self.unsubscribe_plan(&delta.remove);
+        Ok(())
+    }
+}
+
+nautilus_actor!(CatalogCaptureActor);
+
+impl Debug for CatalogCaptureActor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CatalogCaptureActor")
+            .field("plan", &self.plan)
+            .field("instrument_queue_depth", &self.instrument_runtime.queue_depth())
+            .field("custom_data_queue_depth", &self.custom_data_runtime.queue_depth())
+            .field("mark_price_queue_depth", &self.mark_price_runtime.queue_depth())
+            .field("index_price_queue_depth", &self.index_price_runtime.queue_depth())
+            .field("funding_rate_queue_depth", &self.funding_rate_runtime.queue_depth())
+            .field(
+                "instrument_status_queue_depth",
+                &self.instrument_status_runtime.queue_depth(),
+            )
+            .field(
+                "instrument_close_queue_depth",
+                &self.instrument_close_runtime.queue_depth(),
+            )
+            .field(
+                "option_greeks_queue_depth",
+                &self.option_greeks_runtime.queue_depth(),
+            )
+            .field("quote_queue_depth", &self.quote_runtime.queue_depth())
+            .field("trade_queue_depth", &self.trade_runtime.queue_depth())
+            .field("bar_queue_depth", &self.bar_runtime.queue_depth())
+            .field(
+                "book_delta_queue_depth",
+                &self.book_delta_runtime.queue_depth(),
+            )
+            .field("online_option_metrics", &self.online_option_metrics.is_some())
+            .finish()
+    }
+}
+
+impl DataActor for CatalogCaptureActor {
+    fn on_start(&mut self) -> Result<()> {
+        self.bootstrap_instruments()?;
+        let plan = self.plan.clone();
+        self.subscribe_plan(&plan);
+
+        if let Some(manager) = &self.dynamic_option_universe {
+            self.clock().set_timer_ns(
+                OPTION_UNIVERSE_REFRESH_TIMER,
+                manager.refresh_interval_secs() * 1_000_000_000,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )?;
+        }
 
         Ok(())
     }
 
     fn on_stop(&mut self) -> Result<()> {
+        self.clock().cancel_timer(OPTION_UNIVERSE_REFRESH_TIMER);
         let _ = self.shutdown_all()?;
+        Ok(())
+    }
+
+    fn on_time_event(&mut self, event: &TimeEvent) -> Result<()> {
+        if event.name == OPTION_UNIVERSE_REFRESH_TIMER {
+            self.apply_dynamic_option_universe_refresh()?;
+        }
         Ok(())
     }
 

@@ -21,6 +21,7 @@ nautilus-common.workspace = true
 nautilus-core.workspace = true
 nautilus-model.workspace = true
 nautilus-persistence.workspace = true
+ustr.workspace = true
 
 [dev-dependencies]
 dotenvy.workspace = true

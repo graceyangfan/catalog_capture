@@ -47,6 +47,8 @@ pub struct RuntimeConfig {
     pub node_name: String,
     #[serde(default)]
     pub online_option_metrics: OnlineOptionMetricsRuntimeConfig,
+    #[serde(default)]
+    pub option_universe_refresh: OptionUniverseRefreshRuntimeConfig,
 }
 
 impl Default for RuntimeConfig {
@@ -57,6 +59,7 @@ impl Default for RuntimeConfig {
             delay_post_stop_secs: default_delay_post_stop_secs(),
             node_name: default_node_name(),
             online_option_metrics: OnlineOptionMetricsRuntimeConfig::default(),
+            option_universe_refresh: OptionUniverseRefreshRuntimeConfig::default(),
         }
     }
 }
@@ -74,6 +77,23 @@ impl Default for OnlineOptionMetricsRuntimeConfig {
         Self {
             enabled: false,
             snapshot_interval_secs: default_online_option_metrics_interval_secs(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptionUniverseRefreshRuntimeConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_option_universe_refresh_interval_secs")]
+    pub interval_secs: u64,
+}
+
+impl Default for OptionUniverseRefreshRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_secs: default_option_universe_refresh_interval_secs(),
         }
     }
 }
@@ -810,6 +830,10 @@ fn default_node_name() -> String {
 
 const fn default_online_option_metrics_interval_secs() -> u64 {
     5
+}
+
+const fn default_option_universe_refresh_interval_secs() -> u64 {
+    300
 }
 
 fn default_catalog_uri() -> String {
@@ -1567,6 +1591,14 @@ mod tests {
     #[test]
     fn example_deribit_option_universe_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-btc-universe.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_deribit_option_universe_autorefresh_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.deribit-btc-universe-autorefresh.toml");
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");
