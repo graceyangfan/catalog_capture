@@ -13,6 +13,7 @@ use nautilus_deribit::{
     common::enums::{DeribitCurrency, DeribitEnvironment},
     http::{client::DeribitHttpClient, models::DeribitBookSummary, models::DeribitProductType},
 };
+use nautilus_model::instruments::InstrumentAny;
 use nautilus_model::{identifiers::InstrumentId, types::Price};
 use nautilus_okx::{
     common::enums::{OKXEnvironment, OKXInstrumentType},
@@ -172,6 +173,37 @@ fn resolve_option_universe_venue<'a>(
         })
 }
 
+struct ResolvedVenueInputs {
+    spec_for_resolution: OptionUniverseSpec,
+    option_instruments: Vec<InstrumentAny>,
+    atm_reference: Price,
+    perp_instrument_id: Option<InstrumentId>,
+}
+
+fn finalize_option_universe_resolution(
+    inputs: ResolvedVenueInputs,
+) -> Result<ResolvedOptionUniverse> {
+    resolve_option_universe(
+        &inputs.spec_for_resolution,
+        &inputs.option_instruments,
+        nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+        inputs.atm_reference,
+        inputs.perp_instrument_id,
+    )
+    .map_err(anyhow::Error::from)
+}
+
+fn normalized_resolution_spec(
+    spec: &OptionUniverseSpec,
+    clear_settlement_currency: bool,
+) -> OptionUniverseSpec {
+    let mut normalized = spec.clone();
+    if clear_settlement_currency {
+        normalized.settlement_currency = None;
+    }
+    normalized
+}
+
 async fn resolve_deribit_option_universe(
     spec: &OptionUniverseSpec,
     environment: DeribitEnvironment,
@@ -201,14 +233,12 @@ async fn resolve_deribit_option_universe(
         .then(|| derive_deribit_perpetual_id(&spec.underlying))
         .transpose()?;
 
-    resolve_option_universe(
-        spec,
-        &option_instruments,
-        nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+    finalize_option_universe_resolution(ResolvedVenueInputs {
+        spec_for_resolution: normalized_resolution_spec(spec, false),
+        option_instruments,
         atm_reference,
         perp_instrument_id,
-    )
-    .map_err(anyhow::Error::from)
+    })
 }
 
 async fn resolve_bybit_option_universe(
@@ -246,14 +276,12 @@ async fn resolve_bybit_option_universe(
         .then(|| derive_bybit_linear_perpetual_id(spec))
         .transpose()?;
 
-    resolve_option_universe(
-        spec,
-        &option_instruments,
-        nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+    finalize_option_universe_resolution(ResolvedVenueInputs {
+        spec_for_resolution: normalized_resolution_spec(spec, false),
+        option_instruments,
         atm_reference,
         perp_instrument_id,
-    )
-    .map_err(anyhow::Error::from)
+    })
 }
 
 async fn resolve_okx_option_universe(
@@ -281,19 +309,13 @@ async fn resolve_okx_option_universe(
         .include_perp
         .then(|| derive_okx_swap_id(spec))
         .transpose()?;
-    let normalized_spec = OptionUniverseSpec {
-        settlement_currency: None,
-        ..spec.clone()
-    };
 
-    resolve_option_universe(
-        &normalized_spec,
-        &option_instruments,
-        nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+    finalize_option_universe_resolution(ResolvedVenueInputs {
+        spec_for_resolution: normalized_resolution_spec(spec, true),
+        option_instruments,
         atm_reference,
         perp_instrument_id,
-    )
-    .map_err(anyhow::Error::from)
+    })
 }
 
 async fn request_deribit_atm_reference(
@@ -627,5 +649,43 @@ mod tests {
 
         let instrument_id = derive_okx_swap_id(&spec).expect("swap id should build");
         assert_eq!(instrument_id, InstrumentId::from("BTC-USD-SWAP.OKX"));
+    }
+
+    #[test]
+    fn normalized_resolution_spec_preserves_settlement_currency_by_default() {
+        let spec = OptionUniverseSpec {
+            venue_id: "bybit_main".to_string(),
+            underlying: "BTC".to_string(),
+            settlement_currency: Some("USDT".to_string()),
+            include_perp: true,
+            families: vec![OptionUniverseFamily::Quotes],
+            expiry_policy: catalog_capture_core::ExpiryPolicy::Nearest { days_max: 45 },
+            strike_policy: catalog_capture_core::StrikePolicy::AtmRelative {
+                strikes_above: 1,
+                strikes_below: 1,
+            },
+        };
+
+        let normalized = normalized_resolution_spec(&spec, false);
+        assert_eq!(normalized.settlement_currency.as_deref(), Some("USDT"));
+    }
+
+    #[test]
+    fn normalized_resolution_spec_can_clear_settlement_currency() {
+        let spec = OptionUniverseSpec {
+            venue_id: "okx_main".to_string(),
+            underlying: "BTC".to_string(),
+            settlement_currency: Some("USD".to_string()),
+            include_perp: true,
+            families: vec![OptionUniverseFamily::Quotes],
+            expiry_policy: catalog_capture_core::ExpiryPolicy::Nearest { days_max: 45 },
+            strike_policy: catalog_capture_core::StrikePolicy::AtmRelative {
+                strikes_above: 1,
+                strikes_below: 1,
+            },
+        };
+
+        let normalized = normalized_resolution_spec(&spec, true);
+        assert_eq!(normalized.settlement_currency, None);
     }
 }
