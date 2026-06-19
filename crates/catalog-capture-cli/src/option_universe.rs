@@ -14,7 +14,7 @@ use nautilus_deribit::{
     common::enums::{DeribitCurrency, DeribitEnvironment},
     http::{client::DeribitHttpClient, models::DeribitBookSummary, models::DeribitProductType},
 };
-use nautilus_model::instruments::InstrumentAny;
+use nautilus_model::instruments::{Instrument, InstrumentAny};
 use nautilus_model::{identifiers::InstrumentId, types::Price};
 use nautilus_okx::{
     common::enums::{OKXEnvironment, OKXInstrumentType},
@@ -55,7 +55,7 @@ pub struct OptionUniverseResolutionReport {
 pub async fn resolve_option_universe_reports(
     config: &EffectiveConfig,
 ) -> Result<Vec<OptionUniverseResolutionReport>> {
-    let explicit_plan_instrument_ids = config
+    let mut planned_instrument_ids = config
         .plan
         .planned_instrument_ids()
         .into_iter()
@@ -71,9 +71,10 @@ pub async fn resolve_option_universe_reports(
         reports.push(build_option_universe_resolution_report(
             spec,
             &resolved,
-            &explicit_plan_instrument_ids,
+            &planned_instrument_ids,
             &universe_plan_instrument_ids,
         ));
+        planned_instrument_ids.extend(universe_plan_instrument_ids.iter().copied());
     }
     Ok(reports)
 }
@@ -279,6 +280,7 @@ async fn dispatch_option_universe_resolution(
 }
 
 struct ResolvedVenueInputs {
+    resolved_at_ns: nautilus_core::UnixNanos,
     spec_for_resolution: OptionUniverseSpec,
     option_instruments: Vec<InstrumentAny>,
     atm_reference: Price,
@@ -291,7 +293,7 @@ fn finalize_option_universe_resolution(
     resolve_option_universe(
         &inputs.spec_for_resolution,
         &inputs.option_instruments,
-        nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+        inputs.resolved_at_ns,
         inputs.atm_reference,
         inputs.perp_instrument_id,
     )
@@ -360,6 +362,7 @@ async fn resolve_deribit_option_universe(
     spec: &OptionUniverseSpec,
     environment: DeribitEnvironment,
 ) -> Result<ResolvedOptionUniverse> {
+    let resolved_at_ns = nautilus_core::time::get_atomic_clock_realtime().get_time_ns();
     let currency = DeribitCurrency::from_str(&spec.underlying).with_context(|| {
         format!(
             "unsupported Deribit option underlying `{}`",
@@ -386,6 +389,7 @@ async fn resolve_deribit_option_universe(
         .transpose()?;
 
     finalize_option_universe_resolution(ResolvedVenueInputs {
+        resolved_at_ns,
         spec_for_resolution: normalized_resolution_spec(spec, false),
         option_instruments,
         atm_reference,
@@ -397,6 +401,7 @@ async fn resolve_bybit_option_universe(
     spec: &OptionUniverseSpec,
     environment: BybitEnvironment,
 ) -> Result<ResolvedOptionUniverse> {
+    let resolved_at_ns = nautilus_core::time::get_atomic_clock_realtime().get_time_ns();
     let client = BybitHttpClient::new(
         Some(bybit_http_base_url(environment).to_string()),
         30,
@@ -429,6 +434,7 @@ async fn resolve_bybit_option_universe(
         .transpose()?;
 
     finalize_option_universe_resolution(ResolvedVenueInputs {
+        resolved_at_ns,
         spec_for_resolution: normalized_resolution_spec(spec, false),
         option_instruments,
         atm_reference,
@@ -440,9 +446,14 @@ async fn resolve_okx_option_universe(
     spec: &OptionUniverseSpec,
     environment: OKXEnvironment,
 ) -> Result<ResolvedOptionUniverse> {
+    let resolved_at_ns = nautilus_core::time::get_atomic_clock_realtime().get_time_ns();
     let client = OKXHttpClient::new(None, 30, 3, 500, 5_000, environment, None)
         .context("failed to create OKX HTTP client for option universe resolution")?;
     let instrument_family = okx_instrument_family(spec)?;
+    // OKX uses the family suffix (for example `BTC-USD`) in config, but the parsed
+    // instrument settlement currency is the base asset (for example `BTC`), so the
+    // core settlement filter must be cleared before strike selection.
+    let normalized_spec = normalized_resolution_spec(spec, true);
     let (option_instruments, _) = client
         .request_instruments(OKXInstrumentType::Option, Some(instrument_family.clone()))
         .await
@@ -456,14 +467,22 @@ async fn resolve_okx_option_universe(
         client.cache_instrument(instrument.clone());
     }
 
-    let atm_reference = request_okx_atm_reference(&client, spec).await?;
+    let atm_reference = request_okx_atm_reference(
+        &client,
+        spec,
+        &normalized_spec,
+        &option_instruments,
+        resolved_at_ns,
+    )
+    .await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_okx_swap_id(spec))
         .transpose()?;
 
     finalize_option_universe_resolution(ResolvedVenueInputs {
-        spec_for_resolution: normalized_resolution_spec(spec, true),
+        resolved_at_ns,
+        spec_for_resolution: normalized_spec,
         option_instruments,
         atm_reference,
         perp_instrument_id,
@@ -507,9 +526,14 @@ async fn request_bybit_atm_reference(
 async fn request_okx_atm_reference(
     client: &OKXHttpClient,
     spec: &OptionUniverseSpec,
+    normalized_spec: &OptionUniverseSpec,
+    option_instruments: &[InstrumentAny],
+    resolved_at_ns: nautilus_core::UnixNanos,
 ) -> Result<Price> {
+    let reference_instrument_id =
+        select_okx_reference_instrument_id(normalized_spec, option_instruments, resolved_at_ns)?;
     let forward_prices = client
-        .request_forward_prices(&spec.underlying, None)
+        .request_forward_prices(&spec.underlying, Some(reference_instrument_id))
         .await
         .with_context(|| {
             format!(
@@ -519,6 +543,43 @@ async fn request_okx_atm_reference(
         })?;
 
     select_okx_atm_reference(&forward_prices, &spec.underlying)
+}
+
+fn select_okx_reference_instrument_id(
+    spec: &OptionUniverseSpec,
+    instruments: &[InstrumentAny],
+    now: nautilus_core::UnixNanos,
+) -> Result<InstrumentId> {
+    let max_delta_ns = match spec.expiry_policy {
+        catalog_capture_core::ExpiryPolicy::Nearest { days_max } => {
+            u64::from(days_max) * 86_400_000_000_000
+        }
+    };
+
+    instruments
+        .iter()
+        .filter_map(|instrument| {
+            if !matches!(instrument, InstrumentAny::CryptoOption(_)) {
+                return None;
+            }
+            let expiration_ns = instrument.expiration_ns()?;
+            if expiration_ns <= now {
+                return None;
+            }
+            let delta_ns = expiration_ns.as_u64().saturating_sub(now.as_u64());
+            if delta_ns > max_delta_ns {
+                return None;
+            }
+            Some((expiration_ns, instrument.id()))
+        })
+        .min_by_key(|(expiration_ns, instrument_id)| (*expiration_ns, instrument_id.to_string()))
+        .map(|(_, instrument_id)| instrument_id)
+        .with_context(|| {
+            format!(
+                "no OKX option instrument matched the configured expiry policy for underlying {}",
+                spec.underlying
+            )
+        })
 }
 
 fn select_deribit_atm_reference(

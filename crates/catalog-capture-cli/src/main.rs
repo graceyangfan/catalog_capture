@@ -83,12 +83,14 @@ async fn main() -> Result<()> {
         Command::Validate {
             config,
             print_option_universe,
-            option_universe_format,
+            option_universe_format: _option_universe_format,
         } => {
-            let effective = load_validated_config(&config)?;
+            let _effective = load_validated_config(&config)?;
             println!("Configuration is valid: {}", config.display());
             if print_option_universe {
-                print_option_universe_reports(&effective, option_universe_format).await?;
+                println!(
+                    "Option universe preflight requires live venue metadata; use `resolve-option-universe` or `run --dry-run-resolve`."
+                );
             }
         }
         Command::PrintEffectiveConfig { config } => {
