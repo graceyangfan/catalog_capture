@@ -201,6 +201,47 @@ Profiles:
 
 OKX options require `instrument_families` (e.g. `BTC-USD`) when `instrument_types` includes `option`.
 
+### Step 9a-lite option universe smoke
+
+The option universe resolver can be validated with short live captures that resolve the current
+nearest expiry and ATM-relative strikes, start the Nautilus live node, and assert that the expanded
+per-instrument parquet families were written.
+
+Run one venue:
+
+- `python3 tests/probe_option_universe_smoke.py --venue deribit --seconds 30`
+- `python3 tests/probe_option_universe_smoke.py --venue okx --seconds 30`
+- `python3 tests/probe_option_universe_smoke.py --venue bybit --seconds 30`
+
+Run all supported venues:
+
+- `python3 tests/probe_option_universe_smoke.py --venue all --seconds 30`
+
+The helper creates a temporary TOML profile under `/tmp`, rewrites `capture_seconds` and
+`catalog_uri`, runs `catalog-capture-cli run --print-option-universe`, then checks these required
+families:
+
+- `instruments`
+- `quotes`
+- `option_greeks`
+- `mark_prices`
+- `index_prices`
+- `funding_rate_update`
+
+If `pyarrow` is installed, it also verifies that sampled parquet files contain rows. Use
+`--cleanup` to remove generated catalogs after a successful run.
+
+Current manual smoke results:
+
+- OKX wrote instruments, quotes, option greeks, mark prices, index prices, and funding rates for
+  6 BTC options plus `BTC-USD-SWAP.OKX`.
+- Deribit wrote the same required families for 6 BTC options plus `BTC-PERPETUAL.DERIBIT`.
+- Bybit wrote the same required families for 6 BTC options plus `BTCUSDT-LINEAR.BYBIT`.
+
+Bybit currently logs `SubscribeInstrument ... handler not implemented` for explicit instrument
+subscriptions. Instrument metadata still writes from the adapter cache, and the market-data
+families write normally, so this is a known adapter warning rather than a failed universe smoke.
+
 ## Step 5: custom data live validation
 
 ### Deribit DVOL
