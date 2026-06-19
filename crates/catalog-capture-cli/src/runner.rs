@@ -2,7 +2,8 @@ use std::{fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    CapturePlan, ResolvedOptionUniverse, expand_option_universe, merge_capture_plans,
+    derive_perp_instrument_id, expand_option_universe, merge_capture_plans, CapturePlan,
+    OptionUniverseVenueKind, ResolvedOptionUniverse,
 };
 use catalog_capture_runtime_adapter::{
     CatalogCaptureActor, CatalogCaptureActorConfig, OnlineOptionMetricsConfig,
@@ -314,14 +315,30 @@ fn build_dynamic_option_universe_config(
     for (spec, report) in config.option_universes.iter().zip(reports.iter()) {
         let resolved = resolved_option_universe_from_report(report)?;
         let venue = report_venue(report)?;
-        if !venue.as_str().ends_with("DERIBIT") {
+        let venue_config = config
+            .venues
+            .iter()
+            .find(|entry| entry.id() == spec.venue_id)
+            .with_context(|| {
+                format!(
+                    "capture.option_universe references unknown venue_id `{}`",
+                    spec.venue_id
+                )
+            })?;
+        let venue_kind = option_universe_venue_kind(venue_config).with_context(|| {
+            format!(
+                "runtime.option_universe_refresh is not supported for venue_id `{}`",
+                spec.venue_id
+            )
+        })?;
+        if !venue_kind.supports_runtime_refresh() {
             bail!(
                 "runtime.option_universe_refresh currently supports Deribit only; got venue_id `{}`",
                 report.venue_id
             );
         }
 
-        let reference_perp = derive_deribit_perpetual_id(&spec.underlying)?;
+        let reference_perp = derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
         if !plan_has_quotes(plan, reference_perp)
             && !plan_has_mark_prices(plan, reference_perp)
             && !plan_has_index_prices(plan, reference_perp)
@@ -336,6 +353,7 @@ fn build_dynamic_option_universe_config(
         initial_dynamic_plan = merge_capture_plans(&initial_dynamic_plan, &initial_plan);
         universes.push(DynamicOptionUniverseEntryConfig {
             venue,
+            venue_kind,
             spec: spec.clone(),
             initial_plan,
         });
@@ -494,8 +512,15 @@ fn report_venue(report: &OptionUniverseResolutionReport) -> Result<nautilus_mode
     Ok(instrument_id.venue)
 }
 
-fn derive_deribit_perpetual_id(underlying: &str) -> Result<nautilus_model::identifiers::InstrumentId> {
-    Ok(format!("{underlying}-PERPETUAL.DERIBIT").parse()?)
+fn option_universe_venue_kind(
+    venue: &VenueRuntimeConfig,
+) -> Option<OptionUniverseVenueKind> {
+    match venue {
+        VenueRuntimeConfig::Deribit { .. } => Some(OptionUniverseVenueKind::Deribit),
+        VenueRuntimeConfig::Bybit { .. } => Some(OptionUniverseVenueKind::Bybit),
+        VenueRuntimeConfig::Okx { .. } => Some(OptionUniverseVenueKind::Okx),
+        _ => None,
+    }
 }
 
 #[derive(Clone, Copy)]
