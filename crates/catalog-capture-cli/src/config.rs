@@ -1,27 +1,24 @@
 use std::{fs, path::Path, str::FromStr};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use catalog_capture_core::{
+    plan::{BarCaptureSpec, BookDeltasCaptureSpec},
     CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec, FundingRateCaptureSpec,
     IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
-    InstrumentStatusCaptureSpec, LayoutCompatibility, MarkPriceCaptureSpec, OptionGreeksCaptureSpec,
-    OverflowPolicy, QuoteCaptureSpec, TradeCaptureSpec,
-    plan::{BarCaptureSpec, BookDeltasCaptureSpec},
+    InstrumentStatusCaptureSpec, LayoutCompatibility, MarkPriceCaptureSpec,
+    OptionGreeksCaptureSpec, OverflowPolicy, QuoteCaptureSpec, TradeCaptureSpec,
 };
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
 use nautilus_bybit::common::enums::{BybitEnvironment, BybitProductType};
-use nautilus_deribit::{
-    common::enums::DeribitEnvironment,
-    http::models::DeribitProductType,
-};
-use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
-use nautilus_okx::common::enums::{OKXEnvironment, OKXInstrumentType};
 use nautilus_core::Params;
+use nautilus_deribit::{common::enums::DeribitEnvironment, http::models::DeribitProductType};
+use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 use nautilus_model::{
     data::{BarType, DataType},
     enums::BookType,
     identifiers::InstrumentId,
 };
+use nautilus_okx::common::enums::{OKXEnvironment, OKXInstrumentType};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
@@ -265,31 +262,52 @@ fn parse_instrument_id(value: &str) -> Result<InstrumentId> {
 }
 
 fn parse_instrument_specs(items: &[InstrumentSelector]) -> Result<Vec<InstrumentCaptureSpec>> {
-    items.iter()
-        .map(|item| Ok(InstrumentCaptureSpec { instrument_id: parse_instrument_id(&item.instrument_id)? }))
+    items
+        .iter()
+        .map(|item| {
+            Ok(InstrumentCaptureSpec {
+                instrument_id: parse_instrument_id(&item.instrument_id)?,
+            })
+        })
         .collect()
 }
 
 fn parse_quote_specs(items: &[InstrumentSelector]) -> Result<Vec<QuoteCaptureSpec>> {
-    items.iter()
-        .map(|item| Ok(QuoteCaptureSpec { instrument_id: parse_instrument_id(&item.instrument_id)? }))
+    items
+        .iter()
+        .map(|item| {
+            Ok(QuoteCaptureSpec {
+                instrument_id: parse_instrument_id(&item.instrument_id)?,
+            })
+        })
         .collect()
 }
 
 fn parse_trade_specs(items: &[InstrumentSelector]) -> Result<Vec<TradeCaptureSpec>> {
-    items.iter()
-        .map(|item| Ok(TradeCaptureSpec { instrument_id: parse_instrument_id(&item.instrument_id)? }))
+    items
+        .iter()
+        .map(|item| {
+            Ok(TradeCaptureSpec {
+                instrument_id: parse_instrument_id(&item.instrument_id)?,
+            })
+        })
         .collect()
 }
 
 fn parse_mark_price_specs(items: &[InstrumentSelector]) -> Result<Vec<MarkPriceCaptureSpec>> {
-    items.iter()
-        .map(|item| Ok(MarkPriceCaptureSpec { instrument_id: parse_instrument_id(&item.instrument_id)? }))
+    items
+        .iter()
+        .map(|item| {
+            Ok(MarkPriceCaptureSpec {
+                instrument_id: parse_instrument_id(&item.instrument_id)?,
+            })
+        })
         .collect()
 }
 
 fn parse_index_price_specs(items: &[InstrumentSelector]) -> Result<Vec<IndexPriceCaptureSpec>> {
-    items.iter()
+    items
+        .iter()
         .map(|item| {
             Ok(IndexPriceCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
@@ -298,10 +316,9 @@ fn parse_index_price_specs(items: &[InstrumentSelector]) -> Result<Vec<IndexPric
         .collect()
 }
 
-fn parse_funding_rate_specs(
-    items: &[InstrumentSelector],
-) -> Result<Vec<FundingRateCaptureSpec>> {
-    items.iter()
+fn parse_funding_rate_specs(items: &[InstrumentSelector]) -> Result<Vec<FundingRateCaptureSpec>> {
+    items
+        .iter()
         .map(|item| {
             Ok(FundingRateCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
@@ -313,7 +330,8 @@ fn parse_funding_rate_specs(
 fn parse_instrument_status_specs(
     items: &[InstrumentSelector],
 ) -> Result<Vec<InstrumentStatusCaptureSpec>> {
-    items.iter()
+    items
+        .iter()
         .map(|item| {
             Ok(InstrumentStatusCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
@@ -325,7 +343,8 @@ fn parse_instrument_status_specs(
 fn parse_instrument_close_specs(
     items: &[InstrumentSelector],
 ) -> Result<Vec<InstrumentCloseCaptureSpec>> {
-    items.iter()
+    items
+        .iter()
         .map(|item| {
             Ok(InstrumentCloseCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
@@ -335,7 +354,8 @@ fn parse_instrument_close_specs(
 }
 
 fn parse_option_greeks_specs(items: &[InstrumentSelector]) -> Result<Vec<OptionGreeksCaptureSpec>> {
-    items.iter()
+    items
+        .iter()
         .map(|item| {
             Ok(OptionGreeksCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
@@ -345,20 +365,22 @@ fn parse_option_greeks_specs(items: &[InstrumentSelector]) -> Result<Vec<OptionG
 }
 
 fn parse_bar_specs(items: &[BarSelector]) -> Result<Vec<BarCaptureSpec>> {
-    items.iter()
+    items
+        .iter()
         .map(|item| {
-            let bar_type =
-                BarType::from_str(&item.bar_type).with_context(|| format!("invalid bar_type {}", item.bar_type))?;
+            let bar_type = BarType::from_str(&item.bar_type)
+                .with_context(|| format!("invalid bar_type {}", item.bar_type))?;
             Ok(BarCaptureSpec { bar_type })
         })
         .collect()
 }
 
 fn parse_book_delta_specs(items: &[BookDeltasSelector]) -> Result<Vec<BookDeltasCaptureSpec>> {
-    items.iter()
+    items
+        .iter()
         .map(|item| {
-            let book_type =
-                BookType::from_str(&item.book_type).with_context(|| format!("invalid book_type {}", item.book_type))?;
+            let book_type = BookType::from_str(&item.book_type)
+                .with_context(|| format!("invalid book_type {}", item.book_type))?;
             Ok(BookDeltasCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
                 book_type,
@@ -368,7 +390,8 @@ fn parse_book_delta_specs(items: &[BookDeltasSelector]) -> Result<Vec<BookDeltas
 }
 
 fn parse_custom_data_specs(items: &[CustomDataSelector]) -> Result<Vec<CustomDataCaptureSpec>> {
-    items.iter()
+    items
+        .iter()
         .map(|item| {
             let metadata = if item.metadata.is_empty() {
                 None
@@ -443,7 +466,9 @@ fn parse_overflow_policy(value: &str) -> Result<OverflowPolicy> {
         "drop_newest" => Ok(OverflowPolicy::DropNewest),
         "drop_oldest" => Ok(OverflowPolicy::DropOldest),
         "fail_fast" => Ok(OverflowPolicy::FailFast),
-        other => bail!("unsupported overflow_policy {other}; expected drop_newest|drop_oldest|fail_fast"),
+        other => {
+            bail!("unsupported overflow_policy {other}; expected drop_newest|drop_oldest|fail_fast")
+        }
     }
 }
 
@@ -505,9 +530,9 @@ fn parse_bybit_product_types(values: &[String]) -> Result<Vec<BybitProductType>>
             "inverse" => Ok(BybitProductType::Inverse),
             "spot" => Ok(BybitProductType::Spot),
             "option" => Ok(BybitProductType::Option),
-            other => bail!(
-                "unsupported Bybit product_type {other}; expected linear|inverse|spot|option"
-            ),
+            other => {
+                bail!("unsupported Bybit product_type {other}; expected linear|inverse|spot|option")
+            }
         })
         .collect()
 }
@@ -647,6 +672,15 @@ fn default_binance_product_type() -> String {
 mod tests {
     use super::*;
     use crate::runner::validate_runtime;
+    use std::path::{Path, PathBuf};
+
+    fn repo_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(2)
+            .expect("workspace root")
+            .to_path_buf()
+    }
 
     #[test]
     fn okx_default_instrument_types_is_swap_only() {
@@ -750,7 +784,10 @@ mod tests {
     #[test]
     fn validate_runtime_rejects_binance_liquidation_until_arrow_support_exists() {
         let mut metadata = std::collections::BTreeMap::new();
-        metadata.insert("instrument_id".to_string(), "ETHUSDT-PERP.BINANCE".to_string());
+        metadata.insert(
+            "instrument_id".to_string(),
+            "ETHUSDT-PERP.BINANCE".to_string(),
+        );
 
         let effective = resolve_config(CliConfigFile {
             capture: CaptureConfigFile {
@@ -837,5 +874,116 @@ mod tests {
         .expect("config should resolve");
 
         validate_runtime(&effective).expect("valid hyperliquid OI config should pass");
+    }
+
+    #[test]
+    fn validate_runtime_rejects_unknown_custom_type() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "HyperliquidOpenInterset".to_string(),
+                    identifier: Some("ETH-USD-PERP.HYPERLIQUID".to_string()),
+                    metadata: Default::default(),
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "hl_main".to_string(),
+                kind: "hyperliquid".to_string(),
+                environment: "testnet".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective).expect_err("unknown custom type should fail");
+        assert!(err.to_string().contains("unknown custom_data type_name"));
+    }
+
+    #[test]
+    fn validate_runtime_rejects_deribit_dvol_without_deribit_venue() {
+        let mut metadata = std::collections::BTreeMap::new();
+        metadata.insert("index_name".to_string(), "btc_usd".to_string());
+
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "DeribitVolatilityIndex".to_string(),
+                    identifier: None,
+                    metadata,
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "hl_main".to_string(),
+                kind: "hyperliquid".to_string(),
+                environment: "testnet".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective).expect_err("missing deribit venue should fail");
+        assert!(err.to_string().contains("kind = \"deribit\""));
+    }
+
+    #[test]
+    fn validate_runtime_rejects_hyperliquid_identifier_mismatch() {
+        let mut metadata = std::collections::BTreeMap::new();
+        metadata.insert(
+            "instrument_id".to_string(),
+            "ETH-USD-PERP.HYPERLIQUID".to_string(),
+        );
+
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "HyperliquidOpenInterest".to_string(),
+                    identifier: Some("BTC-USD-PERP.HYPERLIQUID".to_string()),
+                    metadata,
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "hl_main".to_string(),
+                kind: "hyperliquid".to_string(),
+                environment: "testnet".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective).expect_err("identifier mismatch should fail");
+        assert!(err
+            .to_string()
+            .contains("must match metadata.instrument_id"));
+    }
+
+    #[test]
+    fn example_deribit_dvol_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.deribit-dvol.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_hyperliquid_open_interest_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.hyperliquid-open-interest.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
     }
 }

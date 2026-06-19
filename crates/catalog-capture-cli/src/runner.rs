@@ -1,23 +1,22 @@
 use std::{fs, path::PathBuf, time::Duration};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
-use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
-use nautilus_hyperliquid::{
-    config::HyperliquidDataClientConfig,
-    factories::HyperliquidDataClientFactory,
-};
-use nautilus_hyperliquid::data_types::register_hyperliquid_custom_data;
-use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 use nautilus_common::enums::Environment;
+use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
+use nautilus_hyperliquid::data_types::register_hyperliquid_custom_data;
+use nautilus_hyperliquid::{
+    config::HyperliquidDataClientConfig, factories::HyperliquidDataClientFactory,
+};
 use nautilus_live::node::LiveNode;
 use nautilus_model::{
     data::DataType,
     identifiers::{ActorId, TraderId},
     stubs::TestDefault,
 };
+use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 
@@ -181,7 +180,7 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     if config.venues.is_empty() {
         bail!("at least one venue is required");
     }
-    validate_known_custom_data_types(&config.plan.custom_data)?;
+    validate_known_custom_data_types(&config.plan.custom_data, &config.venues)?;
     let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
     Ok(())
 }
@@ -189,7 +188,9 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
 fn register_known_custom_data_types(custom_data: &[catalog_capture_core::CustomDataCaptureSpec]) {
     for spec in custom_data {
         match spec.data_type.type_name() {
-            "DeribitVolatilityIndex" => nautilus_deribit::data_types::register_deribit_custom_data(),
+            "DeribitVolatilityIndex" => {
+                nautilus_deribit::data_types::register_deribit_custom_data()
+            }
             "HyperliquidOpenInterest" => register_hyperliquid_custom_data(),
             _ => {}
         }
@@ -198,14 +199,18 @@ fn register_known_custom_data_types(custom_data: &[catalog_capture_core::CustomD
 
 fn validate_known_custom_data_types(
     custom_data: &[catalog_capture_core::CustomDataCaptureSpec],
+    venues: &[VenueRuntimeConfig],
 ) -> Result<()> {
     for spec in custom_data {
-        validate_known_custom_data_type(&spec.data_type)?;
+        validate_known_custom_data_type(&spec.data_type, venues)?;
     }
     Ok(())
 }
 
-fn validate_known_custom_data_type(data_type: &DataType) -> Result<()> {
+fn validate_known_custom_data_type(
+    data_type: &DataType,
+    venues: &[VenueRuntimeConfig],
+) -> Result<()> {
     match data_type.type_name() {
         "BinanceFuturesLiquidation" => {
             bail!(
@@ -214,6 +219,11 @@ fn validate_known_custom_data_type(data_type: &DataType) -> Result<()> {
             );
         }
         "DeribitVolatilityIndex" => {
+            require_venue(
+                venues,
+                VenueRequirement::Deribit,
+                "custom_data DeribitVolatilityIndex requires at least one [[venues]] entry with kind = \"deribit\"",
+            )?;
             let Some(index_name) = data_type
                 .metadata()
                 .as_ref()
@@ -230,6 +240,11 @@ fn validate_known_custom_data_type(data_type: &DataType) -> Result<()> {
             }
         }
         "HyperliquidOpenInterest" => {
+            require_venue(
+                venues,
+                VenueRequirement::Hyperliquid,
+                "custom_data HyperliquidOpenInterest requires at least one [[venues]] entry with kind = \"hyperliquid\"",
+            )?;
             let Some(instrument_id) = data_type
                 .metadata()
                 .as_ref()
@@ -242,13 +257,50 @@ fn validate_known_custom_data_type(data_type: &DataType) -> Result<()> {
                 );
             };
             if instrument_id.trim().is_empty() {
-                bail!("custom_data HyperliquidOpenInterest metadata.instrument_id must be non-empty");
+                bail!(
+                    "custom_data HyperliquidOpenInterest metadata.instrument_id must be non-empty"
+                );
+            }
+            if let Some(identifier) = data_type.identifier() {
+                if identifier != instrument_id {
+                    bail!(
+                        "custom_data HyperliquidOpenInterest identifier `{identifier}` must match \
+                         metadata.instrument_id `{instrument_id}`"
+                    );
+                }
             }
         }
-        _ => {}
+        other => {
+            bail!(
+                "unknown custom_data type_name `{other}`; supported values in this workspace: \
+                 DeribitVolatilityIndex, HyperliquidOpenInterest, BinanceFuturesLiquidation"
+            );
+        }
     }
 
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+enum VenueRequirement {
+    Deribit,
+    Hyperliquid,
+}
+
+fn require_venue(
+    venues: &[VenueRuntimeConfig],
+    requirement: VenueRequirement,
+    error: &str,
+) -> Result<()> {
+    let matches_requirement = venues.iter().any(|venue| match (requirement, venue) {
+        (VenueRequirement::Deribit, VenueRuntimeConfig::Deribit { .. }) => true,
+        (VenueRequirement::Hyperliquid, VenueRuntimeConfig::Hyperliquid { .. }) => true,
+        _ => false,
+    });
+    if matches_requirement {
+        return Ok(());
+    }
+    bail!("{error}")
 }
 
 fn resolve_catalog_dir(catalog_uri: &str) -> Result<PathBuf> {

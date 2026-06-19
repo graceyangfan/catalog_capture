@@ -330,7 +330,7 @@ flowchart LR
 
 1. CLI 取消 `custom_data`「仅注释、未验证」状态；补 `examples/capture.deribit-dvol.toml` / `capture.hyperliquid-open-interest.toml`
 2. 启动前调用 adapter `register_*_custom_data()`（参考 `write_hyperliquid_open_interest_fixture.rs`）
-3. 新增 probe / smoke：`tests/python_deribit_dvol_smoke.py`、`tests/python_catalog_hyperliquid_open_interest_probe.py`
+3. 新增 probe / smoke：`tests/python_deribit_dvol_smoke.py`、`tests/python_catalog_deribit_dvol_probe.py`、`tests/python_catalog_hyperliquid_open_interest_probe.py`
 4. 文档化每个 `type_name` 的 `identifier` / `metadata` 填法
 
 ### 完成标准

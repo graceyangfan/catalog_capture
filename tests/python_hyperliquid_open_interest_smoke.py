@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-PROJECT_ROOT = Path("/Users/yfclark/nautilus_catalog_capture")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _IMPORT = Path(__file__).resolve().parent / "nautilus_import.py"
 _spec = importlib.util.spec_from_file_location("nautilus_import", _IMPORT)
 _mod = importlib.util.module_from_spec(_spec)

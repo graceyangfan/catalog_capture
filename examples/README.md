@@ -42,6 +42,8 @@ Current examples and planned validation paths:
   - Step 5a profile: Deribit BTC perp + `DeribitVolatilityIndex`
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml`
   - validate: `cargo run -p catalog-capture-cli -- validate --config examples/capture.deribit-dvol.toml`
+  - verify:
+    - `python3 tests/python_catalog_deribit_dvol_probe.py /tmp/nautilus-catalog-capture-deribit-dvol 1 --index-name btc_usd`
 - `examples/capture.hyperliquid-open-interest.toml`
   - Step 5b profile: Hyperliquid perp + `HyperliquidOpenInterest`
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-open-interest.toml`

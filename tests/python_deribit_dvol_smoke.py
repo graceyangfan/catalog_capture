@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import sys
 import tempfile
+import importlib.util
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-NAUTILUS_ROOT = PROJECT_ROOT.parent / "nautilus_trader"
-
-sys.path.insert(0, str(NAUTILUS_ROOT))
+_IMPORT = Path(__file__).resolve().parent / "nautilus_import.py"
+_spec = importlib.util.spec_from_file_location("nautilus_import", _IMPORT)
+_mod = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+_spec.loader.exec_module(_mod)
+_mod.ensure_nautilus_trader_path()
 
 from nautilus_trader.core.nautilus_pyo3 import DeribitVolatilityIndex  # noqa: E402
 from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog as PyO3ParquetDataCatalog  # noqa: E402
