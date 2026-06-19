@@ -3,10 +3,11 @@ use std::{fs, path::Path, str::FromStr};
 use anyhow::{anyhow, bail, Context, Result};
 use catalog_capture_core::{
     plan::{BarCaptureSpec, BookDeltasCaptureSpec},
-    CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec, FundingRateCaptureSpec,
-    IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
-    InstrumentStatusCaptureSpec, LayoutCompatibility, MarkPriceCaptureSpec,
-    OptionGreeksCaptureSpec, OverflowPolicy, QuoteCaptureSpec, TradeCaptureSpec,
+    CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec, ExpiryPolicy,
+    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
+    InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, LayoutCompatibility,
+    MarkPriceCaptureSpec, OptionGreeksCaptureSpec, OptionUniverseFamily, OptionUniverseSpec,
+    OverflowPolicy, QuoteCaptureSpec, StrikePolicy, TradeCaptureSpec,
 };
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
 use nautilus_bybit::common::enums::{BybitEnvironment, BybitProductType};
@@ -118,6 +119,8 @@ pub struct CaptureConfigFile {
     pub book_deltas: Vec<BookDeltasSelector>,
     #[serde(default)]
     pub custom_data: Vec<CustomDataSelector>,
+    #[serde(default)]
+    pub option_universe: Vec<OptionUniverseSelector>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,6 +146,33 @@ pub struct CustomDataSelector {
     pub identifier: Option<String>,
     #[serde(default)]
     pub metadata: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptionUniverseSelector {
+    pub venue_id: String,
+    pub underlying: String,
+    #[serde(default)]
+    pub settlement_currency: Option<String>,
+    #[serde(default)]
+    pub include_perp: bool,
+    #[serde(default)]
+    pub families: Vec<String>,
+    pub expiry_policy: ExpiryPolicySelector,
+    pub strike_policy: StrikePolicySelector,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpiryPolicySelector {
+    pub mode: String,
+    pub days_max: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrikePolicySelector {
+    pub mode: String,
+    pub strikes_above: usize,
+    pub strikes_below: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,11 +223,24 @@ pub enum VenueRuntimeConfig {
     },
 }
 
+impl VenueRuntimeConfig {
+    pub fn id(&self) -> &str {
+        match self {
+            Self::BinanceFutures { id, .. }
+            | Self::Deribit { id, .. }
+            | Self::Bybit { id, .. }
+            | Self::Hyperliquid { id, .. }
+            | Self::Okx { id, .. } => id,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct EffectiveConfig {
     pub runtime: RuntimeConfig,
     pub capture: CaptureConfig,
     pub plan: CapturePlan,
+    pub option_universes: Vec<OptionUniverseSpec>,
     pub venues: Vec<VenueRuntimeConfig>,
 }
 
@@ -211,6 +254,13 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
     if config.venues.is_empty() {
         bail!("at least one [[venues]] entry is required");
     }
+
+    let venues = config
+        .venues
+        .into_iter()
+        .map(parse_venue)
+        .collect::<Result<Vec<_>>>()?;
+    validate_unique_venue_ids(&venues)?;
 
     let capture = CaptureConfig {
         enabled: true,
@@ -238,21 +288,17 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         option_greeks: parse_option_greeks_specs(&config.capture.option_greeks)?,
         custom_data: parse_custom_data_specs(&config.capture.custom_data)?,
     };
+    let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
 
-    if plan.is_empty() {
+    if plan.is_empty() && option_universes.is_empty() {
         bail!("capture plan is empty; enable at least one capture family");
     }
-
-    let venues = config
-        .venues
-        .into_iter()
-        .map(parse_venue)
-        .collect::<Result<Vec<_>>>()?;
 
     Ok(EffectiveConfig {
         runtime: config.runtime,
         capture,
         plan,
+        option_universes,
         venues,
     })
 }
@@ -409,6 +455,106 @@ fn parse_custom_data_specs(items: &[CustomDataSelector]) -> Result<Vec<CustomDat
         .collect()
 }
 
+fn parse_option_universe_specs(
+    items: &[OptionUniverseSelector],
+) -> Result<Vec<OptionUniverseSpec>> {
+    items.iter().map(parse_option_universe_spec).collect()
+}
+
+fn parse_option_universe_spec(item: &OptionUniverseSelector) -> Result<OptionUniverseSpec> {
+    if item.venue_id.trim().is_empty() {
+        bail!("capture.option_universe.venue_id must be non-empty");
+    }
+    if item.underlying.trim().is_empty() {
+        bail!("capture.option_universe.underlying must be non-empty");
+    }
+    if item.families.is_empty() {
+        bail!("capture.option_universe.families must be non-empty");
+    }
+
+    let families = item
+        .families
+        .iter()
+        .map(|family| parse_option_universe_family(family))
+        .collect::<Result<Vec<_>>>()?;
+
+    let spec = OptionUniverseSpec {
+        venue_id: item.venue_id.trim().to_string(),
+        underlying: item.underlying.trim().to_ascii_uppercase(),
+        settlement_currency: item
+            .settlement_currency
+            .as_ref()
+            .map(|value| value.trim().to_ascii_uppercase()),
+        include_perp: item.include_perp,
+        families,
+        expiry_policy: parse_expiry_policy(&item.expiry_policy)?,
+        strike_policy: parse_strike_policy(&item.strike_policy)?,
+    };
+
+    validate_option_universe_family_shape(&spec)?;
+    Ok(spec)
+}
+
+fn parse_option_universe_family(value: &str) -> Result<OptionUniverseFamily> {
+    match value.to_ascii_lowercase().as_str() {
+        "instruments" => Ok(OptionUniverseFamily::Instruments),
+        "quotes" => Ok(OptionUniverseFamily::Quotes),
+        "trades" => Ok(OptionUniverseFamily::Trades),
+        "mark_prices" => Ok(OptionUniverseFamily::MarkPrices),
+        "index_prices" => Ok(OptionUniverseFamily::IndexPrices),
+        "funding_rates" => Ok(OptionUniverseFamily::FundingRates),
+        "instrument_statuses" => Ok(OptionUniverseFamily::InstrumentStatuses),
+        "instrument_closes" => Ok(OptionUniverseFamily::InstrumentCloses),
+        "option_greeks" => Ok(OptionUniverseFamily::OptionGreeks),
+        other => bail!(
+            "unsupported capture.option_universe family {other}; expected instruments|quotes|trades|mark_prices|index_prices|funding_rates|instrument_statuses|instrument_closes|option_greeks"
+        ),
+    }
+}
+
+fn parse_expiry_policy(policy: &ExpiryPolicySelector) -> Result<ExpiryPolicy> {
+    match policy.mode.to_ascii_lowercase().as_str() {
+        "nearest" => {
+            if policy.days_max == 0 {
+                bail!("capture.option_universe.expiry_policy.days_max must be > 0");
+            }
+            Ok(ExpiryPolicy::Nearest {
+                days_max: policy.days_max,
+            })
+        }
+        other => bail!(
+            "unsupported capture.option_universe.expiry_policy.mode {other}; expected nearest"
+        ),
+    }
+}
+
+fn parse_strike_policy(policy: &StrikePolicySelector) -> Result<StrikePolicy> {
+    match policy.mode.to_ascii_lowercase().as_str() {
+        "atm_relative" => Ok(StrikePolicy::AtmRelative {
+            strikes_above: policy.strikes_above,
+            strikes_below: policy.strikes_below,
+        }),
+        other => bail!(
+            "unsupported capture.option_universe.strike_policy.mode {other}; expected atm_relative"
+        ),
+    }
+}
+
+fn validate_option_universe_family_shape(spec: &OptionUniverseSpec) -> Result<()> {
+    let needs_perp = spec.families.iter().any(|family| {
+        matches!(
+            family,
+            OptionUniverseFamily::IndexPrices | OptionUniverseFamily::FundingRates
+        )
+    });
+    if needs_perp && !spec.include_perp {
+        bail!(
+            "capture.option_universe families index_prices/funding_rates require include_perp = true"
+        );
+    }
+    Ok(())
+}
+
 fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
     match venue.kind.to_ascii_lowercase().as_str() {
         "binance_futures" => Ok(VenueRuntimeConfig::BinanceFutures {
@@ -451,6 +597,20 @@ fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             "unsupported venue kind {other}; currently supported: binance_futures, deribit, bybit, hyperliquid, okx"
         ),
     }
+}
+
+fn validate_unique_venue_ids(venues: &[VenueRuntimeConfig]) -> Result<()> {
+    let mut ids = std::collections::BTreeSet::new();
+    for venue in venues {
+        let inserted = ids.insert(venue.id());
+        if !inserted {
+            bail!(
+                "duplicate [[venues]] id {}; venue ids must be unique",
+                venue.id()
+            );
+        }
+    }
+    Ok(())
 }
 
 fn parse_compression(value: &str) -> Result<CompressionKind> {
@@ -972,6 +1132,179 @@ mod tests {
     }
 
     #[test]
+    fn resolve_config_accepts_option_universe_without_explicit_capture_entries() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "deribit_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: Some("BTC".to_string()),
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                        "index_prices".to_string(),
+                        "funding_rates".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "deribit_main".to_string(),
+                kind: "deribit".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["future".to_string(), "option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("option universe config should resolve");
+
+        assert!(effective.plan.is_empty());
+        assert_eq!(effective.option_universes.len(), 1);
+        validate_runtime(&effective).expect("runtime validation should pass");
+    }
+
+    #[test]
+    fn resolve_config_rejects_unknown_option_universe_family() {
+        let err = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "deribit_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: Some("BTC".to_string()),
+                    include_perp: true,
+                    families: vec!["books".to_string()],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "deribit_main".to_string(),
+                kind: "deribit".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["future".to_string(), "option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect_err("unknown family should fail");
+
+        assert!(err
+            .to_string()
+            .contains("unsupported capture.option_universe family"));
+    }
+
+    #[test]
+    fn validate_runtime_rejects_option_universe_missing_future_product_type_for_perp() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "deribit_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: Some("BTC".to_string()),
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "deribit_main".to_string(),
+                kind: "deribit".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective)
+            .expect_err("include_perp without future product type should fail");
+        assert!(err.to_string().contains("include \"future\""));
+    }
+
+    #[test]
+    fn validate_runtime_rejects_option_universe_unknown_venue_id() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "deribit_missing".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: Some("BTC".to_string()),
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "deribit_main".to_string(),
+                kind: "deribit".to_string(),
+                environment: "live".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["future".to_string(), "option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective).expect_err("unknown venue id should fail");
+        assert!(err.to_string().contains("unknown venue_id"));
+    }
+
+    #[test]
     fn example_deribit_dvol_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-dvol.toml");
         let loaded = load_config(&path).expect("example should load");
@@ -982,6 +1315,14 @@ mod tests {
     #[test]
     fn example_hyperliquid_open_interest_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.hyperliquid-open-interest.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_deribit_option_universe_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.deribit-btc-universe.toml");
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");

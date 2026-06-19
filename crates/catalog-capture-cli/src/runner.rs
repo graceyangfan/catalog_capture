@@ -1,11 +1,19 @@
 use std::{fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Context, Result};
+use catalog_capture_core::{
+    expand_option_universe, merge_capture_plans, resolve_option_universe, CapturePlan,
+    OptionUniverseFamily, OptionUniverseSpec, ResolvedOptionUniverse,
+};
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::enums::Environment;
-use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
+use nautilus_deribit::{
+    common::enums::DeribitCurrency, config::DeribitDataClientConfig,
+    factories::DeribitDataClientFactory, http::client::DeribitHttpClient,
+    http::models::DeribitProductType,
+};
 use nautilus_hyperliquid::data_types::register_hyperliquid_custom_data;
 use nautilus_hyperliquid::{
     config::HyperliquidDataClientConfig, factories::HyperliquidDataClientFactory,
@@ -15,8 +23,10 @@ use nautilus_model::{
     data::DataType,
     identifiers::{ActorId, TraderId},
     stubs::TestDefault,
+    types::Price,
 };
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
+use std::str::FromStr;
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 
@@ -25,12 +35,17 @@ pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
     fs::create_dir_all(&catalog_dir)
         .with_context(|| format!("failed to create catalog dir {}", catalog_dir.display()))?;
 
-    register_known_custom_data_types(&config.plan.custom_data);
+    let plan = materialize_capture_plan(&config).await?;
+    if plan.is_empty() {
+        bail!("capture plan is empty after option universe expansion");
+    }
+
+    register_known_custom_data_types(&plan.custom_data);
 
     let capture_actor = CatalogCaptureActor::new(CatalogCaptureActorConfig {
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-CLI")),
         capture: config.capture.clone(),
-        plan: config.plan.clone(),
+        plan: plan.clone(),
     })?;
 
     let trader_id = TraderId::test_default();
@@ -180,8 +195,190 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     if config.venues.is_empty() {
         bail!("at least one venue is required");
     }
+    validate_option_universes(&config.option_universes, &config.venues)?;
     validate_known_custom_data_types(&config.plan.custom_data, &config.venues)?;
     let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
+    Ok(())
+}
+
+async fn materialize_capture_plan(config: &EffectiveConfig) -> Result<CapturePlan> {
+    let mut plan = config.plan.clone();
+
+    for spec in &config.option_universes {
+        let venue = config
+            .venues
+            .iter()
+            .find(|venue| venue.id() == spec.venue_id)
+            .with_context(|| {
+                format!(
+                    "capture.option_universe references unknown venue_id `{}`",
+                    spec.venue_id
+                )
+            })?;
+
+        let resolved = match venue {
+            VenueRuntimeConfig::Deribit { environment, .. } => {
+                resolve_deribit_option_universe(spec, *environment).await?
+            }
+            _ => bail!(
+                "capture.option_universe currently only supports Deribit venues; got venue_id `{}`",
+                spec.venue_id
+            ),
+        };
+
+        println!(
+            "Resolved option universe {} {} expiry={} atm={} strikes={:?} instruments={:?}",
+            spec.venue_id,
+            spec.underlying,
+            resolved.selected_expiry_ns.as_u64(),
+            resolved.atm_reference,
+            resolved.selected_strikes,
+            resolved.all_instrument_ids
+        );
+
+        let expanded = expand_option_universe(spec, &resolved);
+        plan = merge_capture_plans(&plan, &expanded);
+    }
+
+    Ok(plan)
+}
+
+async fn resolve_deribit_option_universe(
+    spec: &OptionUniverseSpec,
+    environment: nautilus_deribit::common::enums::DeribitEnvironment,
+) -> Result<ResolvedOptionUniverse> {
+    let currency = DeribitCurrency::from_str(&spec.underlying).with_context(|| {
+        format!(
+            "unsupported Deribit option underlying `{}`",
+            spec.underlying
+        )
+    })?;
+    let client = DeribitHttpClient::new(None, environment, 30, 3, 500, 5_000, None)
+        .context("failed to create Deribit HTTP client for option universe resolution")?;
+
+    let option_instruments = client
+        .request_instruments(currency, Some(DeribitProductType::Option))
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request Deribit option instruments for underlying {}",
+                spec.underlying
+            )
+        })?;
+
+    let atm_reference = request_deribit_atm_reference(&client, spec).await?;
+    let perp_instrument_id = spec
+        .include_perp
+        .then(|| derive_deribit_perpetual_id(&spec.underlying))
+        .transpose()?;
+
+    resolve_option_universe(
+        spec,
+        &option_instruments,
+        nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+        atm_reference,
+        perp_instrument_id,
+    )
+    .map_err(anyhow::Error::from)
+}
+
+async fn request_deribit_atm_reference(
+    client: &DeribitHttpClient,
+    spec: &OptionUniverseSpec,
+) -> Result<Price> {
+    let summaries = client
+        .request_book_summaries(&spec.underlying)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request Deribit option book summaries for underlying {}",
+                spec.underlying
+            )
+        })?;
+
+    let Some(summary) = summaries
+        .into_iter()
+        .find(|summary| summary.underlying_price.is_some())
+    else {
+        bail!(
+            "no Deribit option book summary returned an underlying_price for {}",
+            spec.underlying
+        );
+    };
+
+    Ok(Price::from(
+        summary
+            .underlying_price
+            .expect("summary filtered to underlying_price")
+            .to_string()
+            .as_str(),
+    ))
+}
+
+fn derive_deribit_perpetual_id(
+    underlying: &str,
+) -> Result<nautilus_model::identifiers::InstrumentId> {
+    Ok(nautilus_model::identifiers::InstrumentId::from_str(
+        format!("{underlying}-PERPETUAL.DERIBIT").as_str(),
+    )?)
+}
+
+fn validate_option_universes(
+    specs: &[OptionUniverseSpec],
+    venues: &[VenueRuntimeConfig],
+) -> Result<()> {
+    for spec in specs {
+        validate_option_universe(spec, venues)?;
+    }
+    Ok(())
+}
+
+fn validate_option_universe(
+    spec: &OptionUniverseSpec,
+    venues: &[VenueRuntimeConfig],
+) -> Result<()> {
+    let venue = venues
+        .iter()
+        .find(|venue| venue.id() == spec.venue_id)
+        .with_context(|| {
+            format!(
+                "capture.option_universe references unknown venue_id `{}`",
+                spec.venue_id
+            )
+        })?;
+
+    match venue {
+        VenueRuntimeConfig::Deribit { product_types, .. } => {
+            if !product_types.contains(&DeribitProductType::Option) {
+                bail!(
+                    "capture.option_universe venue_id `{}` requires deribit product_types to include \"option\"",
+                    spec.venue_id
+                );
+            }
+            if spec.include_perp && !product_types.contains(&DeribitProductType::Future) {
+                bail!(
+                    "capture.option_universe venue_id `{}` with include_perp = true requires deribit product_types to include \"future\"",
+                    spec.venue_id
+                );
+            }
+        }
+        _ => bail!(
+            "capture.option_universe currently only supports [[venues]] entries with kind = \"deribit\""
+        ),
+    }
+
+    let needs_perp = spec.families.iter().any(|family| {
+        matches!(
+            family,
+            OptionUniverseFamily::IndexPrices | OptionUniverseFamily::FundingRates
+        )
+    });
+    if needs_perp && !spec.include_perp {
+        bail!(
+            "capture.option_universe families index_prices/funding_rates require include_perp = true"
+        );
+    }
+
     Ok(())
 }
 
