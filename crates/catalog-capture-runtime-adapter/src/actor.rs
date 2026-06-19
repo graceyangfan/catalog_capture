@@ -16,9 +16,9 @@ use nautilus_common::{
 };
 use nautilus_model::{
     data::{
-        Bar, CustomData, FundingRateUpdate, IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate,
-        OptionGreeks, OrderBookDelta, OrderBookDeltas, QuoteTick, TradeTick,
-        close::InstrumentClose,
+        close::InstrumentClose, Bar, CustomData, FundingRateUpdate, IndexPriceUpdate,
+        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas,
+        QuoteTick, TradeTick,
     },
     identifiers::{ActorId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
@@ -97,11 +97,26 @@ impl CatalogCaptureActor {
         Ok(Self {
             core: DataActorCore::new(actor_config),
             plan: config.plan,
-            instrument_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), instrument_sink),
-            custom_data_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), custom_data_sink),
-            mark_price_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), mark_price_sink),
-            index_price_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), index_price_sink),
-            funding_rate_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), funding_rate_sink),
+            instrument_runtime: BackgroundCaptureRuntime::new(
+                config.capture.clone(),
+                instrument_sink,
+            ),
+            custom_data_runtime: BackgroundCaptureRuntime::new(
+                config.capture.clone(),
+                custom_data_sink,
+            ),
+            mark_price_runtime: BackgroundCaptureRuntime::new(
+                config.capture.clone(),
+                mark_price_sink,
+            ),
+            index_price_runtime: BackgroundCaptureRuntime::new(
+                config.capture.clone(),
+                index_price_sink,
+            ),
+            funding_rate_runtime: BackgroundCaptureRuntime::new(
+                config.capture.clone(),
+                funding_rate_sink,
+            ),
             instrument_status_runtime: BackgroundCaptureRuntime::new(
                 config.capture.clone(),
                 instrument_status_sink,
@@ -372,14 +387,7 @@ impl CatalogCaptureActor {
         }
 
         for spec in &plan.book_deltas {
-            self.subscribe_book_deltas(
-                spec.instrument_id,
-                spec.book_type,
-                None,
-                None,
-                false,
-                None,
-            );
+            self.subscribe_book_deltas(spec.instrument_id, spec.book_type, None, None, false, None);
         }
     }
 
@@ -436,21 +444,52 @@ impl CatalogCaptureActor {
 
         let now = self.clock().timestamp_ns();
         let cache_rc = self.cache_rc();
-        let cache = cache_rc.borrow();
-        let delta = self
+        let delta = {
+            let cache = cache_rc.borrow();
+            self.dynamic_option_universe
+                .as_mut()
+                .expect("checked above")
+                .refresh_from_cache(&cache, now)?
+        };
+        let active_plan = self
             .dynamic_option_universe
-            .as_mut()
+            .as_ref()
             .expect("checked above")
-            .refresh_from_cache(&cache, now)?;
-        if delta.is_empty() {
-            return Ok(());
+            .active_capture_plan();
+        for change in &delta.changes {
+            println!(
+                "Option universe refresh venue_id={} underlying={} instruments={} -> {} add=[{}] remove=[{}]",
+                change.venue_id,
+                change.underlying,
+                change.previous_count,
+                change.next_count,
+                change
+                    .added_instrument_ids
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                change
+                    .removed_instrument_ids
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
         }
-
-        for instrument_id in delta.add.planned_instrument_ids() {
-            self.bootstrap_instrument(instrument_id)?;
+        if !delta.is_empty() {
+            for change in &delta.changes {
+                if let Some(observer) = &mut self.online_option_metrics {
+                    observer.apply_universe_change(change);
+                }
+            }
+            for instrument_id in delta.add.planned_instrument_ids() {
+                self.bootstrap_instrument(instrument_id)?;
+            }
+            self.subscribe_plan(&delta.add);
+            self.unsubscribe_plan(&delta.remove);
+            self.plan = active_plan;
         }
-        self.subscribe_plan(&delta.add);
-        self.unsubscribe_plan(&delta.remove);
         Ok(())
     }
 }
@@ -461,11 +500,26 @@ impl Debug for CatalogCaptureActor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CatalogCaptureActor")
             .field("plan", &self.plan)
-            .field("instrument_queue_depth", &self.instrument_runtime.queue_depth())
-            .field("custom_data_queue_depth", &self.custom_data_runtime.queue_depth())
-            .field("mark_price_queue_depth", &self.mark_price_runtime.queue_depth())
-            .field("index_price_queue_depth", &self.index_price_runtime.queue_depth())
-            .field("funding_rate_queue_depth", &self.funding_rate_runtime.queue_depth())
+            .field(
+                "instrument_queue_depth",
+                &self.instrument_runtime.queue_depth(),
+            )
+            .field(
+                "custom_data_queue_depth",
+                &self.custom_data_runtime.queue_depth(),
+            )
+            .field(
+                "mark_price_queue_depth",
+                &self.mark_price_runtime.queue_depth(),
+            )
+            .field(
+                "index_price_queue_depth",
+                &self.index_price_runtime.queue_depth(),
+            )
+            .field(
+                "funding_rate_queue_depth",
+                &self.funding_rate_runtime.queue_depth(),
+            )
             .field(
                 "instrument_status_queue_depth",
                 &self.instrument_status_runtime.queue_depth(),
@@ -485,7 +539,10 @@ impl Debug for CatalogCaptureActor {
                 "book_delta_queue_depth",
                 &self.book_delta_runtime.queue_depth(),
             )
-            .field("online_option_metrics", &self.online_option_metrics.is_some())
+            .field(
+                "online_option_metrics",
+                &self.online_option_metrics.is_some(),
+            )
             .finish()
     }
 }

@@ -5,6 +5,8 @@ use nautilus_model::{
     identifiers::InstrumentId,
 };
 
+use crate::dynamic_option_universe::DynamicOptionUniverseChange;
+
 #[derive(Debug, Clone)]
 pub struct OnlineOptionMetricsConfig {
     pub snapshot_interval_secs: u64,
@@ -174,6 +176,73 @@ impl OnlineOptionMetricsObserver {
         }
 
         lines
+    }
+
+    pub fn apply_universe_change(&mut self, change: &DynamicOptionUniverseChange) {
+        let Some(universe_index) = self
+            .universes
+            .iter()
+            .position(|universe| {
+                universe.venue_id == change.venue_id && universe.underlying == change.underlying
+            })
+        else {
+            return;
+        };
+
+        for instrument_id in &change.removed_instrument_ids {
+            if let Some(indexes) = self.instrument_to_universes.get_mut(instrument_id) {
+                indexes.retain(|index| *index != universe_index);
+                if indexes.is_empty() {
+                    self.instrument_to_universes.remove(instrument_id);
+                }
+            }
+        }
+
+        let universe = &mut self.universes[universe_index];
+        universe.expiry_iso8601 = change.selected_expiry_iso8601.clone();
+        if let Some(perp_instrument_id) = change.perp_instrument_id {
+            if universe.perp_instrument_id != perp_instrument_id {
+                if let Some(indexes) = self
+                    .instrument_to_universes
+                    .get_mut(&universe.perp_instrument_id)
+                {
+                    indexes.retain(|index| *index != universe_index);
+                    if indexes.is_empty() {
+                        self.instrument_to_universes
+                            .remove(&universe.perp_instrument_id);
+                    }
+                }
+                self.instrument_to_universes
+                    .entry(perp_instrument_id)
+                    .or_default()
+                    .push(universe_index);
+                universe.perp_instrument_id = perp_instrument_id;
+            }
+        }
+
+        universe.options.clear();
+        universe.perp_quote_mid = None;
+        universe.last_snapshot_ts_ns = None;
+        for instrument_id in &change.option_instrument_ids {
+            let descriptor = parse_option_id(&instrument_id.to_string())
+                .unwrap_or((String::new(), 0.0, '?'));
+            self.instrument_to_universes
+                .entry(*instrument_id)
+                .or_default()
+                .push(universe_index);
+            universe.options.insert(
+                *instrument_id,
+                OptionState {
+                    strike: descriptor.1,
+                    option_type: descriptor.2,
+                    mark_iv_raw: None,
+                    mark_iv_decimal: None,
+                    delta: None,
+                    quote_mid: None,
+                    quote_spread: None,
+                },
+            );
+        }
     }
 }
 
