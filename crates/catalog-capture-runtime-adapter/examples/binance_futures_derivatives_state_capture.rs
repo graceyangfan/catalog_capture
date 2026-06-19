@@ -106,6 +106,7 @@ async fn main() -> Result<()> {
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-BINANCE_DERIV_STATE")),
         capture: capture.clone(),
         plan,
+        online_option_metrics: None,
     })?;
 
     let trader_id = TraderId::test_default();

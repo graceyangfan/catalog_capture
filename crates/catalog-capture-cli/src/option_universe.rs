@@ -25,10 +25,6 @@ use ustr::Ustr;
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 
-pub async fn materialize_capture_plan(config: &EffectiveConfig) -> Result<CapturePlan> {
-    Ok(materialize_capture_plan_with_reports(config).await?.plan)
-}
-
 #[derive(Debug, Clone)]
 pub struct MaterializedOptionUniversePlan {
     pub plan: CapturePlan,

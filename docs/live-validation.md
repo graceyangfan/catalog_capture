@@ -259,6 +259,33 @@ The probe preserves `mark_iv_raw` because venues can expose IV in different scal
 sanity checks it also prints `mark_iv_decimal`, using a conservative heuristic that treats raw IV
 values greater than `3.0` as percentages and divides them by `100`.
 
+### Online option-metrics feasibility
+
+For runtime-only feasibility checks, the capture CLI can also compute a lightweight
+`stdout` snapshot directly from live `quotes + option_greeks`, without writing any derived
+feature parquet:
+
+```toml
+[runtime.online_option_metrics]
+enabled = true
+snapshot_interval_secs = 3
+```
+
+Current scope:
+
+- only activates for `capture.option_universe`
+- requires resolved `perp` quotes plus per-option `quotes` and `option_greeks`
+- prints ATM IV / low-put IV / high-call IV / rough risk-reversal / wing-richness
+- keeps per-instrument parquet capture unchanged; this is an observer, not a new truth source
+
+Short Bybit feasibility run:
+
+- `cargo run -p catalog-capture-cli -- run --config /tmp/capture.bybit-btc-universe-online-metrics.toml --print-option-universe --option-universe-format text`
+
+Representative output:
+
+- `[online-option-metrics] venue=bybit_main underlying=BTC ... atm_iv=0.360600 ... rr=-0.071400 ... greeks_ready=6/6 quotes_ready=6/6`
+
 Current manual smoke results:
 
 - OKX wrote instruments, quotes, option greeks, mark prices, index prices, and funding rates for

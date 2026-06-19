@@ -107,6 +107,7 @@ fn main() -> Result<()> {
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-HYPERLIQUID_OI_FIXTURE")),
         capture,
         plan,
+        online_option_metrics: None,
     };
 
     let mut actor = CatalogCaptureActor::new(config)?;

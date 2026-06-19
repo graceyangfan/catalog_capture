@@ -45,6 +45,8 @@ pub struct RuntimeConfig {
     pub delay_post_stop_secs: u64,
     #[serde(default = "default_node_name")]
     pub node_name: String,
+    #[serde(default)]
+    pub online_option_metrics: OnlineOptionMetricsRuntimeConfig,
 }
 
 impl Default for RuntimeConfig {
@@ -54,6 +56,24 @@ impl Default for RuntimeConfig {
             shutdown_timeout_secs: default_shutdown_timeout_secs(),
             delay_post_stop_secs: default_delay_post_stop_secs(),
             node_name: default_node_name(),
+            online_option_metrics: OnlineOptionMetricsRuntimeConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnlineOptionMetricsRuntimeConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_online_option_metrics_interval_secs")]
+    pub snapshot_interval_secs: u64,
+}
+
+impl Default for OnlineOptionMetricsRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            snapshot_interval_secs: default_online_option_metrics_interval_secs(),
         }
     }
 }
@@ -786,6 +806,10 @@ const fn default_delay_post_stop_secs() -> u64 {
 
 fn default_node_name() -> String {
     "CATALOG-CAPTURE-CLI-001".to_string()
+}
+
+const fn default_online_option_metrics_interval_secs() -> u64 {
+    5
 }
 
 fn default_catalog_uri() -> String {

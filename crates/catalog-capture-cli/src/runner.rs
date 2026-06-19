@@ -2,7 +2,10 @@ use std::{fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::CapturePlan;
-use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
+use catalog_capture_runtime_adapter::{
+    CatalogCaptureActor, CatalogCaptureActorConfig, OnlineOptionMetricsConfig,
+    OnlineOptionMetricsUniverseConfig,
+};
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::enums::Environment;
@@ -20,14 +23,20 @@ use nautilus_model::{
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
-use crate::option_universe::{materialize_capture_plan, validate_option_universes};
+use crate::option_universe::{
+    materialize_capture_plan_with_reports, validate_option_universes, OptionUniverseResolutionReport,
+};
 
 pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
-    let plan = materialize_capture_plan(&config).await?;
-    run_capture_with_plan(config, plan).await
+    let materialized = materialize_capture_plan_with_reports(&config).await?;
+    run_capture_with_plan_and_reports(config, materialized.plan, &materialized.reports).await
 }
 
-pub async fn run_capture_with_plan(config: EffectiveConfig, plan: CapturePlan) -> Result<()> {
+pub async fn run_capture_with_plan_and_reports(
+    config: EffectiveConfig,
+    plan: CapturePlan,
+    reports: &[OptionUniverseResolutionReport],
+) -> Result<()> {
     let catalog_dir = resolve_catalog_dir(&config.capture.catalog_uri)?;
     fs::create_dir_all(&catalog_dir)
         .with_context(|| format!("failed to create catalog dir {}", catalog_dir.display()))?;
@@ -42,6 +51,7 @@ pub async fn run_capture_with_plan(config: EffectiveConfig, plan: CapturePlan) -
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-CLI")),
         capture: config.capture.clone(),
         plan: plan.clone(),
+        online_option_metrics: build_online_option_metrics_config(&config, &plan, reports)?,
     })?;
 
     let trader_id = TraderId::test_default();
@@ -188,6 +198,11 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     if config.runtime.shutdown_timeout_secs == 0 {
         bail!("runtime.shutdown_timeout_secs must be > 0");
     }
+    if config.runtime.online_option_metrics.enabled
+        && config.runtime.online_option_metrics.snapshot_interval_secs == 0
+    {
+        bail!("runtime.online_option_metrics.snapshot_interval_secs must be > 0");
+    }
     if config.venues.is_empty() {
         bail!("at least one venue is required");
     }
@@ -195,6 +210,80 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     validate_known_custom_data_types(&config.plan.custom_data, &config.venues)?;
     let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
     Ok(())
+}
+
+fn build_online_option_metrics_config(
+    config: &EffectiveConfig,
+    plan: &CapturePlan,
+    reports: &[OptionUniverseResolutionReport],
+) -> Result<Option<OnlineOptionMetricsConfig>> {
+    if !config.runtime.online_option_metrics.enabled {
+        return Ok(None);
+    }
+    if reports.is_empty() {
+        bail!(
+            "runtime.online_option_metrics.enabled requires at least one capture.option_universe entry"
+        );
+    }
+
+    let planned_quote_ids = plan
+        .quotes
+        .iter()
+        .map(|spec| spec.instrument_id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let planned_greeks_ids = plan
+        .option_greeks
+        .iter()
+        .map(|spec| spec.instrument_id)
+        .collect::<std::collections::BTreeSet<_>>();
+
+    let mut universes = Vec::with_capacity(reports.len());
+    for report in reports {
+        let Some(perp_instrument_id) = report.perp_instrument_id.as_deref() else {
+            bail!(
+                "runtime.online_option_metrics.enabled requires option universe venue_id `{}` to resolve a hedge perp (set include_perp = true and capture quotes)",
+                report.venue_id
+            );
+        };
+        let perp_instrument_id = perp_instrument_id.parse()?;
+        if !planned_quote_ids.contains(&perp_instrument_id) {
+            bail!(
+                "runtime.online_option_metrics.enabled requires perp quotes for `{}`",
+                perp_instrument_id
+            );
+        }
+
+        let mut option_instrument_ids = Vec::with_capacity(report.option_instrument_ids.len());
+        for option_instrument_id in &report.option_instrument_ids {
+            let instrument_id = option_instrument_id.parse()?;
+            if !planned_quote_ids.contains(&instrument_id) {
+                bail!(
+                    "runtime.online_option_metrics.enabled requires option quotes for `{}`",
+                    instrument_id
+                );
+            }
+            if !planned_greeks_ids.contains(&instrument_id) {
+                bail!(
+                    "runtime.online_option_metrics.enabled requires option_greeks for `{}`",
+                    instrument_id
+                );
+            }
+            option_instrument_ids.push(instrument_id);
+        }
+
+        universes.push(OnlineOptionMetricsUniverseConfig {
+            venue_id: report.venue_id.clone(),
+            underlying: report.underlying.clone(),
+            expiry_iso8601: report.selected_expiry_iso8601.clone(),
+            perp_instrument_id,
+            option_instrument_ids,
+        });
+    }
+
+    Ok(Some(OnlineOptionMetricsConfig {
+        snapshot_interval_secs: config.runtime.online_option_metrics.snapshot_interval_secs,
+        universes,
+    }))
 }
 
 fn register_known_custom_data_types(custom_data: &[catalog_capture_core::CustomDataCaptureSpec]) {

@@ -12,7 +12,7 @@ use option_universe::{
     render_option_universe_reports_text, resolve_option_universe_reports,
     OptionUniverseResolutionReport,
 };
-use runner::{run_capture, run_capture_with_plan, validate_runtime};
+use runner::{run_capture, run_capture_with_plan_and_reports, validate_runtime};
 
 #[derive(Debug, Parser)]
 #[command(name = "nautilus-capture")]
@@ -79,7 +79,12 @@ async fn main() -> Result<()> {
                 if dry_run_resolve {
                     return Ok(());
                 }
-                run_capture_with_plan(effective, materialized.plan).await?;
+                run_capture_with_plan_and_reports(
+                    effective,
+                    materialized.plan,
+                    &materialized.reports,
+                )
+                .await?;
                 return Ok(());
             }
             run_capture(effective).await?;

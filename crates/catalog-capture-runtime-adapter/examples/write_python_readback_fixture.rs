@@ -213,6 +213,7 @@ fn main() -> Result<()> {
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-PYTHON_FIXTURE")),
         capture: capture.clone(),
         plan,
+        online_option_metrics: None,
     };
 
     let mut actor = CatalogCaptureActor::new(config)?;

@@ -23,11 +23,14 @@ use nautilus_model::{
     instruments::{Instrument, InstrumentAny},
 };
 
+use crate::online_option_metrics::{OnlineOptionMetricsConfig, OnlineOptionMetricsObserver};
+
 #[derive(Debug, Clone)]
 pub struct CatalogCaptureActorConfig {
     pub actor_id: Option<ActorId>,
     pub capture: CaptureConfig,
     pub plan: CapturePlan,
+    pub online_option_metrics: Option<OnlineOptionMetricsConfig>,
 }
 
 impl CatalogCaptureActorConfig {
@@ -37,6 +40,7 @@ impl CatalogCaptureActorConfig {
             actor_id: None,
             capture,
             plan,
+            online_option_metrics: None,
         }
     }
 }
@@ -56,6 +60,7 @@ pub struct CatalogCaptureActor {
     trade_runtime: BackgroundCaptureRuntime<TradeTick, NautilusCatalogSink>,
     bar_runtime: BackgroundCaptureRuntime<Bar, NautilusCatalogSink>,
     book_delta_runtime: BackgroundCaptureRuntime<OrderBookDelta, NautilusCatalogSink>,
+    online_option_metrics: Option<OnlineOptionMetricsObserver>,
 }
 
 impl CatalogCaptureActor {
@@ -106,6 +111,9 @@ impl CatalogCaptureActor {
             trade_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), trade_sink),
             bar_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), bar_sink),
             book_delta_runtime: BackgroundCaptureRuntime::new(config.capture, book_delta_sink),
+            online_option_metrics: config
+                .online_option_metrics
+                .map(OnlineOptionMetricsObserver::new),
         })
     }
 
@@ -343,6 +351,7 @@ impl Debug for CatalogCaptureActor {
                 "book_delta_queue_depth",
                 &self.book_delta_runtime.queue_depth(),
             )
+            .field("online_option_metrics", &self.online_option_metrics.is_some())
             .finish()
     }
 }
@@ -447,11 +456,21 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_option_greeks(&mut self, greeks: &OptionGreeks) -> Result<()> {
+        if let Some(observer) = &mut self.online_option_metrics {
+            for line in observer.on_option_greeks(greeks) {
+                println!("{line}");
+            }
+        }
         let _ = self.submit_option_greeks(greeks.clone())?;
         Ok(())
     }
 
     fn on_quote(&mut self, quote: &QuoteTick) -> Result<()> {
+        if let Some(observer) = &mut self.online_option_metrics {
+            for line in observer.on_quote(quote) {
+                println!("{line}");
+            }
+        }
         let _ = self.submit_quote(*quote)?;
         Ok(())
     }

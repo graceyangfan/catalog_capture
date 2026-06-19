@@ -48,6 +48,7 @@ fn main() -> Result<()> {
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-DEMO")),
         capture,
         plan,
+        online_option_metrics: None,
     };
 
     let actor = CatalogCaptureActor::new(config)?;
