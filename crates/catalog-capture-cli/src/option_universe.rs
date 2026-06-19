@@ -42,6 +42,7 @@ pub struct OptionUniverseResolutionReport {
     pub underlying: String,
     pub resolved_at_ns: u64,
     pub selected_expiry_ns: u64,
+    pub selected_expiry_iso8601: String,
     pub atm_reference: String,
     pub selected_strikes: Vec<String>,
     pub perp_instrument_id: Option<String>,
@@ -96,7 +97,7 @@ pub fn render_option_universe_reports_text(reports: &[OptionUniverseResolutionRe
         let perp = report.perp_instrument_id.as_deref().unwrap_or("-");
 
         sections.push(format!(
-            "venue={} underlying={} expiry_ns={}\n\
+            "venue={} underlying={} expiry={} expiry_ns={}\n\
              atm_reference={}\n\
              strikes=[{}]\n\
              perp={}\n\
@@ -105,6 +106,7 @@ pub fn render_option_universe_reports_text(reports: &[OptionUniverseResolutionRe
              new=[{}]",
             report.venue_id,
             report.underlying,
+            report.selected_expiry_iso8601,
             report.selected_expiry_ns,
             report.atm_reference,
             strikes,
@@ -329,6 +331,9 @@ fn build_option_universe_resolution_report(
         underlying: spec.underlying.clone(),
         resolved_at_ns: resolved.resolved_at_ns.as_u64(),
         selected_expiry_ns: resolved.selected_expiry_ns.as_u64(),
+        selected_expiry_iso8601: nautilus_core::datetime::unix_nanos_to_iso8601(
+            resolved.selected_expiry_ns,
+        ),
         atm_reference: resolved.atm_reference.to_string(),
         selected_strikes: resolved
             .selected_strikes
@@ -923,6 +928,10 @@ mod tests {
         assert_eq!(report.underlying, "BTC");
         assert_eq!(report.resolved_at_ns, 11);
         assert_eq!(report.selected_expiry_ns, 22);
+        assert_eq!(
+            report.selected_expiry_iso8601,
+            "1970-01-01T00:00:00.000000022Z"
+        );
         assert_eq!(report.atm_reference, "62393.25");
         assert_eq!(report.selected_strikes, vec!["62000", "62500"]);
         assert_eq!(
@@ -940,6 +949,7 @@ mod tests {
             underlying: "BTC".to_string(),
             resolved_at_ns: 1,
             selected_expiry_ns: 2,
+            selected_expiry_iso8601: "1970-01-01T00:00:00.000000002Z".to_string(),
             atm_reference: "62469.8".to_string(),
             selected_strikes: vec!["62250".to_string(), "62500".to_string()],
             perp_instrument_id: Some("BTC-USD-SWAP.OKX".to_string()),
@@ -966,6 +976,7 @@ mod tests {
             underlying: "BTC".to_string(),
             resolved_at_ns: 1,
             selected_expiry_ns: 2,
+            selected_expiry_iso8601: "1970-01-01T00:00:00.000000002Z".to_string(),
             atm_reference: "62469.8".to_string(),
             selected_strikes: vec!["62250".to_string(), "62500".to_string()],
             perp_instrument_id: Some("BTC-USD-SWAP.OKX".to_string()),
@@ -982,7 +993,8 @@ mod tests {
         }];
 
         let rendered = render_option_universe_reports_text(&reports);
-        assert!(rendered.contains("venue=okx_main underlying=BTC"));
+        assert!(rendered
+            .contains("venue=okx_main underlying=BTC expiry=1970-01-01T00:00:00.000000002Z"));
         assert!(rendered.contains("strikes=[62250, 62500]"));
         assert!(rendered.contains("perp=BTC-USD-SWAP.OKX"));
         assert!(rendered.contains("options=[BTC-USD-260620-62250-C.OKX"));
