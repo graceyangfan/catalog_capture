@@ -66,6 +66,36 @@ pub fn render_option_universe_reports_json(
         .map_err(|err| anyhow::anyhow!("failed to render option universe resolution report: {err}"))
 }
 
+pub fn render_option_universe_reports_text(reports: &[OptionUniverseResolutionReport]) -> String {
+    if reports.is_empty() {
+        return "No option universes configured.".to_string();
+    }
+
+    let mut sections = Vec::with_capacity(reports.len());
+    for report in reports {
+        let strikes = report.selected_strikes.join(", ");
+        let options = report.option_instrument_ids.join(", ");
+        let perp = report.perp_instrument_id.as_deref().unwrap_or("-");
+
+        sections.push(format!(
+            "venue={} underlying={} expiry_ns={}\n\
+             atm_reference={}\n\
+             strikes=[{}]\n\
+             perp={}\n\
+             options=[{}]",
+            report.venue_id,
+            report.underlying,
+            report.selected_expiry_ns,
+            report.atm_reference,
+            strikes,
+            perp,
+            options,
+        ));
+    }
+
+    sections.join("\n\n")
+}
+
 pub fn validate_option_universes(
     specs: &[OptionUniverseSpec],
     venues: &[VenueRuntimeConfig],
@@ -881,5 +911,35 @@ mod tests {
         assert!(rendered.contains("\"venue_id\": \"okx_main\""));
         assert!(rendered.contains("\"selected_strikes\""));
         assert!(rendered.contains('\n'));
+    }
+
+    #[test]
+    fn render_option_universe_reports_text_is_human_readable() {
+        let reports = vec![OptionUniverseResolutionReport {
+            venue_id: "okx_main".to_string(),
+            underlying: "BTC".to_string(),
+            resolved_at_ns: 1,
+            selected_expiry_ns: 2,
+            atm_reference: "62469.8".to_string(),
+            selected_strikes: vec!["62250".to_string(), "62500".to_string()],
+            perp_instrument_id: Some("BTC-USD-SWAP.OKX".to_string()),
+            option_instrument_ids: vec![
+                "BTC-USD-260620-62250-C.OKX".to_string(),
+                "BTC-USD-260620-62250-P.OKX".to_string(),
+            ],
+            all_instrument_ids: vec![],
+        }];
+
+        let rendered = render_option_universe_reports_text(&reports);
+        assert!(rendered.contains("venue=okx_main underlying=BTC"));
+        assert!(rendered.contains("strikes=[62250, 62500]"));
+        assert!(rendered.contains("perp=BTC-USD-SWAP.OKX"));
+        assert!(rendered.contains("options=[BTC-USD-260620-62250-C.OKX"));
+    }
+
+    #[test]
+    fn render_option_universe_reports_text_handles_empty_reports() {
+        let rendered = render_option_universe_reports_text(&[]);
+        assert_eq!(rendered, "No option universes configured.");
     }
 }
