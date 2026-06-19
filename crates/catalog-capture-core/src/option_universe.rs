@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, str::FromStr};
 
 use nautilus_core::UnixNanos;
 use nautilus_model::{
@@ -41,6 +41,20 @@ pub enum StrikePolicy {
         strikes_above: usize,
         strikes_below: usize,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptionUniverseVenueKind {
+    Deribit,
+    Bybit,
+    Okx,
+}
+
+impl OptionUniverseVenueKind {
+    #[must_use]
+    pub const fn supports_runtime_refresh(self) -> bool {
+        matches!(self, Self::Deribit)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,6 +103,76 @@ pub enum OptionUniverseResolveError {
         venue_id: String,
         underlying: String,
     },
+    #[error("capture.option_universe venue_id={venue_id} requires settlement_currency to derive the hedge instrument")]
+    MissingSettlementCurrency { venue_id: String },
+    #[error("no option instrument matched the configured expiry policy for venue_id={venue_id} underlying={underlying}")]
+    NoReferenceInstrument {
+        venue_id: String,
+        underlying: String,
+    },
+}
+
+pub fn okx_instrument_family(spec: &OptionUniverseSpec) -> Result<String, OptionUniverseResolveError> {
+    let Some(settlement_currency) = spec.settlement_currency.as_deref() else {
+        return Err(OptionUniverseResolveError::MissingSettlementCurrency {
+            venue_id: spec.venue_id.clone(),
+        });
+    };
+    Ok(format!("{}-{settlement_currency}", spec.underlying))
+}
+
+pub fn derive_perp_instrument_id(
+    spec: &OptionUniverseSpec,
+    venue: OptionUniverseVenueKind,
+) -> Result<InstrumentId, OptionUniverseResolveError> {
+    let instrument_id = match venue {
+        OptionUniverseVenueKind::Deribit => {
+            format!("{}-PERPETUAL.DERIBIT", spec.underlying)
+        }
+        OptionUniverseVenueKind::Bybit => {
+            let settlement_currency = spec.settlement_currency.as_deref().ok_or_else(|| {
+                OptionUniverseResolveError::MissingSettlementCurrency {
+                    venue_id: spec.venue_id.clone(),
+                }
+            })?;
+            format!("{}{}-LINEAR.BYBIT", spec.underlying, settlement_currency)
+        }
+        OptionUniverseVenueKind::Okx => {
+            format!("{}-SWAP.OKX", okx_instrument_family(spec)?)
+        }
+    };
+
+    InstrumentId::from_str(instrument_id.as_str()).map_err(|_| {
+        OptionUniverseResolveError::MissingPerpetual {
+            venue_id: spec.venue_id.clone(),
+            underlying: spec.underlying.clone(),
+        }
+    })
+}
+
+pub fn select_nearest_expiry_reference_instrument_id(
+    spec: &OptionUniverseSpec,
+    instruments: &[InstrumentAny],
+    now: UnixNanos,
+) -> Result<InstrumentId, OptionUniverseResolveError> {
+    let matching_options = collect_matching_options(spec, instruments, now);
+    if matching_options.is_empty() {
+        return Err(OptionUniverseResolveError::NoMatchingOptions {
+            venue_id: spec.venue_id.clone(),
+            underlying: spec.underlying.clone(),
+        });
+    }
+
+    let selected_expiry_ns = select_expiry(spec, &matching_options, now)?;
+    matching_options
+        .iter()
+        .filter(|option| option.expiration_ns == selected_expiry_ns)
+        .map(|option| option.instrument_id)
+        .min()
+        .ok_or_else(|| OptionUniverseResolveError::NoReferenceInstrument {
+            venue_id: spec.venue_id.clone(),
+            underlying: spec.underlying.clone(),
+        })
 }
 
 pub fn resolve_option_universe(
@@ -623,6 +707,50 @@ mod tests {
             vec![FundingRateCaptureSpec {
                 instrument_id: InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
             }]
+        );
+    }
+
+    #[test]
+    fn derive_perp_instrument_id_builds_expected_symbols() {
+        let spec = make_spec();
+        assert_eq!(
+            derive_perp_instrument_id(&spec, OptionUniverseVenueKind::Deribit).expect("deribit"),
+            InstrumentId::from("BTC-PERPETUAL.DERIBIT")
+        );
+
+        let bybit_spec = OptionUniverseSpec {
+            settlement_currency: Some("USDT".to_string()),
+            ..make_spec()
+        };
+        assert_eq!(
+            derive_perp_instrument_id(&bybit_spec, OptionUniverseVenueKind::Bybit).expect("bybit"),
+            InstrumentId::from("BTCUSDT-LINEAR.BYBIT")
+        );
+
+        let okx_spec = OptionUniverseSpec {
+            venue_id: "okx_main".to_string(),
+            settlement_currency: Some("USD".to_string()),
+            ..make_spec()
+        };
+        assert_eq!(
+            derive_perp_instrument_id(&okx_spec, OptionUniverseVenueKind::Okx).expect("okx"),
+            InstrumentId::from("BTC-USD-SWAP.OKX")
+        );
+    }
+
+    #[test]
+    fn select_nearest_expiry_reference_instrument_id_picks_nearest_expiry() {
+        let now = UnixNanos::from(1_781_740_800_000_000_000u64);
+        let reference = select_nearest_expiry_reference_instrument_id(
+            &make_spec(),
+            &make_btc_option_set(),
+            now,
+        )
+        .expect("reference instrument should resolve");
+
+        assert_eq!(
+            reference,
+            InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT")
         );
     }
 

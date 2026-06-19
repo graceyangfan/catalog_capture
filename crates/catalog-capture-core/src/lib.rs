@@ -14,9 +14,11 @@ pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPo
 pub use item::{CaptureItem, PartitionKey};
 pub use metrics::{CaptureMetrics, FlushReason, FlushReasonMetrics};
 pub use option_universe::{
-    expand_option_universe, merge_capture_plans, resolve_option_universe, ExpiryPolicy,
-    OptionUniverseFamily, OptionUniverseResolveError, OptionUniverseSpec, ResolvedOptionUniverse,
-    StrikePolicy,
+    derive_perp_instrument_id, expand_option_universe, merge_capture_plans,
+    okx_instrument_family, resolve_option_universe,
+    select_nearest_expiry_reference_instrument_id, ExpiryPolicy, OptionUniverseFamily,
+    OptionUniverseResolveError, OptionUniverseSpec, OptionUniverseVenueKind,
+    ResolvedOptionUniverse, StrikePolicy,
 };
 pub use plan::{
     BarCaptureSpec, BookDeltasCaptureSpec, CapturePlan, CustomDataCaptureSpec,
