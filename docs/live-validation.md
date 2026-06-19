@@ -246,14 +246,18 @@ the captured parquet:
 The metrics probe reads the same Nautilus catalog and reports:
 
 - latest perp quote mid
-- ATM strike and ATM IV
-- low-put / high-call IV
-- rough risk-reversal and wing-richness proxies
-- per-option latest IV, delta, quote mid, and row counts
+- ATM strike and ATM IV decimal
+- low-put / high-call IV decimal
+- rough risk-reversal and wing-richness proxies in decimal IV units
+- per-option latest raw IV, normalized decimal IV, delta, quote mid, and row counts
 
 These are sanity-check features for validating that the captured option universe can feed later
 Derivatives Monkey-style surface/skew research. They are not a replacement for a full offline
 surface builder or exact 25-delta interpolation.
+
+The probe preserves `mark_iv_raw` because venues can expose IV in different scales. For cross-venue
+sanity checks it also prints `mark_iv_decimal`, using a conservative heuristic that treats raw IV
+values greater than `3.0` as percentages and divides them by `100`.
 
 Current manual smoke results:
 

@@ -26,7 +26,8 @@ class OptionSnapshot:
     expiry: str
     strike: float
     option_type: str
-    mark_iv: float
+    mark_iv_raw: float
+    mark_iv_decimal: float
     delta: float
     gamma: float | None
     vega: float | None
@@ -122,6 +123,13 @@ def latest_quote_mid(quotes: list) -> tuple[float | None, float | None]:
     return None, None
 
 
+def normalize_mark_iv(value: float) -> float:
+    """Return IV as a decimal while preserving raw exchange/vendor values elsewhere."""
+    if abs(value) > 3.0:
+        return value / 100.0
+    return value
+
+
 def latest_option_snapshot(
     catalog: ParquetDataCatalog,
     instrument_id: str,
@@ -144,7 +152,8 @@ def latest_option_snapshot(
         expiry=expiry,
         strike=strike,
         option_type=option_type,
-        mark_iv=mark_iv,
+        mark_iv_raw=mark_iv,
+        mark_iv_decimal=normalize_mark_iv(mark_iv),
         delta=delta,
         gamma=numeric(getattr(latest_greeks, "gamma", None)),
         vega=numeric(getattr(latest_greeks, "vega", None)),
@@ -193,7 +202,7 @@ def compute_metrics(
     atm_strike = choose_atm_strike(snapshots, perp_quote_mid)
     atm_iv = average(
         [
-            snapshot.mark_iv
+            snapshot.mark_iv_decimal
             for snapshot in snapshots
             if snapshot.strike == atm_strike
         ]
@@ -203,14 +212,14 @@ def compute_metrics(
     high_strike = max(snapshot.strike for snapshot in snapshots)
     low_put_iv = average(
         [
-            snapshot.mark_iv
+            snapshot.mark_iv_decimal
             for snapshot in snapshots
             if snapshot.strike == low_strike and snapshot.option_type == "P"
         ]
     )
     high_call_iv = average(
         [
-            snapshot.mark_iv
+            snapshot.mark_iv_decimal
             for snapshot in snapshots
             if snapshot.strike == high_strike and snapshot.option_type == "C"
         ]
@@ -252,13 +261,16 @@ def print_text(metrics: UniverseMetrics) -> None:
     print(f"Perp: {metrics.perp_id}")
     print(f"Perp quote mid: {format_optional(metrics.perp_quote_mid, 2)}")
     print(f"ATM strike: {metrics.atm_strike:g}")
-    print(f"ATM IV: {format_optional(metrics.atm_iv)}")
-    print(f"Low-put IV: {format_optional(metrics.low_put_iv)}")
-    print(f"High-call IV: {format_optional(metrics.high_call_iv)}")
-    print(f"Rough risk reversal: {format_optional(metrics.rough_risk_reversal)}")
-    print(f"Rough wing richness: {format_optional(metrics.rough_wing_richness)}")
+    print(f"ATM IV decimal: {format_optional(metrics.atm_iv)}")
+    print(f"Low-put IV decimal: {format_optional(metrics.low_put_iv)}")
+    print(f"High-call IV decimal: {format_optional(metrics.high_call_iv)}")
+    print(f"Rough risk reversal decimal: {format_optional(metrics.rough_risk_reversal)}")
+    print(f"Rough wing richness decimal: {format_optional(metrics.rough_wing_richness)}")
     print("")
-    print("instrument_id,strike,type,mark_iv,delta,quote_mid,quote_spread,greeks,quotes")
+    print(
+        "instrument_id,strike,type,mark_iv_raw,mark_iv_decimal,delta,"
+        "quote_mid,quote_spread,greeks,quotes"
+    )
     for snapshot in metrics.options:
         print(
             ",".join(
@@ -266,7 +278,8 @@ def print_text(metrics: UniverseMetrics) -> None:
                     snapshot.instrument_id,
                     f"{snapshot.strike:g}",
                     snapshot.option_type,
-                    format_optional(snapshot.mark_iv),
+                    format_optional(snapshot.mark_iv_raw),
+                    format_optional(snapshot.mark_iv_decimal),
                     format_optional(snapshot.delta),
                     format_optional(snapshot.quote_mid, 8),
                     format_optional(snapshot.quote_spread, 8),
