@@ -122,6 +122,7 @@ pub fn compute_refresh_rollover_reason(
     resolved: &ResolvedOptionUniverse,
     previous_atm_reference: Option<&str>,
     instruments_changed: bool,
+    strike_selection_mode: &str,
 ) -> Option<String> {
     if !instruments_changed {
         return None;
@@ -138,6 +139,10 @@ pub fn compute_refresh_rollover_reason(
         if previous_atm_reference != current_atm.as_str() {
             return Some("atm_drift".to_string());
         }
+    }
+
+    if strike_selection_mode == "oi_ranked" {
+        return Some("oi_rank_shift".to_string());
     }
 
     Some("strike_window_shift".to_string())
@@ -227,7 +232,8 @@ mod tests {
                 Some(resolved.selected_expiry_ns.as_u64().saturating_sub(1)),
                 &resolved,
                 Some("65000"),
-                true
+                true,
+                "atm_relative",
             ),
             Some("expiry_roll".to_string())
         );
@@ -236,7 +242,8 @@ mod tests {
                 Some(resolved.selected_expiry_ns.as_u64()),
                 &resolved,
                 Some("64900"),
-                true
+                true,
+                "atm_relative",
             ),
             Some("atm_drift".to_string())
         );
@@ -245,9 +252,20 @@ mod tests {
                 Some(resolved.selected_expiry_ns.as_u64()),
                 &resolved,
                 Some("65000"),
-                true
+                true,
+                "atm_relative",
             ),
             Some("strike_window_shift".to_string())
+        );
+        assert_eq!(
+            compute_refresh_rollover_reason(
+                Some(resolved.selected_expiry_ns.as_u64()),
+                &resolved,
+                Some("65000"),
+                true,
+                "oi_ranked",
+            ),
+            Some("oi_rank_shift".to_string())
         );
     }
 

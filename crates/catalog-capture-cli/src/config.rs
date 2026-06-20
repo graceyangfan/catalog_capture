@@ -88,6 +88,10 @@ pub struct OptionUniverseRefreshRuntimeConfig {
     pub enabled: bool,
     #[serde(default = "default_option_universe_refresh_interval_secs")]
     pub interval_secs: u64,
+    /// Consecutive refresh ticks required before an `oi_ranked` strike set change
+    /// is applied. Zero disables smoothing.
+    #[serde(default = "default_option_universe_strike_change_confirmations")]
+    pub strike_change_confirmations: u32,
 }
 
 impl Default for OptionUniverseRefreshRuntimeConfig {
@@ -95,6 +99,7 @@ impl Default for OptionUniverseRefreshRuntimeConfig {
         Self {
             enabled: false,
             interval_secs: default_option_universe_refresh_interval_secs(),
+            strike_change_confirmations: default_option_universe_strike_change_confirmations(),
         }
     }
 }
@@ -864,6 +869,10 @@ const fn default_online_option_metrics_interval_secs() -> u64 {
 
 const fn default_option_universe_refresh_interval_secs() -> u64 {
     300
+}
+
+const fn default_option_universe_strike_change_confirmations() -> u32 {
+    2
 }
 
 fn default_catalog_uri() -> String {
@@ -1653,6 +1662,19 @@ mod tests {
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_deribit_option_universe_oi_ranked_autorefresh_config_loads_and_validates() {
+        let path =
+            repo_root().join("examples/capture.deribit-btc-universe-oi-ranked-autorefresh.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+        assert_eq!(
+            effective.runtime.option_universe_refresh.strike_change_confirmations,
+            2
+        );
     }
 
     #[test]

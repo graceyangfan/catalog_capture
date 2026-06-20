@@ -459,11 +459,13 @@ Shipped:
 - per-expiry **strike reference** via venue `underlying_price` / forward API
   (Deribit/Bybit option ticker or book summary; OKX forward price API)
 - runtime refresh rollover reasons: `expiry_roll`, `atm_drift`,
-  `strike_window_shift`
+  `strike_window_shift`, `oi_rank_shift`
+- `oi_ranked` strike-change smoothing via
+  `runtime.option_universe_refresh.strike_change_confirmations` (default `2`)
 
 Still future:
 
-- expiry rollover smoothing
+- expiry rollover smoothing (P2b: `oi_ranked` strike-change confirmations shipped)
 - multi-consumer sharing
 - strategy and dashboard consumers
 - OI-ranked / liquidity-ranked selection (full Step 9a)

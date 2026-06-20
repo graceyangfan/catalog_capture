@@ -8,6 +8,7 @@ pub mod item;
 pub mod metrics;
 pub mod option_universe;
 pub mod option_universe_metadata;
+pub mod option_universe_rollover;
 pub mod plan;
 pub mod runtime;
 pub mod sink;
@@ -28,6 +29,9 @@ pub use option_universe::{
     resolve_option_universe, select_nearest_expiry_reference_instrument_id, ExpiryPolicy,
     OptionUniverseFamily, OptionUniverseResolveError, OptionUniverseSpec,
     OptionUniverseVenueKind, ResolvedOptionUniverse, StrikeOpenInterestByStrike, StrikePolicy,
+};
+pub use option_universe_rollover::{
+    should_apply_strike_change, StrikeChangeSmoothingState,
 };
 pub use option_universe_metadata::{
     append_option_universe_resolution_records, catalog_root_from_uri,

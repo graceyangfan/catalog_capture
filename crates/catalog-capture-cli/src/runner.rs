@@ -366,6 +366,10 @@ fn build_dynamic_option_universe_config(
 
     Ok(Some(DynamicOptionUniverseConfig {
         refresh_interval_secs: config.runtime.option_universe_refresh.interval_secs,
+        strike_change_confirmations: config
+            .runtime
+            .option_universe_refresh
+            .strike_change_confirmations,
         static_plan: config.plan.clone(),
         initial_dynamic_plan,
         universes,

@@ -5,9 +5,9 @@ use catalog_capture_core::{
     aggregate_open_interest_by_strike, compute_refresh_rollover_reason, derive_perp_instrument_id,
     expand_option_universe, merge_capture_plans, option_instrument_ids_at_selected_expiry,
     refresh_resolution_record, resolve_option_universe, select_cache_perp_strike_fallback,
-    AtmReferenceSource, CapturePlan, MarkPriceCaptureSpec, OptionUniverseResolutionRecord,
-    OptionUniverseSpec, OptionUniverseVenueKind, QuoteCaptureSpec, ResolvedOptionUniverse,
-    StrikeOpenInterestByStrike,
+    should_apply_strike_change, AtmReferenceSource, CapturePlan, MarkPriceCaptureSpec,
+    OptionUniverseResolutionRecord, OptionUniverseSpec, OptionUniverseVenueKind, QuoteCaptureSpec,
+    ResolvedOptionUniverse, StrikeChangeSmoothingState, StrikeOpenInterestByStrike, StrikePolicy,
 };
 use nautilus_common::cache::Cache;
 use nautilus_core::UnixNanos;
@@ -22,6 +22,7 @@ use ustr::Ustr;
 #[derive(Debug, Clone)]
 pub struct DynamicOptionUniverseConfig {
     pub refresh_interval_secs: u64,
+    pub strike_change_confirmations: u32,
     pub static_plan: CapturePlan,
     pub initial_dynamic_plan: CapturePlan,
     pub universes: Vec<DynamicOptionUniverseEntryConfig>,
@@ -70,13 +71,16 @@ struct DynamicOptionUniverseState {
     venue_kind: OptionUniverseVenueKind,
     spec: OptionUniverseSpec,
     current_plan: CapturePlan,
+    applied_resolved: ResolvedOptionUniverse,
     last_selected_expiry_ns: Option<u64>,
     last_atm_reference: Option<String>,
+    strike_smoothing: StrikeChangeSmoothingState,
 }
 
 #[derive(Debug, Clone)]
 pub struct DynamicOptionUniverseManager {
     refresh_interval_secs: u64,
+    strike_change_confirmations: u32,
     static_plan: CapturePlan,
     current_dynamic_plan: CapturePlan,
     universes: Vec<DynamicOptionUniverseState>,
@@ -89,16 +93,19 @@ impl DynamicOptionUniverseManager {
             .into_iter()
             .map(|entry| DynamicOptionUniverseState {
                 current_plan: entry.initial_plan,
+                applied_resolved: entry.initial_resolved.clone(),
                 venue: entry.venue,
                 venue_kind: entry.venue_kind,
                 spec: entry.spec,
                 last_selected_expiry_ns: Some(entry.initial_resolved.selected_expiry_ns.as_u64()),
                 last_atm_reference: Some(entry.initial_resolved.atm_reference.to_string()),
+                strike_smoothing: StrikeChangeSmoothingState::default(),
             })
             .collect();
 
         Self {
             refresh_interval_secs: config.refresh_interval_secs,
+            strike_change_confirmations: config.strike_change_confirmations,
             static_plan: config.static_plan,
             current_dynamic_plan: config.initial_dynamic_plan,
             universes,
@@ -134,7 +141,31 @@ impl DynamicOptionUniverseManager {
                 state.venue_kind,
             ) {
                 Ok(resolved) => {
-                    let next_plan = expand_option_universe(&state.spec, &resolved);
+                    let expiry_changed = state.last_selected_expiry_ns.is_some_and(|expiry| {
+                        expiry != resolved.selected_expiry_ns.as_u64()
+                    });
+                    let smoothing_enabled = matches!(
+                        state.spec.strike_policy,
+                        StrikePolicy::OiRanked { .. }
+                    ) && self.strike_change_confirmations > 0;
+                    let apply_strike_change = if smoothing_enabled {
+                        should_apply_strike_change(
+                            &state.applied_resolved.selected_strikes,
+                            &resolved.selected_strikes,
+                            expiry_changed,
+                            self.strike_change_confirmations,
+                            &mut state.strike_smoothing,
+                        )
+                    } else {
+                        true
+                    };
+
+                    let effective_resolved = if apply_strike_change {
+                        resolved.clone()
+                    } else {
+                        state.applied_resolved.clone()
+                    };
+                    let next_plan = expand_option_universe(&state.spec, &effective_resolved);
                     let previous_ids = plan_instrument_ids(&state.current_plan);
                     let next_ids = plan_instrument_ids(&next_plan);
                     if next_ids != previous_ids {
@@ -143,18 +174,19 @@ impl DynamicOptionUniverseManager {
                             instrument_id_difference(&previous_ids, &next_ids);
                         let rollover_reason = compute_refresh_rollover_reason(
                             state.last_selected_expiry_ns,
-                            &resolved,
+                            &effective_resolved,
                             state.last_atm_reference.as_deref(),
                             true,
+                            state.spec.strike_policy.selection_mode(),
                         );
                         changes.push(DynamicOptionUniverseChange {
                             venue_id: state.spec.venue_id.clone(),
                             underlying: state.spec.underlying.clone(),
                             selected_expiry_iso8601: nautilus_core::datetime::unix_nanos_to_iso8601(
-                                resolved.selected_expiry_ns,
+                                effective_resolved.selected_expiry_ns,
                             ),
-                            perp_instrument_id: resolved.perp_instrument_id,
-                            option_instrument_ids: resolved.option_instrument_ids.clone(),
+                            perp_instrument_id: effective_resolved.perp_instrument_id,
+                            option_instrument_ids: effective_resolved.option_instrument_ids.clone(),
                             previous_count: previous_ids.len(),
                             next_count: next_ids.len(),
                             added_instrument_ids: added_instrument_ids.clone(),
@@ -162,7 +194,7 @@ impl DynamicOptionUniverseManager {
                         });
                         resolution_records.push(refresh_resolution_record(
                             &state.spec,
-                            &resolved,
+                            &effective_resolved,
                             added_instrument_ids
                                 .iter()
                                 .map(ToString::to_string)
@@ -174,8 +206,13 @@ impl DynamicOptionUniverseManager {
                             rollover_reason,
                         ));
                     }
-                    state.last_selected_expiry_ns = Some(resolved.selected_expiry_ns.as_u64());
-                    state.last_atm_reference = Some(resolved.atm_reference.to_string());
+                    if apply_strike_change {
+                        state.applied_resolved = effective_resolved;
+                        state.last_selected_expiry_ns =
+                            Some(state.applied_resolved.selected_expiry_ns.as_u64());
+                        state.last_atm_reference =
+                            Some(state.applied_resolved.atm_reference.to_string());
+                    }
                     state.current_plan = next_plan.clone();
                     next_dynamic_plan = merge_capture_plans(&next_dynamic_plan, &next_plan);
                 }
@@ -760,6 +797,7 @@ mod tests {
         let initial_plan = expand_option_universe(&spec(), &initial_resolved);
         let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
+            strike_change_confirmations: 0,
             static_plan: CapturePlan::default(),
             initial_dynamic_plan: initial_plan.clone(),
             universes: vec![DynamicOptionUniverseEntryConfig {
@@ -895,6 +933,140 @@ mod tests {
         assert_eq!(resolved.option_instrument_ids.len(), 4);
     }
 
+    fn seed_oi_ranked_cache(cache: &mut Cache, oi_by_id: &[(InstrumentId, f64)]) {
+        for (instrument_id, open_interest) in oi_by_id {
+            cache.add_option_greeks(make_option_greeks(
+                *instrument_id,
+                65_000.0,
+                Some(*open_interest),
+            ));
+        }
+    }
+
+    #[test]
+    fn refresh_from_cache_oi_ranked_smoothing_defers_strike_shift() {
+        let now = UnixNanos::from(1_781_740_800_000_000_000u64);
+        let venue = Venue::from("DERIBIT");
+        let mut cache = Cache::default();
+        let mut oi_spec = spec();
+        oi_spec.strike_policy = StrikePolicy::OiRanked { top_n: 2 };
+        oi_spec.families = vec![
+            OptionUniverseFamily::Instruments,
+            OptionUniverseFamily::OptionGreeks,
+        ];
+
+        for instrument in make_btc_option_set() {
+            cache.add_instrument(instrument).unwrap();
+        }
+        cache.add_instrument(make_deribit_perpetual()).unwrap();
+
+        seed_oi_ranked_cache(
+            &mut cache,
+            &[
+                (
+                    InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"),
+                    100.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"),
+                    50.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"),
+                    300.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"),
+                    200.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"),
+                    250.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"),
+                    150.0,
+                ),
+            ],
+        );
+
+        let initial_resolved = resolve_runtime_option_universe(
+            &cache,
+            now,
+            &oi_spec,
+            venue,
+            OptionUniverseVenueKind::Deribit,
+        )
+        .unwrap();
+        assert_eq!(
+            initial_resolved.selected_strikes,
+            vec![Price::from("65000"), Price::from("66000")]
+        );
+        let initial_plan = expand_option_universe(&oi_spec, &initial_resolved);
+        let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
+            refresh_interval_secs: 60,
+            strike_change_confirmations: 2,
+            static_plan: CapturePlan::default(),
+            initial_dynamic_plan: initial_plan.clone(),
+            universes: vec![DynamicOptionUniverseEntryConfig {
+                venue,
+                venue_kind: OptionUniverseVenueKind::Deribit,
+                spec: oi_spec.clone(),
+                initial_plan,
+                initial_resolved,
+            }],
+        });
+
+        seed_oi_ranked_cache(
+            &mut cache,
+            &[
+                (
+                    InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"),
+                    500.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"),
+                    400.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"),
+                    300.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"),
+                    200.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"),
+                    50.0,
+                ),
+                (
+                    InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"),
+                    25.0,
+                ),
+            ],
+        );
+
+        let first = manager.refresh_from_cache(&cache, now).unwrap();
+        assert!(first.is_empty());
+
+        let second = manager.refresh_from_cache(&cache, now).unwrap();
+        assert_eq!(second.changes.len(), 1);
+        assert_eq!(
+            second.resolution_records[0].rollover_reason.as_deref(),
+            Some("oi_rank_shift")
+        );
+        assert_eq!(
+            second.changes[0].option_instrument_ids,
+            vec![
+                InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"),
+                InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"),
+                InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"),
+                InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"),
+            ]
+        );
+    }
+
     #[test]
     fn refresh_from_cache_discovers_new_expiry_instruments_added_later() {
         let initial_now = UnixNanos::from(1_781_740_800_000_000_000u64);
@@ -920,6 +1092,7 @@ mod tests {
         let initial_plan = expand_option_universe(&spec(), &initial_resolved);
         let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
+            strike_change_confirmations: 0,
             static_plan: CapturePlan::default(),
             initial_dynamic_plan: initial_plan.clone(),
             universes: vec![DynamicOptionUniverseEntryConfig {
@@ -1164,6 +1337,7 @@ mod tests {
         let initial_plan = expand_option_universe(&bybit_spec(), &initial_resolved);
         let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
+            strike_change_confirmations: 0,
             static_plan: CapturePlan::default(),
             initial_dynamic_plan: initial_plan.clone(),
             universes: vec![DynamicOptionUniverseEntryConfig {
