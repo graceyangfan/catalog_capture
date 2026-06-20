@@ -245,6 +245,15 @@ Research profile smoke:
 The research profile uses `capture.deribit-btc-universe-research.toml` and additionally
 asserts `DeribitVolatilityIndex` custom data readback.
 
+OI-ranked profile smoke (P2a):
+
+- `python3 tests/probe_option_universe_smoke.py --venue deribit-oi-ranked --seconds 30`
+- `python3 tests/probe_option_universe_smoke.py --venue all-plus-oi-ranked --seconds 30`
+
+The OI-ranked profile uses `capture.deribit-btc-universe-oi-ranked.toml` and additionally
+asserts `metadata/option_universe_resolutions.jsonl` contains
+`strike_selection_mode = "oi_ranked"` and `oi_ranked_top_n`.
+
 Use `--skip-readback-probe` for file-only validation. Use `--cleanup` to remove generated catalogs
 after a successful run.
 

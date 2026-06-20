@@ -30,6 +30,9 @@ VENUE_CONFIGS = {
     "deribit-research": (
         PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-research.toml"
     ),
+    "deribit-oi-ranked": (
+        PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-oi-ranked.toml"
+    ),
 }
 
 STANDARD_VENUES = ("deribit", "okx", "bybit")
@@ -47,7 +50,10 @@ TRADE_FAMILY_NAMES = ("trade_tick", "trades")
 VENUES_REQUIRING_TRADES = frozenset({"okx", "bybit"})
 
 FORWARD_PRICES_METADATA = Path("metadata") / "forward_prices.jsonl"
+RESOLUTIONS_METADATA = Path("metadata") / "option_universe_resolutions.jsonl"
 FORWARD_PRICE_SOURCE = "option_greeks_underlying_price"
+
+OI_RANKED_VENUES = frozenset({"deribit-oi-ranked"})
 
 
 def main() -> int:
@@ -56,11 +62,12 @@ def main() -> int:
     )
     parser.add_argument(
         "--venue",
-        choices=(*VENUE_CONFIGS.keys(), "all", "all-plus-research"),
+        choices=(*VENUE_CONFIGS.keys(), "all", "all-plus-research", "all-plus-oi-ranked"),
         default="all",
         help=(
             "Venue smoke test to run. 'all' runs deribit/okx/bybit; "
-            "'all-plus-research' also runs the Deribit research profile."
+            "'all-plus-research' also runs the Deribit research profile; "
+            "'all-plus-oi-ranked' also runs the Deribit OI-ranked profile."
         ),
     )
     parser.add_argument(
@@ -103,6 +110,8 @@ def main() -> int:
         venues = list(STANDARD_VENUES)
     elif args.venue == "all-plus-research":
         venues = [*STANDARD_VENUES, "deribit-research"]
+    elif args.venue == "all-plus-oi-ranked":
+        venues = [*STANDARD_VENUES, "deribit-oi-ranked"]
     else:
         venues = [args.venue]
     failures = []
@@ -157,6 +166,13 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
     validate_summary(summary, venue)
     forward_rows = validate_forward_prices_metadata(catalog_dir)
     print(f"[{venue}] forward_prices.jsonl rows={forward_rows}")
+
+    if venue in OI_RANKED_VENUES:
+        resolution_rows = validate_oi_ranked_resolution_metadata(catalog_dir, top_n=3)
+        print(
+            f"[{venue}] option_universe_resolutions.jsonl rows={resolution_rows} "
+            "(strike_selection_mode=oi_ranked)",
+        )
 
     perp_id, option_ids = parse_resolution_output(output)
     min_trade_rows = 1 if venue in VENUES_REQUIRING_TRADES else 0
@@ -313,6 +329,72 @@ def print_catalog_summary(
         rows = values["sample_rows_first_5"]
         row_text = "unavailable" if rows is None else str(rows)
         print(f"[{venue}] {family}: files={values['files']} sample_rows_first_5={row_text}")
+
+
+def validate_oi_ranked_resolution_metadata(catalog_dir: Path, top_n: int) -> int:
+    path = catalog_dir / RESOLUTIONS_METADATA
+    if not path.exists():
+        raise RuntimeError(f"missing option universe resolution metadata: {path}")
+
+    lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError(f"option universe resolution metadata is empty: {path}")
+
+    startup_records = []
+    for line in lines:
+        record = json.loads(line)
+        if record.get("event_kind") == "startup":
+            startup_records.append(record)
+
+    if not startup_records:
+        raise RuntimeError(
+            f"option universe resolution metadata missing startup event: {path}"
+        )
+
+    record = startup_records[0]
+    for field in (
+        "strike_selection_mode",
+        "oi_ranked_top_n",
+        "selected_strikes",
+        "option_instrument_ids",
+        "atm_reference_source",
+    ):
+        if field not in record:
+            raise RuntimeError(
+                f"resolution metadata missing field {field!r} in startup record"
+            )
+
+    if record["strike_selection_mode"] != "oi_ranked":
+        raise RuntimeError(
+            "resolution metadata strike_selection_mode mismatch: "
+            f"expected 'oi_ranked', got {record['strike_selection_mode']!r}"
+        )
+    if record["oi_ranked_top_n"] != top_n:
+        raise RuntimeError(
+            "resolution metadata oi_ranked_top_n mismatch: "
+            f"expected {top_n}, got {record['oi_ranked_top_n']!r}"
+        )
+
+    selected_strikes = record["selected_strikes"]
+    option_ids = record["option_instrument_ids"]
+    if not selected_strikes:
+        raise RuntimeError("oi_ranked resolution selected no strikes")
+    if len(selected_strikes) > top_n:
+        raise RuntimeError(
+            f"oi_ranked selected {len(selected_strikes)} strikes, expected at most {top_n}"
+        )
+    if len(option_ids) != len(selected_strikes) * 2:
+        raise RuntimeError(
+            "oi_ranked option_instrument_ids count should be 2x selected_strikes "
+            f"(got {len(option_ids)} options for {len(selected_strikes)} strikes)"
+        )
+
+    print(
+        f"[oi_ranked] strikes={selected_strikes} "
+        f"atm_reference_source={record['atm_reference_source']}",
+        flush=True,
+    )
+    return len(lines)
 
 
 def validate_forward_prices_metadata(catalog_dir: Path) -> int:
