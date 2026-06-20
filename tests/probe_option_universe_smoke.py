@@ -44,6 +44,14 @@ VENUE_CONFIGS = {
     "okx-oi-ranked": (
         PROJECT_ROOT / "examples" / "capture.okx-btc-universe-oi-ranked.toml"
     ),
+    "deribit-volume-ranked": (
+        PROJECT_ROOT
+        / "examples"
+        / "capture.deribit-btc-universe-volume-ranked.toml"
+    ),
+    "deribit-all": (
+        PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-all.toml"
+    ),
 }
 
 STANDARD_VENUES = ("deribit", "okx", "bybit")
@@ -71,6 +79,9 @@ OI_RANKED_VENUES = frozenset({
     "okx-oi-ranked",
 })
 OI_RANKED_AUTOREFRESH_VENUES = frozenset({"deribit-oi-ranked-autorefresh"})
+VOLUME_RANKED_VENUES = frozenset({"deribit-volume-ranked"})
+ALL_STRIKES_VENUES = frozenset({"deribit-all"})
+READBACK_OPTION_SAMPLE_LIMIT = 6
 
 
 def main() -> int:
@@ -85,13 +96,15 @@ def main() -> int:
             "all-plus-research",
             "all-plus-oi-ranked",
             "all-oi-ranked",
+            "all-liquidity-ranked",
         ),
         default="all",
         help=(
             "Venue smoke test to run. 'all' runs deribit/okx/bybit; "
             "'all-plus-research' also runs the Deribit research profile; "
             "'all-plus-oi-ranked' also runs Deribit OI-ranked; "
-            "'all-oi-ranked' runs Deribit/Bybit/OKX OI-ranked profiles."
+            "'all-oi-ranked' runs Deribit/Bybit/OKX OI-ranked profiles; "
+            "'all-liquidity-ranked' runs Deribit volume_ranked and all."
         ),
     )
     parser.add_argument(
@@ -138,6 +151,8 @@ def main() -> int:
         venues = [*STANDARD_VENUES, "deribit-oi-ranked"]
     elif args.venue == "all-oi-ranked":
         venues = ["deribit-oi-ranked", "bybit-oi-ranked", "okx-oi-ranked"]
+    elif args.venue == "all-liquidity-ranked":
+        venues = ["deribit-volume-ranked", "deribit-all"]
     else:
         venues = [args.venue]
     failures = []
@@ -202,11 +217,31 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
     if venue in OI_RANKED_AUTOREFRESH_VENUES:
         validate_oi_ranked_autorefresh_output(output)
         validate_oi_ranked_autorefresh_metadata(catalog_dir)
+    if venue in VOLUME_RANKED_VENUES:
+        resolution_rows = validate_volume_ranked_resolution_metadata(catalog_dir, top_n=3)
+        print(
+            f"[{venue}] option_universe_resolutions.jsonl rows={resolution_rows} "
+            "(strike_selection_mode=volume_ranked)",
+        )
+    if venue in ALL_STRIKES_VENUES:
+        resolution_rows = validate_all_strikes_resolution_metadata(catalog_dir)
+        print(
+            f"[{venue}] option_universe_resolutions.jsonl rows={resolution_rows} "
+            "(strike_selection_mode=all)",
+        )
 
     perp_id, option_ids = parse_resolution_output(output)
+    readback_option_ids = option_ids
+    if venue in ALL_STRIKES_VENUES and len(option_ids) > READBACK_OPTION_SAMPLE_LIMIT:
+        readback_option_ids = option_ids[:READBACK_OPTION_SAMPLE_LIMIT]
+        print(
+            f"[{venue}] readback sampling {len(readback_option_ids)} of "
+            f"{len(option_ids)} resolved options",
+            flush=True,
+        )
     min_trade_rows = 1 if venue in VENUES_REQUIRING_TRADES else 0
     if not args.skip_readback_probe:
-        run_readback_probe(catalog_dir, perp_id, option_ids, min_trade_rows)
+        run_readback_probe(catalog_dir, perp_id, readback_option_ids, min_trade_rows)
         if args.metrics_probe:
             run_metrics_probe(catalog_dir, perp_id, option_ids)
     elif args.metrics_probe:
@@ -436,6 +471,137 @@ def validate_oi_ranked_autorefresh_output(output: str) -> None:
         f"[oi_ranked_autorefresh] refresh_change_log_lines={len(refresh_lines)}",
         flush=True,
     )
+
+
+def validate_volume_ranked_resolution_metadata(catalog_dir: Path, top_n: int) -> int:
+    path = catalog_dir / RESOLUTIONS_METADATA
+    if not path.exists():
+        raise RuntimeError(f"missing option universe resolution metadata: {path}")
+
+    lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError(f"option universe resolution metadata is empty: {path}")
+
+    startup_records = []
+    for line in lines:
+        record = json.loads(line)
+        if record.get("event_kind") == "startup":
+            startup_records.append(record)
+
+    if not startup_records:
+        raise RuntimeError(
+            f"option universe resolution metadata missing startup event: {path}"
+        )
+
+    record = startup_records[0]
+    for field in (
+        "strike_selection_mode",
+        "volume_ranked_top_n",
+        "selected_strikes",
+        "option_instrument_ids",
+        "atm_reference_source",
+    ):
+        if field not in record:
+            raise RuntimeError(
+                f"resolution metadata missing field {field!r} in startup record"
+            )
+
+    if record["strike_selection_mode"] != "volume_ranked":
+        raise RuntimeError(
+            "resolution metadata strike_selection_mode mismatch: "
+            f"expected 'volume_ranked', got {record['strike_selection_mode']!r}"
+        )
+    if record["volume_ranked_top_n"] != top_n:
+        raise RuntimeError(
+            "resolution metadata volume_ranked_top_n mismatch: "
+            f"expected {top_n}, got {record['volume_ranked_top_n']!r}"
+        )
+
+    selected_strikes = record["selected_strikes"]
+    option_ids = record["option_instrument_ids"]
+    if not selected_strikes:
+        raise RuntimeError("volume_ranked resolution selected no strikes")
+    if len(selected_strikes) > top_n:
+        raise RuntimeError(
+            "volume_ranked selected "
+            f"{len(selected_strikes)} strikes, expected at most {top_n}"
+        )
+    if len(option_ids) != len(selected_strikes) * 2:
+        raise RuntimeError(
+            "volume_ranked option_instrument_ids count should be 2x selected_strikes "
+            f"(got {len(option_ids)} options for {len(selected_strikes)} strikes)"
+        )
+
+    print(
+        f"[volume_ranked] strikes={selected_strikes} "
+        f"atm_reference_source={record['atm_reference_source']}",
+        flush=True,
+    )
+    return len(lines)
+
+
+def validate_all_strikes_resolution_metadata(catalog_dir: Path) -> int:
+    path = catalog_dir / RESOLUTIONS_METADATA
+    if not path.exists():
+        raise RuntimeError(f"missing option universe resolution metadata: {path}")
+
+    lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError(f"option universe resolution metadata is empty: {path}")
+
+    startup_records = []
+    for line in lines:
+        record = json.loads(line)
+        if record.get("event_kind") == "startup":
+            startup_records.append(record)
+
+    if not startup_records:
+        raise RuntimeError(
+            f"option universe resolution metadata missing startup event: {path}"
+        )
+
+    record = startup_records[0]
+    for field in (
+        "strike_selection_mode",
+        "selected_strikes",
+        "option_instrument_ids",
+        "atm_reference_source",
+    ):
+        if field not in record:
+            raise RuntimeError(
+                f"resolution metadata missing field {field!r} in startup record"
+            )
+
+    if record["strike_selection_mode"] != "all":
+        raise RuntimeError(
+            "resolution metadata strike_selection_mode mismatch: "
+            f"expected 'all', got {record['strike_selection_mode']!r}"
+        )
+    if record.get("oi_ranked_top_n") is not None:
+        raise RuntimeError("all-strikes resolution should not set oi_ranked_top_n")
+    if record.get("volume_ranked_top_n") is not None:
+        raise RuntimeError("all-strikes resolution should not set volume_ranked_top_n")
+
+    selected_strikes = record["selected_strikes"]
+    option_ids = record["option_instrument_ids"]
+    if len(selected_strikes) < 5:
+        raise RuntimeError(
+            "all-strikes resolution selected too few strikes for BTC nearest expiry: "
+            f"{len(selected_strikes)}"
+        )
+    if len(option_ids) != len(selected_strikes) * 2:
+        raise RuntimeError(
+            "all-strikes option_instrument_ids count should be 2x selected_strikes "
+            f"(got {len(option_ids)} options for {len(selected_strikes)} strikes)"
+        )
+
+    print(
+        f"[all_strikes] strikes={len(selected_strikes)} "
+        f"options={len(option_ids)} "
+        f"atm_reference_source={record['atm_reference_source']}",
+        flush=True,
+    )
+    return len(lines)
 
 
 def validate_oi_ranked_autorefresh_metadata(catalog_dir: Path) -> None:

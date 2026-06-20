@@ -1749,4 +1749,28 @@ mod tests {
             StrikePolicy::OiRanked { top_n: 3 }
         ));
     }
+
+    #[test]
+    fn example_deribit_option_universe_volume_ranked_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.deribit-btc-universe-volume-ranked.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+        assert!(matches!(
+            effective.option_universes[0].strike_policy,
+            StrikePolicy::VolumeRanked { top_n: 3 }
+        ));
+    }
+
+    #[test]
+    fn example_deribit_option_universe_all_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.deribit-btc-universe-all.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+        assert!(matches!(
+            effective.option_universes[0].strike_policy,
+            StrikePolicy::AllStrikes
+        ));
+    }
 }
