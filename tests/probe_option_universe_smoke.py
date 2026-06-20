@@ -38,6 +38,12 @@ VENUE_CONFIGS = {
         / "examples"
         / "capture.deribit-btc-universe-oi-ranked-autorefresh.toml"
     ),
+    "bybit-oi-ranked": (
+        PROJECT_ROOT / "examples" / "capture.bybit-btc-universe-oi-ranked.toml"
+    ),
+    "okx-oi-ranked": (
+        PROJECT_ROOT / "examples" / "capture.okx-btc-universe-oi-ranked.toml"
+    ),
 }
 
 STANDARD_VENUES = ("deribit", "okx", "bybit")
@@ -52,13 +58,18 @@ REQUIRED_FAMILIES = (
 )
 
 TRADE_FAMILY_NAMES = ("trade_tick", "trades")
-VENUES_REQUIRING_TRADES = frozenset({"okx", "bybit"})
+VENUES_REQUIRING_TRADES = frozenset({"okx", "bybit", "okx-oi-ranked", "bybit-oi-ranked"})
 
 FORWARD_PRICES_METADATA = Path("metadata") / "forward_prices.jsonl"
 RESOLUTIONS_METADATA = Path("metadata") / "option_universe_resolutions.jsonl"
 FORWARD_PRICE_SOURCE = "option_greeks_underlying_price"
 
-OI_RANKED_VENUES = frozenset({"deribit-oi-ranked", "deribit-oi-ranked-autorefresh"})
+OI_RANKED_VENUES = frozenset({
+    "deribit-oi-ranked",
+    "deribit-oi-ranked-autorefresh",
+    "bybit-oi-ranked",
+    "okx-oi-ranked",
+})
 OI_RANKED_AUTOREFRESH_VENUES = frozenset({"deribit-oi-ranked-autorefresh"})
 
 
@@ -68,12 +79,19 @@ def main() -> int:
     )
     parser.add_argument(
         "--venue",
-        choices=(*VENUE_CONFIGS.keys(), "all", "all-plus-research", "all-plus-oi-ranked"),
+        choices=(
+            *VENUE_CONFIGS.keys(),
+            "all",
+            "all-plus-research",
+            "all-plus-oi-ranked",
+            "all-oi-ranked",
+        ),
         default="all",
         help=(
             "Venue smoke test to run. 'all' runs deribit/okx/bybit; "
             "'all-plus-research' also runs the Deribit research profile; "
-            "'all-plus-oi-ranked' also runs the Deribit OI-ranked profile."
+            "'all-plus-oi-ranked' also runs Deribit OI-ranked; "
+            "'all-oi-ranked' runs Deribit/Bybit/OKX OI-ranked profiles."
         ),
     )
     parser.add_argument(
@@ -118,6 +136,8 @@ def main() -> int:
         venues = [*STANDARD_VENUES, "deribit-research"]
     elif args.venue == "all-plus-oi-ranked":
         venues = [*STANDARD_VENUES, "deribit-oi-ranked"]
+    elif args.venue == "all-oi-ranked":
+        venues = ["deribit-oi-ranked", "bybit-oi-ranked", "okx-oi-ranked"]
     else:
         venues = [args.venue]
     failures = []

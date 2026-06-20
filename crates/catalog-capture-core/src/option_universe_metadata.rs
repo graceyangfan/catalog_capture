@@ -32,6 +32,7 @@ pub struct OptionUniverseResolutionRecord {
     pub atm_reference_source: String,
     pub strike_selection_mode: String,
     pub oi_ranked_top_n: Option<usize>,
+    pub volume_ranked_top_n: Option<usize>,
     pub selected_strikes: Vec<String>,
     pub perp_instrument_id: Option<String>,
     pub option_instrument_ids: Vec<String>,
@@ -145,6 +146,10 @@ pub fn compute_refresh_rollover_reason(
         return Some("oi_rank_shift".to_string());
     }
 
+    if strike_selection_mode == "volume_ranked" {
+        return Some("volume_rank_shift".to_string());
+    }
+
     Some("strike_window_shift".to_string())
 }
 
@@ -173,6 +178,7 @@ fn resolution_record(
             .unwrap_or_else(|| "unknown".to_string()),
         strike_selection_mode: spec.strike_policy.selection_mode().to_string(),
         oi_ranked_top_n: spec.strike_policy.oi_ranked_top_n(),
+        volume_ranked_top_n: spec.strike_policy.volume_ranked_top_n(),
         selected_strikes: resolved
             .selected_strikes
             .iter()

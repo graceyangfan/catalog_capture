@@ -145,3 +145,15 @@ fn validate_option_universe(
 
     Ok(())
 }
+
+pub fn validate_option_universe_refresh_compatibility(
+    spec: &OptionUniverseSpec,
+    refresh_enabled: bool,
+) -> Result<()> {
+    if refresh_enabled && matches!(spec.strike_policy, StrikePolicy::VolumeRanked { .. }) {
+        bail!(
+            "capture.option_universe strike_policy volume_ranked does not support runtime.option_universe_refresh yet"
+        );
+    }
+    Ok(())
+}

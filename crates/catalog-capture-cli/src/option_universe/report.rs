@@ -19,6 +19,7 @@ pub struct OptionUniverseResolutionReport {
     pub atm_reference_source: String,
     pub strike_selection_mode: String,
     pub oi_ranked_top_n: Option<usize>,
+    pub volume_ranked_top_n: Option<usize>,
     pub selected_strikes: Vec<String>,
     pub perp_instrument_id: Option<String>,
     pub option_instrument_ids: Vec<String>,
@@ -59,6 +60,7 @@ pub fn build_option_universe_resolution_report(
             .unwrap_or_else(|| "unknown".to_string()),
         strike_selection_mode: spec.strike_policy.selection_mode().to_string(),
         oi_ranked_top_n: spec.strike_policy.oi_ranked_top_n(),
+        volume_ranked_top_n: spec.strike_policy.volume_ranked_top_n(),
         selected_strikes: resolved
             .selected_strikes
             .iter()
@@ -97,6 +99,7 @@ pub fn startup_resolution_record_from_report(
         atm_reference_source: report.atm_reference_source.clone(),
         strike_selection_mode: report.strike_selection_mode.clone(),
         oi_ranked_top_n: report.oi_ranked_top_n,
+        volume_ranked_top_n: report.volume_ranked_top_n,
         selected_strikes: report.selected_strikes.clone(),
         perp_instrument_id: report.perp_instrument_id.clone(),
         option_instrument_ids: report.option_instrument_ids.clone(),
