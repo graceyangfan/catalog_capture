@@ -33,6 +33,11 @@ VENUE_CONFIGS = {
     "deribit-oi-ranked": (
         PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-oi-ranked.toml"
     ),
+    "deribit-oi-ranked-autorefresh": (
+        PROJECT_ROOT
+        / "examples"
+        / "capture.deribit-btc-universe-oi-ranked-autorefresh.toml"
+    ),
 }
 
 STANDARD_VENUES = ("deribit", "okx", "bybit")
@@ -53,7 +58,8 @@ FORWARD_PRICES_METADATA = Path("metadata") / "forward_prices.jsonl"
 RESOLUTIONS_METADATA = Path("metadata") / "option_universe_resolutions.jsonl"
 FORWARD_PRICE_SOURCE = "option_greeks_underlying_price"
 
-OI_RANKED_VENUES = frozenset({"deribit-oi-ranked"})
+OI_RANKED_VENUES = frozenset({"deribit-oi-ranked", "deribit-oi-ranked-autorefresh"})
+OI_RANKED_AUTOREFRESH_VENUES = frozenset({"deribit-oi-ranked-autorefresh"})
 
 
 def main() -> int:
@@ -173,6 +179,9 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
             f"[{venue}] option_universe_resolutions.jsonl rows={resolution_rows} "
             "(strike_selection_mode=oi_ranked)",
         )
+    if venue in OI_RANKED_AUTOREFRESH_VENUES:
+        validate_oi_ranked_autorefresh_output(output)
+        validate_oi_ranked_autorefresh_metadata(catalog_dir)
 
     perp_id, option_ids = parse_resolution_output(output)
     min_trade_rows = 1 if venue in VENUES_REQUIRING_TRADES else 0
@@ -395,6 +404,54 @@ def validate_oi_ranked_resolution_metadata(catalog_dir: Path, top_n: int) -> int
         flush=True,
     )
     return len(lines)
+
+
+def validate_oi_ranked_autorefresh_output(output: str) -> None:
+    refresh_lines = [
+        strip_ansi(line.strip())
+        for line in output.splitlines()
+        if "Option universe refresh venue_id=" in line
+    ]
+    print(
+        f"[oi_ranked_autorefresh] refresh_change_log_lines={len(refresh_lines)}",
+        flush=True,
+    )
+
+
+def validate_oi_ranked_autorefresh_metadata(catalog_dir: Path) -> None:
+    path = catalog_dir / RESOLUTIONS_METADATA
+    if not path.exists():
+        raise RuntimeError(f"missing option universe resolution metadata: {path}")
+
+    records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    refresh_records = [
+        record for record in records if record.get("event_kind") == "refresh"
+    ]
+    allowed_reasons = {"oi_rank_shift", "expiry_roll", "atm_drift"}
+    for record in refresh_records:
+        if record.get("strike_selection_mode") != "oi_ranked":
+            raise RuntimeError(
+                "refresh metadata strike_selection_mode mismatch: "
+                f"expected 'oi_ranked', got {record.get('strike_selection_mode')!r}"
+            )
+        reason = record.get("rollover_reason")
+        if reason not in allowed_reasons:
+            raise RuntimeError(
+                "refresh metadata rollover_reason unexpected: "
+                f"got {reason!r}, expected one of {sorted(allowed_reasons)}"
+            )
+        if not record.get("added_instrument_ids") and not record.get(
+            "removed_instrument_ids"
+        ):
+            raise RuntimeError(
+                "refresh metadata should include added or removed instruments"
+            )
+
+    print(
+        f"[oi_ranked_autorefresh] resolution_rows={len(records)} "
+        f"refresh_rows={len(refresh_records)}",
+        flush=True,
+    )
 
 
 def validate_forward_prices_metadata(catalog_dir: Path) -> int:
