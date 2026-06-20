@@ -330,6 +330,7 @@ fn capture_plan_difference(left: &CapturePlan, right: &CapturePlan) -> CapturePl
             &right.instrument_closes,
         ),
         option_greeks: difference_by_instrument(&left.option_greeks, &right.option_greeks),
+        forward_prices: difference_by_instrument(&left.forward_prices, &right.forward_prices),
         custom_data: left
             .custom_data
             .iter()

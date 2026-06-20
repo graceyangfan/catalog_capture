@@ -22,6 +22,7 @@ nautilus-model.workspace = true
 nautilus-persistence.workspace = true
 nautilus-serialization.workspace = true
 parquet.workspace = true
+rust_decimal.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

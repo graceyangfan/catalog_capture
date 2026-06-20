@@ -63,6 +63,11 @@ pub struct OptionGreeksCaptureSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ForwardPriceCaptureSpec {
+    pub instrument_id: InstrumentId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CustomDataCaptureSpec {
     pub data_type: DataType,
 }
@@ -80,6 +85,7 @@ pub struct CapturePlan {
     pub instrument_statuses: Vec<InstrumentStatusCaptureSpec>,
     pub instrument_closes: Vec<InstrumentCloseCaptureSpec>,
     pub option_greeks: Vec<OptionGreeksCaptureSpec>,
+    pub forward_prices: Vec<ForwardPriceCaptureSpec>,
     pub custom_data: Vec<CustomDataCaptureSpec>,
 }
 
@@ -97,6 +103,7 @@ impl CapturePlan {
             && self.instrument_statuses.is_empty()
             && self.instrument_closes.is_empty()
             && self.option_greeks.is_empty()
+            && self.forward_prices.is_empty()
             && self.custom_data.is_empty()
     }
 
@@ -122,6 +129,7 @@ impl CapturePlan {
         ids.extend(self.instrument_statuses.iter().map(|spec| spec.instrument_id));
         ids.extend(self.instrument_closes.iter().map(|spec| spec.instrument_id));
         ids.extend(self.option_greeks.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.forward_prices.iter().map(|spec| spec.instrument_id));
     }
 }
 

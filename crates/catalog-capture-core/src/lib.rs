@@ -2,6 +2,8 @@ pub mod atm_reference;
 pub mod background;
 pub mod buffer;
 pub mod config;
+pub mod forward_price;
+pub mod forward_price_metadata;
 pub mod item;
 pub mod metrics;
 pub mod option_universe;
@@ -33,9 +35,14 @@ pub use option_universe_metadata::{
     refresh_resolution_record, startup_resolution_record, OptionUniverseResolutionEventKind,
     OptionUniverseResolutionRecord,
 };
+pub use forward_price::forward_price_from_option_greeks;
+pub use forward_price_metadata::{
+    append_forward_price_records, forward_price_log_path, forward_price_record_from_model,
+    ForwardPriceRecord, FORWARD_PRICES_FILE,
+};
 pub use plan::{
     BarCaptureSpec, BookDeltasCaptureSpec, CapturePlan, CustomDataCaptureSpec,
-    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
+    ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
     InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
     OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
 };

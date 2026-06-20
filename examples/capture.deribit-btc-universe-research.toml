@@ -1,15 +1,14 @@
+# Research profile: rolling BTC option universe + trade tape + forward prices + DVOL.
+# Open interest is captured via option_greeks.open_interest on each selected contract.
+
 [runtime]
 capture_seconds = 120
 shutdown_timeout_secs = 10
 delay_post_stop_secs = 2
-node_name = "CATALOG-CAPTURE-BYBIT-BTC-UNIVERSE-AUTOREFRESH"
-
-[runtime.option_universe_refresh]
-enabled = true
-interval_secs = 15
+node_name = "CATALOG-CAPTURE-DERIBIT-BTC-UNIVERSE-RESEARCH"
 
 [output]
-catalog_uri = "file:///tmp/nautilus-catalog-capture-bybit-btc-universe-autorefresh"
+catalog_uri = "file:///tmp/nautilus-catalog-capture-deribit-btc-universe-research"
 compression = "snappy"
 layout_compatibility = "rust_canonical_with_python_legacy_mirror"
 flush_rows = 1000
@@ -19,15 +18,15 @@ queue_capacity = 10000
 overflow_policy = "drop_oldest"
 
 [[venues]]
-id = "bybit_main"
-kind = "bybit"
+id = "deribit_main"
+kind = "deribit"
 environment = "mainnet"
-product_types = ["linear", "option"]
+product_types = ["future", "option"]
 
 [[capture.option_universe]]
-venue_id = "bybit_main"
+venue_id = "deribit_main"
 underlying = "BTC"
-settlement_currency = "USDT"
+settlement_currency = "BTC"
 include_perp = true
 families = [
   "instruments",
@@ -48,3 +47,9 @@ days_max = 45
 mode = "atm_relative"
 strikes_above = 1
 strikes_below = 1
+
+[[capture.custom_data]]
+type_name = "DeribitVolatilityIndex"
+
+[capture.custom_data.metadata]
+index_name = "btc_usd"

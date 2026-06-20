@@ -6,7 +6,8 @@ use catalog_capture_core::{
     CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec, ExpiryPolicy,
     FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
     InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, LayoutCompatibility,
-    MarkPriceCaptureSpec, OptionGreeksCaptureSpec, OptionUniverseFamily, OptionUniverseSpec,
+    ForwardPriceCaptureSpec, MarkPriceCaptureSpec, OptionGreeksCaptureSpec, OptionUniverseFamily,
+    OptionUniverseSpec,
     OverflowPolicy, QuoteCaptureSpec, StrikePolicy, TradeCaptureSpec,
 };
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
@@ -149,6 +150,8 @@ pub struct CaptureConfigFile {
     pub instrument_closes: Vec<InstrumentSelector>,
     #[serde(default)]
     pub option_greeks: Vec<InstrumentSelector>,
+    #[serde(default)]
+    pub forward_prices: Vec<InstrumentSelector>,
     #[serde(default)]
     pub index_prices: Vec<InstrumentSelector>,
     #[serde(default)]
@@ -326,6 +329,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         instrument_statuses: parse_instrument_status_specs(&config.capture.instrument_statuses)?,
         instrument_closes: parse_instrument_close_specs(&config.capture.instrument_closes)?,
         option_greeks: parse_option_greeks_specs(&config.capture.option_greeks)?,
+        forward_prices: parse_forward_price_specs(&config.capture.forward_prices)?,
         custom_data: parse_custom_data_specs(&config.capture.custom_data)?,
     };
     let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
@@ -439,6 +443,19 @@ fn parse_instrument_close_specs(
         .collect()
 }
 
+fn parse_forward_price_specs(
+    items: &[InstrumentSelector],
+) -> Result<Vec<ForwardPriceCaptureSpec>> {
+    items
+        .iter()
+        .map(|item| {
+            Ok(ForwardPriceCaptureSpec {
+                instrument_id: parse_instrument_id(&item.instrument_id)?,
+            })
+        })
+        .collect()
+}
+
 fn parse_option_greeks_specs(items: &[InstrumentSelector]) -> Result<Vec<OptionGreeksCaptureSpec>> {
     items
         .iter()
@@ -546,6 +563,7 @@ fn parse_option_universe_family(value: &str) -> Result<OptionUniverseFamily> {
         "instrument_statuses" => Ok(OptionUniverseFamily::InstrumentStatuses),
         "instrument_closes" => Ok(OptionUniverseFamily::InstrumentCloses),
         "option_greeks" => Ok(OptionUniverseFamily::OptionGreeks),
+        "forward_prices" => Ok(OptionUniverseFamily::ForwardPrices),
         other => bail!(
             "unsupported capture.option_universe family {other}; expected instruments|quotes|trades|mark_prices|index_prices|funding_rates|instrument_statuses|instrument_closes|option_greeks"
         ),
@@ -1599,6 +1617,14 @@ mod tests {
     #[test]
     fn example_deribit_option_universe_autorefresh_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-btc-universe-autorefresh.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_deribit_option_universe_research_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.deribit-btc-universe-research.toml");
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");

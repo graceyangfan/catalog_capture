@@ -123,5 +123,19 @@ fn validate_option_universe(
         );
     }
 
+    let wants_forward_prices = spec
+        .families
+        .iter()
+        .any(|family| matches!(family, OptionUniverseFamily::ForwardPrices));
+    let has_option_greeks = spec
+        .families
+        .iter()
+        .any(|family| matches!(family, OptionUniverseFamily::OptionGreeks));
+    if wants_forward_prices && !has_option_greeks {
+        bail!(
+            "capture.option_universe families forward_prices require option_greeks in the same families list"
+        );
+    }
+
     Ok(())
 }

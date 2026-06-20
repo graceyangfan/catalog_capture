@@ -31,7 +31,9 @@ include_perp = true
 families = [
   "instruments",
   "quotes",
+  "trades",
   "option_greeks",
+  "forward_prices",
   "mark_prices",
   "index_prices",
   "funding_rates",

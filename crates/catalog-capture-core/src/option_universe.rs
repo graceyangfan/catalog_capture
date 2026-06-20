@@ -12,7 +12,7 @@ use thiserror::Error;
 use crate::plan::{
     CapturePlan, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
     InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
-    OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
+    ForwardPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
 };
 
 const DAY_NS: u64 = 86_400_000_000_000;
@@ -28,6 +28,7 @@ pub enum OptionUniverseFamily {
     InstrumentStatuses,
     InstrumentCloses,
     OptionGreeks,
+    ForwardPrices,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -339,6 +340,13 @@ pub fn expand_option_universe(
                     });
                 }
             }
+            OptionUniverseFamily::ForwardPrices => {
+                for instrument_id in &resolved.option_instrument_ids {
+                    plan.forward_prices.push(ForwardPriceCaptureSpec {
+                        instrument_id: *instrument_id,
+                    });
+                }
+            }
         }
     }
 
@@ -381,6 +389,10 @@ pub fn merge_capture_plans(base: &CapturePlan, addition: &CapturePlan) -> Captur
     extend_unique(
         &mut merged.option_greeks,
         addition.option_greeks.iter().cloned(),
+    );
+    extend_unique(
+        &mut merged.forward_prices,
+        addition.forward_prices.iter().cloned(),
     );
     extend_unique(
         &mut merged.custom_data,
@@ -705,6 +717,29 @@ mod tests {
             resolved.selected_strikes,
             vec![Price::from("64000"), Price::from("65000")]
         );
+    }
+
+    #[test]
+    fn expand_option_universe_adds_trades_and_forward_prices_for_options() {
+        let mut spec = make_spec();
+        spec.families = vec![
+            OptionUniverseFamily::Trades,
+            OptionUniverseFamily::OptionGreeks,
+            OptionUniverseFamily::ForwardPrices,
+        ];
+        let resolved = resolve_option_universe(
+            &spec,
+            &make_btc_option_set(),
+            UnixNanos::from(1_781_740_800_000_000_000u64),
+            Price::from("65100"),
+            Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
+        )
+        .expect("universe should resolve");
+        let plan = expand_option_universe(&spec, &resolved);
+
+        assert_eq!(plan.trades.len(), resolved.all_instrument_ids.len());
+        assert_eq!(plan.forward_prices.len(), resolved.option_instrument_ids.len());
+        assert_eq!(plan.option_greeks.len(), resolved.option_instrument_ids.len());
     }
 
     #[test]

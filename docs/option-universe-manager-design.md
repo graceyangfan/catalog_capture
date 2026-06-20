@@ -459,7 +459,13 @@ Still future:
 - multi-consumer sharing
 - strategy and dashboard consumers
 - OI-ranked / liquidity-ranked selection (full Step 9a)
-- explicit `ForwardPrice` capture family
+
+P1 shipped (2026-06):
+
+- `trades` and `forward_prices` option-universe families
+- `forward_prices` JSONL at `metadata/forward_prices.jsonl`, derived from
+  `OptionGreeks.underlying_price` (parquet awaits upstream Nautilus support)
+- research example profile with DVOL custom data (`capture.deribit-btc-universe-research.toml`)
 
 ## Resolve Algorithm For V1
 

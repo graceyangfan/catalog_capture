@@ -1,11 +1,12 @@
-use std::{fmt::Debug, mem::size_of};
+use std::{collections::BTreeSet, fmt::Debug, mem::size_of};
 
 use anyhow::Result;
 use std::path::PathBuf;
 
 use catalog_capture_core::{
-    append_option_universe_resolution_records, background::BackgroundCaptureRuntime,
-    catalog_root_from_uri, config::CaptureConfig, item::{CaptureItem, PartitionKey},
+    append_forward_price_records, append_option_universe_resolution_records,
+    background::BackgroundCaptureRuntime, catalog_root_from_uri, config::CaptureConfig,
+    forward_price_from_option_greeks, forward_price_record_from_model, item::{CaptureItem, PartitionKey},
     plan::CapturePlan, runtime::FlushResult, sink::NautilusCatalogSink,
 };
 use nautilus_common::{
@@ -16,8 +17,8 @@ use nautilus_common::{
 use nautilus_model::{
     data::{
         close::InstrumentClose, Bar, CustomData, FundingRateUpdate, IndexPriceUpdate,
-        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas,
-        QuoteTick, TradeTick,
+        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta,
+        OrderBookDeltas, QuoteTick, TradeTick,
     },
     identifiers::{ActorId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
@@ -61,6 +62,7 @@ pub struct CatalogCaptureActor {
     instrument_status_runtime: BackgroundCaptureRuntime<InstrumentStatus, NautilusCatalogSink>,
     instrument_close_runtime: BackgroundCaptureRuntime<InstrumentClose, NautilusCatalogSink>,
     option_greeks_runtime: BackgroundCaptureRuntime<OptionGreeks, NautilusCatalogSink>,
+    forward_price_targets: BTreeSet<InstrumentId>,
     quote_runtime: BackgroundCaptureRuntime<QuoteTick, NautilusCatalogSink>,
     trade_runtime: BackgroundCaptureRuntime<TradeTick, NautilusCatalogSink>,
     bar_runtime: BackgroundCaptureRuntime<Bar, NautilusCatalogSink>,
@@ -94,6 +96,12 @@ impl CatalogCaptureActor {
         let bar_sink = NautilusCatalogSink::from_config(&config.capture)?;
         let book_delta_sink = NautilusCatalogSink::from_config(&config.capture)?;
         let catalog_root = catalog_root_from_uri(&config.capture.catalog_uri)?;
+        let forward_price_targets = config
+            .plan
+            .forward_prices
+            .iter()
+            .map(|spec| spec.instrument_id)
+            .collect();
 
         Ok(Self {
             core: DataActorCore::new(actor_config),
@@ -130,6 +138,7 @@ impl CatalogCaptureActor {
                 config.capture.clone(),
                 option_greeks_sink,
             ),
+            forward_price_targets,
             quote_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), quote_sink),
             trade_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), trade_sink),
             bar_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), bar_sink),
@@ -249,6 +258,18 @@ impl CatalogCaptureActor {
             payload: data,
         })?;
         Ok(FlushResult::default())
+    }
+
+    fn persist_forward_price(
+        &mut self,
+        forward_price: nautilus_model::data::ForwardPrice,
+    ) -> Result<()> {
+        let record = forward_price_record_from_model(
+            &forward_price,
+            "option_greeks_underlying_price",
+        );
+        append_forward_price_records(&self.catalog_root, std::slice::from_ref(&record))?;
+        Ok(())
     }
 
     fn submit_trade(&mut self, trade: TradeTick) -> Result<FlushResult> {
@@ -496,9 +517,22 @@ impl CatalogCaptureActor {
             }
             self.subscribe_plan(&delta.add);
             self.unsubscribe_plan(&delta.remove);
+            self.forward_price_targets = active_plan
+                .forward_prices
+                .iter()
+                .map(|spec| spec.instrument_id)
+                .collect();
             self.plan = active_plan;
         }
         Ok(())
+    }
+
+    fn sync_forward_price_targets(&mut self, plan: &CapturePlan) {
+        self.forward_price_targets = plan
+            .forward_prices
+            .iter()
+            .map(|spec| spec.instrument_id)
+            .collect();
     }
 }
 
@@ -559,6 +593,7 @@ impl DataActor for CatalogCaptureActor {
     fn on_start(&mut self) -> Result<()> {
         self.bootstrap_instruments()?;
         let plan = self.plan.clone();
+        self.sync_forward_price_targets(&plan);
         self.subscribe_plan(&plan);
 
         if let Some(manager) = &self.dynamic_option_universe {
@@ -631,6 +666,11 @@ impl DataActor for CatalogCaptureActor {
             }
         }
         let _ = self.submit_option_greeks(greeks.clone())?;
+        if self.forward_price_targets.contains(&greeks.instrument_id) {
+            if let Some(forward_price) = forward_price_from_option_greeks(greeks) {
+                self.persist_forward_price(forward_price)?;
+            }
+        }
         Ok(())
     }
 

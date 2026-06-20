@@ -36,8 +36,13 @@ Current examples and planned validation paths:
   - run:
     - `cargo run -p catalog-capture-cli -- validate --config examples/capture.deribit-btc-universe.toml`
     - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe.toml`
+- `examples/capture.deribit-btc-universe-research.toml`
+  - DM-oriented research profile: rolling universe + `trades` + `forward_prices` + DVOL custom data
+  - forward prices append to `metadata/forward_prices.jsonl` (derived from option greeks)
+  - open interest is available on each `option_greeks` row (`open_interest` field)
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe-research.toml`
 - `examples/capture.deribit-btc-universe-autorefresh.toml`
-  - V1.5 profile: same logical universe as above, plus runtime refresh (Deribit only)
+  - V1.5 profile: same logical universe as above, plus runtime refresh (Deribit/Bybit/OKX)
   - enable with `[runtime.option_universe_refresh]` (`interval_secs` controls re-resolve cadence)
   - on ATM drift or expiry rollover, the actor subscribes to new instruments and unsubscribes removed ones
   - resolve preview:

@@ -41,6 +41,7 @@ fn main() -> Result<()> {
         instrument_statuses: vec![InstrumentStatusCaptureSpec { instrument_id }],
         instrument_closes: vec![InstrumentCloseCaptureSpec { instrument_id }],
         option_greeks: vec![OptionGreeksCaptureSpec { instrument_id }],
+        forward_prices: vec![],
         custom_data: vec![],
     };
 
