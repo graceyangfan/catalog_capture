@@ -609,17 +609,9 @@ fn parse_strike_policy(policy: &StrikePolicySelector) -> Result<StrikePolicy> {
             })?;
             Ok(StrikePolicy::OiRanked { top_n })
         }
-        "volume_ranked" => {
-            let top_n = policy.top_n.filter(|value| *value > 0).ok_or_else(|| {
-                anyhow::anyhow!(
-                    "capture.option_universe.strike_policy.mode volume_ranked requires top_n > 0"
-                )
-            })?;
-            Ok(StrikePolicy::VolumeRanked { top_n })
-        }
         "all" => Ok(StrikePolicy::AllStrikes),
         other => bail!(
-            "unsupported capture.option_universe.strike_policy.mode {other}; expected atm_relative, oi_ranked, volume_ranked, or all"
+            "unsupported capture.option_universe.strike_policy.mode {other}; expected atm_relative, oi_ranked, or all"
         ),
     }
 }
@@ -1747,18 +1739,6 @@ mod tests {
         assert!(matches!(
             effective.option_universes[0].strike_policy,
             StrikePolicy::OiRanked { top_n: 3 }
-        ));
-    }
-
-    #[test]
-    fn example_deribit_option_universe_volume_ranked_config_loads_and_validates() {
-        let path = repo_root().join("examples/capture.deribit-btc-universe-volume-ranked.toml");
-        let loaded = load_config(&path).expect("example should load");
-        let effective = resolve_config(loaded).expect("example should resolve");
-        validate_runtime(&effective).expect("example should validate");
-        assert!(matches!(
-            effective.option_universes[0].strike_policy,
-            StrikePolicy::VolumeRanked { top_n: 3 }
         ));
     }
 

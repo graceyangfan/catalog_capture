@@ -31,7 +31,7 @@ use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory}
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 use crate::option_universe::{
     materialize_capture_plan_with_reports, startup_resolution_record_from_report,
-    validate_option_universe_refresh_compatibility, validate_option_universes, OptionUniverseResolutionReport,
+    validate_option_universes, OptionUniverseResolutionReport,
 };
 
 pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
@@ -229,12 +229,6 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
         bail!("at least one venue is required");
     }
     validate_option_universes(&config.option_universes, &config.venues)?;
-    for spec in &config.option_universes {
-        validate_option_universe_refresh_compatibility(
-            spec,
-            config.runtime.option_universe_refresh.enabled,
-        )?;
-    }
     validate_known_custom_data_types(&config.plan.custom_data, &config.venues)?;
     let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
     Ok(())

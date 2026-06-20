@@ -146,7 +146,7 @@ impl DynamicOptionUniverseManager {
                     });
                     let smoothing_enabled = matches!(
                         state.spec.strike_policy,
-                        StrikePolicy::OiRanked { .. } | StrikePolicy::VolumeRanked { .. }
+                        StrikePolicy::OiRanked { .. }
                     ) && self.strike_change_confirmations > 0;
                     let apply_strike_change = if smoothing_enabled {
                         should_apply_strike_change(
@@ -290,7 +290,6 @@ fn resolve_runtime_option_universe(
         atm_reference,
         perp_instrument_id,
         open_interest_by_strike.as_ref(),
-        None,
     )?;
     resolved.atm_reference_source = Some(atm_reference_source);
     Ok(resolved)

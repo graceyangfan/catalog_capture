@@ -151,7 +151,6 @@ fn render_option_universe_reports_json_pretty_prints() {
         atm_reference_source: "http_forward_price".to_string(),
         strike_selection_mode: "atm_relative".to_string(),
         oi_ranked_top_n: None,
-        volume_ranked_top_n: None,
         selected_strikes: vec!["62250".to_string()],
         perp_instrument_id: Some("BTC-USD-SWAP.OKX".to_string()),
         option_instrument_ids: vec!["BTC-USD-260620-62500-C.OKX".to_string()],

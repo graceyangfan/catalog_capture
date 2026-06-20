@@ -2,11 +2,11 @@ use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    aggregate_open_interest_by_strike, aggregate_volume_by_strike, derive_perp_instrument_id,
+    aggregate_open_interest_by_strike, derive_perp_instrument_id,
     okx_instrument_family, option_instrument_ids_at_selected_expiry, resolve_option_universe,
     select_nearest_expiry_reference_instrument_id, select_strike_reference_from_decimal_string,
     AtmReferenceSource, OptionUniverseSpec, OptionUniverseVenueKind, ResolvedOptionUniverse,
-    StrikeOpenInterestByStrike, StrikeVolumeByStrike,
+    StrikeOpenInterestByStrike,
 };
 use nautilus_bybit::{
     common::{enums::BybitEnvironment, parse::extract_raw_symbol, urls::bybit_http_base_url},
@@ -67,7 +67,6 @@ struct ResolvedVenueInputs {
     atm_reference_source: String,
     perp_instrument_id: Option<InstrumentId>,
     open_interest_by_strike: Option<StrikeOpenInterestByStrike>,
-    volume_by_strike: Option<StrikeVolumeByStrike>,
 }
 
 fn finalize_option_universe_resolution(
@@ -92,25 +91,6 @@ fn finalize_option_universe_resolution(
     } else {
         None
     };
-    let volume_by_strike = if inputs
-        .spec_for_resolution
-        .strike_policy
-        .requires_volume()
-    {
-        Some(
-            inputs
-                .volume_by_strike
-                .as_ref()
-                .with_context(|| {
-                    format!(
-                        "missing startup volume map for venue_id={} underlying={}",
-                        inputs.spec_for_resolution.venue_id, inputs.spec_for_resolution.underlying
-                    )
-                })?,
-        )
-    } else {
-        None
-    };
     let mut resolved = resolve_option_universe(
         &inputs.spec_for_resolution,
         &inputs.option_instruments,
@@ -118,7 +98,6 @@ fn finalize_option_universe_resolution(
         inputs.atm_reference,
         inputs.perp_instrument_id,
         open_interest_by_strike,
-        volume_by_strike,
     )
     .map_err(anyhow::Error::from)?;
     resolved.atm_reference_source = Some(inputs.atm_reference_source);
@@ -170,13 +149,6 @@ async fn resolve_deribit_option_universe(
         resolved_at_ns,
     )
     .await?;
-    let volume_by_strike = maybe_fetch_deribit_strike_volume(
-        &client,
-        spec,
-        &option_instruments,
-        resolved_at_ns,
-    )
-    .await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, OptionUniverseVenueKind::Deribit).map_err(anyhow::Error::from))
@@ -190,7 +162,6 @@ async fn resolve_deribit_option_universe(
         atm_reference_source,
         perp_instrument_id,
         open_interest_by_strike,
-        volume_by_strike,
     })
 }
 
@@ -234,13 +205,6 @@ async fn resolve_bybit_option_universe(
         resolved_at_ns,
     )
     .await?;
-    let volume_by_strike = maybe_fetch_bybit_strike_volume(
-        &client,
-        spec,
-        &option_instruments,
-        resolved_at_ns,
-    )
-    .await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, OptionUniverseVenueKind::Bybit).map_err(anyhow::Error::from))
@@ -254,7 +218,6 @@ async fn resolve_bybit_option_universe(
         atm_reference_source,
         perp_instrument_id,
         open_interest_by_strike,
-        volume_by_strike,
     })
 }
 
@@ -299,14 +262,6 @@ async fn resolve_okx_option_universe(
         resolved_at_ns,
     )
     .await?;
-    let volume_by_strike = maybe_fetch_okx_strike_volume(
-        &client,
-        spec,
-        &normalized_spec,
-        &option_instruments,
-        resolved_at_ns,
-    )
-    .await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, OptionUniverseVenueKind::Okx).map_err(anyhow::Error::from))
@@ -320,7 +275,6 @@ async fn resolve_okx_option_universe(
         atm_reference_source,
         perp_instrument_id,
         open_interest_by_strike,
-        volume_by_strike,
     })
 }
 
@@ -497,10 +451,6 @@ fn open_interest_from_string(value: &str) -> Option<f64> {
     metric_from_string(value)
 }
 
-fn volume_from_string(value: &str) -> Option<f64> {
-    metric_from_string(value)
-}
-
 fn metric_from_string(value: &str) -> Option<f64> {
     value
         .parse::<f64>()
@@ -650,144 +600,4 @@ async fn maybe_fetch_okx_strike_open_interest(
     }
 
     Ok(Some(aggregate_open_interest_by_strike(entries)))
-}
-
-async fn maybe_fetch_deribit_strike_volume(
-    client: &DeribitHttpClient,
-    spec: &OptionUniverseSpec,
-    option_instruments: &[InstrumentAny],
-    resolved_at_ns: nautilus_core::UnixNanos,
-) -> Result<Option<StrikeVolumeByStrike>> {
-    if !spec.strike_policy.requires_volume() {
-        return Ok(None);
-    }
-
-    let (selected_expiry_ns, _) =
-        option_instrument_ids_at_selected_expiry(spec, option_instruments, resolved_at_ns)
-            .map_err(anyhow::Error::from)?;
-    let summaries = client
-        .request_book_summaries(&spec.underlying)
-        .await
-        .with_context(|| {
-            format!(
-                "failed to request Deribit book summaries for volume on {}",
-                spec.underlying
-            )
-        })?;
-
-    let mut entries = Vec::new();
-    for summary in summaries {
-        let Some(instrument) = option_instruments.iter().find(|entry| {
-            entry.id().symbol.as_str() == summary.instrument_name
-        }) else {
-            continue;
-        };
-        if instrument.expiration_ns() != Some(selected_expiry_ns) {
-            continue;
-        }
-        let Some(strike) = instrument.strike_price() else {
-            continue;
-        };
-        let Some(volume) = open_interest_from_decimal(summary.volume) else {
-            continue;
-        };
-        entries.push((strike, volume));
-    }
-
-    Ok(Some(aggregate_volume_by_strike(entries)))
-}
-
-async fn maybe_fetch_bybit_strike_volume(
-    client: &BybitHttpClient,
-    spec: &OptionUniverseSpec,
-    option_instruments: &[InstrumentAny],
-    resolved_at_ns: nautilus_core::UnixNanos,
-) -> Result<Option<StrikeVolumeByStrike>> {
-    if !spec.strike_policy.requires_volume() {
-        return Ok(None);
-    }
-
-    let (selected_expiry_ns, _) =
-        option_instrument_ids_at_selected_expiry(spec, option_instruments, resolved_at_ns)
-            .map_err(anyhow::Error::from)?;
-    let tickers = client
-        .request_option_tickers_raw(&spec.underlying)
-        .await
-        .with_context(|| {
-            format!(
-                "failed to request Bybit option tickers for volume on {}",
-                spec.underlying
-            )
-        })?;
-
-    let mut entries = Vec::new();
-    for ticker in tickers {
-        let instrument_symbol = bybit_option_instrument_symbol_from_ticker(ticker.symbol.as_str());
-        let Some(instrument) = option_instruments
-            .iter()
-            .find(|entry| entry.id().symbol.as_str() == instrument_symbol)
-        else {
-            continue;
-        };
-        if instrument.expiration_ns() != Some(selected_expiry_ns) {
-            continue;
-        }
-        let Some(strike) = instrument.strike_price() else {
-            continue;
-        };
-        let Some(volume) = volume_from_string(ticker.volume24h.as_str()) else {
-            continue;
-        };
-        entries.push((strike, volume));
-    }
-
-    Ok(Some(aggregate_volume_by_strike(entries)))
-}
-
-async fn maybe_fetch_okx_strike_volume(
-    client: &OKXHttpClient,
-    spec: &OptionUniverseSpec,
-    normalized_spec: &OptionUniverseSpec,
-    option_instruments: &[InstrumentAny],
-    resolved_at_ns: nautilus_core::UnixNanos,
-) -> Result<Option<StrikeVolumeByStrike>> {
-    if !spec.strike_policy.requires_volume() {
-        return Ok(None);
-    }
-
-    let instrument_family = okx_instrument_family(spec).map_err(anyhow::Error::from)?;
-    let (selected_expiry_ns, _) =
-        option_instrument_ids_at_selected_expiry(normalized_spec, option_instruments, resolved_at_ns)
-            .map_err(anyhow::Error::from)?;
-    let rows = client
-        .request_option_tickers(&instrument_family)
-        .await
-        .with_context(|| {
-            format!(
-                "failed to request OKX option tickers for volume on {}",
-                instrument_family
-            )
-        })?;
-
-    let mut entries = Vec::new();
-    for row in rows {
-        let Some(instrument) = option_instruments
-            .iter()
-            .find(|entry| entry.id().symbol.as_str() == row.inst_id.as_str())
-        else {
-            continue;
-        };
-        if instrument.expiration_ns() != Some(selected_expiry_ns) {
-            continue;
-        }
-        let Some(strike) = instrument.strike_price() else {
-            continue;
-        };
-        let Some(volume) = volume_from_string(row.vol24h.as_str()) else {
-            continue;
-        };
-        entries.push((strike, volume));
-    }
-
-    Ok(Some(aggregate_volume_by_strike(entries)))
 }

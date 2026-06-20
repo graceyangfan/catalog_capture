@@ -45,9 +45,6 @@ pub enum StrikePolicy {
     OiRanked {
         top_n: usize,
     },
-    VolumeRanked {
-        top_n: usize,
-    },
     AllStrikes,
 }
 
@@ -57,7 +54,6 @@ impl StrikePolicy {
         match self {
             Self::AtmRelative { .. } => "atm_relative",
             Self::OiRanked { .. } => "oi_ranked",
-            Self::VolumeRanked { .. } => "volume_ranked",
             Self::AllStrikes => "all",
         }
     }
@@ -66,15 +62,7 @@ impl StrikePolicy {
     pub const fn oi_ranked_top_n(&self) -> Option<usize> {
         match self {
             Self::OiRanked { top_n } => Some(*top_n),
-            Self::AtmRelative { .. } | Self::VolumeRanked { .. } | Self::AllStrikes => None,
-        }
-    }
-
-    #[must_use]
-    pub const fn volume_ranked_top_n(&self) -> Option<usize> {
-        match self {
-            Self::VolumeRanked { top_n } => Some(*top_n),
-            Self::AtmRelative { .. } | Self::OiRanked { .. } | Self::AllStrikes => None,
+            Self::AtmRelative { .. } | Self::AllStrikes => None,
         }
     }
 
@@ -82,15 +70,9 @@ impl StrikePolicy {
     pub const fn requires_open_interest(&self) -> bool {
         matches!(self, Self::OiRanked { .. })
     }
-
-    #[must_use]
-    pub const fn requires_volume(&self) -> bool {
-        matches!(self, Self::VolumeRanked { .. })
-    }
 }
 
 pub type StrikeOpenInterestByStrike = BTreeMap<Price, f64>;
-pub type StrikeVolumeByStrike = BTreeMap<Price, f64>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionUniverseVenueKind {
@@ -164,13 +146,6 @@ pub enum OptionUniverseResolveError {
         "oi_ranked strike policy requires open interest data for venue_id={venue_id} underlying={underlying}"
     )]
     MissingOpenInterest {
-        venue_id: String,
-        underlying: String,
-    },
-    #[error(
-        "volume_ranked strike policy requires 24h volume data for venue_id={venue_id} underlying={underlying}"
-    )]
-    MissingVolume {
         venue_id: String,
         underlying: String,
     },
@@ -269,7 +244,6 @@ pub fn resolve_option_universe(
     atm_reference: Price,
     perp_instrument_id: Option<InstrumentId>,
     open_interest_by_strike: Option<&StrikeOpenInterestByStrike>,
-    volume_by_strike: Option<&StrikeVolumeByStrike>,
 ) -> Result<ResolvedOptionUniverse, OptionUniverseResolveError> {
     let matching_options = collect_matching_options(spec, instruments, now);
     if matching_options.is_empty() {
@@ -297,7 +271,6 @@ pub fn resolve_option_universe(
         &paired_strikes,
         atm_reference,
         open_interest_by_strike,
-        volume_by_strike,
     )?;
     let mut option_instrument_ids = Vec::new();
     for strike in &selected_strikes {
@@ -593,12 +566,6 @@ pub fn aggregate_open_interest_by_strike(
     aggregate_strike_metric_by_strike(instrument_open_interest)
 }
 
-pub fn aggregate_volume_by_strike(
-    instrument_volume: impl IntoIterator<Item = (Price, f64)>,
-) -> StrikeVolumeByStrike {
-    aggregate_strike_metric_by_strike(instrument_volume)
-}
-
 fn aggregate_strike_metric_by_strike(
     instrument_metric: impl IntoIterator<Item = (Price, f64)>,
 ) -> BTreeMap<Price, f64> {
@@ -617,7 +584,6 @@ fn select_strikes(
     strikes: &[Price],
     atm_reference: Price,
     open_interest_by_strike: Option<&StrikeOpenInterestByStrike>,
-    volume_by_strike: Option<&StrikeVolumeByStrike>,
 ) -> Result<Vec<Price>, OptionUniverseResolveError> {
     match spec.strike_policy {
         StrikePolicy::AtmRelative {
@@ -649,16 +615,6 @@ fn select_strikes(
             top_n,
             open_interest_by_strike,
             OptionUniverseResolveError::MissingOpenInterest {
-                venue_id: spec.venue_id.clone(),
-                underlying: spec.underlying.clone(),
-            },
-        ),
-        StrikePolicy::VolumeRanked { top_n } => select_top_n_strikes_by_metric(
-            spec,
-            strikes,
-            top_n,
-            volume_by_strike,
-            OptionUniverseResolveError::MissingVolume {
                 venue_id: spec.venue_id.clone(),
                 underlying: spec.underlying.clone(),
             },
@@ -847,7 +803,6 @@ mod tests {
             Price::from("65100"),
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
-            None,
         )
         .expect("universe should resolve");
 
@@ -878,7 +833,6 @@ mod tests {
             Price::from("64500"),
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
-            None,
         )
         .expect("universe should resolve");
 
@@ -903,7 +857,6 @@ mod tests {
             Price::from("65100"),
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
-            None,
         )
         .expect("universe should resolve");
         let plan = expand_option_universe(&spec, &resolved);
@@ -921,7 +874,6 @@ mod tests {
             UnixNanos::from(1_781_740_800_000_000_000u64),
             Price::from("65100"),
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
-            None,
             None,
         )
         .expect("universe should resolve");
@@ -1011,7 +963,6 @@ mod tests {
             Price::from("65100"),
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             Some(&open_interest_by_strike),
-            None,
         )
         .expect("universe should resolve");
 
@@ -1039,7 +990,6 @@ mod tests {
             Price::from("65100"),
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             Some(&open_interest_by_strike),
-            None,
         )
         .expect("universe should resolve");
 
@@ -1061,7 +1011,6 @@ mod tests {
             Price::from("65100"),
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
-            None,
         )
         .expect_err("missing open interest should fail");
 
@@ -1071,33 +1020,6 @@ mod tests {
                 venue_id: "deribit_main".to_string(),
                 underlying: "BTC".to_string(),
             }
-        );
-    }
-
-    #[test]
-    fn resolve_option_universe_volume_ranked_selects_top_strikes_by_volume() {
-        let mut spec = make_spec();
-        spec.strike_policy = StrikePolicy::VolumeRanked { top_n: 2 };
-        let volume_by_strike = aggregate_volume_by_strike([
-            (Price::from("64000"), 10.0),
-            (Price::from("65000"), 30.0),
-            (Price::from("66000"), 20.0),
-        ]);
-
-        let resolved = resolve_option_universe(
-            &spec,
-            &make_btc_option_set(),
-            UnixNanos::from(1_781_740_800_000_000_000u64),
-            Price::from("65100"),
-            Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
-            None,
-            Some(&volume_by_strike),
-        )
-        .expect("universe should resolve");
-
-        assert_eq!(
-            resolved.selected_strikes,
-            vec![Price::from("65000"), Price::from("66000")]
         );
     }
 
@@ -1112,7 +1034,6 @@ mod tests {
             UnixNanos::from(1_781_740_800_000_000_000u64),
             Price::from("65100"),
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
-            None,
             None,
         )
         .expect("universe should resolve");

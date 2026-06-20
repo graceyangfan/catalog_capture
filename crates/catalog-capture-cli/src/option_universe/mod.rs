@@ -17,9 +17,7 @@ pub use report::{
     render_option_universe_reports_text, startup_resolution_record_from_report,
     OptionUniverseResolutionReport,
 };
-pub use validate::{
-    validate_option_universe_refresh_compatibility, validate_option_universes,
-};
+pub use validate::validate_option_universes;
 
 #[derive(Debug, Clone)]
 pub struct MaterializedOptionUniversePlan {
