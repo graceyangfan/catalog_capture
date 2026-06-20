@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
@@ -20,12 +21,18 @@ except ImportError:  # pragma: no cover - optional local validation dependency.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 READBACK_PROBE = PROJECT_ROOT / "tests" / "python_catalog_option_universe_probe.py"
 METRICS_PROBE = PROJECT_ROOT / "tests" / "python_option_universe_metrics_probe.py"
+DVOL_PROBE = PROJECT_ROOT / "tests" / "python_catalog_deribit_dvol_probe.py"
 
 VENUE_CONFIGS = {
     "deribit": PROJECT_ROOT / "examples" / "capture.deribit-btc-universe.toml",
     "okx": PROJECT_ROOT / "examples" / "capture.okx-btc-universe.toml",
     "bybit": PROJECT_ROOT / "examples" / "capture.bybit-btc-universe.toml",
+    "deribit-research": (
+        PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-research.toml"
+    ),
 }
+
+STANDARD_VENUES = ("deribit", "okx", "bybit")
 
 REQUIRED_FAMILIES = (
     "instruments",
@@ -36,6 +43,12 @@ REQUIRED_FAMILIES = (
     "funding_rate_update",
 )
 
+TRADE_FAMILY_NAMES = ("trade_tick", "trades")
+VENUES_REQUIRING_TRADES = frozenset({"okx", "bybit"})
+
+FORWARD_PRICES_METADATA = Path("metadata") / "forward_prices.jsonl"
+FORWARD_PRICE_SOURCE = "option_greeks_underlying_price"
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -43,9 +56,12 @@ def main() -> int:
     )
     parser.add_argument(
         "--venue",
-        choices=(*VENUE_CONFIGS.keys(), "all"),
+        choices=(*VENUE_CONFIGS.keys(), "all", "all-plus-research"),
         default="all",
-        help="Venue smoke test to run. Defaults to all supported venues.",
+        help=(
+            "Venue smoke test to run. 'all' runs deribit/okx/bybit; "
+            "'all-plus-research' also runs the Deribit research profile."
+        ),
     )
     parser.add_argument(
         "--seconds",
@@ -83,7 +99,12 @@ def main() -> int:
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
 
-    venues = list(VENUE_CONFIGS) if args.venue == "all" else [args.venue]
+    if args.venue == "all":
+        venues = list(STANDARD_VENUES)
+    elif args.venue == "all-plus-research":
+        venues = [*STANDARD_VENUES, "deribit-research"]
+    else:
+        venues = [args.venue]
     failures = []
     for venue in venues:
         try:
@@ -133,16 +154,21 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
 
     summary = summarize_catalog(catalog_dir)
     print_catalog_summary(venue, catalog_dir, summary)
-    validate_summary(summary)
+    validate_summary(summary, venue)
+    forward_rows = validate_forward_prices_metadata(catalog_dir)
+    print(f"[{venue}] forward_prices.jsonl rows={forward_rows}")
 
+    perp_id, option_ids = parse_resolution_output(output)
+    min_trade_rows = 1 if venue in VENUES_REQUIRING_TRADES else 0
     if not args.skip_readback_probe:
-        perp_id, option_ids = parse_resolution_output(output)
-        run_readback_probe(catalog_dir, perp_id, option_ids)
+        run_readback_probe(catalog_dir, perp_id, option_ids, min_trade_rows)
         if args.metrics_probe:
             run_metrics_probe(catalog_dir, perp_id, option_ids)
     elif args.metrics_probe:
-        perp_id, option_ids = parse_resolution_output(output)
         run_metrics_probe(catalog_dir, perp_id, option_ids)
+
+    if venue == "deribit-research":
+        run_dvol_probe(catalog_dir)
 
     if args.cleanup:
         shutil.rmtree(catalog_dir)
@@ -196,7 +222,12 @@ def strip_ansi(value: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", value)
 
 
-def run_readback_probe(catalog_dir: Path, perp_id: str, option_ids: list[str]) -> None:
+def run_readback_probe(
+    catalog_dir: Path,
+    perp_id: str,
+    option_ids: list[str],
+    min_trade_rows: int,
+) -> None:
     print(
         f"[readback] probing {len(option_ids)} options plus {perp_id}",
         flush=True,
@@ -207,9 +238,17 @@ def run_readback_probe(catalog_dir: Path, perp_id: str, option_ids: list[str]) -
         str(catalog_dir),
         "--perp-id",
         perp_id,
+        "--min-trade-rows",
+        str(min_trade_rows),
     ]
     for option_id in option_ids:
         command.extend(["--option-id", option_id])
+    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+
+
+def run_dvol_probe(catalog_dir: Path) -> None:
+    print("[dvol] probing DeribitVolatilityIndex custom data", flush=True)
+    command = [sys.executable, str(DVOL_PROBE), str(catalog_dir), "1"]
     subprocess.run(command, cwd=PROJECT_ROOT, check=True)
 
 
@@ -276,7 +315,48 @@ def print_catalog_summary(
         print(f"[{venue}] {family}: files={values['files']} sample_rows_first_5={row_text}")
 
 
-def validate_summary(summary: dict[str, dict[str, int | None]]) -> None:
+def validate_forward_prices_metadata(catalog_dir: Path) -> int:
+    path = catalog_dir / FORWARD_PRICES_METADATA
+    if not path.exists():
+        raise RuntimeError(f"missing forward price metadata: {path}")
+
+    lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError(f"forward price metadata is empty: {path}")
+
+    for line in lines:
+        record = json.loads(line)
+        for field in (
+            "instrument_id",
+            "forward_price",
+            "ts_event_ns",
+            "ts_init_ns",
+            "source",
+        ):
+            if field not in record:
+                raise RuntimeError(
+                    f"forward price metadata missing field {field!r}: {line}"
+                )
+        if record["source"] != FORWARD_PRICE_SOURCE:
+            raise RuntimeError(
+                "forward price metadata source mismatch: "
+                f"expected {FORWARD_PRICE_SOURCE!r}, got {record['source']!r}"
+            )
+
+    return len(lines)
+
+
+def trade_family_stats(
+    summary: dict[str, dict[str, int | None]],
+) -> tuple[str | None, dict[str, int | None] | None]:
+    for family in TRADE_FAMILY_NAMES:
+        stats = summary.get(family)
+        if stats and int(stats.get("files", 0)) > 0:
+            return family, stats
+    return None, None
+
+
+def validate_summary(summary: dict[str, dict[str, int | None]], venue: str) -> None:
     missing = [
         family
         for family in REQUIRED_FAMILIES
@@ -284,6 +364,25 @@ def validate_summary(summary: dict[str, dict[str, int | None]]) -> None:
     ]
     if missing:
         raise RuntimeError(f"missing required parquet families: {', '.join(missing)}")
+
+    trade_family, trade_stats = trade_family_stats(summary)
+    if venue in VENUES_REQUIRING_TRADES:
+        if trade_family is None:
+            raise RuntimeError(
+                f"missing required trade parquet family ({' or '.join(TRADE_FAMILY_NAMES)})"
+            )
+    elif trade_family is None:
+        print(
+            f"[{venue}] warning: no trade parquet yet "
+            f"(Deribit trade WS delivery is still flaky in short smokes)",
+            flush=True,
+        )
+    else:
+        print(
+            f"[{venue}] trades: family={trade_family} "
+            f"files={trade_stats['files']}",
+            flush=True,
+        )
 
     if pq is None:
         print("pyarrow is not installed; skipped parquet row-count validation")
@@ -296,6 +395,10 @@ def validate_summary(summary: dict[str, dict[str, int | None]]) -> None:
     ]
     if empty:
         raise RuntimeError(f"required parquet families had zero sample rows: {', '.join(empty)}")
+
+    if venue in VENUES_REQUIRING_TRADES and trade_stats is not None:
+        if int(trade_stats["sample_rows_first_5"] or 0) == 0:
+            raise RuntimeError("required trade parquet family had zero sample rows")
 
 
 if __name__ == "__main__":

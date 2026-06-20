@@ -223,17 +223,27 @@ The helper creates a temporary TOML profile under `/tmp`, rewrites `capture_seco
 
 - `instruments`
 - `quotes`
+- `trade_tick` or `trades` (required for OKX/Bybit short smokes; Deribit may warn if absent)
 - `option_greeks`
 - `mark_prices`
 - `index_prices`
 - `funding_rate_update`
+- `metadata/forward_prices.jsonl` (P1 forward snapshots from option greeks)
 
 If `pyarrow` is installed, it also verifies that sampled parquet files contain rows. By default,
 the helper then runs `tests/python_catalog_option_universe_probe.py` to read the selected
 instruments through Nautilus `ParquetDataCatalog` and assert:
 
 - every selected option has `quotes`, `mark_prices`, and `option_greeks`
-- the hedge perp/swap has `quotes`, `mark_prices`, `index_prices`, and funding parquet rows
+- the hedge perp/swap has `quotes`, `trade_ticks`, `mark_prices`, `index_prices`, and funding parquet rows
+
+Research profile smoke:
+
+- `python3 tests/probe_option_universe_smoke.py --venue deribit-research --seconds 30`
+- `python3 tests/probe_option_universe_smoke.py --venue all-plus-research --seconds 30`
+
+The research profile uses `capture.deribit-btc-universe-research.toml` and additionally
+asserts `DeribitVolatilityIndex` custom data readback.
 
 Use `--skip-readback-probe` for file-only validation. Use `--cleanup` to remove generated catalogs
 after a successful run.

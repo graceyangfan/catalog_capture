@@ -36,6 +36,12 @@ def parse_args() -> argparse.Namespace:
         help="Option instrument id to validate. Repeat for multiple options.",
     )
     parser.add_argument("--min-rows", type=int, default=1)
+    parser.add_argument(
+        "--min-trade-rows",
+        type=int,
+        default=1,
+        help="Minimum perp trade ticks required (0 skips trade readback).",
+    )
     return parser.parse_args()
 
 
@@ -96,6 +102,21 @@ def assert_index_prices(
     return len(index_prices)
 
 
+def assert_trade_ticks(
+    catalog: ParquetDataCatalog,
+    instrument_id: str,
+    min_rows: int,
+) -> int:
+    trades = catalog.query_trade_ticks([instrument_id])
+    assert len(trades) >= min_rows, (
+        f"expected at least {min_rows} trade ticks for {instrument_id}, "
+        f"got {len(trades)}"
+    )
+    assert all(str(item.instrument_id) == instrument_id for item in trades)
+    assert_monotonic_ts_init(trades, f"trade_ticks[{instrument_id}]")
+    return len(trades)
+
+
 def assert_option_greeks(
     catalog: ParquetDataCatalog,
     instrument_id: str,
@@ -145,6 +166,11 @@ def main() -> int:
         assert_instrument(catalog, instrument_id)
 
     perp_quotes = assert_quotes(catalog, args.perp_id, args.min_rows)
+    perp_trades = (
+        assert_trade_ticks(catalog, args.perp_id, args.min_trade_rows)
+        if args.min_trade_rows > 0
+        else 0
+    )
     perp_marks = assert_mark_prices(catalog, args.perp_id, args.min_rows)
     perp_index = assert_index_prices(catalog, args.perp_id, args.min_rows)
     funding_files, funding_rows = assert_funding_files(args.catalog_dir, args.perp_id)
@@ -163,7 +189,10 @@ def main() -> int:
     print("Python option-universe catalog probe succeeded")
     print(f"Catalog dir: {args.catalog_dir}")
     print(f"Perp: {args.perp_id}")
-    print(f"Perp quotes={perp_quotes} mark_prices={perp_marks} index_prices={perp_index}")
+    print(
+        f"Perp quotes={perp_quotes} trade_ticks={perp_trades} "
+        f"mark_prices={perp_marks} index_prices={perp_index}"
+    )
     funding_row_text = "unavailable" if funding_rows is None else str(funding_rows)
     print(f"Perp funding_files={funding_files} funding_rows={funding_row_text}")
     for option_id, quotes, marks, greeks in option_counts:

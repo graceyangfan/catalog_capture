@@ -7,7 +7,7 @@ use catalog_capture_core::{
     AtmReferenceSource, OptionUniverseSpec, OptionUniverseVenueKind, ResolvedOptionUniverse,
 };
 use nautilus_bybit::{
-    common::{enums::BybitEnvironment, urls::bybit_http_base_url},
+    common::{enums::BybitEnvironment, parse::extract_raw_symbol, urls::bybit_http_base_url},
     http::{client::BybitHttpClient, query::BybitTickersParams},
 };
 use nautilus_bybit::common::enums::BybitProductType;
@@ -304,9 +304,10 @@ async fn request_bybit_strike_reference(
         resolved_at_ns,
     )
     .map_err(anyhow::Error::from)?;
+    let raw_symbol = extract_raw_symbol(reference_id.symbol.as_str()).to_string();
     let params = BybitTickersParams {
         category: BybitProductType::Option,
-        symbol: Some(reference_id.symbol.to_string()),
+        symbol: Some(raw_symbol.clone()),
         base_coin: None,
         exp_date: None,
     };
@@ -315,13 +316,13 @@ async fn request_bybit_strike_reference(
         .await
         .with_context(|| {
             format!(
-                "failed to request Bybit option ticker for {}",
+                "failed to request Bybit option ticker for {} (raw={raw_symbol})",
                 reference_id.symbol
             )
         })?;
     let Some(ticker) = tickers.first() else {
         bail!(
-            "no Bybit option ticker returned for {}",
+            "no Bybit option ticker returned for {} (raw={raw_symbol})",
             reference_id.symbol
         );
     };

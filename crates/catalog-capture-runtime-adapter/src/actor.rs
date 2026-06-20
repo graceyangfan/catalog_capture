@@ -16,11 +16,11 @@ use nautilus_common::{
 };
 use nautilus_model::{
     data::{
-        close::InstrumentClose, Bar, CustomData, FundingRateUpdate, IndexPriceUpdate,
-        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta,
-        OrderBookDeltas, QuoteTick, TradeTick,
+        close::InstrumentClose, Bar, CustomData, DataType, FundingRateUpdate,
+        IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks,
+        OrderBookDelta, OrderBookDeltas, QuoteTick, TradeTick,
     },
-    identifiers::{ActorId, InstrumentId},
+    identifiers::{ActorId, ClientId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
 };
 
@@ -70,6 +70,14 @@ pub struct CatalogCaptureActor {
     online_option_metrics: Option<OnlineOptionMetricsObserver>,
     dynamic_option_universe: Option<DynamicOptionUniverseManager>,
     catalog_root: PathBuf,
+}
+
+fn custom_data_client_id(data_type: &DataType) -> Option<ClientId> {
+    match data_type.type_name() {
+        "DeribitVolatilityIndex" => Some(ClientId::from("DERIBIT")),
+        "HyperliquidOpenInterest" => Some(ClientId::from("HYPERLIQUID")),
+        _ => None,
+    }
 }
 
 impl CatalogCaptureActor {
@@ -370,7 +378,11 @@ impl CatalogCaptureActor {
 
     fn subscribe_plan(&mut self, plan: &CapturePlan) {
         for spec in &plan.custom_data {
-            self.subscribe_data(spec.data_type.clone(), None, None);
+            self.subscribe_data(
+                spec.data_type.clone(),
+                custom_data_client_id(&spec.data_type),
+                None,
+            );
         }
 
         for spec in &plan.mark_prices {
@@ -416,7 +428,11 @@ impl CatalogCaptureActor {
 
     fn unsubscribe_plan(&mut self, plan: &CapturePlan) {
         for spec in &plan.custom_data {
-            self.unsubscribe_data(spec.data_type.clone(), None, None);
+            self.unsubscribe_data(
+                spec.data_type.clone(),
+                custom_data_client_id(&spec.data_type),
+                None,
+            );
         }
 
         for spec in &plan.mark_prices {
