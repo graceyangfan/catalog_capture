@@ -1,3 +1,7 @@
+use catalog_capture_core::OptionUniverseFamily;
+
+use crate::config::EffectiveConfig;
+
 use super::catalog::OptionUniverseCatalogValidationOptions;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +47,78 @@ pub fn validation_options_for_preset(
             bar_types: vec!["BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL".to_string()],
         },
     }
+}
+
+pub fn validation_options_for_config(config: &EffectiveConfig) -> OptionUniverseCatalogValidationOptions {
+    let preset = validation_preset_for_config(config);
+    let mut options = validation_options_for_preset(preset);
+
+    let bar_types = config
+        .plan
+        .bars
+        .iter()
+        .map(|spec| spec.bar_type.to_string())
+        .collect::<Vec<_>>();
+    if !bar_types.is_empty() {
+        options.bar_types = bar_types;
+    }
+
+    if config
+        .option_universes
+        .iter()
+        .any(|spec| option_universe_requires_contract_state(spec))
+    {
+        options.require_contract_state = true;
+    }
+
+    if config_uses_bybit_or_okx_option_universe(config) {
+        options.min_perp_trade_rows = options.min_perp_trade_rows.max(1);
+    }
+
+    options
+}
+
+pub fn validation_preset_for_config(
+    config: &EffectiveConfig,
+) -> OptionUniverseCatalogValidationPreset {
+    if config_has_research_baseline(config) {
+        return OptionUniverseCatalogValidationPreset::Research;
+    }
+    if config.runtime.option_universe_refresh.enabled {
+        return OptionUniverseCatalogValidationPreset::RollingAutorefresh;
+    }
+    if config_uses_bybit_or_okx_option_universe(config) {
+        return OptionUniverseCatalogValidationPreset::VenueTrades;
+    }
+    OptionUniverseCatalogValidationPreset::PostCapture
+}
+
+fn config_has_research_baseline(config: &EffectiveConfig) -> bool {
+    config.plan.bars.iter().any(|spec| {
+        spec.bar_type
+            .to_string()
+            .contains("BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL")
+    }) || config.plan.custom_data.iter().any(|spec| {
+        spec.data_type.type_name() == "DeribitVolatilityIndex"
+    })
+}
+
+fn option_universe_requires_contract_state(
+    spec: &catalog_capture_core::OptionUniverseSpec,
+) -> bool {
+    spec.families.iter().any(|family| {
+        matches!(
+            family,
+            OptionUniverseFamily::InstrumentStatuses | OptionUniverseFamily::InstrumentCloses
+        )
+    })
+}
+
+fn config_uses_bybit_or_okx_option_universe(config: &EffectiveConfig) -> bool {
+    config.option_universes.iter().any(|spec| {
+        let venue = spec.venue_id.to_ascii_lowercase();
+        venue.contains("bybit") || venue.contains("okx")
+    })
 }
 
 pub fn merge_validation_options(
@@ -97,6 +173,48 @@ mod tests {
             options.bar_types,
             vec!["BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL".to_string()]
         );
+    }
+
+    #[test]
+    fn validation_preset_for_config_detects_autorefresh_profile() {
+        let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let config = crate::config::load_config(
+            &repo_root.join("examples/capture.deribit-btc-universe-autorefresh.toml"),
+        )
+        .expect("example should load");
+        let effective = crate::config::resolve_config(config).expect("example should resolve");
+        assert_eq!(
+            validation_preset_for_config(&effective),
+            OptionUniverseCatalogValidationPreset::RollingAutorefresh
+        );
+    }
+
+    #[test]
+    fn validation_preset_for_config_detects_research_profile() {
+        let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let config = crate::config::load_config(
+            &repo_root.join("examples/capture.deribit-btc-universe-research.toml"),
+        )
+        .expect("example should load");
+        let effective = crate::config::resolve_config(config).expect("example should resolve");
+        assert_eq!(
+            validation_preset_for_config(&effective),
+            OptionUniverseCatalogValidationPreset::Research
+        );
+        let options = validation_options_for_config(&effective);
+        assert!(options.require_contract_state);
+    }
+
+    #[test]
+    fn validation_options_for_config_adds_bybit_trade_requirement() {
+        let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let config = crate::config::load_config(
+            &repo_root.join("examples/capture.bybit-btc-universe.toml"),
+        )
+        .expect("example should load");
+        let effective = crate::config::resolve_config(config).expect("example should resolve");
+        let options = validation_options_for_config(&effective);
+        assert_eq!(options.min_perp_trade_rows, 1);
     }
 
     #[test]

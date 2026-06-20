@@ -29,19 +29,25 @@ use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory}
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 use crate::option_universe::{
-    materialize_capture_plan_with_reports, startup_resolution_record_from_report,
-    validate_option_universes, OptionUniverseResolutionReport,
+    materialize_capture_plan_with_reports, run_option_universe_post_run_report,
+    startup_resolution_record_from_report, validate_option_universes, OptionUniverseResolutionReport,
+    PostRunReportOptions,
 };
 
-pub async fn run_capture(config: EffectiveConfig) -> Result<()> {
+pub async fn run_capture(
+    config: EffectiveConfig,
+    post_run: PostRunReportOptions,
+) -> Result<()> {
     let materialized = materialize_capture_plan_with_reports(&config).await?;
-    run_capture_with_plan_and_reports(config, materialized.plan, &materialized.reports).await
+    run_capture_with_plan_and_reports(config, materialized.plan, &materialized.reports, post_run)
+        .await
 }
 
 pub async fn run_capture_with_plan_and_reports(
     config: EffectiveConfig,
     plan: CapturePlan,
     reports: &[OptionUniverseResolutionReport],
+    post_run: PostRunReportOptions,
 ) -> Result<()> {
     let catalog_dir = catalog_root_from_uri(&config.capture.catalog_uri)?;
     fs::create_dir_all(&catalog_dir)
@@ -204,6 +210,7 @@ pub async fn run_capture_with_plan_and_reports(
 
     println!("Capture completed");
     println!("Catalog dir: {}", catalog_dir.display());
+    run_option_universe_post_run_report(&catalog_dir, &config, &post_run)?;
     Ok(())
 }
 

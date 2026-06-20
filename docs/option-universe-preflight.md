@@ -73,6 +73,15 @@ Built-in presets:
 | `research` | Research profile: contract state + `BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL` bars |
 
 Explicit flags such as `--min-rows`, `--require-refresh-change`, or `--bar-type` override preset defaults.
+
+After a normal `run`, when the profile includes `capture.option_universe`, the CLI now prints a
+post-run report automatically:
+
+1. `inspect-option-universe` lineage summary for the catalog just written
+2. `validate-option-universe-catalog` using a preset inferred from the TOML profile
+
+Disable with `--skip-post-run-report`, or override the inferred preset with
+`--post-run-validation-preset rolling-autorefresh`.
 ```
 
 ## Output

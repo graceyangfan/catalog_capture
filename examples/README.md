@@ -60,6 +60,7 @@ Current examples and planned validation paths:
     - `cargo run -p catalog-capture-cli -- inspect-option-universe --catalog-uri file:///tmp/nautilus-catalog-capture-deribit-btc-universe-autorefresh --option-universe-format text`
   - validate the latest persisted universe against catalog parquet families:
     - `cargo run -p catalog-capture-cli -- validate-option-universe-catalog --catalog-uri file:///tmp/nautilus-catalog-capture-deribit-btc-universe-autorefresh --option-universe-format text`
+    - Post-run inspect + validate runs automatically after `run` when `capture.option_universe` is configured (use `--skip-post-run-report` to disable)
 - `examples/capture.bybit-btc-universe.toml`
   - Bybit BTC option universe resolved once at startup
   - includes `instrument_statuses` and `instrument_closes`

@@ -15,9 +15,9 @@ use option_universe::{
     render_option_universe_reports_text, render_option_universe_summaries_json,
     render_option_universe_summaries_text, resolve_option_universe_reports,
     validate_option_universe_catalog, validation_options_for_preset,
-    OptionUniverseCatalogValidationOverrides,
-    OptionUniverseCatalogValidationPreset, OptionUniverseCatalogValidationReport,
-    OptionUniverseResolutionReport,
+    OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
+    OptionUniverseCatalogValidationReport, OptionUniverseOutputFormat,
+    OptionUniverseResolutionReport, PostRunReportOptions,
 };
 use runner::{run_capture, run_capture_with_plan_and_reports, validate_runtime};
 
@@ -30,9 +30,18 @@ struct Cli {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-enum OptionUniverseOutputFormat {
+enum OptionUniverseOutputFormatArg {
     Json,
     Text,
+}
+
+impl From<OptionUniverseOutputFormatArg> for OptionUniverseOutputFormat {
+    fn from(value: OptionUniverseOutputFormatArg) -> Self {
+        match value {
+            OptionUniverseOutputFormatArg::Json => OptionUniverseOutputFormat::Json,
+            OptionUniverseOutputFormatArg::Text => OptionUniverseOutputFormat::Text,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -71,16 +80,27 @@ enum Command {
         print_option_universe: bool,
         #[arg(long)]
         dry_run_resolve: bool,
-        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormat::Json)]
-        option_universe_format: OptionUniverseOutputFormat,
+        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
+        option_universe_format: OptionUniverseOutputFormatArg,
+        #[arg(
+            long,
+            help = "Skip inspect + validate report after capture when option_universe is configured"
+        )]
+        skip_post_run_report: bool,
+        #[arg(
+            long,
+            value_enum,
+            help = "Override inferred post-run validation preset"
+        )]
+        post_run_validation_preset: Option<OptionUniverseCatalogValidationPresetArg>,
     },
     Validate {
         #[arg(long)]
         config: PathBuf,
         #[arg(long)]
         print_option_universe: bool,
-        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormat::Json)]
-        option_universe_format: OptionUniverseOutputFormat,
+        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
+        option_universe_format: OptionUniverseOutputFormatArg,
     },
     PrintEffectiveConfig {
         #[arg(long)]
@@ -89,20 +109,20 @@ enum Command {
     ResolveOptionUniverse {
         #[arg(long)]
         config: PathBuf,
-        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormat::Json)]
-        option_universe_format: OptionUniverseOutputFormat,
+        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
+        option_universe_format: OptionUniverseOutputFormatArg,
     },
     InspectOptionUniverse {
         #[arg(long)]
         catalog_uri: String,
-        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormat::Json)]
-        option_universe_format: OptionUniverseOutputFormat,
+        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
+        option_universe_format: OptionUniverseOutputFormatArg,
     },
     ValidateOptionUniverseCatalog {
         #[arg(long)]
         catalog_uri: String,
-        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormat::Json)]
-        option_universe_format: OptionUniverseOutputFormat,
+        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
+        option_universe_format: OptionUniverseOutputFormatArg,
         #[arg(
             long,
             value_enum,
@@ -133,11 +153,21 @@ async fn main() -> Result<()> {
             print_option_universe,
             dry_run_resolve,
             option_universe_format,
+            skip_post_run_report,
+            post_run_validation_preset,
         } => {
             let effective = load_validated_config(&config)?;
+            let post_run = build_post_run_report_options(
+                skip_post_run_report,
+                post_run_validation_preset,
+                option_universe_format.into(),
+            );
             if print_option_universe || dry_run_resolve {
                 let materialized = materialize_capture_plan_with_reports(&effective).await?;
-                print_option_universe_report_values(&materialized.reports, option_universe_format)?;
+                print_option_universe_report_values(
+                    &materialized.reports,
+                    option_universe_format.into(),
+                )?;
                 if dry_run_resolve {
                     return Ok(());
                 }
@@ -145,11 +175,12 @@ async fn main() -> Result<()> {
                     effective,
                     materialized.plan,
                     &materialized.reports,
+                    post_run,
                 )
                 .await?;
                 return Ok(());
             }
-            run_capture(effective).await?;
+            run_capture(effective, post_run).await?;
         }
         Command::Validate {
             config,
@@ -173,7 +204,7 @@ async fn main() -> Result<()> {
             option_universe_format,
         } => {
             let effective = load_validated_config(&config)?;
-            print_option_universe_reports(&effective, option_universe_format).await?;
+            print_option_universe_reports(&effective, option_universe_format.into()).await?;
         }
         Command::InspectOptionUniverse {
             catalog_uri,
@@ -181,7 +212,7 @@ async fn main() -> Result<()> {
         } => {
             let catalog_root = catalog_root_from_uri(&catalog_uri)?;
             let summaries = load_option_universe_summaries(&catalog_root)?;
-            print_option_universe_summary_values(&summaries, option_universe_format)?;
+            print_option_universe_summary_values(&summaries, option_universe_format.into())?;
         }
         Command::ValidateOptionUniverseCatalog {
             catalog_uri,
@@ -211,11 +242,24 @@ async fn main() -> Result<()> {
                 },
             );
             let reports = validate_option_universe_catalog(&catalog_root, &options)?;
-            print_option_universe_catalog_validation_values(&reports, option_universe_format)?;
+            print_option_universe_catalog_validation_values(&reports, option_universe_format.into())?;
         }
     }
 
     Ok(())
+}
+
+fn build_post_run_report_options(
+    skip_post_run_report: bool,
+    post_run_validation_preset: Option<OptionUniverseCatalogValidationPresetArg>,
+    format: OptionUniverseOutputFormat,
+) -> PostRunReportOptions {
+    PostRunReportOptions {
+        enabled: !skip_post_run_report,
+        format,
+        validation_preset_override: post_run_validation_preset.map(Into::into),
+        validation_overrides: OptionUniverseCatalogValidationOverrides::default(),
+    }
 }
 
 fn load_validated_config(path: &PathBuf) -> Result<EffectiveConfig> {

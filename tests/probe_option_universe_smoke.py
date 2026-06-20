@@ -263,6 +263,7 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
         "--print-option-universe",
         "--option-universe-format",
         "text",
+        "--skip-post-run-report",
     ]
     print(f"[{venue}] running live capture for {args.seconds}s", flush=True)
     output = run_and_stream(command)

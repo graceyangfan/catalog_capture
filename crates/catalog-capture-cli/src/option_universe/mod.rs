@@ -2,6 +2,7 @@ mod catalog;
 mod catalog_presets;
 mod discovery;
 mod history;
+mod post_run_report;
 mod report;
 #[cfg(test)]
 mod tests;
@@ -16,12 +17,14 @@ use crate::config::EffectiveConfig;
 
 pub use catalog::{
     render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
-    validate_option_universe_catalog, OptionUniverseCatalogValidationOptions,
-    OptionUniverseCatalogValidationReport,
+    validate_option_universe_catalog, OptionUniverseCatalogValidationReport,
 };
 pub use catalog_presets::{
     merge_validation_options, validation_options_for_preset, OptionUniverseCatalogValidationOverrides,
     OptionUniverseCatalogValidationPreset,
+};
+pub use post_run_report::{
+    run_option_universe_post_run_report, OptionUniverseOutputFormat, PostRunReportOptions,
 };
 pub use discovery::resolve_option_universe_spec;
 pub use history::{
