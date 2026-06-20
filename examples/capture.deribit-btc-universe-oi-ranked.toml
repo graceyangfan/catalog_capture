@@ -33,6 +33,8 @@ families = [
   "mark_prices",
   "index_prices",
   "funding_rates",
+  "instrument_statuses",
+  "instrument_closes",
 ]
 
 [capture.option_universe.expiry_policy]

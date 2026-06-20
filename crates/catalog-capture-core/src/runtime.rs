@@ -88,11 +88,7 @@ where
         self.metrics.completed_file_bytes += bytes;
         self.metrics.flush_reasons.record(reason);
 
-        Ok(FlushResult {
-            files,
-            rows,
-            bytes,
-        })
+        Ok(FlushResult { files, rows, bytes })
     }
 
     pub fn flush_all(&mut self) -> Result<FlushResult> {

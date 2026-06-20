@@ -462,6 +462,8 @@ Shipped:
   `strike_window_shift`, `oi_rank_shift`
 - `oi_ranked` strike-change smoothing via
   `runtime.option_universe_refresh.strike_change_confirmations` (default `2`)
+- first-class CLI lineage inspection via
+  `catalog-capture-cli inspect-option-universe --catalog-uri ...`
 
 Still future:
 

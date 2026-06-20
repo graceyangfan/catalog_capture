@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 from pathlib import Path
+from typing import Sequence
 
 try:
     import pyarrow.parquet as pq
@@ -41,6 +42,17 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1,
         help="Minimum perp trade ticks required (0 skips trade readback).",
+    )
+    parser.add_argument(
+        "--require-contract-state",
+        action="store_true",
+        help="Require instrument_status and instrument_closes rows for the hedge perp and options.",
+    )
+    parser.add_argument(
+        "--bar-type",
+        action="append",
+        default=[],
+        help="Bar type to validate through ParquetDataCatalog.bars(). Repeat for multiple bars.",
     )
     return parser.parse_args()
 
@@ -152,6 +164,73 @@ def assert_funding_files(catalog_dir: Path, instrument_id: str) -> tuple[int, in
     return len(files), rows
 
 
+def assert_bars(
+    catalog: ParquetDataCatalog,
+    bar_types: Sequence[str],
+    min_rows: int,
+) -> list[tuple[str, int]]:
+    counts: list[tuple[str, int]] = []
+    for bar_type in bar_types:
+        bars = catalog.bars(bar_types=[bar_type])
+        assert len(bars) >= min_rows, (
+            f"expected at least {min_rows} bars for {bar_type}, got {len(bars)}"
+        )
+        assert_monotonic_ts_init(bars, f"bars[{bar_type}]")
+        counts.append((bar_type, len(bars)))
+    return counts
+
+
+def probe_contract_state(
+    catalog: ParquetDataCatalog,
+    catalog_dir: Path,
+    instrument_id: str,
+    *,
+    require: bool,
+) -> tuple[int, int]:
+    status_dir = catalog_dir / "data" / "instrument_status" / instrument_id
+    close_dir = catalog_dir / "data" / "instrument_closes" / instrument_id
+
+    statuses = []
+    closes = []
+    if status_dir.exists() and any(status_dir.glob("*.parquet")):
+        statuses = catalog.query(
+            "instrument_status",
+            [instrument_id],
+            None,
+            None,
+            None,
+            None,
+            True,
+        )
+    if close_dir.exists() and any(close_dir.glob("*.parquet")):
+        closes = catalog.query(
+            "instrument_closes",
+            [instrument_id],
+            None,
+            None,
+            None,
+            None,
+            True,
+        )
+
+    if require:
+        assert statuses, f"expected instrument_status rows for {instrument_id}"
+        assert closes, f"expected instrument_closes rows for {instrument_id}"
+    elif not statuses and not closes:
+        print(
+            f"NOTE: no instrument_status/instrument_closes rows yet for {instrument_id}",
+        )
+
+    if statuses:
+        assert all(str(item.instrument_id) == instrument_id for item in statuses)
+        assert_monotonic_ts_init(statuses, f"instrument_status[{instrument_id}]")
+    if closes:
+        assert all(str(item.instrument_id) == instrument_id for item in closes)
+        assert_monotonic_ts_init(closes, f"instrument_closes[{instrument_id}]")
+
+    return len(statuses), len(closes)
+
+
 def main() -> int:
     args = parse_args()
     if args.min_rows <= 0:
@@ -174,15 +253,30 @@ def main() -> int:
     perp_marks = assert_mark_prices(catalog, args.perp_id, args.min_rows)
     perp_index = assert_index_prices(catalog, args.perp_id, args.min_rows)
     funding_files, funding_rows = assert_funding_files(args.catalog_dir, args.perp_id)
+    bar_counts = assert_bars(catalog, args.bar_type, args.min_rows) if args.bar_type else []
+    perp_statuses, perp_closes = probe_contract_state(
+        catalog,
+        args.catalog_dir,
+        args.perp_id,
+        require=args.require_contract_state,
+    )
 
     option_counts = []
     for option_id in args.option_id:
+        status_count, close_count = probe_contract_state(
+            catalog,
+            args.catalog_dir,
+            option_id,
+            require=args.require_contract_state,
+        )
         option_counts.append(
             (
                 option_id,
                 assert_quotes(catalog, option_id, args.min_rows),
                 assert_mark_prices(catalog, option_id, args.min_rows),
                 assert_option_greeks(catalog, option_id, args.min_rows),
+                status_count,
+                close_count,
             )
         )
 
@@ -191,14 +285,18 @@ def main() -> int:
     print(f"Perp: {args.perp_id}")
     print(
         f"Perp quotes={perp_quotes} trade_ticks={perp_trades} "
-        f"mark_prices={perp_marks} index_prices={perp_index}"
+        f"mark_prices={perp_marks} index_prices={perp_index} "
+        f"instrument_statuses={perp_statuses} instrument_closes={perp_closes}"
     )
     funding_row_text = "unavailable" if funding_rows is None else str(funding_rows)
     print(f"Perp funding_files={funding_files} funding_rows={funding_row_text}")
-    for option_id, quotes, marks, greeks in option_counts:
+    for bar_type, count in bar_counts:
+        print(f"Bars: {bar_type} rows={count}")
+    for option_id, quotes, marks, greeks, statuses, closes in option_counts:
         print(
             f"Option: {option_id} quotes={quotes} mark_prices={marks} "
-            f"option_greeks={greeks}"
+            f"option_greeks={greeks} instrument_statuses={statuses} "
+            f"instrument_closes={closes}"
         )
     return 0
 

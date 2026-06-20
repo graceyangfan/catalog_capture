@@ -46,6 +46,35 @@ cargo run -p catalog-capture-cli -- run \
 When `run --print-option-universe` is used, the CLI reuses the same materialized plan for capture
 instead of resolving the universe a second time.
 
+Inspect the latest resolved state from an existing catalog:
+
+```bash
+cargo run -p catalog-capture-cli -- inspect-option-universe \
+  --catalog-uri file:///tmp/nautilus-catalog-capture-deribit-btc-universe-autorefresh \
+  --option-universe-format text
+```
+
+Validate the latest resolved universe against the catalog parquet families:
+
+```bash
+cargo run -p catalog-capture-cli -- validate-option-universe-catalog \
+  --catalog-uri file:///tmp/nautilus-catalog-capture-deribit-btc-universe-autorefresh \
+  --option-universe-format text \
+  --preset rolling-autorefresh
+```
+
+Built-in presets:
+
+| Preset | Use case |
+|---|---|
+| `post-capture` | Default post-run smoke: lineage + perp/options parquet rows |
+| `rolling-autorefresh` | Autorefresh profiles: also require at least one refresh delta |
+| `venue-trades` | Bybit/OKX profiles: also require perp trade parquet rows |
+| `research` | Research profile: contract state + `BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL` bars |
+
+Explicit flags such as `--min-rows`, `--require-refresh-change`, or `--bar-type` override preset defaults.
+```
+
 ## Output
 
 The text output is designed for operator review:
@@ -57,6 +86,24 @@ The text output is designed for operator review:
 - `options` are the option instruments expanded into the capture plan.
 - `overlap` lists instruments already present in explicit `[[capture.*]]` entries or earlier universes.
 - `new` lists instruments introduced by this universe.
+
+For `inspect-option-universe`, the text output summarizes the persisted runtime lineage:
+
+- `startup_at` is when the catalog first resolved that logical universe.
+- `latest_event` is the most recent `startup` or `refresh` event.
+- `refresh_count` shows how many runtime deltas were actually applied.
+- `latest_rollover_reason` surfaces the last observed reason such as `expiry_roll` or `atm_drift`.
+- `options` is the current resolved option member set from the latest lineage record.
+
+For `validate-option-universe-catalog`, the CLI checks the latest resolved universe members against
+the catalog itself:
+
+- requires non-empty `metadata/forward_prices.jsonl`
+- validates latest `perp` parquet families: quotes, mark prices, index prices, funding, and
+  optionally trades
+- validates latest option member parquet families: quotes, mark prices, option greeks
+- optionally requires `instrument_status` / `instrument_closes`
+- optionally requires at least one applied runtime refresh delta
 
 ## Venue Notes
 
@@ -79,3 +126,15 @@ a running capture job. For rolling coverage, run this preflight on each schedule
 V1 uses venue HTTP metadata/ticker endpoints before startup rather than a post-connect Nautilus
 cache manager. A future runtime manager can reuse the same logical universe model and add delta
 subscription APIs, but that is intentionally outside this small preflight path.
+
+`oi_ranked` startup resolution currently depends on venue HTTP access to per-contract option open
+interest. At the moment:
+
+- Bybit startup preflight supports `oi_ranked`
+- Deribit runtime refresh supports `oi_ranked`, but startup preflight does not because the current
+  Nautilus HTTP discovery path does not expose per-contract option OI
+- OKX runtime refresh supports `oi_ranked`, but startup preflight does not because the current
+  Nautilus HTTP discovery path does not expose per-contract option OI
+
+For Deribit and OKX, use `atm_relative` or `all` for startup resolution if you need immediate live
+startup today, then rely on runtime refresh once `option_greeks` warm up.

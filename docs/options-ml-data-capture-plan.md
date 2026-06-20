@@ -473,6 +473,139 @@
 原则不变：**capture 采原始事件，DM 面板离线复算**。Strike 选型使用 per-expiry
 forward（`underlying_price` / forward API），perp 仅作 hedge leg。
 
+## 对照 Derivatives Monkey BTC 文档后的录制收敛
+
+参考 Derivatives Monkey 的公开 BTC 文档导航，产品能力大致收敛为五类：
+
+- `Volatility`
+- `Greeks`
+- `Flow`
+- `Multi-Exchange`
+- `Quant`
+
+公开文档入口：
+
+- [BTC Docs](https://www.derivativesmonkey.com/btc/docs)
+- [BTC Homepage](https://www.derivativesmonkey.com/)
+
+从 capture 角度看，这五类页面并不要求我们“先做面板”，而是要求我们把下面这几层原始数据录扎实。
+
+### Tier 1：必须 7x24 稳定录制
+
+这是最核心的一层，缺任何一个都会直接限制 DM 风格分析的上限。
+
+| 数据层 | 目的 | 当前状态 | 结论 |
+|---|---|---|---|
+| 期权 `instruments` | expiry/strike/kind 基础真相源 | 已支持 | 必须长期保留 |
+| 期权 `quotes` | IV / skew / surface / spread | 已支持 | 必须长期保留 |
+| 期权 `option_greeks` | IV / Greeks / GEX / OI | 已支持 | 必须长期保留 |
+| 期权 `trades` | tape / flow / scanner | 已支持，但仍需长稳验证 | 必须长期保留 |
+| 对冲腿 `quotes` / `mark_prices` / `index_prices` / `funding_rates` | basis / carry / hedge 解释 | 已支持 | 必须长期保留 |
+| `instrument_statuses` / `instrument_closes` | 到期/停牌/结算边界 | 已支持，已纳入标准 universe profiles | 必须长期保留 |
+| `forward_prices.jsonl` / `option_universe_resolutions.jsonl` | 解析 lineage / rollover 可追溯性 | 已支持 | 必须长期保留 |
+
+这一层基本对应 DM 文档里的：
+
+- `IV Percentile`
+- `Term Structure`
+- `Surfaces`
+- `Vol Regime`
+- `Skew Analytics`
+- `GEX Profile`
+- `Levels`
+- `Greeks`
+- `Greek Exposure`
+- `Trade Tape`
+- `Basis Spread`
+
+### Tier 2：应尽快补齐的研究增强层
+
+这一层不是“没有就不能录”，但没有它们，DM 风格页面会明显偏弱。
+
+| 数据层 | 对应 DM 能力 | 为什么重要 | 当前状态 |
+|---|---|---|---|
+| 标的 `bars`（至少 perp 1m） | `Vol Regime`, `Quant`, `Backtest` | RV / VRP / regime 更稳 | 代码支持，标准 profile 未纳入 |
+| 精选 `book_deltas` | `Order Flow`, `Scanner`, `Levels` | 观察盘口吸收/撤单/冲击 | 代码支持，尚无标准 options profile |
+| `DeribitVolatilityIndex` | `Vol Regime` | 直接提供波动率指数锚点 | 已支持 |
+| 多 venue 同时录制 | `Divergence`, `Lead-Lag`, `Basis Spread` | 单所无法做 cross-venue | 已有基础，缺 operator 级长期验证 |
+| 参考 spot / index 录制 | `Basis Spread`, `Arb Guide`, `Lead-Lag` | 不能只看 perp/option | 当前偏 perp/index，现货参考仍弱 |
+
+### Tier 3：DM 风格深度 flow 所需，但可晚于主线
+
+| 数据层 | 对应 DM 能力 | 说明 |
+|---|---|---|
+| block / RFQ 专用流 | `Block RFQ` | 当前主仓库暂无专门 adapter-native 录制面 |
+| liquidation / crowding custom data | `Scanner`, `Quant` | 已有 Binance liquidation 路线，但未打通 parquet 主线 |
+| HTTP OI 快照 / 历史 | `OI by Strike`, `Quant` | 有助于低频 OI 研究与回填 |
+| 更广全链 universe / 全市场扫描 | `Scanner`, `Heatmaps`, `Tail Strike` | 需要 `all` / 更宽 universe 定时 batch |
+
+## 结论：为了对齐 DM，我们真正要“做踏实”的不是更多页面，而是四条录制主线
+
+### 1. Rolling live 主线
+
+目标：支持 `Volatility / Greeks / Basis / 基础 Flow`
+
+必须稳定录：
+
+- `instruments`
+- `quotes`
+- `trades`
+- `option_greeks`
+- `forward_prices`
+- `mark_prices`
+- `index_prices`
+- `funding_rates`
+- `instrument_statuses`
+- `instrument_closes`
+
+对应 profile：
+
+- Deribit / Bybit / OKX `*-universe-autorefresh.toml`
+
+### 2. Research live 主线
+
+目标：支持 `Vol Regime / 基础 Quant / 多所对照`
+
+在 rolling live 基础上，再保证：
+
+- Deribit `DeribitVolatilityIndex`
+- 多 venue 同时长稳录制
+- 至少 perp 级 `bars`
+
+### 3. OI-ranked 主线
+
+目标：支持 `OI by Strike / GEX / Levels / Scanner`
+
+关键点：
+
+- `oi_ranked` universe + runtime refresh
+- `option_greeks.open_interest`
+- resolution lineage 持久化
+
+注意：
+
+- startup `oi_ranked` preflight 目前只在 Bybit 路径上更接近可用
+- Deribit / OKX 现阶段应更多依赖 runtime warmup 后的 refresh
+
+### 4. Full-chain batch 主线
+
+目标：支持 `Surfaces / Heatmaps / Tail Strike / 离线全链研究`
+
+关键点：
+
+- `all` strike policy
+- 控制 capture duration，而不是一上来 7x24
+- readback / metadata / flush 行为必须稳定
+
+## 下一阶段开发优先级（按 DM 对齐重新排序）
+
+1. 把 `rolling live` 三家长稳录制跑顺
+2. 把 `instrument_statuses` / `instrument_closes` 当成标准 family，而不是可选补充
+3. 给 research baseline 增加 `bars`
+4. 为 options 单独补一个精选 `book_deltas` profile
+5. 把多 venue 长稳验证做成 operator 标准流程
+6. 再考虑 block / liquidation / HTTP OI / 更广全链扫描
+
 ## 对当前仓库的具体建议
 
 ## 第一优先级：把它从“Binance 验证器”推进成“期权研究采集器”

@@ -7,7 +7,7 @@ use catalog_capture_core::{
 };
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_common::actor::DataActor;
-use nautilus_core::{UUID4, UnixNanos};
+use nautilus_core::{UnixNanos, UUID4};
 use nautilus_model::{
     data::QuoteTick,
     identifiers::{ActorId, InstrumentId},
@@ -85,22 +85,26 @@ fn main() -> Result<()> {
     }
 
     let flush_results = actor.flush_all()?;
-    let files_returned_by_flush_all: usize = flush_results.iter().map(|result| result.files.len()).sum();
+    let files_returned_by_flush_all: usize =
+        flush_results.iter().map(|result| result.files.len()).sum();
     let rows_flushed: usize = flush_results.iter().map(|result| result.rows).sum();
 
     let mut catalog = ParquetDataCatalog::new(catalog_dir.as_path(), None, None, None, None);
     let loaded = catalog.quote_ticks(Some(vec![instrument_id.to_string()]), None, None)?;
     let parquet_files_on_disk = count_parquet_files(&catalog_dir)?;
 
-    assert_eq!(loaded.len(), written.len(), "loaded tick count should match");
+    assert_eq!(
+        loaded.len(),
+        written.len(),
+        "loaded tick count should match"
+    );
     assert_eq!(loaded, written, "loaded ticks should equal written ticks");
     assert!(
         parquet_files_on_disk >= 2,
         "expected at least two chunk files with flush_rows=3"
     );
     assert_eq!(
-        rows_flushed,
-        2,
+        rows_flushed, 2,
         "flush_all should flush the remaining tail batch after automatic flushing"
     );
 

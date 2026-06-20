@@ -29,6 +29,7 @@ Current examples and planned validation paths:
     - `python3 /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_deribit_probe.py <catalog_dir>`
 - `examples/capture.deribit-btc-universe.toml`
   - Step 9a-lite profile: Deribit BTC option universe resolved once at startup
+  - includes `instrument_statuses` and `instrument_closes` for expiry/settlement lineage
   - declares `[[capture.option_universe]]` instead of concrete option `instrument_id`s
   - resolve without running capture:
     - `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.deribit-btc-universe.toml`
@@ -38,6 +39,8 @@ Current examples and planned validation paths:
     - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe.toml`
 - `examples/capture.deribit-btc-universe-research.toml`
   - DM-oriented research profile: rolling universe + `trades` + `forward_prices` + DVOL custom data
+  - also includes `instrument_statuses` / `instrument_closes` for lifecycle traceability
+  - adds `BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL` bars for RV / regime baselines
   - forward prices append to `metadata/forward_prices.jsonl` (derived from option greeks)
   - open interest is available on each `option_greeks` row (`open_interest` field)
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-universe-research.toml`
@@ -53,20 +56,37 @@ Current examples and planned validation paths:
     - `Option universe refresh venue_id=... add=[...] remove=[...]`
   - resolution lineage is appended to:
     - `<catalog_dir>/metadata/option_universe_resolutions.jsonl`
+  - inspect the latest persisted universe state:
+    - `cargo run -p catalog-capture-cli -- inspect-option-universe --catalog-uri file:///tmp/nautilus-catalog-capture-deribit-btc-universe-autorefresh --option-universe-format text`
+  - validate the latest persisted universe against catalog parquet families:
+    - `cargo run -p catalog-capture-cli -- validate-option-universe-catalog --catalog-uri file:///tmp/nautilus-catalog-capture-deribit-btc-universe-autorefresh --option-universe-format text`
 - `examples/capture.bybit-btc-universe.toml`
   - Bybit BTC option universe resolved once at startup
+  - includes `instrument_statuses` and `instrument_closes`
+  - includes `BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL` bars as the current Bybit research baseline
   - resolve: `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.bybit-btc-universe.toml`
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc-universe.toml`
 - `examples/capture.bybit-btc-universe-autorefresh.toml`
   - Bybit BTC option universe with runtime refresh
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc-universe-autorefresh.toml`
+- `examples/capture.bybit-btc-universe-oi-ranked.toml`
+  - Bybit BTC OI-ranked option universe resolved at startup
+  - intended for flow/GEX-oriented recording where startup HTTP OI is available
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc-universe-oi-ranked.toml`
 - `examples/capture.okx-btc-universe.toml`
   - OKX BTC option universe resolved once at startup
+  - includes `instrument_statuses` and `instrument_closes`
+  - includes `BTC-USD-SWAP.OKX-1-MINUTE-LAST-EXTERNAL` bars as the current OKX research baseline
   - resolve: `cargo run -p catalog-capture-cli -- resolve-option-universe --config examples/capture.okx-btc-universe.toml`
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.okx-btc-universe.toml`
 - `examples/capture.okx-btc-universe-autorefresh.toml`
   - OKX BTC option universe with runtime refresh
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.okx-btc-universe-autorefresh.toml`
+- `examples/capture.okx-btc-universe-oi-ranked.toml`
+  - OKX BTC OI-ranked option universe profile
+  - current recommendation: use for config validation and runtime-refresh-oriented work; startup
+    OI-ranked preflight is not yet supported by the current Nautilus OKX HTTP discovery path
+  - run: `cargo run -p catalog-capture-cli -- validate --config examples/capture.okx-btc-universe-oi-ranked.toml`
 - `examples/capture.bybit-btc.toml`
   - Step 4b profile: Bybit linear perp + ATM call/put
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc.toml`
@@ -151,3 +171,28 @@ Planned next examples:
   - deployment shell example for stock `LiveNode`
 
 The next major validation target is the Binance Futures `QuoteTick` capture path described in `docs/live-validation.md`.
+
+## Option-universe profile matrix
+
+Use these profiles by intent rather than by venue alone:
+
+| Intent | Deribit | Bybit | OKX |
+|---|---|---|---|
+| Rolling live baseline | `capture.deribit-btc-universe-autorefresh.toml` | `capture.bybit-btc-universe-autorefresh.toml` | `capture.okx-btc-universe-autorefresh.toml` |
+| Research-ready baseline | `capture.deribit-btc-universe-research.toml` | `capture.bybit-btc-universe.toml` | `capture.okx-btc-universe.toml` |
+| OI-ranked selection | `capture.deribit-btc-universe-oi-ranked-autorefresh.toml` | `capture.bybit-btc-universe-oi-ranked.toml` | `capture.okx-btc-universe-oi-ranked.toml` |
+| Full-chain batch | `capture.deribit-btc-universe-all.toml` | — | — |
+
+Notes:
+
+- Deribit research adds `DeribitVolatilityIndex` custom data on top of the standard raw market-data families.
+- Bybit and OKX base universe profiles already include `trades` and `forward_prices`, so they are the current research-ready baselines.
+- Current research baselines also add 1-minute perp/swap `LAST-EXTERNAL` bars for RV / regime work without widening the main rolling-capture surface.
+- Standard option-universe profiles now also include `instrument_statuses` and `instrument_closes`.
+  Use `tests/probe_option_universe_smoke.py --require-contract-state` or
+  `tests/probe_option_universe_soak.py --require-contract-state` on longer live runs to validate them.
+- Autorefresh soak runs can also require a real runtime delta with
+  `tests/probe_option_universe_soak.py --require-refresh-change` when validating rollover windows.
+- Startup `oi_ranked` preflight is currently supported on Bybit. Deribit and OKX should use
+  `atm_relative` or `all` at startup, then rely on runtime refresh once `option_greeks` warm up.
+- For long validation runs, prefer `tests/probe_option_universe_soak.py` over ad hoc one-off commands.

@@ -25,8 +25,14 @@ impl<T> PartitionBuffer<T> {
     pub fn push(&mut self, item: T, event_ts_ns: u64, estimated_bytes: usize) {
         self.pending_rows += 1;
         self.pending_bytes += estimated_bytes;
-        self.min_ts_ns = Some(self.min_ts_ns.map_or(event_ts_ns, |value| value.min(event_ts_ns)));
-        self.max_ts_ns = Some(self.max_ts_ns.map_or(event_ts_ns, |value| value.max(event_ts_ns)));
+        self.min_ts_ns = Some(
+            self.min_ts_ns
+                .map_or(event_ts_ns, |value| value.min(event_ts_ns)),
+        );
+        self.max_ts_ns = Some(
+            self.max_ts_ns
+                .map_or(event_ts_ns, |value| value.max(event_ts_ns)),
+        );
         self.items.push(item);
     }
 

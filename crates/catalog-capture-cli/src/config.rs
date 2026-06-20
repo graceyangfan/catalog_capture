@@ -4,10 +4,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use catalog_capture_core::{
     plan::{BarCaptureSpec, BookDeltasCaptureSpec},
     CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec, ExpiryPolicy,
-    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
+    ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
     InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, LayoutCompatibility,
-    ForwardPriceCaptureSpec, MarkPriceCaptureSpec, OptionGreeksCaptureSpec, OptionUniverseFamily,
-    OptionUniverseSpec,
+    MarkPriceCaptureSpec, OptionGreeksCaptureSpec, OptionUniverseFamily, OptionUniverseSpec,
     OverflowPolicy, QuoteCaptureSpec, StrikePolicy, TradeCaptureSpec,
 };
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
@@ -452,9 +451,7 @@ fn parse_instrument_close_specs(
         .collect()
 }
 
-fn parse_forward_price_specs(
-    items: &[InstrumentSelector],
-) -> Result<Vec<ForwardPriceCaptureSpec>> {
+fn parse_forward_price_specs(items: &[InstrumentSelector]) -> Result<Vec<ForwardPriceCaptureSpec>> {
     items
         .iter()
         .map(|item| {
@@ -1673,7 +1670,10 @@ mod tests {
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");
         assert_eq!(
-            effective.runtime.option_universe_refresh.strike_change_confirmations,
+            effective
+                .runtime
+                .option_universe_refresh
+                .strike_change_confirmations,
             2
         );
     }

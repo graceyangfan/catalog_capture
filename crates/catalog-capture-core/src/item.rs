@@ -10,10 +10,7 @@ pub struct PartitionKey {
 
 impl PartitionKey {
     #[must_use]
-    pub fn market_data(
-        type_name: impl Into<String>,
-        identifier: impl Display,
-    ) -> Self {
+    pub fn market_data(type_name: impl Into<String>, identifier: impl Display) -> Self {
         Self {
             family: "market_data".to_string(),
             type_name: type_name.into(),

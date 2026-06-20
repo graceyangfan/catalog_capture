@@ -34,6 +34,8 @@ families = [
   "mark_prices",
   "index_prices",
   "funding_rates",
+  "instrument_statuses",
+  "instrument_closes",
 ]
 
 [capture.option_universe.expiry_policy]
@@ -44,3 +46,6 @@ days_max = 45
 mode = "atm_relative"
 strikes_above = 1
 strikes_below = 1
+
+[[capture.bars]]
+bar_type = "BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL"

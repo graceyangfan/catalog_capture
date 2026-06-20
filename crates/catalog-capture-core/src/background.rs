@@ -1,11 +1,11 @@
 use std::{
     collections::VecDeque,
-    sync::{Arc, Condvar, Mutex, mpsc},
+    sync::{mpsc, Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
     time::Duration,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 use crate::{
     config::{CaptureConfig, OverflowPolicy},
@@ -281,11 +281,11 @@ fn merge_flush_reason(current: Option<FlushReason>, next: FlushReason) -> Option
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
     use std::{
         path::PathBuf,
         sync::{Arc, Mutex},
     };
-    use std::time::Duration;
 
     use anyhow::Result;
 

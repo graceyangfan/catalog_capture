@@ -77,13 +77,25 @@ mod tests {
         let mut state = StrikeChangeSmoothingState::default();
 
         assert!(!should_apply_strike_change(
-            &current, &first_candidate, false, 2, &mut state
+            &current,
+            &first_candidate,
+            false,
+            2,
+            &mut state
         ));
         assert!(!should_apply_strike_change(
-            &current, &second_candidate, false, 2, &mut state
+            &current,
+            &second_candidate,
+            false,
+            2,
+            &mut state
         ));
         assert!(should_apply_strike_change(
-            &current, &second_candidate, false, 2, &mut state
+            &current,
+            &second_candidate,
+            false,
+            2,
+            &mut state
         ));
     }
 

@@ -54,7 +54,10 @@ pub fn select_http_perp_ticker_atm_reference(
         let bid = bid.parse::<f64>().ok()?;
         let ask = ask.parse::<f64>().ok()?;
         let mid = ((bid + ask) / 2.0).to_string();
-        return Some((Price::from(mid.as_str()), AtmReferenceSource::HttpPerpTickerMid));
+        return Some((
+            Price::from(mid.as_str()),
+            AtmReferenceSource::HttpPerpTickerMid,
+        ));
     }
     None
 }
@@ -121,8 +124,13 @@ mod tests {
             Some(("65000".to_string(), AtmReferenceSource::HttpPerpTickerMark))
         );
         assert_eq!(
-            select_http_perp_ticker_atm_reference(None, Some("64900"), Some("64990"), Some("65010"))
-                .map(|(_, source)| source),
+            select_http_perp_ticker_atm_reference(
+                None,
+                Some("64900"),
+                Some("64990"),
+                Some("65010")
+            )
+            .map(|(_, source)| source),
             Some(AtmReferenceSource::HttpPerpTickerIndex)
         );
         assert_eq!(
@@ -143,8 +151,7 @@ mod tests {
             Some(AtmReferenceSource::CacheMark)
         );
         assert_eq!(
-            select_cache_atm_reference(None, Some(quote), Some(index))
-                .map(|(_, source)| source),
+            select_cache_atm_reference(None, Some(quote), Some(index)).map(|(_, source)| source),
             Some(AtmReferenceSource::CacheQuoteMid)
         );
     }

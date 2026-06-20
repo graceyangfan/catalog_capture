@@ -7,10 +7,9 @@ use catalog_capture_core::{
     ResolvedOptionUniverse,
 };
 use catalog_capture_runtime_adapter::{
-    CatalogCaptureActor, CatalogCaptureActorConfig, OnlineOptionMetricsConfig,
-    OnlineOptionMetricsUniverseConfig, DynamicOptionUniverseConfig,
-    DynamicOptionUniverseEntryConfig, plan_has_index_prices, plan_has_mark_prices,
-    plan_has_quotes,
+    plan_has_index_prices, plan_has_mark_prices, plan_has_quotes, CatalogCaptureActor,
+    CatalogCaptureActorConfig, DynamicOptionUniverseConfig, DynamicOptionUniverseEntryConfig,
+    OnlineOptionMetricsConfig, OnlineOptionMetricsUniverseConfig,
 };
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
@@ -342,7 +341,8 @@ fn build_dynamic_option_universe_config(
                 spec.venue_id
             )
         })?;
-        let reference_perp = derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
+        let reference_perp =
+            derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
         if !plan_has_quotes(plan, reference_perp)
             && !plan_has_mark_prices(plan, reference_perp)
             && !plan_has_index_prices(plan, reference_perp)
@@ -507,7 +507,9 @@ fn resolved_option_universe_from_report(
     })
 }
 
-fn report_venue(report: &OptionUniverseResolutionReport) -> Result<nautilus_model::identifiers::Venue> {
+fn report_venue(
+    report: &OptionUniverseResolutionReport,
+) -> Result<nautilus_model::identifiers::Venue> {
     let sample = report
         .all_instrument_ids
         .first()
@@ -522,9 +524,7 @@ fn report_venue(report: &OptionUniverseResolutionReport) -> Result<nautilus_mode
     Ok(instrument_id.venue)
 }
 
-fn option_universe_venue_kind(
-    venue: &VenueRuntimeConfig,
-) -> Option<OptionUniverseVenueKind> {
+fn option_universe_venue_kind(venue: &VenueRuntimeConfig) -> Option<OptionUniverseVenueKind> {
     match venue {
         VenueRuntimeConfig::Deribit { .. } => Some(OptionUniverseVenueKind::Deribit),
         VenueRuntimeConfig::Bybit { .. } => Some(OptionUniverseVenueKind::Bybit),

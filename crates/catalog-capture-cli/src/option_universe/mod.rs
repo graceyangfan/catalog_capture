@@ -1,4 +1,7 @@
+mod catalog;
+mod catalog_presets;
 mod discovery;
+mod history;
 mod report;
 #[cfg(test)]
 mod tests;
@@ -11,7 +14,20 @@ use catalog_capture_core::{expand_option_universe, merge_capture_plans, CaptureP
 
 use crate::config::EffectiveConfig;
 
+pub use catalog::{
+    render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
+    validate_option_universe_catalog, OptionUniverseCatalogValidationOptions,
+    OptionUniverseCatalogValidationReport,
+};
+pub use catalog_presets::{
+    merge_validation_options, validation_options_for_preset, OptionUniverseCatalogValidationOverrides,
+    OptionUniverseCatalogValidationPreset,
+};
 pub use discovery::resolve_option_universe_spec;
+pub use history::{
+    load_option_universe_summaries, render_option_universe_summaries_json,
+    render_option_universe_summaries_text,
+};
 pub use report::{
     build_option_universe_resolution_report, render_option_universe_reports_json,
     render_option_universe_reports_text, startup_resolution_record_from_report,

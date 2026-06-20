@@ -237,18 +237,34 @@ instruments through Nautilus `ParquetDataCatalog` and assert:
 - every selected option has `quotes`, `mark_prices`, and `option_greeks`
 - the hedge perp/swap has `quotes`, `trade_ticks`, `mark_prices`, `index_prices`, and funding parquet rows
 
+Option-universe example profiles now also subscribe `instrument_statuses` and
+`instrument_closes`. These streams can be validated with:
+
+- `python3 tests/probe_option_universe_smoke.py --venue deribit-autorefresh --seconds 3600 --require-contract-state`
+
+Leave `--require-contract-state` off for short smokes, because status/close
+events can be sparse on live venues.
+
 Research profile smoke:
 
 - `python3 tests/probe_option_universe_smoke.py --venue deribit-research --seconds 30`
 - `python3 tests/probe_option_universe_smoke.py --venue all-plus-research --seconds 30`
 
 The research profile uses `capture.deribit-btc-universe-research.toml` and additionally
-asserts `DeribitVolatilityIndex` custom data readback.
+asserts `DeribitVolatilityIndex` custom data readback and `BTC-PERPETUAL.DERIBIT`
+`1-MINUTE-LAST-EXTERNAL` bar readback.
 
 OI-ranked profile smoke (P2a):
 
 - `python3 tests/probe_option_universe_smoke.py --venue deribit-oi-ranked --seconds 30`
 - `python3 tests/probe_option_universe_smoke.py --venue all-plus-oi-ranked --seconds 30`
+
+Autorefresh profile smoke:
+
+- `python3 tests/probe_option_universe_smoke.py --venue deribit-autorefresh --seconds 30`
+- `python3 tests/probe_option_universe_smoke.py --venue okx-autorefresh --seconds 30`
+- `python3 tests/probe_option_universe_smoke.py --venue bybit-autorefresh --seconds 30`
+- `python3 tests/probe_option_universe_smoke.py --venue all-autorefresh --seconds 30`
 
 The OI-ranked profile uses `capture.deribit-btc-universe-oi-ranked.toml` and additionally
 asserts `metadata/option_universe_resolutions.jsonl` contains
@@ -256,6 +272,17 @@ asserts `metadata/option_universe_resolutions.jsonl` contains
 
 Use `--skip-readback-probe` for file-only validation. Use `--cleanup` to remove generated catalogs
 after a successful run.
+
+All option-universe smokes also validate `metadata/option_universe_resolutions.jsonl`:
+
+- exactly one `startup` resolution record is present
+- required lineage fields such as expiry, ATM reference, selected strikes, and resolved instruments exist
+- any `refresh` records contain non-empty add/remove deltas and a known `rollover_reason`
+
+For operator-side post-run validation without the Python probe, the CLI now provides:
+
+- `cargo run -p catalog-capture-cli -- inspect-option-universe --catalog-uri file:///tmp/... --option-universe-format text`
+- `cargo run -p catalog-capture-cli -- validate-option-universe-catalog --catalog-uri file:///tmp/... --option-universe-format text`
 
 Use `--metrics-probe` when the smoke should also compute a lightweight research snapshot from
 the captured parquet:
@@ -311,6 +338,58 @@ Current manual smoke results:
   6 BTC options plus `BTC-USD-SWAP.OKX`.
 - Deribit wrote the same required families for 6 BTC options plus `BTC-PERPETUAL.DERIBIT`.
 - Bybit wrote the same required families for 6 BTC options plus `BTCUSDT-LINEAR.BYBIT`.
+
+Research baseline bars:
+
+- `examples/capture.deribit-btc-universe-research.toml` now captures
+  `BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL`
+- `examples/capture.bybit-btc-universe.toml` now captures
+  `BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL`
+- `examples/capture.okx-btc-universe.toml` now captures
+  `BTC-USD-SWAP.OKX-1-MINUTE-LAST-EXTERNAL`
+
+This keeps RV-friendly bars on the hedge leg/perp without expanding option
+universe capture into a much heavier bar surface.
+
+### Option-universe soak presets
+
+For longer operator-facing soak runs, use `tests/probe_option_universe_soak.py`.
+It reuses the same smoke/readback path but runs pre-defined venue/profile matrices.
+
+Preset matrix:
+
+| Preset | Purpose | Profiles |
+|---|---|---|
+| `daily-live` | 7x24 rolling live baseline | `deribit-autorefresh`, `okx-autorefresh`, `bybit-autorefresh` |
+| `research-live` | research-ready raw feed baseline | `deribit-research`, `okx`, `bybit` |
+| `oi-ranked` | OI-ranked strike-selection baseline | `deribit-oi-ranked-autorefresh`, `bybit-oi-ranked`, `okx-oi-ranked` |
+| `all-chain` | full-chain batch capture baseline | `deribit-all` |
+
+Examples:
+
+- `python3 tests/probe_option_universe_soak.py --preset daily-live --seconds 7200`
+- `python3 tests/probe_option_universe_soak.py --preset daily-live --seconds 7200 --require-refresh-change`
+- `python3 tests/probe_option_universe_soak.py --preset oi-ranked --seconds 7200`
+- `python3 tests/probe_option_universe_soak.py --preset all-chain --seconds 3600 --skip-readback-probe`
+- `python3 tests/probe_option_universe_soak.py --preset full --seconds 7200 --metrics-probe`
+
+Recommended order:
+
+1. `daily-live`
+2. `research-live`
+3. `oi-ranked`
+4. `all-chain`
+
+This matches the current project priority: stabilize unattended recording first,
+then validate richer research/batch profiles.
+
+Recommended soak pass criteria for autorefresh profiles:
+
+- startup capture writes the standard raw families plus `metadata/forward_prices.jsonl`
+- `metadata/option_universe_resolutions.jsonl` contains a valid `startup` record
+- if a live rollover/drift happens, `refresh` records show the added/removed instrument delta
+- for explicit rotation windows, add `--require-refresh-change` so the soak fails unless at least one
+  refresh delta is observed
 
 ## Step 5: custom data live validation
 

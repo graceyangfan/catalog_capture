@@ -5,9 +5,14 @@ use std::path::PathBuf;
 
 use catalog_capture_core::{
     append_forward_price_records, append_option_universe_resolution_records,
-    background::BackgroundCaptureRuntime, catalog_root_from_uri, config::CaptureConfig,
-    forward_price_from_option_greeks, forward_price_record_from_model, item::{CaptureItem, PartitionKey},
-    plan::CapturePlan, runtime::FlushResult, sink::NautilusCatalogSink,
+    background::BackgroundCaptureRuntime,
+    catalog_root_from_uri,
+    config::CaptureConfig,
+    forward_price_from_option_greeks, forward_price_record_from_model,
+    item::{CaptureItem, PartitionKey},
+    plan::CapturePlan,
+    runtime::FlushResult,
+    sink::NautilusCatalogSink,
 };
 use nautilus_common::{
     actor::{DataActor, DataActorConfig, DataActorCore},
@@ -16,9 +21,9 @@ use nautilus_common::{
 };
 use nautilus_model::{
     data::{
-        close::InstrumentClose, Bar, CustomData, DataType, FundingRateUpdate,
-        IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks,
-        OrderBookDelta, OrderBookDeltas, QuoteTick, TradeTick,
+        close::InstrumentClose, Bar, CustomData, DataType, FundingRateUpdate, IndexPriceUpdate,
+        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas,
+        QuoteTick, TradeTick,
     },
     identifiers::{ActorId, ClientId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
@@ -272,10 +277,8 @@ impl CatalogCaptureActor {
         &mut self,
         forward_price: nautilus_model::data::ForwardPrice,
     ) -> Result<()> {
-        let record = forward_price_record_from_model(
-            &forward_price,
-            "option_greeks_underlying_price",
-        );
+        let record =
+            forward_price_record_from_model(&forward_price, "option_greeks_underlying_price");
         append_forward_price_records(&self.catalog_root, std::slice::from_ref(&record))?;
         Ok(())
     }

@@ -11,7 +11,7 @@ use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{CustomData, DataType},
     identifiers::{ActorId, InstrumentId},
-    instruments::{InstrumentAny, stubs::crypto_perpetual_ethusdt},
+    instruments::{stubs::crypto_perpetual_ethusdt, InstrumentAny},
 };
 use nautilus_persistence::test_data::RustTestCustomData;
 use nautilus_serialization::ensure_custom_data_registered;
@@ -46,11 +46,7 @@ fn main() -> Result<()> {
         ..CaptureConfig::default()
     };
 
-    let custom_type = DataType::new(
-        "RustTestCustomData",
-        None,
-        Some(instrument_id.to_string()),
-    );
+    let custom_type = DataType::new("RustTestCustomData", None, Some(instrument_id.to_string()));
     let plan = CapturePlan {
         instruments: vec![InstrumentCaptureSpec { instrument_id }],
         custom_data: vec![CustomDataCaptureSpec {

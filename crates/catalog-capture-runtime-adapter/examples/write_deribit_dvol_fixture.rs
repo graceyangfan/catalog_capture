@@ -2,13 +2,13 @@ use std::{env, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use catalog_capture_core::{
-    CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy,
     plan::{CapturePlan, CustomDataCaptureSpec},
+    CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy,
 };
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_common::actor::DataActor;
 use nautilus_core::{Params, UnixNanos};
-use nautilus_deribit::data_types::{DeribitVolatilityIndex, register_deribit_custom_data};
+use nautilus_deribit::data_types::{register_deribit_custom_data, DeribitVolatilityIndex};
 use nautilus_model::data::{CustomData, DataType};
 
 fn build_capture_config(catalog_dir: &PathBuf) -> CaptureConfig {

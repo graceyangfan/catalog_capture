@@ -61,8 +61,7 @@ pub fn append_forward_price_records(
     for record in records {
         let line = serde_json::to_string(record)
             .with_context(|| "failed to serialize forward price record")?;
-        writeln!(file, "{line}")
-            .with_context(|| format!("failed to append {}", path.display()))?;
+        writeln!(file, "{line}").with_context(|| format!("failed to append {}", path.display()))?;
     }
 
     Ok(())
@@ -80,7 +79,8 @@ mod tests {
 
     #[test]
     fn append_forward_price_records_writes_jsonl() {
-        let temp = std::env::temp_dir().join(format!("forward-price-metadata-{}", std::process::id()));
+        let temp =
+            std::env::temp_dir().join(format!("forward-price-metadata-{}", std::process::id()));
         fs::create_dir_all(&temp).unwrap();
 
         let forward = ForwardPrice::new(

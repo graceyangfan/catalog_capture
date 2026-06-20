@@ -10,9 +10,9 @@ use nautilus_model::{
 use thiserror::Error;
 
 use crate::plan::{
-    CapturePlan, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
-    InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
-    ForwardPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
+    CapturePlan, ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec,
+    InstrumentCaptureSpec, InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec,
+    MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
 };
 
 const DAY_NS: u64 = 86_400_000_000_000;
@@ -151,7 +151,9 @@ pub enum OptionUniverseResolveError {
     },
 }
 
-pub fn okx_instrument_family(spec: &OptionUniverseSpec) -> Result<String, OptionUniverseResolveError> {
+pub fn okx_instrument_family(
+    spec: &OptionUniverseSpec,
+) -> Result<String, OptionUniverseResolveError> {
     let Some(settlement_currency) = spec.settlement_currency.as_deref() else {
         return Err(OptionUniverseResolveError::MissingSettlementCurrency {
             venue_id: spec.venue_id.clone(),
@@ -660,7 +662,10 @@ fn select_top_n_strikes_by_metric(
     });
     ranked.truncate(top_n);
 
-    let mut selected = ranked.into_iter().map(|(strike, _)| strike).collect::<Vec<_>>();
+    let mut selected = ranked
+        .into_iter()
+        .map(|(strike, _)| strike)
+        .collect::<Vec<_>>();
     selected.sort_by(|left, right| {
         left.as_f64()
             .partial_cmp(&right.as_f64())
@@ -862,8 +867,14 @@ mod tests {
         let plan = expand_option_universe(&spec, &resolved);
 
         assert_eq!(plan.trades.len(), resolved.all_instrument_ids.len());
-        assert_eq!(plan.forward_prices.len(), resolved.option_instrument_ids.len());
-        assert_eq!(plan.option_greeks.len(), resolved.option_instrument_ids.len());
+        assert_eq!(
+            plan.forward_prices.len(),
+            resolved.option_instrument_ids.len()
+        );
+        assert_eq!(
+            plan.option_greeks.len(),
+            resolved.option_instrument_ids.len()
+        );
     }
 
     #[test]
@@ -940,10 +951,7 @@ mod tests {
         )
         .expect("reference instrument should resolve");
 
-        assert_eq!(
-            reference,
-            InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT")
-        );
+        assert_eq!(reference, InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"));
     }
 
     #[test]

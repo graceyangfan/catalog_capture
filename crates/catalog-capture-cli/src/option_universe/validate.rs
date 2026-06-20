@@ -138,11 +138,8 @@ fn validate_option_universe(
     }
 
     if matches!(spec.strike_policy, StrikePolicy::OiRanked { .. }) && !has_option_greeks {
-        bail!(
-            "capture.option_universe strike_policy oi_ranked requires option_greeks in families"
-        );
+        bail!("capture.option_universe strike_policy oi_ranked requires option_greeks in families");
     }
 
     Ok(())
 }
-

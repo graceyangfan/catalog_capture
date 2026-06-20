@@ -80,8 +80,11 @@ impl OnlineOptionMetricsObserver {
 
             let mut options = BTreeMap::new();
             for instrument_id in universe_config.option_instrument_ids {
-                let descriptor = parse_option_id(&instrument_id.to_string())
-                    .unwrap_or((String::new(), 0.0, '?'));
+                let descriptor = parse_option_id(&instrument_id.to_string()).unwrap_or((
+                    String::new(),
+                    0.0,
+                    '?',
+                ));
                 instrument_to_universes
                     .entry(instrument_id)
                     .or_default()
@@ -120,7 +123,10 @@ impl OnlineOptionMetricsObserver {
 
     #[must_use]
     pub fn on_quote(&mut self, quote: &QuoteTick) -> Vec<String> {
-        let Some(universe_indexes) = self.instrument_to_universes.get(&quote.instrument_id).cloned()
+        let Some(universe_indexes) = self
+            .instrument_to_universes
+            .get(&quote.instrument_id)
+            .cloned()
         else {
             return Vec::new();
         };
@@ -151,8 +157,10 @@ impl OnlineOptionMetricsObserver {
 
     #[must_use]
     pub fn on_option_greeks(&mut self, greeks: &OptionGreeks) -> Vec<String> {
-        let Some(universe_indexes) =
-            self.instrument_to_universes.get(&greeks.instrument_id).cloned()
+        let Some(universe_indexes) = self
+            .instrument_to_universes
+            .get(&greeks.instrument_id)
+            .cloned()
         else {
             return Vec::new();
         };
@@ -179,13 +187,9 @@ impl OnlineOptionMetricsObserver {
     }
 
     pub fn apply_universe_change(&mut self, change: &DynamicOptionUniverseChange) {
-        let Some(universe_index) = self
-            .universes
-            .iter()
-            .position(|universe| {
-                universe.venue_id == change.venue_id && universe.underlying == change.underlying
-            })
-        else {
+        let Some(universe_index) = self.universes.iter().position(|universe| {
+            universe.venue_id == change.venue_id && universe.underlying == change.underlying
+        }) else {
             return;
         };
 
@@ -224,8 +228,8 @@ impl OnlineOptionMetricsObserver {
         universe.perp_quote_mid = None;
         universe.last_snapshot_ts_ns = None;
         for instrument_id in &change.option_instrument_ids {
-            let descriptor = parse_option_id(&instrument_id.to_string())
-                .unwrap_or((String::new(), 0.0, '?'));
+            let descriptor =
+                parse_option_id(&instrument_id.to_string()).unwrap_or((String::new(), 0.0, '?'));
             self.instrument_to_universes
                 .entry(*instrument_id)
                 .or_default()
@@ -304,11 +308,10 @@ impl UniverseState {
             return None;
         }
 
-        let rough_risk_reversal_decimal =
-            match (low_put_iv_decimal, high_call_iv_decimal) {
-                (Some(low_put), Some(high_call)) => Some(high_call - low_put),
-                _ => None,
-            };
+        let rough_risk_reversal_decimal = match (low_put_iv_decimal, high_call_iv_decimal) {
+            (Some(low_put), Some(high_call)) => Some(high_call - low_put),
+            _ => None,
+        };
 
         let wing_average = average(
             [low_put_iv_decimal, high_call_iv_decimal]
@@ -371,16 +374,13 @@ fn render_snapshot(universe: &UniverseState, snapshot: &Snapshot) -> String {
 }
 
 fn choose_atm_strike(strikes: &[f64], perp_quote_mid: f64) -> Option<f64> {
-    strikes
-        .iter()
-        .copied()
-        .min_by(|left, right| {
-            let left_key = ((left - perp_quote_mid).abs(), *left);
-            let right_key = ((right - perp_quote_mid).abs(), *right);
-            left_key
-                .partial_cmp(&right_key)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
+    strikes.iter().copied().min_by(|left, right| {
+        let left_key = ((left - perp_quote_mid).abs(), *left);
+        let right_key = ((right - perp_quote_mid).abs(), *right);
+        left_key
+            .partial_cmp(&right_key)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
 }
 
 fn average(values: Vec<f64>) -> Option<f64> {
@@ -391,7 +391,11 @@ fn average(values: Vec<f64>) -> Option<f64> {
 }
 
 fn normalize_mark_iv(value: f64) -> f64 {
-    if value.abs() > 3.0 { value / 100.0 } else { value }
+    if value.abs() > 3.0 {
+        value / 100.0
+    } else {
+        value
+    }
 }
 
 fn parse_option_id(instrument_id: &str) -> Option<(String, f64, char)> {
@@ -511,10 +515,20 @@ mod tests {
         });
 
         assert!(observer
-            .on_quote(&make_quote("BTC-PERPETUAL.DERIBIT", "62454.0", "62454.5", 1))
+            .on_quote(&make_quote(
+                "BTC-PERPETUAL.DERIBIT",
+                "62454.0",
+                "62454.5",
+                1
+            ))
             .is_empty());
         assert!(observer
-            .on_quote(&make_quote("BTC-20JUN26-62500-C.DERIBIT", "0.0060", "0.0070", 2))
+            .on_quote(&make_quote(
+                "BTC-20JUN26-62500-C.DERIBIT",
+                "0.0060",
+                "0.0070",
+                2
+            ))
             .is_empty());
 
         let mut lines = Vec::new();

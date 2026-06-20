@@ -75,9 +75,8 @@ async fn main() -> Result<()> {
     let catalog_dir = env::var("CATALOG_DIR")
         .map(PathBuf::from)
         .unwrap_or(default_catalog_dir()?);
-    let binance_env = parse_binance_env(
-        &env::var("BINANCE_ENV").unwrap_or_else(|_| "testnet".to_string()),
-    )?;
+    let binance_env =
+        parse_binance_env(&env::var("BINANCE_ENV").unwrap_or_else(|_| "testnet".to_string()))?;
 
     fs::create_dir_all(&catalog_dir)
         .with_context(|| format!("failed to create catalog dir {}", catalog_dir.display()))?;
@@ -143,7 +142,9 @@ async fn main() -> Result<()> {
             .borrow()
             .instrument(&instrument_id)
             .cloned()
-            .with_context(|| format!("instrument {instrument_id} was not found in cache after run"))?;
+            .with_context(|| {
+                format!("instrument {instrument_id} was not found in cache after run")
+            })?;
     }
 
     let parquet_files = count_parquet_files(&catalog_dir)?;

@@ -2,12 +2,18 @@ use std::collections::BTreeSet;
 
 use catalog_capture_core::{
     derive_perp_instrument_id, expand_option_universe, ExpiryPolicy, OptionUniverseFamily,
-    OptionUniverseSpec, OptionUniverseVenueKind, ResolvedOptionUniverse, StrikePolicy,
+    OptionUniverseResolutionEventKind, OptionUniverseResolutionSummary, OptionUniverseSpec,
+    OptionUniverseVenueKind, ResolvedOptionUniverse, StrikePolicy,
 };
 use nautilus_model::{identifiers::InstrumentId, types::Price};
 
 use super::report::{build_option_universe_resolution_report, OptionUniverseResolutionReport};
-use super::{render_option_universe_reports_json, render_option_universe_reports_text};
+use super::{
+    render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
+    render_option_universe_reports_json, render_option_universe_reports_text,
+    render_option_universe_summaries_json, render_option_universe_summaries_text,
+    OptionUniverseCatalogValidationReport,
+};
 
 #[test]
 fn derive_perp_instrument_ids_build_expected_symbols() {
@@ -135,7 +141,10 @@ fn build_option_universe_resolution_report_renders_expected_fields() {
         &resolved.all_instrument_ids.iter().copied().collect(),
     );
     assert_eq!(report.venue_id, "deribit_main");
-    assert_eq!(report.selected_expiry_iso8601, "1970-01-01T00:00:00.000000022Z");
+    assert_eq!(
+        report.selected_expiry_iso8601,
+        "1970-01-01T00:00:00.000000022Z"
+    );
     assert_eq!(report.new_instrument_ids.len(), 3);
 }
 
@@ -171,4 +180,63 @@ fn render_option_universe_reports_text_handles_empty_reports() {
         render_option_universe_reports_text(&[]),
         "No option universes configured."
     );
+}
+
+#[test]
+fn render_option_universe_summaries_text_handles_empty_summaries() {
+    assert_eq!(
+        render_option_universe_summaries_text(&[]),
+        "No option universe resolution metadata found."
+    );
+}
+
+#[test]
+fn render_option_universe_summaries_json_pretty_prints() {
+    let summaries = vec![OptionUniverseResolutionSummary {
+        venue_id: "deribit_main".to_string(),
+        underlying: "BTC".to_string(),
+        startup_resolved_at_iso8601: "2026-06-20T00:00:00Z".to_string(),
+        latest_event_kind: OptionUniverseResolutionEventKind::Refresh,
+        latest_resolved_at_iso8601: "2026-06-20T00:15:00Z".to_string(),
+        latest_selected_expiry_iso8601: "2026-06-26T08:00:00Z".to_string(),
+        strike_selection_mode: "atm_relative".to_string(),
+        refresh_count: 2,
+        latest_rollover_reason: Some("atm_drift".to_string()),
+        perp_instrument_id: Some("BTC-PERPETUAL.DERIBIT".to_string()),
+        option_count: 2,
+        option_instrument_ids: vec![
+            "BTC-26JUN26-65000-C.DERIBIT".to_string(),
+            "BTC-26JUN26-65000-P.DERIBIT".to_string(),
+        ],
+    }];
+
+    let rendered =
+        render_option_universe_summaries_json(&summaries).expect("json rendering should succeed");
+    assert!(rendered.contains("\"latest_event_kind\": \"refresh\""));
+    assert!(rendered.contains('\n'));
+}
+
+#[test]
+fn render_option_universe_catalog_validation_text_handles_empty_reports() {
+    assert_eq!(
+        render_option_universe_catalog_validation_text(&[]),
+        "No option universe catalog validation results."
+    );
+}
+
+#[test]
+fn render_option_universe_catalog_validation_json_pretty_prints() {
+    let reports = vec![OptionUniverseCatalogValidationReport {
+        venue_id: "okx_main".to_string(),
+        underlying: "BTC".to_string(),
+        perp_instrument_id: "BTC-USD-SWAP.OKX".to_string(),
+        option_count: 6,
+        refresh_count: 1,
+        latest_rollover_reason: Some("atm_drift".to_string()),
+    }];
+
+    let rendered = render_option_universe_catalog_validation_json(&reports)
+        .expect("json rendering should succeed");
+    assert!(rendered.contains("\"perp_instrument_id\": \"BTC-USD-SWAP.OKX\""));
+    assert!(rendered.contains('\n'));
 }

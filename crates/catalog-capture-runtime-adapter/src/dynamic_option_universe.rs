@@ -141,13 +141,12 @@ impl DynamicOptionUniverseManager {
                 state.venue_kind,
             ) {
                 Ok(resolved) => {
-                    let expiry_changed = state.last_selected_expiry_ns.is_some_and(|expiry| {
-                        expiry != resolved.selected_expiry_ns.as_u64()
-                    });
-                    let smoothing_enabled = matches!(
-                        state.spec.strike_policy,
-                        StrikePolicy::OiRanked { .. }
-                    ) && self.strike_change_confirmations > 0;
+                    let expiry_changed = state
+                        .last_selected_expiry_ns
+                        .is_some_and(|expiry| expiry != resolved.selected_expiry_ns.as_u64());
+                    let smoothing_enabled =
+                        matches!(state.spec.strike_policy, StrikePolicy::OiRanked { .. })
+                            && self.strike_change_confirmations > 0;
                     let apply_strike_change = if smoothing_enabled {
                         should_apply_strike_change(
                             &state.applied_resolved.selected_strikes,
@@ -169,7 +168,8 @@ impl DynamicOptionUniverseManager {
                     let previous_ids = plan_instrument_ids(&state.current_plan);
                     let next_ids = plan_instrument_ids(&next_plan);
                     if next_ids != previous_ids {
-                        let added_instrument_ids = instrument_id_difference(&next_ids, &previous_ids);
+                        let added_instrument_ids =
+                            instrument_id_difference(&next_ids, &previous_ids);
                         let removed_instrument_ids =
                             instrument_id_difference(&previous_ids, &next_ids);
                         let rollover_reason = compute_refresh_rollover_reason(
@@ -260,13 +260,15 @@ fn resolve_runtime_option_universe(
         .cloned()
         .collect::<Vec<InstrumentAny>>();
 
-    let (atm_reference, atm_reference_source) =
-        select_runtime_strike_reference(cache, spec, venue, venue_kind, now).with_context(|| {
-            format!(
-                "failed to determine strike reference for venue_id={} underlying={}",
-                spec.venue_id, spec.underlying
-            )
-        })?;
+    let (atm_reference, atm_reference_source) = select_runtime_strike_reference(
+        cache, spec, venue, venue_kind, now,
+    )
+    .with_context(|| {
+        format!(
+            "failed to determine strike reference for venue_id={} underlying={}",
+            spec.venue_id, spec.underlying
+        )
+    })?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from))
@@ -274,10 +276,7 @@ fn resolve_runtime_option_universe(
 
     let open_interest_by_strike = if spec.strike_policy.requires_open_interest() {
         Some(select_runtime_strike_open_interest(
-            cache,
-            spec,
-            venue,
-            now,
+            cache, spec, venue, now,
         )?)
     } else {
         None
@@ -372,13 +371,12 @@ fn select_runtime_strike_reference(
         ));
     }
 
-    let reference_perp = derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
+    let reference_perp =
+        derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
     let quote_mid = cache
         .quote(&reference_perp)
         .map(|quote| quote.extract_price(PriceType::Mid));
-    let mark = cache
-        .mark_price(&reference_perp)
-        .map(|update| update.value);
+    let mark = cache.mark_price(&reference_perp).map(|update| update.value);
     let index = cache
         .index_price(&reference_perp)
         .map(|update| update.value);
@@ -876,38 +874,14 @@ mod tests {
         cache.add_instrument(make_deribit_perpetual()).unwrap();
 
         let greeks_by_id = [
-            (
-                InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"),
-                100.0,
-            ),
-            (
-                InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"),
-                50.0,
-            ),
-            (
-                InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"),
-                300.0,
-            ),
-            (
-                InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"),
-                200.0,
-            ),
-            (
-                InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"),
-                250.0,
-            ),
-            (
-                InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"),
-                150.0,
-            ),
-            (
-                InstrumentId::from("BTC-26JUN26-67000-C.DERIBIT"),
-                10.0,
-            ),
-            (
-                InstrumentId::from("BTC-26JUN26-67000-P.DERIBIT"),
-                10.0,
-            ),
+            (InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"), 100.0),
+            (InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"), 50.0),
+            (InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"), 300.0),
+            (InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"), 200.0),
+            (InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"), 250.0),
+            (InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"), 150.0),
+            (InstrumentId::from("BTC-26JUN26-67000-C.DERIBIT"), 10.0),
+            (InstrumentId::from("BTC-26JUN26-67000-P.DERIBIT"), 10.0),
         ];
         for (instrument_id, open_interest) in greeks_by_id {
             cache.add_option_greeks(make_option_greeks(
@@ -963,30 +937,12 @@ mod tests {
         seed_oi_ranked_cache(
             &mut cache,
             &[
-                (
-                    InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"),
-                    100.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"),
-                    50.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"),
-                    300.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"),
-                    200.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"),
-                    250.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"),
-                    150.0,
-                ),
+                (InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"), 100.0),
+                (InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"), 50.0),
+                (InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"), 300.0),
+                (InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"), 200.0),
+                (InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"), 250.0),
+                (InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"), 150.0),
             ],
         );
 
@@ -1020,30 +976,12 @@ mod tests {
         seed_oi_ranked_cache(
             &mut cache,
             &[
-                (
-                    InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"),
-                    500.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"),
-                    400.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"),
-                    300.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"),
-                    200.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"),
-                    50.0,
-                ),
-                (
-                    InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"),
-                    25.0,
-                ),
+                (InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"), 500.0),
+                (InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"), 400.0),
+                (InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"), 300.0),
+                (InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"), 200.0),
+                (InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"), 50.0),
+                (InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"), 25.0),
             ],
         );
 

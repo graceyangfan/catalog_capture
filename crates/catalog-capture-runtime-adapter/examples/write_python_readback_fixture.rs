@@ -14,12 +14,12 @@ use nautilus_common::actor::DataActor;
 use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{
-        FundingRateUpdate, IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreekValues,
-        OptionGreeks, QuoteTick, close::InstrumentClose,
+        close::InstrumentClose, FundingRateUpdate, IndexPriceUpdate, InstrumentStatus,
+        MarkPriceUpdate, OptionGreekValues, OptionGreeks, QuoteTick,
     },
     enums::{GreeksConvention, InstrumentCloseType, MarketStatusAction},
     identifiers::{ActorId, InstrumentId},
-    instruments::{InstrumentAny, stubs::crypto_perpetual_ethusdt},
+    instruments::{stubs::crypto_perpetual_ethusdt, InstrumentAny},
     types::{Price, Quantity},
 };
 use rust_decimal::Decimal;

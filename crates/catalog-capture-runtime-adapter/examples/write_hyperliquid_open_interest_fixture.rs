@@ -9,13 +9,11 @@ use catalog_capture_core::{
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_common::actor::DataActor;
 use nautilus_core::{Params, UnixNanos};
-use nautilus_hyperliquid::{
-    data_types::{HyperliquidOpenInterest, register_hyperliquid_custom_data},
-};
+use nautilus_hyperliquid::data_types::{register_hyperliquid_custom_data, HyperliquidOpenInterest};
 use nautilus_model::{
     data::{CustomData, DataType},
     identifiers::{ActorId, InstrumentId},
-    instruments::{InstrumentAny, crypto_perpetual::CryptoPerpetual},
+    instruments::{crypto_perpetual::CryptoPerpetual, InstrumentAny},
     types::{Currency, Price, Quantity},
 };
 use rust_decimal::Decimal;

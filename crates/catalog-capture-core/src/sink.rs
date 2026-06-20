@@ -7,9 +7,8 @@ use anyhow::Result;
 use nautilus_core::string::conversions::to_snake_case;
 use nautilus_model::{
     data::{
-        Bar, CustomData, FundingRateUpdate, HasTsInit, IndexPriceUpdate, InstrumentStatus,
-        MarkPriceUpdate, OptionGreeks, OrderBookDelta, QuoteTick, TradeTick,
-        close::InstrumentClose,
+        close::InstrumentClose, Bar, CustomData, FundingRateUpdate, HasTsInit, IndexPriceUpdate,
+        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, QuoteTick, TradeTick,
     },
     instruments::{Instrument, InstrumentAny},
 };
@@ -36,7 +35,10 @@ impl NautilusCatalogSink {
             CompressionKind::Zstd => Compression::ZSTD(Default::default()),
         };
 
-        let uri = config.catalog_uri.strip_prefix("file://").unwrap_or(&config.catalog_uri);
+        let uri = config
+            .catalog_uri
+            .strip_prefix("file://")
+            .unwrap_or(&config.catalog_uri);
         let catalog = ParquetDataCatalog::new(
             Path::new(uri),
             None,
@@ -61,8 +63,12 @@ impl NautilusCatalogSink {
     pub fn write_quote_ticks(&self, data: Vec<QuoteTick>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(&path, "quote_tick", instrument_id.to_string().as_str())?;
         Ok(path)
     }
@@ -70,8 +76,12 @@ impl NautilusCatalogSink {
     pub fn write_trade_ticks(&self, data: Vec<TradeTick>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(&path, "trade_tick", instrument_id.to_string().as_str())?;
         Ok(path)
     }
@@ -79,8 +89,12 @@ impl NautilusCatalogSink {
     pub fn write_bars(&self, data: Vec<Bar>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let bar_type = data.first().expect("non-empty batch").bar_type;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(&path, "bar", bar_type.to_string().as_str())?;
         Ok(path)
     }
@@ -88,8 +102,12 @@ impl NautilusCatalogSink {
     pub fn write_order_book_deltas(&self, data: Vec<OrderBookDelta>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(
             &path,
             "order_book_deltas",
@@ -101,8 +119,12 @@ impl NautilusCatalogSink {
     pub fn write_mark_price_updates(&self, data: Vec<MarkPriceUpdate>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(
             &path,
             "mark_price_update",
@@ -114,8 +136,12 @@ impl NautilusCatalogSink {
     pub fn write_index_price_updates(&self, data: Vec<IndexPriceUpdate>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(
             &path,
             "index_price_updates",
@@ -127,8 +153,12 @@ impl NautilusCatalogSink {
     pub fn write_funding_rate_updates(&self, data: Vec<FundingRateUpdate>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(
             &path,
             "funding_rate_update",
@@ -140,8 +170,12 @@ impl NautilusCatalogSink {
     pub fn write_instrument_statuses(&self, data: Vec<InstrumentStatus>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(
             &path,
             "instrument_status",
@@ -153,8 +187,12 @@ impl NautilusCatalogSink {
     pub fn write_instrument_closes(&self, data: Vec<InstrumentClose>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
+        )?;
         self.mirror_market_data_path(
             &path,
             "instrument_closes",
@@ -166,13 +204,13 @@ impl NautilusCatalogSink {
     pub fn write_option_greeks(&self, data: Vec<OptionGreeks>) -> Result<PathBuf> {
         let (start, end) = Self::range_from_ts(&data);
         let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path =
-            self.catalog.write_to_parquet(data, Some(start.into()), Some(end.into()), Some(false))?;
-        self.mirror_market_data_path(
-            &path,
-            "option_greeks",
-            instrument_id.to_string().as_str(),
+        let path = self.catalog.write_to_parquet(
+            data,
+            Some(start.into()),
+            Some(end.into()),
+            Some(false),
         )?;
+        self.mirror_market_data_path(&path, "option_greeks", instrument_id.to_string().as_str())?;
         Ok(path)
     }
 
@@ -217,7 +255,11 @@ impl NautilusCatalogSink {
         let filename = original_path
             .file_name()
             .expect("catalog write returns a file path");
-        let legacy_dir = self.local_root.join("data").join(legacy_prefix).join(identifier);
+        let legacy_dir = self
+            .local_root
+            .join("data")
+            .join(legacy_prefix)
+            .join(identifier);
         let legacy_path = legacy_dir.join(filename);
         let source_path = self.resolve_local_source_path(original_path);
         Self::link_or_copy(&source_path, &legacy_path)
@@ -277,7 +319,7 @@ impl NautilusCatalogSink {
             Err(_) => {
                 fs::copy(source, destination)?;
                 Ok(())
-            },
+            }
         }
     }
 
@@ -343,7 +385,8 @@ impl CaptureSink<IndexPriceUpdate> for NautilusCatalogSink {
 
 impl CaptureSink<FundingRateUpdate> for NautilusCatalogSink {
     fn write_batch(&self, batch: Vec<FundingRateUpdate>) -> Result<Vec<PathBuf>> {
-        self.write_funding_rate_updates(batch).map(|path| vec![path])
+        self.write_funding_rate_updates(batch)
+            .map(|path| vec![path])
     }
 }
 

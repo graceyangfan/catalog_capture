@@ -126,7 +126,11 @@ impl CapturePlan {
         ids.extend(self.mark_prices.iter().map(|spec| spec.instrument_id));
         ids.extend(self.index_prices.iter().map(|spec| spec.instrument_id));
         ids.extend(self.funding_rates.iter().map(|spec| spec.instrument_id));
-        ids.extend(self.instrument_statuses.iter().map(|spec| spec.instrument_id));
+        ids.extend(
+            self.instrument_statuses
+                .iter()
+                .map(|spec| spec.instrument_id),
+        );
         ids.extend(self.instrument_closes.iter().map(|spec| spec.instrument_id));
         ids.extend(self.option_greeks.iter().map(|spec| spec.instrument_id));
         ids.extend(self.forward_prices.iter().map(|spec| spec.instrument_id));

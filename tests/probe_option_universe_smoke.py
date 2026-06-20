@@ -25,8 +25,17 @@ DVOL_PROBE = PROJECT_ROOT / "tests" / "python_catalog_deribit_dvol_probe.py"
 
 VENUE_CONFIGS = {
     "deribit": PROJECT_ROOT / "examples" / "capture.deribit-btc-universe.toml",
+    "deribit-autorefresh": (
+        PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-autorefresh.toml"
+    ),
     "okx": PROJECT_ROOT / "examples" / "capture.okx-btc-universe.toml",
+    "okx-autorefresh": (
+        PROJECT_ROOT / "examples" / "capture.okx-btc-universe-autorefresh.toml"
+    ),
     "bybit": PROJECT_ROOT / "examples" / "capture.bybit-btc-universe.toml",
+    "bybit-autorefresh": (
+        PROJECT_ROOT / "examples" / "capture.bybit-btc-universe-autorefresh.toml"
+    ),
     "deribit-research": (
         PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-research.toml"
     ),
@@ -50,6 +59,15 @@ VENUE_CONFIGS = {
 }
 
 STANDARD_VENUES = ("deribit", "okx", "bybit")
+AUTOREFRESH_VENUES = ("deribit-autorefresh", "okx-autorefresh", "bybit-autorefresh")
+AUTOREFRESH_VALIDATION_VENUES = frozenset(
+    {
+        "deribit-autorefresh",
+        "okx-autorefresh",
+        "bybit-autorefresh",
+        "deribit-oi-ranked-autorefresh",
+    }
+)
 
 REQUIRED_FAMILIES = (
     "instruments",
@@ -76,6 +94,46 @@ OI_RANKED_VENUES = frozenset({
 OI_RANKED_AUTOREFRESH_VENUES = frozenset({"deribit-oi-ranked-autorefresh"})
 ALL_STRIKES_VENUES = frozenset({"deribit-all"})
 READBACK_OPTION_SAMPLE_LIMIT = 6
+BAR_TYPES = {
+    "deribit-research": ["BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL"],
+    "bybit": ["BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL"],
+    "okx": ["BTC-USD-SWAP.OKX-1-MINUTE-LAST-EXTERNAL"],
+}
+RESOLUTION_REQUIRED_FIELDS = (
+    "event_kind",
+    "venue_id",
+    "underlying",
+    "resolved_at_ns",
+    "resolved_at_iso8601",
+    "selected_expiry_ns",
+    "selected_expiry_iso8601",
+    "atm_reference",
+    "atm_reference_source",
+    "strike_selection_mode",
+    "selected_strikes",
+    "option_instrument_ids",
+    "all_instrument_ids",
+    "added_instrument_ids",
+    "removed_instrument_ids",
+)
+REFRESH_ALLOWED_REASONS = {
+    "expiry_roll",
+    "atm_drift",
+    "oi_rank_shift",
+    "strike_window_shift",
+}
+
+VALIDATION_PRESET_BY_VENUE = {
+    "deribit-autorefresh": "rolling-autorefresh",
+    "okx-autorefresh": "rolling-autorefresh",
+    "bybit-autorefresh": "rolling-autorefresh",
+    "deribit-oi-ranked-autorefresh": "rolling-autorefresh",
+    "deribit-research": "research",
+    "bybit": "venue-trades",
+    "okx": "venue-trades",
+    "bybit-oi-ranked": "venue-trades",
+    "okx-oi-ranked": "venue-trades",
+}
 
 
 def main() -> int:
@@ -87,6 +145,7 @@ def main() -> int:
         choices=(
             *VENUE_CONFIGS.keys(),
             "all",
+            "all-autorefresh",
             "all-plus-research",
             "all-plus-oi-ranked",
             "all-oi-ranked",
@@ -94,6 +153,7 @@ def main() -> int:
         default="all",
         help=(
             "Venue smoke test to run. 'all' runs deribit/okx/bybit; "
+            "'all-autorefresh' runs deribit/okx/bybit autorefresh profiles; "
             "'all-plus-research' also runs the Deribit research profile; "
             "'all-plus-oi-ranked' also runs Deribit OI-ranked; "
             "'all-oi-ranked' runs Deribit/Bybit/OKX OI-ranked profiles."
@@ -130,6 +190,19 @@ def main() -> int:
         action="store_true",
         help="Print a lightweight ATM/skew metrics snapshot after readback.",
     )
+    parser.add_argument(
+        "--require-contract-state",
+        action="store_true",
+        help="Require instrument_status and instrument_closes rows during readback probing.",
+    )
+    parser.add_argument(
+        "--require-refresh-change",
+        action="store_true",
+        help=(
+            "Require at least one runtime refresh delta in "
+            "metadata/option_universe_resolutions.jsonl for autorefresh profiles."
+        ),
+    )
     args = parser.parse_args()
 
     if args.seconds <= 0:
@@ -137,6 +210,8 @@ def main() -> int:
 
     if args.venue == "all":
         venues = list(STANDARD_VENUES)
+    elif args.venue == "all-autorefresh":
+        venues = list(AUTOREFRESH_VENUES)
     elif args.venue == "all-plus-research":
         venues = [*STANDARD_VENUES, "deribit-research"]
     elif args.venue == "all-plus-oi-ranked":
@@ -194,24 +269,35 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
 
     summary = summarize_catalog(catalog_dir)
     print_catalog_summary(venue, catalog_dir, summary)
-    validate_summary(summary, venue)
-    forward_rows = validate_forward_prices_metadata(catalog_dir)
-    print(f"[{venue}] forward_prices.jsonl rows={forward_rows}")
+    run_cli_catalog_validation(catalog_dir, venue, args)
+    resolution_rows, refresh_rows = validate_resolution_metadata(
+        catalog_dir,
+        venue,
+        require_refresh_change=(
+            args.require_refresh_change and venue in AUTOREFRESH_VALIDATION_VENUES
+        ),
+    )
+    print(
+        f"[{venue}] option_universe_resolutions.jsonl rows={resolution_rows} "
+        f"refresh_rows={refresh_rows}",
+        flush=True,
+    )
 
     if venue in OI_RANKED_VENUES:
-        resolution_rows = validate_oi_ranked_resolution_metadata(catalog_dir, top_n=3)
+        validate_oi_ranked_resolution_metadata(catalog_dir, top_n=3)
         print(
-            f"[{venue}] option_universe_resolutions.jsonl rows={resolution_rows} "
-            "(strike_selection_mode=oi_ranked)",
+            f"[{venue}] strike_selection_mode=oi_ranked",
         )
-    if venue in OI_RANKED_AUTOREFRESH_VENUES:
-        validate_oi_ranked_autorefresh_output(output)
-        validate_oi_ranked_autorefresh_metadata(catalog_dir)
     if venue in ALL_STRIKES_VENUES:
-        resolution_rows = validate_all_strikes_resolution_metadata(catalog_dir)
+        validate_all_strikes_resolution_metadata(catalog_dir)
         print(
-            f"[{venue}] option_universe_resolutions.jsonl rows={resolution_rows} "
-            "(strike_selection_mode=all)",
+            f"[{venue}] strike_selection_mode=all",
+        )
+    if venue in AUTOREFRESH_VALIDATION_VENUES:
+        refresh_change_logs = count_refresh_change_logs(output)
+        print(
+            f"[{venue}] refresh_change_log_lines={refresh_change_logs}",
+            flush=True,
         )
 
     perp_id, option_ids = parse_resolution_output(output)
@@ -225,7 +311,14 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
         )
     min_trade_rows = 1 if venue in VENUES_REQUIRING_TRADES else 0
     if not args.skip_readback_probe:
-        run_readback_probe(catalog_dir, perp_id, readback_option_ids, min_trade_rows)
+        run_readback_probe(
+            catalog_dir,
+            perp_id,
+            readback_option_ids,
+            min_trade_rows,
+            args.require_contract_state,
+            BAR_TYPES.get(venue, []),
+        )
         if args.metrics_probe:
             run_metrics_probe(catalog_dir, perp_id, option_ids)
     elif args.metrics_probe:
@@ -238,6 +331,36 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
         shutil.rmtree(catalog_dir)
         temp_config.unlink(missing_ok=True)
         print(f"[{venue}] cleaned up generated catalog and config")
+
+
+def run_cli_catalog_validation(
+    catalog_dir: Path,
+    venue: str,
+    args: argparse.Namespace,
+) -> None:
+    preset = VALIDATION_PRESET_BY_VENUE.get(venue, "post-capture")
+    command = [
+        args.cargo,
+        "run",
+        "-p",
+        "catalog-capture-cli",
+        "--",
+        "validate-option-universe-catalog",
+        "--catalog-uri",
+        f"file://{catalog_dir}",
+        "--option-universe-format",
+        "text",
+        "--preset",
+        preset,
+    ]
+    if args.require_contract_state:
+        command.append("--require-contract-state")
+    if args.require_refresh_change and venue in AUTOREFRESH_VALIDATION_VENUES:
+        command.append("--require-refresh-change")
+    for bar_type in BAR_TYPES.get(venue, []):
+        command.extend(["--bar-type", bar_type])
+    print(f"[{venue}] cli catalog validation preset={preset}", flush=True)
+    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
 
 
 def run_and_stream(command: list[str]) -> str:
@@ -291,6 +414,8 @@ def run_readback_probe(
     perp_id: str,
     option_ids: list[str],
     min_trade_rows: int,
+    require_contract_state: bool,
+    bar_types: list[str],
 ) -> None:
     print(
         f"[readback] probing {len(option_ids)} options plus {perp_id}",
@@ -305,6 +430,10 @@ def run_readback_probe(
         "--min-trade-rows",
         str(min_trade_rows),
     ]
+    if require_contract_state:
+        command.append("--require-contract-state")
+    for bar_type in bar_types:
+        command.extend(["--bar-type", bar_type])
     for option_id in option_ids:
         command.extend(["--option-id", option_id])
     subprocess.run(command, cwd=PROJECT_ROOT, check=True)
@@ -379,18 +508,85 @@ def print_catalog_summary(
         print(f"[{venue}] {family}: files={values['files']} sample_rows_first_5={row_text}")
 
 
-def validate_oi_ranked_resolution_metadata(catalog_dir: Path, top_n: int) -> int:
+def load_resolution_records(catalog_dir: Path) -> list[dict]:
     path = catalog_dir / RESOLUTIONS_METADATA
     if not path.exists():
         raise RuntimeError(f"missing option universe resolution metadata: {path}")
 
-    lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
-    if not lines:
+    records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    if not records:
         raise RuntimeError(f"option universe resolution metadata is empty: {path}")
+    return records
 
+
+def validate_resolution_metadata(
+    catalog_dir: Path,
+    venue: str,
+    *,
+    require_refresh_change: bool,
+) -> tuple[int, int]:
+    records = load_resolution_records(catalog_dir)
+    startup_records = [record for record in records if record.get("event_kind") == "startup"]
+    refresh_records = [record for record in records if record.get("event_kind") == "refresh"]
+
+    if len(startup_records) != 1:
+        raise RuntimeError(
+            "expected exactly one startup resolution record, got "
+            f"{len(startup_records)}"
+        )
+
+    startup = startup_records[0]
+    for field in RESOLUTION_REQUIRED_FIELDS:
+        if field not in startup:
+            raise RuntimeError(
+                f"resolution metadata missing field {field!r} in startup record"
+            )
+
+    if not startup["option_instrument_ids"]:
+        raise RuntimeError("startup resolution selected no option instruments")
+    if startup.get("perp_instrument_id") in (None, ""):
+        raise RuntimeError("startup resolution missing perp_instrument_id")
+
+    expected_mode = startup.get("strike_selection_mode")
+    if not expected_mode:
+        raise RuntimeError("startup resolution missing strike_selection_mode")
+
+    for record in refresh_records:
+        for field in RESOLUTION_REQUIRED_FIELDS:
+            if field not in record:
+                raise RuntimeError(
+                    f"resolution metadata missing field {field!r} in refresh record"
+                )
+        if record.get("strike_selection_mode") != expected_mode:
+            raise RuntimeError(
+                "refresh metadata strike_selection_mode mismatch: "
+                f"expected {expected_mode!r}, got {record.get('strike_selection_mode')!r}"
+            )
+        reason = record.get("rollover_reason")
+        if reason not in REFRESH_ALLOWED_REASONS:
+            raise RuntimeError(
+                "refresh metadata rollover_reason unexpected: "
+                f"got {reason!r}, expected one of {sorted(REFRESH_ALLOWED_REASONS)}"
+            )
+        if not record.get("added_instrument_ids") and not record.get(
+            "removed_instrument_ids"
+        ):
+            raise RuntimeError(
+                "refresh metadata should include added or removed instruments"
+            )
+
+    if require_refresh_change and not refresh_records:
+        raise RuntimeError(
+            f"{venue} expected at least one refresh delta but none were recorded"
+        )
+
+    return len(records), len(refresh_records)
+
+
+def validate_oi_ranked_resolution_metadata(catalog_dir: Path, top_n: int) -> int:
+    records = load_resolution_records(catalog_dir)
     startup_records = []
-    for line in lines:
-        record = json.loads(line)
+    for record in records:
         if record.get("event_kind") == "startup":
             startup_records.append(record)
 
@@ -442,33 +638,13 @@ def validate_oi_ranked_resolution_metadata(catalog_dir: Path, top_n: int) -> int
         f"atm_reference_source={record['atm_reference_source']}",
         flush=True,
     )
-    return len(lines)
-
-
-def validate_oi_ranked_autorefresh_output(output: str) -> None:
-    refresh_lines = [
-        strip_ansi(line.strip())
-        for line in output.splitlines()
-        if "Option universe refresh venue_id=" in line
-    ]
-    print(
-        f"[oi_ranked_autorefresh] refresh_change_log_lines={len(refresh_lines)}",
-        flush=True,
-    )
+    return len(records)
 
 
 def validate_all_strikes_resolution_metadata(catalog_dir: Path) -> int:
-    path = catalog_dir / RESOLUTIONS_METADATA
-    if not path.exists():
-        raise RuntimeError(f"missing option universe resolution metadata: {path}")
-
-    lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
-    if not lines:
-        raise RuntimeError(f"option universe resolution metadata is empty: {path}")
-
+    records = load_resolution_records(catalog_dir)
     startup_records = []
-    for line in lines:
-        record = json.loads(line)
+    for record in records:
         if record.get("event_kind") == "startup":
             startup_records.append(record)
 
@@ -516,42 +692,14 @@ def validate_all_strikes_resolution_metadata(catalog_dir: Path) -> int:
         f"atm_reference_source={record['atm_reference_source']}",
         flush=True,
     )
-    return len(lines)
+    return len(records)
 
 
-def validate_oi_ranked_autorefresh_metadata(catalog_dir: Path) -> None:
-    path = catalog_dir / RESOLUTIONS_METADATA
-    if not path.exists():
-        raise RuntimeError(f"missing option universe resolution metadata: {path}")
-
-    records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-    refresh_records = [
-        record for record in records if record.get("event_kind") == "refresh"
-    ]
-    allowed_reasons = {"oi_rank_shift", "expiry_roll", "atm_drift"}
-    for record in refresh_records:
-        if record.get("strike_selection_mode") != "oi_ranked":
-            raise RuntimeError(
-                "refresh metadata strike_selection_mode mismatch: "
-                f"expected 'oi_ranked', got {record.get('strike_selection_mode')!r}"
-            )
-        reason = record.get("rollover_reason")
-        if reason not in allowed_reasons:
-            raise RuntimeError(
-                "refresh metadata rollover_reason unexpected: "
-                f"got {reason!r}, expected one of {sorted(allowed_reasons)}"
-            )
-        if not record.get("added_instrument_ids") and not record.get(
-            "removed_instrument_ids"
-        ):
-            raise RuntimeError(
-                "refresh metadata should include added or removed instruments"
-            )
-
-    print(
-        f"[oi_ranked_autorefresh] resolution_rows={len(records)} "
-        f"refresh_rows={len(refresh_records)}",
-        flush=True,
+def count_refresh_change_logs(output: str) -> int:
+    return sum(
+        1
+        for line in output.splitlines()
+        if "Option universe refresh venue_id=" in strip_ansi(line)
     )
 
 
