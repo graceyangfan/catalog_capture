@@ -23,11 +23,11 @@ pub use atm_reference::{
     AtmReferenceSource,
 };
 pub use option_universe::{
-    derive_perp_instrument_id, expand_option_universe, merge_capture_plans,
-    okx_instrument_family, option_instrument_ids_at_selected_expiry, resolve_option_universe,
-    select_nearest_expiry_reference_instrument_id, ExpiryPolicy, OptionUniverseFamily,
-    OptionUniverseResolveError, OptionUniverseSpec, OptionUniverseVenueKind,
-    ResolvedOptionUniverse, StrikePolicy,
+    aggregate_open_interest_by_strike, derive_perp_instrument_id, expand_option_universe,
+    merge_capture_plans, okx_instrument_family, option_instrument_ids_at_selected_expiry,
+    resolve_option_universe, select_nearest_expiry_reference_instrument_id, ExpiryPolicy,
+    OptionUniverseFamily, OptionUniverseResolveError, OptionUniverseSpec,
+    OptionUniverseVenueKind, ResolvedOptionUniverse, StrikeOpenInterestByStrike, StrikePolicy,
 };
 pub use option_universe_metadata::{
     append_option_universe_resolution_records, catalog_root_from_uri,

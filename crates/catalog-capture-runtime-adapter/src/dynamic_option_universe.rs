@@ -2,18 +2,19 @@ use std::collections::BTreeSet;
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    compute_refresh_rollover_reason, derive_perp_instrument_id, expand_option_universe,
-    merge_capture_plans, option_instrument_ids_at_selected_expiry, refresh_resolution_record,
-    resolve_option_universe, select_cache_perp_strike_fallback, AtmReferenceSource, CapturePlan,
-    MarkPriceCaptureSpec, OptionUniverseResolutionRecord, OptionUniverseSpec,
-    OptionUniverseVenueKind, QuoteCaptureSpec, ResolvedOptionUniverse,
+    aggregate_open_interest_by_strike, compute_refresh_rollover_reason, derive_perp_instrument_id,
+    expand_option_universe, merge_capture_plans, option_instrument_ids_at_selected_expiry,
+    refresh_resolution_record, resolve_option_universe, select_cache_perp_strike_fallback,
+    AtmReferenceSource, CapturePlan, MarkPriceCaptureSpec, OptionUniverseResolutionRecord,
+    OptionUniverseSpec, OptionUniverseVenueKind, QuoteCaptureSpec, ResolvedOptionUniverse,
+    StrikeOpenInterestByStrike,
 };
 use nautilus_common::cache::Cache;
 use nautilus_core::UnixNanos;
 use nautilus_model::{
     enums::PriceType,
     identifiers::{InstrumentId, Venue},
-    instruments::InstrumentAny,
+    instruments::{Instrument, InstrumentAny},
     types::Price,
 };
 use ustr::Ustr;
@@ -160,8 +161,7 @@ impl DynamicOptionUniverseManager {
                             removed_instrument_ids: removed_instrument_ids.clone(),
                         });
                         resolution_records.push(refresh_resolution_record(
-                            &state.spec.venue_id,
-                            &state.spec.underlying,
+                            &state.spec,
                             &resolved,
                             added_instrument_ids
                                 .iter()
@@ -235,15 +235,70 @@ fn resolve_runtime_option_universe(
         .then(|| derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from))
         .transpose()?;
 
+    let open_interest_by_strike = if spec.strike_policy.requires_open_interest() {
+        Some(select_runtime_strike_open_interest(
+            cache,
+            spec,
+            venue,
+            now,
+        )?)
+    } else {
+        None
+    };
+
     let mut resolved = resolve_option_universe(
         spec,
         &option_instruments,
         now,
         atm_reference,
         perp_instrument_id,
+        open_interest_by_strike.as_ref(),
     )?;
     resolved.atm_reference_source = Some(atm_reference_source);
     Ok(resolved)
+}
+
+fn select_runtime_strike_open_interest(
+    cache: &Cache,
+    spec: &OptionUniverseSpec,
+    venue: Venue,
+    now: UnixNanos,
+) -> Result<StrikeOpenInterestByStrike> {
+    let underlying = Ustr::from(spec.underlying.as_str());
+    let option_instruments = cache
+        .instruments(&venue, Some(&underlying))
+        .into_iter()
+        .cloned()
+        .collect::<Vec<InstrumentAny>>();
+
+    let (_, instrument_ids) =
+        option_instrument_ids_at_selected_expiry(spec, &option_instruments, now)
+            .map_err(anyhow::Error::from)?;
+
+    let mut entries = Vec::new();
+    for instrument_id in instrument_ids {
+        let Some(greeks) = cache.option_greeks(&instrument_id) else {
+            continue;
+        };
+        let Some(open_interest) = greeks.open_interest else {
+            continue;
+        };
+        if !open_interest.is_finite() || open_interest <= 0.0 {
+            continue;
+        }
+        let Some(instrument) = option_instruments
+            .iter()
+            .find(|entry| entry.id() == instrument_id)
+        else {
+            continue;
+        };
+        let Some(strike) = instrument.strike_price() else {
+            continue;
+        };
+        entries.push((strike, open_interest));
+    }
+
+    Ok(aggregate_open_interest_by_strike(entries))
 }
 
 fn select_runtime_strike_reference(
@@ -553,7 +608,11 @@ mod tests {
         )
     }
 
-    fn make_option_greeks(instrument_id: InstrumentId, underlying_price: f64) -> OptionGreeks {
+    fn make_option_greeks(
+        instrument_id: InstrumentId,
+        underlying_price: f64,
+        open_interest: Option<f64>,
+    ) -> OptionGreeks {
         OptionGreeks {
             instrument_id,
             convention: GreeksConvention::PriceAdjusted,
@@ -568,7 +627,7 @@ mod tests {
             ask_iv: None,
             mark_iv: Some(0.45),
             underlying_price: Some(underlying_price),
-            open_interest: None,
+            open_interest,
             ts_event: UnixNanos::default(),
             ts_init: UnixNanos::default(),
         }
@@ -684,7 +743,7 @@ mod tests {
             .contains("failed to determine strike reference"));
 
         let reference_call = InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT");
-        cache.add_option_greeks(make_option_greeks(reference_call, 65_000.0));
+        cache.add_option_greeks(make_option_greeks(reference_call, 65_000.0, None));
 
         let initial_resolved = resolve_runtime_option_universe(
             &cache,
@@ -712,7 +771,7 @@ mod tests {
             }],
         });
 
-        cache.add_option_greeks(make_option_greeks(reference_call, 66_000.0));
+        cache.add_option_greeks(make_option_greeks(reference_call, 66_000.0, None));
         let delta = manager.refresh_from_cache(&cache, now).unwrap();
 
         assert_eq!(delta.changes.len(), 1);
@@ -759,6 +818,81 @@ mod tests {
                 InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"),
             ]),
         );
+    }
+
+    #[test]
+    fn refresh_from_cache_oi_ranked_selects_top_strikes_from_greeks() {
+        let now = UnixNanos::from(1_781_740_800_000_000_000u64);
+        let venue = Venue::from("DERIBIT");
+        let mut cache = Cache::default();
+        let mut oi_spec = spec();
+        oi_spec.strike_policy = StrikePolicy::OiRanked { top_n: 2 };
+        oi_spec.families = vec![
+            OptionUniverseFamily::Instruments,
+            OptionUniverseFamily::OptionGreeks,
+        ];
+
+        for instrument in make_btc_option_set() {
+            cache.add_instrument(instrument).unwrap();
+        }
+        cache.add_instrument(make_deribit_perpetual()).unwrap();
+
+        let greeks_by_id = [
+            (
+                InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"),
+                100.0,
+            ),
+            (
+                InstrumentId::from("BTC-26JUN26-64000-P.DERIBIT"),
+                50.0,
+            ),
+            (
+                InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"),
+                300.0,
+            ),
+            (
+                InstrumentId::from("BTC-26JUN26-65000-P.DERIBIT"),
+                200.0,
+            ),
+            (
+                InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT"),
+                250.0,
+            ),
+            (
+                InstrumentId::from("BTC-26JUN26-66000-P.DERIBIT"),
+                150.0,
+            ),
+            (
+                InstrumentId::from("BTC-26JUN26-67000-C.DERIBIT"),
+                10.0,
+            ),
+            (
+                InstrumentId::from("BTC-26JUN26-67000-P.DERIBIT"),
+                10.0,
+            ),
+        ];
+        for (instrument_id, open_interest) in greeks_by_id {
+            cache.add_option_greeks(make_option_greeks(
+                instrument_id,
+                65_000.0,
+                Some(open_interest),
+            ));
+        }
+
+        let resolved = resolve_runtime_option_universe(
+            &cache,
+            now,
+            &oi_spec,
+            venue,
+            OptionUniverseVenueKind::Deribit,
+        )
+        .unwrap();
+
+        assert_eq!(
+            resolved.selected_strikes,
+            vec![Price::from("65000"), Price::from("66000")]
+        );
+        assert_eq!(resolved.option_instrument_ids.len(), 4);
     }
 
     #[test]
@@ -1017,7 +1151,7 @@ mod tests {
         }
         cache.add_instrument(make_bybit_perpetual()).unwrap();
         let reference_call = InstrumentId::from("BTC-26JUN26-64000-C.BYBIT");
-        cache.add_option_greeks(make_option_greeks(reference_call, 65_000.0));
+        cache.add_option_greeks(make_option_greeks(reference_call, 65_000.0, None));
 
         let initial_resolved = resolve_runtime_option_universe(
             &cache,
@@ -1041,7 +1175,7 @@ mod tests {
             }],
         });
 
-        cache.add_option_greeks(make_option_greeks(reference_call, 66_000.0));
+        cache.add_option_greeks(make_option_greeks(reference_call, 66_000.0, None));
         let delta = manager.refresh_from_cache(&cache, now).unwrap();
 
         assert_eq!(delta.changes.len(), 1);

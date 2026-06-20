@@ -214,8 +214,12 @@ pub struct ExpiryPolicySelector {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrikePolicySelector {
     pub mode: String,
+    #[serde(default)]
     pub strikes_above: usize,
+    #[serde(default)]
     pub strikes_below: usize,
+    #[serde(default)]
+    pub top_n: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -592,8 +596,16 @@ fn parse_strike_policy(policy: &StrikePolicySelector) -> Result<StrikePolicy> {
             strikes_above: policy.strikes_above,
             strikes_below: policy.strikes_below,
         }),
+        "oi_ranked" => {
+            let top_n = policy.top_n.filter(|value| *value > 0).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "capture.option_universe.strike_policy.mode oi_ranked requires top_n > 0"
+                )
+            })?;
+            Ok(StrikePolicy::OiRanked { top_n })
+        }
         other => bail!(
-            "unsupported capture.option_universe.strike_policy.mode {other}; expected atm_relative"
+            "unsupported capture.option_universe.strike_policy.mode {other}; expected atm_relative or oi_ranked"
         ),
     }
 }
@@ -1221,6 +1233,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1261,6 +1274,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1305,6 +1319,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1349,6 +1364,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1394,6 +1410,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1436,6 +1453,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1482,6 +1500,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1524,6 +1543,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1568,6 +1588,7 @@ mod tests {
                         mode: "atm_relative".to_string(),
                         strikes_above: 1,
                         strikes_below: 1,
+                        top_n: None,
                     },
                 }],
                 ..Default::default()
@@ -1612,6 +1633,18 @@ mod tests {
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_deribit_option_universe_oi_ranked_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.deribit-btc-universe-oi-ranked.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+        assert!(matches!(
+            effective.option_universes[0].strike_policy,
+            StrikePolicy::OiRanked { top_n: 3 }
+        ));
     }
 
     #[test]

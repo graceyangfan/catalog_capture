@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::ResolvedOptionUniverse;
+use crate::{OptionUniverseSpec, ResolvedOptionUniverse};
 
 pub const OPTION_UNIVERSE_RESOLUTIONS_FILE: &str =
     "metadata/option_universe_resolutions.jsonl";
@@ -30,6 +30,8 @@ pub struct OptionUniverseResolutionRecord {
     pub selected_expiry_iso8601: String,
     pub atm_reference: String,
     pub atm_reference_source: String,
+    pub strike_selection_mode: String,
+    pub oi_ranked_top_n: Option<usize>,
     pub selected_strikes: Vec<String>,
     pub perp_instrument_id: Option<String>,
     pub option_instrument_ids: Vec<String>,
@@ -82,16 +84,14 @@ pub fn append_option_universe_resolution_records(
 }
 
 pub fn startup_resolution_record(
-    venue_id: &str,
-    underlying: &str,
+    spec: &OptionUniverseSpec,
     resolved: &ResolvedOptionUniverse,
     added_instrument_ids: Vec<String>,
     removed_instrument_ids: Vec<String>,
 ) -> OptionUniverseResolutionRecord {
     resolution_record(
         OptionUniverseResolutionEventKind::Startup,
-        venue_id,
-        underlying,
+        spec,
         resolved,
         added_instrument_ids,
         removed_instrument_ids,
@@ -100,8 +100,7 @@ pub fn startup_resolution_record(
 }
 
 pub fn refresh_resolution_record(
-    venue_id: &str,
-    underlying: &str,
+    spec: &OptionUniverseSpec,
     resolved: &ResolvedOptionUniverse,
     added_instrument_ids: Vec<String>,
     removed_instrument_ids: Vec<String>,
@@ -109,8 +108,7 @@ pub fn refresh_resolution_record(
 ) -> OptionUniverseResolutionRecord {
     resolution_record(
         OptionUniverseResolutionEventKind::Refresh,
-        venue_id,
-        underlying,
+        spec,
         resolved,
         added_instrument_ids,
         removed_instrument_ids,
@@ -147,8 +145,7 @@ pub fn compute_refresh_rollover_reason(
 
 fn resolution_record(
     event_kind: OptionUniverseResolutionEventKind,
-    venue_id: &str,
-    underlying: &str,
+    spec: &OptionUniverseSpec,
     resolved: &ResolvedOptionUniverse,
     added_instrument_ids: Vec<String>,
     removed_instrument_ids: Vec<String>,
@@ -156,8 +153,8 @@ fn resolution_record(
 ) -> OptionUniverseResolutionRecord {
     OptionUniverseResolutionRecord {
         event_kind,
-        venue_id: venue_id.to_string(),
-        underlying: underlying.to_string(),
+        venue_id: spec.venue_id.clone(),
+        underlying: spec.underlying.clone(),
         resolved_at_ns: resolved.resolved_at_ns.as_u64(),
         resolved_at_iso8601: nautilus_core::datetime::unix_nanos_to_iso8601(resolved.resolved_at_ns),
         selected_expiry_ns: resolved.selected_expiry_ns.as_u64(),
@@ -169,6 +166,8 @@ fn resolution_record(
             .atm_reference_source
             .clone()
             .unwrap_or_else(|| "unknown".to_string()),
+        strike_selection_mode: spec.strike_policy.selection_mode().to_string(),
+        oi_ranked_top_n: spec.strike_policy.oi_ranked_top_n(),
         selected_strikes: resolved
             .selected_strikes
             .iter()
@@ -261,8 +260,18 @@ mod tests {
         fs::create_dir_all(&temp).unwrap();
 
         let record = startup_resolution_record(
-            "deribit_main",
-            "BTC",
+            &OptionUniverseSpec {
+                venue_id: "deribit_main".to_string(),
+                underlying: "BTC".to_string(),
+                settlement_currency: Some("BTC".to_string()),
+                include_perp: true,
+                families: vec![],
+                expiry_policy: crate::ExpiryPolicy::Nearest { days_max: 45 },
+                strike_policy: crate::StrikePolicy::AtmRelative {
+                    strikes_above: 1,
+                    strikes_below: 1,
+                },
+            },
             &sample_resolved(),
             vec!["BTC-26JUN26-65000-C.DERIBIT".to_string()],
             vec![],

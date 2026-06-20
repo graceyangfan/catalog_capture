@@ -251,6 +251,14 @@ strikes_above = 2
 strikes_below = 2
 ```
 
+OI-ranked selection (requires `option_greeks` in `families` for runtime refresh):
+
+```toml
+[capture.option_universe.strike_policy]
+mode = "oi_ranked"
+top_n = 5
+```
+
 ### `OptionUniverseKey`
 
 Stable logical identity used by a manager.
@@ -653,7 +661,7 @@ Mapping:
 | ATM-relative selection | yes | yes | yes |
 | Timed refresh | no | yes (Deribit/Bybit/OKX) | yes |
 | `request_instruments`-driven refresh | limited / startup only | yes (venue cache) | yes |
-| `top_n_by_open_interest` | no | no | yes |
+| `top_n_by_open_interest` | no | no | yes (P2a: `oi_ranked`) |
 | full-chain + liquidity-ranked universe | no | partial | yes |
 
 So V1 is a valid **9a-lite** slice, not full Step 9a completion.

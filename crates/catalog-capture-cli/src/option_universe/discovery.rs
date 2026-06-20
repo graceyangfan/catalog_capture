@@ -2,9 +2,11 @@ use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    derive_perp_instrument_id, okx_instrument_family, resolve_option_universe,
+    aggregate_open_interest_by_strike, derive_perp_instrument_id, okx_instrument_family,
+    option_instrument_ids_at_selected_expiry, resolve_option_universe,
     select_nearest_expiry_reference_instrument_id, select_strike_reference_from_decimal_string,
     AtmReferenceSource, OptionUniverseSpec, OptionUniverseVenueKind, ResolvedOptionUniverse,
+    StrikeOpenInterestByStrike,
 };
 use nautilus_bybit::{
     common::{enums::BybitEnvironment, parse::extract_raw_symbol, urls::bybit_http_base_url},
@@ -21,7 +23,7 @@ use nautilus_okx::{
     common::enums::{OKXEnvironment, OKXInstrumentType},
     http::client::OKXHttpClient,
 };
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use ustr::Ustr;
 
 use crate::config::VenueRuntimeConfig;
@@ -64,17 +66,38 @@ struct ResolvedVenueInputs {
     atm_reference: Price,
     atm_reference_source: String,
     perp_instrument_id: Option<InstrumentId>,
+    open_interest_by_strike: Option<StrikeOpenInterestByStrike>,
 }
 
 fn finalize_option_universe_resolution(
     inputs: ResolvedVenueInputs,
 ) -> Result<ResolvedOptionUniverse> {
+    let open_interest_by_strike = if inputs
+        .spec_for_resolution
+        .strike_policy
+        .requires_open_interest()
+    {
+        Some(
+            inputs
+                .open_interest_by_strike
+                .as_ref()
+                .with_context(|| {
+                    format!(
+                        "missing startup open interest map for venue_id={} underlying={}",
+                        inputs.spec_for_resolution.venue_id, inputs.spec_for_resolution.underlying
+                    )
+                })?,
+        )
+    } else {
+        None
+    };
     let mut resolved = resolve_option_universe(
         &inputs.spec_for_resolution,
         &inputs.option_instruments,
         inputs.resolved_at_ns,
         inputs.atm_reference,
         inputs.perp_instrument_id,
+        open_interest_by_strike,
     )
     .map_err(anyhow::Error::from)?;
     resolved.atm_reference_source = Some(inputs.atm_reference_source);
@@ -119,6 +142,13 @@ async fn resolve_deribit_option_universe(
     let (atm_reference, atm_reference_source) =
         request_deribit_strike_reference(&client, spec, &option_instruments, resolved_at_ns)
             .await?;
+    let open_interest_by_strike = maybe_fetch_deribit_strike_open_interest(
+        &client,
+        spec,
+        &option_instruments,
+        resolved_at_ns,
+    )
+    .await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, OptionUniverseVenueKind::Deribit).map_err(anyhow::Error::from))
@@ -131,6 +161,7 @@ async fn resolve_deribit_option_universe(
         atm_reference,
         atm_reference_source,
         perp_instrument_id,
+        open_interest_by_strike,
     })
 }
 
@@ -167,6 +198,13 @@ async fn resolve_bybit_option_universe(
     let (atm_reference, atm_reference_source) =
         request_bybit_strike_reference(&client, spec, &option_instruments, resolved_at_ns)
             .await?;
+    let open_interest_by_strike = maybe_fetch_bybit_strike_open_interest(
+        &client,
+        spec,
+        &option_instruments,
+        resolved_at_ns,
+    )
+    .await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, OptionUniverseVenueKind::Bybit).map_err(anyhow::Error::from))
@@ -179,6 +217,7 @@ async fn resolve_bybit_option_universe(
         atm_reference,
         atm_reference_source,
         perp_instrument_id,
+        open_interest_by_strike,
     })
 }
 
@@ -215,6 +254,14 @@ async fn resolve_okx_option_universe(
         resolved_at_ns,
     )
     .await?;
+    let open_interest_by_strike = maybe_fetch_okx_strike_open_interest(
+        &client,
+        spec,
+        &normalized_spec,
+        &option_instruments,
+        resolved_at_ns,
+    )
+    .await?;
     let perp_instrument_id = spec
         .include_perp
         .then(|| derive_perp_instrument_id(spec, OptionUniverseVenueKind::Okx).map_err(anyhow::Error::from))
@@ -227,6 +274,7 @@ async fn resolve_okx_option_universe(
         atm_reference,
         atm_reference_source,
         perp_instrument_id,
+        open_interest_by_strike,
     })
 }
 
@@ -393,4 +441,156 @@ fn price_from_decimal(
     value.and_then(|decimal| {
         select_strike_reference_from_decimal_string(decimal.to_string().as_str(), source)
     })
+}
+
+fn open_interest_from_decimal(value: Option<Decimal>) -> Option<f64> {
+    value.and_then(|decimal| decimal.to_f64())
+}
+
+fn open_interest_from_string(value: &str) -> Option<f64> {
+    value
+        .parse::<f64>()
+        .ok()
+        .filter(|open_interest| open_interest.is_finite() && *open_interest > 0.0)
+}
+
+async fn maybe_fetch_deribit_strike_open_interest(
+    client: &DeribitHttpClient,
+    spec: &OptionUniverseSpec,
+    option_instruments: &[InstrumentAny],
+    resolved_at_ns: nautilus_core::UnixNanos,
+) -> Result<Option<StrikeOpenInterestByStrike>> {
+    if !spec.strike_policy.requires_open_interest() {
+        return Ok(None);
+    }
+
+    let (selected_expiry_ns, _) =
+        option_instrument_ids_at_selected_expiry(spec, option_instruments, resolved_at_ns)
+            .map_err(anyhow::Error::from)?;
+    let summaries = client
+        .request_book_summaries(&spec.underlying)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request Deribit book summaries for open interest on {}",
+                spec.underlying
+            )
+        })?;
+
+    let mut entries = Vec::new();
+    for summary in summaries {
+        let Some(instrument) = option_instruments.iter().find(|entry| {
+            entry.id().symbol.as_str() == summary.instrument_name
+        }) else {
+            continue;
+        };
+        if instrument.expiration_ns() != Some(selected_expiry_ns) {
+            continue;
+        }
+        let Some(strike) = instrument.strike_price() else {
+            continue;
+        };
+        let Some(open_interest) = open_interest_from_decimal(summary.open_interest) else {
+            continue;
+        };
+        entries.push((strike, open_interest));
+    }
+
+    Ok(Some(aggregate_open_interest_by_strike(entries)))
+}
+
+async fn maybe_fetch_bybit_strike_open_interest(
+    client: &BybitHttpClient,
+    spec: &OptionUniverseSpec,
+    option_instruments: &[InstrumentAny],
+    resolved_at_ns: nautilus_core::UnixNanos,
+) -> Result<Option<StrikeOpenInterestByStrike>> {
+    if !spec.strike_policy.requires_open_interest() {
+        return Ok(None);
+    }
+
+    let (selected_expiry_ns, _) =
+        option_instrument_ids_at_selected_expiry(spec, option_instruments, resolved_at_ns)
+            .map_err(anyhow::Error::from)?;
+    let tickers = client
+        .request_option_tickers_raw(&spec.underlying)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request Bybit option tickers for open interest on {}",
+                spec.underlying
+            )
+        })?;
+
+    let mut entries = Vec::new();
+    for ticker in tickers {
+        let settlement_currency = spec.settlement_currency.as_deref().unwrap_or("USDT");
+        let instrument_symbol = format!("{}-{settlement_currency}-OPTION", ticker.symbol);
+        let Some(instrument) = option_instruments
+            .iter()
+            .find(|entry| entry.id().symbol.as_str() == instrument_symbol)
+        else {
+            continue;
+        };
+        if instrument.expiration_ns() != Some(selected_expiry_ns) {
+            continue;
+        }
+        let Some(strike) = instrument.strike_price() else {
+            continue;
+        };
+        let Some(open_interest) = open_interest_from_string(ticker.open_interest.as_str()) else {
+            continue;
+        };
+        entries.push((strike, open_interest));
+    }
+
+    Ok(Some(aggregate_open_interest_by_strike(entries)))
+}
+
+async fn maybe_fetch_okx_strike_open_interest(
+    client: &OKXHttpClient,
+    spec: &OptionUniverseSpec,
+    normalized_spec: &OptionUniverseSpec,
+    option_instruments: &[InstrumentAny],
+    resolved_at_ns: nautilus_core::UnixNanos,
+) -> Result<Option<StrikeOpenInterestByStrike>> {
+    if !spec.strike_policy.requires_open_interest() {
+        return Ok(None);
+    }
+
+    let instrument_family = okx_instrument_family(spec).map_err(anyhow::Error::from)?;
+    let (selected_expiry_ns, _) =
+        option_instrument_ids_at_selected_expiry(normalized_spec, option_instruments, resolved_at_ns)
+            .map_err(anyhow::Error::from)?;
+    let rows = client
+        .request_open_interest(&instrument_family)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request OKX open interest for option family {}",
+                instrument_family
+            )
+        })?;
+
+    let mut entries = Vec::new();
+    for row in rows {
+        let Some(instrument) = option_instruments
+            .iter()
+            .find(|entry| entry.id().symbol.as_str() == row.inst_id.as_str())
+        else {
+            continue;
+        };
+        if instrument.expiration_ns() != Some(selected_expiry_ns) {
+            continue;
+        }
+        let Some(strike) = instrument.strike_price() else {
+            continue;
+        };
+        let Some(open_interest) = open_interest_from_string(row.oi.as_str()) else {
+            continue;
+        };
+        entries.push((strike, open_interest));
+    }
+
+    Ok(Some(aggregate_open_interest_by_strike(entries)))
 }

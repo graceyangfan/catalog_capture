@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use catalog_capture_core::{OptionUniverseFamily, OptionUniverseSpec};
+use catalog_capture_core::{OptionUniverseFamily, OptionUniverseSpec, StrikePolicy};
 use nautilus_bybit::common::enums::BybitProductType;
 use nautilus_deribit::http::models::DeribitProductType;
 use nautilus_okx::common::enums::OKXInstrumentType;
@@ -134,6 +134,12 @@ fn validate_option_universe(
     if wants_forward_prices && !has_option_greeks {
         bail!(
             "capture.option_universe families forward_prices require option_greeks in the same families list"
+        );
+    }
+
+    if matches!(spec.strike_policy, StrikePolicy::OiRanked { .. }) && !has_option_greeks {
+        bail!(
+            "capture.option_universe strike_policy oi_ranked requires option_greeks in families"
         );
     }
 
