@@ -12,12 +12,11 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::collections::BTreeSet;
-
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    aggregate_open_interest_by_strike, compute_refresh_rollover_reason, derive_perp_instrument_id,
-    expand_option_universe, merge_capture_plans, option_instrument_ids_at_selected_expiry,
+    aggregate_open_interest_by_strike, capture_plan_difference, compute_refresh_rollover_reason,
+    derive_perp_instrument_id, expand_option_universe, instrument_id_difference,
+    merge_capture_plans, option_instrument_ids_at_selected_expiry, plan_instrument_ids,
     refresh_resolution_record, resolve_option_universe, select_cache_perp_strike_fallback,
     should_apply_strike_change, AtmReferenceSource, CapturePlan, MarkPriceCaptureSpec,
     OptionUniverseResolutionRecord, OptionUniverseSpec, OptionUniverseVenueKind, QuoteCaptureSpec,
@@ -405,66 +404,6 @@ fn select_runtime_strike_reference(
     )
 }
 
-fn capture_plan_difference(left: &CapturePlan, right: &CapturePlan) -> CapturePlan {
-    CapturePlan {
-        instruments: difference_by_instrument(&left.instruments, &right.instruments),
-        quotes: difference_by_instrument(&left.quotes, &right.quotes),
-        trades: difference_by_instrument(&left.trades, &right.trades),
-        bars: left
-            .bars
-            .iter()
-            .filter(|spec| !right.bars.contains(spec))
-            .cloned()
-            .collect(),
-        book_deltas: left
-            .book_deltas
-            .iter()
-            .filter(|spec| !right.book_deltas.contains(spec))
-            .cloned()
-            .collect(),
-        mark_prices: difference_by_instrument(&left.mark_prices, &right.mark_prices),
-        index_prices: difference_by_instrument(&left.index_prices, &right.index_prices),
-        funding_rates: difference_by_instrument(&left.funding_rates, &right.funding_rates),
-        instrument_statuses: difference_by_instrument(
-            &left.instrument_statuses,
-            &right.instrument_statuses,
-        ),
-        instrument_closes: difference_by_instrument(
-            &left.instrument_closes,
-            &right.instrument_closes,
-        ),
-        option_greeks: difference_by_instrument(&left.option_greeks, &right.option_greeks),
-        forward_prices: difference_by_instrument(&left.forward_prices, &right.forward_prices),
-        custom_data: left
-            .custom_data
-            .iter()
-            .filter(|spec| !right.custom_data.contains(spec))
-            .cloned()
-            .collect(),
-    }
-}
-
-fn difference_by_instrument<T>(left: &[T], right: &[T]) -> Vec<T>
-where
-    T: Clone + PartialEq,
-{
-    left.iter()
-        .filter(|spec| !right.contains(spec))
-        .cloned()
-        .collect()
-}
-
-pub fn plan_instrument_ids(plan: &CapturePlan) -> BTreeSet<InstrumentId> {
-    plan.planned_instrument_ids().into_iter().collect()
-}
-
-fn instrument_id_difference(
-    left: &BTreeSet<InstrumentId>,
-    right: &BTreeSet<InstrumentId>,
-) -> Vec<InstrumentId> {
-    left.difference(right).copied().collect()
-}
-
 pub fn plan_has_quotes(plan: &CapturePlan, instrument_id: InstrumentId) -> bool {
     plan.quotes
         .iter()
@@ -485,9 +424,11 @@ pub fn plan_has_index_prices(plan: &CapturePlan, instrument_id: InstrumentId) ->
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use catalog_capture_core::{
-        CapturePlan, ExpiryPolicy, FundingRateCaptureSpec, IndexPriceCaptureSpec,
-        InstrumentCaptureSpec, OptionUniverseFamily, QuoteCaptureSpec, StrikePolicy,
+        plan_instrument_ids, CapturePlan, ExpiryPolicy, IndexPriceCaptureSpec,
+        OptionUniverseFamily, QuoteCaptureSpec, StrikePolicy,
     };
     use nautilus_common::cache::Cache;
     use nautilus_model::{
@@ -680,70 +621,6 @@ mod tests {
             ts_event: UnixNanos::default(),
             ts_init: UnixNanos::default(),
         }
-    }
-
-    #[test]
-    fn capture_plan_difference_tracks_added_and_removed_instruments() {
-        let btc_perp = InstrumentId::from("BTC-PERPETUAL.DERIBIT");
-        let old_option = InstrumentId::from("BTC-20JUN26-62000-C.DERIBIT");
-        let new_option = InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT");
-
-        let previous = CapturePlan {
-            instruments: vec![
-                InstrumentCaptureSpec {
-                    instrument_id: btc_perp,
-                },
-                InstrumentCaptureSpec {
-                    instrument_id: old_option,
-                },
-            ],
-            quotes: vec![
-                QuoteCaptureSpec {
-                    instrument_id: btc_perp,
-                },
-                QuoteCaptureSpec {
-                    instrument_id: old_option,
-                },
-            ],
-            index_prices: vec![IndexPriceCaptureSpec {
-                instrument_id: btc_perp,
-            }],
-            funding_rates: vec![FundingRateCaptureSpec {
-                instrument_id: btc_perp,
-            }],
-            ..CapturePlan::default()
-        };
-        let next = CapturePlan {
-            instruments: vec![
-                InstrumentCaptureSpec {
-                    instrument_id: btc_perp,
-                },
-                InstrumentCaptureSpec {
-                    instrument_id: new_option,
-                },
-            ],
-            quotes: vec![
-                QuoteCaptureSpec {
-                    instrument_id: btc_perp,
-                },
-                QuoteCaptureSpec {
-                    instrument_id: new_option,
-                },
-            ],
-            index_prices: vec![IndexPriceCaptureSpec {
-                instrument_id: btc_perp,
-            }],
-            funding_rates: vec![FundingRateCaptureSpec {
-                instrument_id: btc_perp,
-            }],
-            ..CapturePlan::default()
-        };
-
-        let add = capture_plan_difference(&next, &previous);
-        let remove = capture_plan_difference(&previous, &next);
-
-        assert_eq!(plan_instrument_ids(&add), BTreeSet::from([new_option]));
-        assert_eq!(plan_instrument_ids(&remove), BTreeSet::from([old_option]));
     }
 
     #[test]

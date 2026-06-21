@@ -12,21 +12,31 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{collections::BTreeSet, fmt::Debug, mem::size_of};
+use std::{
+    collections::BTreeSet,
+    fmt::Debug,
+    mem::size_of,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
-use anyhow::Result;
-use std::path::PathBuf;
+use anyhow::{bail, Result};
 
 use catalog_capture_core::{
-    append_forward_price_records, append_option_universe_resolution_records,
+    append_forward_price_records, append_hip4_universe_resolution_records,
+    append_option_universe_resolution_records,
     background::BackgroundCaptureRuntime,
-    catalog_root_from_uri,
+    capture_plan_difference, catalog_root_from_uri,
     config::CaptureConfig,
     forward_price_from_option_greeks, forward_price_record_from_model,
     item::{CaptureItem, PartitionKey},
+    merge_capture_plans,
+    metrics::CaptureMetrics,
+    metrics_export::{process_rss_bytes, unix_time_ms, CaptureMetricsSnapshot, FamilyCaptureMetrics},
+    next_seal_boundary_ns,
     plan::CapturePlan,
     runtime::FlushResult,
-    sink::NautilusCatalogSink,
+    sink::{chunked_catalog_sink_from_config, CaptureSink, CatalogSink, ChunkedCatalogSink},
 };
 use nautilus_common::{
     actor::{DataActor, DataActorConfig, DataActorCore},
@@ -43,10 +53,19 @@ use nautilus_model::{
     instruments::{Instrument, InstrumentAny},
 };
 
-use crate::dynamic_option_universe::{DynamicOptionUniverseConfig, DynamicOptionUniverseManager};
+use crate::dynamic_hip4_universe::{
+    DynamicHip4UniverseConfig, DynamicHip4UniverseManager,
+};
+use crate::dynamic_option_universe::{
+    DynamicOptionUniverseConfig, DynamicOptionUniverseManager,
+};
 use crate::online_option_metrics::{OnlineOptionMetricsConfig, OnlineOptionMetricsObserver};
+use nautilus_core::UnixNanos;
 
 const OPTION_UNIVERSE_REFRESH_TIMER: &str = "OPTION_UNIVERSE_REFRESH";
+const HIP4_UNIVERSE_REFRESH_TIMER: &str = "HIP4_UNIVERSE_REFRESH";
+const SEGMENT_SEAL_TIMER: &str = "SEGMENT_SEAL";
+const METRICS_EXPORT_TIMER: &str = "METRICS_EXPORT";
 
 #[derive(Debug, Clone)]
 pub struct CatalogCaptureActorConfig {
@@ -55,6 +74,9 @@ pub struct CatalogCaptureActorConfig {
     pub plan: CapturePlan,
     pub online_option_metrics: Option<OnlineOptionMetricsConfig>,
     pub dynamic_option_universe: Option<DynamicOptionUniverseConfig>,
+    pub dynamic_hip4_universe: Option<DynamicHip4UniverseConfig>,
+    pub metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
+    pub metrics_refresh_interval_secs: Option<u64>,
 }
 
 impl CatalogCaptureActorConfig {
@@ -66,29 +88,115 @@ impl CatalogCaptureActorConfig {
             plan,
             online_option_metrics: None,
             dynamic_option_universe: None,
+            dynamic_hip4_universe: None,
+            metrics_snapshot: None,
+            metrics_refresh_interval_secs: None,
         }
     }
 }
 
 pub struct CatalogCaptureActor {
     core: DataActorCore,
+    capture: CaptureConfig,
+    /// Startup materialized plan (static TOML + one-shot universe expansion).
+    initial_materialized_plan: CapturePlan,
+    /// Capture specs owned by startup materialization but not by an active refresh manager.
+    supplemental_plan: CapturePlan,
     plan: CapturePlan,
-    instrument_runtime: BackgroundCaptureRuntime<InstrumentAny, NautilusCatalogSink>,
-    custom_data_runtime: BackgroundCaptureRuntime<CustomData, NautilusCatalogSink>,
-    mark_price_runtime: BackgroundCaptureRuntime<MarkPriceUpdate, NautilusCatalogSink>,
-    index_price_runtime: BackgroundCaptureRuntime<IndexPriceUpdate, NautilusCatalogSink>,
-    funding_rate_runtime: BackgroundCaptureRuntime<FundingRateUpdate, NautilusCatalogSink>,
-    instrument_status_runtime: BackgroundCaptureRuntime<InstrumentStatus, NautilusCatalogSink>,
-    instrument_close_runtime: BackgroundCaptureRuntime<InstrumentClose, NautilusCatalogSink>,
-    option_greeks_runtime: BackgroundCaptureRuntime<OptionGreeks, NautilusCatalogSink>,
+    instrument_runtime: Option<BackgroundCaptureRuntime<InstrumentAny, ChunkedCatalogSink>>,
+    custom_data_runtime: Option<BackgroundCaptureRuntime<CustomData, ChunkedCatalogSink>>,
+    mark_price_runtime: Option<BackgroundCaptureRuntime<MarkPriceUpdate, CatalogSink<MarkPriceUpdate>>>,
+    index_price_runtime: Option<BackgroundCaptureRuntime<IndexPriceUpdate, CatalogSink<IndexPriceUpdate>>>,
+    funding_rate_runtime:
+        Option<BackgroundCaptureRuntime<FundingRateUpdate, CatalogSink<FundingRateUpdate>>>,
+    instrument_status_runtime:
+        Option<BackgroundCaptureRuntime<InstrumentStatus, CatalogSink<InstrumentStatus>>>,
+    instrument_close_runtime:
+        Option<BackgroundCaptureRuntime<InstrumentClose, CatalogSink<InstrumentClose>>>,
+    option_greeks_runtime: Option<BackgroundCaptureRuntime<OptionGreeks, CatalogSink<OptionGreeks>>>,
     forward_price_targets: BTreeSet<InstrumentId>,
-    quote_runtime: BackgroundCaptureRuntime<QuoteTick, NautilusCatalogSink>,
-    trade_runtime: BackgroundCaptureRuntime<TradeTick, NautilusCatalogSink>,
-    bar_runtime: BackgroundCaptureRuntime<Bar, NautilusCatalogSink>,
-    book_delta_runtime: BackgroundCaptureRuntime<OrderBookDelta, NautilusCatalogSink>,
+    quote_runtime: Option<BackgroundCaptureRuntime<QuoteTick, CatalogSink<QuoteTick>>>,
+    trade_runtime: Option<BackgroundCaptureRuntime<TradeTick, CatalogSink<TradeTick>>>,
+    bar_runtime: Option<BackgroundCaptureRuntime<Bar, CatalogSink<Bar>>>,
+    book_delta_runtime: Option<BackgroundCaptureRuntime<OrderBookDelta, CatalogSink<OrderBookDelta>>>,
     online_option_metrics: Option<OnlineOptionMetricsObserver>,
     dynamic_option_universe: Option<DynamicOptionUniverseManager>,
+    dynamic_hip4_universe: Option<DynamicHip4UniverseManager>,
+    metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
+    metrics_refresh_interval_secs: Option<u64>,
     catalog_root: PathBuf,
+    shutdown_completed: bool,
+}
+
+fn optional_submit<T, S>(
+    runtime: &Option<BackgroundCaptureRuntime<T, S>>,
+    item: CaptureItem<T>,
+) -> Result<()>
+where
+    T: Send + 'static,
+    S: CaptureSink<T> + Send + 'static,
+{
+    let Some(runtime) = runtime.as_ref() else {
+        bail!("capture callback received data for a family without an enabled background runtime");
+    };
+    runtime.submit(item).map(|_| ())
+}
+
+fn optional_flush_all<T, S>(
+    runtime: &Option<BackgroundCaptureRuntime<T, S>>,
+) -> Result<FlushResult>
+where
+    T: Send + 'static,
+    S: CaptureSink<T> + Send + 'static,
+{
+    match runtime.as_ref() {
+        Some(runtime) => runtime.flush_all(),
+        None => Ok(FlushResult::default()),
+    }
+}
+
+fn optional_seal_all<T, S>(runtime: &Option<BackgroundCaptureRuntime<T, S>>) -> Result<FlushResult>
+where
+    T: Send + 'static,
+    S: CaptureSink<T> + Send + 'static,
+{
+    match runtime.as_ref() {
+        Some(runtime) => runtime.seal_all(),
+        None => Ok(FlushResult::default()),
+    }
+}
+
+fn optional_shutdown<T, S>(
+    runtime: &mut Option<BackgroundCaptureRuntime<T, S>>,
+) -> Result<FlushResult>
+where
+    T: Send + 'static,
+    S: CaptureSink<T> + Send + 'static,
+{
+    match runtime.take() {
+        Some(mut runtime) => runtime.shutdown(),
+        None => Ok(FlushResult::default()),
+    }
+}
+
+fn collect_family_metrics<T, S>(
+    family: &str,
+    runtime: &Option<BackgroundCaptureRuntime<T, S>>,
+    families: &mut Vec<FamilyCaptureMetrics>,
+    aggregated: &mut CaptureMetrics,
+) where
+    T: Send + 'static,
+    S: CaptureSink<T> + Send + 'static,
+{
+    let Some(runtime) = runtime.as_ref() else {
+        return;
+    };
+    let metrics = runtime.metrics();
+    aggregated.merge(&metrics);
+    families.push(FamilyCaptureMetrics {
+        family: family.to_string(),
+        metrics,
+    });
 }
 
 fn custom_data_client_id(data_type: &DataType) -> Option<ClientId> {
@@ -96,6 +204,72 @@ fn custom_data_client_id(data_type: &DataType) -> Option<ClientId> {
         "DeribitVolatilityIndex" => Some(ClientId::from("DERIBIT")),
         "HyperliquidOpenInterest" => Some(ClientId::from("HYPERLIQUID")),
         _ => None,
+    }
+}
+
+fn manager_active_plan_from_config(
+    static_plan: &CapturePlan,
+    initial_dynamic_plan: &CapturePlan,
+) -> CapturePlan {
+    merge_capture_plans(static_plan, initial_dynamic_plan)
+}
+
+fn supplemental_capture_plan(
+    initial_materialized_plan: &CapturePlan,
+    dynamic_option_universe: &Option<DynamicOptionUniverseConfig>,
+    dynamic_hip4_universe: &Option<DynamicHip4UniverseConfig>,
+) -> CapturePlan {
+    let option_active = dynamic_option_universe.as_ref().map(|config| {
+        manager_active_plan_from_config(&config.static_plan, &config.initial_dynamic_plan)
+    });
+    let hip4_active = dynamic_hip4_universe.as_ref().map(|config| {
+        manager_active_plan_from_config(&config.static_plan, &config.initial_dynamic_plan)
+    });
+
+    match (&option_active, &hip4_active) {
+        (Some(_option), Some(_)) => CapturePlan::default(),
+        (Some(option), None) => capture_plan_difference(initial_materialized_plan, option),
+        (None, Some(hip4)) => capture_plan_difference(initial_materialized_plan, hip4),
+        (None, None) => CapturePlan::default(),
+    }
+}
+
+fn count_spawned_background_workers(actor: &CatalogCaptureActor) -> usize {
+    [
+        actor.instrument_runtime.is_some(),
+        actor.custom_data_runtime.is_some(),
+        actor.mark_price_runtime.is_some(),
+        actor.index_price_runtime.is_some(),
+        actor.funding_rate_runtime.is_some(),
+        actor.instrument_status_runtime.is_some(),
+        actor.instrument_close_runtime.is_some(),
+        actor.option_greeks_runtime.is_some(),
+        actor.quote_runtime.is_some(),
+        actor.trade_runtime.is_some(),
+        actor.bar_runtime.is_some(),
+        actor.book_delta_runtime.is_some(),
+    ]
+    .into_iter()
+    .filter(|enabled| *enabled)
+    .count()
+}
+
+fn effective_capture_plan(
+    initial_materialized_plan: &CapturePlan,
+    supplemental_plan: &CapturePlan,
+    dynamic_option_universe: Option<&DynamicOptionUniverseManager>,
+    dynamic_hip4_universe: Option<&DynamicHip4UniverseManager>,
+) -> CapturePlan {
+    match (dynamic_option_universe, dynamic_hip4_universe) {
+        (None, None) => initial_materialized_plan.clone(),
+        (Some(option), Some(hip4)) => merge_capture_plans(
+            &option.active_capture_plan(),
+            &hip4.active_capture_plan(),
+        ),
+        (Some(option), None) => {
+            merge_capture_plans(&option.active_capture_plan(), supplemental_plan)
+        }
+        (None, Some(hip4)) => merge_capture_plans(&hip4.active_capture_plan(), supplemental_plan),
     }
 }
 
@@ -110,21 +284,117 @@ impl CatalogCaptureActor {
             ..Default::default()
         };
 
-        let instrument_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let custom_data_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let mark_price_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let index_price_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let funding_rate_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let instrument_status_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let instrument_close_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let option_greeks_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let quote_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let trade_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let bar_sink = NautilusCatalogSink::from_config(&config.capture)?;
-        let book_delta_sink = NautilusCatalogSink::from_config(&config.capture)?;
+        let flags = config.plan.family_runtime_flags();
+        let worker_count = config.plan.enabled_background_worker_count();
+        println!("Capture background workers: {worker_count} enabled for plan");
+
+        // Instruments and custom data stay chunked: catalog paths are heterogeneous and do not
+        // use the segment `.part` lifecycle.
+        let capture = config.capture.clone();
+        let instrument_runtime = if flags.instruments {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                chunked_catalog_sink_from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let custom_data_runtime = if flags.custom_data {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                chunked_catalog_sink_from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let mark_price_runtime = if flags.mark_prices {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<MarkPriceUpdate>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let index_price_runtime = if flags.index_prices {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<IndexPriceUpdate>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let funding_rate_runtime = if flags.funding_rates {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<FundingRateUpdate>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let instrument_status_runtime = if flags.instrument_statuses {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<InstrumentStatus>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let instrument_close_runtime = if flags.instrument_closes {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<InstrumentClose>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let option_greeks_runtime = if flags.option_greeks {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<OptionGreeks>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let quote_runtime = if flags.quotes {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<QuoteTick>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let trade_runtime = if flags.trades {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<TradeTick>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let bar_runtime = if flags.bars {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<Bar>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let book_delta_runtime = if flags.book_deltas {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<OrderBookDelta>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
         let catalog_root = catalog_root_from_uri(&config.capture.catalog_uri)?;
-        let forward_price_targets = config
-            .plan
+        let initial_materialized_plan = config.plan.clone();
+        let supplemental_plan = supplemental_capture_plan(
+            &initial_materialized_plan,
+            &config.dynamic_option_universe,
+            &config.dynamic_hip4_universe,
+        );
+        let forward_price_targets = initial_materialized_plan
             .forward_prices
             .iter()
             .map(|spec| spec.instrument_id)
@@ -132,82 +402,73 @@ impl CatalogCaptureActor {
 
         Ok(Self {
             core: DataActorCore::new(actor_config),
+            capture: config.capture.clone(),
+            initial_materialized_plan,
+            supplemental_plan,
             plan: config.plan,
-            instrument_runtime: BackgroundCaptureRuntime::new(
-                config.capture.clone(),
-                instrument_sink,
-            ),
-            custom_data_runtime: BackgroundCaptureRuntime::new(
-                config.capture.clone(),
-                custom_data_sink,
-            ),
-            mark_price_runtime: BackgroundCaptureRuntime::new(
-                config.capture.clone(),
-                mark_price_sink,
-            ),
-            index_price_runtime: BackgroundCaptureRuntime::new(
-                config.capture.clone(),
-                index_price_sink,
-            ),
-            funding_rate_runtime: BackgroundCaptureRuntime::new(
-                config.capture.clone(),
-                funding_rate_sink,
-            ),
-            instrument_status_runtime: BackgroundCaptureRuntime::new(
-                config.capture.clone(),
-                instrument_status_sink,
-            ),
-            instrument_close_runtime: BackgroundCaptureRuntime::new(
-                config.capture.clone(),
-                instrument_close_sink,
-            ),
-            option_greeks_runtime: BackgroundCaptureRuntime::new(
-                config.capture.clone(),
-                option_greeks_sink,
-            ),
+            instrument_runtime,
+            custom_data_runtime,
+            mark_price_runtime,
+            index_price_runtime,
+            funding_rate_runtime,
+            instrument_status_runtime,
+            instrument_close_runtime,
+            option_greeks_runtime,
             forward_price_targets,
-            quote_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), quote_sink),
-            trade_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), trade_sink),
-            bar_runtime: BackgroundCaptureRuntime::new(config.capture.clone(), bar_sink),
-            book_delta_runtime: BackgroundCaptureRuntime::new(config.capture, book_delta_sink),
+            quote_runtime,
+            trade_runtime,
+            bar_runtime,
+            book_delta_runtime,
             online_option_metrics: config
                 .online_option_metrics
                 .map(OnlineOptionMetricsObserver::new),
             dynamic_option_universe: config
                 .dynamic_option_universe
                 .map(DynamicOptionUniverseManager::new),
+            dynamic_hip4_universe: config
+                .dynamic_hip4_universe
+                .map(DynamicHip4UniverseManager::new),
+            metrics_snapshot: config.metrics_snapshot,
+            metrics_refresh_interval_secs: config.metrics_refresh_interval_secs,
             catalog_root,
+            shutdown_completed: false,
         })
     }
 
-    fn submit_instrument(&mut self, instrument: InstrumentAny) -> Result<FlushResult> {
-        let ts_init = Instrument::ts_init(&instrument).as_u64();
-        self.instrument_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("instruments", Instrument::id(&instrument)),
-            event_ts_ns: ts_init,
-            init_ts_ns: Some(ts_init),
-            estimated_bytes: size_of::<InstrumentAny>(),
-            payload: instrument,
-        })?;
-        Ok(FlushResult::default())
+    #[must_use]
+    pub fn enabled_background_worker_count(&self) -> usize {
+        count_spawned_background_workers(self)
     }
 
-    fn submit_quote(&mut self, quote: QuoteTick) -> Result<FlushResult> {
-        self.quote_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("quotes", quote.instrument_id),
+    fn submit_instrument(&mut self, instrument: InstrumentAny) -> Result<()> {
+        let ts_init = Instrument::ts_init(&instrument).as_u64();
+        optional_submit(
+            &self.instrument_runtime,
+            CaptureItem {
+                partition_key: PartitionKey::market_data("instruments", Instrument::id(&instrument)),
+                event_ts_ns: ts_init,
+                init_ts_ns: Some(ts_init),
+                estimated_bytes: size_of::<InstrumentAny>(),
+                payload: instrument,
+            },
+        )
+    }
+
+    fn submit_quote(&mut self, quote: QuoteTick) -> Result<()> {
+        optional_submit(&self.quote_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<QuoteTick>(quote.instrument_id),
             event_ts_ns: quote.ts_event.as_u64(),
             init_ts_ns: Some(quote.ts_init.as_u64()),
             estimated_bytes: size_of::<QuoteTick>(),
             payload: quote,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
-    fn submit_custom_data(&mut self, data: CustomData) -> Result<FlushResult> {
+    fn submit_custom_data(&mut self, data: CustomData) -> Result<()> {
         let data_type = data.data_type.clone();
         let ts_init = data.data.ts_init().as_u64();
         let event_ts = data.data.ts_event().as_u64();
-        self.custom_data_runtime.submit(CaptureItem {
+        optional_submit(&self.custom_data_runtime, CaptureItem {
             partition_key: PartitionKey::custom_data(
                 data_type.type_name(),
                 data_type.identifier().map(str::to_string),
@@ -217,74 +478,67 @@ impl CatalogCaptureActor {
             init_ts_ns: Some(ts_init),
             estimated_bytes: size_of::<CustomData>(),
             payload: data,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
-    fn submit_mark_price(&mut self, data: MarkPriceUpdate) -> Result<FlushResult> {
-        self.mark_price_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("mark_prices", data.instrument_id),
+    fn submit_mark_price(&mut self, data: MarkPriceUpdate) -> Result<()> {
+        optional_submit(&self.mark_price_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<MarkPriceUpdate>(data.instrument_id),
             event_ts_ns: data.ts_event.as_u64(),
             init_ts_ns: Some(data.ts_init.as_u64()),
             estimated_bytes: size_of::<MarkPriceUpdate>(),
             payload: data,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
-    fn submit_index_price(&mut self, data: IndexPriceUpdate) -> Result<FlushResult> {
-        self.index_price_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("index_prices", data.instrument_id),
+    fn submit_index_price(&mut self, data: IndexPriceUpdate) -> Result<()> {
+        optional_submit(&self.index_price_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<IndexPriceUpdate>(data.instrument_id),
             event_ts_ns: data.ts_event.as_u64(),
             init_ts_ns: Some(data.ts_init.as_u64()),
             estimated_bytes: size_of::<IndexPriceUpdate>(),
             payload: data,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
-    fn submit_funding_rate(&mut self, data: FundingRateUpdate) -> Result<FlushResult> {
-        self.funding_rate_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("funding_rate_update", data.instrument_id),
+    fn submit_funding_rate(&mut self, data: FundingRateUpdate) -> Result<()> {
+        optional_submit(&self.funding_rate_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<FundingRateUpdate>(data.instrument_id),
             event_ts_ns: data.ts_event.as_u64(),
             init_ts_ns: Some(data.ts_init.as_u64()),
             estimated_bytes: size_of::<FundingRateUpdate>(),
             payload: data,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
-    fn submit_instrument_status(&mut self, data: InstrumentStatus) -> Result<FlushResult> {
-        self.instrument_status_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("instrument_status", data.instrument_id),
+    fn submit_instrument_status(&mut self, data: InstrumentStatus) -> Result<()> {
+        optional_submit(&self.instrument_status_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<InstrumentStatus>(data.instrument_id),
             event_ts_ns: data.ts_event.as_u64(),
             init_ts_ns: Some(data.ts_init.as_u64()),
             estimated_bytes: size_of::<InstrumentStatus>(),
             payload: data,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
-    fn submit_instrument_close(&mut self, data: InstrumentClose) -> Result<FlushResult> {
-        self.instrument_close_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("instrument_closes", data.instrument_id),
+    fn submit_instrument_close(&mut self, data: InstrumentClose) -> Result<()> {
+        optional_submit(&self.instrument_close_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<InstrumentClose>(data.instrument_id),
             event_ts_ns: data.ts_event.as_u64(),
             init_ts_ns: Some(data.ts_init.as_u64()),
             estimated_bytes: size_of::<InstrumentClose>(),
             payload: data,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
-    fn submit_option_greeks(&mut self, data: OptionGreeks) -> Result<FlushResult> {
-        self.option_greeks_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("option_greeks", data.instrument_id),
+    fn submit_option_greeks(&mut self, data: OptionGreeks) -> Result<()> {
+        optional_submit(&self.option_greeks_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<OptionGreeks>(data.instrument_id),
             event_ts_ns: data.ts_event.as_u64(),
             init_ts_ns: Some(data.ts_init.as_u64()),
             estimated_bytes: size_of::<OptionGreeks>(),
             payload: data,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
     fn persist_forward_price(
@@ -297,26 +551,24 @@ impl CatalogCaptureActor {
         Ok(())
     }
 
-    fn submit_trade(&mut self, trade: TradeTick) -> Result<FlushResult> {
-        self.trade_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("trades", trade.instrument_id),
+    fn submit_trade(&mut self, trade: TradeTick) -> Result<()> {
+        optional_submit(&self.trade_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<TradeTick>(trade.instrument_id),
             event_ts_ns: trade.ts_event.as_u64(),
             init_ts_ns: Some(trade.ts_init.as_u64()),
             estimated_bytes: size_of::<TradeTick>(),
             payload: trade,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
-    fn submit_bar(&mut self, bar: Bar) -> Result<FlushResult> {
-        self.bar_runtime.submit(CaptureItem {
-            partition_key: PartitionKey::market_data("bars", bar.bar_type),
+    fn submit_bar(&mut self, bar: Bar) -> Result<()> {
+        optional_submit(&self.bar_runtime, CaptureItem {
+            partition_key: PartitionKey::catalog_data::<Bar>(bar.bar_type),
             event_ts_ns: bar.ts_event.as_u64(),
             init_ts_ns: Some(bar.ts_init.as_u64()),
             estimated_bytes: size_of::<Bar>(),
             payload: bar,
-        })?;
-        Ok(FlushResult::default())
+        })
     }
 
     /// Bootstrap instrument metadata before market-data subscriptions.
@@ -347,13 +599,16 @@ impl CatalogCaptureActor {
 
     fn submit_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
         for delta in &deltas.deltas {
-            self.book_delta_runtime.submit(CaptureItem {
-                partition_key: PartitionKey::market_data("book_deltas", delta.instrument_id),
-                event_ts_ns: delta.ts_event.as_u64(),
-                init_ts_ns: Some(delta.ts_init.as_u64()),
-                estimated_bytes: size_of::<OrderBookDelta>(),
-                payload: *delta,
-            })?;
+            optional_submit(
+                &self.book_delta_runtime,
+                CaptureItem {
+                    partition_key: PartitionKey::catalog_data::<OrderBookDelta>(delta.instrument_id),
+                    event_ts_ns: delta.ts_event.as_u64(),
+                    init_ts_ns: Some(delta.ts_init.as_u64()),
+                    estimated_bytes: size_of::<OrderBookDelta>(),
+                    payload: *delta,
+                },
+            )?;
         }
 
         Ok(())
@@ -361,36 +616,135 @@ impl CatalogCaptureActor {
 
     pub fn flush_all(&mut self) -> Result<Vec<FlushResult>> {
         Ok(vec![
-            self.instrument_runtime.flush_all()?,
-            self.custom_data_runtime.flush_all()?,
-            self.mark_price_runtime.flush_all()?,
-            self.index_price_runtime.flush_all()?,
-            self.funding_rate_runtime.flush_all()?,
-            self.instrument_status_runtime.flush_all()?,
-            self.instrument_close_runtime.flush_all()?,
-            self.option_greeks_runtime.flush_all()?,
-            self.quote_runtime.flush_all()?,
-            self.trade_runtime.flush_all()?,
-            self.bar_runtime.flush_all()?,
-            self.book_delta_runtime.flush_all()?,
+            optional_flush_all(&self.instrument_runtime)?,
+            optional_flush_all(&self.custom_data_runtime)?,
+            optional_flush_all(&self.mark_price_runtime)?,
+            optional_flush_all(&self.index_price_runtime)?,
+            optional_flush_all(&self.funding_rate_runtime)?,
+            optional_flush_all(&self.instrument_status_runtime)?,
+            optional_flush_all(&self.instrument_close_runtime)?,
+            optional_flush_all(&self.option_greeks_runtime)?,
+            optional_flush_all(&self.quote_runtime)?,
+            optional_flush_all(&self.trade_runtime)?,
+            optional_flush_all(&self.bar_runtime)?,
+            optional_flush_all(&self.book_delta_runtime)?,
         ])
     }
 
     pub fn shutdown_all(&mut self) -> Result<Vec<FlushResult>> {
-        Ok(vec![
-            self.instrument_runtime.shutdown()?,
-            self.custom_data_runtime.shutdown()?,
-            self.mark_price_runtime.shutdown()?,
-            self.index_price_runtime.shutdown()?,
-            self.funding_rate_runtime.shutdown()?,
-            self.instrument_status_runtime.shutdown()?,
-            self.instrument_close_runtime.shutdown()?,
-            self.option_greeks_runtime.shutdown()?,
-            self.quote_runtime.shutdown()?,
-            self.trade_runtime.shutdown()?,
-            self.bar_runtime.shutdown()?,
-            self.book_delta_runtime.shutdown()?,
-        ])
+        if self.shutdown_completed {
+            return Ok(Vec::new());
+        }
+
+        let results = vec![
+            optional_shutdown(&mut self.instrument_runtime)?,
+            optional_shutdown(&mut self.custom_data_runtime)?,
+            optional_shutdown(&mut self.mark_price_runtime)?,
+            optional_shutdown(&mut self.index_price_runtime)?,
+            optional_shutdown(&mut self.funding_rate_runtime)?,
+            optional_shutdown(&mut self.instrument_status_runtime)?,
+            optional_shutdown(&mut self.instrument_close_runtime)?,
+            optional_shutdown(&mut self.option_greeks_runtime)?,
+            optional_shutdown(&mut self.quote_runtime)?,
+            optional_shutdown(&mut self.trade_runtime)?,
+            optional_shutdown(&mut self.bar_runtime)?,
+            optional_shutdown(&mut self.book_delta_runtime)?,
+        ];
+        self.shutdown_completed = true;
+        Ok(results)
+    }
+
+    fn capture_metrics(&self) -> CaptureMetrics {
+        self.metrics_snapshot_data().aggregated
+    }
+
+    #[must_use]
+    pub fn metrics_snapshot_data(&self) -> CaptureMetricsSnapshot {
+        let mut aggregated = CaptureMetrics::default();
+        let mut families = Vec::new();
+        collect_family_metrics(
+            "instruments",
+            &self.instrument_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "custom_data",
+            &self.custom_data_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "mark_prices",
+            &self.mark_price_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "index_prices",
+            &self.index_price_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "funding_rates",
+            &self.funding_rate_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "instrument_statuses",
+            &self.instrument_status_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "instrument_closes",
+            &self.instrument_close_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "option_greeks",
+            &self.option_greeks_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics("quotes", &self.quote_runtime, &mut families, &mut aggregated);
+        collect_family_metrics("trades", &self.trade_runtime, &mut families, &mut aggregated);
+        collect_family_metrics("bars", &self.bar_runtime, &mut families, &mut aggregated);
+        collect_family_metrics(
+            "book_deltas",
+            &self.book_delta_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+
+        CaptureMetricsSnapshot {
+            captured_at_unix_ms: unix_time_ms(),
+            enabled_background_workers: count_spawned_background_workers(self),
+            process_rss_bytes: process_rss_bytes(),
+            aggregated,
+            families,
+        }
+    }
+
+    pub fn publish_metrics_snapshot(&self) {
+        let Some(snapshot_store) = &self.metrics_snapshot else {
+            return;
+        };
+        let snapshot = self.metrics_snapshot_data();
+        if let Ok(mut store) = snapshot_store.write() {
+            *store = snapshot;
+        }
+    }
+
+    fn log_capture_metrics_summary(&self) {
+        let metrics = self.capture_metrics();
+        if metrics.accepted_items == 0 && metrics.completed_files == 0 {
+            return;
+        }
+        println!("Capture metrics: {}", metrics.summary_line());
     }
 
     fn subscribe_plan(&mut self, plan: &CapturePlan) {
@@ -507,11 +861,6 @@ impl CatalogCaptureActor {
                 .expect("checked above")
                 .refresh_from_cache(&cache, now)?
         };
-        let active_plan = self
-            .dynamic_option_universe
-            .as_ref()
-            .expect("checked above")
-            .active_capture_plan();
         for change in &delta.changes {
             println!(
                 "Option universe refresh venue_id={} underlying={} instruments={} -> {} add=[{}] remove=[{}]",
@@ -550,14 +899,149 @@ impl CatalogCaptureActor {
             }
             self.subscribe_plan(&delta.add);
             self.unsubscribe_plan(&delta.remove);
-            self.forward_price_targets = active_plan
-                .forward_prices
-                .iter()
-                .map(|spec| spec.instrument_id)
-                .collect();
-            self.plan = active_plan;
+            self.sync_plan_state();
         }
         Ok(())
+    }
+
+    fn apply_dynamic_hip4_universe_refresh(&mut self) -> Result<()> {
+        if self.dynamic_hip4_universe.is_none() {
+            return Ok(());
+        }
+
+        let now = self.clock().timestamp_ns();
+        let delta = self
+            .dynamic_hip4_universe
+            .as_mut()
+            .expect("checked above")
+            .refresh(now.as_u64())?;
+        for change in &delta.changes {
+            println!(
+                "HIP-4 universe refresh venue_id={} underlying={} question_id={} instruments={} -> {} add=[{}] remove=[{}]",
+                change.venue_id,
+                change.underlying,
+                change.question_id,
+                change.previous_count,
+                change.next_count,
+                change
+                    .added_instrument_ids
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                change
+                    .removed_instrument_ids
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+        }
+        if !delta.is_empty() {
+            if !delta.resolution_records.is_empty() {
+                append_hip4_universe_resolution_records(
+                    &self.catalog_root,
+                    &delta.resolution_records,
+                )?;
+            }
+            for instrument_id in delta.add.planned_instrument_ids() {
+                self.bootstrap_instrument(instrument_id)?;
+            }
+            self.subscribe_plan(&delta.add);
+            self.unsubscribe_plan(&delta.remove);
+            self.sync_plan_state();
+        }
+        self.schedule_hip4_universe_refresh()?;
+        Ok(())
+    }
+
+    fn schedule_hip4_universe_refresh(&mut self) -> Result<()> {
+        let Some(manager) = &self.dynamic_hip4_universe else {
+            return Ok(());
+        };
+
+        let now = self.clock().timestamp_ns();
+        let delay_secs = manager.next_rotation_check_delay_secs(now.as_u64());
+        let alert_time = now + UnixNanos::from(delay_secs.saturating_mul(1_000_000_000));
+        self.clock().cancel_timer(HIP4_UNIVERSE_REFRESH_TIMER);
+        self.clock()
+            .set_time_alert_ns(HIP4_UNIVERSE_REFRESH_TIMER, alert_time, None, None)?;
+        Ok(())
+    }
+
+    fn schedule_metrics_export(&mut self) -> Result<()> {
+        let Some(interval_secs) = self.metrics_refresh_interval_secs else {
+            return Ok(());
+        };
+        if self.metrics_snapshot.is_none() {
+            return Ok(());
+        }
+
+        let interval_ns = interval_secs.saturating_mul(1_000_000_000);
+        self.clock().cancel_timer(METRICS_EXPORT_TIMER);
+        self.clock().set_timer_ns(
+            METRICS_EXPORT_TIMER,
+            interval_ns,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )?;
+        Ok(())
+    }
+
+    fn schedule_segment_seal(&mut self) -> Result<()> {
+        if !self.capture.lifecycle.is_segment_mode() || !self.capture.lifecycle.seal.enabled {
+            return Ok(());
+        }
+
+        let seal = self
+            .capture
+            .lifecycle
+            .resolved_seal()?
+            .expect("enabled seal schedule should resolve");
+        let now = self.clock().timestamp_ns();
+        let next = next_seal_boundary_ns(now.as_u64(), &seal);
+        self.clock().cancel_timer(SEGMENT_SEAL_TIMER);
+        self.clock()
+            .set_time_alert_ns(SEGMENT_SEAL_TIMER, UnixNanos::from(next), None, None)?;
+        Ok(())
+    }
+
+    fn seal_segment_runtimes(&mut self) -> Result<()> {
+        if !self.capture.lifecycle.is_segment_mode() {
+            return Ok(());
+        }
+
+        optional_flush_all(&self.instrument_runtime)?;
+        optional_flush_all(&self.custom_data_runtime)?;
+        optional_seal_all(&self.mark_price_runtime)?;
+        optional_seal_all(&self.index_price_runtime)?;
+        optional_seal_all(&self.funding_rate_runtime)?;
+        optional_seal_all(&self.instrument_status_runtime)?;
+        optional_seal_all(&self.instrument_close_runtime)?;
+        optional_seal_all(&self.option_greeks_runtime)?;
+        optional_seal_all(&self.quote_runtime)?;
+        optional_seal_all(&self.trade_runtime)?;
+        optional_seal_all(&self.bar_runtime)?;
+        optional_seal_all(&self.book_delta_runtime)?;
+        Ok(())
+    }
+
+    fn effective_capture_plan(&self) -> CapturePlan {
+        effective_capture_plan(
+            &self.initial_materialized_plan,
+            &self.supplemental_plan,
+            self.dynamic_option_universe.as_ref(),
+            self.dynamic_hip4_universe.as_ref(),
+        )
+    }
+
+    fn sync_plan_state(&mut self) {
+        let plan = self.effective_capture_plan();
+        self.sync_forward_price_targets(&plan);
+        self.plan = plan;
     }
 
     fn sync_forward_price_targets(&mut self, plan: &CapturePlan) {
@@ -576,43 +1060,83 @@ impl Debug for CatalogCaptureActor {
         f.debug_struct("CatalogCaptureActor")
             .field("plan", &self.plan)
             .field(
+                "enabled_background_workers",
+                &self.enabled_background_worker_count(),
+            )
+            .field(
                 "instrument_queue_depth",
-                &self.instrument_runtime.queue_depth(),
+                &self
+                    .instrument_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
             .field(
                 "custom_data_queue_depth",
-                &self.custom_data_runtime.queue_depth(),
+                &self
+                    .custom_data_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
             .field(
                 "mark_price_queue_depth",
-                &self.mark_price_runtime.queue_depth(),
+                &self
+                    .mark_price_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
             .field(
                 "index_price_queue_depth",
-                &self.index_price_runtime.queue_depth(),
+                &self
+                    .index_price_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
             .field(
                 "funding_rate_queue_depth",
-                &self.funding_rate_runtime.queue_depth(),
+                &self
+                    .funding_rate_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
             .field(
                 "instrument_status_queue_depth",
-                &self.instrument_status_runtime.queue_depth(),
+                &self
+                    .instrument_status_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
             .field(
                 "instrument_close_queue_depth",
-                &self.instrument_close_runtime.queue_depth(),
+                &self
+                    .instrument_close_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
             .field(
                 "option_greeks_queue_depth",
-                &self.option_greeks_runtime.queue_depth(),
+                &self
+                    .option_greeks_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
-            .field("quote_queue_depth", &self.quote_runtime.queue_depth())
-            .field("trade_queue_depth", &self.trade_runtime.queue_depth())
-            .field("bar_queue_depth", &self.bar_runtime.queue_depth())
+            .field(
+                "quote_queue_depth",
+                &self.quote_runtime.as_ref().map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "trade_queue_depth",
+                &self.trade_runtime.as_ref().map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "bar_queue_depth",
+                &self.bar_runtime.as_ref().map(BackgroundCaptureRuntime::queue_depth),
+            )
             .field(
                 "book_delta_queue_depth",
-                &self.book_delta_runtime.queue_depth(),
+                &self
+                    .book_delta_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
             )
             .field(
                 "online_option_metrics",
@@ -640,13 +1164,22 @@ impl DataActor for CatalogCaptureActor {
                 None,
             )?;
         }
+        self.schedule_hip4_universe_refresh()?;
+        self.schedule_segment_seal()?;
+        self.publish_metrics_snapshot();
+        self.schedule_metrics_export()?;
 
         Ok(())
     }
 
     fn on_stop(&mut self) -> Result<()> {
         self.clock().cancel_timer(OPTION_UNIVERSE_REFRESH_TIMER);
+        self.clock().cancel_timer(HIP4_UNIVERSE_REFRESH_TIMER);
+        self.clock().cancel_timer(SEGMENT_SEAL_TIMER);
+        self.clock().cancel_timer(METRICS_EXPORT_TIMER);
         let _ = self.shutdown_all()?;
+        self.publish_metrics_snapshot();
+        self.log_capture_metrics_summary();
         Ok(())
     }
 
@@ -654,42 +1187,46 @@ impl DataActor for CatalogCaptureActor {
         if event.name == OPTION_UNIVERSE_REFRESH_TIMER {
             self.apply_dynamic_option_universe_refresh()?;
         }
+        if event.name == HIP4_UNIVERSE_REFRESH_TIMER {
+            self.apply_dynamic_hip4_universe_refresh()?;
+        }
+        if event.name == SEGMENT_SEAL_TIMER {
+            self.seal_segment_runtimes()?;
+            self.schedule_segment_seal()?;
+        }
+        if event.name == METRICS_EXPORT_TIMER {
+            self.publish_metrics_snapshot();
+            self.schedule_metrics_export()?;
+        }
         Ok(())
     }
 
     fn on_instrument(&mut self, instrument: &InstrumentAny) -> Result<()> {
-        let _ = self.submit_instrument(instrument.clone())?;
-        Ok(())
+        self.submit_instrument(instrument.clone())
     }
 
     fn on_data(&mut self, data: &CustomData) -> Result<()> {
-        let _ = self.submit_custom_data(data.clone())?;
-        Ok(())
+        self.submit_custom_data(data.clone())
     }
 
     fn on_mark_price(&mut self, mark_price: &MarkPriceUpdate) -> Result<()> {
-        let _ = self.submit_mark_price(*mark_price)?;
-        Ok(())
+        self.submit_mark_price(*mark_price)
     }
 
     fn on_index_price(&mut self, index_price: &IndexPriceUpdate) -> Result<()> {
-        let _ = self.submit_index_price(*index_price)?;
-        Ok(())
+        self.submit_index_price(*index_price)
     }
 
     fn on_funding_rate(&mut self, funding_rate: &FundingRateUpdate) -> Result<()> {
-        let _ = self.submit_funding_rate(*funding_rate)?;
-        Ok(())
+        self.submit_funding_rate(*funding_rate)
     }
 
     fn on_instrument_status(&mut self, data: &InstrumentStatus) -> Result<()> {
-        let _ = self.submit_instrument_status(*data)?;
-        Ok(())
+        self.submit_instrument_status(*data)
     }
 
     fn on_instrument_close(&mut self, close: &InstrumentClose) -> Result<()> {
-        let _ = self.submit_instrument_close(*close)?;
-        Ok(())
+        self.submit_instrument_close(*close)
     }
 
     fn on_option_greeks(&mut self, greeks: &OptionGreeks) -> Result<()> {
@@ -698,7 +1235,7 @@ impl DataActor for CatalogCaptureActor {
                 println!("{line}");
             }
         }
-        let _ = self.submit_option_greeks(*greeks)?;
+        self.submit_option_greeks(*greeks)?;
         if self.forward_price_targets.contains(&greeks.instrument_id) {
             if let Some(forward_price) = forward_price_from_option_greeks(greeks) {
                 self.persist_forward_price(forward_price)?;
@@ -713,17 +1250,17 @@ impl DataActor for CatalogCaptureActor {
                 println!("{line}");
             }
         }
-        let _ = self.submit_quote(*quote)?;
+        self.submit_quote(*quote)?;
         Ok(())
     }
 
     fn on_trade(&mut self, trade: &TradeTick) -> Result<()> {
-        let _ = self.submit_trade(*trade)?;
+        self.submit_trade(*trade)?;
         Ok(())
     }
 
     fn on_bar(&mut self, bar: &Bar) -> Result<()> {
-        let _ = self.submit_bar(*bar)?;
+        self.submit_bar(*bar)?;
         Ok(())
     }
 
@@ -738,6 +1275,140 @@ pub trait RuntimeCaptureAdapter {
 
 impl Drop for CatalogCaptureActor {
     fn drop(&mut self) {
-        let _ = self.shutdown_all();
+        if !self.shutdown_completed {
+            let _ = self.shutdown_all();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs, str::FromStr};
+
+    use nautilus_model::identifiers::InstrumentId;
+
+    use catalog_capture_core::{
+        plan::{CapturePlan, QuoteCaptureSpec},
+        CaptureConfig,
+    };
+
+    use super::*;
+
+    #[test]
+    fn effective_capture_plan_merges_option_and_hip4_manager_views() {
+        let static_plan = CapturePlan::default();
+        let option_dynamic = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: InstrumentId::from_str("BTC-OPT.DERIBIT").unwrap(),
+            }],
+            ..CapturePlan::default()
+        };
+        let hip4_dynamic = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: InstrumentId::from_str("BTC-HIP4.HYPERLIQUID").unwrap(),
+            }],
+            ..CapturePlan::default()
+        };
+        let initial = merge_capture_plans(
+            &merge_capture_plans(&static_plan, &option_dynamic),
+            &hip4_dynamic,
+        );
+
+        let option_manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
+            refresh_interval_secs: 60,
+            strike_change_confirmations: 0,
+            static_plan: static_plan.clone(),
+            initial_dynamic_plan: option_dynamic,
+            universes: vec![],
+        });
+        let hip4_manager = DynamicHip4UniverseManager::new(DynamicHip4UniverseConfig {
+            idle_poll_secs: 1800,
+            active_poll_secs: 10,
+            pre_expiry_window_secs: 900,
+            http_timeout_secs: 10,
+            static_plan: static_plan.clone(),
+            initial_dynamic_plan: hip4_dynamic,
+            universes: vec![],
+        });
+
+        let merged = effective_capture_plan(
+            &initial,
+            &CapturePlan::default(),
+            Some(&option_manager),
+            Some(&hip4_manager),
+        );
+
+        assert_eq!(merged.quotes.len(), 2);
+        assert!(merged.quotes.iter().any(|spec| {
+            spec.instrument_id
+                == InstrumentId::from_str("BTC-OPT.DERIBIT").unwrap()
+        }));
+        assert!(merged.quotes.iter().any(|spec| {
+            spec.instrument_id
+                == InstrumentId::from_str("BTC-HIP4.HYPERLIQUID").unwrap()
+        }));
+    }
+
+    #[test]
+    fn supplemental_plan_preserves_hip4_when_only_option_refresh_enabled() {
+        let static_plan = CapturePlan::default();
+        let option_dynamic = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: InstrumentId::from_str("BTC-OPT.DERIBIT").unwrap(),
+            }],
+            ..CapturePlan::default()
+        };
+        let hip4_only = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: InstrumentId::from_str("BTC-HIP4.HYPERLIQUID").unwrap(),
+            }],
+            ..CapturePlan::default()
+        };
+        let initial = merge_capture_plans(
+            &merge_capture_plans(&static_plan, &option_dynamic),
+            &hip4_only,
+        );
+        let option_config = DynamicOptionUniverseConfig {
+            refresh_interval_secs: 60,
+            strike_change_confirmations: 0,
+            static_plan: static_plan.clone(),
+            initial_dynamic_plan: option_dynamic,
+            universes: vec![],
+        };
+
+        let supplemental = supplemental_capture_plan(&initial, &Some(option_config), &None);
+
+        assert_eq!(supplemental.quotes.len(), 1);
+        assert_eq!(
+            supplemental.quotes[0].instrument_id,
+            InstrumentId::from_str("BTC-HIP4.HYPERLIQUID").unwrap()
+        );
+    }
+
+    #[test]
+    fn actor_starts_only_plan_enabled_background_workers() {
+        let catalog_dir = std::env::temp_dir().join("catalog-capture-actor-lazy-runtime-test");
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir should exist");
+        let plan = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: InstrumentId::from_str("BTCUSDT-PERP.BINANCE").unwrap(),
+            }],
+            ..CapturePlan::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            plan,
+        ))
+        .expect("actor should construct");
+
+        assert_eq!(actor.enabled_background_worker_count(), 2);
+        assert!(actor.instrument_runtime.is_some());
+        assert!(actor.quote_runtime.is_some());
+        assert!(actor.trade_runtime.is_none());
+        assert!(actor.book_delta_runtime.is_none());
+        let _ = actor.shutdown_all().expect("shutdown should succeed");
     }
 }

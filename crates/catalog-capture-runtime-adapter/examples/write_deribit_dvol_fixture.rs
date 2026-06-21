@@ -40,6 +40,7 @@ fn build_capture_config(catalog_dir: &Path) -> CaptureConfig {
         compression: CompressionKind::Snappy,
         overflow_policy: OverflowPolicy::DropOldest,
         layout_compatibility: LayoutCompatibility::RustCanonicalWithPythonLegacyMirror,
+        ..CaptureConfig::default()
     }
 }
 

@@ -18,9 +18,9 @@ use anyhow::{Context, Result};
 use catalog_capture_core::{
     config::CaptureConfig,
     plan::{
-        CapturePlan, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
-        InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
-        BarCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
+        BarCaptureSpec, CapturePlan, FundingRateCaptureSpec, IndexPriceCaptureSpec,
+        InstrumentCaptureSpec, InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec,
+        MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
     },
 };
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
@@ -271,6 +271,9 @@ fn main() -> Result<()> {
         plan,
         online_option_metrics: None,
         dynamic_option_universe: None,
+        dynamic_hip4_universe: None,
+        metrics_snapshot: None,
+        metrics_refresh_interval_secs: None,
     };
 
     let mut actor = CatalogCaptureActor::new(config)?;

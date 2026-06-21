@@ -17,6 +17,7 @@ use std::{fs, path::Path, str::FromStr};
 use anyhow::Result;
 use catalog_capture_core::{
     config::CaptureConfig,
+    lifecycle::{LifecycleConfig, LifecycleMode, SealConfigFile},
     plan::{CapturePlan, QuoteCaptureSpec},
 };
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
@@ -46,15 +47,17 @@ fn create_quote_ticks(instrument_id: InstrumentId, base_ts: u64, count: usize) -
         .collect()
 }
 
-fn count_parquet_files(root: &Path) -> Result<usize> {
+fn count_sealed_parquet_files(root: &Path) -> Result<usize> {
     let mut total = 0usize;
 
     for entry in fs::read_dir(root)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            total += count_parquet_files(&path)?;
-        } else if path.extension().and_then(|ext| ext.to_str()) == Some("parquet") {
+            total += count_sealed_parquet_files(&path)?;
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("parquet")
+            && !path.to_string_lossy().contains(".part")
+        {
             total += 1;
         }
     }
@@ -65,7 +68,7 @@ fn count_parquet_files(root: &Path) -> Result<usize> {
 fn main() -> Result<()> {
     let instrument_id = InstrumentId::from_str("ETHUSDT-PERP.BINANCE")?;
     let catalog_dir = std::env::temp_dir().join(format!(
-        "nautilus-catalog-capture-roundtrip-{}",
+        "nautilus-catalog-capture-segment-roundtrip-{}",
         UUID4::new().as_str()
     ));
     fs::create_dir_all(&catalog_dir)?;
@@ -75,6 +78,14 @@ fn main() -> Result<()> {
         flush_rows: 3,
         flush_interval_ms: 1_000,
         max_buffer_bytes: 1024 * 1024,
+        lifecycle: LifecycleConfig {
+            mode: LifecycleMode::Segment,
+            seal: SealConfigFile {
+                enabled: false,
+                ..SealConfigFile::default()
+            },
+            ..LifecycleConfig::default()
+        },
         ..CaptureConfig::default()
     };
 
@@ -84,7 +95,7 @@ fn main() -> Result<()> {
     };
 
     let config = CatalogCaptureActorConfig {
-        actor_id: Some(ActorId::from("CATALOG_CAPTURE-ROUNDTRIP")),
+        actor_id: Some(ActorId::from("CATALOG_CAPTURE-SEGMENT-ROUNDTRIP")),
         capture,
         plan,
         online_option_metrics: None,
@@ -101,14 +112,16 @@ fn main() -> Result<()> {
         DataActor::on_quote(&mut actor, quote)?;
     }
 
-    let flush_results = actor.flush_all()?;
-    let files_returned_by_flush_all: usize =
-        flush_results.iter().map(|result| result.files.len()).sum();
-    let rows_flushed: usize = flush_results.iter().map(|result| result.rows).sum();
+    let flush_results = actor.shutdown_all()?;
+    let rows_flushed: usize = flush_results
+        .iter()
+        .filter(|result| !result.files.is_empty())
+        .map(|result| result.rows)
+        .sum();
+    let sealed_files = count_sealed_parquet_files(&catalog_dir)?;
 
     let mut catalog = ParquetDataCatalog::new(catalog_dir.as_path(), None, None, None, None);
     let loaded = catalog.quote_ticks(Some(vec![instrument_id.to_string()]), None, None)?;
-    let parquet_files_on_disk = count_parquet_files(&catalog_dir)?;
 
     assert_eq!(
         loaded.len(),
@@ -117,25 +130,19 @@ fn main() -> Result<()> {
     );
     assert_eq!(loaded, written, "loaded ticks should equal written ticks");
     assert!(
-        parquet_files_on_disk >= 2,
-        "expected at least two chunk files with flush_rows=3"
+        sealed_files >= 1,
+        "segment mode should produce at least one sealed parquet file after shutdown (includes legacy mirror links)"
     );
     assert_eq!(
-        rows_flushed, 2,
-        "flush_all should flush the remaining tail batch after automatic flushing"
+        rows_flushed, 5,
+        "shutdown should seal all captured quote rows into one catalog-readable file"
     );
 
-    println!("Synthetic quote round-trip succeeded");
+    println!("Segment quote round-trip succeeded");
     println!("Catalog dir: {}", catalog_dir.display());
-    println!("Files returned by final flush_all: {files_returned_by_flush_all}");
-    println!("Parquet files on disk: {parquet_files_on_disk}");
+    println!("Sealed parquet files: {sealed_files}");
     println!("Rows flushed by final flush_all: {rows_flushed}");
     println!("Loaded ticks: {}", loaded.len());
-    println!(
-        "Time range: {} -> {}",
-        loaded.first().unwrap().ts_init.as_u64(),
-        loaded.last().unwrap().ts_init.as_u64()
-    );
 
     fs::remove_dir_all(&catalog_dir)?;
     Ok(())

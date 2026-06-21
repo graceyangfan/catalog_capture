@@ -18,6 +18,9 @@ high-precision = [
 anyhow.workspace = true
 catalog-capture-core = { path = "../catalog-capture-core" }
 nautilus-common.workspace = true
+nautilus-hyperliquid.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
 nautilus-core.workspace = true
 nautilus-model.workspace = true
 nautilus-persistence.workspace = true

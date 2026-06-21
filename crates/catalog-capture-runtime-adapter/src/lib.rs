@@ -13,10 +13,15 @@
 // -------------------------------------------------------------------------------------------------
 
 mod actor;
+mod dynamic_hip4_universe;
 mod dynamic_option_universe;
 mod online_option_metrics;
 
 pub use actor::{CatalogCaptureActor, CatalogCaptureActorConfig, RuntimeCaptureAdapter};
+pub use dynamic_hip4_universe::{
+    DynamicHip4UniverseChange, DynamicHip4UniverseConfig, DynamicHip4UniverseDelta,
+    DynamicHip4UniverseEntryConfig, DynamicHip4UniverseManager,
+};
 pub use dynamic_option_universe::{
     plan_has_index_prices, plan_has_mark_prices, plan_has_quotes, DynamicOptionUniverseChange,
     DynamicOptionUniverseConfig, DynamicOptionUniverseDelta, DynamicOptionUniverseEntryConfig,
