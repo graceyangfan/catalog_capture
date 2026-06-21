@@ -24,6 +24,8 @@ cargo-deny = "0.19.9"
 [workspace.dependencies]
 ahash = "0.8"
 anyhow = "1"
+chrono = "0.4"
+chrono-tz = "0.10.4"
 clap = { version = "4", features = ["derive"] }
 dotenvy = "0.15"
 parquet = "58.3.0"
@@ -36,6 +38,8 @@ tokio = { version = "1", features = [
   "rt-multi-thread",
   "signal",
   "time",
+  "net",
+  "io-util",
 ] }
 toml = "0.8"
 ustr = "1.1.0"

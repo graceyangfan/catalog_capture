@@ -1520,6 +1520,10 @@ version = "0.1.0"
 dependencies = [
  "ahash 0.8.12",
  "anyhow",
+ "arrow",
+ "chrono",
+ "chrono-tz",
+ "libc",
  "nautilus-core",
  "nautilus-model",
  "nautilus-persistence",

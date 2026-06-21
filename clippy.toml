@@ -1,0 +1,11 @@
+cognitive-complexity-threshold = 10
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+doc-valid-idents = [
+  "BitMEX",
+  "Hyperliquid",
+  "MessagePack",
+  "NautilusTrader",
+  "PyO3",
+  "..",
+]
