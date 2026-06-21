@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTUP_TOOLCHAIN: 1.96.0
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout catalog capture
+        uses: actions/checkout@v4
+        with:
+          path: nautilus_catalog_capture
+
+      - name: Checkout nautilus_trader
+        uses: actions/checkout@v4
+        with:
+          repository: nautechsystems/nautilus_trader
+          path: nautilus_trader
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: nautilus_catalog_capture
+
+      - name: Run unit tests
+        working-directory: nautilus_catalog_capture
+        run: cargo test --workspace
+
+      - name: Run clippy
+        working-directory: nautilus_catalog_capture
+        run: cargo clippy --workspace --all-targets -- -D warnings

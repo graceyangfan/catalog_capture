@@ -190,20 +190,18 @@ pub async fn run_capture_with_plan_and_reports(
 
     println!("Starting catalog capture");
     println!("Catalog dir: {}", catalog_dir.display());
-    println!("Capture duration: {}s", config.runtime.capture_seconds);
+    if config.runtime.capture_seconds == 0 {
+        println!("Capture duration: until shutdown signal (capture_seconds=0)");
+    } else {
+        println!("Capture duration: {}s", config.runtime.capture_seconds);
+    }
     println!("Venues: {}", config.venues.len());
 
     let stop_handle = node.handle();
     let capture_seconds = config.runtime.capture_seconds;
     tokio::spawn(async move {
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(capture_seconds)) => {
-                stop_handle.stop();
-            }
-            _ = tokio::signal::ctrl_c() => {
-                stop_handle.stop();
-            }
-        }
+        wait_for_capture_shutdown(capture_seconds).await;
+        stop_handle.stop();
     });
 
     node.run().await?;
@@ -214,10 +212,38 @@ pub async fn run_capture_with_plan_and_reports(
     Ok(())
 }
 
-pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
-    if config.runtime.capture_seconds == 0 {
-        bail!("runtime.capture_seconds must be > 0");
+async fn wait_for_capture_shutdown(capture_seconds: u64) {
+    if capture_seconds == 0 {
+        wait_for_shutdown_signal().await;
+        return;
     }
+
+    tokio::select! {
+        _ = tokio::time::sleep(Duration::from_secs(capture_seconds)) => {}
+        _ = wait_for_shutdown_signal() => {}
+    }
+}
+
+async fn wait_for_shutdown_signal() {
+    #[cfg(unix)]
+    {
+        let ctrl_c = tokio::signal::ctrl_c();
+        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to register SIGTERM handler");
+        tokio::select! {
+            _ = ctrl_c => {}
+            _ = sigterm.recv() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to register Ctrl+C handler");
+    }
+}
+
+pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     if config.runtime.shutdown_timeout_secs == 0 {
         bail!("runtime.shutdown_timeout_secs must be > 0");
     }

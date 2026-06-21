@@ -37,6 +37,7 @@ pub struct CliConfigFile {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeConfig {
+    /// Set to `0` to run until Ctrl+C or SIGTERM (unattended daemon mode).
     #[serde(default = "default_capture_seconds")]
     pub capture_seconds: u64,
     #[serde(default = "default_shutdown_timeout_secs")]
@@ -1436,6 +1437,49 @@ mod tests {
         .expect("config should resolve");
 
         validate_runtime(&effective).expect("valid bybit option universe should pass");
+    }
+
+    #[test]
+    fn validate_runtime_accepts_signal_only_capture_seconds() {
+        let mut effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                option_universe: vec![OptionUniverseSelector {
+                    venue_id: "deribit_main".to_string(),
+                    underlying: "BTC".to_string(),
+                    settlement_currency: Some("BTC".to_string()),
+                    include_perp: true,
+                    families: vec![
+                        "instruments".to_string(),
+                        "quotes".to_string(),
+                        "option_greeks".to_string(),
+                    ],
+                    expiry_policy: ExpiryPolicySelector {
+                        mode: "nearest".to_string(),
+                        days_max: 45,
+                    },
+                    strike_policy: StrikePolicySelector {
+                        mode: "atm_relative".to_string(),
+                        strikes_above: 1,
+                        strikes_below: 1,
+                        top_n: None,
+                    },
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "deribit_main".to_string(),
+                kind: "deribit".to_string(),
+                environment: "mainnet".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: vec!["future".to_string(), "option".to_string()],
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+        effective.runtime.capture_seconds = 0;
+        validate_runtime(&effective).expect("signal-only capture should validate");
     }
 
     #[test]

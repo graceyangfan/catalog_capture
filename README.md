@@ -122,6 +122,60 @@ Useful configs:
 - low-threshold validation profile:
   - `/Users/yfclark/nautilus_catalog_capture/examples/capture.low-threshold.toml`
 
+## Prerequisites
+
+This project depends on a sibling `nautilus_trader` checkout:
+
+```text
+../nautilus_trader
+```
+
+Use Rust `1.96.0` (see `rust-toolchain.toml`).
+
+## Operations
+
+### Smoke and soak validation
+
+```bash
+# Quick per-venue smoke (30s)
+python3 tests/probe_option_universe_smoke.py --venue deribit-autorefresh --seconds 30 --cleanup
+
+# Daily-live soak across Deribit, OKX, and Bybit (180s)
+python3 tests/probe_option_universe_soak.py --preset daily-live --seconds 180 --cleanup
+```
+
+Use `--require-refresh-change` on longer rolling-live runs when ATM drift is expected.
+
+### Unattended long-running capture
+
+Set `runtime.capture_seconds = 0` to run until `SIGTERM` or `Ctrl+C`. Production-shaped configs live under `examples/operator/`.
+
+```bash
+make build-release
+./scripts/run-capture-service.sh \
+  --config examples/operator/capture.deribit-btc-universe-unattended.toml \
+  --release
+```
+
+Deployment templates: `deploy/launchd/`, `deploy/systemd/`. See `examples/operator/README.md`.
+
+### Cleanup temp artifacts
+
+```bash
+make cleanup-tmp
+# or
+./scripts/cleanup-tmp-captures.sh /tmp
+```
+
+### Post-run validation
+
+```bash
+cargo +1.96.0 run -p catalog-capture-cli -- validate-option-universe \
+  --config examples/capture.deribit-btc-universe-autorefresh.toml \
+  --catalog-uri file:///path/to/catalog \
+  --option-universe-format text
+```
+
 ## Documents
 
 - `docs/rfc.md`
