@@ -20,6 +20,10 @@ use super::metadata::{
     metadata_validation_options_for_config, render_option_universe_metadata_validation_json,
     render_option_universe_metadata_validation_text, validate_option_universe_metadata,
 };
+use super::readback::{
+    readback_options_for_config, render_option_universe_readback_json,
+    render_option_universe_readback_text, run_option_universe_readback_validation,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionUniverseOutputFormat {
@@ -83,6 +87,19 @@ pub fn run_option_universe_post_run_report(
                 "{}",
                 render_option_universe_metadata_validation_text(&metadata_reports)
             );
+        }
+    }
+
+    println!("\n--- Catalog readback ---");
+    let readback_options = readback_options_for_config(config, catalog_root)?;
+    let readback_report =
+        run_option_universe_readback_validation(catalog_root, &readback_options)?;
+    match options.format {
+        OptionUniverseOutputFormat::Json => {
+            println!("{}", render_option_universe_readback_json(&readback_report)?);
+        }
+        OptionUniverseOutputFormat::Text => {
+            println!("{}", render_option_universe_readback_text(&readback_report));
         }
     }
 

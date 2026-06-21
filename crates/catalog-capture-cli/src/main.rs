@@ -15,13 +15,17 @@ use option_universe::{
     render_option_universe_metadata_validation_text, render_option_universe_reports_json,
     render_option_universe_reports_text, render_option_universe_summaries_json,
     render_option_universe_summaries_text, resolve_option_universe_reports,
+    readback_options_for_config, readback_options_from_cli, render_option_universe_readback_json,
+    render_option_universe_readback_text, run_option_universe_readback_validation,
     validate_option_universe_catalog, validate_option_universe_metadata,
     validation_options_for_preset, validation_options_from_cli, StrikeModeArg,
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
     OptionUniverseCatalogValidationReport, OptionUniverseOutputFormat,
     OptionUniverseResolutionReport, PostRunReportOptions,
 };
-use catalog_capture_core::OptionUniverseResolutionValidationReport;
+use catalog_capture_core::{
+    OptionUniverseReadbackReport, OptionUniverseResolutionValidationReport,
+};
 use runner::{run_capture, run_capture_with_plan_and_reports, validate_runtime};
 
 #[derive(Debug, Parser)]
@@ -160,6 +164,29 @@ enum Command {
         )]
         all_min_strikes: Option<usize>,
     },
+    ValidateOptionUniverseReadback {
+        #[arg(long)]
+        catalog_uri: String,
+        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
+        option_universe_format: OptionUniverseOutputFormatArg,
+        #[arg(long, help = "Hedge/reference perp instrument id")]
+        perp_id: Option<String>,
+        #[arg(long, help = "Option instrument id to validate; repeat for multiple options")]
+        option_id: Vec<String>,
+        #[arg(long, help = "Minimum rows per readback family (default: 1)")]
+        min_rows: Option<i64>,
+        #[arg(long, help = "Minimum perp trade ticks (0 skips trade readback)")]
+        min_perp_trade_rows: Option<i64>,
+        #[arg(long, help = "Require instrument_status and instrument_closes rows")]
+        require_contract_state: bool,
+        #[arg(long, help = "Bar type identifier to validate via ParquetDataCatalog")]
+        bar_type: Vec<String>,
+        #[arg(
+            long,
+            help = "Infer perp/option ids and validation thresholds from catalog metadata + TOML config"
+        )]
+        config: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -285,6 +312,35 @@ async fn main() -> Result<()> {
                 option_universe_format.into(),
             )?;
         }
+        Command::ValidateOptionUniverseReadback {
+            catalog_uri,
+            option_universe_format,
+            perp_id,
+            option_id,
+            min_rows,
+            min_perp_trade_rows,
+            require_contract_state,
+            bar_type,
+            config,
+        } => {
+            let catalog_root = catalog_root_from_uri(&catalog_uri)?;
+            let options = if let Some(config_path) = config {
+                let effective = load_validated_config(&config_path)?;
+                readback_options_for_config(&effective, &catalog_root)?
+            } else {
+                readback_options_from_cli(
+                    perp_id,
+                    option_id,
+                    min_rows,
+                    min_perp_trade_rows,
+                    require_contract_state,
+                    bar_type,
+                )?
+            };
+            let report =
+                run_option_universe_readback_validation(&catalog_root, &options)?;
+            print_option_universe_readback_values(&report, option_universe_format.into())?;
+        }
     }
 
     Ok(())
@@ -343,6 +399,21 @@ fn print_option_universe_summary_values(
         }
         OptionUniverseOutputFormat::Text => {
             println!("{}", render_option_universe_summaries_text(summaries));
+        }
+    }
+    Ok(())
+}
+
+fn print_option_universe_readback_values(
+    report: &OptionUniverseReadbackReport,
+    format: OptionUniverseOutputFormat,
+) -> Result<()> {
+    match format {
+        OptionUniverseOutputFormat::Json => {
+            println!("{}", render_option_universe_readback_json(report)?);
+        }
+        OptionUniverseOutputFormat::Text => {
+            println!("{}", render_option_universe_readback_text(report));
         }
     }
     Ok(())

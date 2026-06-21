@@ -18,7 +18,6 @@ except ImportError:  # pragma: no cover - optional local validation dependency.
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-READBACK_PROBE = PROJECT_ROOT / "tests" / "python_catalog_option_universe_probe.py"
 METRICS_PROBE = PROJECT_ROOT / "tests" / "python_option_universe_metrics_probe.py"
 DVOL_PROBE = PROJECT_ROOT / "tests" / "python_catalog_deribit_dvol_probe.py"
 
@@ -262,13 +261,13 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
         )
     min_trade_rows = 1 if venue in VENUES_REQUIRING_TRADES else 0
     if not args.skip_readback_probe:
-        run_readback_probe(
+        run_cli_readback_validation(
             catalog_dir,
+            venue,
             perp_id,
             readback_option_ids,
             min_trade_rows,
-            args.require_contract_state,
-            BAR_TYPES.get(venue, []),
+            args,
         )
         if args.metrics_probe:
             run_metrics_probe(catalog_dir, perp_id, option_ids)
@@ -391,30 +390,37 @@ def strip_ansi(value: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", value)
 
 
-def run_readback_probe(
+def run_cli_readback_validation(
     catalog_dir: Path,
+    venue: str,
     perp_id: str,
     option_ids: list[str],
     min_trade_rows: int,
-    require_contract_state: bool,
-    bar_types: list[str],
+    args: argparse.Namespace,
 ) -> None:
     print(
         f"[readback] probing {len(option_ids)} options plus {perp_id}",
         flush=True,
     )
     command = [
-        sys.executable,
-        str(READBACK_PROBE),
-        str(catalog_dir),
+        args.cargo,
+        "run",
+        "-p",
+        "catalog-capture-cli",
+        "--",
+        "validate-option-universe-readback",
+        "--catalog-uri",
+        f"file://{catalog_dir}",
+        "--option-universe-format",
+        "text",
         "--perp-id",
         perp_id,
-        "--min-trade-rows",
+        "--min-perp-trade-rows",
         str(min_trade_rows),
     ]
-    if require_contract_state:
+    if args.require_contract_state:
         command.append("--require-contract-state")
-    for bar_type in bar_types:
+    for bar_type in BAR_TYPES.get(venue, []):
         command.extend(["--bar-type", bar_type])
     for option_id in option_ids:
         command.extend(["--option-id", option_id])

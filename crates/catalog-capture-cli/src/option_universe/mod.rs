@@ -4,6 +4,7 @@ mod discovery;
 mod history;
 mod metadata;
 mod post_run_report;
+mod readback;
 mod report;
 #[cfg(test)]
 mod tests;
@@ -35,6 +36,10 @@ pub use history::{
 pub use metadata::{
     render_option_universe_metadata_validation_json, render_option_universe_metadata_validation_text,
     validate_option_universe_metadata, validation_options_from_cli, StrikeModeArg,
+};
+pub use readback::{
+    readback_options_for_config, readback_options_from_cli, render_option_universe_readback_json,
+    render_option_universe_readback_text, run_option_universe_readback_validation,
 };
 pub use report::{
     build_option_universe_resolution_report, render_option_universe_reports_json,
