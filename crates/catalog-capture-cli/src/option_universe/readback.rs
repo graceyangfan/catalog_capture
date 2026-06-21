@@ -16,9 +16,10 @@ use std::path::Path;
 
 use anyhow::{bail, Result};
 use catalog_capture_core::{
-    read_option_universe_resolution_records, summarize_option_universe_resolution_records,
-    validate_option_universe_readback, OptionUniverseReadbackOptions, OptionUniverseReadbackReport,
-    StrikePolicy, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
+    read_option_universe_resolution_records, sample_all_strikes_instrument_ids,
+    summarize_option_universe_resolution_records, validate_option_universe_readback,
+    OptionUniverseReadbackOptions, OptionUniverseReadbackReport, StrikePolicy,
+    ALL_STRIKES_READBACK_SAMPLE_LIMIT,
 };
 
 use crate::config::EffectiveConfig;
@@ -48,7 +49,15 @@ pub fn readback_options_for_config(
         .any(|spec| matches!(spec.strike_policy, StrikePolicy::AllStrikes))
         && option_instrument_ids.len() > ALL_STRIKES_READBACK_SAMPLE_LIMIT
     {
-        option_instrument_ids.truncate(ALL_STRIKES_READBACK_SAMPLE_LIMIT);
+        let quoted =
+            super::catalog::option_ids_with_quote_rows(catalog_root, &option_instrument_ids);
+        let source = if quoted.is_empty() {
+            &option_instrument_ids
+        } else {
+            &quoted
+        };
+        option_instrument_ids =
+            sample_all_strikes_instrument_ids(source, ALL_STRIKES_READBACK_SAMPLE_LIMIT);
     }
 
     let catalog_options = validation_options_for_config(config);
@@ -57,7 +66,10 @@ pub fn readback_options_for_config(
         option_instrument_ids,
         min_rows: 1,
         min_perp_trade_rows: catalog_options.min_perp_trade_rows,
+        min_option_trade_rows: catalog_options.min_option_trade_rows,
         require_contract_state,
+        skip_option_family_validation: catalog_options.skip_option_family_validation,
+        min_option_book_delta_rows: catalog_options.min_option_book_delta_rows,
         bar_types: catalog_options.bar_types,
     })
 }
@@ -81,7 +93,10 @@ pub fn readback_options_from_cli(
         option_instrument_ids,
         min_rows: min_rows.unwrap_or(1),
         min_perp_trade_rows: min_perp_trade_rows.unwrap_or(0),
+        min_option_trade_rows: 0,
         require_contract_state,
+        skip_option_family_validation: false,
+        min_option_book_delta_rows: 0,
         bar_types,
     })
 }
@@ -121,10 +136,11 @@ pub fn render_option_universe_readback_text(report: &OptionUniverseReadbackRepor
     }
     for option in &report.options {
         lines.push(format!(
-            "Option: {} quotes={} mark_prices={} option_greeks={} \
+            "Option: {} quotes={} trade_ticks={} mark_prices={} option_greeks={} \
              instrument_statuses={} instrument_closes={}",
             option.instrument_id,
             option.quotes,
+            option.trade_ticks,
             option.mark_prices,
             option.option_greeks,
             option.instrument_statuses,

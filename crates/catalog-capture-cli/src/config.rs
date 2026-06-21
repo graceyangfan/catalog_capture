@@ -585,8 +585,9 @@ fn parse_option_universe_family(value: &str) -> Result<OptionUniverseFamily> {
         "instrument_closes" => Ok(OptionUniverseFamily::InstrumentCloses),
         "option_greeks" => Ok(OptionUniverseFamily::OptionGreeks),
         "forward_prices" => Ok(OptionUniverseFamily::ForwardPrices),
+        "book_deltas" => Ok(OptionUniverseFamily::BookDeltas),
         other => bail!(
-            "unsupported capture.option_universe family {other}; expected instruments|quotes|trades|mark_prices|index_prices|funding_rates|instrument_statuses|instrument_closes|option_greeks"
+            "unsupported capture.option_universe family {other}; expected instruments|quotes|trades|mark_prices|index_prices|funding_rates|instrument_statuses|instrument_closes|option_greeks|forward_prices|book_deltas"
         ),
     }
 }
@@ -1042,6 +1043,39 @@ mod tests {
     }
 
     #[test]
+    fn validate_runtime_accepts_binance_perp_trades_profile() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                trades: vec![InstrumentSelector {
+                    instrument_id: "ETHUSDT-PERP.BINANCE".to_string(),
+                }],
+                quotes: vec![InstrumentSelector {
+                    instrument_id: "ETHUSDT-PERP.BINANCE".to_string(),
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "binance_futures_main".to_string(),
+                kind: "binance_futures".to_string(),
+                environment: "testnet".to_string(),
+                product_type: "usd_m".to_string(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        validate_runtime(&effective).expect("binance perp trades config should pass");
+        assert_eq!(effective.plan.trades.len(), 1);
+        assert_eq!(
+            effective.plan.trades[0].instrument_id.to_string(),
+            "ETHUSDT-PERP.BINANCE"
+        );
+    }
+
+    #[test]
     fn validate_runtime_rejects_binance_liquidation_until_arrow_support_exists() {
         let mut metadata = std::collections::BTreeMap::new();
         metadata.insert(
@@ -1072,7 +1106,40 @@ mod tests {
         .expect("config should resolve");
 
         let err = validate_runtime(&effective).expect_err("liquidation should fail early");
-        assert!(err.to_string().contains("Arrow batch encoding"));
+        assert!(err.to_string().contains("deferred"));
+        assert!(err.to_string().contains("4297"));
+    }
+
+    #[test]
+    fn validate_runtime_rejects_binance_ticker_and_open_interest_until_arrow_support_exists() {
+        for type_name in ["BinanceFuturesTicker", "BinanceFuturesOpenInterest"] {
+            let effective = resolve_config(CliConfigFile {
+                capture: CaptureConfigFile {
+                    custom_data: vec![CustomDataSelector {
+                        type_name: type_name.to_string(),
+                        identifier: Some("ETHUSDT-PERP.BINANCE".to_string()),
+                        metadata: std::collections::BTreeMap::new(),
+                    }],
+                    ..Default::default()
+                },
+                venues: vec![VenueConfig {
+                    id: "binance_main".to_string(),
+                    kind: "binance_futures".to_string(),
+                    environment: "testnet".to_string(),
+                    product_type: "usd_m".to_string(),
+                    product_types: Vec::new(),
+                    instrument_types: Vec::new(),
+                    instrument_families: Vec::new(),
+                }],
+                ..Default::default()
+            })
+            .expect("config should resolve");
+
+            let err = validate_runtime(&effective)
+                .expect_err(&format!("{type_name} should fail early"));
+            assert!(err.to_string().contains("deferred"));
+            assert!(err.to_string().contains("4297"));
+        }
     }
 
     #[test]
@@ -1693,6 +1760,36 @@ mod tests {
     }
 
     #[test]
+    fn example_binance_perp_bars_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.binance-perp-bars.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_hyperliquid_bars_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.hyperliquid-bars.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_deribit_option_universe_book_deltas_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.deribit-btc-universe-book-deltas.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+        assert!(
+            effective
+                .option_universes
+                .iter()
+                .any(|spec| spec.families.contains(&OptionUniverseFamily::BookDeltas))
+        );
+    }
+
+    #[test]
     fn example_deribit_option_universe_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-btc-universe.toml");
         let loaded = load_config(&path).expect("example should load");
@@ -1803,6 +1900,30 @@ mod tests {
     #[test]
     fn example_deribit_option_universe_all_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-btc-universe-all.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+        assert!(matches!(
+            effective.option_universes[0].strike_policy,
+            StrikePolicy::AllStrikes
+        ));
+    }
+
+    #[test]
+    fn example_bybit_option_universe_all_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.bybit-btc-universe-all.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+        assert!(matches!(
+            effective.option_universes[0].strike_policy,
+            StrikePolicy::AllStrikes
+        ));
+    }
+
+    #[test]
+    fn example_okx_option_universe_all_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.okx-btc-universe-all.toml");
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");

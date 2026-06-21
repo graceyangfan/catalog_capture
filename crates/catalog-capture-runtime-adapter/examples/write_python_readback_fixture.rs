@@ -20,7 +20,7 @@ use catalog_capture_core::{
     plan::{
         CapturePlan, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
         InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
-        OptionGreeksCaptureSpec, QuoteCaptureSpec,
+        BarCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
     },
 };
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
@@ -28,11 +28,11 @@ use nautilus_common::actor::DataActor;
 use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{
-        close::InstrumentClose, FundingRateUpdate, IndexPriceUpdate, InstrumentStatus,
-        MarkPriceUpdate, OptionGreekValues, OptionGreeks, QuoteTick,
+        close::InstrumentClose, Bar, BarType, FundingRateUpdate, IndexPriceUpdate,
+        InstrumentStatus, MarkPriceUpdate, OptionGreekValues, OptionGreeks, QuoteTick, TradeTick,
     },
-    enums::{GreeksConvention, InstrumentCloseType, MarketStatusAction},
-    identifiers::{ActorId, InstrumentId},
+    enums::{AggressorSide, GreeksConvention, InstrumentCloseType, MarketStatusAction},
+    identifiers::{ActorId, InstrumentId, TradeId},
     instruments::{stubs::crypto_perpetual_ethusdt, InstrumentAny},
     types::{Price, Quantity},
 };
@@ -153,6 +153,45 @@ fn create_instrument_closes(
         .collect()
 }
 
+fn create_bars(bar_type: BarType, base_ts: u64, count: usize) -> Vec<Bar> {
+    (0..count)
+        .map(|index| {
+            let ts = base_ts + index as u64 * 60_000_000_000;
+            Bar::new(
+                bar_type,
+                Price::from("2500.00"),
+                Price::from("2501.00"),
+                Price::from("2499.00"),
+                Price::from("2500.50"),
+                Quantity::from("12.5"),
+                UnixNanos::from(ts),
+                UnixNanos::from(ts),
+            )
+        })
+        .collect()
+}
+
+fn create_trade_ticks(instrument_id: InstrumentId, base_ts: u64, count: usize) -> Vec<TradeTick> {
+    (0..count)
+        .map(|index| {
+            let ts = base_ts + index as u64 * 1_000;
+            TradeTick::new(
+                instrument_id,
+                Price::from("2500.50"),
+                Quantity::from("1.5"),
+                if index % 2 == 0 {
+                    AggressorSide::Buyer
+                } else {
+                    AggressorSide::Seller
+                },
+                TradeId::from(format!("trade-{}", index + 1)),
+                UnixNanos::from(ts),
+                UnixNanos::from(ts),
+            )
+        })
+        .collect()
+}
+
 fn create_option_greeks(
     instrument_id: InstrumentId,
     base_ts: u64,
@@ -202,6 +241,7 @@ fn main() -> Result<()> {
 
     let instrument = InstrumentAny::CryptoPerpetual(crypto_perpetual_ethusdt());
     let instrument_id = InstrumentId::from_str("ETHUSDT-PERP.BINANCE")?;
+    let bar_type = BarType::from_str("ETHUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL")?;
 
     let capture = CaptureConfig {
         catalog_uri: format!("file://{}", catalog_dir.display()),
@@ -214,6 +254,8 @@ fn main() -> Result<()> {
     let plan = CapturePlan {
         instruments: vec![InstrumentCaptureSpec { instrument_id }],
         quotes: vec![QuoteCaptureSpec { instrument_id }],
+        trades: vec![TradeCaptureSpec { instrument_id }],
+        bars: vec![BarCaptureSpec { bar_type }],
         mark_prices: vec![MarkPriceCaptureSpec { instrument_id }],
         index_prices: vec![IndexPriceCaptureSpec { instrument_id }],
         funding_rates: vec![FundingRateCaptureSpec { instrument_id }],
@@ -238,6 +280,16 @@ fn main() -> Result<()> {
     let quotes = create_quote_ticks(instrument_id, 1_000_000, 5);
     for quote in &quotes {
         DataActor::on_quote(&mut actor, quote)?;
+    }
+
+    let trades = create_trade_ticks(instrument_id, 1_500_000, 3);
+    for trade in &trades {
+        DataActor::on_trade(&mut actor, trade)?;
+    }
+
+    let bars = create_bars(bar_type, 1_250_000, 2);
+    for bar in &bars {
+        DataActor::on_bar(&mut actor, bar)?;
     }
 
     let mark_prices = create_mark_price_updates(instrument_id, 2_000_000, 2);
@@ -276,6 +328,9 @@ fn main() -> Result<()> {
     println!("Catalog dir: {}", catalog_dir.display());
     println!("Instrument id: {}", instrument_id);
     println!("Quote ticks: {}", quotes.len());
+    println!("Trade ticks: {}", trades.len());
+    println!("Bars: {}", bars.len());
+    println!("Bar type: {}", bar_type);
     println!("Mark price updates: {}", mark_prices.len());
     println!("Index price updates: {}", index_prices.len());
     println!("Funding rate updates: {}", funding_rates.len());

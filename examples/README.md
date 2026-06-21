@@ -24,6 +24,39 @@ environment from the sibling `../nautilus_trader` checkout (see `docs/getting_st
   - verify with:
     - `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
     - fixture contract-state: add `--require-contract-state` after `pyo3_market_readback_smoke.py`
+- `examples/capture.binance-perp-trades.toml`
+  - Step 6a profile: Step 1–2 families plus `trades` on `ETHUSDT-PERP.BINANCE`
+  - intended to be used with:
+    - `cargo run -p catalog-capture-cli -- validate --config examples/capture.binance-perp-trades.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp-trades.toml`
+  - verify with:
+    - `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1 --min-trade-rows 1`
+    - fixture smoke: `python3 tests/python_binance_trades_smoke.py`
+    - live smoke (network, 3 min): `python3 tests/probe_binance_trades_smoke.py --cleanup`
+- Step 6b option-universe `trades` smoke (Deribit research / Bybit / OKX, 3 min default):
+  - `python3 tests/probe_option_universe_trades_smoke.py --cleanup`
+  - single venue: `--venue bybit`
+- `examples/capture.binance-perp-bars.toml`
+  - Step 6c profile: Step 1–2 families plus `bars` on `ETHUSDT-PERP.BINANCE`
+  - intended to be used with:
+    - `cargo run -p catalog-capture-cli -- validate --config examples/capture.binance-perp-bars.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp-bars.toml`
+  - verify with:
+    - `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1 --bar-type ETHUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL`
+    - fixture smoke: `python3 tests/python_bars_readback_smoke.py`
+    - live smoke (network, 3 min): `python3 tests/probe_binance_bars_smoke.py --cleanup`
+- `examples/capture.hyperliquid-bars.toml`
+  - Step 6c profile: Hyperliquid perp quotes + 1m `LAST-EXTERNAL` bars
+  - intended to be used with:
+    - `cargo run -p catalog-capture-cli -- validate --config examples/capture.hyperliquid-bars.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-bars.toml`
+  - verify with:
+    - `python3 tests/python_hyperliquid_bars_probe.py <catalog_dir>`
+    - live smoke (network, 3 min): `python3 tests/probe_hyperliquid_bars_smoke.py --cleanup`
+- Step 6c `bars` smoke (all venues, perp 1m `LAST-EXTERNAL`, 3 min default):
+  - fixture: `python3 tests/python_bars_readback_smoke.py`
+  - live all venues: `python3 tests/probe_bars_smoke.py --cleanup`
+  - option-universe only: `python3 tests/probe_option_universe_bars_smoke.py --cleanup`
 - `examples/capture.deribit-btc.toml`
   - Step 3 profile: Deribit BTC perp + near-term ATM call/put (hard-coded instrument IDs)
   - captures `instruments`, `quotes`, `mark_prices`, `index_prices`, `funding_rates`, `option_greeks`
@@ -188,7 +221,7 @@ Use these profiles by intent rather than by venue alone:
 | Rolling live baseline | `capture.deribit-btc-universe-autorefresh.toml` | `capture.bybit-btc-universe-autorefresh.toml` | `capture.okx-btc-universe-autorefresh.toml` |
 | Research-ready baseline | `capture.deribit-btc-universe-research.toml` | `capture.bybit-btc-universe.toml` | `capture.okx-btc-universe.toml` |
 | OI-ranked selection | `capture.deribit-btc-universe-oi-ranked-autorefresh.toml` | `capture.bybit-btc-universe-oi-ranked.toml` | `capture.okx-btc-universe-oi-ranked.toml` |
-| Full-chain batch | `capture.deribit-btc-universe-all.toml` | — | — |
+| Full-chain batch | `capture.deribit-btc-universe-all.toml` | `capture.bybit-btc-universe-all.toml` | `capture.okx-btc-universe-all.toml` |
 
 Notes:
 

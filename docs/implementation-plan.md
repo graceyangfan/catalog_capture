@@ -77,9 +77,17 @@ The first implementation pass should stay narrow and business-driven:
 
 That means the initial custom-data order should be:
 
-1. `HyperliquidOpenInterest`
-2. `DeribitVolatilityIndex`
-3. `BinanceFuturesLiquidation`
+1. `HyperliquidOpenInterest` ✅
+2. `DeribitVolatilityIndex` ✅
+3. **Step 6** — built-in `trades` / selective `book_deltas` / `bars` — done (see `docs/stepwise-capture-roadmap.md`)
+4. **Step 7–8** — HTTP `RequestCustomData` / historical backfill — **skipped** for now
+5. **Step 9 next** — option-universe polish + offline DM derivation jobs
+
+Binance Futures custom families below are **deferred until upstream Arrow support** ([nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)):
+
+- `BinanceFuturesLiquidation`
+- `BinanceFuturesTicker`
+- `BinanceFuturesOpenInterest`
 
 And explicitly **not**:
 
@@ -171,6 +179,7 @@ The file-lifecycle tuning criteria for that decision are documented in:
 
 These are intentionally deferred:
 
+- Binance Futures `BinanceFuturesLiquidation`, `BinanceFuturesTicker`, and `BinanceFuturesOpenInterest` custom capture until [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297) merges
 - built-in framework capture service
 - forced object-store semantics support
 - compaction as a required feature

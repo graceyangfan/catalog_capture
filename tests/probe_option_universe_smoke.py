@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -19,6 +18,7 @@ except ImportError:  # pragma: no cover - optional local validation dependency.
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROBE_CLEANUP = PROJECT_ROOT / "tests" / "probe_cleanup.py"
 METRICS_PROBE = PROJECT_ROOT / "tests" / "python_option_universe_metrics_probe.py"
 DVOL_PROBE = PROJECT_ROOT / "tests" / "python_catalog_deribit_dvol_probe.py"
 CLI_VALIDATE = PROJECT_ROOT / "tests" / "option_universe_cli_validate.py"
@@ -39,6 +39,9 @@ VENUE_CONFIGS = {
     "deribit-research": (
         PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-research.toml"
     ),
+    "deribit-book-deltas": (
+        PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-book-deltas.toml"
+    ),
     "deribit-oi-ranked": (
         PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-oi-ranked.toml"
     ),
@@ -55,6 +58,12 @@ VENUE_CONFIGS = {
     ),
     "deribit-all": (
         PROJECT_ROOT / "examples" / "capture.deribit-btc-universe-all.toml"
+    ),
+    "bybit-all": (
+        PROJECT_ROOT / "examples" / "capture.bybit-btc-universe-all.toml"
+    ),
+    "okx-all": (
+        PROJECT_ROOT / "examples" / "capture.okx-btc-universe-all.toml"
     ),
 }
 
@@ -81,8 +90,41 @@ REQUIRED_FAMILIES = (
 TRADE_FAMILY_NAMES = ("trade_tick", "trades")
 VENUES_REQUIRING_TRADES = frozenset({"okx", "bybit", "okx-oi-ranked", "bybit-oi-ranked"})
 
-ALL_STRIKES_VENUES = frozenset({"deribit-all"})
+ALL_STRIKES_VENUES = frozenset({"deribit-all", "bybit-all", "okx-all"})
 READBACK_OPTION_SAMPLE_LIMIT = 6
+
+
+def sample_all_strikes_option_ids(option_ids: list[str], limit: int) -> list[str]:
+    """Return an ATM-centered window from a strike-sorted option list."""
+    if len(option_ids) <= limit:
+        return option_ids
+    mid = len(option_ids) // 2
+    half = limit // 2
+    start = max(0, mid - half)
+    end = min(len(option_ids), start + limit)
+    start = max(0, end - limit)
+    return option_ids[start:end]
+
+
+def option_ids_with_quote_rows(catalog_dir: Path, option_ids: list[str]) -> list[str]:
+    """Keep strike order but drop options with no quote parquet rows."""
+    if pq is None:
+        return option_ids
+
+    quoted: list[str] = []
+    for option_id in option_ids:
+        for family in ("quotes", "quote_tick"):
+            family_dir = catalog_dir / "data" / family / option_id
+            if not family_dir.exists():
+                continue
+            rows = sum(
+                pq.ParquetFile(path).metadata.num_rows
+                for path in family_dir.glob("*.parquet")
+            )
+            if rows > 0:
+                quoted.append(option_id)
+                break
+    return quoted
 _CLI_VALIDATE = importlib.util.spec_from_file_location(
     "option_universe_cli_validate",
     CLI_VALIDATE,
@@ -91,6 +133,12 @@ _cli_validate_mod = importlib.util.module_from_spec(_CLI_VALIDATE)
 assert _CLI_VALIDATE.loader is not None
 _CLI_VALIDATE.loader.exec_module(_cli_validate_mod)
 run_validation_suite = _cli_validate_mod.run_validation_suite
+
+_PROBE_CLEANUP = importlib.util.spec_from_file_location("probe_cleanup", PROBE_CLEANUP)
+_probe_cleanup_mod = importlib.util.module_from_spec(_PROBE_CLEANUP)
+assert _PROBE_CLEANUP.loader is not None
+_PROBE_CLEANUP.loader.exec_module(_probe_cleanup_mod)
+cleanup_probe_artifacts = _probe_cleanup_mod.cleanup_probe_artifacts
 
 
 def main() -> int:
@@ -106,6 +154,7 @@ def main() -> int:
             "all-plus-research",
             "all-plus-oi-ranked",
             "all-oi-ranked",
+            "all-all-chain",
         ),
         default="all",
         help=(
@@ -113,7 +162,8 @@ def main() -> int:
             "'all-autorefresh' runs deribit/okx/bybit autorefresh profiles; "
             "'all-plus-research' also runs the Deribit research profile; "
             "'all-plus-oi-ranked' also runs Deribit OI-ranked; "
-            "'all-oi-ranked' runs Deribit/Bybit/OKX OI-ranked profiles."
+            "'all-oi-ranked' runs Deribit/Bybit/OKX OI-ranked profiles; "
+            "'all-all-chain' runs Deribit/Bybit/OKX full-chain profiles."
         ),
     )
     parser.add_argument(
@@ -130,7 +180,7 @@ def main() -> int:
     parser.add_argument(
         "--cleanup",
         action="store_true",
-        help="Remove generated catalogs after successful validation.",
+        help="Remove generated catalogs and temp configs after each venue run.",
     )
     parser.add_argument(
         "--cargo",
@@ -175,6 +225,8 @@ def main() -> int:
         venues = [*STANDARD_VENUES, "deribit-oi-ranked"]
     elif args.venue == "all-oi-ranked":
         venues = ["deribit-oi-ranked", "bybit-oi-ranked", "okx-oi-ranked"]
+    elif args.venue == "all-all-chain":
+        venues = ["deribit-all", "bybit-all", "okx-all"]
     else:
         venues = [args.venue]
     failures = []
@@ -208,59 +260,67 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
 
     print(f"\n[{venue}] config={temp_config}", flush=True)
     print(f"[{venue}] catalog={catalog_dir}", flush=True)
-    command = [
-        args.cargo,
-        "run",
-        "-p",
-        "catalog-capture-cli",
-        "--",
-        "run",
-        "--config",
-        str(temp_config),
-        "--print-option-universe",
-        "--option-universe-format",
-        "text",
-        "--skip-post-run-report",
-    ]
-    print(f"[{venue}] running live capture for {args.seconds}s", flush=True)
-    output = run_and_stream(command)
+    try:
+        command = [
+            args.cargo,
+            "run",
+            "-p",
+            "catalog-capture-cli",
+            "--",
+            "run",
+            "--config",
+            str(temp_config),
+            "--print-option-universe",
+            "--option-universe-format",
+            "text",
+            "--skip-post-run-report",
+        ]
+        print(f"[{venue}] running live capture for {args.seconds}s", flush=True)
+        output = run_and_stream(command)
 
-    summary = summarize_catalog(catalog_dir)
-    print_catalog_summary(venue, catalog_dir, summary)
-    if venue in AUTOREFRESH_VALIDATION_VENUES:
-        refresh_change_logs = count_refresh_change_logs(output)
-        print(
-            f"[{venue}] refresh_change_log_lines={refresh_change_logs}",
-            flush=True,
+        summary = summarize_catalog(catalog_dir)
+        print_catalog_summary(venue, catalog_dir, summary)
+        if venue in AUTOREFRESH_VALIDATION_VENUES:
+            refresh_change_logs = count_refresh_change_logs(output)
+            print(
+                f"[{venue}] refresh_change_log_lines={refresh_change_logs}",
+                flush=True,
+            )
+
+        perp_id, option_ids = parse_resolution_output(output)
+        readback_option_ids = option_ids
+        if venue in ALL_STRIKES_VENUES and len(option_ids) > READBACK_OPTION_SAMPLE_LIMIT:
+            quoted_option_ids = option_ids_with_quote_rows(catalog_dir, option_ids)
+            if not quoted_option_ids:
+                raise RuntimeError(
+                    f"[{venue}] no option quote parquet rows found for readback sampling"
+                )
+            readback_option_ids = sample_all_strikes_option_ids(
+                quoted_option_ids,
+                READBACK_OPTION_SAMPLE_LIMIT,
+            )
+            print(
+                f"[{venue}] readback sampling {len(readback_option_ids)} of "
+                f"{len(option_ids)} resolved options ({len(quoted_option_ids)} with quotes)",
+                flush=True,
+            )
+        run_validation_suite(
+            catalog_dir,
+            temp_config,
+            venue,
+            args,
+            readback_option_ids=None if args.skip_readback_probe else readback_option_ids,
+            readback_perp_id=None if args.skip_readback_probe else perp_id,
         )
+        if args.metrics_probe:
+            run_metrics_probe(catalog_dir, perp_id, option_ids)
 
-    perp_id, option_ids = parse_resolution_output(output)
-    readback_option_ids = option_ids
-    if venue in ALL_STRIKES_VENUES and len(option_ids) > READBACK_OPTION_SAMPLE_LIMIT:
-        readback_option_ids = option_ids[:READBACK_OPTION_SAMPLE_LIMIT]
-        print(
-            f"[{venue}] readback sampling {len(readback_option_ids)} of "
-            f"{len(option_ids)} resolved options",
-            flush=True,
-        )
-    run_validation_suite(
-        catalog_dir,
-        temp_config,
-        venue,
-        args,
-        readback_option_ids=None if args.skip_readback_probe else readback_option_ids,
-        readback_perp_id=None if args.skip_readback_probe else perp_id,
-    )
-    if args.metrics_probe:
-        run_metrics_probe(catalog_dir, perp_id, option_ids)
-
-    if venue == "deribit-research":
-        run_dvol_probe(catalog_dir)
-
-    if args.cleanup:
-        shutil.rmtree(catalog_dir)
-        temp_config.unlink(missing_ok=True)
-        print(f"[{venue}] cleaned up generated catalog and config")
+        if venue == "deribit-research":
+            run_dvol_probe(catalog_dir)
+    finally:
+        if args.cleanup:
+            cleanup_probe_artifacts(catalog_dir, temp_config)
+            print(f"[{venue}] cleaned up generated catalog and config")
 
 
 def run_and_stream(command: list[str]) -> str:

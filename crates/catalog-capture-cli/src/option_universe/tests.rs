@@ -117,6 +117,47 @@ fn expand_option_universe_builds_capture_plan_from_resolved_snapshot() {
 }
 
 #[test]
+fn expand_option_universe_builds_book_deltas_for_selected_options() {
+    let spec = OptionUniverseSpec {
+        venue_id: "deribit_main".to_string(),
+        underlying: "BTC".to_string(),
+        settlement_currency: None,
+        include_perp: true,
+        families: vec![
+            OptionUniverseFamily::Instruments,
+            OptionUniverseFamily::BookDeltas,
+        ],
+        expiry_policy: ExpiryPolicy::Nearest { days_max: 45 },
+        strike_policy: StrikePolicy::AtmRelative {
+            strikes_above: 2,
+            strikes_below: 2,
+        },
+    };
+    let resolved = ResolvedOptionUniverse {
+        resolved_at_ns: 1.into(),
+        selected_expiry_ns: 2.into(),
+        atm_reference: Price::from("62000"),
+        atm_reference_source: None,
+        selected_strikes: vec![Price::from("62000")],
+        perp_instrument_id: Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
+        option_instrument_ids: vec![
+            InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT"),
+            InstrumentId::from("BTC-27JUN26-62000-P.DERIBIT"),
+        ],
+        all_instrument_ids: vec![
+            InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT"),
+            InstrumentId::from("BTC-27JUN26-62000-P.DERIBIT"),
+            InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
+        ],
+    };
+
+    let plan = expand_option_universe(&spec, &resolved);
+    assert_eq!(plan.instruments.len(), 3);
+    assert_eq!(plan.book_deltas.len(), 2);
+    assert!(plan.quotes.is_empty());
+}
+
+#[test]
 fn build_option_universe_resolution_report_renders_expected_fields() {
     let spec = OptionUniverseSpec {
         venue_id: "deribit_main".to_string(),

@@ -155,5 +155,17 @@ fn validate_option_universe(
         bail!("capture.option_universe strike_policy oi_ranked requires option_greeks in families");
     }
 
+    let wants_book_deltas = spec
+        .families
+        .iter()
+        .any(|family| matches!(family, OptionUniverseFamily::BookDeltas));
+    let has_instruments = spec
+        .families
+        .iter()
+        .any(|family| matches!(family, OptionUniverseFamily::Instruments));
+    if wants_book_deltas && !has_instruments {
+        bail!("capture.option_universe families book_deltas require instruments in the same families list");
+    }
+
     Ok(())
 }

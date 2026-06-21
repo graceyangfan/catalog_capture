@@ -1,0 +1,35 @@
+# Step 6c profile: Hyperliquid perp quotes + 1m bars (A9).
+# Verify with:
+#   python3 tests/python_hyperliquid_bars_probe.py <catalog_dir>
+# Live smoke:
+#   python3 tests/probe_hyperliquid_bars_smoke.py --cleanup
+
+[runtime]
+capture_seconds = 180
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-HYPERLIQUID-BARS"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-hyperliquid-bars"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 1000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+queue_capacity = 10000
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "hyperliquid_main"
+kind = "hyperliquid"
+environment = "testnet"
+
+[[capture.instruments]]
+instrument_id = "ETH-USD-PERP.HYPERLIQUID"
+
+[[capture.quotes]]
+instrument_id = "ETH-USD-PERP.HYPERLIQUID"
+
+[[capture.bars]]
+bar_type = "ETH-USD-PERP.HYPERLIQUID-1-MINUTE-LAST-EXTERNAL"

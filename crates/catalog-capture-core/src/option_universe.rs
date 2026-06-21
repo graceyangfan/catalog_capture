@@ -16,7 +16,7 @@ use std::{collections::BTreeMap, str::FromStr};
 
 use nautilus_core::UnixNanos;
 use nautilus_model::{
-    enums::OptionKind,
+    enums::{BookType, OptionKind},
     identifiers::InstrumentId,
     instruments::{Instrument, InstrumentAny},
     types::Price,
@@ -24,9 +24,10 @@ use nautilus_model::{
 use thiserror::Error;
 
 use crate::plan::{
-    CapturePlan, ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec,
-    InstrumentCaptureSpec, InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec,
-    MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
+    BookDeltasCaptureSpec, CapturePlan, ForwardPriceCaptureSpec, FundingRateCaptureSpec,
+    IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
+    InstrumentStatusCaptureSpec, MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec,
+    TradeCaptureSpec,
 };
 
 const DAY_NS: u64 = 86_400_000_000_000;
@@ -43,6 +44,7 @@ pub enum OptionUniverseFamily {
     InstrumentCloses,
     OptionGreeks,
     ForwardPrices,
+    BookDeltas,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -403,6 +405,14 @@ pub fn expand_option_universe(
                 for instrument_id in &resolved.option_instrument_ids {
                     plan.forward_prices.push(ForwardPriceCaptureSpec {
                         instrument_id: *instrument_id,
+                    });
+                }
+            }
+            OptionUniverseFamily::BookDeltas => {
+                for instrument_id in &resolved.option_instrument_ids {
+                    plan.book_deltas.push(BookDeltasCaptureSpec {
+                        instrument_id: *instrument_id,
+                        book_type: BookType::L2_MBP,
                     });
                 }
             }

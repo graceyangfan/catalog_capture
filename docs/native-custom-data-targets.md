@@ -91,11 +91,27 @@ A custom data family is a good target when all of the following are true:
 - the family can be described declaratively in `CapturePlan` / CLI config
 - the resulting parquet should be meaningful to read later through catalog readback surfaces
 
+## Upstream-blocked (deferred)
+
+The following Binance Futures adapter custom types are **not implemented in this project** until
+`nautilus-binance` registers them for Arrow/Parquet encoding upstream:
+
+| Type | Planned step | Tracker |
+|---|---|---|
+| `BinanceFuturesLiquidation` | Step 5b (WS) | [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297) |
+| `BinanceFuturesTicker` | backlog (WS) | same |
+| `BinanceFuturesOpenInterest` | Step 7 (HTTP request) | same |
+
+Runtime subscribe/request may work in Nautilus today, but direct `ParquetDataCatalog` capture
+requires Arrow registration. CLI configs referencing these `type_name` values are rejected at
+startup. **Step 6 WS families are done**; **Step 7–8 HTTP capture/backfill are skipped**; focus
+**Step 9** (see `docs/stepwise-capture-roadmap.md`).
+
 ## P0 targets
 
 These are the best next targets for direct capture support in **`targeted_derivatives`** mode.
 
-### `BinanceFuturesLiquidation`
+### `BinanceFuturesLiquidation`（deferred → #4297）
 
 - Adapter: Binance Futures
 - Source shape: live stream
@@ -109,6 +125,16 @@ These are the best next targets for direct capture support in **`targeted_deriva
   - already partitioned by instrument through `DataType` metadata when subscribed per instrument
   - stream-native and fits the runtime capture model
   - should be used primarily for selected underlyings, not as the default all-market stream
+- Status:
+  - **deferred** until [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297) lands; do not implement locally
+
+### `BinanceFuturesTicker`（deferred → #4297）
+
+- Adapter: Binance Futures
+- Source shape: live stream (`ticker`)
+- Reference: `crates/adapters/binance/src/data_types.rs`
+- Status:
+  - same Arrow-registration gap as liquidation; tracked in #4297; **not in current scope**
 
 ### `HyperliquidOpenInterest`
 
@@ -147,7 +173,7 @@ These are the best next targets for direct capture support in **`targeted_deriva
 
 These are strong, but slightly less central to the immediate **runtime** derivatives roadmap.
 
-### `BinanceFuturesOpenInterest`
+### `BinanceFuturesOpenInterest`（deferred → #4297）
 
 - Adapter: Binance Futures
 - Source shape: request/snapshot style
@@ -157,6 +183,8 @@ These are strong, but slightly less central to the immediate **runtime** derivat
 - Caveat:
   - request/snapshot-oriented rather than naturally streaming
   - still worth supporting, but should come after the first real-time OI family
+- Status:
+  - **deferred** until #4297; Step 7 work proceeds with other venues first
 
 ### `BinanceFuturesOpenInterestHist`
 
@@ -245,18 +273,21 @@ These are valid custom families, but less central for the immediate derivatives 
 To stay focused on **specific derivatives underlyings rather than all-market recording**, while
 recording adapter-native payloads as emitted, the best order is:
 
-1. `HyperliquidOpenInterest`
-2. `DeribitVolatilityIndex`
-3. `BinanceFuturesLiquidation`
-4. `BinanceFuturesOpenInterest`
-5. `BinanceFuturesOpenInterestHist`
+1. `HyperliquidOpenInterest` ✅
+2. `DeribitVolatilityIndex` ✅
+3. **Step 6** — built-in `trades` / selective `book_deltas` / `bars` — done
+4. **Step 9 next** — universe polish + offline derivation (HTTP Steps 7–8 skipped)
+5. `BinanceFuturesLiquidation` — after [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)
+6. `BinanceFuturesOpenInterest` — after #4297 (Step 7, skipped until re-evaluated)
+7. `BinanceFuturesOpenInterestHist` — backfill mode (Step 8, skipped until re-evaluated)
 
 ## Why this order
 
 - `HyperliquidOpenInterest` gives us a true adapter-native open-interest family without inventing a
   local schema.
 - `DeribitVolatilityIndex` supports the options roadmap immediately.
-- `BinanceFuturesLiquidation` is high-value, stream-native, and easy to reason about.
+- Binance liquidation / ticker / snapshot OI remain valuable, but **blocked on upstream Arrow
+  registration**; the project continues with Step 6 rather than local workarounds.
 - Binance real-time/snapshot open-interest is useful next, but still secondary to the first
   continuously emitted OI family.
 - Binance historical open-interest should stay in the backlog as a backfill mode rather than

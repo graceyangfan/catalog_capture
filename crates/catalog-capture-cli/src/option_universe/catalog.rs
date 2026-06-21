@@ -20,7 +20,8 @@ use std::{
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
     forward_price_log_path, read_option_universe_resolution_records,
-    summarize_option_universe_resolution_records, OptionUniverseResolutionSummary,
+    sample_all_strikes_instrument_ids, summarize_option_universe_resolution_records,
+    OptionUniverseResolutionSummary, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
 };
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use serde::Serialize;
@@ -29,8 +30,12 @@ use serde::Serialize;
 pub struct OptionUniverseCatalogValidationOptions {
     pub min_rows: i64,
     pub min_perp_trade_rows: i64,
+    pub min_option_trade_rows: i64,
     pub require_contract_state: bool,
     pub require_refresh_change: bool,
+    pub require_forward_prices_metadata: bool,
+    pub skip_option_family_validation: bool,
+    pub min_option_book_delta_rows: i64,
     pub bar_types: Vec<String>,
 }
 
@@ -54,6 +59,12 @@ pub fn validate_option_universe_catalog(
     if options.min_perp_trade_rows < 0 {
         bail!("min_perp_trade_rows must be >= 0");
     }
+    if options.min_option_trade_rows < 0 {
+        bail!("min_option_trade_rows must be >= 0");
+    }
+    if options.min_option_book_delta_rows < 0 {
+        bail!("min_option_book_delta_rows must be >= 0");
+    }
 
     let records = read_option_universe_resolution_records(catalog_root)?;
     let summaries = summarize_option_universe_resolution_records(&records);
@@ -61,7 +72,9 @@ pub fn validate_option_universe_catalog(
         bail!("no option universe resolution metadata found");
     }
 
-    validate_forward_prices_metadata(catalog_root)?;
+    if options.require_forward_prices_metadata && !options.skip_option_family_validation {
+        validate_forward_prices_metadata(catalog_root)?;
+    }
     for bar_type in &options.bar_types {
         assert_family_rows(
             catalog_root,
@@ -116,6 +129,35 @@ pub fn render_option_universe_catalog_validation_text(
         .join("\n\n")
 }
 
+fn option_ids_for_catalog_validation(
+    catalog_root: &Path,
+    summary: &OptionUniverseResolutionSummary,
+) -> Vec<String> {
+    if summary.strike_selection_mode == "all"
+        && summary.option_instrument_ids.len() > ALL_STRIKES_READBACK_SAMPLE_LIMIT
+    {
+        let quoted = option_ids_with_quote_rows(catalog_root, &summary.option_instrument_ids);
+        let source = if quoted.is_empty() {
+            &summary.option_instrument_ids
+        } else {
+            &quoted
+        };
+        sample_all_strikes_instrument_ids(source, ALL_STRIKES_READBACK_SAMPLE_LIMIT)
+    } else {
+        summary.option_instrument_ids.clone()
+    }
+}
+
+pub(crate) fn option_ids_with_quote_rows(catalog_root: &Path, option_ids: &[String]) -> Vec<String> {
+    option_ids
+        .iter()
+        .filter(|option_id| {
+            count_family_rows(catalog_root, &["quotes", "quote_tick"], option_id) > 0
+        })
+        .cloned()
+        .collect()
+}
+
 fn validate_summary(
     catalog_root: &Path,
     summary: &OptionUniverseResolutionSummary,
@@ -144,34 +186,38 @@ fn validate_summary(
         );
     }
 
-    assert_family_rows(
-        catalog_root,
-        &["quotes", "quote_tick"],
-        &perp_id,
-        options.min_rows,
-        &format!("perp quotes[{perp_id}]"),
-    )?;
-    assert_family_rows(
-        catalog_root,
-        &["mark_prices", "mark_price_update"],
-        &perp_id,
-        options.min_rows,
-        &format!("perp mark_prices[{perp_id}]"),
-    )?;
-    assert_family_rows(
-        catalog_root,
-        &["index_prices", "index_price_updates"],
-        &perp_id,
-        options.min_rows,
-        &format!("perp index_prices[{perp_id}]"),
-    )?;
-    assert_family_rows(
-        catalog_root,
-        &["funding_rate_update"],
-        &perp_id,
-        options.min_rows,
-        &format!("perp funding[{perp_id}]"),
-    )?;
+    if !options.skip_option_family_validation {
+        assert_family_rows(
+            catalog_root,
+            &["quotes", "quote_tick"],
+            &perp_id,
+            options.min_rows,
+            &format!("perp quotes[{perp_id}]"),
+        )?;
+    }
+    if !options.skip_option_family_validation {
+        assert_family_rows(
+            catalog_root,
+            &["mark_prices", "mark_price_update"],
+            &perp_id,
+            options.min_rows,
+            &format!("perp mark_prices[{perp_id}]"),
+        )?;
+        assert_family_rows(
+            catalog_root,
+            &["index_prices", "index_price_updates"],
+            &perp_id,
+            options.min_rows,
+            &format!("perp index_prices[{perp_id}]"),
+        )?;
+        assert_family_rows(
+            catalog_root,
+            &["funding_rate_update"],
+            &perp_id,
+            options.min_rows,
+            &format!("perp funding[{perp_id}]"),
+        )?;
+    }
     if options.min_perp_trade_rows > 0 {
         assert_family_rows(
             catalog_root,
@@ -198,7 +244,71 @@ fn validate_summary(
         )?;
     }
 
-    for option_id in &summary.option_instrument_ids {
+    if options.min_option_trade_rows > 0 {
+        let options_with_trades = summary
+            .option_instrument_ids
+            .iter()
+            .filter(|option_id| {
+                count_family_rows(catalog_root, &["trades", "trade_tick"], option_id)
+                    >= options.min_option_trade_rows
+            })
+            .count();
+        if options_with_trades == 0 {
+            bail!(
+                "expected at least one option with >= {} trade parquet rows; \
+                 validated {} options",
+                options.min_option_trade_rows,
+                summary.option_instrument_ids.len()
+            );
+        }
+    }
+
+    if options.min_option_book_delta_rows > 0 {
+        let options_with_book_deltas = summary
+            .option_instrument_ids
+            .iter()
+            .filter(|option_id| {
+                count_family_rows(catalog_root, &["order_book_deltas"], option_id)
+                    >= options.min_option_book_delta_rows
+            })
+            .count();
+        if options_with_book_deltas == 0 {
+            bail!(
+                "expected at least one option with >= {} order_book_deltas parquet rows; \
+                 validated {} options",
+                options.min_option_book_delta_rows,
+                summary.option_instrument_ids.len()
+            );
+        }
+    }
+
+    if options.skip_option_family_validation {
+        let sample_option = summary.option_instrument_ids.first().ok_or_else(|| {
+            anyhow::anyhow!(
+                "option universe {}:{} selected no option instruments for book-deltas validation",
+                summary.venue_id,
+                summary.underlying
+            )
+        })?;
+        assert_family_rows(
+            catalog_root,
+            &["instruments"],
+            sample_option,
+            1,
+            &format!("option instruments[{sample_option}]"),
+        )?;
+        return Ok(OptionUniverseCatalogValidationReport {
+            venue_id: summary.venue_id.clone(),
+            underlying: summary.underlying.clone(),
+            perp_instrument_id: perp_id,
+            option_count: summary.option_instrument_ids.len(),
+            refresh_count: summary.refresh_count,
+            latest_rollover_reason: summary.latest_rollover_reason.clone(),
+        });
+    }
+
+    let option_ids_for_validation = option_ids_for_catalog_validation(catalog_root, summary);
+    for option_id in &option_ids_for_validation {
         assert_family_rows(
             catalog_root,
             &["quotes", "quote_tick"],
@@ -256,6 +366,19 @@ fn validate_forward_prices_metadata(catalog_root: &Path) -> Result<()> {
         bail!("forward price metadata is empty: {}", path.display());
     }
     Ok(())
+}
+
+fn count_family_rows(catalog_root: &Path, family_aliases: &[&str], identifier: &str) -> i64 {
+    for family in family_aliases {
+        let path = catalog_root.join("data").join(family).join(identifier);
+        if !path.exists() {
+            continue;
+        }
+        if let Ok(rows) = sum_parquet_rows(&path) {
+            return rows;
+        }
+    }
+    0
 }
 
 fn assert_family_rows(

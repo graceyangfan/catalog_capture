@@ -442,15 +442,19 @@ fn validate_known_custom_data_types(
     Ok(())
 }
 
+const BINANCE_FUTURES_CUSTOM_DATA_UPSTREAM_ISSUE: &str =
+    "https://github.com/nautechsystems/nautilus_trader/issues/4297";
+
 fn validate_known_custom_data_type(
     data_type: &DataType,
     venues: &[VenueRuntimeConfig],
 ) -> Result<()> {
     match data_type.type_name() {
-        "BinanceFuturesLiquidation" => {
+        "BinanceFuturesLiquidation" | "BinanceFuturesTicker" | "BinanceFuturesOpenInterest" => {
             bail!(
-                "custom_data BinanceFuturesLiquidation is not yet supported for direct parquet \
-                 capture in this workspace because the type lacks Arrow batch encoding"
+                "custom_data {} is deferred until nautilus-binance adds Arrow batch encoding \
+                 (upstream {BINANCE_FUTURES_CUSTOM_DATA_UPSTREAM_ISSUE})",
+                data_type.type_name()
             );
         }
         "DeribitVolatilityIndex" => {
@@ -508,7 +512,7 @@ fn validate_known_custom_data_type(
         other => {
             bail!(
                 "unknown custom_data type_name `{other}`; supported values in this workspace: \
-                 DeribitVolatilityIndex, HyperliquidOpenInterest, BinanceFuturesLiquidation"
+                 DeribitVolatilityIndex, HyperliquidOpenInterest"
             );
         }
     }

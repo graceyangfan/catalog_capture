@@ -24,6 +24,9 @@ pub enum OptionUniverseCatalogValidationPreset {
     RollingAutorefresh,
     VenueTrades,
     Research,
+    TradesSmoke,
+    BarsSmoke,
+    BookDeltasSmoke,
 }
 
 pub fn validation_options_for_preset(
@@ -34,8 +37,12 @@ pub fn validation_options_for_preset(
             OptionUniverseCatalogValidationOptions {
                 min_rows: 1,
                 min_perp_trade_rows: 0,
+                min_option_trade_rows: 0,
                 require_contract_state: false,
                 require_refresh_change: false,
+                require_forward_prices_metadata: false,
+                skip_option_family_validation: false,
+                min_option_book_delta_rows: 0,
                 bar_types: Vec::new(),
             }
         }
@@ -43,8 +50,12 @@ pub fn validation_options_for_preset(
             OptionUniverseCatalogValidationOptions {
                 min_rows: 1,
                 min_perp_trade_rows: 0,
+                min_option_trade_rows: 0,
                 require_contract_state: false,
                 require_refresh_change: false,
+                require_forward_prices_metadata: false,
+                skip_option_family_validation: false,
+                min_option_book_delta_rows: 0,
                 bar_types: Vec::new(),
             }
         }
@@ -52,18 +63,65 @@ pub fn validation_options_for_preset(
             OptionUniverseCatalogValidationOptions {
                 min_rows: 1,
                 min_perp_trade_rows: 1,
+                min_option_trade_rows: 1,
                 require_contract_state: false,
                 require_refresh_change: false,
+                require_forward_prices_metadata: false,
+                skip_option_family_validation: false,
+                min_option_book_delta_rows: 0,
                 bar_types: Vec::new(),
             }
         }
         OptionUniverseCatalogValidationPreset::Research => OptionUniverseCatalogValidationOptions {
             min_rows: 1,
             min_perp_trade_rows: 0,
+            min_option_trade_rows: 0,
             require_contract_state: true,
             require_refresh_change: false,
+            require_forward_prices_metadata: false,
+            skip_option_family_validation: false,
+            min_option_book_delta_rows: 0,
             bar_types: vec!["BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL".to_string()],
         },
+        OptionUniverseCatalogValidationPreset::TradesSmoke => {
+            OptionUniverseCatalogValidationOptions {
+                min_rows: 1,
+                min_perp_trade_rows: 1,
+                min_option_trade_rows: 1,
+                require_contract_state: false,
+                require_refresh_change: false,
+                require_forward_prices_metadata: false,
+                skip_option_family_validation: false,
+                min_option_book_delta_rows: 0,
+                bar_types: Vec::new(),
+            }
+        }
+        OptionUniverseCatalogValidationPreset::BarsSmoke => {
+            OptionUniverseCatalogValidationOptions {
+                min_rows: 1,
+                min_perp_trade_rows: 0,
+                min_option_trade_rows: 0,
+                require_contract_state: false,
+                require_refresh_change: false,
+                require_forward_prices_metadata: false,
+                skip_option_family_validation: true,
+                min_option_book_delta_rows: 0,
+                bar_types: Vec::new(),
+            }
+        }
+        OptionUniverseCatalogValidationPreset::BookDeltasSmoke => {
+            OptionUniverseCatalogValidationOptions {
+                min_rows: 1,
+                min_perp_trade_rows: 0,
+                min_option_trade_rows: 0,
+                require_contract_state: false,
+                require_refresh_change: false,
+                require_forward_prices_metadata: false,
+                skip_option_family_validation: true,
+                min_option_book_delta_rows: 1,
+                bar_types: Vec::new(),
+            }
+        }
     }
 }
 
@@ -83,16 +141,13 @@ pub fn validation_options_for_config(
         options.bar_types = bar_types;
     }
 
-    if config
-        .option_universes
-        .iter()
-        .any(option_universe_requires_contract_state)
-    {
-        options.require_contract_state = true;
+    if config_includes_option_universe_family(config, OptionUniverseFamily::Trades) {
+        options.min_perp_trade_rows = options.min_perp_trade_rows.max(1);
+        options.min_option_trade_rows = options.min_option_trade_rows.max(1);
     }
 
-    if config_uses_bybit_or_okx_option_universe(config) {
-        options.min_perp_trade_rows = options.min_perp_trade_rows.max(1);
+    if config_includes_option_universe_family(config, OptionUniverseFamily::ForwardPrices) {
+        options.require_forward_prices_metadata = true;
     }
 
     options
@@ -107,7 +162,9 @@ pub fn validation_preset_for_config(
     if config.runtime.option_universe_refresh.enabled {
         return OptionUniverseCatalogValidationPreset::RollingAutorefresh;
     }
-    if config_uses_bybit_or_okx_option_universe(config) {
+    if config_uses_bybit_or_okx_option_universe(config)
+        && config_includes_option_universe_family(config, OptionUniverseFamily::Trades)
+    {
         return OptionUniverseCatalogValidationPreset::VenueTrades;
     }
     OptionUniverseCatalogValidationPreset::PostCapture
@@ -125,22 +182,21 @@ fn config_has_research_baseline(config: &EffectiveConfig) -> bool {
         .any(|spec| spec.data_type.type_name() == "DeribitVolatilityIndex")
 }
 
-fn option_universe_requires_contract_state(
-    spec: &catalog_capture_core::OptionUniverseSpec,
-) -> bool {
-    spec.families.iter().any(|family| {
-        matches!(
-            family,
-            OptionUniverseFamily::InstrumentStatuses | OptionUniverseFamily::InstrumentCloses
-        )
-    })
-}
-
 fn config_uses_bybit_or_okx_option_universe(config: &EffectiveConfig) -> bool {
     config.option_universes.iter().any(|spec| {
         let venue = spec.venue_id.to_ascii_lowercase();
         venue.contains("bybit") || venue.contains("okx")
     })
+}
+
+fn config_includes_option_universe_family(
+    config: &EffectiveConfig,
+    family: OptionUniverseFamily,
+) -> bool {
+    config
+        .option_universes
+        .iter()
+        .any(|spec| spec.families.iter().any(|candidate| *candidate == family))
 }
 
 pub fn merge_validation_options(
@@ -152,6 +208,9 @@ pub fn merge_validation_options(
     }
     if let Some(min_perp_trade_rows) = overrides.min_perp_trade_rows {
         base.min_perp_trade_rows = min_perp_trade_rows;
+    }
+    if let Some(min_option_trade_rows) = overrides.min_option_trade_rows {
+        base.min_option_trade_rows = min_option_trade_rows;
     }
     if overrides.require_contract_state {
         base.require_contract_state = true;
@@ -169,6 +228,7 @@ pub fn merge_validation_options(
 pub struct OptionUniverseCatalogValidationOverrides {
     pub min_rows: Option<i64>,
     pub min_perp_trade_rows: Option<i64>,
+    pub min_option_trade_rows: Option<i64>,
     pub require_contract_state: bool,
     pub require_refresh_change: bool,
     pub bar_types: Vec<String>,
@@ -244,6 +304,52 @@ mod tests {
         let effective = crate::config::resolve_config(config).expect("example should resolve");
         let options = validation_options_for_config(&effective);
         assert_eq!(options.min_perp_trade_rows, 1);
+        assert_eq!(options.min_option_trade_rows, 1);
+    }
+
+    #[test]
+    fn validation_options_for_config_all_chain_profiles_skip_trade_requirement() {
+        let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        for path in [
+            "examples/capture.bybit-btc-universe-all.toml",
+            "examples/capture.okx-btc-universe-all.toml",
+        ] {
+            let config = crate::config::load_config(&repo_root.join(path))
+                .expect("example should load");
+            let effective = crate::config::resolve_config(config).expect("example should resolve");
+            let options = validation_options_for_config(&effective);
+            assert_eq!(options.min_perp_trade_rows, 0, "{path}");
+            assert_eq!(options.min_option_trade_rows, 0, "{path}");
+            assert!(options.require_forward_prices_metadata, "{path}");
+        }
+    }
+
+    #[test]
+    fn trades_smoke_preset_requires_perp_and_option_trades() {
+        let options =
+            validation_options_for_preset(OptionUniverseCatalogValidationPreset::TradesSmoke);
+        assert_eq!(options.min_perp_trade_rows, 1);
+        assert_eq!(options.min_option_trade_rows, 1);
+        assert!(!options.require_contract_state);
+    }
+
+    #[test]
+    fn book_deltas_smoke_preset_requires_one_option_book_delta() {
+        let options = validation_options_for_preset(
+            OptionUniverseCatalogValidationPreset::BookDeltasSmoke,
+        );
+        assert!(options.skip_option_family_validation);
+        assert_eq!(options.min_option_book_delta_rows, 1);
+    }
+
+    #[test]
+    fn bars_smoke_preset_defers_bar_types_to_config() {
+        let options =
+            validation_options_for_preset(OptionUniverseCatalogValidationPreset::BarsSmoke);
+        assert!(options.bar_types.is_empty());
+        assert!(!options.require_contract_state);
+        assert_eq!(options.min_perp_trade_rows, 0);
+        assert!(options.skip_option_family_validation);
     }
 
     #[test]

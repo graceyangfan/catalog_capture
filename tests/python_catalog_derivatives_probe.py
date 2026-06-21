@@ -1,4 +1,4 @@
-"""Probe a live or fixture catalog for Binance perp WS families (Step 1–2)."""
+"""Probe a live or fixture catalog for Binance perp WS families (Step 1–2, Step 6a trades)."""
 
 from __future__ import annotations
 
@@ -30,6 +30,24 @@ def parse_args() -> argparse.Namespace:
         "--require-contract-state",
         action="store_true",
         help="Require instrument_status and instrument_closes rows (fixture/smoke mode).",
+    )
+    parser.add_argument(
+        "--min-trade-rows",
+        type=int,
+        default=0,
+        help="Minimum trade ticks required (0 skips trade readback).",
+    )
+    parser.add_argument(
+        "--bar-type",
+        action="append",
+        default=[],
+        help="Bar type to validate through ParquetDataCatalog.query_bars(). Repeat for multiple bars.",
+    )
+    parser.add_argument(
+        "--min-bar-rows",
+        type=int,
+        default=1,
+        help="Minimum bar rows required per --bar-type (ignored when no bar types set).",
     )
     return parser.parse_args()
 
@@ -143,7 +161,34 @@ def main() -> int:
         require=args.require_contract_state,
     )
 
-    print("Python derivatives catalog probe succeeded (Step 1–2)")
+    trade_count = 0
+    if args.min_trade_rows > 0:
+        trades = catalog.query_trade_ticks([instrument_id])
+        assert len(trades) >= args.min_trade_rows, (
+            f"expected at least {args.min_trade_rows} trade ticks for {instrument_id}, "
+            f"got {len(trades)}"
+        )
+        assert all(str(item.instrument_id) == instrument_id for item in trades)
+        assert_monotonic_ts_init(trades, "trade_ticks")
+        trade_count = len(trades)
+
+    bar_counts: list[tuple[str, int]] = []
+    if args.bar_type:
+        for bar_type in args.bar_type:
+            bars = catalog.query_bars([bar_type])
+            assert len(bars) >= args.min_bar_rows, (
+                f"expected at least {args.min_bar_rows} bars for {bar_type}, got {len(bars)}"
+            )
+            assert_monotonic_ts_init(bars, f"bars[{bar_type}]")
+            bar_counts.append((bar_type, len(bars)))
+
+    step_label = "Step 1–2"
+    if args.min_trade_rows > 0:
+        step_label = "Step 1–2 + Step 6a trades"
+    if args.bar_type:
+        step_label = f"{step_label} + Step 6c bars"
+
+    print(f"Python derivatives catalog probe succeeded ({step_label})")
     print(f"Catalog dir: {args.catalog_dir}")
     print(f"Instrument id: {instrument_id}")
     print(f"Data types: {data_types}")
@@ -154,6 +199,10 @@ def main() -> int:
     print(f"Funding parquet files: {len(funding_files)}")
     print(f"Instrument statuses loaded: {status_count}")
     print(f"Instrument closes loaded: {close_count}")
+    if args.min_trade_rows > 0:
+        print(f"Trade ticks loaded: {trade_count}")
+    for bar_type, count in bar_counts:
+        print(f"Bars loaded ({bar_type}): {count}")
     if quotes:
         print(f"Quote ts_init range: {quotes[0].ts_init} .. {quotes[-1].ts_init}")
     if mark_prices:

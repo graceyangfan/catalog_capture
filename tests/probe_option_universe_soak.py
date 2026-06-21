@@ -39,6 +39,8 @@ SOAK_PRESETS = {
     ],
     "all-chain": [
         "deribit-all",
+        "bybit-all",
+        "okx-all",
     ],
 }
 

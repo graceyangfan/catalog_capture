@@ -41,6 +41,9 @@ def main() -> int:
         statuses = catalog.query("instrument_status", ["ETHUSDT-PERP.BINANCE"], None, None, None, None, True)
         closes = catalog.query("instrument_closes", ["ETHUSDT-PERP.BINANCE"], None, None, None, None, True)
         greeks = catalog.query_option_greeks(["ETHUSDT-PERP.BINANCE"])
+        trades = catalog.query_trade_ticks(["ETHUSDT-PERP.BINANCE"])
+        bar_type = "ETHUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL"
+        bars = catalog.query_bars([bar_type])
 
         assert len(instruments) == 1, f"expected 1 instrument, got {len(instruments)}"
         assert str(instruments[0].id) == "ETHUSDT-PERP.BINANCE"
@@ -83,6 +86,15 @@ def main() -> int:
         assert greeks[0].ts_init == 7_000_000
         assert greeks[-1].ts_init == 7_001_000
 
+        assert len(trades) == 3, f"expected 3 trade ticks, got {len(trades)}"
+        assert all(str(item.instrument_id) == "ETHUSDT-PERP.BINANCE" for item in trades)
+        assert trades[0].ts_init == 1_500_000
+        assert trades[-1].ts_init == 1_502_000
+
+        assert len(bars) == 2, f"expected 2 bars, got {len(bars)}"
+        assert bars[0].ts_init == 1_250_000
+        assert bars[-1].ts_init == 60_001_250_000
+
         print("PyO3 market-data readback smoke test succeeded")
         print(f"Catalog dir: {catalog_dir}")
         print(f"Instruments loaded: {len(instruments)}")
@@ -93,6 +105,8 @@ def main() -> int:
         print(f"Instrument statuses loaded: {len(statuses)}")
         print(f"Instrument closes loaded: {len(closes)}")
         print(f"Option greeks loaded: {len(greeks)}")
+        print(f"Trade ticks loaded: {len(trades)}")
+        print(f"Bars loaded ({bar_type}): {len(bars)}")
         return 0
     finally:
         shutil.rmtree(catalog_dir, ignore_errors=True)

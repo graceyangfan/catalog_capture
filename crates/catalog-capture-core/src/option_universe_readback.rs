@@ -17,8 +17,8 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use nautilus_model::{
     data::{
-        close::InstrumentClose, IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks,
-        QuoteTick, TradeTick,
+        close::InstrumentClose, IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate,
+        OptionGreeks, OrderBookDelta, QuoteTick, TradeTick,
     },
     identifiers::InstrumentId,
     instruments::Instrument,
@@ -29,13 +29,29 @@ use serde::{Deserialize, Serialize};
 /// Default option sample size for `all` strike readback smoke validation.
 pub const ALL_STRIKES_READBACK_SAMPLE_LIMIT: usize = 6;
 
+/// Sample a contiguous ATM-centered window from a strike-sorted option list.
+pub fn sample_all_strikes_instrument_ids<T: Clone>(ids: &[T], limit: usize) -> Vec<T> {
+    if ids.len() <= limit {
+        return ids.to_vec();
+    }
+    let mid = ids.len() / 2;
+    let half = limit / 2;
+    let mut start = mid.saturating_sub(half);
+    let end = (start + limit).min(ids.len());
+    start = end.saturating_sub(limit);
+    ids[start..end].to_vec()
+}
+
 #[derive(Debug, Clone)]
 pub struct OptionUniverseReadbackOptions {
     pub perp_instrument_id: String,
     pub option_instrument_ids: Vec<String>,
     pub min_rows: i64,
     pub min_perp_trade_rows: i64,
+    pub min_option_trade_rows: i64,
     pub require_contract_state: bool,
+    pub skip_option_family_validation: bool,
+    pub min_option_book_delta_rows: i64,
     pub bar_types: Vec<String>,
 }
 
@@ -91,24 +107,83 @@ fn validate_option_universe_readback_inner(
     if options.min_perp_trade_rows < 0 {
         bail!("min_perp_trade_rows must be >= 0");
     }
-    if options.option_instrument_ids.is_empty() {
+    if options.min_option_trade_rows < 0 {
+        bail!("min_option_trade_rows must be >= 0");
+    }
+    if options.min_option_book_delta_rows < 0 {
+        bail!("min_option_book_delta_rows must be >= 0");
+    }
+    if !options.skip_option_family_validation && options.option_instrument_ids.is_empty() {
         bail!("at least one option instrument id is required");
     }
 
     let mut catalog = ParquetDataCatalog::new(catalog_root, None, None, None, None);
 
-    for instrument_id in std::iter::once(options.perp_instrument_id.as_str())
-        .chain(options.option_instrument_ids.iter().map(String::as_str))
-    {
-        assert_instrument_metadata(&catalog, instrument_id)?;
+    assert_instrument_metadata(&catalog, &options.perp_instrument_id)?;
+    if !options.skip_option_family_validation {
+        for instrument_id in &options.option_instrument_ids {
+            assert_instrument_metadata(&catalog, instrument_id)?;
+        }
     }
 
-    let perp = validate_perp_readback(&mut catalog, options)?;
-    let funding_rows = validate_funding_rates(&mut catalog, &options.perp_instrument_id)?;
+    let perp = if options.skip_option_family_validation {
+        InstrumentReadbackCounts {
+            instrument_id: options.perp_instrument_id.clone(),
+            quotes: 0,
+            mark_prices: 0,
+            index_prices: 0,
+            trade_ticks: 0,
+            option_greeks: 0,
+            instrument_statuses: 0,
+            instrument_closes: 0,
+        }
+    } else {
+        validate_perp_readback(&mut catalog, options)?
+    };
+    let funding_rows = if options.skip_option_family_validation {
+        0
+    } else {
+        validate_funding_rates(&mut catalog, &options.perp_instrument_id)?
+    };
     let bars = validate_bars(&mut catalog, &options.bar_types, options.min_rows)?;
-    let mut option_reports = Vec::with_capacity(options.option_instrument_ids.len());
-    for option_id in &options.option_instrument_ids {
-        option_reports.push(validate_option_readback(&mut catalog, option_id, options)?);
+    let mut option_reports = Vec::new();
+    let mut options_with_trades = 0usize;
+    let mut options_with_book_deltas = 0usize;
+    if !options.skip_option_family_validation {
+        option_reports.reserve(options.option_instrument_ids.len());
+        for option_id in &options.option_instrument_ids {
+            let report = validate_option_readback(&mut catalog, option_id, options)?;
+            if report.trade_ticks > 0 {
+                options_with_trades += 1;
+            }
+            option_reports.push(report);
+        }
+        if options.min_option_trade_rows > 0 && options_with_trades == 0 {
+            bail!(
+                "expected at least one option with >= {} trade ticks; validated {} options",
+                options.min_option_trade_rows,
+                options.option_instrument_ids.len()
+            );
+        }
+    } else if options.min_option_book_delta_rows > 0 {
+        for option_id in &options.option_instrument_ids {
+            if assert_order_book_delta_rows(
+                &mut catalog,
+                option_id,
+                options.min_option_book_delta_rows,
+            )
+            .is_ok()
+            {
+                options_with_book_deltas += 1;
+            }
+        }
+        if options_with_book_deltas == 0 {
+            bail!(
+                "expected at least one option with >= {} order book deltas; validated {} options",
+                options.min_option_book_delta_rows,
+                options.option_instrument_ids.len()
+            );
+        }
     }
 
     Ok(OptionUniverseReadbackReport {
@@ -155,6 +230,14 @@ fn validate_option_readback(
     let quotes = assert_quote_rows(catalog, option_id, options.min_rows)?;
     let mark_prices = assert_mark_price_rows(catalog, option_id, options.min_rows)?;
     let option_greeks = assert_option_greeks_rows(catalog, option_id, options.min_rows)?;
+    let trade_ticks = if options.min_option_trade_rows > 0 {
+        match assert_trade_rows(catalog, option_id, options.min_option_trade_rows) {
+            Ok(count) => count,
+            Err(_) => 0,
+        }
+    } else {
+        0
+    };
     let (instrument_statuses, instrument_closes) =
         probe_contract_state(catalog, option_id, options.require_contract_state)?;
 
@@ -163,7 +246,7 @@ fn validate_option_readback(
         quotes,
         mark_prices,
         index_prices: 0,
-        trade_ticks: 0,
+        trade_ticks,
         option_greeks,
         instrument_statuses,
         instrument_closes,
@@ -252,6 +335,31 @@ fn assert_index_price_rows(
     ParquetDataCatalog::check_ascending_timestamps(
         &rows,
         &format!("index_prices[{instrument_id}]"),
+    )?;
+    Ok(rows.len())
+}
+
+fn assert_order_book_delta_rows(
+    catalog: &mut ParquetDataCatalog,
+    instrument_id: &str,
+    min_rows: i64,
+) -> Result<usize> {
+    let rows = catalog
+        .order_book_deltas(Some(vec![instrument_id.to_string()]), None, None)
+        .with_context(|| format!("failed to read order book deltas for {instrument_id}"))?;
+    assert_min_rows(
+        &rows,
+        min_rows,
+        &format!("order_book_deltas[{instrument_id}]"),
+    )?;
+    assert_matching_instrument_ids(
+        &rows,
+        instrument_id,
+        &format!("order_book_deltas[{instrument_id}]"),
+    )?;
+    ParquetDataCatalog::check_ascending_timestamps(
+        &rows,
+        &format!("order_book_deltas[{instrument_id}]"),
     )?;
     Ok(rows.len())
 }
@@ -467,6 +575,12 @@ impl InstrumentIdRow for InstrumentClose {
     }
 }
 
+impl InstrumentIdRow for OrderBookDelta {
+    fn instrument_id(&self) -> InstrumentId {
+        self.instrument_id
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -610,7 +724,10 @@ mod tests {
                 option_instrument_ids: vec![option_id],
                 min_rows: 1,
                 min_perp_trade_rows: 0,
+                min_option_trade_rows: 0,
                 require_contract_state: false,
+                skip_option_family_validation: false,
+                min_option_book_delta_rows: 0,
                 bar_types: Vec::new(),
             },
         )
@@ -622,5 +739,12 @@ mod tests {
         assert_eq!(report.options[0].option_greeks, 1);
 
         fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn sample_all_strikes_instrument_ids_selects_atm_centered_window() {
+        let ids = (0..12).map(|idx| format!("OPT-{idx}")).collect::<Vec<_>>();
+        let sampled = sample_all_strikes_instrument_ids(&ids, 6);
+        assert_eq!(sampled, vec!["OPT-3", "OPT-4", "OPT-5", "OPT-6", "OPT-7", "OPT-8"]);
     }
 }

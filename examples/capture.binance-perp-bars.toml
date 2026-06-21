@@ -1,0 +1,45 @@
+# Step 6c profile: Binance Futures perpetual built-in WS + 1m bars (A9).
+# Verify with:
+#   python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1 --bar-type ETHUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL
+# Live smoke:
+#   python3 tests/probe_binance_bars_smoke.py --cleanup
+
+[runtime]
+capture_seconds = 180
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BINANCE-PERP-BARS"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-binance-perp-bars"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 1000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+queue_capacity = 10000
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "binance_futures_main"
+kind = "binance_futures"
+environment = "testnet"
+product_type = "usd_m"
+
+[[capture.instruments]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.quotes]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.mark_prices]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.index_prices]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.funding_rates]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.bars]]
+bar_type = "ETHUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL"

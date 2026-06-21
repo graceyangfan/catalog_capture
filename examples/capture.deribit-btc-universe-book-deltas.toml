@@ -1,0 +1,49 @@
+# Step 6d profile: selective BTC option book_deltas (ATM ±2, L2_MBP).
+# Separate from research/trades profiles; tuned for higher book-delta throughput.
+# 25d put/call selection is deferred to research-layer strike policies.
+#
+# Verify with:
+#   python3 tests/python_catalog_option_universe_probe.py <catalog_dir> --perp-id <perp> --book-deltas-only --option-id <atm-option>
+# Live smoke (3 min):
+#   python3 tests/probe_option_universe_book_deltas_smoke.py --cleanup
+
+[runtime]
+capture_seconds = 180
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-DERIBIT-BTC-UNIVERSE-BOOK-DELTAS"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-deribit-btc-universe-book-deltas"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 200
+flush_interval_ms = 1000
+max_buffer_bytes = 67108864
+queue_capacity = 50000
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "deribit_main"
+kind = "deribit"
+environment = "mainnet"
+product_types = ["future", "option"]
+
+[[capture.option_universe]]
+venue_id = "deribit_main"
+underlying = "BTC"
+settlement_currency = "BTC"
+include_perp = true
+families = [
+  "instruments",
+  "book_deltas",
+]
+
+[capture.option_universe.expiry_policy]
+mode = "nearest"
+days_max = 45
+
+[capture.option_universe.strike_policy]
+mode = "atm_relative"
+strikes_above = 2
+strikes_below = 2

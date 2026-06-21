@@ -59,6 +59,10 @@ The most important downstream consumers are therefore:
   - adapter-emitted `open_interest` style custom data
   - adapter-emitted `liquidations` style custom data
   - adapter-emitted volatility / derivatives index custom data
+- defer Binance Futures `BinanceFuturesLiquidation`, `BinanceFuturesTicker`, and
+  `BinanceFuturesOpenInterest` until upstream Arrow/Parquet registration lands
+  ([nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)); continue with
+  Step 6 built-in WS families (`trades`, selective `book_deltas`, `bars`) — done; **Step 7–8 HTTP capture/backfill skipped**; focus **Step 9** (universe + offline derivation)
 - keep P0 focused on specific underlyings / option-linked products, not whole-market capture
 - make multi-venue targeted capture a first-class runtime goal before broad market-wide capture
 

@@ -73,6 +73,9 @@ enum OptionUniverseCatalogValidationPresetArg {
     RollingAutorefresh,
     VenueTrades,
     Research,
+    TradesSmoke,
+    BarsSmoke,
+    BookDeltasSmoke,
 }
 
 impl From<OptionUniverseCatalogValidationPresetArg> for OptionUniverseCatalogValidationPreset {
@@ -89,6 +92,15 @@ impl From<OptionUniverseCatalogValidationPresetArg> for OptionUniverseCatalogVal
             }
             OptionUniverseCatalogValidationPresetArg::Research => {
                 OptionUniverseCatalogValidationPreset::Research
+            }
+            OptionUniverseCatalogValidationPresetArg::TradesSmoke => {
+                OptionUniverseCatalogValidationPreset::TradesSmoke
+            }
+            OptionUniverseCatalogValidationPresetArg::BarsSmoke => {
+                OptionUniverseCatalogValidationPreset::BarsSmoke
+            }
+            OptionUniverseCatalogValidationPresetArg::BookDeltasSmoke => {
+                OptionUniverseCatalogValidationPreset::BookDeltasSmoke
             }
         }
     }
@@ -156,6 +168,8 @@ enum Command {
         min_rows: Option<i64>,
         #[arg(long, help = "Override preset/default minimum perp trade rows")]
         min_perp_trade_rows: Option<i64>,
+        #[arg(long, help = "Override preset/default minimum option trade rows")]
+        min_option_trade_rows: Option<i64>,
         #[arg(
             long,
             help = "Require instrument_status and instrument_closes parquet rows"
@@ -203,6 +217,8 @@ enum Command {
         min_rows: Option<i64>,
         #[arg(long, help = "Minimum perp trade ticks (0 skips trade readback)")]
         min_perp_trade_rows: Option<i64>,
+        #[arg(long, help = "Minimum option trade ticks (0 skips option trade readback)")]
+        min_option_trade_rows: Option<i64>,
         #[arg(long, help = "Require instrument_status and instrument_closes rows")]
         require_contract_state: bool,
         #[arg(long, help = "Bar type identifier to validate via ParquetDataCatalog")]
@@ -222,6 +238,10 @@ enum Command {
         option_universe_format: OptionUniverseOutputFormatArg,
         #[arg(long, value_enum, help = "Override inferred catalog validation preset")]
         preset: Option<OptionUniverseCatalogValidationPresetArg>,
+        #[arg(long, help = "Override preset/default minimum perp trade rows")]
+        min_perp_trade_rows: Option<i64>,
+        #[arg(long, help = "Override preset/default minimum option trade rows")]
+        min_option_trade_rows: Option<i64>,
         #[arg(
             long,
             help = "Require instrument_status and instrument_closes parquet rows"
@@ -334,6 +354,7 @@ async fn main() -> Result<()> {
             preset,
             min_rows,
             min_perp_trade_rows,
+            min_option_trade_rows,
             require_contract_state,
             require_refresh_change,
             bar_type,
@@ -352,6 +373,7 @@ async fn main() -> Result<()> {
                 &OptionUniverseCatalogValidationOverrides {
                     min_rows,
                     min_perp_trade_rows,
+                    min_option_trade_rows,
                     require_contract_state,
                     require_refresh_change,
                     bar_types: bar_type,
@@ -391,12 +413,13 @@ async fn main() -> Result<()> {
             option_id,
             min_rows,
             min_perp_trade_rows,
+            min_option_trade_rows,
             require_contract_state,
             bar_type,
             config,
         } => {
             let catalog_root = catalog_root_from_uri(&catalog_uri)?;
-            let options = if let Some(config_path) = config {
+            let mut options = if let Some(config_path) = config {
                 let effective = load_validated_config(&config_path)?;
                 readback_options_for_config(&effective, &catalog_root, require_contract_state)?
             } else {
@@ -409,6 +432,9 @@ async fn main() -> Result<()> {
                     bar_type,
                 )?
             };
+            if let Some(min_option_trade_rows) = min_option_trade_rows {
+                options.min_option_trade_rows = min_option_trade_rows;
+            }
             let report = run_option_universe_readback_validation(&catalog_root, &options)?;
             print_option_universe_readback_values(&report, option_universe_format.into())?;
         }
@@ -417,6 +443,8 @@ async fn main() -> Result<()> {
             config,
             option_universe_format,
             preset,
+            min_perp_trade_rows,
+            min_option_trade_rows,
             require_contract_state,
             require_refresh_change,
             strike_mode,
@@ -444,6 +472,13 @@ async fn main() -> Result<()> {
                     require_refresh_change,
                     require_contract_state,
                     catalog_preset_override: preset.map(Into::into),
+                    catalog_overrides: OptionUniverseCatalogValidationOverrides {
+                        min_perp_trade_rows,
+                        min_option_trade_rows,
+                        require_contract_state,
+                        require_refresh_change,
+                        ..OptionUniverseCatalogValidationOverrides::default()
+                    },
                     strike_profile_override: metadata_options.strike_profile,
                     readback_perp_id: perp_id,
                     readback_option_ids: if option_id.is_empty() {
@@ -451,7 +486,6 @@ async fn main() -> Result<()> {
                     } else {
                         Some(option_id)
                     },
-                    ..OptionUniverseValidationSuiteOptions::default()
                 },
             )?;
         }

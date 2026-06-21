@@ -61,8 +61,9 @@ pub use option_universe_metadata::{
     StrikeSelectionProfile, ALL_STRIKES_MIN_SELECTED_STRIKES,
 };
 pub use option_universe_readback::{
-    validate_option_universe_readback, BarReadbackCount, InstrumentReadbackCounts,
-    OptionUniverseReadbackOptions, OptionUniverseReadbackReport, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
+    sample_all_strikes_instrument_ids, validate_option_universe_readback, BarReadbackCount,
+    InstrumentReadbackCounts, OptionUniverseReadbackOptions, OptionUniverseReadbackReport,
+    ALL_STRIKES_READBACK_SAMPLE_LIMIT,
 };
 pub use option_universe_rollover::{should_apply_strike_change, StrikeChangeSmoothingState};
 pub use plan::{

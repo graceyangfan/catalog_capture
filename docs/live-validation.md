@@ -254,6 +254,15 @@ The research profile uses `capture.deribit-btc-universe-research.toml` and addit
 asserts `DeribitVolatilityIndex` custom data readback and `BTC-PERPETUAL.DERIBIT`
 `1-MINUTE-LAST-EXTERNAL` bar readback.
 
+Full-chain profile smoke (9a):
+
+- `python3 tests/probe_option_universe_smoke.py --venue deribit-all --seconds 60 --cleanup`
+- `python3 tests/probe_option_universe_smoke.py --venue all-all-chain --seconds 60 --cleanup`
+
+These profiles use `strike_policy.mode = "all"` and resolve the entire near-month chain
+without listing individual option `instrument_id`s. Readback samples six options when the
+resolved set is larger.
+
 OI-ranked profile smoke (P2a):
 
 - `python3 tests/probe_option_universe_smoke.py --venue deribit-oi-ranked --seconds 30`
@@ -363,7 +372,7 @@ Preset matrix:
 | `daily-live` | 7x24 rolling live baseline | `deribit-autorefresh`, `okx-autorefresh`, `bybit-autorefresh` |
 | `research-live` | research-ready raw feed baseline | `deribit-research`, `okx`, `bybit` |
 | `oi-ranked` | OI-ranked strike-selection baseline | `deribit-oi-ranked-autorefresh`, `bybit-oi-ranked`, `okx-oi-ranked` |
-| `all-chain` | full-chain batch capture baseline | `deribit-all` |
+| `all-chain` | full-chain batch capture baseline | `deribit-all`, `bybit-all`, `okx-all` |
 
 Examples:
 
@@ -458,7 +467,11 @@ Step 1 success criteria:
 Once Step 1 succeeds, the next immediate follow-ups should be:
 
 1. Add `instrument_statuses` and `instrument_closes` live validation (Step 2).
-2. Add `TradeTick` capture for the same instrument (Step 6).
+2. Add `TradeTick` capture for the same instrument (Step 6a):
+   - profile: `examples/capture.binance-perp-trades.toml`
+   - fixture smoke: `python3 tests/python_binance_trades_smoke.py`
+   - live smoke (3 min default): `python3 tests/probe_binance_trades_smoke.py --cleanup`
+   - probe: `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1 --min-trade-rows 1`
 3. Run a minimal backtest that reads the captured catalog directly.
 
 That will give us a complete proof of the target workflow:

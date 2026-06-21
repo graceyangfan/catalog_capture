@@ -1,11 +1,13 @@
+# Step 9a-lite profile: Bybit BTC near-month full-chain option universe resolved at startup.
+
 [runtime]
 capture_seconds = 60
 shutdown_timeout_secs = 10
 delay_post_stop_secs = 2
-node_name = "CATALOG-CAPTURE-DERIBIT-BTC-UNIVERSE-ALL"
+node_name = "CATALOG-CAPTURE-BYBIT-BTC-UNIVERSE-ALL"
 
 [output]
-catalog_uri = "file:///tmp/nautilus-catalog-capture-deribit-btc-universe-all"
+catalog_uri = "file:///tmp/nautilus-catalog-capture-bybit-btc-universe-all"
 compression = "snappy"
 layout_compatibility = "rust_canonical_with_python_legacy_mirror"
 flush_rows = 1000
@@ -15,15 +17,15 @@ queue_capacity = 50000
 overflow_policy = "drop_oldest"
 
 [[venues]]
-id = "deribit_main"
-kind = "deribit"
+id = "bybit_main"
+kind = "bybit"
 environment = "mainnet"
-product_types = ["future", "option"]
+product_types = ["linear", "option"]
 
 [[capture.option_universe]]
-venue_id = "deribit_main"
+venue_id = "bybit_main"
 underlying = "BTC"
-settlement_currency = "BTC"
+settlement_currency = "USDT"
 include_perp = true
 families = [
   "instruments",

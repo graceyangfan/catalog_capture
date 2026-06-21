@@ -41,7 +41,13 @@ def parse_args() -> argparse.Namespace:
         "--min-trade-rows",
         type=int,
         default=1,
-        help="Minimum perp trade ticks required (0 skips trade readback).",
+        help="Minimum perp trade ticks required (0 skips perp trade readback).",
+    )
+    parser.add_argument(
+        "--min-option-trade-rows",
+        type=int,
+        default=0,
+        help="Minimum trade ticks per option (0 skips option trade readback).",
     )
     parser.add_argument(
         "--require-contract-state",
@@ -52,7 +58,23 @@ def parse_args() -> argparse.Namespace:
         "--bar-type",
         action="append",
         default=[],
-        help="Bar type to validate through ParquetDataCatalog.bars(). Repeat for multiple bars.",
+        help="Bar type to validate through ParquetDataCatalog.query_bars(). Repeat for multiple bars.",
+    )
+    parser.add_argument(
+        "--bars-only",
+        action="store_true",
+        help="Validate hedge perp + bars only; skip sampled option quote/greek readback.",
+    )
+    parser.add_argument(
+        "--book-deltas-only",
+        action="store_true",
+        help="Validate sampled option order_book_deltas only; skip quote/greek readback.",
+    )
+    parser.add_argument(
+        "--min-option-book-delta-rows",
+        type=int,
+        default=1,
+        help="Minimum order book deltas per option when --book-deltas-only is set.",
     )
     return parser.parse_args()
 
@@ -171,7 +193,7 @@ def assert_bars(
 ) -> list[tuple[str, int]]:
     counts: list[tuple[str, int]] = []
     for bar_type in bar_types:
-        bars = catalog.bars(bar_types=[bar_type])
+        bars = catalog.query_bars([bar_type])
         assert len(bars) >= min_rows, (
             f"expected at least {min_rows} bars for {bar_type}, got {len(bars)}"
         )
@@ -235,14 +257,45 @@ def main() -> int:
     args = parse_args()
     if args.min_rows <= 0:
         raise ValueError("--min-rows must be positive")
-    if not args.option_id:
-        raise ValueError("at least one --option-id is required")
+    if not args.bars_only and not args.book_deltas_only and not args.option_id:
+        raise ValueError(
+            "at least one --option-id is required unless --bars-only or "
+            "--book-deltas-only is set"
+        )
+    if args.bars_only and not args.bar_type:
+        raise ValueError("--bars-only requires at least one --bar-type")
+    if args.book_deltas_only and not args.option_id:
+        raise ValueError("--book-deltas-only requires at least one --option-id")
 
     catalog = ParquetDataCatalog(str(args.catalog_dir))
-    all_instrument_ids = [args.perp_id, *args.option_id]
+    assert_instrument(catalog, args.perp_id)
 
-    for instrument_id in all_instrument_ids:
-        assert_instrument(catalog, instrument_id)
+    if args.book_deltas_only:
+        options_with_book_deltas = 0
+        option_counts = []
+        for option_id in args.option_id:
+            assert_instrument(catalog, option_id)
+            deltas = catalog.query_order_book_deltas([option_id])
+            if len(deltas) >= args.min_option_book_delta_rows:
+                assert all(str(item.instrument_id) == option_id for item in deltas)
+                assert_monotonic_ts_init(deltas, f"order_book_deltas[{option_id}]")
+                options_with_book_deltas += 1
+            option_counts.append((option_id, len(deltas)))
+        if options_with_book_deltas == 0:
+            raise AssertionError(
+                f"expected at least one option with >= {args.min_option_book_delta_rows} "
+                f"order book deltas; validated {len(args.option_id)} options"
+            )
+        print("Python option-universe catalog probe succeeded (book-deltas-only)")
+        print(f"Catalog dir: {args.catalog_dir}")
+        print(f"Perp: {args.perp_id}")
+        for option_id, count in option_counts:
+            print(f"Option: {option_id} order_book_deltas={count}")
+        return 0
+
+    if not args.bars_only:
+        for instrument_id in args.option_id:
+            assert_instrument(catalog, instrument_id)
 
     perp_quotes = assert_quotes(catalog, args.perp_id, args.min_rows)
     perp_trades = (
@@ -262,6 +315,22 @@ def main() -> int:
     )
 
     option_counts = []
+    options_with_trades = 0
+    if args.bars_only:
+        print("Python option-universe catalog probe succeeded (bars-only)")
+        print(f"Catalog dir: {args.catalog_dir}")
+        print(f"Perp: {args.perp_id}")
+        print(
+            f"Perp quotes={perp_quotes} trade_ticks={perp_trades} "
+            f"mark_prices={perp_marks} index_prices={perp_index} "
+            f"instrument_statuses={perp_statuses} instrument_closes={perp_closes}"
+        )
+        funding_row_text = "unavailable" if funding_rows is None else str(funding_rows)
+        print(f"Perp funding_files={funding_files} funding_rows={funding_row_text}")
+        for bar_type, count in bar_counts:
+            print(f"Bars: {bar_type} rows={count}")
+        return 0
+
     for option_id in args.option_id:
         status_count, close_count = probe_contract_state(
             catalog,
@@ -269,15 +338,29 @@ def main() -> int:
             option_id,
             require=args.require_contract_state,
         )
+        option_trades = 0
+        if args.min_option_trade_rows > 0:
+            trades = catalog.query_trade_ticks([option_id])
+            if len(trades) >= args.min_option_trade_rows:
+                assert all(str(item.instrument_id) == option_id for item in trades)
+                assert_monotonic_ts_init(trades, f"trade_ticks[{option_id}]")
+                option_trades = len(trades)
+                options_with_trades += 1
         option_counts.append(
             (
                 option_id,
                 assert_quotes(catalog, option_id, args.min_rows),
+                option_trades,
                 assert_mark_prices(catalog, option_id, args.min_rows),
                 assert_option_greeks(catalog, option_id, args.min_rows),
                 status_count,
                 close_count,
             )
+        )
+    if args.min_option_trade_rows > 0 and options_with_trades == 0:
+        raise AssertionError(
+            f"expected at least one option with >= {args.min_option_trade_rows} "
+            f"trade ticks; validated {len(args.option_id)} options"
         )
 
     print("Python option-universe catalog probe succeeded")
@@ -292,11 +375,11 @@ def main() -> int:
     print(f"Perp funding_files={funding_files} funding_rows={funding_row_text}")
     for bar_type, count in bar_counts:
         print(f"Bars: {bar_type} rows={count}")
-    for option_id, quotes, marks, greeks, statuses, closes in option_counts:
+    for option_id, quotes, trades, marks, greeks, statuses, closes in option_counts:
         print(
-            f"Option: {option_id} quotes={quotes} mark_prices={marks} "
-            f"option_greeks={greeks} instrument_statuses={statuses} "
-            f"instrument_closes={closes}"
+            f"Option: {option_id} quotes={quotes} trade_ticks={trades} "
+            f"mark_prices={marks} option_greeks={greeks} "
+            f"instrument_statuses={statuses} instrument_closes={closes}"
         )
     return 0
 

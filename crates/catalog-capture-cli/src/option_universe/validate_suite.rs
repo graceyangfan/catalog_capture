@@ -135,10 +135,14 @@ pub fn run_option_universe_validation_suite(
     }
 
     println!("\n--- Catalog validation ---");
-    let base = options
+    let config_options = validation_options_for_config(config);
+    let mut base = options
         .catalog_preset_override
         .map(validation_options_for_preset)
-        .unwrap_or_else(|| validation_options_for_config(config));
+        .unwrap_or_else(|| config_options.clone());
+    if base.bar_types.is_empty() && !config_options.bar_types.is_empty() {
+        base.bar_types = config_options.bar_types.clone();
+    }
     let mut catalog_overrides = options.catalog_overrides.clone();
     if options.require_contract_state {
         catalog_overrides.require_contract_state = true;
@@ -188,8 +192,33 @@ fn readback_options_for_suite(
     catalog_root: &Path,
     options: &OptionUniverseValidationSuiteOptions,
 ) -> Result<OptionUniverseReadbackOptions> {
-    let mut readback_options =
-        readback_options_for_config(config, catalog_root, options.require_contract_state)?;
+    let mut readback_options = readback_options_for_config(
+        config,
+        catalog_root,
+        options.require_contract_state,
+    )?;
+    let config_options = validation_options_for_config(config);
+    let mut base = options
+        .catalog_preset_override
+        .map(validation_options_for_preset)
+        .unwrap_or_else(|| config_options.clone());
+    if base.bar_types.is_empty() && !config_options.bar_types.is_empty() {
+        base.bar_types = config_options.bar_types.clone();
+    }
+    let mut catalog_overrides = options.catalog_overrides.clone();
+    if options.require_contract_state {
+        catalog_overrides.require_contract_state = true;
+    }
+    let catalog_options = merge_validation_options(base, &catalog_overrides);
+    readback_options.min_perp_trade_rows = catalog_options.min_perp_trade_rows;
+    readback_options.min_option_trade_rows = catalog_options.min_option_trade_rows;
+    readback_options.skip_option_family_validation =
+        catalog_options.skip_option_family_validation;
+    readback_options.min_option_book_delta_rows =
+        catalog_options.min_option_book_delta_rows;
+    if !catalog_options.bar_types.is_empty() {
+        readback_options.bar_types = catalog_options.bar_types;
+    }
     if let Some(perp_id) = &options.readback_perp_id {
         readback_options.perp_instrument_id = perp_id.clone();
     }

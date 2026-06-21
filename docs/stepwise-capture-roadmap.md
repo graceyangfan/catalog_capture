@@ -54,6 +54,17 @@
 4. **不发明 schema**
    `CustomData` 必须原样录制 adapter 已发出的 `type_name` 与 payload（见 `docs/custom-data-contract.md`）。
 
+5. **三类 Binance Futures custom 暂不做**
+   `BinanceFuturesLiquidation`、`BinanceFuturesTicker`、`BinanceFuturesOpenInterest` 在上游补齐 Arrow/Parquet 编码前保持 deferred（[nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)）。CLI 会对这三类配置做启动前拒绝。
+
+### 当前焦点
+
+Step 5 中 5a（`DeribitVolatilityIndex`）与 5c（`HyperliquidOpenInterest`）已完成；**5b 及上表三类 Binance custom 等上游 PR 落地后再接**。
+
+**Step 6 内置 WS 家族（trades / bars / book_deltas）已落地**；长时 soak 与 signature delta flow 离线验证留到收尾阶段。
+
+**Step 7–8（HTTP 录制 / 历史回填）明确跳过**：当前阶段不实现 `RequestCustomData` 定时快照、`CaptureScheduler`，也不做 `catalog-capture-backfill` / `mode = backfill`。理由：WS 主路径已覆盖研究所需原始层；HTTP 型工作需 Actor 架构变更且 Binance OI 仍 blocked（#4297）。**下一步：Step 9**（universe 完善 + 离线派生）。
+
 ---
 
 ## 分层模型
@@ -82,9 +93,10 @@
 | 批次 | 类型 | Adapter | 来源 | 难度 |
 |---|---|---|---|---|
 | B1 | `DeribitVolatilityIndex` | Deribit | WS | ★★ |
-| B2 | `BinanceFuturesLiquidation` | Binance Futures | WS | ★★ |
+| B2 | `BinanceFuturesLiquidation` | Binance Futures | WS | ★★（deferred，#4297） |
+| B2b | `BinanceFuturesTicker` | Binance Futures | WS | ★★（deferred，#4297） |
 | B3 | `HyperliquidOpenInterest` | Hyperliquid | WS | ★★ |
-| B4 | `BinanceFuturesOpenInterest` | Binance Futures | HTTP request | ★★★ |
+| B4 | `BinanceFuturesOpenInterest` | Binance Futures | HTTP request | ★★★（deferred，#4297） |
 | B5 | `BinanceFuturesOpenInterestHist` | Binance Futures | HTTP batch | ★★★★ |
 
 ### 第三层：HTTP / 回填（非 runtime subscribe）
@@ -108,9 +120,13 @@ flowchart LR
     S3 --> S4[Step 4\n多 venue 内置 WS]
     S4 --> S5[Step 5\nCustomData WS]
     S5 --> S6[Step 6\n内置 WS 深度与成交]
-    S6 --> S7[Step 7\nCustomData HTTP]
-    S7 --> S8[Step 8\nHTTP 历史回填]
-    S8 --> S9[Step 9\n研究层与 DM 派生]
+    S6 --> S9[Step 9\n研究层与 DM 派生]
+    S7[Step 7\nCustomData HTTP\n跳过]
+    S8[Step 8\nHTTP 历史回填\n跳过]
+    S6 -.-> S7
+    S6 -.-> S8
+    S7 -.-> S9
+    S8 -.-> S9
 ```
 
 | Step | 主题 | 数据层 | 传输 | 预估工期 |
@@ -122,8 +138,8 @@ flowchart LR
 | 4 | 四所多 venue 内置 WS | 内置 A1–A8 | WS | 1–2 周 |
 | 5 | CustomData 实时流 | Custom B1–B3 | WS | 1 周 |
 | 6 | 成交与精选深度 | 内置 A8–A10 | WS | 1–2 周 |
-| 7 | CustomData 请求型 | Custom B4–B5 | HTTP | 1 周 |
-| 8 | 历史回填模式 | 内置 + Custom | HTTP | 2–3 周 |
+| 7 | CustomData 请求型 | Custom B4–B5 | HTTP | **跳过** |
+| 8 | 历史回填模式 | 内置 + Custom | HTTP | **跳过** |
 | 9 | Universe 选择 + 离线派生 | 研究层 | — | 持续 |
 
 ---
@@ -323,7 +339,7 @@ flowchart LR
 | 顺序 | CustomData | 交易所 | 标识符示例 |
 |---|---|---|---|
 | 5a | `DeribitVolatilityIndex` | Deribit | metadata `index_name=btc_usd` |
-| 5b | `BinanceFuturesLiquidation` | Binance Futures | per instrument |
+| 5b | `BinanceFuturesLiquidation` | Binance Futures | per instrument（**deferred → #4297**） |
 | 5c | `HyperliquidOpenInterest` | Hyperliquid（可选） | per instrument |
 
 ### 工作项
@@ -336,7 +352,7 @@ flowchart LR
 ### 完成标准
 
 - [x] `DeribitVolatilityIndex` fixture 写入且 PyO3 可读；live profile 已补
-- [ ] `BinanceFuturesLiquidation` 与永续 capture 并行无串分区
+- [ ] `BinanceFuturesLiquidation` 与永续 capture 并行无串分区（**blocked：上游 #4297**）
 - [x] `HyperliquidOpenInterest` fixture 写入可读；CLI venue/profile/probe 已补
 - [ ] custom parquet 路径与 `type_name` 一致，满足 `custom-data-contract.md`
 
@@ -344,6 +360,10 @@ flowchart LR
 
 - Vol Regime（DVOL + IV）
 - 清算 / 拥挤度监控
+
+### 已知缺口（本 Step 不解决）
+
+- **`BinanceFuturesLiquidation` / `BinanceFuturesTicker`**：adapter 仅有 JSON 注册，缺 Arrow 编码 → [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)；本仓库在 PR 合并前不接，改推 **Step 6**。
 
 ---
 
@@ -370,7 +390,12 @@ flowchart LR
 
 ### 完成标准
 
-- [ ] 30min soak 无静默丢数（或丢数可 metrics 化）
+- [x] 3min Binance perp trades smoke（`probe_binance_trades_smoke.py`，默认 180s）
+- [x] 3min option-universe trades smoke（`probe_option_universe_trades_smoke.py`）
+- [x] 3min bars smoke（`probe_bars_smoke.py --venue all`：Binance / Hyperliquid / Deribit / Bybit / OKX，perp 1m `LAST-EXTERNAL`）
+- [x] 3min selective `book_deltas` smoke（`probe_option_universe_book_deltas_smoke.py`，Deribit ATM ±2，`L2_MBP`）
+- [ ] 长时 soak 留到全链路收尾阶段
+- [ ] 30min+ soak 无静默丢数（或丢数可 metrics 化）— **收尾阶段**
 - [ ] 精选深度合约 ≤ 20 个时磁盘增速可接受
 - [ ] 离线可算签名 delta flow（基于 trades + greeks）
 
@@ -380,7 +405,9 @@ flowchart LR
 
 ---
 
-## Step 7：CustomData — HTTP 请求型（B4–B5）
+## Step 7：CustomData — HTTP 请求型（B4–B5）— **跳过**
+
+> **状态：跳过（2026-06）** — 不实现 live 定时 HTTP 录制；待 WS 研究层（Step 9）与上游 #4297 落地后再评估是否重启。
 
 ### 目标
 
@@ -390,7 +417,7 @@ flowchart LR
 
 | 类型 | 方式 | 说明 |
 |---|---|---|
-| `BinanceFuturesOpenInterest` | `RequestCustomData` | 快照型 OI |
+| `BinanceFuturesOpenInterest` | `RequestCustomData` | 快照型 OI（**deferred → #4297**，上游 Arrow 后再做） |
 | 其他 venue OI | 视 adapter 能力 | 无则跳过 |
 
 ### 工作项
@@ -403,16 +430,18 @@ flowchart LR
 
 ### 完成标准
 
-- [ ] 每小时（可配置）OI 快照入库
-- [ ] 请求失败可重试、可日志观测，不阻塞 WS capture
+- [~] 每小时（可配置）OI 快照入库 — **跳过**
+- [~] 请求失败可重试、可日志观测，不阻塞 WS capture — **跳过**
 
 ### 难度说明
 
-这是第一个 **Actor 架构变更**（从纯 subscribe 到 subscribe + request），比 Step 5 难。
+这是第一个 **Actor 架构变更**（从纯 subscribe 到 subscribe + request），比 Step 5 难。当前不排期。
 
 ---
 
-## Step 8：HTTP 历史回填模式
+## Step 8：HTTP 历史回填模式 — **跳过**
+
+> **状态：跳过（2026-06）** — 与 Step 7 一并延后；live WS + option universe 已满足当前验证与 smoke 需求。
 
 ### 目标
 
@@ -437,8 +466,8 @@ flowchart LR
 
 ### 完成标准
 
-- [ ] 可回填至少 7 天 Deribit BTC 近月 option_greeks 或 trades 之一（视 API 限流）
-- [ ] 回填数据与 live 数据 PyO3 同一套读 API
+- [~] 可回填至少 7 天 Deribit BTC 近月 option_greeks 或 trades 之一（视 API 限流）— **跳过**
+- [~] 回填数据与 live 数据 PyO3 同一套读 API — **跳过**
 
 ### 原则
 
@@ -446,7 +475,7 @@ flowchart LR
 
 ---
 
-## Step 9：Universe 选择 + 离线派生（面向 DM）
+## Step 9：Universe 选择 + 离线派生（面向 DM）— **当前焦点**
 
 ### 目标
 
@@ -454,10 +483,12 @@ flowchart LR
 
 ### 工作项
 
-**9a — 配置抽象（中等难度）**
+**9a — 配置抽象（中等难度）** — **进行中（9a-lite 已落地）**
 
-- `underlying = "BTC"` + `expiry_days <= 45` + `top_n_by_open_interest`
-- 定时 `request_instruments` 刷新 universe
+- [x] `underlying` + `expiry_policy` + `strike_policy`（`atm_relative` / `oi_ranked` / `all`）
+- [x] 三所 full-chain batch profile：`capture.*-btc-universe-all.toml`（Deribit / Bybit / OKX）
+- [x] runtime `option_universe_refresh`（V1.5 autorefresh profiles）
+- [ ] `top_n_by_open_interest` startup preflight on Deribit/OKX（当前仅 Bybit HTTP 发现路径可用）
 - 设计参考见 `docs/option-universe-manager-design.md`
 
 **9b — 离线派生 job（独立仓库或 `research/`）**
@@ -478,7 +509,7 @@ flowchart LR
 
 ### 完成标准
 
-- [ ] 一份配置可描述「BTC 近月全链」而无需列出 50+ instrument_id
+- [x] 一份配置可描述「BTC 近月全链」而无需列出 50+ instrument_id（`strike_policy.mode = "all"` + `examples/capture.*-btc-universe-all.toml`）
 - [ ] 离线 job 可从 raw catalog 产出至少 3 类派生面板（IV term、GEX、basis）
 
 ---
@@ -487,11 +518,11 @@ flowchart LR
 
 | 交易所 | Step 0–2 | Step 3–4 | Step 5 | Step 6 | Step 7–8 | 备注 |
 |---|---|---|---|---|---|---|
-| Binance Futures | ✅ 主战场 | 对冲腿 | Liquidation | trades | OI 请求/历史 | 无期权 |
-| Deribit | — | ✅ 期权主所 | DVOL | trades + 深度 | trades/bars 回填 | 流动性最大 |
-| Bybit | — | ✅ | — | 同 Deribit | 视 API | — |
-| OKX | — | ✅ | — | 同 Deribit | 视 API | — |
-| Derive | — | ✅ | — | 同 Deribit | 视 API | — |
+| Binance Futures | ✅ 主战场 | 对冲腿 | Liquidation | trades + bars | HTTP 跳过 | 无期权 |
+| Deribit | — | ✅ 期权主所 | DVOL | trades + bars + 深度 | HTTP 跳过 | 流动性最大 |
+| Bybit | — | ✅ | — | 同 Deribit | HTTP 跳过 | — |
+| OKX | — | ✅ | — | 同 Deribit | HTTP 跳过 | — |
+| Derive | — | ✅ | — | 同 Deribit | HTTP 跳过 | — |
 | Hyperliquid | — | 可选 | OI WS | — | — | 非 DM 六所 |
 | Binance Options | — | — | — | — | 待 adapter | DM 缺口 |
 | Thalex | — | — | — | — | 待 adapter | DM 缺口 |
@@ -578,7 +609,7 @@ instrument_id = "BTC-28JUN26-100000-C.DERIBIT"
 | 期权 instrument_id 频繁变更 | Step 9 universe 刷新；instruments 分区保留历史 |
 | HTTP 回填与 live 重复 | 分区 metadata 记 `capture_mode=live|backfill` |
 | 无 Binance Options / Thalex adapter | 四所 MVP 先覆盖 DM ~80% 功能 |
-| Actor 仅 subscribe | Step 7 前不承诺 OI 快照；Step 7 明确架构方案 |
+| Actor 仅 subscribe | Step 7–8 已跳过；OI 快照/历史回填不排期；WS greeks 内嵌 OI + `HyperliquidOpenInterest` 已够用 |
 
 ---
 
