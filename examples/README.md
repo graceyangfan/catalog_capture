@@ -1,32 +1,37 @@
 # Examples
 
-Current examples and planned validation paths:
+Runnable configs, runtime-adapter demos, and catalog readback probes for this repository.
+
+Run CLI commands from the repository root. Python verification scripts require a PyO3-capable
+environment from the sibling `../nautilus_trader` checkout (see `docs/getting_started/installation.md`).
+
+## TOML capture profiles
 
 - `examples/capture.toml`
   - first TOML-driven CLI configuration
   - includes `index_prices` and `funding_rates` for Step 1 basis/carry capture
   - includes a commented example for `capture.custom_data`
   - intended to be used with:
-    - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
-    - `cargo +1.96.0 run -p catalog-capture-cli -- print-effective-config --config /Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
-    - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
+    - `cargo run -p catalog-capture-cli -- validate --config examples/capture.toml`
+    - `cargo run -p catalog-capture-cli -- print-effective-config --config examples/capture.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.toml`
 - `examples/capture.binance-perp.ws.toml`
   - Step 1–2 profile: Binance Futures built-in WS + instrument bootstrap
   - captures `quotes`, `mark_prices`, `index_prices`, `funding_rates`, `instruments`, `instrument_statuses`, `instrument_closes`
   - intended to be used with:
-    - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.binance-perp.ws.toml`
-    - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.binance-perp.ws.toml`
+    - `cargo run -p catalog-capture-cli -- validate --config examples/capture.binance-perp.ws.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml`
   - verify with:
-    - `python3 /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
+    - `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
     - fixture contract-state: add `--require-contract-state` after `pyo3_market_readback_smoke.py`
 - `examples/capture.deribit-btc.toml`
   - Step 3 profile: Deribit BTC perp + near-term ATM call/put (hard-coded instrument IDs)
   - captures `instruments`, `quotes`, `mark_prices`, `index_prices`, `funding_rates`, `option_greeks`
   - intended to be used with:
-    - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc.toml`
-    - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc.toml`
+    - `cargo run -p catalog-capture-cli -- validate --config examples/capture.deribit-btc.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc.toml`
   - verify with:
-    - `python3 /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_deribit_probe.py <catalog_dir>`
+    - `python3 tests/python_catalog_deribit_probe.py <catalog_dir>`
 - `examples/capture.deribit-btc-universe.toml`
   - Step 9a-lite profile: Deribit BTC option universe resolved once at startup
   - includes `instrument_statuses` and `instrument_closes` for expiry/settlement lineage
@@ -86,7 +91,7 @@ Current examples and planned validation paths:
 - `examples/capture.okx-btc-universe-oi-ranked.toml`
   - OKX BTC OI-ranked option universe profile
   - current recommendation: use for config validation and runtime-refresh-oriented work; startup
-    OI-ranked preflight is not yet supported by the current Nautilus OKX HTTP discovery path
+    OI-ranked preflight is not yet supported by the OKX adapter HTTP discovery path
   - run: `cargo run -p catalog-capture-cli -- validate --config examples/capture.okx-btc-universe-oi-ranked.toml`
 - `examples/capture.bybit-btc.toml`
   - Step 4b profile: Bybit linear perp + ATM call/put
@@ -115,8 +120,10 @@ Current examples and planned validation paths:
   - intentionally aggressive validation profile
   - useful for forcing fast parquet chunk creation and multi-file behavior
   - intended to be used with:
-    - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.low-threshold.toml`
-    - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.low-threshold.toml`
+    - `cargo run -p catalog-capture-cli -- validate --config examples/capture.low-threshold.toml`
+    - `cargo run -p catalog-capture-cli -- run --config examples/capture.low-threshold.toml`
+
+## Runtime-adapter examples
 
 - `crates/catalog-capture-runtime-adapter/examples/build_capture_actor.rs`
   - builds a dedicated `CatalogCaptureActor`
@@ -125,13 +132,12 @@ Current examples and planned validation paths:
 - `crates/catalog-capture-runtime-adapter/examples/synthetic_quote_roundtrip.rs`
   - writes synthetic `QuoteTick` data through `CatalogCaptureActor`
   - flushes direct Parquet chunks
-  - reads the same data back through Nautilus `ParquetDataCatalog`
+  - reads the same data back through PyO3 `ParquetDataCatalog`
   - run with:
-    - `cargo +1.96.0 run -p catalog-capture-runtime-adapter --example synthetic_quote_roundtrip`
+    - `cargo run -p catalog-capture-runtime-adapter --example synthetic_quote_roundtrip`
 - `crates/catalog-capture-runtime-adapter/examples/write_python_readback_fixture.rs`
   - writes instrument + quote + mark price + index price + funding rate + instrument status + instrument close + option greeks fixture data through `CatalogCaptureActor`
-  - keeps reading responsibility outside this project
-  - intended to be consumed by PyO3-first and legacy-compatibility smoke tests:
+  - readback validated via catalog probes and PyO3 smoke tests:
     - `tests/pyo3_market_readback_smoke.py`
     - `tests/python_readback_smoke.py`
 - `crates/catalog-capture-runtime-adapter/examples/write_python_custom_readback_fixture.rs`
@@ -149,22 +155,22 @@ Current examples and planned validation paths:
   - intended to be consumed by:
     - `tests/python_deribit_dvol_smoke.py`
 - `crates/catalog-capture-runtime-adapter/examples/binance_futures_quote_capture.rs`
-  - connects to the Nautilus Binance Futures data client
+  - connects to the Binance Futures venue adapter data client
   - runs a market-data-only live capture for a fixed duration
   - declares instrument + quote capture through the same `CatalogCaptureActor`
-  - relies on Nautilus-native adapter/runtime callbacks rather than manual protocol handling
+  - uses venue adapter runtime callbacks rather than manual protocol handling
   - verify the written catalog with:
-    - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_probe.py <catalog_dir> <instrument_id> 1`
+    - `python3 tests/python_catalog_probe.py <catalog_dir> <instrument_id> 1`
   - run with:
-    - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo +1.96.0 run -p catalog-capture-runtime-adapter --example binance_futures_quote_capture`
+    - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --example binance_futures_quote_capture`
 - `crates/catalog-capture-runtime-adapter/examples/binance_futures_derivatives_state_capture.rs`
   - Step 1 live validation: quotes + mark + index + funding via WS
   - verify the written catalog with:
-    - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_derivatives_probe.py <catalog_dir> <instrument_id> 1`
+    - `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> <instrument_id> 1`
   - run with:
-    - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo +1.96.0 run -p catalog-capture-runtime-adapter --example binance_futures_derivatives_state_capture`
+    - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --example binance_futures_derivatives_state_capture`
 
-Planned next examples:
+## Planned next examples
 
 - `backtest_reads_captured_catalog`
   - proves the captured files can be reused without conversion
@@ -197,3 +203,8 @@ Notes:
 - Startup `oi_ranked` preflight is currently supported on Bybit. Deribit and OKX should use
   `atm_relative` or `all` at startup, then rely on runtime refresh once `option_greeks` warm up.
 - For long validation runs, prefer `tests/probe_option_universe_soak.py` over ad hoc one-off commands.
+
+## Operator configs
+
+Production-oriented unattended capture lives under `examples/operator/`. See `examples/operator/README.md`
+and `docs/how_to/` for launchd/systemd deployment.

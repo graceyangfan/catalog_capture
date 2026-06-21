@@ -2,18 +2,22 @@
 
 ## Product direction
 
-This repository is no longer just proving "direct parquet capture works."
+This repository is a standalone capture service for research-grade derivatives and options data.
 
-The next working objective is:
+The working objective is:
 
-- use Nautilus Trader native adapters as the data ingress layer
-- record research-grade derivatives and options data directly into PyO3-readable parquet catalog assets
+- use venue adapters from the sibling `../nautilus_trader` dependency as the data ingress layer
+- record runtime market data directly into PyO3-readable parquet catalog assets
 - make those assets immediately reusable for:
   - strategy research
   - backtest replay
   - feature engineering
   - ML dataset construction
   - future derivatives analytics products
+
+Capture policy, batching, partitioning, and operator workflows live in this repository.
+Readback and backtest consumption are validated through PyO3 `ParquetDataCatalog` and standard
+backtest paths — this project writes; downstream tooling reads.
 
 The most important downstream consumers are therefore:
 
@@ -48,7 +52,7 @@ The most important downstream consumers are therefore:
 - add first-class CLI support for `custom_data`
 - add a data-family registry for venue-supported derivatives families
 - prioritize adapter-native custom families using:
-  - `/Users/yfclark/nautilus_catalog_capture/docs/native-custom-data-targets.md`
+  - `docs/native-custom-data-targets.md`
 - prepare capture support for:
   - `index_prices`
   - `funding_rates`

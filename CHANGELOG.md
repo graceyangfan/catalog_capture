@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Rewrote `examples/README.md` and `ROADMAP.md` with project-owned voice and
+  repository-relative paths.
 - Rewrote concept docs (`architecture`, `custom-data-contract`, `production-architecture`,
   `flush-rotation-policy`, `pyo3-surface`, `live-validation`, `implementation-plan`) with
   project-owned voice and repository-relative paths.
