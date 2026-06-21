@@ -14,7 +14,7 @@ version = "0.1.0"
 authors = ["yfclark", "Codex"]
 license = "LGPL-3.0-or-later"
 readme = "README.md"
-description = "Direct runtime-to-catalog capture for Nautilus Trader"
+description = "Direct runtime-to-catalog capture for derivatives research datasets"
 repository = "https://github.com/graceyangfan/nautilus_catalog_capture"
 publish = false
 
@@ -63,5 +63,5 @@ nautilus-serialization = { path = "../nautilus_trader/crates/serialization", fea
 ] }
 
 [patch.crates-io]
-# Align with nautilus_trader: PyO3 0.29 needs the patched pyo3-stub-gen crate.
+# PyO3 0.29 requires the patched pyo3-stub-gen crate from the sibling dependency tree.
 pyo3-stub-gen = { path = "../nautilus_trader/patches/pyo3-stub-gen" }

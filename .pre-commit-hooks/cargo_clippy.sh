@@ -10,7 +10,7 @@ if ! command -v cargo >/dev/null 2>&1; then
 fi
 
 if [[ ! -d ../nautilus_trader ]]; then
-  echo "Skipping clippy: ../nautilus_trader not found (required path dependency)"
+  echo "Skipping clippy: sibling dependency checkout not found at ../nautilus_trader"
   exit 0
 fi
 

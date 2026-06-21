@@ -2,26 +2,19 @@
 
 ## Principles
 
-- Keep the project external to `nautilus_trader` core.
+- Keep capture contracts and deployment policy in this repository.
 - Prefer reuse of Nautilus model and persistence primitives over copied code.
-- Keep deployment-specific policy outside anything that might someday be upstreamed.
+- Add adapter behavior only after the core contract is clear.
 - Keep Phase 1 simple: chunked direct Parquet first.
 
 ## License
 
 Contributions are accepted under the **GNU Lesser General Public License v3.0 or later**
-(LGPL-3.0-or-later), consistent with Nautilus Trader. See `LICENSE` and `NOTICE`.
+(LGPL-3.0-or-later). See `LICENSE` and `NOTICE`.
 
 ## Prerequisites
 
-Clone this repository next to a compatible `nautilus_trader` checkout:
-
-```text
-~/nautilus_trader
-~/nautilus_catalog_capture
-```
-
-Path dependencies in `Cargo.toml` expect `../nautilus_trader`. Use Rust `1.96.0`
+See [installation](docs/getting_started/installation.md). Use Rust `1.96.0`
 (`rust-toolchain.toml`).
 
 ## Workflow
@@ -56,16 +49,11 @@ Documentation map: [docs/index.md](docs/index.md).
 
 New Rust files must include the LGPL header block used in existing `crates/**/*.rs` files.
 
-## Upstream mindset
+## Module boundaries
 
-If a change might belong upstream later, isolate it early:
-
-- helper
-- hook
-- compatibility improvement
-- example
-
-Do not couple core capture policy to potential upstream patches.
+Keep generic helpers separate from deployment-specific capture policy. If a change is
+reusable outside this service, isolate it in a small, well-bounded module rather than
+mixing it into operator defaults.
 
 ## Commit style
 

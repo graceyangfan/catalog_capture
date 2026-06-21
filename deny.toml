@@ -5,7 +5,7 @@
 all-features = true
 
 [licenses]
-# Aligned with nautilus_trader/deny.toml for LGPL-3.0 compatibility.
+# License allowlist for workspace and transitive dependencies (LGPL-3.0-or-later project).
 allow = [
   "MIT",
   "Apache-2.0",

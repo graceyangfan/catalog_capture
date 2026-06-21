@@ -6,7 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-- LGPL-3.0-or-later license, `NOTICE`, and `TRADEMARK.md` aligned with Nautilus Trader.
+- LGPL-3.0-or-later license, `NOTICE`, and `TRADEMARK.md`.
 - LGPL copyright headers on all Rust sources under `crates/`.
 - `deny.toml`, `.cargo/config.toml`, and slim `.pre-commit-config.yaml`.
 - Documentation map: `docs/index.md`, getting started, developer guide, how-to, reference.
@@ -28,7 +28,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed (prior)
 
-- `nautilus_trader` path dependencies now use `../nautilus_trader` for sibling-repo layouts.
+- Path dependencies now use `../nautilus_trader` for sibling-repo layouts.
 
 ### Fixed
 

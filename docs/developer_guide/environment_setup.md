@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Sibling `nautilus_trader` checkout (see [installation](../getting_started/installation.md))
+- Sibling dependency checkout (see [installation](../getting_started/installation.md))
 - Rust 1.96.0 with `rustfmt` and `clippy`
 - Network access for live smoke/soak probes
 
@@ -29,9 +29,8 @@ make pre-commit    # all pre-commit hooks
 
 Before opening a PR, ensure `make test`, `make clippy`, and `make cargo-deny` pass.
 
-## Forked nautilus_trader
+## Dependency version
 
-Some capture features depend on patches in a forked `nautilus_trader` branch. Keep your
-local sibling checkout on the branch documented in `README.md` or project issues. CI
-checks out upstream `develop` by default; pin `NAUTILUS_TRADER_REF` in CI when testing
-against a fork.
+Keep your local sibling checkout on the revision documented in project issues or your
+team's deployment notes. CI uses `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`
+to pin the checkout used for builds.

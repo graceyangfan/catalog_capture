@@ -224,14 +224,14 @@ At minimum this should separate:
 
 That allows a capture process to be launched without editing Rust code.
 
-## Why this still fits Nautilus style
+## Why this architecture
 
-This evolution stays aligned with Nautilus because it:
+This evolution keeps the capture service focused because it:
 
-- keeps `DataActor` as the runtime ingress
-- keeps `ParquetDataCatalog` as the write/read contract
-- keeps PyO3 and backtest workflows as first-class consumers
-- avoids forcing a built-in framework service into `nautilus_trader`
+- uses `DataActor` as the runtime ingress
+- uses `ParquetDataCatalog` as the write/read contract
+- treats PyO3 and backtest workflows as first-class consumers
+- keeps long-running capture policy in this repository rather than in core trading logic
 
 ## Near-term implementation order
 

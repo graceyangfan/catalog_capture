@@ -1,7 +1,7 @@
 # Pre-commit
 
-This project uses [pre-commit](https://pre-commit.com/) with a focused hook set aligned
-with Nautilus Trader conventions (without upstream-only hooks for PyO3/Cap'n Proto).
+This project uses [pre-commit](https://pre-commit.com/) for formatting, linting, and
+basic repository hygiene before each commit.
 
 ## Install
 
@@ -28,7 +28,7 @@ pre-commit run --all-files
 | actionlint | `.github/workflows/` |
 | typos | spelling |
 | cargo fmt --check | Rust formatting |
-| cargo clippy | workspace lint (requires `../nautilus_trader`) |
+| cargo clippy | workspace lint (requires sibling dependency checkout) |
 
-Clippy is skipped locally when the sibling `nautilus_trader` path is missing; CI always
-runs clippy after checking out both repositories.
+Clippy is skipped locally when the path dependency checkout is missing; CI checks out
+both repositories before running hooks.

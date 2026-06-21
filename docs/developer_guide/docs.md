@@ -1,11 +1,8 @@
 # Documentation style
 
-Follow [Nautilus Trader docs conventions](https://github.com/nautechsystems/nautilus_trader/blob/develop/docs/developer_guide/docs.md)
-where they apply:
-
 - Use sentence case for headings (H2 and below).
 - Prefer active voice and present tense.
-- Separate tutorial, how-to, concept, and reference content (Divio system).
+- Separate tutorial, how-to, concept, and reference content ([Divio system](https://docs.divio.com/documentation-system/)).
 
 ## This repository
 

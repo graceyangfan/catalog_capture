@@ -2,14 +2,14 @@
 
 ## Layout
 
-Clone both repositories as siblings:
+Clone this repository and its path dependencies as siblings:
 
 ```text
-~/nautilus_trader
-~/nautilus_catalog_capture
+~/nautilus_trader          # persistence and adapter libraries
+~/nautilus_catalog_capture # this project
 ```
 
-Path dependencies in `Cargo.toml` expect `../nautilus_trader`.
+`Cargo.toml` path dependencies expect `../nautilus_trader`.
 
 ## Rust toolchain
 
@@ -36,13 +36,14 @@ make build-release
 
 ## Python (optional, for readback probes)
 
-Live validation probes use Nautilus PyO3 bindings from your `nautilus_trader` Python
-environment. Point probes at the same `nautilus_trader` checkout you built against.
+Live validation probes use PyO3 `ParquetDataCatalog` from the Python environment built
+alongside the sibling dependency checkout. Use the same checkout revision for Rust and
+Python validation.
 
 ## Development tools
 
 ```bash
-pip install pre-commit   # or: cargo install prek --locked
+pip install pre-commit
 pre-commit install
 make install-tools       # installs cargo-deny
 ```

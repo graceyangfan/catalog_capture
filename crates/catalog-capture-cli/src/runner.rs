@@ -450,7 +450,7 @@ fn validate_known_custom_data_type(
         "BinanceFuturesLiquidation" => {
             bail!(
                 "custom_data BinanceFuturesLiquidation is not yet supported for direct parquet \
-                 capture in this workspace because the upstream type lacks Arrow batch encoding"
+                 capture in this workspace because the type lacks Arrow batch encoding"
             );
         }
         "DeribitVolatilityIndex" => {

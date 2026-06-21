@@ -6,8 +6,8 @@ official Nautilus Trader product and is not affiliated with Nautech Systems Pty 
 ## NautilusTrader and Nautilus Trader
 
 "NautilusTrader" and "Nautilus Trader" are trademarks of Nautech Systems Pty Ltd.
-Use those names only to describe compatibility with the upstream project, not to
-imply official sponsorship or endorsement.
+Use those names only to describe compatibility with the Nautilus Trader open-source
+project, not to imply official sponsorship or endorsement.
 
 ## This project name
 

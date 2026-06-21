@@ -21,9 +21,10 @@ Parquet catalog assets. Documentation follows the [Divio system](https://docs.di
 - [Live validation](live-validation.md)
 - [Option universe preflight](option-universe-preflight.md)
 - [Option universe manager design](option-universe-manager-design.md)
-- [Upstream strategy](upstream-strategy.md)
+- [Integration strategy](upstream-strategy.md)
 
-## External dependency
+## Build dependency
 
-This project requires a sibling [Nautilus Trader](https://github.com/nautechsystems/nautilus_trader)
+The workspace links against Nautilus persistence and adapter libraries from a sibling
 checkout at `../nautilus_trader`. See [installation](getting_started/installation.md).
+License obligations for that dependency are described in `NOTICE`.

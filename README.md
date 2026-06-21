@@ -1,15 +1,14 @@
 # Nautilus Catalog Capture
 
-A standalone Rust-first project for direct runtime-to-catalog capture on top of Nautilus Trader.
+A standalone Rust-first project for direct runtime-to-catalog capture.
 
 ## Purpose
 
-This project exists to implement a deployment-owned capture path where:
+This project implements a deployment-owned capture path where:
 
 - online/runtime-generated market time-series data is written directly as catalog-readable Parquet assets
 - backtest can consume those assets after rollover without a `feather -> convert -> parquet` step
-- the implementation remains external to the Nautilus Trader core repository
-- the architecture stays compatible with future upstream cooperation through small hooks or helper improvements
+- capture policy, batching, and operations stay in this repository
 
 ## Project boundary
 
@@ -37,17 +36,15 @@ It is organized as:
 - `catalog-capture-cli`: TOML-driven runner for validation and live capture
 - `tests/`: Python-native readback probes and smoke tests
 - `examples/`: end-to-end build, synthetic, fixture, and live-capture flows
-- `docs/`: RFC, architecture, rollout, and upstream strategy documents
+- `docs/`: RFC, architecture, rollout, and integration strategy documents
 
-## Why this repository exists outside `nautilus_trader`
+## Scope
 
-The Nautilus maintainers have stated that runtime capture is considered deployment-specific and should remain user-owned rather than framework-built-in.
+This repository is capture-focused: it records runtime data and writes catalog assets.
+It is not a trading engine, query layer, or backtest framework.
 
-That makes an external project the cleanest long-term structure:
-
-- we reuse Nautilus model and persistence primitives
-- we own the operational capture policy
-- we can still upstream small generic hooks or helpers later if needed
+The implementation reuses Nautilus model and persistence primitives as libraries and
+owns deployment-specific capture policy here.
 
 ## Initial implementation strategy
 
@@ -124,13 +121,8 @@ Useful configs:
 
 ## Prerequisites
 
-This project depends on a sibling `nautilus_trader` checkout:
-
-```text
-../nautilus_trader
-```
-
-Use Rust `1.96.0` (see `rust-toolchain.toml`).
+Build requires a sibling dependency checkout (see [installation](docs/getting_started/installation.md))
+and Rust `1.96.0` (`rust-toolchain.toml`).
 
 ## Operations
 
@@ -202,6 +194,6 @@ Documentation map: [docs/index.md](docs/index.md).
 - `docs/implementation-plan.md`
 - `docs/custom-data-contract.md`
 - `docs/native-custom-data-targets.md`
-- `docs/upstream-strategy.md`
+- `docs/upstream-strategy.md` (integration strategy)
 - `docs/live-validation.md`
 - `docs/pyo3-surface.md`

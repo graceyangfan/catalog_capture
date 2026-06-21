@@ -323,4 +323,4 @@ The right next move is not to discard chunked direct parquet, but to:
 - separate test profiles from production profiles
 - evolve only when real usage shows that small-file behavior is a meaningful problem
 
-That keeps the project simple, Nautilus-aligned, and maintainable while still moving toward a more production-natural capture system.
+That keeps the project simple, catalog-native, and maintainable while still moving toward a more production-natural capture system.
