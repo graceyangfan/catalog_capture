@@ -4,12 +4,22 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{OptionUniverseSpec, ResolvedOptionUniverse};
 
 pub const OPTION_UNIVERSE_RESOLUTIONS_FILE: &str = "metadata/option_universe_resolutions.jsonl";
+
+pub const REFRESH_ROLLOVER_REASONS: [&str; 4] = [
+    "expiry_roll",
+    "atm_drift",
+    "oi_rank_shift",
+    "strike_window_shift",
+];
+
+/// Minimum selected strikes expected for BTC nearest-expiry `all` smoke validation.
+pub const ALL_STRIKES_MIN_SELECTED_STRIKES: usize = 5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -54,6 +64,31 @@ pub struct OptionUniverseResolutionSummary {
     pub perp_instrument_id: Option<String>,
     pub option_count: usize,
     pub option_instrument_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct OptionUniverseResolutionValidationOptions {
+    pub require_refresh_change: bool,
+    pub strike_profile: Option<StrikeSelectionProfile>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StrikeSelectionProfile {
+    OiRanked { top_n: usize },
+    AllStrikes { min_strikes: usize },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OptionUniverseResolutionValidationReport {
+    pub venue_id: String,
+    pub underlying: String,
+    pub record_count: usize,
+    pub refresh_count: usize,
+    pub strike_selection_mode: String,
+    pub selected_strike_count: usize,
+    pub option_count: usize,
+    pub atm_reference_source: String,
+    pub oi_ranked_top_n: Option<usize>,
 }
 
 pub fn catalog_root_from_uri(catalog_uri: &str) -> Result<PathBuf> {
@@ -150,6 +185,238 @@ pub fn summarize_option_universe_resolution_records(
             option_instrument_ids: state.latest.option_instrument_ids.clone(),
         })
         .collect()
+}
+
+pub fn validate_option_universe_resolution_metadata(
+    catalog_root: &Path,
+    options: &OptionUniverseResolutionValidationOptions,
+) -> Result<Vec<OptionUniverseResolutionValidationReport>> {
+    let records = read_option_universe_resolution_records(catalog_root)?;
+    validate_option_universe_resolution_records(&records, options)
+}
+
+pub fn validate_option_universe_resolution_records(
+    records: &[OptionUniverseResolutionRecord],
+    options: &OptionUniverseResolutionValidationOptions,
+) -> Result<Vec<OptionUniverseResolutionValidationReport>> {
+    if records.is_empty() {
+        bail!("option universe resolution metadata is empty");
+    }
+
+    use std::collections::BTreeMap;
+
+    let mut grouped = BTreeMap::<(String, String), Vec<&OptionUniverseResolutionRecord>>::new();
+    for record in records {
+        grouped
+            .entry((record.venue_id.clone(), record.underlying.clone()))
+            .or_default()
+            .push(record);
+    }
+
+    let mut reports = Vec::with_capacity(grouped.len());
+    for ((venue_id, underlying), universe_records) in grouped {
+        reports.push(validate_universe_resolution_records(
+            &venue_id,
+            &underlying,
+            universe_records,
+            options,
+        )?);
+    }
+
+    Ok(reports)
+}
+
+fn validate_universe_resolution_records(
+    venue_id: &str,
+    underlying: &str,
+    records: Vec<&OptionUniverseResolutionRecord>,
+    options: &OptionUniverseResolutionValidationOptions,
+) -> Result<OptionUniverseResolutionValidationReport> {
+    let startup_records = records
+        .iter()
+        .copied()
+        .filter(|record| record.event_kind == OptionUniverseResolutionEventKind::Startup)
+        .collect::<Vec<_>>();
+    if startup_records.len() != 1 {
+        bail!(
+            "option universe {venue_id}:{underlying} expected exactly one startup resolution record, got {}",
+            startup_records.len()
+        );
+    }
+
+    let startup = startup_records[0];
+    validate_startup_resolution_record(venue_id, underlying, startup)?;
+
+    let expected_mode = startup.strike_selection_mode.as_str();
+    let refresh_records = records
+        .iter()
+        .copied()
+        .filter(|record| record.event_kind == OptionUniverseResolutionEventKind::Refresh)
+        .collect::<Vec<_>>();
+
+    for record in &refresh_records {
+        validate_refresh_resolution_record(venue_id, underlying, record, expected_mode)?;
+    }
+
+    if options.require_refresh_change && refresh_records.is_empty() {
+        bail!(
+            "option universe {venue_id}:{underlying} expected at least one refresh delta but none were recorded"
+        );
+    }
+
+    if let Some(profile) = &options.strike_profile {
+        validate_strike_selection_profile(venue_id, underlying, startup, *profile)?;
+    }
+
+    Ok(OptionUniverseResolutionValidationReport {
+        venue_id: venue_id.to_string(),
+        underlying: underlying.to_string(),
+        record_count: records.len(),
+        refresh_count: refresh_records.len(),
+        strike_selection_mode: startup.strike_selection_mode.clone(),
+        selected_strike_count: startup.selected_strikes.len(),
+        option_count: startup.option_instrument_ids.len(),
+        atm_reference_source: startup.atm_reference_source.clone(),
+        oi_ranked_top_n: startup.oi_ranked_top_n,
+    })
+}
+
+fn validate_startup_resolution_record(
+    venue_id: &str,
+    underlying: &str,
+    record: &OptionUniverseResolutionRecord,
+) -> Result<()> {
+    if record.strike_selection_mode.is_empty() {
+        bail!(
+            "option universe {venue_id}:{underlying} startup resolution missing strike_selection_mode"
+        );
+    }
+    if record.option_instrument_ids.is_empty() {
+        bail!(
+            "option universe {venue_id}:{underlying} startup resolution selected no option instruments"
+        );
+    }
+    if record
+        .perp_instrument_id
+        .as_deref()
+        .is_none_or(str::is_empty)
+    {
+        bail!(
+            "option universe {venue_id}:{underlying} startup resolution missing perp_instrument_id"
+        );
+    }
+    Ok(())
+}
+
+fn validate_refresh_resolution_record(
+    venue_id: &str,
+    underlying: &str,
+    record: &OptionUniverseResolutionRecord,
+    expected_mode: &str,
+) -> Result<()> {
+    if record.strike_selection_mode != expected_mode {
+        bail!(
+            "option universe {venue_id}:{underlying} refresh strike_selection_mode mismatch: expected {expected_mode:?}, got {:?}",
+            record.strike_selection_mode
+        );
+    }
+
+    let reason = record
+        .rollover_reason
+        .as_deref()
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "option universe {venue_id}:{underlying} refresh metadata missing rollover_reason"
+            )
+        })?;
+    if !REFRESH_ROLLOVER_REASONS.contains(&reason) {
+        bail!(
+            "option universe {venue_id}:{underlying} refresh rollover_reason unexpected: got {reason:?}, expected one of {:?}",
+            REFRESH_ROLLOVER_REASONS
+        );
+    }
+
+    if record.added_instrument_ids.is_empty() && record.removed_instrument_ids.is_empty() {
+        bail!(
+            "option universe {venue_id}:{underlying} refresh metadata should include added or removed instruments"
+        );
+    }
+
+    Ok(())
+}
+
+fn validate_strike_selection_profile(
+    venue_id: &str,
+    underlying: &str,
+    startup: &OptionUniverseResolutionRecord,
+    profile: StrikeSelectionProfile,
+) -> Result<()> {
+    match profile {
+        StrikeSelectionProfile::OiRanked { top_n } => {
+            if startup.strike_selection_mode != "oi_ranked" {
+                bail!(
+                    "option universe {venue_id}:{underlying} strike_selection_mode mismatch: expected \"oi_ranked\", got {:?}",
+                    startup.strike_selection_mode
+                );
+            }
+            if startup.oi_ranked_top_n != Some(top_n) {
+                bail!(
+                    "option universe {venue_id}:{underlying} oi_ranked_top_n mismatch: expected {top_n}, got {:?}",
+                    startup.oi_ranked_top_n
+                );
+            }
+            if startup.selected_strikes.is_empty() {
+                bail!(
+                    "option universe {venue_id}:{underlying} oi_ranked resolution selected no strikes"
+                );
+            }
+            if startup.selected_strikes.len() > top_n {
+                bail!(
+                    "option universe {venue_id}:{underlying} oi_ranked selected {} strikes, expected at most {top_n}",
+                    startup.selected_strikes.len()
+                );
+            }
+            validate_option_ids_match_selected_strikes(venue_id, underlying, startup)?;
+        }
+        StrikeSelectionProfile::AllStrikes { min_strikes } => {
+            if startup.strike_selection_mode != "all" {
+                bail!(
+                    "option universe {venue_id}:{underlying} strike_selection_mode mismatch: expected \"all\", got {:?}",
+                    startup.strike_selection_mode
+                );
+            }
+            if startup.oi_ranked_top_n.is_some() {
+                bail!(
+                    "option universe {venue_id}:{underlying} all-strikes resolution should not set oi_ranked_top_n"
+                );
+            }
+            if startup.selected_strikes.len() < min_strikes {
+                bail!(
+                    "option universe {venue_id}:{underlying} all-strikes resolution selected too few strikes: {}",
+                    startup.selected_strikes.len()
+                );
+            }
+            validate_option_ids_match_selected_strikes(venue_id, underlying, startup)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_option_ids_match_selected_strikes(
+    venue_id: &str,
+    underlying: &str,
+    startup: &OptionUniverseResolutionRecord,
+) -> Result<()> {
+    let expected_options = startup.selected_strikes.len().saturating_mul(2);
+    if startup.option_instrument_ids.len() != expected_options {
+        bail!(
+            "option universe {venue_id}:{underlying} option_instrument_ids count should be 2x selected_strikes (got {} options for {} strikes)",
+            startup.option_instrument_ids.len(),
+            startup.selected_strikes.len()
+        );
+    }
+    Ok(())
 }
 
 pub fn append_option_universe_resolution_records(
@@ -400,6 +667,112 @@ mod tests {
         assert!(contents.contains("\"atm_reference_source\":\"http_perp_ticker_mark\""));
 
         fs::remove_dir_all(temp).ok();
+    }
+
+    fn sample_startup_record() -> OptionUniverseResolutionRecord {
+        startup_resolution_record(
+            &OptionUniverseSpec {
+                venue_id: "deribit_main".to_string(),
+                underlying: "BTC".to_string(),
+                settlement_currency: Some("BTC".to_string()),
+                include_perp: true,
+                families: vec![],
+                expiry_policy: crate::ExpiryPolicy::Nearest { days_max: 45 },
+                strike_policy: crate::StrikePolicy::AtmRelative {
+                    strikes_above: 1,
+                    strikes_below: 1,
+                },
+            },
+            &sample_resolved(),
+            vec!["BTC-26JUN26-65000-C.DERIBIT".to_string()],
+            vec![],
+        )
+    }
+
+    #[test]
+    fn validate_resolution_records_accepts_startup_only() {
+        let startup = sample_startup_record();
+        let reports = validate_option_universe_resolution_records(
+            &[startup],
+            &OptionUniverseResolutionValidationOptions::default(),
+        )
+        .expect("startup-only metadata should validate");
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].refresh_count, 0);
+    }
+
+    #[test]
+    fn validate_resolution_records_requires_refresh_when_configured() {
+        let startup = sample_startup_record();
+        let err = validate_option_universe_resolution_records(
+            &[startup],
+            &OptionUniverseResolutionValidationOptions {
+                require_refresh_change: true,
+                strike_profile: None,
+            },
+        )
+        .expect_err("missing refresh should fail");
+        assert!(err.to_string().contains("expected at least one refresh delta"));
+    }
+
+    #[test]
+    fn validate_resolution_records_checks_oi_ranked_profile() {
+        let mut startup = sample_startup_record();
+        startup.strike_selection_mode = "oi_ranked".to_string();
+        startup.oi_ranked_top_n = Some(3);
+        startup.selected_strikes = vec![
+            "64000".to_string(),
+            "65000".to_string(),
+            "66000".to_string(),
+        ];
+        startup.option_instrument_ids = vec![
+            "BTC-26JUN26-64000-C.DERIBIT".to_string(),
+            "BTC-26JUN26-64000-P.DERIBIT".to_string(),
+            "BTC-26JUN26-65000-C.DERIBIT".to_string(),
+            "BTC-26JUN26-65000-P.DERIBIT".to_string(),
+            "BTC-26JUN26-66000-C.DERIBIT".to_string(),
+            "BTC-26JUN26-66000-P.DERIBIT".to_string(),
+        ];
+
+        let reports = validate_option_universe_resolution_records(
+            &[startup],
+            &OptionUniverseResolutionValidationOptions {
+                require_refresh_change: false,
+                strike_profile: Some(StrikeSelectionProfile::OiRanked { top_n: 3 }),
+            },
+        )
+        .expect("oi_ranked metadata should validate");
+        assert_eq!(reports[0].strike_selection_mode, "oi_ranked");
+        assert_eq!(reports[0].oi_ranked_top_n, Some(3));
+    }
+
+    #[test]
+    fn validate_resolution_records_checks_all_strikes_profile() {
+        let mut startup = sample_startup_record();
+        startup.strike_selection_mode = "all".to_string();
+        startup.selected_strikes = (1..=6).map(|strike| strike.to_string()).collect();
+        startup.option_instrument_ids = startup
+            .selected_strikes
+            .iter()
+            .flat_map(|strike| {
+                [
+                    format!("BTC-26JUN26-{strike}-C.DERIBIT"),
+                    format!("BTC-26JUN26-{strike}-P.DERIBIT"),
+                ]
+            })
+            .collect();
+
+        let reports = validate_option_universe_resolution_records(
+            &[startup],
+            &OptionUniverseResolutionValidationOptions {
+                require_refresh_change: false,
+                strike_profile: Some(StrikeSelectionProfile::AllStrikes {
+                    min_strikes: ALL_STRIKES_MIN_SELECTED_STRIKES,
+                }),
+            },
+        )
+        .expect("all-strikes metadata should validate");
+        assert_eq!(reports[0].selected_strike_count, 6);
     }
 
     #[test]

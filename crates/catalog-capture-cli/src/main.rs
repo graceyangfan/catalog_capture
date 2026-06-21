@@ -11,14 +11,17 @@ use config::{load_config, render_effective_config, resolve_config, EffectiveConf
 use option_universe::{
     load_option_universe_summaries, materialize_capture_plan_with_reports,
     merge_validation_options, render_option_universe_catalog_validation_json,
-    render_option_universe_catalog_validation_text, render_option_universe_reports_json,
+    render_option_universe_catalog_validation_text, render_option_universe_metadata_validation_json,
+    render_option_universe_metadata_validation_text, render_option_universe_reports_json,
     render_option_universe_reports_text, render_option_universe_summaries_json,
     render_option_universe_summaries_text, resolve_option_universe_reports,
-    validate_option_universe_catalog, validation_options_for_preset,
+    validate_option_universe_catalog, validate_option_universe_metadata,
+    validation_options_for_preset, validation_options_from_cli, StrikeModeArg,
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
     OptionUniverseCatalogValidationReport, OptionUniverseOutputFormat,
     OptionUniverseResolutionReport, PostRunReportOptions,
 };
+use catalog_capture_core::OptionUniverseResolutionValidationReport;
 use runner::{run_capture, run_capture_with_plan_and_reports, validate_runtime};
 
 #[derive(Debug, Parser)]
@@ -140,6 +143,23 @@ enum Command {
         #[arg(long, help = "Require bar parquet rows for each bar_type identifier")]
         bar_type: Vec<String>,
     },
+    ValidateOptionUniverseMetadata {
+        #[arg(long)]
+        catalog_uri: String,
+        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
+        option_universe_format: OptionUniverseOutputFormatArg,
+        #[arg(long, help = "Require at least one applied runtime refresh delta")]
+        require_refresh_change: bool,
+        #[arg(long, value_enum, help = "Assert strike_selection_mode-specific metadata shape")]
+        strike_mode: Option<StrikeModeArg>,
+        #[arg(long, help = "Expected oi_ranked_top_n when --strike-mode oi-ranked")]
+        oi_ranked_top_n: Option<usize>,
+        #[arg(
+            long,
+            help = "Minimum selected strikes when --strike-mode all (default: 5)"
+        )]
+        all_min_strikes: Option<usize>,
+    },
 }
 
 #[tokio::main]
@@ -244,6 +264,27 @@ async fn main() -> Result<()> {
             let reports = validate_option_universe_catalog(&catalog_root, &options)?;
             print_option_universe_catalog_validation_values(&reports, option_universe_format.into())?;
         }
+        Command::ValidateOptionUniverseMetadata {
+            catalog_uri,
+            option_universe_format,
+            require_refresh_change,
+            strike_mode,
+            oi_ranked_top_n,
+            all_min_strikes,
+        } => {
+            let catalog_root = catalog_root_from_uri(&catalog_uri)?;
+            let options = validation_options_from_cli(
+                require_refresh_change,
+                strike_mode,
+                oi_ranked_top_n,
+                all_min_strikes,
+            )?;
+            let reports = validate_option_universe_metadata(&catalog_root, &options)?;
+            print_option_universe_metadata_validation_values(
+                &reports,
+                option_universe_format.into(),
+            )?;
+        }
     }
 
     Ok(())
@@ -302,6 +343,27 @@ fn print_option_universe_summary_values(
         }
         OptionUniverseOutputFormat::Text => {
             println!("{}", render_option_universe_summaries_text(summaries));
+        }
+    }
+    Ok(())
+}
+
+fn print_option_universe_metadata_validation_values(
+    reports: &[OptionUniverseResolutionValidationReport],
+    format: OptionUniverseOutputFormat,
+) -> Result<()> {
+    match format {
+        OptionUniverseOutputFormat::Json => {
+            println!(
+                "{}",
+                render_option_universe_metadata_validation_json(reports)?
+            );
+        }
+        OptionUniverseOutputFormat::Text => {
+            println!(
+                "{}",
+                render_option_universe_metadata_validation_text(reports)
+            );
         }
     }
     Ok(())

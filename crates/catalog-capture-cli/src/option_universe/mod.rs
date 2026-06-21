@@ -2,6 +2,7 @@ mod catalog;
 mod catalog_presets;
 mod discovery;
 mod history;
+mod metadata;
 mod post_run_report;
 mod report;
 #[cfg(test)]
@@ -30,6 +31,10 @@ pub use discovery::resolve_option_universe_spec;
 pub use history::{
     load_option_universe_summaries, render_option_universe_summaries_json,
     render_option_universe_summaries_text,
+};
+pub use metadata::{
+    render_option_universe_metadata_validation_json, render_option_universe_metadata_validation_text,
+    validate_option_universe_metadata, validation_options_from_cli, StrikeModeArg,
 };
 pub use report::{
     build_option_universe_resolution_report, render_option_universe_reports_json,

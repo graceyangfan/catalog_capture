@@ -39,8 +39,11 @@ pub use option_universe_metadata::{
     append_option_universe_resolution_records, catalog_root_from_uri,
     compute_refresh_rollover_reason, option_universe_resolution_log_path,
     read_option_universe_resolution_records, refresh_resolution_record, startup_resolution_record,
-    summarize_option_universe_resolution_records, OptionUniverseResolutionEventKind,
-    OptionUniverseResolutionRecord, OptionUniverseResolutionSummary,
+    summarize_option_universe_resolution_records, validate_option_universe_resolution_metadata,
+    validate_option_universe_resolution_records, ALL_STRIKES_MIN_SELECTED_STRIKES,
+    OptionUniverseResolutionEventKind, OptionUniverseResolutionRecord,
+    OptionUniverseResolutionSummary, OptionUniverseResolutionValidationOptions,
+    OptionUniverseResolutionValidationReport, StrikeSelectionProfile,
 };
 pub use option_universe_rollover::{should_apply_strike_change, StrikeChangeSmoothingState};
 pub use plan::{

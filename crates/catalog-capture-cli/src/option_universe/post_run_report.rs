@@ -16,6 +16,10 @@ use super::history::{
     load_option_universe_summaries, render_option_universe_summaries_json,
     render_option_universe_summaries_text,
 };
+use super::metadata::{
+    metadata_validation_options_for_config, render_option_universe_metadata_validation_json,
+    render_option_universe_metadata_validation_text, validate_option_universe_metadata,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionUniverseOutputFormat {
@@ -61,6 +65,24 @@ pub fn run_option_universe_post_run_report(
         }
         OptionUniverseOutputFormat::Text => {
             println!("{}", render_option_universe_summaries_text(&summaries));
+        }
+    }
+
+    println!("\n--- Metadata validation ---");
+    let metadata_options = metadata_validation_options_for_config(config);
+    let metadata_reports = validate_option_universe_metadata(catalog_root, &metadata_options)?;
+    match options.format {
+        OptionUniverseOutputFormat::Json => {
+            println!(
+                "{}",
+                render_option_universe_metadata_validation_json(&metadata_reports)?
+            );
+        }
+        OptionUniverseOutputFormat::Text => {
+            println!(
+                "{}",
+                render_option_universe_metadata_validation_text(&metadata_reports)
+            );
         }
     }
 

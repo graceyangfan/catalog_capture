@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import shutil
 import subprocess
@@ -81,17 +80,6 @@ REQUIRED_FAMILIES = (
 TRADE_FAMILY_NAMES = ("trade_tick", "trades")
 VENUES_REQUIRING_TRADES = frozenset({"okx", "bybit", "okx-oi-ranked", "bybit-oi-ranked"})
 
-FORWARD_PRICES_METADATA = Path("metadata") / "forward_prices.jsonl"
-RESOLUTIONS_METADATA = Path("metadata") / "option_universe_resolutions.jsonl"
-FORWARD_PRICE_SOURCE = "option_greeks_underlying_price"
-
-OI_RANKED_VENUES = frozenset({
-    "deribit-oi-ranked",
-    "deribit-oi-ranked-autorefresh",
-    "bybit-oi-ranked",
-    "okx-oi-ranked",
-})
-OI_RANKED_AUTOREFRESH_VENUES = frozenset({"deribit-oi-ranked-autorefresh"})
 ALL_STRIKES_VENUES = frozenset({"deribit-all"})
 READBACK_OPTION_SAMPLE_LIMIT = 6
 BAR_TYPES = {
@@ -99,30 +87,6 @@ BAR_TYPES = {
     "bybit": ["BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL"],
     "okx": ["BTC-USD-SWAP.OKX-1-MINUTE-LAST-EXTERNAL"],
 }
-RESOLUTION_REQUIRED_FIELDS = (
-    "event_kind",
-    "venue_id",
-    "underlying",
-    "resolved_at_ns",
-    "resolved_at_iso8601",
-    "selected_expiry_ns",
-    "selected_expiry_iso8601",
-    "atm_reference",
-    "atm_reference_source",
-    "strike_selection_mode",
-    "selected_strikes",
-    "option_instrument_ids",
-    "all_instrument_ids",
-    "added_instrument_ids",
-    "removed_instrument_ids",
-)
-REFRESH_ALLOWED_REASONS = {
-    "expiry_roll",
-    "atm_drift",
-    "oi_rank_shift",
-    "strike_window_shift",
-}
-
 VALIDATION_PRESET_BY_VENUE = {
     "deribit-autorefresh": "rolling-autorefresh",
     "okx-autorefresh": "rolling-autorefresh",
@@ -133,6 +97,14 @@ VALIDATION_PRESET_BY_VENUE = {
     "okx": "venue-trades",
     "bybit-oi-ranked": "venue-trades",
     "okx-oi-ranked": "venue-trades",
+}
+
+METADATA_STRIKE_MODE_BY_VENUE = {
+    "deribit-oi-ranked": ("oi-ranked", 3),
+    "deribit-oi-ranked-autorefresh": ("oi-ranked", 3),
+    "bybit-oi-ranked": ("oi-ranked", 3),
+    "okx-oi-ranked": ("oi-ranked", 3),
+    "deribit-all": ("all", None),
 }
 
 
@@ -270,30 +242,8 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
 
     summary = summarize_catalog(catalog_dir)
     print_catalog_summary(venue, catalog_dir, summary)
+    run_cli_metadata_validation(catalog_dir, venue, args)
     run_cli_catalog_validation(catalog_dir, venue, args)
-    resolution_rows, refresh_rows = validate_resolution_metadata(
-        catalog_dir,
-        venue,
-        require_refresh_change=(
-            args.require_refresh_change and venue in AUTOREFRESH_VALIDATION_VENUES
-        ),
-    )
-    print(
-        f"[{venue}] option_universe_resolutions.jsonl rows={resolution_rows} "
-        f"refresh_rows={refresh_rows}",
-        flush=True,
-    )
-
-    if venue in OI_RANKED_VENUES:
-        validate_oi_ranked_resolution_metadata(catalog_dir, top_n=3)
-        print(
-            f"[{venue}] strike_selection_mode=oi_ranked",
-        )
-    if venue in ALL_STRIKES_VENUES:
-        validate_all_strikes_resolution_metadata(catalog_dir)
-        print(
-            f"[{venue}] strike_selection_mode=all",
-        )
     if venue in AUTOREFRESH_VALIDATION_VENUES:
         refresh_change_logs = count_refresh_change_logs(output)
         print(
@@ -332,6 +282,37 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
         shutil.rmtree(catalog_dir)
         temp_config.unlink(missing_ok=True)
         print(f"[{venue}] cleaned up generated catalog and config")
+
+
+def run_cli_metadata_validation(
+    catalog_dir: Path,
+    venue: str,
+    args: argparse.Namespace,
+) -> None:
+    command = [
+        args.cargo,
+        "run",
+        "-p",
+        "catalog-capture-cli",
+        "--",
+        "validate-option-universe-metadata",
+        "--catalog-uri",
+        f"file://{catalog_dir}",
+        "--option-universe-format",
+        "text",
+    ]
+    if args.require_refresh_change and venue in AUTOREFRESH_VALIDATION_VENUES:
+        command.append("--require-refresh-change")
+
+    strike_mode = METADATA_STRIKE_MODE_BY_VENUE.get(venue)
+    if strike_mode is not None:
+        mode, top_n = strike_mode
+        command.extend(["--strike-mode", mode])
+        if mode == "oi-ranked":
+            command.extend(["--oi-ranked-top-n", str(top_n)])
+
+    print(f"[{venue}] cli metadata validation", flush=True)
+    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
 
 
 def run_cli_catalog_validation(
@@ -509,230 +490,12 @@ def print_catalog_summary(
         print(f"[{venue}] {family}: files={values['files']} sample_rows_first_5={row_text}")
 
 
-def load_resolution_records(catalog_dir: Path) -> list[dict]:
-    path = catalog_dir / RESOLUTIONS_METADATA
-    if not path.exists():
-        raise RuntimeError(f"missing option universe resolution metadata: {path}")
-
-    records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-    if not records:
-        raise RuntimeError(f"option universe resolution metadata is empty: {path}")
-    return records
-
-
-def validate_resolution_metadata(
-    catalog_dir: Path,
-    venue: str,
-    *,
-    require_refresh_change: bool,
-) -> tuple[int, int]:
-    records = load_resolution_records(catalog_dir)
-    startup_records = [record for record in records if record.get("event_kind") == "startup"]
-    refresh_records = [record for record in records if record.get("event_kind") == "refresh"]
-
-    if len(startup_records) != 1:
-        raise RuntimeError(
-            "expected exactly one startup resolution record, got "
-            f"{len(startup_records)}"
-        )
-
-    startup = startup_records[0]
-    for field in RESOLUTION_REQUIRED_FIELDS:
-        if field not in startup:
-            raise RuntimeError(
-                f"resolution metadata missing field {field!r} in startup record"
-            )
-
-    if not startup["option_instrument_ids"]:
-        raise RuntimeError("startup resolution selected no option instruments")
-    if startup.get("perp_instrument_id") in (None, ""):
-        raise RuntimeError("startup resolution missing perp_instrument_id")
-
-    expected_mode = startup.get("strike_selection_mode")
-    if not expected_mode:
-        raise RuntimeError("startup resolution missing strike_selection_mode")
-
-    for record in refresh_records:
-        for field in RESOLUTION_REQUIRED_FIELDS:
-            if field not in record:
-                raise RuntimeError(
-                    f"resolution metadata missing field {field!r} in refresh record"
-                )
-        if record.get("strike_selection_mode") != expected_mode:
-            raise RuntimeError(
-                "refresh metadata strike_selection_mode mismatch: "
-                f"expected {expected_mode!r}, got {record.get('strike_selection_mode')!r}"
-            )
-        reason = record.get("rollover_reason")
-        if reason not in REFRESH_ALLOWED_REASONS:
-            raise RuntimeError(
-                "refresh metadata rollover_reason unexpected: "
-                f"got {reason!r}, expected one of {sorted(REFRESH_ALLOWED_REASONS)}"
-            )
-        if not record.get("added_instrument_ids") and not record.get(
-            "removed_instrument_ids"
-        ):
-            raise RuntimeError(
-                "refresh metadata should include added or removed instruments"
-            )
-
-    if require_refresh_change and not refresh_records:
-        raise RuntimeError(
-            f"{venue} expected at least one refresh delta but none were recorded"
-        )
-
-    return len(records), len(refresh_records)
-
-
-def validate_oi_ranked_resolution_metadata(catalog_dir: Path, top_n: int) -> int:
-    records = load_resolution_records(catalog_dir)
-    startup_records = []
-    for record in records:
-        if record.get("event_kind") == "startup":
-            startup_records.append(record)
-
-    if not startup_records:
-        raise RuntimeError(
-            f"option universe resolution metadata missing startup event: {path}"
-        )
-
-    record = startup_records[0]
-    for field in (
-        "strike_selection_mode",
-        "oi_ranked_top_n",
-        "selected_strikes",
-        "option_instrument_ids",
-        "atm_reference_source",
-    ):
-        if field not in record:
-            raise RuntimeError(
-                f"resolution metadata missing field {field!r} in startup record"
-            )
-
-    if record["strike_selection_mode"] != "oi_ranked":
-        raise RuntimeError(
-            "resolution metadata strike_selection_mode mismatch: "
-            f"expected 'oi_ranked', got {record['strike_selection_mode']!r}"
-        )
-    if record["oi_ranked_top_n"] != top_n:
-        raise RuntimeError(
-            "resolution metadata oi_ranked_top_n mismatch: "
-            f"expected {top_n}, got {record['oi_ranked_top_n']!r}"
-        )
-
-    selected_strikes = record["selected_strikes"]
-    option_ids = record["option_instrument_ids"]
-    if not selected_strikes:
-        raise RuntimeError("oi_ranked resolution selected no strikes")
-    if len(selected_strikes) > top_n:
-        raise RuntimeError(
-            f"oi_ranked selected {len(selected_strikes)} strikes, expected at most {top_n}"
-        )
-    if len(option_ids) != len(selected_strikes) * 2:
-        raise RuntimeError(
-            "oi_ranked option_instrument_ids count should be 2x selected_strikes "
-            f"(got {len(option_ids)} options for {len(selected_strikes)} strikes)"
-        )
-
-    print(
-        f"[oi_ranked] strikes={selected_strikes} "
-        f"atm_reference_source={record['atm_reference_source']}",
-        flush=True,
-    )
-    return len(records)
-
-
-def validate_all_strikes_resolution_metadata(catalog_dir: Path) -> int:
-    records = load_resolution_records(catalog_dir)
-    startup_records = []
-    for record in records:
-        if record.get("event_kind") == "startup":
-            startup_records.append(record)
-
-    if not startup_records:
-        raise RuntimeError(
-            f"option universe resolution metadata missing startup event: {path}"
-        )
-
-    record = startup_records[0]
-    for field in (
-        "strike_selection_mode",
-        "selected_strikes",
-        "option_instrument_ids",
-        "atm_reference_source",
-    ):
-        if field not in record:
-            raise RuntimeError(
-                f"resolution metadata missing field {field!r} in startup record"
-            )
-
-    if record["strike_selection_mode"] != "all":
-        raise RuntimeError(
-            "resolution metadata strike_selection_mode mismatch: "
-            f"expected 'all', got {record['strike_selection_mode']!r}"
-        )
-    if record.get("oi_ranked_top_n") is not None:
-        raise RuntimeError("all-strikes resolution should not set oi_ranked_top_n")
-
-    selected_strikes = record["selected_strikes"]
-    option_ids = record["option_instrument_ids"]
-    if len(selected_strikes) < 5:
-        raise RuntimeError(
-            "all-strikes resolution selected too few strikes for BTC nearest expiry: "
-            f"{len(selected_strikes)}"
-        )
-    if len(option_ids) != len(selected_strikes) * 2:
-        raise RuntimeError(
-            "all-strikes option_instrument_ids count should be 2x selected_strikes "
-            f"(got {len(option_ids)} options for {len(selected_strikes)} strikes)"
-        )
-
-    print(
-        f"[all_strikes] strikes={len(selected_strikes)} "
-        f"options={len(option_ids)} "
-        f"atm_reference_source={record['atm_reference_source']}",
-        flush=True,
-    )
-    return len(records)
-
-
 def count_refresh_change_logs(output: str) -> int:
     return sum(
         1
         for line in output.splitlines()
         if "Option universe refresh venue_id=" in strip_ansi(line)
     )
-
-
-def validate_forward_prices_metadata(catalog_dir: Path) -> int:
-    path = catalog_dir / FORWARD_PRICES_METADATA
-    if not path.exists():
-        raise RuntimeError(f"missing forward price metadata: {path}")
-
-    lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
-    if not lines:
-        raise RuntimeError(f"forward price metadata is empty: {path}")
-
-    for line in lines:
-        record = json.loads(line)
-        for field in (
-            "instrument_id",
-            "forward_price",
-            "ts_event_ns",
-            "ts_init_ns",
-            "source",
-        ):
-            if field not in record:
-                raise RuntimeError(
-                    f"forward price metadata missing field {field!r}: {line}"
-                )
-        if record["source"] != FORWARD_PRICE_SOURCE:
-            raise RuntimeError(
-                "forward price metadata source mismatch: "
-                f"expected {FORWARD_PRICE_SOURCE!r}, got {record['source']!r}"
-            )
-
-    return len(lines)
 
 
 def trade_family_stats(
