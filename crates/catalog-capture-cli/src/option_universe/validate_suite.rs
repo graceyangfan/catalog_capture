@@ -192,11 +192,8 @@ fn readback_options_for_suite(
     catalog_root: &Path,
     options: &OptionUniverseValidationSuiteOptions,
 ) -> Result<OptionUniverseReadbackOptions> {
-    let mut readback_options = readback_options_for_config(
-        config,
-        catalog_root,
-        options.require_contract_state,
-    )?;
+    let mut readback_options =
+        readback_options_for_config(config, catalog_root, options.require_contract_state)?;
     let config_options = validation_options_for_config(config);
     let mut base = options
         .catalog_preset_override
@@ -212,10 +209,8 @@ fn readback_options_for_suite(
     let catalog_options = merge_validation_options(base, &catalog_overrides);
     readback_options.min_perp_trade_rows = catalog_options.min_perp_trade_rows;
     readback_options.min_option_trade_rows = catalog_options.min_option_trade_rows;
-    readback_options.skip_option_family_validation =
-        catalog_options.skip_option_family_validation;
-    readback_options.min_option_book_delta_rows =
-        catalog_options.min_option_book_delta_rows;
+    readback_options.skip_option_family_validation = catalog_options.skip_option_family_validation;
+    readback_options.min_option_book_delta_rows = catalog_options.min_option_book_delta_rows;
     if !catalog_options.bar_types.is_empty() {
         readback_options.bar_types = catalog_options.bar_types;
     }

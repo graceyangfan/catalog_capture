@@ -148,7 +148,10 @@ fn option_ids_for_catalog_validation(
     }
 }
 
-pub(crate) fn option_ids_with_quote_rows(catalog_root: &Path, option_ids: &[String]) -> Vec<String> {
+pub(crate) fn option_ids_with_quote_rows(
+    catalog_root: &Path,
+    option_ids: &[String],
+) -> Vec<String> {
     option_ids
         .iter()
         .filter(|option_id| {

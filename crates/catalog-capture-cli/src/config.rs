@@ -17,11 +17,13 @@ use std::{fs, path::Path, str::FromStr};
 use anyhow::{anyhow, bail, Context, Result};
 use catalog_capture_core::{
     plan::{BarCaptureSpec, BookDeltasCaptureSpec},
-    CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec, ExpiryPolicy,
-    ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
-    InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, LayoutCompatibility,
-    MarkPriceCaptureSpec, OptionGreeksCaptureSpec, OptionUniverseFamily, OptionUniverseSpec,
-    OverflowPolicy, QuoteCaptureSpec, StrikePolicy, TradeCaptureSpec,
+    validate_capture_config, CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec,
+    ExpiryPolicy,
+    ForwardPriceCaptureSpec, FundingRateCaptureSpec, Hip4UniverseFamily, Hip4UniverseSpec,
+    IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
+    InstrumentStatusCaptureSpec, LayoutCompatibility, LifecycleConfig, MarkPriceCaptureSpec,
+    OptionGreeksCaptureSpec, OptionUniverseFamily, OptionUniverseSpec, OverflowPolicy,
+    QuoteCaptureSpec, StrikePolicy, TradeCaptureSpec,
 };
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
 use nautilus_bybit::common::enums::{BybitEnvironment, BybitProductType};
@@ -64,6 +66,13 @@ pub struct RuntimeConfig {
     pub online_option_metrics: OnlineOptionMetricsRuntimeConfig,
     #[serde(default)]
     pub option_universe_refresh: OptionUniverseRefreshRuntimeConfig,
+    #[serde(default)]
+    pub hip4_universe_refresh: Hip4UniverseRefreshRuntimeConfig,
+    #[serde(default)]
+    pub metrics: MetricsExportRuntimeConfig,
+    /// Optional process memory budget for startup warnings (capture buffers only).
+    #[serde(default)]
+    pub resource_budget_bytes: Option<u64>,
 }
 
 impl Default for RuntimeConfig {
@@ -75,6 +84,58 @@ impl Default for RuntimeConfig {
             node_name: default_node_name(),
             online_option_metrics: OnlineOptionMetricsRuntimeConfig::default(),
             option_universe_refresh: OptionUniverseRefreshRuntimeConfig::default(),
+            hip4_universe_refresh: Hip4UniverseRefreshRuntimeConfig::default(),
+            metrics: MetricsExportRuntimeConfig::default(),
+            resource_budget_bytes: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsExportRuntimeConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_metrics_bind_addr")]
+    pub bind_addr: String,
+    #[serde(default = "default_metrics_port")]
+    pub port: u16,
+    #[serde(default = "default_metrics_refresh_interval_secs")]
+    pub refresh_interval_secs: u64,
+}
+
+impl Default for MetricsExportRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            bind_addr: default_metrics_bind_addr(),
+            port: default_metrics_port(),
+            refresh_interval_secs: default_metrics_refresh_interval_secs(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Hip4UniverseRefreshRuntimeConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_hip4_idle_poll_secs")]
+    pub idle_poll_secs: u64,
+    #[serde(default = "default_hip4_active_poll_secs")]
+    pub active_poll_secs: u64,
+    #[serde(default = "default_hip4_pre_expiry_window_secs")]
+    pub pre_expiry_window_secs: u64,
+    #[serde(default = "default_hip4_http_timeout_secs")]
+    pub http_timeout_secs: u64,
+}
+
+impl Default for Hip4UniverseRefreshRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            idle_poll_secs: default_hip4_idle_poll_secs(),
+            active_poll_secs: default_hip4_active_poll_secs(),
+            pre_expiry_window_secs: default_hip4_pre_expiry_window_secs(),
+            http_timeout_secs: default_hip4_http_timeout_secs(),
         }
     }
 }
@@ -132,10 +193,16 @@ pub struct OutputConfig {
     pub flush_interval_ms: u64,
     #[serde(default = "default_max_buffer_bytes")]
     pub max_buffer_bytes: usize,
+    #[serde(default = "default_max_total_buffer_bytes")]
+    pub max_total_buffer_bytes: usize,
+    #[serde(default = "default_max_active_partitions")]
+    pub max_active_partitions: usize,
     #[serde(default = "default_queue_capacity")]
     pub queue_capacity: usize,
     #[serde(default = "default_overflow_policy")]
     pub overflow_policy: String,
+    #[serde(default)]
+    pub lifecycle: LifecycleConfig,
 }
 
 impl Default for OutputConfig {
@@ -147,8 +214,11 @@ impl Default for OutputConfig {
             flush_rows: default_flush_rows(),
             flush_interval_ms: default_flush_interval_ms(),
             max_buffer_bytes: default_max_buffer_bytes(),
+            max_total_buffer_bytes: default_max_total_buffer_bytes(),
+            max_active_partitions: default_max_active_partitions(),
             queue_capacity: default_queue_capacity(),
             overflow_policy: default_overflow_policy(),
+            lifecycle: LifecycleConfig::default(),
         }
     }
 }
@@ -183,6 +253,8 @@ pub struct CaptureConfigFile {
     pub custom_data: Vec<CustomDataSelector>,
     #[serde(default)]
     pub option_universe: Vec<OptionUniverseSelector>,
+    #[serde(default)]
+    pub hip4_universe: Vec<Hip4UniverseSelector>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -208,6 +280,20 @@ pub struct CustomDataSelector {
     pub identifier: Option<String>,
     #[serde(default)]
     pub metadata: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Hip4UniverseSelector {
+    pub venue_id: String,
+    pub underlying: String,
+    pub period: String,
+    pub market_class: String,
+    #[serde(default)]
+    pub include_fallback: bool,
+    #[serde(default = "default_hip4_include_perp_mark")]
+    pub include_perp_mark: bool,
+    #[serde(default)]
+    pub families: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -307,6 +393,7 @@ pub struct EffectiveConfig {
     pub capture: CaptureConfig,
     pub plan: CapturePlan,
     pub option_universes: Vec<OptionUniverseSpec>,
+    pub hip4_universes: Vec<Hip4UniverseSpec>,
     pub venues: Vec<VenueRuntimeConfig>,
 }
 
@@ -331,14 +418,18 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
     let capture = CaptureConfig {
         enabled: true,
         catalog_uri: config.output.catalog_uri,
+        lifecycle: config.output.lifecycle,
         queue_capacity: config.output.queue_capacity,
         flush_rows: config.output.flush_rows,
         flush_interval_ms: config.output.flush_interval_ms,
         max_buffer_bytes: config.output.max_buffer_bytes,
+        max_total_buffer_bytes: config.output.max_total_buffer_bytes,
+        max_active_partitions: config.output.max_active_partitions,
         compression: parse_compression(&config.output.compression)?,
         overflow_policy: parse_overflow_policy(&config.output.overflow_policy)?,
         layout_compatibility: parse_layout_compatibility(&config.output.layout_compatibility)?,
     };
+    validate_capture_config(&capture)?;
 
     let plan = CapturePlan {
         instruments: parse_instrument_specs(&config.capture.instruments)?,
@@ -356,8 +447,9 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         custom_data: parse_custom_data_specs(&config.capture.custom_data)?,
     };
     let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
+    let hip4_universes = parse_hip4_universe_specs(&config.capture.hip4_universe)?;
 
-    if plan.is_empty() && option_universes.is_empty() {
+    if plan.is_empty() && option_universes.is_empty() && hip4_universes.is_empty() {
         bail!("capture plan is empty; enable at least one capture family");
     }
 
@@ -366,6 +458,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         capture,
         plan,
         option_universes,
+        hip4_universes,
         venues,
     })
 }
@@ -571,6 +664,69 @@ fn parse_option_universe_spec(item: &OptionUniverseSelector) -> Result<OptionUni
 
     validate_option_universe_family_shape(&spec)?;
     Ok(spec)
+}
+
+fn parse_hip4_universe_specs(items: &[Hip4UniverseSelector]) -> Result<Vec<Hip4UniverseSpec>> {
+    items.iter().map(parse_hip4_universe_spec).collect()
+}
+
+fn parse_hip4_universe_spec(item: &Hip4UniverseSelector) -> Result<Hip4UniverseSpec> {
+    if item.venue_id.trim().is_empty() {
+        bail!("capture.hip4_universe.venue_id must be non-empty");
+    }
+    if item.underlying.trim().is_empty() {
+        bail!("capture.hip4_universe.underlying must be non-empty");
+    }
+    if item.period.trim().is_empty() {
+        bail!("capture.hip4_universe.period must be non-empty");
+    }
+    if item.market_class.trim().is_empty() {
+        bail!("capture.hip4_universe.market_class must be non-empty");
+    }
+    if item.families.is_empty() {
+        bail!("capture.hip4_universe.families must be non-empty");
+    }
+
+    let families = item
+        .families
+        .iter()
+        .map(|family| parse_hip4_universe_family(family))
+        .collect::<Result<Vec<_>>>()?;
+
+    let spec = Hip4UniverseSpec {
+        venue_id: item.venue_id.trim().to_string(),
+        underlying: item.underlying.trim().to_ascii_uppercase(),
+        period: item.period.trim().to_string(),
+        market_class: item.market_class.trim().to_string(),
+        include_fallback: item.include_fallback,
+        include_perp_mark: item.include_perp_mark,
+        families,
+    };
+    validate_hip4_universe_family_shape(&spec)?;
+    Ok(spec)
+}
+
+fn parse_hip4_universe_family(value: &str) -> Result<Hip4UniverseFamily> {
+    match value.to_ascii_lowercase().as_str() {
+        "instruments" => Ok(Hip4UniverseFamily::Instruments),
+        "quotes" => Ok(Hip4UniverseFamily::Quotes),
+        "mark_prices" => Ok(Hip4UniverseFamily::MarkPrices),
+        other => bail!(
+            "unsupported capture.hip4_universe family {other}; expected instruments|quotes|mark_prices"
+        ),
+    }
+}
+
+fn validate_hip4_universe_family_shape(spec: &Hip4UniverseSpec) -> Result<()> {
+    if spec.include_perp_mark
+        && !spec
+            .families
+            .iter()
+            .any(|family| matches!(family, Hip4UniverseFamily::MarkPrices))
+    {
+        bail!("capture.hip4_universe include_perp_mark = true requires mark_prices in families");
+    }
+    Ok(())
 }
 
 fn parse_option_universe_family(value: &str) -> Result<OptionUniverseFamily> {
@@ -877,12 +1033,44 @@ fn default_node_name() -> String {
     "CATALOG-CAPTURE-CLI-001".to_string()
 }
 
+fn default_metrics_bind_addr() -> String {
+    "127.0.0.1".to_string()
+}
+
+const fn default_metrics_port() -> u16 {
+    9898
+}
+
+const fn default_metrics_refresh_interval_secs() -> u64 {
+    5
+}
+
 const fn default_online_option_metrics_interval_secs() -> u64 {
     5
 }
 
 const fn default_option_universe_refresh_interval_secs() -> u64 {
     300
+}
+
+const fn default_hip4_idle_poll_secs() -> u64 {
+    1800
+}
+
+const fn default_hip4_active_poll_secs() -> u64 {
+    10
+}
+
+const fn default_hip4_pre_expiry_window_secs() -> u64 {
+    900
+}
+
+const fn default_hip4_http_timeout_secs() -> u64 {
+    10
+}
+
+const fn default_hip4_include_perp_mark() -> bool {
+    true
 }
 
 const fn default_option_universe_strike_change_confirmations() -> u32 {
@@ -911,6 +1099,14 @@ const fn default_flush_interval_ms() -> u64 {
 
 const fn default_max_buffer_bytes() -> usize {
     32 * 1024 * 1024
+}
+
+const fn default_max_total_buffer_bytes() -> usize {
+    512 * 1024 * 1024
+}
+
+const fn default_max_active_partitions() -> usize {
+    128
 }
 
 const fn default_queue_capacity() -> usize {
@@ -1135,8 +1331,8 @@ mod tests {
             })
             .expect("config should resolve");
 
-            let err = validate_runtime(&effective)
-                .expect_err(&format!("{type_name} should fail early"));
+            let err =
+                validate_runtime(&effective).expect_err(&format!("{type_name} should fail early"));
             assert!(err.to_string().contains("deferred"));
             assert!(err.to_string().contains("4297"));
         }
@@ -1776,17 +1972,26 @@ mod tests {
     }
 
     #[test]
+    fn example_hyperliquid_hip4_btc_daily_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.hyperliquid-hip4-btc-daily.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+        assert_eq!(effective.hip4_universes.len(), 1);
+        assert_eq!(effective.hip4_universes[0].market_class, "priceBinary");
+        assert!(effective.runtime.hip4_universe_refresh.enabled);
+    }
+
+    #[test]
     fn example_deribit_option_universe_book_deltas_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.deribit-btc-universe-book-deltas.toml");
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");
-        assert!(
-            effective
-                .option_universes
-                .iter()
-                .any(|spec| spec.families.contains(&OptionUniverseFamily::BookDeltas))
-        );
+        assert!(effective
+            .option_universes
+            .iter()
+            .any(|spec| spec.families.contains(&OptionUniverseFamily::BookDeltas)));
     }
 
     #[test]
@@ -1931,5 +2136,19 @@ mod tests {
             effective.option_universes[0].strike_policy,
             StrikePolicy::AllStrikes
         ));
+    }
+
+    #[test]
+    fn example_hyperliquid_perp_daily_segment_lifecycle_loads() {
+        use catalog_capture_core::LifecycleMode;
+
+        let path = repo_root().join("examples/capture.hyperliquid-perp-daily.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        assert!(matches!(
+            effective.capture.lifecycle.mode,
+            LifecycleMode::Segment
+        ));
+        assert!(effective.capture.lifecycle.seal.enabled);
     }
 }

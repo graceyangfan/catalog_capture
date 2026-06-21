@@ -12,23 +12,32 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{fs, path::PathBuf, time::Duration};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
-    append_option_universe_resolution_records, catalog_root_from_uri, derive_perp_instrument_id,
-    expand_option_universe, merge_capture_plans, CapturePlan, OptionUniverseVenueKind,
-    ResolvedOptionUniverse,
+    append_hip4_universe_resolution_records, append_option_universe_resolution_records,
+    catalog_root_from_uri, derive_perp_instrument_id, estimate_peak_buffered_bytes,
+    expand_hip4_universe, expand_option_universe, format_budget_warning, format_buffer_estimate,
+    merge_capture_plans, CaptureMetricsSnapshot, CapturePlan, OptionUniverseVenueKind,
+    ResolvedHip4Universe, ResolvedOptionUniverse,
 };
 use catalog_capture_runtime_adapter::{
     plan_has_index_prices, plan_has_mark_prices, plan_has_quotes, CatalogCaptureActor,
-    CatalogCaptureActorConfig, DynamicOptionUniverseConfig, DynamicOptionUniverseEntryConfig,
-    OnlineOptionMetricsConfig, OnlineOptionMetricsUniverseConfig,
+    CatalogCaptureActorConfig, DynamicHip4UniverseConfig, DynamicHip4UniverseEntryConfig,
+    DynamicOptionUniverseConfig, DynamicOptionUniverseEntryConfig, OnlineOptionMetricsConfig,
+    OnlineOptionMetricsUniverseConfig,
 };
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::enums::Environment;
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
+use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 use nautilus_hyperliquid::data_types::register_hyperliquid_custom_data;
 use nautilus_hyperliquid::{
     config::HyperliquidDataClientConfig, factories::HyperliquidDataClientFactory,
@@ -42,6 +51,11 @@ use nautilus_model::{
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
+use crate::metrics_server::spawn_metrics_server;
+use crate::hip4::{
+    materialize_hip4_capture_plan, startup_resolution_record_from_report as hip4_startup_record,
+    validate_hip4_universes, Hip4UniverseResolutionReport,
+};
 use crate::option_universe::{
     materialize_capture_plan_with_reports, run_option_universe_post_run_report,
     startup_resolution_record_from_report, validate_option_universes,
@@ -49,15 +63,45 @@ use crate::option_universe::{
 };
 
 pub async fn run_capture(config: EffectiveConfig, post_run: PostRunReportOptions) -> Result<()> {
-    let materialized = materialize_capture_plan_with_reports(&config).await?;
-    run_capture_with_plan_and_reports(config, materialized.plan, &materialized.reports, post_run)
-        .await
+    let materialized = materialize_full_capture_plan(&config).await?;
+    run_capture_with_plan_and_reports(
+        config,
+        materialized.plan,
+        &materialized.option_universe_reports,
+        &materialized.hip4_reports,
+        &materialized.hip4_resolved,
+        post_run,
+    )
+    .await
+}
+
+#[derive(Debug, Clone)]
+pub struct MaterializedCapturePlan {
+    pub plan: CapturePlan,
+    pub option_universe_reports: Vec<OptionUniverseResolutionReport>,
+    pub hip4_reports: Vec<Hip4UniverseResolutionReport>,
+    pub hip4_resolved: Vec<ResolvedHip4Universe>,
+}
+
+pub async fn materialize_full_capture_plan(
+    config: &EffectiveConfig,
+) -> Result<MaterializedCapturePlan> {
+    let option_materialized = materialize_capture_plan_with_reports(config).await?;
+    let hip4_materialized = materialize_hip4_capture_plan(config).await?;
+    Ok(MaterializedCapturePlan {
+        plan: merge_capture_plans(&option_materialized.plan, &hip4_materialized.plan),
+        option_universe_reports: option_materialized.reports,
+        hip4_reports: hip4_materialized.reports,
+        hip4_resolved: hip4_materialized.resolved,
+    })
 }
 
 pub async fn run_capture_with_plan_and_reports(
     config: EffectiveConfig,
     plan: CapturePlan,
     reports: &[OptionUniverseResolutionReport],
+    hip4_reports: &[Hip4UniverseResolutionReport],
+    hip4_resolved: &[ResolvedHip4Universe],
     post_run: PostRunReportOptions,
 ) -> Result<()> {
     let catalog_dir = catalog_root_from_uri(&config.capture.catalog_uri)?;
@@ -72,12 +116,35 @@ pub async fn run_capture_with_plan_and_reports(
         append_option_universe_resolution_records(&catalog_dir, &records)
             .with_context(|| "failed to persist startup option universe resolution metadata")?;
     }
-
-    if plan.is_empty() {
-        bail!("capture plan is empty after option universe expansion");
+    if !hip4_reports.is_empty() {
+        let records = hip4_reports
+            .iter()
+            .zip(config.hip4_universes.iter())
+            .zip(hip4_resolved.iter())
+            .map(|((report, spec), resolved)| hip4_startup_record(report, spec, resolved))
+            .collect::<Vec<_>>();
+        append_hip4_universe_resolution_records(&catalog_dir, &records)
+            .with_context(|| "failed to persist startup HIP-4 universe resolution metadata")?;
     }
 
+    if plan.is_empty() {
+        bail!("capture plan is empty after universe expansion");
+    }
+
+    log_capture_buffer_estimate(&config, &plan);
+
     register_known_custom_data_types(&plan.custom_data);
+
+    let metrics_snapshot = if config.runtime.metrics.enabled {
+        Some(Arc::new(RwLock::new(CaptureMetricsSnapshot::default())))
+    } else {
+        None
+    };
+    let metrics_refresh_interval_secs = if config.runtime.metrics.enabled {
+        Some(config.runtime.metrics.refresh_interval_secs)
+    } else {
+        None
+    };
 
     let capture_actor = CatalogCaptureActor::new(CatalogCaptureActorConfig {
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-CLI")),
@@ -85,6 +152,14 @@ pub async fn run_capture_with_plan_and_reports(
         plan: plan.clone(),
         online_option_metrics: build_online_option_metrics_config(&config, &plan, reports)?,
         dynamic_option_universe: build_dynamic_option_universe_config(&config, &plan, reports)?,
+        dynamic_hip4_universe: build_dynamic_hip4_universe_config(
+            &config,
+            &plan,
+            hip4_reports,
+            hip4_resolved,
+        )?,
+        metrics_snapshot: metrics_snapshot.clone(),
+        metrics_refresh_interval_secs,
     })?;
 
     let trader_id = TraderId::test_default();
@@ -208,6 +283,17 @@ pub async fn run_capture_with_plan_and_reports(
     }
     println!("Venues: {}", config.venues.len());
 
+    let metrics_server = if let Some(snapshot) = metrics_snapshot {
+        let server = spawn_metrics_server(&config.runtime.metrics, snapshot)?;
+        println!(
+            "Metrics export: http://{}:{}/metrics (json: /metrics.json, health: /health)",
+            config.runtime.metrics.bind_addr, config.runtime.metrics.port
+        );
+        Some(server)
+    } else {
+        None
+    };
+
     let stop_handle = node.handle();
     let capture_seconds = config.runtime.capture_seconds;
     tokio::spawn(async move {
@@ -216,6 +302,11 @@ pub async fn run_capture_with_plan_and_reports(
     });
 
     node.run().await?;
+
+    if let Some((handle, shutdown_tx)) = metrics_server {
+        let _ = shutdown_tx.send(());
+        handle.abort();
+    }
 
     println!("Capture completed");
     println!("Catalog dir: {}", catalog_dir.display());
@@ -268,10 +359,35 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     {
         bail!("runtime.option_universe_refresh.interval_secs must be > 0");
     }
+    if config.runtime.hip4_universe_refresh.enabled {
+        if config.runtime.hip4_universe_refresh.idle_poll_secs == 0 {
+            bail!("runtime.hip4_universe_refresh.idle_poll_secs must be > 0");
+        }
+        if config.runtime.hip4_universe_refresh.active_poll_secs == 0 {
+            bail!("runtime.hip4_universe_refresh.active_poll_secs must be > 0");
+        }
+        if config.runtime.hip4_universe_refresh.http_timeout_secs == 0 {
+            bail!("runtime.hip4_universe_refresh.http_timeout_secs must be > 0");
+        }
+    }
+    if config.runtime.metrics.enabled {
+        if config.runtime.metrics.port == 0 {
+            bail!("runtime.metrics.port must be > 0 when runtime.metrics.enabled = true");
+        }
+        if config.runtime.metrics.refresh_interval_secs == 0 {
+            bail!(
+                "runtime.metrics.refresh_interval_secs must be > 0 when runtime.metrics.enabled = true"
+            );
+        }
+    }
     if config.venues.is_empty() {
         bail!("at least one venue is required");
     }
     validate_option_universes(&config.option_universes, &config.venues)?;
+    validate_hip4_universes(&config.hip4_universes, &config.venues)?;
+    if config.runtime.hip4_universe_refresh.enabled && config.hip4_universes.is_empty() {
+        bail!("runtime.hip4_universe_refresh.enabled requires capture.hip4_universe entries");
+    }
     validate_known_custom_data_types(&config.plan.custom_data, &config.venues)?;
     let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
     Ok(())
@@ -418,6 +534,92 @@ fn build_dynamic_option_universe_config(
         initial_dynamic_plan,
         universes,
     }))
+}
+
+fn build_dynamic_hip4_universe_config(
+    config: &EffectiveConfig,
+    plan: &CapturePlan,
+    reports: &[Hip4UniverseResolutionReport],
+    resolved_entries: &[ResolvedHip4Universe],
+) -> Result<Option<DynamicHip4UniverseConfig>> {
+    if !config.runtime.hip4_universe_refresh.enabled {
+        return Ok(None);
+    }
+    if reports.is_empty() {
+        bail!("runtime.hip4_universe_refresh.enabled requires capture.hip4_universe entries");
+    }
+
+    let refresh = &config.runtime.hip4_universe_refresh;
+    let mut initial_dynamic_plan = CapturePlan::default();
+    let mut universes = Vec::with_capacity(reports.len());
+
+    for ((spec, report), resolved) in config
+        .hip4_universes
+        .iter()
+        .zip(reports.iter())
+        .zip(resolved_entries.iter())
+    {
+        let environment = hip4_report_environment(config, report)?;
+        if spec.include_perp_mark {
+            let perp_instrument_id = report
+                .perp_instrument_id
+                .as_deref()
+                .with_context(|| {
+                    format!(
+                        "runtime.hip4_universe_refresh requires resolved perp for venue_id `{}`",
+                        spec.venue_id
+                    )
+                })?
+                .parse()?;
+            if !plan_has_mark_prices(plan, perp_instrument_id) {
+                bail!(
+                    "runtime.hip4_universe_refresh requires perp mark_prices capture for `{perp_instrument_id}`"
+                );
+            }
+        }
+
+        let initial_plan = expand_hip4_universe(spec, resolved);
+        initial_dynamic_plan = merge_capture_plans(&initial_dynamic_plan, &initial_plan);
+        universes.push(DynamicHip4UniverseEntryConfig {
+            environment,
+            spec: spec.clone(),
+            initial_plan,
+            initial_resolved: resolved.clone(),
+        });
+    }
+
+    Ok(Some(DynamicHip4UniverseConfig {
+        idle_poll_secs: refresh.idle_poll_secs,
+        active_poll_secs: refresh.active_poll_secs,
+        pre_expiry_window_secs: refresh.pre_expiry_window_secs,
+        http_timeout_secs: refresh.http_timeout_secs,
+        static_plan: config.plan.clone(),
+        initial_dynamic_plan,
+        universes,
+    }))
+}
+
+fn hip4_report_environment(
+    config: &EffectiveConfig,
+    report: &Hip4UniverseResolutionReport,
+) -> Result<HyperliquidEnvironment> {
+    let venue = config
+        .venues
+        .iter()
+        .find(|entry| entry.id() == report.venue_id)
+        .with_context(|| {
+            format!(
+                "capture.hip4_universe references unknown venue_id `{}`",
+                report.venue_id
+            )
+        })?;
+    match venue {
+        VenueRuntimeConfig::Hyperliquid { environment, .. } => Ok(*environment),
+        _ => bail!(
+            "runtime.hip4_universe_refresh requires hyperliquid venue for `{}`",
+            report.venue_id
+        ),
+    }
 }
 
 fn register_known_custom_data_types(custom_data: &[catalog_capture_core::CustomDataCaptureSpec]) {
@@ -608,6 +810,19 @@ fn require_venue(
         return Ok(());
     }
     bail!("{error}")
+}
+
+fn log_capture_buffer_estimate(config: &EffectiveConfig, plan: &CapturePlan) {
+    let estimate = estimate_peak_buffered_bytes(plan, &config.capture);
+    println!("{}", format_buffer_estimate(&estimate));
+    if let Some(budget_bytes) = config.runtime.resource_budget_bytes {
+        if estimate.total_peak_buffered_bytes > budget_bytes {
+            eprintln!(
+                "{}",
+                format_budget_warning(&estimate, budget_bytes)
+            );
+        }
+    }
 }
 
 fn resolve_catalog_dir(catalog_uri: &str) -> Result<PathBuf> {

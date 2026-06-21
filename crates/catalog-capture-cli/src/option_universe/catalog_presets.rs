@@ -196,7 +196,7 @@ fn config_includes_option_universe_family(
     config
         .option_universes
         .iter()
-        .any(|spec| spec.families.iter().any(|candidate| *candidate == family))
+        .any(|spec| spec.families.contains(&family))
 }
 
 pub fn merge_validation_options(
@@ -314,8 +314,8 @@ mod tests {
             "examples/capture.bybit-btc-universe-all.toml",
             "examples/capture.okx-btc-universe-all.toml",
         ] {
-            let config = crate::config::load_config(&repo_root.join(path))
-                .expect("example should load");
+            let config =
+                crate::config::load_config(&repo_root.join(path)).expect("example should load");
             let effective = crate::config::resolve_config(config).expect("example should resolve");
             let options = validation_options_for_config(&effective);
             assert_eq!(options.min_perp_trade_rows, 0, "{path}");
@@ -335,9 +335,8 @@ mod tests {
 
     #[test]
     fn book_deltas_smoke_preset_requires_one_option_book_delta() {
-        let options = validation_options_for_preset(
-            OptionUniverseCatalogValidationPreset::BookDeltasSmoke,
-        );
+        let options =
+            validation_options_for_preset(OptionUniverseCatalogValidationPreset::BookDeltasSmoke);
         assert!(options.skip_option_family_validation);
         assert_eq!(options.min_option_book_delta_rows, 1);
     }

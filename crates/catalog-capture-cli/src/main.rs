@@ -13,8 +13,11 @@
 // -------------------------------------------------------------------------------------------------
 
 mod config;
+mod hip4;
+mod metrics_server;
 mod option_universe;
 mod runner;
+mod universe_report;
 
 use std::path::{Path, PathBuf};
 
@@ -25,10 +28,14 @@ use catalog_capture_core::{
 };
 use clap::{Parser, Subcommand, ValueEnum};
 use config::{load_config, render_effective_config, resolve_config, EffectiveConfig};
+use hip4::{
+    render_hip4_universe_reports_json, render_hip4_universe_reports_text,
+    Hip4UniverseResolutionReport,
+};
 use option_universe::{
-    load_option_universe_summaries, materialize_capture_plan_with_reports,
-    merge_validation_options, readback_options_for_config, readback_options_from_cli,
-    render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
+    load_option_universe_summaries, merge_validation_options, readback_options_for_config,
+    readback_options_from_cli, render_option_universe_catalog_validation_json,
+    render_option_universe_catalog_validation_text,
     render_option_universe_metadata_validation_json,
     render_option_universe_metadata_validation_text, render_option_universe_readback_json,
     render_option_universe_readback_text, render_option_universe_reports_json,
@@ -42,7 +49,9 @@ use option_universe::{
     OptionUniverseResolutionReport, OptionUniverseValidationSuiteOptions, PostRunReportOptions,
     StrikeModeArg,
 };
-use runner::{run_capture, run_capture_with_plan_and_reports, validate_runtime};
+use runner::{
+    materialize_full_capture_plan, run_capture, run_capture_with_plan_and_reports, validate_runtime,
+};
 
 #[derive(Debug, Parser)]
 #[command(name = "nautilus-capture")]
@@ -217,7 +226,10 @@ enum Command {
         min_rows: Option<i64>,
         #[arg(long, help = "Minimum perp trade ticks (0 skips trade readback)")]
         min_perp_trade_rows: Option<i64>,
-        #[arg(long, help = "Minimum option trade ticks (0 skips option trade readback)")]
+        #[arg(
+            long,
+            help = "Minimum option trade ticks (0 skips option trade readback)"
+        )]
         min_option_trade_rows: Option<i64>,
         #[arg(long, help = "Require instrument_status and instrument_closes rows")]
         require_contract_state: bool,
@@ -297,9 +309,13 @@ async fn main() -> Result<()> {
                 option_universe_format.into(),
             );
             if print_option_universe || dry_run_resolve {
-                let materialized = materialize_capture_plan_with_reports(&effective).await?;
+                let materialized = materialize_full_capture_plan(&effective).await?;
                 print_option_universe_report_values(
-                    &materialized.reports,
+                    &materialized.option_universe_reports,
+                    option_universe_format.into(),
+                )?;
+                print_hip4_universe_report_values(
+                    &materialized.hip4_reports,
                     option_universe_format.into(),
                 )?;
                 if dry_run_resolve {
@@ -308,7 +324,9 @@ async fn main() -> Result<()> {
                 run_capture_with_plan_and_reports(
                     effective,
                     materialized.plan,
-                    &materialized.reports,
+                    &materialized.option_universe_reports,
+                    &materialized.hip4_reports,
+                    &materialized.hip4_resolved,
                     post_run,
                 )
                 .await?;
@@ -532,6 +550,21 @@ fn print_option_universe_report_values(
         }
         OptionUniverseOutputFormat::Text => {
             println!("{}", render_option_universe_reports_text(reports));
+        }
+    }
+    Ok(())
+}
+
+fn print_hip4_universe_report_values(
+    reports: &[Hip4UniverseResolutionReport],
+    format: OptionUniverseOutputFormat,
+) -> Result<()> {
+    match format {
+        OptionUniverseOutputFormat::Json => {
+            println!("{}", render_hip4_universe_reports_json(reports)?);
+        }
+        OptionUniverseOutputFormat::Text => {
+            println!("{}", render_hip4_universe_reports_text(reports));
         }
     }
     Ok(())

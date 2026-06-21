@@ -14,6 +14,7 @@
 
 use std::collections::BTreeSet;
 
+use crate::universe_report::universe_plan_overlap;
 use anyhow::Result;
 use catalog_capture_core::{
     OptionUniverseResolutionEventKind, OptionUniverseResolutionRecord, OptionUniverseSpec,
@@ -47,16 +48,7 @@ pub fn build_option_universe_resolution_report(
     explicit_plan_instrument_ids: &BTreeSet<InstrumentId>,
     universe_plan_instrument_ids: &BTreeSet<InstrumentId>,
 ) -> OptionUniverseResolutionReport {
-    let overlapping_instrument_ids = universe_plan_instrument_ids
-        .iter()
-        .filter(|instrument_id| explicit_plan_instrument_ids.contains(instrument_id))
-        .map(ToString::to_string)
-        .collect();
-    let new_instrument_ids = universe_plan_instrument_ids
-        .iter()
-        .filter(|instrument_id| !explicit_plan_instrument_ids.contains(instrument_id))
-        .map(ToString::to_string)
-        .collect();
+    let overlap = universe_plan_overlap(explicit_plan_instrument_ids, universe_plan_instrument_ids);
 
     OptionUniverseResolutionReport {
         venue_id: spec.venue_id.clone(),
@@ -89,8 +81,8 @@ pub fn build_option_universe_resolution_report(
             .iter()
             .map(ToString::to_string)
             .collect(),
-        overlapping_instrument_ids,
-        new_instrument_ids,
+        overlapping_instrument_ids: overlap.overlapping_instrument_ids,
+        new_instrument_ids: overlap.new_instrument_ids,
     }
 }
 
