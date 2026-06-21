@@ -13,7 +13,7 @@
 // -------------------------------------------------------------------------------------------------
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, NaiveTime, TimeZone, Timelike, Utc};
+use chrono::{DateTime, LocalResult, NaiveDate, NaiveTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 
@@ -97,11 +97,7 @@ pub fn should_seal_at(now_ns: u64, next_seal_ns: u64) -> bool {
 
 fn next_boundary_datetime(now_tz: DateTime<Tz>, seal: &ResolvedSealSchedule) -> DateTime<Tz> {
     let schedule = schedule_time_naive(seal.schedule_ns);
-    let mut next = seal
-        .timezone
-        .from_local_datetime(&now_tz.date_naive().and_time(schedule))
-        .single()
-        .unwrap_or(now_tz);
+    let mut next = resolve_local_schedule_datetime(seal.timezone, now_tz.date_naive(), schedule);
 
     if next <= now_tz {
         while next <= now_tz {
@@ -110,6 +106,21 @@ fn next_boundary_datetime(now_tz: DateTime<Tz>, seal: &ResolvedSealSchedule) -> 
     }
 
     next
+}
+
+fn resolve_local_schedule_datetime(
+    timezone: Tz,
+    date: NaiveDate,
+    schedule: NaiveTime,
+) -> DateTime<Tz> {
+    match timezone.from_local_datetime(&date.and_time(schedule)) {
+        LocalResult::Single(value) => value,
+        LocalResult::Ambiguous(earlier, _) => earlier,
+        LocalResult::None => timezone
+            .from_local_datetime(&(date + chrono::Duration::days(1)).and_time(schedule))
+            .single()
+            .unwrap_or_else(|| timezone.from_utc_datetime(&date.and_time(schedule))),
+    }
 }
 
 fn schedule_time_naive(schedule_ns: u64) -> NaiveTime {

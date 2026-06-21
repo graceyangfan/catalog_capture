@@ -76,11 +76,21 @@ pub fn link_or_copy(source: &Path, destination: &Path) -> Result<()> {
 
     match fs::hard_link(source, destination) {
         Ok(()) => Ok(()),
-        Err(_) => {
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(err) if should_fallback_to_copy(&err) => {
             fs::copy(source, destination)?;
             Ok(())
         }
+        Err(err) => Err(err.into()),
     }
+}
+
+fn should_fallback_to_copy(err: &std::io::Error) -> bool {
+    if err.kind() == std::io::ErrorKind::CrossesDevices {
+        return true;
+    }
+    // EXDEV: hard link across filesystems.
+    err.raw_os_error() == Some(18)
 }
 
 #[must_use]

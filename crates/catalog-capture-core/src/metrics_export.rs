@@ -110,7 +110,9 @@ fn append_snapshot_help(out: &mut String) {
         "# HELP catalog_capture_enabled_background_workers Active background worker threads\n",
     );
     out.push_str("# TYPE catalog_capture_enabled_background_workers gauge\n");
-    out.push_str("# HELP catalog_capture_process_rss_bytes Process resident set size in bytes\n");
+    out.push_str(
+        "# HELP catalog_capture_process_rss_bytes Process RSS in bytes (Linux: resident; macOS: footprint)\n",
+    );
     out.push_str("# TYPE catalog_capture_process_rss_bytes gauge\n");
     out.push_str("# HELP catalog_capture_accepted_items_total Accepted capture items\n");
     out.push_str("# TYPE catalog_capture_accepted_items_total counter\n");

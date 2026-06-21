@@ -46,7 +46,6 @@ use nautilus_live::node::LiveNode;
 use nautilus_model::{
     data::DataType,
     identifiers::{ActorId, TraderId},
-    stubs::TestDefault,
 };
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 
@@ -162,7 +161,8 @@ pub async fn run_capture_with_plan_and_reports(
         metrics_refresh_interval_secs,
     })?;
 
-    let trader_id = TraderId::test_default();
+    let trader_id = TraderId::new_checked(config.runtime.node_name.as_str())
+        .unwrap_or_else(|_| TraderId::new("CAPTURE-001"));
     let mut builder = LiveNode::builder(trader_id, Environment::Live)?
         .with_name(config.runtime.node_name.as_str())
         .with_delay_post_stop_secs(config.runtime.delay_post_stop_secs);

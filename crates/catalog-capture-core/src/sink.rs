@@ -178,10 +178,11 @@ impl NautilusCatalogSink {
         })
     }
 
-    fn range_from_ts<T: HasTsInit>(data: &[T]) -> (u64, u64) {
-        let start = data.first().expect("non-empty batch").ts_init().as_u64();
-        let end = data.last().expect("non-empty batch").ts_init().as_u64();
-        (start, end)
+    fn range_from_ts<T: HasTsInit>(data: &[T]) -> Result<(u64, u64)> {
+        let (Some(start), Some(end)) = (data.first(), data.last()) else {
+            anyhow::bail!("cannot derive timestamp range from empty batch");
+        };
+        Ok((start.ts_init().as_u64(), end.ts_init().as_u64()))
     }
 
     pub fn write_encoded_batch<T>(&self, data: Vec<T>) -> Result<PathBuf>
@@ -193,7 +194,7 @@ impl NautilusCatalogSink {
             + Serialize
             + Clone,
     {
-        let (start, end) = Self::range_from_ts(&data);
+        let (start, end) = Self::range_from_ts(&data)?;
         let metadata = EncodeToRecordBatch::chunk_metadata(&data);
         let identifier = metadata
             .get("instrument_id")

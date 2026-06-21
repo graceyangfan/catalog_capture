@@ -168,11 +168,21 @@ pub fn format_budget_warning(estimate: &BufferMemoryEstimate, budget_bytes: u64)
 }
 
 pub fn validate_capture_config(config: &CaptureConfig) -> Result<()> {
+    if config.flush_rows == 0 {
+        bail!("output.flush_rows must be greater than zero");
+    }
     if config.max_buffer_bytes == 0 {
         bail!("output.max_buffer_bytes must be greater than zero");
     }
     if config.max_total_buffer_bytes == 0 {
         bail!("output.max_total_buffer_bytes must be greater than zero");
+    }
+    if config.max_total_buffer_bytes < config.max_buffer_bytes {
+        bail!(
+            "output.max_total_buffer_bytes ({}) must be >= output.max_buffer_bytes ({})",
+            config.max_total_buffer_bytes,
+            config.max_buffer_bytes
+        );
     }
     if config.max_active_partitions == 0 {
         bail!("output.max_active_partitions must be greater than zero");
@@ -188,6 +198,28 @@ mod tests {
 
     use super::*;
     use crate::plan::{CapturePlan, QuoteCaptureSpec, TradeCaptureSpec};
+
+    #[test]
+    fn validate_rejects_zero_flush_rows() {
+        let config = CaptureConfig {
+            flush_rows: 0,
+            ..CaptureConfig::default()
+        };
+        let err = validate_capture_config(&config).expect_err("zero flush_rows should fail");
+        assert!(err.to_string().contains("flush_rows"));
+    }
+
+    #[test]
+    fn validate_rejects_total_buffer_smaller_than_partition_cap() {
+        let config = CaptureConfig {
+            max_buffer_bytes: 64,
+            max_total_buffer_bytes: 32,
+            ..CaptureConfig::default()
+        };
+        let err =
+            validate_capture_config(&config).expect_err("inconsistent buffer caps should fail");
+        assert!(err.to_string().contains("max_total_buffer_bytes"));
+    }
 
     #[test]
     fn estimate_caps_per_family_total() {

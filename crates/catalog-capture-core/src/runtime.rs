@@ -223,11 +223,7 @@ where
             self.metrics.flush_reasons.record(reason);
         }
 
-        Ok(FlushResult {
-            files: sealed.files,
-            rows: sealed.rows,
-            bytes: flushed.bytes.saturating_add(sealed.bytes),
-        })
+        Ok(merge_flush_results(flushed, sealed))
     }
 }
 
@@ -245,7 +241,7 @@ mod tests {
 
     use anyhow::Result;
 
-    use super::CaptureRuntime;
+    use super::{CaptureRuntime, FlushResult};
     use crate::{
         config::CaptureConfig,
         item::{CaptureItem, PartitionKey},
@@ -371,5 +367,57 @@ mod tests {
 
         assert!(runtime.metrics.flush_reasons.budget >= 1);
         assert!(runtime.total_pending_bytes() <= 150);
+    }
+
+    #[derive(Default)]
+    struct SealTrackingSink {
+        flush_rows: usize,
+        seal_rows: usize,
+    }
+
+    impl CaptureSink<u64> for SealTrackingSink {
+        fn write_batch(&mut self, _partition_key: &str, batch: Vec<u64>) -> Result<Vec<PathBuf>> {
+            self.flush_rows += batch.len();
+            Ok(vec![PathBuf::from(format!("flush-{}.parquet", self.flush_rows))])
+        }
+
+        fn seal_all(&mut self) -> Result<FlushResult> {
+            self.seal_rows = 3;
+            Ok(FlushResult {
+                files: vec![PathBuf::from("sealed.parquet")],
+                rows: self.seal_rows,
+                bytes: 30,
+            })
+        }
+
+        fn is_segment_mode(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn seal_all_internal_merges_flush_and_seal_results() {
+        let mut runtime = CaptureRuntime::new(
+            CaptureConfig {
+                flush_rows: 10_000,
+                ..CaptureConfig::default()
+            },
+            SealTrackingSink::default(),
+        );
+
+        runtime
+            .submit(CaptureItem {
+                partition_key: PartitionKey::market_data("quotes", "A"),
+                event_ts_ns: 1,
+                init_ts_ns: Some(1),
+                estimated_bytes: 8,
+                payload: 1,
+            })
+            .expect("submit");
+
+        let result = runtime.seal_all().expect("seal");
+        assert_eq!(result.rows, 4, "rows should include flush (1) and seal (3)");
+        assert_eq!(result.files.len(), 2, "files should include flush and seal outputs");
+        assert_eq!(result.bytes, 30, "bytes should include sealed file payload");
     }
 }

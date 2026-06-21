@@ -159,11 +159,15 @@ where
             {
                 continue;
             }
-            if self
-                .finalize_orphan_part(&part_path, &identifier)?
-                .is_some()
-            {
-                recovered += 1;
+            match self.finalize_orphan_part(&part_path, &identifier) {
+                Ok(Some(_)) => recovered += 1,
+                Ok(None) => {}
+                Err(err) => {
+                    eprintln!(
+                        "catalog-capture: skipping unrecoverable orphan segment {}: {err}",
+                        part_path.display()
+                    );
+                }
             }
         }
         Ok(recovered)
@@ -348,7 +352,7 @@ where
             && now_ns.saturating_sub(segment.last_sync_ns) >= self.sync_interval_ns
         {
             segment.writer.flush()?;
-            File::open(&segment.part_path)?.sync_all()?;
+            segment.writer.inner_mut().sync_all()?;
             segment.last_sync_ns = now_ns;
         }
 
