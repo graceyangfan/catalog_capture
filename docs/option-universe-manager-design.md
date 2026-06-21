@@ -2,21 +2,21 @@
 
 ## Goal
 
-Design a Nautilus Trader-aligned **Option Universe Manager** that solves our
-current options capture pain point:
+Design an **Option Universe Manager** for this project that solves the current
+options capture pain point:
 
 - stop hand-editing expiring option `instrument_id`s in TOML
 - keep **per-instrument parquet** as the source of truth
 - support a future path where the same universe logic can drive
   capture, research dashboards, and live strategies
 
-This document updates the earlier draft to match the actual Nautilus startup
-and subscription lifecycle.
+This document updates the earlier draft to match the actual live-node startup
+and subscription lifecycle used by the capture runtime.
 
 ## Business Need
 
 Our current options profiles, such as
-[examples/capture.deribit-btc.toml](/Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc.toml),
+[examples/capture.deribit-btc.toml](../examples/capture.deribit-btc.toml),
 hard-code near-term call/put instrument IDs. That causes three recurring
 problems:
 
@@ -46,7 +46,7 @@ V1 does not attempt to provide:
 - `OptionChainSlice` as the primary capture artifact
 - multi-consumer runtime intent merging
 - runtime refresh for venues beyond Deribit / Bybit / OKX
-- a generic cross-adapter DSL accepted upstream immediately
+- a generic cross-adapter DSL in V1
 
 ## What Problem Are We Actually Solving?
 
@@ -69,13 +69,13 @@ and map that intent onto a **changing concrete member set** such as:
 - `BTC-26JUN26-66000-C.DERIBIT`
 - `BTC-26JUN26-64000-P.DERIBIT`
 
-This is fundamentally the same shape as other “logical scope -> rotating
-members” problems in Nautilus.
+This is the same “logical scope -> rotating members” problem shape used elsewhere
+in derivatives runtime tooling.
 
-## Why This Must Follow Nautilus Style
+## Design constraints
 
-To be useful beyond catalog capture, and to have any plausible upstream path,
-the design should match existing Nautilus patterns:
+To remain reusable beyond a one-off CLI resolver, the design should follow
+established live-runtime patterns:
 
 1. logical subscription identity is separate from concrete venue routes
 2. runtime state lives in a manager, not in ad hoc CLI glue
@@ -85,13 +85,12 @@ the design should match existing Nautilus patterns:
 
 This is why a capture-only “resolver script” is too narrow.
 
-## Current Nautilus Constraints
+## Runtime constraints
 
 ### Live startup timing
 
-Nautilus `LiveNode` connects data clients **before** the trader is started and
-flushes instrument events into cache first. See
-[nautilus_trader/crates/live/src/node.rs](/Users/yfclark/nautilus_trader/crates/live/src/node.rs).
+`LiveNode` connects data clients **before** the trader is started and flushes
+instrument events into cache first.
 
 Relevant sequence:
 
@@ -105,45 +104,39 @@ data-client connect and instrument load, not inside plain TOML parsing.
 
 ### Current capture actor behavior
 
-[crates/catalog-capture-runtime-adapter/src/actor.rs](/Users/yfclark/nautilus_catalog_capture/crates/catalog-capture-runtime-adapter/src/actor.rs)
+[crates/catalog-capture-runtime-adapter/src/actor.rs](../crates/catalog-capture-runtime-adapter/src/actor.rs)
 currently:
 
 1. consumes an immutable `CapturePlan`
 2. bootstraps instruments from cache or `request_instrument`
 3. subscribes once in `on_start`
 
-Stock Nautilus capture actors do not expose a generic API to mutate plans or
-apply universe deltas. V1.5 adds a project-local path in
+Stock capture actors do not expose a generic API to mutate plans or apply
+universe deltas. V1.5 adds a project-local path in
 `catalog-capture-runtime-adapter` (`DynamicOptionUniverseManager` +
 `CatalogCaptureActor::apply_dynamic_option_universe_refresh`) for Deribit,
-Bybit, and OKX. Any design claiming runtime refresh without actor changes would
-still be incorrect for upstream Nautilus today.
+Bybit, and OKX. Runtime refresh requires these actor changes; a design that
+claims refresh without them is incomplete for this project.
 
 ### Adapter behavior on missing instruments
 
 Deribit explicitly fails fast when subscribing to uncached instruments unless
 `auto_load_missing_instruments=true`, and can lazily fetch them only when that
-flag is enabled. See
-[nautilus_trader/crates/adapters/deribit/tests/data_client.rs](/Users/yfclark/nautilus_trader/crates/adapters/deribit/tests/data_client.rs).
+flag is enabled.
 
 That is another reason V1 should resolve the universe from a loaded instrument
 set before starting the capture actor.
 
-## Relation To OptionChain
+## Relation to option chain runtime APIs
 
-Nautilus already has a strong runtime abstraction for option chains:
+The dependency stack already exposes a strong runtime abstraction for option
+chains:
 
 - `subscribe_option_chain(...)`
 - `OptionChainManager`
 - `OptionChainSlice`
 
-References:
-
-- [nautilus_trader/crates/data/src/engine/mod.rs](/Users/yfclark/nautilus_trader/crates/data/src/engine/mod.rs)
-- [nautilus_trader/crates/data/src/option_chains/manager.rs](/Users/yfclark/nautilus_trader/crates/data/src/option_chains/manager.rs)
-- [nautilus_trader/crates/adapters/deribit/examples/node_option_chain.rs](/Users/yfclark/nautilus_trader/crates/adapters/deribit/examples/node_option_chain.rs)
-
-`OptionChain` is highly relevant, but it solves a different layer:
+`OptionChain` is relevant background, but it solves a different layer:
 
 - it assumes a known `OptionSeriesId`
 - it aggregates a fixed series into a runtime slice
@@ -174,13 +167,11 @@ Our source of truth remains:
 - `option_greeks`
 - later `trades` / selected `book_deltas`
 
-## Relation To Nautilus Issue #4240
+## Comparable rolling-scope pattern
 
-Issue:
-
-- [RFC: Polymarket adapter-local rolling Up/Down scope via custom data #4240](https://github.com/nautechsystems/nautilus_trader/issues/4240)
-
-That RFC is structurally similar because it separates:
+A related public design discussion ([nautechsystems/nautilus_trader#4240](https://github.com/nautechsystems/nautilus_trader/issues/4240))
+describes adapter-local rolling scope via custom data. That pattern is
+structurally similar because it separates:
 
 - stable logical intent
 - rotating concrete members
@@ -322,8 +313,8 @@ To stay reusable:
 - keep any future live runtime actor/delta application in
   `catalog-capture-runtime-adapter`
 
-This split also creates a cleaner future path if the logical manager design is
-ever proposed upstream in Nautilus.
+This split keeps resolve policy portable if other consumers (strategies,
+dashboards) adopt the same logical universe types later.
 
 ## Discovery Source
 
@@ -367,9 +358,9 @@ flowchart LR
     F --> G["Start CatalogCaptureActor"]
 ```
 
-### Why This Matches Nautilus Better
+### Why post-connect resolution
 
-This mirrors how `LiveNode` already treats instruments:
+This mirrors how `LiveNode` treats instruments:
 
 - instrument availability is a post-connect concern
 - cache is the authoritative loaded set for subsequent consumers
@@ -378,7 +369,7 @@ This mirrors how `LiveNode` already treats instruments:
 ### V1 runner integration
 
 This must be explicit because the current
-[crates/catalog-capture-cli/src/runner.rs](/Users/yfclark/nautilus_catalog_capture/crates/catalog-capture-cli/src/runner.rs)
+[crates/catalog-capture-cli/src/runner.rs](../crates/catalog-capture-cli/src/runner.rs)
 creates `CatalogCaptureActor` before `node.run()`, while `node.run()` is what
 normally drives data-client connect and cache population.
 
@@ -428,7 +419,7 @@ This is already enough to eliminate manual profile edits.
 **Status: implemented for Deribit, Bybit, and OKX (2026-06).**
 
 Enable with `[runtime.option_universe_refresh]` in TOML. Example:
-[examples/capture.deribit-btc-universe-autorefresh.toml](/Users/yfclark/nautilus_catalog_capture/examples/capture.deribit-btc-universe-autorefresh.toml).
+[examples/capture.deribit-btc-universe-autorefresh.toml](../examples/capture.deribit-btc-universe-autorefresh.toml).
 
 Shipped capabilities:
 
@@ -476,7 +467,7 @@ P1 shipped (2026-06):
 
 - `trades` and `forward_prices` option-universe families
 - `forward_prices` JSONL at `metadata/forward_prices.jsonl`, derived from
-  `OptionGreeks.underlying_price` (parquet awaits upstream Nautilus support)
+  `OptionGreeks.underlying_price` (typed parquet family still future work)
 - research example profile with DVOL custom data (`capture.deribit-btc-universe-research.toml`)
 
 ## Resolve Algorithm For V1
@@ -700,7 +691,8 @@ The TOML fields:
 - `strikes_above`
 - `strikes_below`
 
-are intentionally aligned with Nautilus `StrikeRange::AtmRelative` semantics.
+match ATM-relative strike window semantics (`strikes_above` / `strikes_below`
+around a per-expiry reference).
 
 ## Reuse Targets
 
@@ -709,7 +701,7 @@ If kept as a reusable logical layer, this design can later serve:
 1. `catalog-capture-cli`
 2. options strategy warmup / watchlist construction
 3. dashboard or research panel universe selection
-4. upstream-style runtime managers similar in spirit to `OptionChainManager`
+4. live runtime managers that rotate subscriptions from cache-backed resolve
 
 That reuse potential is the main reason not to collapse the whole design into a
 CLI-only resolver.
@@ -775,6 +767,6 @@ The right longer-term direction (V2) is:
 - persisted resolution metadata
 - reuse by both capture and strategy consumers
 
-That path is closest to Nautilus Trader’s existing style and most likely to
-remain useful if the abstraction later grows into something suitable for
-upstream discussion.
+That path keeps logical intent separate from concrete instrument membership,
+which is the property research panels and live strategies both need as expiries
+and ATM references move.
