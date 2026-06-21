@@ -24,14 +24,15 @@ This is the most natural fit for a deployment where many strategies may subscrib
 
 ## Reader boundary
 
-This project should treat Nautilus Trader itself as the primary readback and backtest consumer.
+This project is write-focused. Readback and backtest validation happen through the same
+catalog surfaces strategies already use.
 
 That means:
 
 - this project owns runtime capture and parquet writing
-- Nautilus Trader PyO3 `ParquetDataCatalog` is the preferred primary consumer
-- Nautilus Trader legacy Python `ParquetDataCatalog` is a compatibility target where practical
-- backtest reuse should be validated through Nautilus Trader workflows, not through a parallel reader stack here
+- PyO3 `ParquetDataCatalog` is the preferred primary readback path
+- legacy Python `ParquetDataCatalog` remains a compatibility target where practical
+- backtest reuse is validated through standard catalog workflows, not a parallel reader stack in this repository
 
 To make that practical today, the writer currently does two things by default on local filesystems:
 

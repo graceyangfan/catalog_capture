@@ -3,12 +3,12 @@
 ## Goal
 
 Move this project from a strong Phase 1 direct-parquet proof into a production-shaped
-runtime capture framework that still feels natural in the Nautilus Trader ecosystem.
+runtime capture service.
 
 The target outcome is:
 
 - runtime market and adapter-supported data can be recorded directly into parquet
-- Nautilus Trader PyO3 `ParquetDataCatalog` reads those assets directly
+- PyO3 `ParquetDataCatalog` reads those assets directly
 - backtest reuses those assets without conversion
 - users configure capture externally through a concise CLI or pyO3 surface
 - hot-path work stays small and predictable
@@ -16,8 +16,8 @@ The target outcome is:
 
 ## Design priorities
 
-1. Keep capture external to `nautilus_trader` core.
-2. Keep readback native to Nautilus Trader.
+1. Keep capture policy and operator workflows in this repository.
+2. Keep readback on standard catalog surfaces (PyO3 and legacy Python where needed).
 3. Reuse `DataActor` and `ParquetDataCatalog` rather than introducing parallel abstractions.
 4. Support multiple venues, instruments, and data families through a declarative capture plan.
 5. Treat durability, compatibility mirrors, and file lifecycle as policies rather than hard-coded behavior.
@@ -29,7 +29,7 @@ The project already has the right product boundary:
 
 - `catalog-capture-core` owns capture config, partitioning, buffering, and direct parquet sinks
 - `catalog-capture-runtime-adapter` owns the dedicated `CatalogCaptureActor`
-- output is validated through Nautilus Trader PyO3 `ParquetDataCatalog`
+- output is validated through PyO3 `ParquetDataCatalog`
 
 The current implementation is intentionally simple:
 
@@ -109,7 +109,7 @@ The right organizing idea is a **data-family registry**, not ad hoc per-example 
 
 One current boundary to account for:
 
-- not every built-in Nautilus Rust data family currently has a first-class dedicated PyO3 query helper
+- not every built-in Rust data family in the dependency stack currently has a first-class dedicated PyO3 query helper
 - for example, `FundingRateUpdate` can already be written and discovered cleanly in the catalog, but the current PyO3 catalog surface does not yet expose a dedicated funding-rate query method
 - capture support should still proceed, while validation distinguishes between:
   - direct PyO3 typed readback already available today

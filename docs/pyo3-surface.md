@@ -6,7 +6,7 @@ Expose the capture configuration surface through pyO3 so that Python-side users 
 
 The desired user experience is:
 
-- users stay in the Nautilus Python ecosystem when they want to
+- users configure capture from Python when they want to
 - users configure capture declaratively
 - the runtime implementation remains Rust-first
 - the same capture concepts can be reused across live, paper, and backtest-oriented workflows
@@ -53,11 +53,11 @@ If the runtime integration matures enough, expose a higher-level Python-friendly
 
 ## Why pyO3 matters here
 
-Even if the capture implementation stays external and Rust-first, many Nautilus users will still want to:
+Even when the capture service stays Rust-first, many deployments will still want to:
 
 - configure capture from Python
 - reuse Python-side venue and strategy orchestration
-- keep live, paper, and backtest workflows aligned
+- keep live, paper, and backtest workflows consistent
 
 That makes pyO3 an important surface for adoption, even if it is not the first implementation milestone.
 
@@ -94,7 +94,7 @@ Python should be able to bind:
 - capture config
 - capture plan
 
-That would make the dedicated capture actor feel like a normal Nautilus component rather than an opaque sidecar.
+That would make the dedicated capture actor feel like a first-class runtime component rather than an opaque sidecar.
 
 ## Why not infer capture from strategy subscriptions
 
@@ -122,7 +122,7 @@ When the pyO3 surface is introduced, validate:
 1. Python can construct a `CapturePlan` without dropping to Rust internals.
 2. Python configuration maps cleanly to the Rust actor configuration.
 3. The configured capture actor records the intended data families only.
-4. The resulting Parquet catalog remains directly readable by Nautilus backtest workflows.
+4. The resulting Parquet catalog remains directly readable by standard backtest workflows.
 
 ## Expected outcome
 

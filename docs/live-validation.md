@@ -2,7 +2,7 @@
 
 ## Goal
 
-Prove that runtime market data can be captured directly into Nautilus-native Parquet catalog assets and then read back without any Feather conversion step.
+Prove that runtime market data can be captured directly into catalog-native Parquet assets and then read back without any Feather conversion step.
 
 The first validation target should be:
 
@@ -39,7 +39,7 @@ Purpose:
 - validate chunked direct Parquet writing
 - validate direct `ParquetDataCatalog` readback
 - validate instrument metadata capture alongside market data
-- validate Nautilus Trader PyO3 readback, not just local Rust readback
+- validate PyO3 catalog readback, not just local Rust readback
 - validate timestamp ordering and interval handling
 
 Expected outcome:
@@ -105,7 +105,7 @@ Expected outcome:
 
 For short validation runs where we explicitly want multiple parquet chunks quickly, use:
 
-- `/Users/yfclark/nautilus_catalog_capture/examples/capture.low-threshold.toml`
+- `examples/capture.low-threshold.toml`
 
 ## Proposed first live scenario
 
@@ -162,11 +162,11 @@ At minimum, record:
 
 2. Copy the printed `Catalog dir`.
 
-3. Verify through Nautilus Trader Python:
+3. Verify through Python readback probes (from repo root, using the PyO3 environment built with the sibling dependency checkout):
 
-   - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/pyo3_market_readback_smoke.py`
+   - `python3 tests/pyo3_market_readback_smoke.py`
    - or for legacy compatibility:
-   - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
+   - `python3 tests/python_catalog_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
 
 ## Step 2: instrument metadata and contract state
 
@@ -435,17 +435,17 @@ Suggested command sequence:
 
 1. Validate the Step 1 TOML profile:
 
-   - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.binance-perp.ws.toml`
+   - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config examples/capture.binance-perp.ws.toml`
 
 2. Run the Step 1 live capture (CLI or example):
 
-   - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.binance-perp.ws.toml`
+   - `cargo +1.96.0 run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml`
    - or:
    - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo +1.96.0 run -p catalog-capture-runtime-adapter --example binance_futures_derivatives_state_capture`
 
 3. Probe all four market-data families:
 
-   - `/Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
+   - `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1`
 
 Step 1 success criteria:
 

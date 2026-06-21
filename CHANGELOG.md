@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Rewrote concept docs (`architecture`, `custom-data-contract`, `production-architecture`,
+  `flush-rotation-policy`, `pyo3-surface`, `live-validation`, `implementation-plan`) with
+  project-owned voice and repository-relative paths.
 - Rewrote `docs/rfc.md`, `docs/native-custom-data-targets.md`, and option-universe design
   docs with project-owned architecture voice.
 - Renamed `docs/upstream-strategy.md` to `docs/integration-strategy.md`.

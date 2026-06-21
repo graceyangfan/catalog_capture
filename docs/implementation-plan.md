@@ -38,7 +38,7 @@ Produce backtest-readable catalog assets directly from a dedicated runtime captu
 
 ### Goal
 
-Cover more of the existing Nautilus data surface and make capture easier to launch without editing Rust code, with derivatives research and ML dataset construction as the primary use case.
+Cover more of the adapter-supported data surface and make capture easier to launch without editing Rust code, with derivatives research and ML dataset construction as the primary use case.
 
 ### Deliverables
 
@@ -55,7 +55,7 @@ Cover more of the existing Nautilus data surface and make capture easier to laun
   - historical backfill third
 - promote `custom_data` into the CLI surface
 - inventory and prioritize adapter-native custom families:
-  - `/Users/yfclark/nautilus_catalog_capture/docs/native-custom-data-targets.md`
+  - `docs/native-custom-data-targets.md`
 - add venue-oriented data families required for derivatives research:
   - `index_prices`
   - `funding_rates`

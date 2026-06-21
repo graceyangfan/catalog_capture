@@ -4,7 +4,7 @@
 
 Define a production-shaped file lifecycle policy for this project that:
 
-- stays natural for Nautilus Trader users
+- stays natural for catalog-native backtest and research workflows
 - preserves direct PyO3 `ParquetDataCatalog` readability
 - avoids unbounded in-memory buffering
 - reduces small-file proliferation
@@ -25,11 +25,11 @@ The current system does **not** keep one long-lived active parquet file open.
 Instead it works like this:
 
 1. A `CatalogCaptureActor` subscribes to declared data families.
-2. Runtime callbacks enqueue normalized Nautilus objects into bounded background queues.
+2. Runtime callbacks enqueue normalized model objects into bounded background queues.
 3. Background workers partition data by family and identifier.
 4. Each partition accumulates in-memory rows and estimated bytes.
 5. A flush occurs when one of the configured flush conditions is met.
-6. That flush writes one **complete immutable parquet chunk file** through Nautilus Rust `ParquetDataCatalog`.
+6. That flush writes one **complete immutable parquet chunk file** through `ParquetDataCatalog`.
 7. If legacy compatibility mirroring is enabled, the completed file is mirrored into the Python legacy discovery layout on local filesystems.
 
 This means the current system uses **flush-driven chunking**, not active-file rotation.
@@ -39,14 +39,14 @@ This means the current system uses **flush-driven chunking**, not active-file ro
 For the current stage of the project, flush-driven chunking is a good choice because it:
 
 - proves the direct online-to-parquet path with low implementation risk
-- writes standard parquet files that Nautilus Trader can read immediately
+- writes standard parquet files that catalog readback can consume immediately
 - avoids active writer lifecycle complexity
 - avoids `.part` file recovery semantics in the first production iteration
 - keeps the read contract simple: each completed chunk is already catalog-readable
 
 It is the simplest model that satisfies the core project promise:
 
-> runtime capture writes parquet assets that Nautilus Trader can read directly.
+> runtime capture writes parquet assets that catalog readback can consume directly.
 
 ## What the current model is not
 

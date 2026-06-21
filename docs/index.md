@@ -1,7 +1,6 @@
 # Documentation map
 
-Nautilus Catalog Capture records runtime market data directly into Nautilus-native
-Parquet catalog assets. Documentation follows the [Divio system](https://docs.divio.com/documentation-system/):
+Catalog Capture records runtime market data directly into catalog-native Parquet assets. Documentation follows the [Divio system](https://docs.divio.com/documentation-system/):
 
 | Type | Purpose | Location |
 |------|---------|----------|

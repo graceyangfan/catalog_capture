@@ -2,16 +2,16 @@
 
 ## Goal
 
-Define how this project should treat Nautilus-native adapter custom data so that:
+Define how this project should treat adapter-emitted custom data so that:
 
-- capture remains Nautilus-native
+- capture remains catalog-native
 - adapter-emitted research signals can be preserved without forcing everything into built-in market-data families
 - downstream strategy and ML pipelines have a stable naming contract
 
 ## Project stance
 
-This project should treat custom data as a first-class pass-through path for data types that are
-already emitted by Nautilus Trader adapters.
+This project should treat custom data as a first-class pass-through path for types that venue
+adapters already emit.
 
 Built-in market-data families remain the default for:
 
@@ -28,18 +28,18 @@ Built-in market-data families remain the default for:
 Custom data should be used when the adapter emits information that is:
 
 - research-critical
-- not naturally expressible as an existing built-in Nautilus data family
+- not naturally expressible as an existing built-in data family
 - specific to a venue, derivatives product, or proprietary research feed
 
 This project should not invent new research schemas as part of its default surface.
 
-If we later decide to add a new custom family that Nautilus Trader does not already emit, that
-should be a separate design discussion covering:
+If we later add a custom family that adapters do not already emit, that should be a separate
+design discussion covering:
 
 - the canonical Rust type
 - adapter ownership
 - PyO3/readback expectations
-- long-term compatibility with Nautilus catalog surfaces
+- long-term catalog compatibility
 
 ## Naming guidance
 
@@ -47,10 +47,10 @@ Custom data names should be:
 
 - stable
 - research-meaningful
-- identical to the type names already emitted by Nautilus adapters
+- identical to the type names already emitted by venue adapters
 
 Do not rename or alias adapter-emitted custom data inside this project. The writer should capture
-the `DataType` exactly as Nautilus presents it.
+the `DataType` exactly as the adapter presents it.
 
 ## Identifier guidance
 
@@ -96,7 +96,7 @@ type_name = "<adapter-emitted-type-name>"
 identifier = "ETHUSDT-PERP.BINANCE"
 ```
 
-This allows the runtime to subscribe to the matching Nautilus `DataType` without leaking adapter protocol details into the capture project.
+This allows the runtime to subscribe to the matching `DataType` without leaking adapter protocol details into the capture project.
 
 ## Validation levels
 
