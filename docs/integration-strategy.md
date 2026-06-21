@@ -45,4 +45,18 @@ only after the capture use case is stable and the API is narrow.
 - upgrades to adapter or persistence crates flow through normal path dependencies
 - capture behavior can evolve on its own release cadence
 
+## Related ecosystem repos
+
+[wuledan/storage-engine](https://github.com/wuledan/storage-engine) is a sibling C++ IO/coroutine
+runtime (Online priority scheduling + Offline work-stealing). It does **not** replace Nautilus
+`ParquetDataCatalog` in this service.
+
+| Concern | Owner |
+|---------|-------|
+| Live raw capture + parquet layout | this repository |
+| Offline DM-style panels (Step 9b) | `research/` or separate derive job (PyO3 read) |
+| Optional heavy CPU / IO executor | storage-engine L1+ only when profiling justifies it |
+
+Integration tiers and Track R priorities: `ROADMAP.md`, `docs/implementation-plan.md`.
+
 See `NOTICE` for license obligations on linked components.

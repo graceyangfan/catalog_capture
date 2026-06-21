@@ -1,0 +1,42 @@
+# HIP-4 priceBinary daily capture (BTC 1d recurring, 06:00 UTC expiry rotation).
+# Mirrors hyperliquid_stale_quote instrument rotation with adaptive outcomeMeta polling.
+#
+# Live smoke:
+#   cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-hip4-btc-daily.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-HYPERLIQUID-HIP4-BTC-DAILY"
+
+[runtime.hip4_universe_refresh]
+enabled = true
+idle_poll_secs = 1800
+active_poll_secs = 10
+pre_expiry_window_secs = 900
+http_timeout_secs = 10
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-hyperliquid-hip4-btc-daily"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 1000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+queue_capacity = 10000
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "hyperliquid_main"
+kind = "hyperliquid"
+environment = "mainnet"
+
+[[capture.hip4_universe]]
+venue_id = "hyperliquid_main"
+underlying = "BTC"
+period = "1d"
+market_class = "priceBinary"
+include_fallback = false
+include_perp_mark = true
+families = ["instruments", "quotes", "mark_prices"]

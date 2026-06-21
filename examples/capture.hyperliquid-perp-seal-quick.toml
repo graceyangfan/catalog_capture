@@ -1,0 +1,50 @@
+# Quick segment seal validation: wall-clock schedule set to ~2 minutes ahead of authoring time.
+# Before each run, update [output.lifecycle.seal].schedule to UTC now + 1–2 minutes (HH:MM).
+#
+# Last verified 2026-06-21 09:35 UTC → schedule 09:36, capture 150s to cross boundary.
+# Before each run, bump schedule to UTC now + 1–2 minutes.
+#
+# Run:
+#   cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-perp-seal-quick.toml
+#
+# After run, expect sealed parquet under catalog (no .part suffix):
+#   find /tmp/nautilus-catalog-capture-hyperliquid-perp-seal-quick -name '*.parquet' ! -name '*.part.parquet'
+
+[runtime]
+capture_seconds = 150
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-HYPERLIQUID-PERP-SEAL-QUICK"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-hyperliquid-perp-seal-quick"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 5000
+flush_interval_ms = 500
+max_buffer_bytes = 33554432
+queue_capacity = 10000
+overflow_policy = "drop_oldest"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 5000
+
+[output.lifecycle.durability]
+sync_interval_ms = 500
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "09:36"
+timezone = "UTC"
+interval_secs = 86400
+
+[[venues]]
+id = "hyperliquid_main"
+kind = "hyperliquid"
+environment = "mainnet"
+
+[[capture.quotes]]
+instrument_id = "BTC-USD-PERP.HYPERLIQUID"

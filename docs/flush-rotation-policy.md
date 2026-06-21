@@ -301,26 +301,43 @@ That difference is important.
 
 The new project should not try to mimic the old workflow mechanically. It should produce a file lifecycle that is natural for direct parquet and still operationally sane.
 
+## Track S — Segment Lifecycle (implemented)
+
+For long-running unattended capture, the project now supports an optional **segment** lifecycle
+mode. See [segment-lifecycle.md](segment-lifecycle.md) for the full design.
+
+Three orthogonal policies:
+
+| Policy | Meaning |
+|--------|---------|
+| **Batch** | Memory buffer → append row group to same `.part` file |
+| **Sync** | Periodic `fsync` on the active file |
+| **Seal** | Close + rename to `{min_ts}_{max_ts}.parquet`; open new `.part` |
+
+Default remains **chunked** (flush-driven immutable chunks) for CI and regression. Enable segment
+mode via `[output.lifecycle]` in TOML.
+
+Segment seal (e.g. daily 06:00 UTC) is **independent** from HIP-4 universe refresh or option
+universe rollover — those change subscriptions; segment lifecycle changes how files are produced.
+
 ## Recommended near-term implementation order
 
-1. Keep the current flush-driven chunk model.
-2. Add flush reason metrics and file-size metrics.
-3. Introduce per-family default tuning.
-4. Run low-threshold validation profiles to prove multi-file behavior.
-5. Run longer live soak tests with production-like thresholds.
-6. Only then decide whether active `.part` writers are justified.
+1. Keep chunked mode as the default for tests and smoke runs.
+2. Use segment mode for unattended perpetual / daily-seal production profiles.
+3. Add flush reason metrics and file-size metrics (including `FlushReason::Seal`).
+4. Introduce per-family default tuning.
+5. Run segment roundtrip validation (`segment_quote_roundtrip` example).
+6. Run longer live soak tests with production-like thresholds.
 
 ## Practical conclusion
 
-The current design is appropriate for Phase 1 and early production-shaped validation.
+Chunked mode remains appropriate for Phase 1 validation and low-volume capture.
 
-It is **not yet the final ideal file lifecycle**.
+Segment mode is the production-shaped path for long-running jobs that need:
 
-The right next move is not to discard chunked direct parquet, but to:
+- fewer files per partition per day
+- scheduled seal boundaries for backtest handoff
+- continuous append without per-flush new files
 
-- tune it deliberately
-- measure it properly
-- separate test profiles from production profiles
-- evolve only when real usage shows that small-file behavior is a meaningful problem
-
-That keeps the project simple, catalog-native, and maintainable while still moving toward a more production-natural capture system.
+Both modes write catalog-readable sealed/finalized parquet; segment mode defers readability until
+seal (`.part` files are not catalog-queryable).

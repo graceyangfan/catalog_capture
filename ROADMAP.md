@@ -83,28 +83,96 @@ The most important downstream consumers are therefore:
   - reference spot / index legs
   - adapter-native venue custom data
 
+## Track S — Segment Lifecycle (Phase 2a)
+
+Long-running capture (perpetual futures, HIP-4 daily, unattended daemons) needs continuous
+append into active segments, scheduled wall-clock seal, and catalog-readable sealed parquet for
+direct backtest. See [docs/segment-lifecycle.md](docs/segment-lifecycle.md).
+
+| Milestone | Status |
+|-----------|--------|
+| S0 `LifecycleConfig` + TOML | done |
+| S1 `SegmentCaptureSink` + unit tests | done |
+| S2 `CatalogSink` enum (chunked default) | done |
+| S3 Runtime/background tick + seal dispatch | done |
+| S4 Actor `SEGMENT_SEAL` timer + shutdown seal | done |
+| S5 Orphan `.part` recovery + metrics | done |
+| S6 Production example + readback validation | done |
+
+Universe refresh (HIP-4 `outcomeMeta`, option universe) is **orthogonal** to segment seal.
+
+## Ecosystem: `wuledan/storage-engine`
+
+Sibling repo [wuledan/storage-engine](https://github.com/wuledan/storage-engine) is a C++20
+coroutine IO runtime (Online priority scheduler + Offline NUMA work-stealing). It shares design
+DNA with `wuledan/quant` (work-stealing, affinity primitives) but is **not** a drop-in replacement
+for Nautilus `ParquetDataCatalog`.
+
+| Layer | Owner | Contract |
+|-------|-------|----------|
+| Live ingest + raw parquet | this repository | `ParquetDataCatalog` write/read |
+| Offline derivation (Step 9b) | `research/` or separate job | PyO3 read raw → derived panels |
+| IO / CPU executor (optional) | storage-engine | L1+ integration only when 9b or seal IO needs it |
+
+Integration tiers (see `docs/implementation-plan.md`):
+
+- **L0 (now)** — borrow patterns only: global capacity budget, lazy workers, tiered soak, metrics
+- **L1** — storage-engine Offline pool as optional 9b job executor (separate process)
+- **L2+** — io_uring seal/compaction only if production proves Parquet encode is not the bottleneck
+
+## Track R — Runtime resource governance (Phase 4a)
+
+Expert review + storage-engine alignment: capture must not claim arbitrary VM sizes until global
+memory and worker lifecycle are bounded. **Complete Track R before marketing heavy profiles**
+(full-chain + `book_deltas`) on small VMs.
+
+| Milestone | Deliverable | Status |
+|-----------|-------------|--------|
+| R1 | Per-family `max_total_buffer_bytes` + `max_active_partitions`; plan-time summed peak estimate + `resource_budget_bytes` startup warnings | done |
+| R2 | Lazy `BackgroundCaptureRuntime` per `CapturePlan` family (remove fixed 12 OS threads at actor `new()`) | done |
+| R3 | HTTP/Prometheus metrics export; RSS + `dropped_items` + `active_partitions` soak dashboards | done |
+| R4 | Tiered soak acceptance (rolling / research / heavy profiles) | planned |
+
+Universe refresh and segment seal stay orthogonal to Track R.
+
 ## Phase 4
 
 - improve partition lifecycle management
 - cap active writers / open resources
 - add richer diagnostics and metrics
 - formalize research-oriented capture defaults for different data families
+- **complete Track R (R1–R4) before unattended heavy-profile claims**
 
 ### Phase 4 priorities
 
+- **R1** per-family total buffer cap (`max_total_buffer_bytes`, default 512 MiB per family runtime;
+  summed peak bounded by enabled families × cap; `max_buffer_bytes` remains per-partition, default 32 MiB)
+- **R2** plan-driven lazy background workers
 - file-count and file-size observability
-- flush-reason observability
-- long-run soak validation under realistic derivatives data loads
+- flush-reason observability (including `FlushReason::Seal`)
+- tiered long-run soak validation (4C8G rolling → 4C16G research → heavy after R1)
 - family-specific queue / flush defaults
+- CLI modularization **after** soak stability (not blocking R1/R2)
 
 ## Phase 5
 
-- evaluate whether active `.part` writers are worth the complexity
-- evaluate stronger durability modes
-- evaluate object-store-aware commit behavior
+- orphan `.part` recovery and object-store-aware seal
+- evaluate stronger durability modes (WAL) only if live capture risk justifies it
 
 ### Phase 5 priorities
 
-- active parquet writer only if chunk files prove operationally insufficient
-- WAL or stronger durability only if live capture risk justifies it
-- object-store commit semantics only when deployment requirements demand them
+- `.part` recovery for crash/restart continuity (S5 baseline done for local FS)
+- object-store commit semantics when deployment requirements demand them
+
+## Step 9 — Universe + offline derivation (current product focus)
+
+Parallel to Track R; capture writes **raw** only.
+
+| Track | Scope | Status |
+|-------|-------|--------|
+| 9a | `underlying` / expiry / strike policies, autorefresh, OI preflight | in progress (Deribit/OKX OI preflight open) |
+| 9b | Offline jobs: IV term, GEX, basis from raw catalog via PyO3 | planned (`research/` or separate repo) |
+| 9c | Binance Options / Thalex adapter gap | evaluate |
+
+9b completion criterion: at least three derived panel families (IV term, GEX, basis) reproducible
+from sealed catalog assets. Optional storage-engine Offline workers accelerate 9b CPU only.

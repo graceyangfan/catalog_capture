@@ -27,7 +27,7 @@ pre-commit run --all-files
 | shfmt, shellcheck | `scripts/`, `deploy/`, `.pre-commit-hooks/` |
 | actionlint | `.github/workflows/` |
 | typos | spelling |
-| cargo fmt --check | Rust formatting |
+| cargo fmt --check (stable, via `cargo_fmt_stable.sh`) | Rust formatting |
 | cargo clippy | workspace lint (requires sibling dependency checkout) |
 
 Clippy is skipped locally when the path dependency checkout is missing; CI checks out

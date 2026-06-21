@@ -1,0 +1,50 @@
+# Perpetual futures capture with daily segment seal at 06:00 UTC.
+# Sealed parquet files are directly readable via ParquetDataCatalog for backtest.
+#
+# Production (daily 06:00 UTC seal):
+#   cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-perp-daily.toml
+#
+# Quick local seal check (set schedule to UTC now+1min in TOML only):
+#   examples/capture.hyperliquid-perp-seal-quick.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-HYPERLIQUID-PERP-DAILY"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-hyperliquid-perp-daily"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+queue_capacity = 10000
+overflow_policy = "drop_oldest"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 5000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "06:00"
+timezone = "UTC"
+interval_secs = 86400
+
+[[venues]]
+id = "hyperliquid_main"
+kind = "hyperliquid"
+environment = "mainnet"
+
+[[capture.quotes]]
+instrument_id = "BTC-USD-PERP.HYPERLIQUID"
+
+[[capture.trades]]
+instrument_id = "BTC-USD-PERP.HYPERLIQUID"

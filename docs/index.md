@@ -21,6 +21,8 @@ Catalog Capture records runtime market data directly into catalog-native Parquet
 - [Option universe preflight](option-universe-preflight.md)
 - [Option universe manager design](option-universe-manager-design.md)
 - [Integration strategy](integration-strategy.md)
+- [Stepwise capture roadmap](stepwise-capture-roadmap.md) — execution plan, Track R, Step 9b
+- [Segment lifecycle](segment-lifecycle.md)
 
 ## Build dependency
 

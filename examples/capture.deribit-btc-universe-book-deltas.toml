@@ -34,10 +34,7 @@ venue_id = "deribit_main"
 underlying = "BTC"
 settlement_currency = "BTC"
 include_perp = true
-families = [
-  "instruments",
-  "book_deltas",
-]
+families = ["instruments", "book_deltas"]
 
 [capture.option_universe.expiry_policy]
 mode = "nearest"

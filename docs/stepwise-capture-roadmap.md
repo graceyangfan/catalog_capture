@@ -23,21 +23,27 @@
 - CustomData 清单：`docs/native-custom-data-targets.md`
 - 产品阶段：`docs/implementation-plan.md`、`ROADMAP.md`
 - 首次 live 验证：`docs/live-validation.md`
+- 分段落盘：`docs/segment-lifecycle.md`
+- 生态位（可选 IO/离线执行器）：[wuledan/storage-engine](https://github.com/wuledan/storage-engine)
 
 ---
 
-## 当前基线（2026-06）
+## 当前基线（2026-06-21）
 
 ### 已完成
 
 | 层级 | 状态 | 说明 |
 |---|---|---|
-| `catalog-capture-core` | ✅ | `CapturePlan`、分区、chunk flush、catalog sink |
+| `catalog-capture-core` | ✅ | `CapturePlan`、分区、chunk/segment flush、catalog sink |
 | `CatalogCaptureActor` | ✅ | 覆盖全部内置家族 + `custom_data` 回调 |
 | CLI TOML 解析 | ✅ | 内置家族 + `index_prices` / `funding_rates` / `custom_data` 字段已存在 |
 | 合成 / fixture 读回 | ✅ | quotes、mark、greeks、instruments 等 PyO3 读回 smoke |
 | Binance Futures live | ✅ | Step 1–2：`quotes` / mark / index / funding + `instruments` bootstrap |
 | Deribit CLI | ✅ | `venue.kind = "deribit"` + `capture.deribit-btc.toml`（Step 3） |
+| Track S 分段生命周期 | ✅ | S0–S6：`SegmentCaptureSink`、`SEGMENT_SEAL`、orphan `.part` 恢复 |
+| Step 6 内置 WS 家族 | ✅ | `trades` / `bars` / `book_deltas` |
+| Step 9a-lite | ✅ | `underlying` + expiry/strike policy、autorefresh、full-chain batch profiles |
+| HIP-4 universe | ✅ | `dynamic_hip4_universe` + daily seal 示例 |
 
 ### 关键约束
 
@@ -48,8 +54,9 @@
 2. **CLI runtime 已支持 `binance_futures`、`deribit`、`bybit`、`okx`**
    Derive 仍待 Step 4d；多 venue 单 job 已验证（Deribit + Binance）。
 
-3. **期权 universe 仍靠手写 `instrument_id`**
-   尚无按 underlying / expiry / OI 的发现与筛选。
+3. **期权 universe 配置抽象已落地，OI preflight 仍不完整**
+   `atm_relative` / `oi_ranked` / `all` 与 autorefresh 可用；Deribit/OKX 的 `oi_ranked` 启动
+   preflight 仍待补齐（Bybit HTTP 路径已可用）。
 
 4. **不发明 schema**
    `CustomData` 必须原样录制 adapter 已发出的 `type_name` 与 payload（见 `docs/custom-data-contract.md`）。
@@ -59,11 +66,33 @@
 
 ### 当前焦点
 
-Step 5 中 5a（`DeribitVolatilityIndex`）与 5c（`HyperliquidOpenInterest`）已完成；**5b 及上表三类 Binance custom 等上游 PR 落地后再接**。
+**并行两条线**（见 `ROADMAP.md` Track R + Step 9）：
 
-**Step 6 内置 WS 家族（trades / bars / book_deltas）已落地**；长时 soak 与 signature delta flow 离线验证留到收尾阶段。
+1. **Track R — 运行时资源治理**（阻塞小 VM 上 heavy profile 的生产声称）
+   - R1 每 family 内存上限 / 活跃 partition 预算（启动估算为各 family 峰值之和）
+   - R2 按 `CapturePlan` lazy 创建 background worker（去掉 actor 启动时固定 12 线程）
+   - R3 metrics 导出；R4 分层 soak 验收
 
-**Step 7–8（HTTP 录制 / 历史回填）明确跳过**：当前阶段不实现 `RequestCustomData` 定时快照、`CaptureScheduler`，也不做 `catalog-capture-backfill` / `mode = backfill`。理由：WS 主路径已覆盖研究所需原始层；HTTP 型工作需 Actor 架构变更且 Binance OI 仍 blocked（#4297）。**下一步：Step 9**（universe 完善 + 离线派生）。
+2. **Step 9 — universe 完善 + 离线派生（9b）**
+   - 9a：Deribit/OKX OI preflight
+   - 9b：从 raw catalog 离线产出 IV term / GEX / basis（`research/` 或独立仓库）
+
+Step 5 中 5a（`DeribitVolatilityIndex`）与 5c（`HyperliquidOpenInterest`）已完成；**5b 及三类 Binance custom 等上游 #4297 后再接**。
+
+**Step 7–8（HTTP 录制 / 历史回填）明确跳过**；WS 主路径 + 9b 离线复算覆盖研究需求。
+
+### 与 `storage-engine` 的关系
+
+[wuledan/storage-engine](https://github.com/wuledan/storage-engine) 是同一生态下的 C++ IO/协程
+运行时（Online 优先级调度 + Offline work-stealing），**不替代** Nautilus `ParquetDataCatalog`。
+
+| 集成层级 | 时机 | 本仓库动作 |
+|---|---|---|
+| L0 | 现在 | 在 Rust 内借鉴容量预算、lazy worker、分层 soak（无 C++ 依赖） |
+| L1 | 9b CPU 成为瓶颈 | 独立 derive 进程可选用 storage-engine Offline 池 |
+| L2+ | segment IO 打满 NVMe | 再评估 io_uring fsync/seal；默认仍以 Parquet 编码路径为准 |
+
+采集热路径不变：`DataActor` → `CaptureItem` → `ParquetDataCatalog`。
 
 ---
 
@@ -475,6 +504,37 @@ flowchart LR
 
 ---
 
+## Track R：运行时资源治理 — **当前焦点（与 Step 9 并行）**
+
+### 目标
+
+在 4C8G / 4C16G 等常见 VM 上可预期地长跑 capture，避免「每 partition 32MB × N 合约」的无界
+内存与「plan 未启用仍创建 12 个 worker 线程」的固定开销。
+
+### 工作项
+
+| 项 | 交付物 | 验收 |
+|---|---|---|
+| R1 | `max_total_buffer_bytes`、`max_active_partitions`；plan 内存估算 + 启动 warning | ✅ 已落地；full-chain 需配合 `runtime.resource_budget_bytes` 验收 |
+| R2 | `CatalogCaptureActor` 仅对 plan 中 family 构造 `BackgroundCaptureRuntime` | ✅ 已落地；quotes-only plan 启动 2 workers（instruments + quotes） |
+| R3 | metrics HTTP：`/metrics`（Prometheus）、`/metrics.json`；`dropped_items`、`active_partitions`、`queued_items`、flush reasons、RSS | ✅ 已落地；soak 期间 `curl /metrics` |
+| R4 | 分层 soak profile + 通过标准（见 `docs/how_to/smoke_and_soak.md`） | rolling 4C16G 24h+ 无丢数、seal readback 通过 |
+
+### VM 与 profile 分级（R1/R2 已落地 — heavy 前需调预算）
+
+| Profile | 建议 VM | 允许范围 | 禁止 / 暂缓 |
+|---|---|---|---|
+| rolling | 4C8G | 单 venue、小 strike、`quotes`+`greeks`+对冲腿 | full-chain、`book_deltas` |
+| research | 4C16G | 多所 rolling、autorefresh、`trades`+`bars` | full-chain + `book_deltas` |
+| heavy | 8C+ 且启动 buffer 估算通过 | full-chain、选择性 `book_deltas` | 4C8G unattended heavy |
+
+### 明确延后
+
+- CLI crate 拆分（`main.rs` 子命令膨胀）— soak 稳定后再做
+- storage-engine 嵌入 capture 热路径 — 仅 L1+ 可选
+
+---
+
 ## Step 9：Universe 选择 + 离线派生（面向 DM）— **当前焦点**
 
 ### 目标
@@ -493,15 +553,26 @@ flowchart LR
 
 **9b — 离线派生 job（独立仓库或 `research/`）**
 
-| 派生指标 | 输入原始数据 |
-|---|---|
-| IV surface / term structure | option_greeks + instruments |
-| GEX / max pain | option_greeks（gamma × OI） |
-| IV Divergence | 多 venue option_greeks 对齐 |
-| Vol Regime / VRP | mark_iv + trades/bars（RV）+ DVOL |
-| Basis / carry | index + mark + funding |
-| Lead-Lag | 多 venue ts_event 序列相关 |
-| Order flow | trades + delta |
+原则：**capture 只写 raw**；GEX / skew / basis 等面板由离线 job 从 catalog 复算。
+`online_option_metrics` 仅 stdout 自检，不作为研究真相源。
+
+| 派生指标 | 输入原始数据 | 9b 优先级 |
+|---|---|---|
+| IV surface / term structure | option_greeks + instruments | P0（首批原型） |
+| GEX / max pain | option_greeks（gamma × OI） | P0 |
+| Basis / carry | index + mark + funding | P0 |
+| IV Divergence | 多 venue option_greeks 对齐 | P1 |
+| Vol Regime / VRP | mark_iv + trades/bars（RV）+ DVOL | P1 |
+| Lead-Lag | 多 venue ts_event 序列相关 | P2 |
+| Order flow | trades + delta | P2 |
+
+**9b 执行模型**
+
+1. 输入：sealed parquet（Track S）或 chunk catalog 子树 + 时间窗
+2. 读取：PyO3 `ParquetDataCatalog`（与回测同一契约）
+3. 输出：派生 panel（parquet/feather）+ job manifest（输入路径、版本、参数）
+4. 可选算力：CPU 密集时评估 [storage-engine](https://github.com/wuledan/storage-engine) Offline
+   work-stealing 作为**独立 derive 进程**的执行池（L1），不改动 capture 写路径
 
 **9c — 外部 adapter 缺口**
 
@@ -591,13 +662,14 @@ instrument_id = "BTC-28JUN26-100000-C.DERIBIT"
 
 ---
 
-## 验证清单（每 Step 必做）
+## 验证清单（每 Step / Track 必做）
 
 1. **写入**：catalog 目录出现预期分区（family + instrument / type_name）
-2. **读回**：`tests/python_*_smoke.py` 或 probe 通过
+2. **读回**：`tests/python_*_smoke.py` 或 probe 通过；segment 模式加 `probe_segment_seal_readback.py`
 3. **时间**：`ts_event` 单调、与 wall clock 偏差可解释
-4. **运维**：queue depth、drop count、flush reason 可观测
-5. **复算**：至少 1 个离线 notebook/job 证明「raw → 派生指标」可行
+4. **运维**：`queued_items`、`active_partitions`、`dropped_items`、flush reason 可观测
+5. **资源**（Track R4）：进程 RSS 在 profile 预算内；seal 边界产生可读 sealed 文件
+6. **复算**（9b）：至少 IV term、GEX、basis 三类「raw → 派生面板」可复现
 
 ---
 
@@ -605,7 +677,9 @@ instrument_id = "BTC-28JUN26-100000-C.DERIBIT"
 
 | 风险 | 缓解 |
 |---|---|
-| WS 吞吐导致 `drop_oldest` 静默丢数 | 分 profile 拆 job；per-family metrics；关键家族 `block` 策略 |
+| WS 吞吐导致 `drop_oldest` 静默丢数 | Track R1 per-family 预算 + 启动估算；分 profile 拆 job；关键家族 `fail_fast`；soak 盯 `dropped_items` |
+| 小 VM full-chain OOM | 调低 `max_buffer_bytes` / `max_total_buffer_bytes` 或缩 capture 面；heavy 需 8C+ 且 `resource_budget_bytes` 验收 |
+| actor 固定 12 worker 线程空转 | Track R2 lazy runtime by plan |
 | 期权 instrument_id 频繁变更 | Step 9 universe 刷新；instruments 分区保留历史 |
 | HTTP 回填与 live 重复 | 分区 metadata 记 `capture_mode=live|backfill` |
 | 无 Binance Options / Thalex adapter | 四所 MVP 先覆盖 DM ~80% 功能 |
@@ -613,15 +687,34 @@ instrument_id = "BTC-28JUN26-100000-C.DERIBIT"
 
 ---
 
-## 建议的「下一步」
+## 建议的「下一步」（2026-06-21）
 
-如果今天只做一个动作，执行 **Step 1**：
+按优先级并行推进：
 
-1. 在 `examples/capture.toml` 打开 `index_prices` + `funding_rates`
-2. 对 Binance Futures mainnet 跑 60s live
-3. 用 probe 验证 4 类内置 WS 数据均入库
+### 本周 — capture 内核（Track R）
 
-这是投入最小、且直接解锁 basis / carry 研究的路径，也完全符合「先内置、先 WS、先易后难」。
+1. **R1**：实现 `max_total_buffer_bytes` + `max_active_partitions` + plan 内存估算 warning
+2. **R2**：`CapturePlan` 驱动 lazy `BackgroundCaptureRuntime` 创建
+3. 提交前：`cargo test` + pre-commit；大 diff 先 stack/commit 再长跑 soak
+
+### 本周 — 分层 soak（Track R4）
+
+1. **rolling**：`examples/capture.hyperliquid-perp-daily.toml` 或 option autorefresh，4C16G，≥2h
+2. **segment**：`python tests/probe_segment_seal_readback.py <catalog> <instrument_id>`
+3. 通过标准：`dropped_items == 0`（或 profile 允许的显式阈值）、seal 后 PyO3 读回、RSS 稳定
+
+### 并行 — 9b 最小原型
+
+1. 从已有 catalog 读 `option_greeks` + `instruments` → IV term 面板
+2. 读 `index_prices` + `mark_prices` + `funding_rates` → basis 面板
+3. 落盘到 `research/`（或独立 repo），manifest 记录输入 catalog 与时间窗
+
+### 明确不做（本阶段）
+
+- Step 7–8 HTTP backfill
+- Binance custom（#4297 前）
+- storage-engine 替换 `ParquetDataCatalog` 写路径
+- CLI 大拆（soak 稳定后）
 
 ---
 
@@ -630,3 +723,4 @@ instrument_id = "BTC-28JUN26-100000-C.DERIBIT"
 | 日期 | 说明 |
 |---|---|
 | 2026-06-18 | 初版：内置 → CustomData、WS → HTTP 分步路线图 |
+| 2026-06-21 | Track S 完成；新增 Track R、storage-engine 生态位、分层 soak/9b 计划；更新当前焦点 |

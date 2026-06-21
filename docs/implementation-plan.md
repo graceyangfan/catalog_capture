@@ -81,7 +81,7 @@ That means the initial custom-data order should be:
 2. `DeribitVolatilityIndex` ✅
 3. **Step 6** — built-in `trades` / selective `book_deltas` / `bars` — done (see `docs/stepwise-capture-roadmap.md`)
 4. **Step 7–8** — HTTP `RequestCustomData` / historical backfill — **skipped** for now
-5. **Step 9 next** — option-universe polish + offline DM derivation jobs
+5. **Step 9 next** — option-universe polish + offline DM derivation jobs (see Track R below)
 
 Binance Futures custom families below are **deferred until upstream Arrow support** ([nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)):
 
@@ -132,21 +132,47 @@ This should still default to targeted derivatives bundles such as:
 - one underlying family such as `BTC` or `ETH`
 - one volatility index family when available
 
-## Phase 4: Operational hardening
+## Phase 4: Operational hardening (Track R)
 
 ### Goal
 
-Improve long-running behavior without changing the core product promise.
+Improve long-running behavior without changing the core product promise. Complete **Track R**
+before claiming small-VM support for heavy capture profiles.
 
-### Candidate items
+### Track R deliverables (priority order)
+
+1. **R1 — Per-family memory / partition budget**
+   - `max_total_buffer_bytes` cap per family `CaptureRuntime` (not a single process-global pool)
+   - `max_active_partitions` with eviction or forced flush of oldest partitions
+   - plan-time summed peak estimate: Σ min(partitions × `max_buffer_bytes`, `max_total_buffer_bytes`)
+   - startup warning when summed estimate exceeds `runtime.resource_budget_bytes`
+
+2. **R2 — Lazy background workers**
+   - create `BackgroundCaptureRuntime` only for families present in the effective `CapturePlan`
+   - remove unconditional 12 worker threads at `CatalogCaptureActor::new()`
+   - optional shared worker pool per IO class (quotes/trades vs status/metadata) — later
+
+3. **R3 — Metrics export** (done)
+   - `runtime.metrics.enabled` serves Prometheus at `/metrics`, JSON at `/metrics.json`
+   - per-family labels plus aggregated totals; `process_rss_bytes` when available
+   - soak dashboards: `dropped_items`, `active_partitions`, `queued_items`, flush reasons
+
+4. **R4 — Tiered soak acceptance**
+   - see `docs/how_to/smoke_and_soak.md` for profiles and pass/fail gates
+
+### Already in place (Phase 4 baseline)
 
 - per-family bounded queueing and background writer workers
-- queue-capacity tuning and observability
-- timed flush execution validation under live load
-- writer lifecycle limits
+- timed flush and segment sync (`flush_interval_ms`, `sync_interval_ms`)
+- `FlushReason` observability including seal
+- Track S segment lifecycle (S0–S6)
+
+### Candidate items (after R1–R4)
+
+- family-specific queue / flush defaults
 - idle-close / reopen policies
-- richer metrics
-- durability options
+- durability options (layered WAL — see `production-architecture.md`, `wuledan/quant` lineage)
+- CLI crate split (operator surface only; not blocking soak)
 
 ### Derivatives-load validation
 
@@ -157,6 +183,45 @@ Operational hardening should be validated under data shapes that resemble real t
 - high-frequency hedge-leg quotes and trades
 - venue custom data with mixed cadence
 - cross-venue concurrent capture
+
+**VM guidance (R1/R2 landed — tune budgets before heavy):**
+
+| Profile | VM | Capture scope |
+|---------|-----|---------------|
+| rolling | 4C8G | single venue, small strike window, no `book_deltas` / full-chain |
+| research | 4C16G | multi-venue rolling, Deribit/Bybit/OKX without heavy `book_deltas` |
+| heavy | 8C+ with budget tuning | full-chain + selective `book_deltas`; verify startup buffer estimate |
+
+## storage-engine integration (optional, cross-repo)
+
+[wuledan/storage-engine](https://github.com/wuledan/storage-engine) provides Online IO scheduling
+(io_uring SQPOLL, libaio, SPDK) and Offline NUMA work-stealing. It does **not** implement
+Nautilus catalog layout; integration stays optional.
+
+| Tier | When | Action |
+|------|------|--------|
+| L0 | Now | Apply design patterns in Rust (capacity budget, lazy workers, tiered soak) |
+| L1 | 9b CPU-bound | Separate derive process; optional Offline worker pool for panel jobs |
+| L2 | Segment IO-saturated | Evaluate io_uring-backed fsync/seal path via FFI — only if profiling proves benefit |
+| L3 | Engine mature | Compaction/tiering over sealed assets — requires readback contract review |
+
+Capture hot path remains: `DataActor` → `CaptureItem` → `ParquetDataCatalog`.
+
+## Step 9b — Offline derivation jobs
+
+Goal: DM-style panels from raw catalog without polluting capture hot path.
+
+| Panel | Raw inputs |
+|-------|------------|
+| IV term / surface | `option_greeks` + `instruments` |
+| GEX / max pain | `option_greeks` (gamma × OI) |
+| Basis / carry | `index_prices` + `mark_prices` + `funding_rates` |
+
+Deliverable location: `research/` directory or separate repository. Read path: PyO3
+`ParquetDataCatalog` only. `online_option_metrics` remains stdout sanity check, not truth source.
+
+Completion: reproducible jobs producing at least IV term, GEX, and basis panels from one
+sealed catalog window.
 
 ## Phase 5: File lifecycle optimization
 

@@ -235,9 +235,16 @@ This evolution keeps the capture service focused because it:
 
 ## Near-term implementation order
 
-1. Split and stabilize module boundaries in this project.
-2. Add broader data-family support in `CapturePlan`.
-3. Add a runner-oriented external config model.
-4. Introduce background write execution and timed flush.
-5. Add optional durability layers.
-6. Revisit active `.part` files only if production usage proves they are needed.
+Completed baseline: module boundaries, broad `CapturePlan` families, CLI/TOML runner, background
+writers, timed flush, Track S segment lifecycle (see `docs/segment-lifecycle.md`).
+
+Current priority (Track R + Step 9 — see `ROADMAP.md`):
+
+1. **R1** — per-family `max_total_buffer_bytes` and `max_active_partitions`; summed plan-time peak estimate and `resource_budget_bytes` warnings.
+2. **R2** — lazy per-family `BackgroundCaptureRuntime` from effective `CapturePlan`.
+3. **R4** — tiered soak acceptance (`docs/how_to/smoke_and_soak.md`).
+4. **9a** — Deribit/OKX OI preflight for `oi_ranked` strike policy.
+5. **9b** — offline derive jobs (IV term, GEX, basis) via PyO3 read; optional
+   [storage-engine](https://github.com/wuledan/storage-engine) Offline executor at L1 only.
+6. Optional durability layers (WAL modes — `wuledan/quant` lineage).
+7. CLI modularization after soak stability.
