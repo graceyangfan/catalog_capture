@@ -1,26 +1,27 @@
-# RFC: External Rust-first Catalog Capture for Nautilus Trader
+# RFC: Direct catalog capture
 
 ## Summary
 
-This project implements a deployment-owned direct catalog capture path outside the Nautilus Trader core repository.
+This project implements a deployment-owned direct catalog capture service.
 
 The target outcome is simple:
 
 - runtime/online-generated data is written directly into catalog-readable Parquet assets
 - backtest can consume those assets after rollover without a `feather -> convert -> parquet` step
-- the implementation remains compatible with Nautilus Trader's Rust-first direction without requiring a built-in framework service
+- capture policy, batching, and operations remain in this repository
 
 The primary runtime shape is a **dedicated capture actor**, not strategy-owned recording logic.
 
-## Why external
+## Scope
 
-Nautilus maintainers have explicitly stated that runtime capture is operational/deployment-specific and should remain user-owned.
+Catalog capture is operational infrastructure: batching thresholds, storage layout, rollover
+policy, and long-running service lifecycle belong here rather than in strategy code.
 
-That makes an external project the right boundary:
+This repository:
 
-- reuse Nautilus primitives
-- own the capture policy externally
-- upstream only minimal generic hooks or helpers if needed
+- reuses persistence and adapter primitives from the sibling dependency checkout
+- owns capture configuration and deployment behavior
+- keeps generic trading logic out of the capture path
 
 ## Problem framing
 
@@ -57,7 +58,6 @@ This keeps the first version:
 - simple
 - testable
 - easy to maintain
-- easy to discuss with maintainers later
 - easy to mount beside existing strategies without inventing new framework services
 
 ## Long-term stance

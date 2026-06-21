@@ -171,7 +171,7 @@ The file-lifecycle tuning criteria for that decision are documented in:
 
 These are intentionally deferred:
 
-- built-in upstream service
+- built-in framework capture service
 - forced object-store semantics support
 - compaction as a required feature
 - immediate removal of Feather fallback paths

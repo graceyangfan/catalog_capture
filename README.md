@@ -194,6 +194,6 @@ Documentation map: [docs/index.md](docs/index.md).
 - `docs/implementation-plan.md`
 - `docs/custom-data-contract.md`
 - `docs/native-custom-data-targets.md`
-- `docs/upstream-strategy.md` (integration strategy)
+- `docs/integration-strategy.md`
 - `docs/live-validation.md`
 - `docs/pyo3-surface.md`

@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Changed
+
+- Rewrote `docs/rfc.md`, `docs/native-custom-data-targets.md`, and option-universe design
+  docs with project-owned architecture voice.
+- Renamed `docs/upstream-strategy.md` to `docs/integration-strategy.md`.
+
 ### Added
 
 - LGPL-3.0-or-later license, `NOTICE`, and `TRADEMARK.md`.

@@ -1,26 +1,26 @@
-# Native Custom Data Targets
+# Native custom data targets
 
 ## Goal
 
-Identify Nautilus Trader adapter-emitted custom data families that are strong candidates for
-capture in this project **without introducing any project-local schema invention**.
+Identify adapter-emitted custom data families that are strong candidates for capture in this
+project **without introducing any project-local schema invention**.
 
 This document answers:
 
-- which custom types already exist in Nautilus adapters
+- which custom types already exist in venue adapters
 - whether they are stream-like or request-like
 - whether they are Arrow/catalog friendly today
 - how useful they are for research, backtest enrichment, and ML datasets
 
 ## Recording modes
 
-Before choosing a custom data family, we should classify the intended business mode.
+Before choosing a custom data family, classify the intended business mode.
 
 ### `targeted_derivatives`
 
 This is the default mode for the current project stage.
 
-Use it when we are recording data for:
+Use it when recording data for:
 
 - one options chain
 - one or a few derivatives underlyings
@@ -83,13 +83,13 @@ That means:
 
 ## Selection rules
 
-A custom data family is a good target for this project when all of the following are true:
+A custom data family is a good target when all of the following are true:
 
-- the type is already emitted by a Nautilus adapter
-- the adapter already uses Nautilus `CustomData` / `DataType`
+- the type is already emitted by a venue adapter
+- the adapter already uses `CustomData` / `DataType`
 - the data carries real research or strategy value
 - the family can be described declaratively in `CapturePlan` / CLI config
-- the resulting parquet should be meaningful to read later through Nautilus catalog surfaces
+- the resulting parquet should be meaningful to read later through catalog readback surfaces
 
 ## P0 targets
 
@@ -102,13 +102,12 @@ These are the best next targets for direct capture support in **`targeted_deriva
 - Why it matters:
   - direct liquidation flow is useful for crowding, stress, and momentum studies
   - naturally complements quotes, trades, mark prices, and funding
-- Emission path:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/binance/src/futures/data.rs:610`
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/binance/src/data_types.rs:319`
+- Reference (sibling dependency tree):
+  - `crates/adapters/binance/src/futures/data.rs`
+  - `crates/adapters/binance/src/data_types.rs`
 - Notes:
   - already partitioned by instrument through `DataType` metadata when subscribed per instrument
-  - stream-native and very aligned with our runtime capture model
+  - stream-native and fits the runtime capture model
   - should be used primarily for selected underlyings, not as the default all-market stream
 
 ### `HyperliquidOpenInterest`
@@ -117,18 +116,17 @@ These are the best next targets for direct capture support in **`targeted_deriva
 - Source shape: live stream from asset context updates
 - Why it matters:
   - strong derivatives-research value
-  - close to the open-interest family we discussed, but importantly **already exists in Nautilus**
-- Emission path:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid/src/websocket/handler.rs:963`
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid/src/data_types.rs:53`
+  - adapter-native open-interest family (no local schema invention)
+- Reference (sibling dependency tree):
+  - `crates/adapters/hyperliquid/src/websocket/handler.rs`
+  - `crates/adapters/hyperliquid/src/data_types.rs`
 - Notes:
   - Arrow/catalog capable when adapter builds with Arrow support
-  - ideal first “open interest” family because we do not need to invent any local type
+  - ideal first “open interest” family because the type already exists in the adapter
   - this is the preferred first OI family because it is real-time and instrument-scoped
   - validated in this project with:
-    - `/Users/yfclark/nautilus_catalog_capture/crates/catalog-capture-runtime-adapter/examples/write_hyperliquid_open_interest_fixture.rs`
-    - `/Users/yfclark/nautilus_catalog_capture/tests/python_hyperliquid_open_interest_smoke.py`
+    - `crates/catalog-capture-runtime-adapter/examples/write_hyperliquid_open_interest_fixture.rs`
+    - `tests/python_hyperliquid_open_interest_smoke.py`
 
 ### `DeribitVolatilityIndex`
 
@@ -136,11 +134,10 @@ These are the best next targets for direct capture support in **`targeted_deriva
 - Source shape: live stream
 - Why it matters:
   - directly relevant to options and volatility research
-  - a very clean derivatives-native reference series
-- Emission path:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/deribit/src/websocket/handler.rs:1844`
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/deribit/src/data_types.rs:29`
+  - a clean derivatives-native reference series
+- Reference (sibling dependency tree):
+  - `crates/adapters/deribit/src/websocket/handler.rs`
+  - `crates/adapters/deribit/src/data_types.rs`
 - Notes:
   - one of the most natural P0 custom families for the options roadmap
   - likely easier to validate than more complex venue-specific aggregates
@@ -154,8 +151,7 @@ These are strong, but slightly less central to the immediate **runtime** derivat
 
 - Adapter: Binance Futures
 - Source shape: request/snapshot style
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/binance/src/data_types.rs:37`
+- Reference: `crates/adapters/binance/src/data_types.rs`
 - Why it matters:
   - useful for snapshots and point-in-time OI enrichment
 - Caveat:
@@ -166,8 +162,7 @@ These are strong, but slightly less central to the immediate **runtime** derivat
 
 - Adapter: Binance Futures
 - Source shape: request/batch style
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/binance/src/data_types.rs:151`
+- Reference: `crates/adapters/binance/src/data_types.rs`
 - Why it matters:
   - good for research backfills and carry term studies
 - Caveat:
@@ -177,26 +172,24 @@ These are strong, but slightly less central to the immediate **runtime** derivat
 
 - Adapter: Hyperliquid
 - Source shape: live stream
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid/src/data_types.rs:31`
+- Reference: `crates/adapters/hyperliquid/src/data_types.rs`
 - Why it matters:
   - useful cross-market snapshot for lead-lag and panel studies
 - Caveat:
-  - this is more naturally a `cross_sectional_market` family than a targeted-derivatives default
+  - more naturally a `cross_sectional_market` family than a targeted-derivatives default
   - aggregate snapshot semantics differ from per-instrument families
 
 ### `HyperliquidAllDexsAssetCtxs`
 
 - Adapter: Hyperliquid
 - Source shape: live aggregate snapshot
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/hyperliquid/src/data_types.rs:113`
+- Reference: `crates/adapters/hyperliquid/src/data_types.rs`
 - Why it matters:
   - rich research payload: funding, open interest, oracle, mark, premium, impact prices
 - Caveat:
-  - this is more naturally a `cross_sectional_market` family than a targeted-derivatives default
+  - more naturally a `cross_sectional_market` family than a targeted-derivatives default
   - currently `no_arrow`, JSON-backed, live-only by design
-  - valuable, but should come after our simpler Arrow/catalog-native families
+  - valuable, but should come after simpler Arrow/catalog-native families
 
 ## P2 targets
 
@@ -206,23 +199,21 @@ These are valid custom families, but less central for the immediate derivatives 
 
 - Adapter: Databento
 - Source shape: market microstructure feed
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/databento/src/types.rs:88`
+- Reference: `crates/adapters/databento/src/types.rs`
 - Why it matters:
   - very useful for auction and microstructure research
 - Caveat:
-  - more equities/venue-microstructure oriented than our current derivatives-first roadmap
+  - more equities/venue-microstructure oriented than the current derivatives-first roadmap
 
 ### `DatabentoStatistics`
 
 - Adapter: Databento
 - Source shape: market statistics feed
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/databento/src/types.rs:226`
+- Reference: `crates/adapters/databento/src/types.rs`
 - Why it matters:
   - useful for generalized research datasets
 - Caveat:
-  - less immediately connected to options/perp capture than our P0 set
+  - less immediately connected to options/perp capture than the P0 set
 
 ### Betfair custom families
 
@@ -233,29 +224,26 @@ These are valid custom families, but less central for the immediate derivatives 
   - `BetfairBspBookDelta`
   - `BetfairRaceRunnerData`
   - `BetfairRaceProgress`
-- Type definitions:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/betfair/src/data_types.rs:55`
+- Reference: `crates/adapters/betfair/src/data_types.rs`
 - Why it matters:
   - excellent proof that rich adapter-native custom families can be catalog-persisted cleanly
 - Caveat:
-  - domain is different from our near-term derivatives/ML roadmap
+  - domain is different from the near-term derivatives/ML roadmap
 
 ### `PolymarketResolveRequestSummaryData`
 
 - Adapter: Polymarket
 - Source shape: request/result summary
-- Type definition:
-  - `/Users/yfclark/nautilus_trader/crates/adapters/polymarket/src/resolve.rs:123`
+- Reference: `crates/adapters/polymarket/src/resolve.rs`
 - Why it matters:
   - operationally informative and request-debug useful
 - Caveat:
-  - not really a market-data recording family for our current product goal
+  - not really a market-data recording family for the current product goal
 
 ## Recommended P0 implementation order
 
-If we want the next custom-data work to stay maximally aligned with real Nautilus adapter outputs,
-while staying focused on **specific derivatives underlyings rather than all-market recording**,
-the best order is:
+To stay focused on **specific derivatives underlyings rather than all-market recording**, while
+recording adapter-native payloads as emitted, the best order is:
 
 1. `HyperliquidOpenInterest`
 2. `DeribitVolatilityIndex`

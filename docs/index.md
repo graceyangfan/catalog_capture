@@ -21,7 +21,7 @@ Parquet catalog assets. Documentation follows the [Divio system](https://docs.di
 - [Live validation](live-validation.md)
 - [Option universe preflight](option-universe-preflight.md)
 - [Option universe manager design](option-universe-manager-design.md)
-- [Integration strategy](upstream-strategy.md)
+- [Integration strategy](integration-strategy.md)
 
 ## Build dependency
 
