@@ -6,6 +6,7 @@ mod metadata;
 mod post_run_report;
 mod readback;
 mod report;
+mod validate_suite;
 #[cfg(test)]
 mod tests;
 mod validate;
@@ -40,6 +41,9 @@ pub use metadata::{
 pub use readback::{
     readback_options_for_config, readback_options_from_cli, render_option_universe_readback_json,
     render_option_universe_readback_text, run_option_universe_readback_validation,
+};
+pub use validate_suite::{
+    run_option_universe_validation_suite, OptionUniverseValidationSuiteOptions,
 };
 pub use report::{
     build_option_universe_resolution_report, render_option_universe_reports_json,

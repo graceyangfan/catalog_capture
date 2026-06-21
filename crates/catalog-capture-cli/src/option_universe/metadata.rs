@@ -93,7 +93,7 @@ pub enum StrikeModeArg {
     All,
 }
 
-fn strike_profile_from_spec(
+pub(crate) fn strike_profile_from_spec(
     spec: &catalog_capture_core::OptionUniverseSpec,
 ) -> Option<StrikeSelectionProfile> {
     match spec.strike_policy {

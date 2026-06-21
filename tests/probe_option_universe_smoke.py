@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import re
 import shutil
 import subprocess
@@ -20,6 +21,7 @@ except ImportError:  # pragma: no cover - optional local validation dependency.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 METRICS_PROBE = PROJECT_ROOT / "tests" / "python_option_universe_metrics_probe.py"
 DVOL_PROBE = PROJECT_ROOT / "tests" / "python_catalog_deribit_dvol_probe.py"
+CLI_VALIDATE = PROJECT_ROOT / "tests" / "option_universe_cli_validate.py"
 
 VENUE_CONFIGS = {
     "deribit": PROJECT_ROOT / "examples" / "capture.deribit-btc-universe.toml",
@@ -81,30 +83,14 @@ VENUES_REQUIRING_TRADES = frozenset({"okx", "bybit", "okx-oi-ranked", "bybit-oi-
 
 ALL_STRIKES_VENUES = frozenset({"deribit-all"})
 READBACK_OPTION_SAMPLE_LIMIT = 6
-BAR_TYPES = {
-    "deribit-research": ["BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL"],
-    "bybit": ["BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL"],
-    "okx": ["BTC-USD-SWAP.OKX-1-MINUTE-LAST-EXTERNAL"],
-}
-VALIDATION_PRESET_BY_VENUE = {
-    "deribit-autorefresh": "rolling-autorefresh",
-    "okx-autorefresh": "rolling-autorefresh",
-    "bybit-autorefresh": "rolling-autorefresh",
-    "deribit-oi-ranked-autorefresh": "rolling-autorefresh",
-    "deribit-research": "research",
-    "bybit": "venue-trades",
-    "okx": "venue-trades",
-    "bybit-oi-ranked": "venue-trades",
-    "okx-oi-ranked": "venue-trades",
-}
-
-METADATA_STRIKE_MODE_BY_VENUE = {
-    "deribit-oi-ranked": ("oi-ranked", 3),
-    "deribit-oi-ranked-autorefresh": ("oi-ranked", 3),
-    "bybit-oi-ranked": ("oi-ranked", 3),
-    "okx-oi-ranked": ("oi-ranked", 3),
-    "deribit-all": ("all", None),
-}
+_CLI_VALIDATE = importlib.util.spec_from_file_location(
+    "option_universe_cli_validate",
+    CLI_VALIDATE,
+)
+_cli_validate_mod = importlib.util.module_from_spec(_CLI_VALIDATE)
+assert _CLI_VALIDATE.loader is not None
+_CLI_VALIDATE.loader.exec_module(_cli_validate_mod)
+run_validation_suite = _cli_validate_mod.run_validation_suite
 
 
 def main() -> int:
@@ -241,8 +227,6 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
 
     summary = summarize_catalog(catalog_dir)
     print_catalog_summary(venue, catalog_dir, summary)
-    run_cli_metadata_validation(catalog_dir, venue, args)
-    run_cli_catalog_validation(catalog_dir, venue, args)
     if venue in AUTOREFRESH_VALIDATION_VENUES:
         refresh_change_logs = count_refresh_change_logs(output)
         print(
@@ -259,19 +243,15 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
             f"{len(option_ids)} resolved options",
             flush=True,
         )
-    min_trade_rows = 1 if venue in VENUES_REQUIRING_TRADES else 0
-    if not args.skip_readback_probe:
-        run_cli_readback_validation(
-            catalog_dir,
-            venue,
-            perp_id,
-            readback_option_ids,
-            min_trade_rows,
-            args,
-        )
-        if args.metrics_probe:
-            run_metrics_probe(catalog_dir, perp_id, option_ids)
-    elif args.metrics_probe:
+    run_validation_suite(
+        catalog_dir,
+        temp_config,
+        venue,
+        args,
+        readback_option_ids=None if args.skip_readback_probe else readback_option_ids,
+        readback_perp_id=None if args.skip_readback_probe else perp_id,
+    )
+    if args.metrics_probe:
         run_metrics_probe(catalog_dir, perp_id, option_ids)
 
     if venue == "deribit-research":
@@ -281,67 +261,6 @@ def run_venue_smoke(venue: str, args: argparse.Namespace) -> None:
         shutil.rmtree(catalog_dir)
         temp_config.unlink(missing_ok=True)
         print(f"[{venue}] cleaned up generated catalog and config")
-
-
-def run_cli_metadata_validation(
-    catalog_dir: Path,
-    venue: str,
-    args: argparse.Namespace,
-) -> None:
-    command = [
-        args.cargo,
-        "run",
-        "-p",
-        "catalog-capture-cli",
-        "--",
-        "validate-option-universe-metadata",
-        "--catalog-uri",
-        f"file://{catalog_dir}",
-        "--option-universe-format",
-        "text",
-    ]
-    if args.require_refresh_change and venue in AUTOREFRESH_VALIDATION_VENUES:
-        command.append("--require-refresh-change")
-
-    strike_mode = METADATA_STRIKE_MODE_BY_VENUE.get(venue)
-    if strike_mode is not None:
-        mode, top_n = strike_mode
-        command.extend(["--strike-mode", mode])
-        if mode == "oi-ranked":
-            command.extend(["--oi-ranked-top-n", str(top_n)])
-
-    print(f"[{venue}] cli metadata validation", flush=True)
-    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
-
-
-def run_cli_catalog_validation(
-    catalog_dir: Path,
-    venue: str,
-    args: argparse.Namespace,
-) -> None:
-    preset = VALIDATION_PRESET_BY_VENUE.get(venue, "post-capture")
-    command = [
-        args.cargo,
-        "run",
-        "-p",
-        "catalog-capture-cli",
-        "--",
-        "validate-option-universe-catalog",
-        "--catalog-uri",
-        f"file://{catalog_dir}",
-        "--option-universe-format",
-        "text",
-        "--preset",
-        preset,
-    ]
-    if args.require_contract_state:
-        command.append("--require-contract-state")
-    if args.require_refresh_change and venue in AUTOREFRESH_VALIDATION_VENUES:
-        command.append("--require-refresh-change")
-    for bar_type in BAR_TYPES.get(venue, []):
-        command.extend(["--bar-type", bar_type])
-    print(f"[{venue}] cli catalog validation preset={preset}", flush=True)
-    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
 
 
 def run_and_stream(command: list[str]) -> str:
@@ -388,43 +307,6 @@ def parse_resolution_output(output: str) -> tuple[str, list[str]]:
 
 def strip_ansi(value: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", value)
-
-
-def run_cli_readback_validation(
-    catalog_dir: Path,
-    venue: str,
-    perp_id: str,
-    option_ids: list[str],
-    min_trade_rows: int,
-    args: argparse.Namespace,
-) -> None:
-    print(
-        f"[readback] probing {len(option_ids)} options plus {perp_id}",
-        flush=True,
-    )
-    command = [
-        args.cargo,
-        "run",
-        "-p",
-        "catalog-capture-cli",
-        "--",
-        "validate-option-universe-readback",
-        "--catalog-uri",
-        f"file://{catalog_dir}",
-        "--option-universe-format",
-        "text",
-        "--perp-id",
-        perp_id,
-        "--min-perp-trade-rows",
-        str(min_trade_rows),
-    ]
-    if args.require_contract_state:
-        command.append("--require-contract-state")
-    for bar_type in BAR_TYPES.get(venue, []):
-        command.extend(["--bar-type", bar_type])
-    for option_id in option_ids:
-        command.extend(["--option-id", option_id])
-    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
 
 
 def run_dvol_probe(catalog_dir: Path) -> None:

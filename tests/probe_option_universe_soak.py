@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Run longer option-universe soak captures using pre-defined profile matrices."""
+"""Run longer option-universe soak captures using pre-defined profile matrices.
+
+Each profile reuses the smoke probe capture path. After every soak capture,
+validation runs through the unified CLI command:
+
+    validate-option-universe
+
+That suite covers metadata lineage, ParquetDataCatalog readback, and catalog
+parquet checks in one pass (see tests/option_universe_cli_validate.py).
+"""
 
 from __future__ import annotations
 
@@ -66,12 +75,12 @@ def main() -> int:
     parser.add_argument(
         "--skip-readback-probe",
         action="store_true",
-        help="Only validate files; skip Nautilus readback probes.",
+        help="Skip ParquetDataCatalog readback inside validate-option-universe.",
     )
     parser.add_argument(
         "--metrics-probe",
         action="store_true",
-        help="Run the lightweight metrics probe after successful readback.",
+        help="Run the lightweight metrics probe after successful validation.",
     )
     parser.add_argument(
         "--cleanup",
@@ -81,7 +90,7 @@ def main() -> int:
     parser.add_argument(
         "--require-contract-state",
         action="store_true",
-        help="Require instrument_status and instrument_closes rows during readback probing.",
+        help="Require instrument_status and instrument_closes rows during validation.",
     )
     parser.add_argument(
         "--require-refresh-change",
@@ -136,6 +145,7 @@ def run_smoke_probe(venue: str, args: argparse.Namespace) -> None:
 
     print(
         f"[soak] venue={venue} seconds={args.seconds} "
+        f"cli_validate=validate-option-universe "
         f"readback={'off' if args.skip_readback_probe else 'on'}",
         flush=True,
     )

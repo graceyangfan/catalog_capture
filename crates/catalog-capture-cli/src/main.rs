@@ -17,8 +17,9 @@ use option_universe::{
     render_option_universe_summaries_text, resolve_option_universe_reports,
     readback_options_for_config, readback_options_from_cli, render_option_universe_readback_json,
     render_option_universe_readback_text, run_option_universe_readback_validation,
-    validate_option_universe_catalog, validate_option_universe_metadata,
-    validation_options_for_preset, validation_options_from_cli, StrikeModeArg,
+    run_option_universe_validation_suite, validate_option_universe_catalog,
+    validate_option_universe_metadata, validation_options_for_preset, validation_options_from_cli,
+    OptionUniverseValidationSuiteOptions, StrikeModeArg,
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
     OptionUniverseCatalogValidationReport, OptionUniverseOutputFormat,
     OptionUniverseResolutionReport, PostRunReportOptions,
@@ -187,6 +188,41 @@ enum Command {
         )]
         config: Option<PathBuf>,
     },
+    ValidateOptionUniverse {
+        #[arg(long)]
+        catalog_uri: String,
+        #[arg(long, help = "Capture profile used to infer validation thresholds")]
+        config: PathBuf,
+        #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
+        option_universe_format: OptionUniverseOutputFormatArg,
+        #[arg(
+            long,
+            value_enum,
+            help = "Override inferred catalog validation preset"
+        )]
+        preset: Option<OptionUniverseCatalogValidationPresetArg>,
+        #[arg(long, help = "Require instrument_status and instrument_closes parquet rows")]
+        require_contract_state: bool,
+        #[arg(long, help = "Require at least one applied runtime refresh delta")]
+        require_refresh_change: bool,
+        #[arg(long, value_enum, help = "Override strike_selection_mode metadata assertions")]
+        strike_mode: Option<StrikeModeArg>,
+        #[arg(long, help = "Expected oi_ranked_top_n when --strike-mode oi-ranked")]
+        oi_ranked_top_n: Option<usize>,
+        #[arg(
+            long,
+            help = "Minimum selected strikes when --strike-mode all (default: 5)"
+        )]
+        all_min_strikes: Option<usize>,
+        #[arg(long, help = "Skip lineage inspect section")]
+        skip_inspect: bool,
+        #[arg(long, help = "Skip ParquetDataCatalog readback section")]
+        skip_readback: bool,
+        #[arg(long, help = "Override hedge/reference perp id for readback")]
+        perp_id: Option<String>,
+        #[arg(long, help = "Override option ids for readback; repeat for multiple options")]
+        option_id: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -340,6 +376,53 @@ async fn main() -> Result<()> {
             let report =
                 run_option_universe_readback_validation(&catalog_root, &options)?;
             print_option_universe_readback_values(&report, option_universe_format.into())?;
+        }
+        Command::ValidateOptionUniverse {
+            catalog_uri,
+            config,
+            option_universe_format,
+            preset,
+            require_contract_state,
+            require_refresh_change,
+            strike_mode,
+            oi_ranked_top_n,
+            all_min_strikes,
+            skip_inspect,
+            skip_readback,
+            perp_id,
+            option_id,
+        } => {
+            let catalog_root = catalog_root_from_uri(&catalog_uri)?;
+            let effective = load_validated_config(&config)?;
+            let metadata_options = validation_options_from_cli(
+                false,
+                strike_mode,
+                oi_ranked_top_n,
+                all_min_strikes,
+            )?;
+            println!("=== Option universe validation suite ===");
+            println!("Catalog dir: {}", catalog_root.display());
+            println!("Config: {}", config.display());
+            run_option_universe_validation_suite(
+                &catalog_root,
+                &effective,
+                &OptionUniverseValidationSuiteOptions {
+                    format: option_universe_format.into(),
+                    include_inspect: !skip_inspect,
+                    include_readback: !skip_readback,
+                    require_refresh_change,
+                    require_contract_state,
+                    catalog_preset_override: preset.map(Into::into),
+                    strike_profile_override: metadata_options.strike_profile,
+                    readback_perp_id: perp_id,
+                    readback_option_ids: if option_id.is_empty() {
+                        None
+                    } else {
+                        Some(option_id)
+                    },
+                    ..OptionUniverseValidationSuiteOptions::default()
+                },
+            )?;
         }
     }
 

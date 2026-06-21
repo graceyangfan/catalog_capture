@@ -4,25 +4,11 @@ use anyhow::Result;
 
 use crate::config::EffectiveConfig;
 
-use super::catalog::{
-    render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
-    validate_option_universe_catalog,
+use super::validate_suite::{
+    run_option_universe_validation_suite, OptionUniverseValidationSuiteOptions,
 };
 use super::catalog_presets::{
-    merge_validation_options, validation_options_for_config, validation_options_for_preset,
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
-};
-use super::history::{
-    load_option_universe_summaries, render_option_universe_summaries_json,
-    render_option_universe_summaries_text,
-};
-use super::metadata::{
-    metadata_validation_options_for_config, render_option_universe_metadata_validation_json,
-    render_option_universe_metadata_validation_text, validate_option_universe_metadata,
-};
-use super::readback::{
-    readback_options_for_config, render_option_universe_readback_json,
-    render_option_universe_readback_text, run_option_universe_readback_validation,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,67 +47,20 @@ pub fn run_option_universe_post_run_report(
 
     println!("\n=== Option universe post-run report ===");
     println!("Catalog dir: {}", catalog_root.display());
-    println!("\n--- Lineage inspect ---");
-    let summaries = load_option_universe_summaries(catalog_root)?;
-    match options.format {
-        OptionUniverseOutputFormat::Json => {
-            println!("{}", render_option_universe_summaries_json(&summaries)?);
-        }
-        OptionUniverseOutputFormat::Text => {
-            println!("{}", render_option_universe_summaries_text(&summaries));
-        }
-    }
 
-    println!("\n--- Metadata validation ---");
-    let metadata_options = metadata_validation_options_for_config(config);
-    let metadata_reports = validate_option_universe_metadata(catalog_root, &metadata_options)?;
-    match options.format {
-        OptionUniverseOutputFormat::Json => {
-            println!(
-                "{}",
-                render_option_universe_metadata_validation_json(&metadata_reports)?
-            );
-        }
-        OptionUniverseOutputFormat::Text => {
-            println!(
-                "{}",
-                render_option_universe_metadata_validation_text(&metadata_reports)
-            );
-        }
-    }
-
-    println!("\n--- Catalog readback ---");
-    let readback_options = readback_options_for_config(config, catalog_root)?;
-    let readback_report =
-        run_option_universe_readback_validation(catalog_root, &readback_options)?;
-    match options.format {
-        OptionUniverseOutputFormat::Json => {
-            println!("{}", render_option_universe_readback_json(&readback_report)?);
-        }
-        OptionUniverseOutputFormat::Text => {
-            println!("{}", render_option_universe_readback_text(&readback_report));
-        }
-    }
-
-    println!("\n--- Catalog validation ---");
-    let base = options
-        .validation_preset_override
-        .map(validation_options_for_preset)
-        .unwrap_or_else(|| validation_options_for_config(config));
-    let validation_options =
-        merge_validation_options(base, &options.validation_overrides);
-    let reports = validate_option_universe_catalog(catalog_root, &validation_options)?;
-    match options.format {
-        OptionUniverseOutputFormat::Json => {
-            println!(
-                "{}",
-                render_option_universe_catalog_validation_json(&reports)?
-            );
-        }
-        OptionUniverseOutputFormat::Text => {
-            println!("{}", render_option_universe_catalog_validation_text(&reports));
-        }
-    }
-
-    Ok(())
+    run_option_universe_validation_suite(
+        catalog_root,
+        config,
+        &OptionUniverseValidationSuiteOptions {
+            format: options.format,
+            include_inspect: true,
+            include_readback: true,
+            require_refresh_change: config.runtime.option_universe_refresh.enabled
+                || options.validation_overrides.require_refresh_change,
+            require_contract_state: options.validation_overrides.require_contract_state,
+            catalog_preset_override: options.validation_preset_override,
+            catalog_overrides: options.validation_overrides.clone(),
+            ..OptionUniverseValidationSuiteOptions::default()
+        },
+    )
 }
