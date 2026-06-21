@@ -14,6 +14,8 @@
 
 use std::fmt::Display;
 
+use nautilus_model::data::CatalogPathPrefix;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PartitionKey {
     pub family: String,
@@ -31,6 +33,12 @@ impl PartitionKey {
             identifier: Some(identifier.to_string()),
             namespace: None,
         }
+    }
+
+    /// Partition key aligned with [`CatalogPathPrefix::path_prefix`].
+    #[must_use]
+    pub fn catalog_data<T: CatalogPathPrefix>(identifier: impl Display) -> Self {
+        Self::market_data(T::path_prefix(), identifier)
     }
 
     #[must_use]

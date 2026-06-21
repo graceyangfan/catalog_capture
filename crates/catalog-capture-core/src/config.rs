@@ -14,6 +14,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::lifecycle::LifecycleConfig;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CompressionKind {
     Snappy,
@@ -37,10 +39,18 @@ pub enum LayoutCompatibility {
 pub struct CaptureConfig {
     pub enabled: bool,
     pub catalog_uri: String,
+    #[serde(default)]
+    pub lifecycle: LifecycleConfig,
     pub queue_capacity: usize,
     pub flush_rows: usize,
     pub flush_interval_ms: u64,
     pub max_buffer_bytes: usize,
+    /// Summed pending bytes cap across all partitions in one family runtime.
+    #[serde(default = "default_max_total_buffer_bytes")]
+    pub max_total_buffer_bytes: usize,
+    /// Maximum concurrently open partition buffers in one family runtime.
+    #[serde(default = "default_max_active_partitions")]
+    pub max_active_partitions: usize,
     pub compression: CompressionKind,
     pub overflow_policy: OverflowPolicy,
     pub layout_compatibility: LayoutCompatibility,
@@ -51,13 +61,24 @@ impl Default for CaptureConfig {
         Self {
             enabled: true,
             catalog_uri: String::from("file:///tmp/nautilus-catalog"),
+            lifecycle: LifecycleConfig::default(),
             queue_capacity: 10_000,
             flush_rows: 5_000,
             flush_interval_ms: 1_000,
             max_buffer_bytes: 32 * 1024 * 1024,
+            max_total_buffer_bytes: default_max_total_buffer_bytes(),
+            max_active_partitions: default_max_active_partitions(),
             compression: CompressionKind::Snappy,
             overflow_policy: OverflowPolicy::DropNewest,
             layout_compatibility: LayoutCompatibility::RustCanonicalWithPythonLegacyMirror,
         }
     }
+}
+
+const fn default_max_total_buffer_bytes() -> usize {
+    512 * 1024 * 1024
+}
+
+const fn default_max_active_partitions() -> usize {
+    128
 }

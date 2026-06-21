@@ -12,15 +12,13 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{
-    fs::{self, OpenOptions},
-    io::Write,
-    path::Path,
-};
+use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use nautilus_model::data::ForwardPrice;
 use serde::{Deserialize, Serialize};
+
+use crate::jsonl::append_jsonl_records;
 
 pub const FORWARD_PRICES_FILE: &str = "metadata/forward_prices.jsonl";
 
@@ -56,29 +54,11 @@ pub fn append_forward_price_records(
     catalog_root: &Path,
     records: &[ForwardPriceRecord],
 ) -> Result<()> {
-    if records.is_empty() {
-        return Ok(());
-    }
-
-    let path = forward_price_log_path(catalog_root);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create metadata dir {}", parent.display()))?;
-    }
-
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .with_context(|| format!("failed to open {}", path.display()))?;
-
-    for record in records {
-        let line = serde_json::to_string(record)
-            .with_context(|| "failed to serialize forward price record")?;
-        writeln!(file, "{line}").with_context(|| format!("failed to append {}", path.display()))?;
-    }
-
-    Ok(())
+    append_jsonl_records(
+        &forward_price_log_path(catalog_root),
+        records,
+        "forward price",
+    )
 }
 
 #[cfg(test)]

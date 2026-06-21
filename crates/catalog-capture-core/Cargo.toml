@@ -17,6 +17,9 @@ high-precision = [
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+arrow = "58.3.0"
+chrono.workspace = true
+chrono-tz.workspace = true
 nautilus-core.workspace = true
 nautilus-model.workspace = true
 nautilus-persistence.workspace = true
@@ -26,3 +29,4 @@ rust_decimal.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+libc = "0.2"

@@ -12,27 +12,137 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use nautilus_core::string::conversions::to_snake_case;
 use nautilus_model::{
     data::{
-        close::InstrumentClose, Bar, CustomData, FundingRateUpdate, HasTsInit, IndexPriceUpdate,
-        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, QuoteTick, TradeTick,
+        close::InstrumentClose, Bar, CatalogPathPrefix, CustomData, FundingRateUpdate, HasTsInit,
+        IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta,
+        QuoteTick, TradeTick,
     },
-    instruments::{Instrument, InstrumentAny},
+    instruments::InstrumentAny,
 };
-use nautilus_persistence::backend::catalog::ParquetDataCatalog;
+use nautilus_persistence::backend::catalog::{
+    CatalogPathPrefix as PersistenceCatalogPathPrefix, ParquetDataCatalog,
+};
+use nautilus_serialization::arrow::{ArrowSchemaProvider, EncodeToRecordBatch};
 use parquet::basic::Compression;
+use serde::Serialize;
 
-use crate::config::{CaptureConfig, CompressionKind, LayoutCompatibility};
+use crate::{
+    catalog_layout::{
+        instrument_identifier, instrument_legacy_prefix, legacy_market_data_prefix,
+        mirror_custom_data_path, mirror_market_data_path,
+    },
+    config::{CaptureConfig, CompressionKind, LayoutCompatibility},
+    lifecycle::SegmentCaptureSink,
+    runtime::FlushResult,
+};
 
 pub trait CaptureSink<T> {
-    fn write_batch(&self, batch: Vec<T>) -> Result<Vec<PathBuf>>;
+    fn write_batch(&mut self, _partition_key: &str, batch: Vec<T>) -> Result<Vec<PathBuf>>;
+
+    fn on_tick(&mut self, _now_ns: u64) -> Result<FlushResult> {
+        Ok(FlushResult::default())
+    }
+
+    fn seal_all(&mut self) -> Result<FlushResult> {
+        Ok(FlushResult::default())
+    }
+
+    fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
+        self.seal_all()
+    }
+
+    fn is_segment_mode(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug)]
+pub enum CatalogSink<T> {
+    Chunked(NautilusCatalogSink),
+    Segment(SegmentCaptureSink<T>),
+}
+
+impl<T> CatalogSink<T>
+where
+    T: HasTsInit
+        + EncodeToRecordBatch
+        + CatalogPathPrefix
+        + PersistenceCatalogPathPrefix
+        + ArrowSchemaProvider
+        + Serialize
+        + Clone,
+{
+    pub fn from_config(config: &CaptureConfig) -> Result<Self> {
+        if config.lifecycle.is_segment_mode() {
+            Ok(Self::Segment(SegmentCaptureSink::from_config(config)?))
+        } else {
+            Ok(Self::Chunked(NautilusCatalogSink::from_config(config)?))
+        }
+    }
+}
+
+impl<T> CatalogSink<T> {
+    #[must_use]
+    pub fn is_segment_mode(&self) -> bool {
+        matches!(self, Self::Segment(_))
+    }
+}
+
+impl<T> CaptureSink<T> for CatalogSink<T>
+where
+    T: HasTsInit
+        + EncodeToRecordBatch
+        + CatalogPathPrefix
+        + PersistenceCatalogPathPrefix
+        + ArrowSchemaProvider
+        + Serialize
+        + Clone,
+{
+    fn write_batch(&mut self, partition_key: &str, batch: Vec<T>) -> Result<Vec<PathBuf>> {
+        match self {
+            Self::Chunked(sink) => sink.write_encoded_batch(batch).map(|path| vec![path]),
+            Self::Segment(sink) => sink.write_batch_mut(partition_key, batch),
+        }
+    }
+
+    fn on_tick(&mut self, now_ns: u64) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.on_tick(now_ns),
+        }
+    }
+
+    fn seal_all(&mut self) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.seal_all(),
+        }
+    }
+
+    fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.seal_all_for_shutdown(),
+        }
+    }
+
+    fn is_segment_mode(&self) -> bool {
+        CatalogSink::is_segment_mode(self)
+    }
+}
+
+/// Flush-driven catalog writer for reference families (instruments, custom data).
+///
+/// These families use heterogeneous catalog paths and always remain chunked even when
+/// market-data capture runs in segment lifecycle mode.
+pub type ChunkedCatalogSink = NautilusCatalogSink;
+
+pub fn chunked_catalog_sink_from_config(config: &CaptureConfig) -> Result<NautilusCatalogSink> {
+    NautilusCatalogSink::from_config(config)
 }
 
 #[derive(Debug)]
@@ -74,48 +184,22 @@ impl NautilusCatalogSink {
         (start, end)
     }
 
-    pub fn write_quote_ticks(&self, data: Vec<QuoteTick>) -> Result<PathBuf> {
+    pub fn write_encoded_batch<T>(&self, data: Vec<T>) -> Result<PathBuf>
+    where
+        T: HasTsInit
+            + EncodeToRecordBatch
+            + CatalogPathPrefix
+            + PersistenceCatalogPathPrefix
+            + Serialize
+            + Clone,
+    {
         let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(&path, "quote_tick", instrument_id.to_string().as_str())?;
-        Ok(path)
-    }
-
-    pub fn write_trade_ticks(&self, data: Vec<TradeTick>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(&path, "trade_tick", instrument_id.to_string().as_str())?;
-        Ok(path)
-    }
-
-    pub fn write_bars(&self, data: Vec<Bar>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let bar_type = data.first().expect("non-empty batch").bar_type;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(&path, "bar", bar_type.to_string().as_str())?;
-        Ok(path)
-    }
-
-    pub fn write_order_book_deltas(&self, data: Vec<OrderBookDelta>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
+        let metadata = EncodeToRecordBatch::chunk_metadata(&data);
+        let identifier = metadata
+            .get("instrument_id")
+            .or_else(|| metadata.get("bar_type"))
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("batch metadata missing instrument_id or bar_type"))?;
         let path = self.catalog.write_to_parquet(
             data,
             Some(start.into()),
@@ -124,108 +208,22 @@ impl NautilusCatalogSink {
         )?;
         self.mirror_market_data_path(
             &path,
-            "order_book_deltas",
-            instrument_id.to_string().as_str(),
+            legacy_market_data_prefix(<T as CatalogPathPrefix>::path_prefix()),
+            identifier.as_str(),
         )?;
         Ok(path)
     }
 
-    pub fn write_mark_price_updates(&self, data: Vec<MarkPriceUpdate>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(
-            &path,
-            "mark_price_update",
-            instrument_id.to_string().as_str(),
-        )?;
-        Ok(path)
-    }
-
-    pub fn write_index_price_updates(&self, data: Vec<IndexPriceUpdate>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(
-            &path,
-            "index_price_updates",
-            instrument_id.to_string().as_str(),
-        )?;
-        Ok(path)
-    }
-
-    pub fn write_funding_rate_updates(&self, data: Vec<FundingRateUpdate>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(
-            &path,
-            "funding_rate_update",
-            instrument_id.to_string().as_str(),
-        )?;
-        Ok(path)
-    }
-
-    pub fn write_instrument_statuses(&self, data: Vec<InstrumentStatus>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(
-            &path,
-            "instrument_status",
-            instrument_id.to_string().as_str(),
-        )?;
-        Ok(path)
-    }
-
-    pub fn write_instrument_closes(&self, data: Vec<InstrumentClose>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(
-            &path,
-            "instrument_closes",
-            instrument_id.to_string().as_str(),
-        )?;
-        Ok(path)
-    }
-
-    pub fn write_option_greeks(&self, data: Vec<OptionGreeks>) -> Result<PathBuf> {
-        let (start, end) = Self::range_from_ts(&data);
-        let instrument_id = data.first().expect("non-empty batch").instrument_id;
-        let path = self.catalog.write_to_parquet(
-            data,
-            Some(start.into()),
-            Some(end.into()),
-            Some(false),
-        )?;
-        self.mirror_market_data_path(&path, "option_greeks", instrument_id.to_string().as_str())?;
-        Ok(path)
+    fn write_encoded_paths<T>(&self, batch: Vec<T>) -> Result<Vec<PathBuf>>
+    where
+        T: HasTsInit
+            + EncodeToRecordBatch
+            + CatalogPathPrefix
+            + PersistenceCatalogPathPrefix
+            + Serialize
+            + Clone,
+    {
+        self.write_encoded_batch(batch).map(|path| vec![path])
     }
 
     pub fn write_instruments(&self, data: Vec<InstrumentAny>) -> Result<Vec<PathBuf>> {
@@ -233,8 +231,8 @@ impl NautilusCatalogSink {
             .iter()
             .map(|instrument| {
                 (
-                    Self::python_legacy_instrument_prefix(instrument).to_string(),
-                    Instrument::id(instrument).to_string(),
+                    instrument_legacy_prefix(instrument),
+                    instrument_identifier(instrument),
                 )
             })
             .collect();
@@ -252,7 +250,13 @@ impl NautilusCatalogSink {
         let path = self
             .catalog
             .write_custom_data_batch(data, None, None, Some(false))?;
-        self.mirror_custom_data_path(&path, &type_name, identifier.as_deref())?;
+        mirror_custom_data_path(
+            &self.local_root,
+            self.layout_compatibility.clone(),
+            &path,
+            &type_name,
+            identifier.as_deref(),
+        )?;
         Ok(path)
     }
 
@@ -262,174 +266,120 @@ impl NautilusCatalogSink {
         legacy_prefix: &str,
         identifier: &str,
     ) -> Result<()> {
-        if self.layout_compatibility != LayoutCompatibility::RustCanonicalWithPythonLegacyMirror {
-            return Ok(());
-        }
-
-        let filename = original_path
-            .file_name()
-            .expect("catalog write returns a file path");
-        let legacy_dir = self
-            .local_root
-            .join("data")
-            .join(legacy_prefix)
-            .join(identifier);
-        let legacy_path = legacy_dir.join(filename);
-        let source_path = self.resolve_local_source_path(original_path);
-        Self::link_or_copy(&source_path, &legacy_path)
-    }
-
-    fn mirror_custom_data_path(
-        &self,
-        original_path: &Path,
-        type_name: &str,
-        identifier: Option<&str>,
-    ) -> Result<()> {
-        if self.layout_compatibility != LayoutCompatibility::RustCanonicalWithPythonLegacyMirror {
-            return Ok(());
-        }
-
-        let filename = original_path
-            .file_name()
-            .expect("catalog write returns a file path");
-        let legacy_prefix = format!("custom_{}", to_snake_case(type_name));
-        let mut legacy_dir = self.local_root.join("data").join(legacy_prefix);
-        if let Some(identifier) = identifier {
-            legacy_dir = legacy_dir.join(identifier);
-        }
-        let legacy_path = legacy_dir.join(filename);
-        let source_path = self.resolve_local_source_path(original_path);
-        Self::link_or_copy(&source_path, &legacy_path)
-    }
-
-    fn resolve_local_source_path(&self, original_path: &Path) -> PathBuf {
-        if original_path.exists() {
-            return original_path.to_path_buf();
-        }
-
-        if let Ok(stripped) = original_path.strip_prefix("/") {
-            let candidate = self.local_root.join(stripped);
-            if candidate.exists() {
-                return candidate;
-            }
-        }
-
-        self.local_root.join(original_path)
-    }
-
-    fn link_or_copy(source: &Path, destination: &Path) -> Result<()> {
-        if destination.exists() {
-            return Ok(());
-        }
-
-        fs::create_dir_all(
-            destination
-                .parent()
-                .expect("destination file always has a parent directory"),
-        )?;
-
-        match fs::hard_link(source, destination) {
-            Ok(()) => Ok(()),
-            Err(_) => {
-                fs::copy(source, destination)?;
-                Ok(())
-            }
-        }
-    }
-
-    fn python_legacy_instrument_prefix(instrument: &InstrumentAny) -> &'static str {
-        match instrument {
-            InstrumentAny::Betting(_) => "betting_instrument",
-            InstrumentAny::BinaryOption(_) => "binary_option",
-            InstrumentAny::Cfd(_) => "cfd",
-            InstrumentAny::Commodity(_) => "commodity",
-            InstrumentAny::CryptoFuture(_) => "crypto_future",
-            InstrumentAny::CryptoFuturesSpread(_) => "crypto_futures_spread",
-            InstrumentAny::CryptoOption(_) => "crypto_option",
-            InstrumentAny::CryptoOptionSpread(_) => "crypto_option_spread",
-            InstrumentAny::CryptoPerpetual(_) => "crypto_perpetual",
-            InstrumentAny::CurrencyPair(_) => "currency_pair",
-            InstrumentAny::Equity(_) => "equity",
-            InstrumentAny::FuturesContract(_) => "futures_contract",
-            InstrumentAny::FuturesSpread(_) => "futures_spread",
-            InstrumentAny::IndexInstrument(_) => "index_instrument",
-            InstrumentAny::OptionContract(_) => "option_contract",
-            InstrumentAny::OptionSpread(_) => "option_spread",
-            InstrumentAny::PerpetualContract(_) => "perpetual_contract",
-            InstrumentAny::TokenizedAsset(_) => "tokenized_asset",
-        }
+        mirror_market_data_path(
+            &self.local_root,
+            self.layout_compatibility.clone(),
+            original_path,
+            legacy_prefix,
+            identifier,
+        )
     }
 }
 
 impl CaptureSink<QuoteTick> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<QuoteTick>) -> Result<Vec<PathBuf>> {
-        self.write_quote_ticks(batch).map(|path| vec![path])
+    fn write_batch(&mut self, _partition_key: &str, batch: Vec<QuoteTick>) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<TradeTick> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<TradeTick>) -> Result<Vec<PathBuf>> {
-        self.write_trade_ticks(batch).map(|path| vec![path])
+    fn write_batch(&mut self, _partition_key: &str, batch: Vec<TradeTick>) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<Bar> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<Bar>) -> Result<Vec<PathBuf>> {
-        self.write_bars(batch).map(|path| vec![path])
+    fn write_batch(&mut self, _partition_key: &str, batch: Vec<Bar>) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<OrderBookDelta> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<OrderBookDelta>) -> Result<Vec<PathBuf>> {
-        self.write_order_book_deltas(batch).map(|path| vec![path])
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<OrderBookDelta>,
+    ) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<MarkPriceUpdate> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<MarkPriceUpdate>) -> Result<Vec<PathBuf>> {
-        self.write_mark_price_updates(batch).map(|path| vec![path])
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<MarkPriceUpdate>,
+    ) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<IndexPriceUpdate> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<IndexPriceUpdate>) -> Result<Vec<PathBuf>> {
-        self.write_index_price_updates(batch).map(|path| vec![path])
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<IndexPriceUpdate>,
+    ) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<FundingRateUpdate> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<FundingRateUpdate>) -> Result<Vec<PathBuf>> {
-        self.write_funding_rate_updates(batch)
-            .map(|path| vec![path])
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<FundingRateUpdate>,
+    ) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<InstrumentStatus> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<InstrumentStatus>) -> Result<Vec<PathBuf>> {
-        self.write_instrument_statuses(batch).map(|path| vec![path])
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<InstrumentStatus>,
+    ) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<InstrumentClose> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<InstrumentClose>) -> Result<Vec<PathBuf>> {
-        self.write_instrument_closes(batch).map(|path| vec![path])
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<InstrumentClose>,
+    ) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<OptionGreeks> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<OptionGreeks>) -> Result<Vec<PathBuf>> {
-        self.write_option_greeks(batch).map(|path| vec![path])
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<OptionGreeks>,
+    ) -> Result<Vec<PathBuf>> {
+        self.write_encoded_paths(batch)
     }
 }
 
 impl CaptureSink<InstrumentAny> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<InstrumentAny>) -> Result<Vec<PathBuf>> {
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<InstrumentAny>,
+    ) -> Result<Vec<PathBuf>> {
         self.write_instruments(batch)
     }
 }
 
 impl CaptureSink<CustomData> for NautilusCatalogSink {
-    fn write_batch(&self, batch: Vec<CustomData>) -> Result<Vec<PathBuf>> {
+    fn write_batch(
+        &mut self,
+        _partition_key: &str,
+        batch: Vec<CustomData>,
+    ) -> Result<Vec<PathBuf>> {
         self.write_custom_data_batch(batch).map(|path| vec![path])
     }
 }

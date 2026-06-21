@@ -86,6 +86,45 @@ pub struct CustomDataCaptureSpec {
     pub data_type: DataType,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CaptureFamilyRuntimeFlags {
+    pub instruments: bool,
+    pub custom_data: bool,
+    pub quotes: bool,
+    pub trades: bool,
+    pub bars: bool,
+    pub book_deltas: bool,
+    pub mark_prices: bool,
+    pub index_prices: bool,
+    pub funding_rates: bool,
+    pub instrument_statuses: bool,
+    pub instrument_closes: bool,
+    pub option_greeks: bool,
+}
+
+impl CaptureFamilyRuntimeFlags {
+    #[must_use]
+    pub fn count_enabled(&self) -> usize {
+        [
+            self.instruments,
+            self.custom_data,
+            self.quotes,
+            self.trades,
+            self.bars,
+            self.book_deltas,
+            self.mark_prices,
+            self.index_prices,
+            self.funding_rates,
+            self.instrument_statuses,
+            self.instrument_closes,
+            self.option_greeks,
+        ]
+        .into_iter()
+        .filter(|enabled| *enabled)
+        .count()
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CapturePlan {
     pub instruments: Vec<InstrumentCaptureSpec>,
@@ -132,6 +171,33 @@ impl CapturePlan {
         ids.into_iter().collect()
     }
 
+    /// Which per-family background worker runtimes are required for this plan.
+    ///
+    /// `instruments` is enabled when bootstrap will emit instrument metadata (any
+    /// instrument-scoped family), not only when `capture.instruments` is explicit.
+    #[must_use]
+    pub fn family_runtime_flags(&self) -> CaptureFamilyRuntimeFlags {
+        CaptureFamilyRuntimeFlags {
+            instruments: !self.planned_instrument_ids().is_empty(),
+            custom_data: !self.custom_data.is_empty(),
+            quotes: !self.quotes.is_empty(),
+            trades: !self.trades.is_empty(),
+            bars: !self.bars.is_empty(),
+            book_deltas: !self.book_deltas.is_empty(),
+            mark_prices: !self.mark_prices.is_empty(),
+            index_prices: !self.index_prices.is_empty(),
+            funding_rates: !self.funding_rates.is_empty(),
+            instrument_statuses: !self.instrument_statuses.is_empty(),
+            instrument_closes: !self.instrument_closes.is_empty(),
+            option_greeks: !self.option_greeks.is_empty(),
+        }
+    }
+
+    #[must_use]
+    pub fn enabled_background_worker_count(&self) -> usize {
+        self.family_runtime_flags().count_enabled()
+    }
+
     fn extend_planned_instrument_ids(&self, ids: &mut BTreeSet<InstrumentId>) {
         ids.extend(self.instruments.iter().map(|spec| spec.instrument_id));
         ids.extend(self.quotes.iter().map(|spec| spec.instrument_id));
@@ -151,9 +217,61 @@ impl CapturePlan {
     }
 }
 
+/// Entries present in `left` but not in `right`, compared per capture family.
+#[must_use]
+pub fn capture_plan_difference(left: &CapturePlan, right: &CapturePlan) -> CapturePlan {
+    CapturePlan {
+        instruments: capture_spec_difference(&left.instruments, &right.instruments),
+        quotes: capture_spec_difference(&left.quotes, &right.quotes),
+        trades: capture_spec_difference(&left.trades, &right.trades),
+        bars: capture_spec_difference(&left.bars, &right.bars),
+        book_deltas: capture_spec_difference(&left.book_deltas, &right.book_deltas),
+        mark_prices: capture_spec_difference(&left.mark_prices, &right.mark_prices),
+        index_prices: capture_spec_difference(&left.index_prices, &right.index_prices),
+        funding_rates: capture_spec_difference(&left.funding_rates, &right.funding_rates),
+        instrument_statuses: capture_spec_difference(
+            &left.instrument_statuses,
+            &right.instrument_statuses,
+        ),
+        instrument_closes: capture_spec_difference(
+            &left.instrument_closes,
+            &right.instrument_closes,
+        ),
+        option_greeks: capture_spec_difference(&left.option_greeks, &right.option_greeks),
+        forward_prices: capture_spec_difference(&left.forward_prices, &right.forward_prices),
+        custom_data: capture_spec_difference(&left.custom_data, &right.custom_data),
+    }
+}
+
+fn capture_spec_difference<T>(left: &[T], right: &[T]) -> Vec<T>
+where
+    T: Clone + PartialEq,
+{
+    left.iter()
+        .filter(|spec| !right.contains(spec))
+        .cloned()
+        .collect()
+}
+
+/// Sorted unique instrument ids referenced by instrument-scoped capture families.
+#[must_use]
+pub fn plan_instrument_ids(plan: &CapturePlan) -> BTreeSet<InstrumentId> {
+    plan.planned_instrument_ids().into_iter().collect()
+}
+
+#[must_use]
+pub fn instrument_id_difference(
+    left: &BTreeSet<InstrumentId>,
+    right: &BTreeSet<InstrumentId>,
+) -> Vec<InstrumentId> {
+    left.difference(right).copied().collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+
+    use nautilus_model::data::DataType;
 
     use super::*;
 
@@ -163,6 +281,36 @@ mod tests {
 
     fn btc_perp() -> InstrumentId {
         InstrumentId::from_str("BTCUSDT-PERP.BINANCE").expect("valid instrument id")
+    }
+
+    #[test]
+    fn family_runtime_flags_enable_instruments_for_quote_only_plan() {
+        let eth = eth_perp();
+        let plan = CapturePlan {
+            quotes: vec![QuoteCaptureSpec { instrument_id: eth }],
+            ..CapturePlan::default()
+        };
+
+        let flags = plan.family_runtime_flags();
+        assert!(flags.instruments);
+        assert!(flags.quotes);
+        assert!(!flags.trades);
+        assert_eq!(plan.enabled_background_worker_count(), 2);
+    }
+
+    #[test]
+    fn family_runtime_flags_custom_data_only_has_single_worker() {
+        let plan = CapturePlan {
+            custom_data: vec![CustomDataCaptureSpec {
+                data_type: DataType::new("DeribitVolatilityIndex", None, None),
+            }],
+            ..CapturePlan::default()
+        };
+
+        let flags = plan.family_runtime_flags();
+        assert!(!flags.instruments);
+        assert!(flags.custom_data);
+        assert_eq!(plan.enabled_background_worker_count(), 1);
     }
 
     #[test]
@@ -217,5 +365,69 @@ mod tests {
         };
 
         assert_eq!(plan.planned_instrument_ids(), vec![eth]);
+    }
+
+    #[test]
+    fn capture_plan_difference_tracks_added_and_removed_instruments() {
+        let btc_perp = InstrumentId::from("BTC-PERPETUAL.DERIBIT");
+        let old_option = InstrumentId::from("BTC-20JUN26-62000-C.DERIBIT");
+        let new_option = InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT");
+
+        let previous = CapturePlan {
+            instruments: vec![
+                InstrumentCaptureSpec {
+                    instrument_id: btc_perp,
+                },
+                InstrumentCaptureSpec {
+                    instrument_id: old_option,
+                },
+            ],
+            quotes: vec![
+                QuoteCaptureSpec {
+                    instrument_id: btc_perp,
+                },
+                QuoteCaptureSpec {
+                    instrument_id: old_option,
+                },
+            ],
+            index_prices: vec![IndexPriceCaptureSpec {
+                instrument_id: btc_perp,
+            }],
+            funding_rates: vec![FundingRateCaptureSpec {
+                instrument_id: btc_perp,
+            }],
+            ..CapturePlan::default()
+        };
+        let next = CapturePlan {
+            instruments: vec![
+                InstrumentCaptureSpec {
+                    instrument_id: btc_perp,
+                },
+                InstrumentCaptureSpec {
+                    instrument_id: new_option,
+                },
+            ],
+            quotes: vec![
+                QuoteCaptureSpec {
+                    instrument_id: btc_perp,
+                },
+                QuoteCaptureSpec {
+                    instrument_id: new_option,
+                },
+            ],
+            index_prices: vec![IndexPriceCaptureSpec {
+                instrument_id: btc_perp,
+            }],
+            funding_rates: vec![FundingRateCaptureSpec {
+                instrument_id: btc_perp,
+            }],
+            ..CapturePlan::default()
+        };
+
+        let add = capture_plan_difference(&next, &previous);
+        let remove = capture_plan_difference(&previous, &next);
+
+        assert_eq!(plan_instrument_ids(&add), BTreeSet::from([new_option]));
+        assert_eq!(plan_instrument_ids(&remove), BTreeSet::from([old_option]));
     }
 }

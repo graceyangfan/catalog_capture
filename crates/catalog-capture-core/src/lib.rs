@@ -14,12 +14,18 @@
 
 pub mod atm_reference;
 pub mod background;
+pub mod budget;
 pub mod buffer;
+pub mod catalog_layout;
 pub mod config;
 pub mod forward_price;
 pub mod forward_price_metadata;
+pub mod hip4;
 pub mod item;
+pub mod jsonl;
+pub mod lifecycle;
 pub mod metrics;
+pub mod metrics_export;
 pub mod option_universe;
 pub mod option_universe_metadata;
 pub mod option_universe_readback;
@@ -34,6 +40,10 @@ pub use atm_reference::{
     AtmReferenceSource,
 };
 pub use background::BackgroundCaptureRuntime;
+pub use budget::{
+    estimate_peak_buffered_bytes, family_partition_counts, format_budget_warning,
+    format_buffer_estimate, validate_capture_config, BufferMemoryEstimate, FamilyBufferEstimate,
+};
 pub use buffer::PartitionBuffer;
 pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy};
 pub use forward_price::forward_price_from_option_greeks;
@@ -41,8 +51,27 @@ pub use forward_price_metadata::{
     append_forward_price_records, forward_price_log_path, forward_price_record_from_model,
     ForwardPriceRecord, FORWARD_PRICES_FILE,
 };
+pub use hip4::{
+    append_hip4_universe_resolution_records, build_resolved_hip4_universe,
+    compute_hip4_refresh_rollover_reason, expand_hip4_universe, hip4_perp_instrument_id,
+    hip4_refresh_resolution_record, hip4_startup_resolution_record,
+    hip4_universe_resolution_log_path, instrument_ids_from_outcomes, next_rotation_delay_secs,
+    parse_expiry_to_ns, resolve_hip4_market, validate_hip4_refresh_resolution_record,
+    validate_hip4_refresh_rollover_reason, Hip4UniverseFamily, Hip4UniverseResolutionEventKind,
+    Hip4UniverseResolutionRecord, Hip4UniverseSpec, ResolveHip4MarketOptions, ResolvedHip4Market,
+    ResolvedHip4Universe, HIP4_UNIVERSE_RESOLUTIONS_FILE, REFRESH_ROLLOVER_REASONS,
+};
 pub use item::{CaptureItem, PartitionKey};
+pub use lifecycle::{
+    next_seal_boundary_ns, resolve_seal_schedule, should_seal_at, DurabilityConfig,
+    LifecycleConfig, LifecycleMode, ResolvedSealSchedule, SealConfigFile, SegmentCaptureSink,
+    SegmentLifecycleConfig,
+};
 pub use metrics::{CaptureMetrics, FlushReason, FlushReasonMetrics};
+pub use metrics_export::{
+    process_rss_bytes, render_json, render_prometheus, unix_time_ms, CaptureMetricsSnapshot,
+    FamilyCaptureMetrics,
+};
 pub use option_universe::{
     aggregate_open_interest_by_strike, derive_perp_instrument_id, expand_option_universe,
     merge_capture_plans, okx_instrument_family, option_instrument_ids_at_selected_expiry,
@@ -67,10 +96,15 @@ pub use option_universe_readback::{
 };
 pub use option_universe_rollover::{should_apply_strike_change, StrikeChangeSmoothingState};
 pub use plan::{
-    BarCaptureSpec, BookDeltasCaptureSpec, CapturePlan, CustomDataCaptureSpec,
-    ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
+    capture_plan_difference, instrument_id_difference, plan_instrument_ids, BarCaptureSpec,
+    BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags, CapturePlan, CustomDataCaptureSpec,
+    ForwardPriceCaptureSpec,
+    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
     InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
     OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
 };
 pub use runtime::{CaptureRuntime, FlushResult};
-pub use sink::{CaptureSink, NautilusCatalogSink};
+pub use sink::{
+    chunked_catalog_sink_from_config, CaptureSink, CatalogSink, ChunkedCatalogSink,
+    NautilusCatalogSink,
+};

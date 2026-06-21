@@ -17,8 +17,8 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use nautilus_model::{
     data::{
-        close::InstrumentClose, IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate,
-        OptionGreeks, OrderBookDelta, QuoteTick, TradeTick,
+        close::InstrumentClose, IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks,
+        OrderBookDelta, QuoteTick, TradeTick,
     },
     identifiers::InstrumentId,
     instruments::Instrument,
@@ -231,10 +231,7 @@ fn validate_option_readback(
     let mark_prices = assert_mark_price_rows(catalog, option_id, options.min_rows)?;
     let option_greeks = assert_option_greeks_rows(catalog, option_id, options.min_rows)?;
     let trade_ticks = if options.min_option_trade_rows > 0 {
-        match assert_trade_rows(catalog, option_id, options.min_option_trade_rows) {
-            Ok(count) => count,
-            Err(_) => 0,
-        }
+        assert_trade_rows(catalog, option_id, options.min_option_trade_rows).unwrap_or_default()
     } else {
         0
     };
@@ -745,6 +742,9 @@ mod tests {
     fn sample_all_strikes_instrument_ids_selects_atm_centered_window() {
         let ids = (0..12).map(|idx| format!("OPT-{idx}")).collect::<Vec<_>>();
         let sampled = sample_all_strikes_instrument_ids(&ids, 6);
-        assert_eq!(sampled, vec!["OPT-3", "OPT-4", "OPT-5", "OPT-6", "OPT-7", "OPT-8"]);
+        assert_eq!(
+            sampled,
+            vec!["OPT-3", "OPT-4", "OPT-5", "OPT-6", "OPT-7", "OPT-8"]
+        );
     }
 }

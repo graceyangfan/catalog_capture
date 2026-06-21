@@ -13,15 +13,14 @@
 // -------------------------------------------------------------------------------------------------
 
 use std::{
-    fs::{self, OpenOptions},
-    io::Write,
+    fs,
     path::{Path, PathBuf},
 };
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{OptionUniverseSpec, ResolvedOptionUniverse};
+use crate::{jsonl::append_jsonl_records, OptionUniverseSpec, ResolvedOptionUniverse};
 
 pub const OPTION_UNIVERSE_RESOLUTIONS_FILE: &str = "metadata/option_universe_resolutions.jsonl";
 
@@ -434,29 +433,11 @@ pub fn append_option_universe_resolution_records(
     catalog_root: &Path,
     records: &[OptionUniverseResolutionRecord],
 ) -> Result<()> {
-    if records.is_empty() {
-        return Ok(());
-    }
-
-    let path = option_universe_resolution_log_path(catalog_root);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create metadata dir {}", parent.display()))?;
-    }
-
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .with_context(|| format!("failed to open {}", path.display()))?;
-
-    for record in records {
-        let line = serde_json::to_string(record)
-            .with_context(|| "failed to serialize option universe resolution record")?;
-        writeln!(file, "{line}").with_context(|| format!("failed to append {}", path.display()))?;
-    }
-
-    Ok(())
+    append_jsonl_records(
+        &option_universe_resolution_log_path(catalog_root),
+        records,
+        "option universe resolution",
+    )
 }
 
 pub fn startup_resolution_record(

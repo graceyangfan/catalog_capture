@@ -16,10 +16,10 @@ use std::{
     collections::VecDeque,
     sync::{mpsc, Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 
 use crate::{
     config::{CaptureConfig, OverflowPolicy},
@@ -36,8 +36,11 @@ struct QueueState<T> {
     queue: VecDeque<CaptureItem<T>>,
     metrics: CaptureMetrics,
     flush_reason: Option<FlushReason>,
+    tick_requested: bool,
+    seal_requested: bool,
     shutdown_requested: bool,
     flush_waiters: Vec<mpsc::Sender<WorkerReply>>,
+    seal_waiters: Vec<mpsc::Sender<WorkerReply>>,
     shutdown_waiters: Vec<mpsc::Sender<WorkerReply>>,
 }
 
@@ -47,8 +50,11 @@ impl<T> Default for QueueState<T> {
             queue: VecDeque::new(),
             metrics: CaptureMetrics::default(),
             flush_reason: None,
+            tick_requested: false,
+            seal_requested: false,
             shutdown_requested: false,
             flush_waiters: Vec::new(),
+            seal_waiters: Vec::new(),
             shutdown_waiters: Vec::new(),
         }
     }
@@ -67,21 +73,21 @@ where
     T: Send + 'static,
     S: CaptureSink<T> + Send + 'static,
 {
-    pub fn new(config: CaptureConfig, sink: S) -> Self {
+    pub fn new(config: CaptureConfig, sink: S) -> Result<Self> {
         let state = Arc::new((Mutex::new(QueueState::default()), Condvar::new()));
         let worker_state = Arc::clone(&state);
         let worker_config = config.clone();
         let worker = thread::Builder::new()
             .name("catalog-capture-worker".to_string())
             .spawn(move || worker_loop(worker_config, sink, worker_state))
-            .expect("background capture worker should start");
+            .context("failed to spawn background capture worker thread")?;
 
-        Self {
+        Ok(Self {
             config,
             state,
             worker: Some(worker),
             _marker: std::marker::PhantomData,
-        }
+        })
     }
 
     pub fn submit(&self, item: CaptureItem<T>) -> Result<()> {
@@ -124,6 +130,10 @@ where
         self.request_flush(false)
     }
 
+    pub fn seal_all(&self) -> Result<FlushResult> {
+        self.request_seal()
+    }
+
     pub fn shutdown(&mut self) -> Result<FlushResult> {
         if self.worker.is_none() {
             return Ok(FlushResult::default());
@@ -139,7 +149,7 @@ where
         let (lock, _) = &*self.state;
         let state = lock.lock().expect("queue state poisoned");
         let mut metrics = state.metrics.clone();
-        metrics.active_partitions = state.queue.len() as u64;
+        metrics.queued_items = state.queue.len() as u64;
         metrics
     }
 
@@ -171,6 +181,38 @@ where
             Err(err) => Err(anyhow!("background capture worker reply failed: {err}")),
         }
     }
+
+    fn request_seal(&self) -> Result<FlushResult> {
+        let (tx, rx) = mpsc::channel();
+        let (lock, cvar) = &*self.state;
+        {
+            let mut state = lock.lock().expect("queue state poisoned");
+            state.seal_requested = true;
+            state.seal_waiters.push(tx);
+        }
+        cvar.notify_one();
+
+        match rx.recv() {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(err)) => Err(anyhow!(err)),
+            Err(err) => Err(anyhow!("background capture worker reply failed: {err}")),
+        }
+    }
+}
+
+fn worker_interval(config: &CaptureConfig, segment_mode: bool) -> Duration {
+    if segment_mode {
+        Duration::from_millis(config.lifecycle.durability.sync_interval_ms.max(1))
+    } else {
+        Duration::from_millis(config.flush_interval_ms.max(1))
+    }
+}
+
+fn now_ns() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos() as u64)
+        .unwrap_or(0)
 }
 
 fn worker_loop<T, S>(config: CaptureConfig, sink: S, state: Arc<(Mutex<QueueState<T>>, Condvar)>)
@@ -178,16 +220,28 @@ where
     T: Send + 'static,
     S: CaptureSink<T> + Send + 'static,
 {
+    let segment_mode = sink.is_segment_mode();
     let mut runtime = CaptureRuntime::new(config.clone(), sink);
-    let flush_interval = Duration::from_millis(config.flush_interval_ms.max(1));
+    let flush_interval = worker_interval(&config, segment_mode);
 
     loop {
-        let (batch, flush_reason, should_shutdown, flush_waiters, shutdown_waiters) = {
+        let (
+            batch,
+            flush_reason,
+            tick_requested,
+            seal_requested,
+            should_shutdown,
+            flush_waiters,
+            seal_waiters,
+            shutdown_waiters,
+        ) = {
             let (lock, cvar) = &*state;
             let mut queue_state = lock.lock().expect("queue state poisoned");
 
             if queue_state.queue.is_empty()
                 && queue_state.flush_reason.is_none()
+                && !queue_state.tick_requested
+                && !queue_state.seal_requested
                 && !queue_state.shutdown_requested
             {
                 let waited = cvar
@@ -196,8 +250,12 @@ where
                 queue_state = waited.0;
 
                 if waited.1.timed_out() {
-                    queue_state.flush_reason =
-                        merge_flush_reason(queue_state.flush_reason, FlushReason::Interval);
+                    if segment_mode {
+                        queue_state.tick_requested = true;
+                    } else {
+                        queue_state.flush_reason =
+                            merge_flush_reason(queue_state.flush_reason, FlushReason::Interval);
+                    }
                 }
             }
 
@@ -207,21 +265,36 @@ where
             } else {
                 queue_state.flush_reason
             };
+            let tick_requested = queue_state.tick_requested;
+            let seal_requested = queue_state.seal_requested;
             queue_state.flush_reason = None;
+            queue_state.tick_requested = false;
+            queue_state.seal_requested = false;
             let flush_waiters = std::mem::take(&mut queue_state.flush_waiters);
+            let seal_waiters = std::mem::take(&mut queue_state.seal_waiters);
             let shutdown_waiters = std::mem::take(&mut queue_state.shutdown_waiters);
             let should_shutdown = queue_state.shutdown_requested;
 
             (
                 batch,
                 flush_reason,
+                tick_requested,
+                seal_requested,
                 should_shutdown,
                 flush_waiters,
+                seal_waiters,
                 shutdown_waiters,
             )
         };
 
-        let flush_result = process_batch(&mut runtime, batch, flush_reason);
+        let flush_result = process_batch(
+            &mut runtime,
+            batch,
+            flush_reason,
+            tick_requested,
+            seal_requested,
+            should_shutdown,
+        );
         let metrics_snapshot = runtime.metrics.clone();
 
         {
@@ -235,6 +308,9 @@ where
                 for waiter in flush_waiters {
                     let _ = waiter.send(Ok(result.clone()));
                 }
+                for waiter in seal_waiters {
+                    let _ = waiter.send(Ok(result.clone()));
+                }
                 for waiter in shutdown_waiters {
                     let _ = waiter.send(Ok(result.clone()));
                 }
@@ -242,6 +318,9 @@ where
             Err(err) => {
                 let message = err.to_string();
                 for waiter in flush_waiters {
+                    let _ = waiter.send(Err(message.clone()));
+                }
+                for waiter in seal_waiters {
                     let _ = waiter.send(Err(message.clone()));
                 }
                 for waiter in shutdown_waiters {
@@ -260,6 +339,9 @@ fn process_batch<T, S>(
     runtime: &mut CaptureRuntime<T, S>,
     batch: Vec<CaptureItem<T>>,
     flush_reason: Option<FlushReason>,
+    tick_requested: bool,
+    seal_requested: bool,
+    should_shutdown: bool,
 ) -> Result<FlushResult>
 where
     S: CaptureSink<T>,
@@ -273,8 +355,24 @@ where
         aggregated.files.extend(partial.files);
     }
 
+    if tick_requested {
+        let partial = runtime.on_tick(now_ns())?;
+        aggregated.rows += partial.rows;
+        aggregated.bytes += partial.bytes;
+        aggregated.files.extend(partial.files);
+    }
+
     if let Some(reason) = flush_reason {
-        let partial = runtime.flush_all_with_reason(reason)?;
+        let partial = if should_shutdown && runtime.sink.is_segment_mode() {
+            runtime.seal_all_for_shutdown()?
+        } else {
+            runtime.flush_all_with_reason(reason)?
+        };
+        aggregated.rows += partial.rows;
+        aggregated.bytes += partial.bytes;
+        aggregated.files.extend(partial.files);
+    } else if seal_requested {
+        let partial = runtime.seal_all()?;
         aggregated.rows += partial.rows;
         aggregated.bytes += partial.bytes;
         aggregated.files.extend(partial.files);
@@ -286,7 +384,9 @@ where
 fn merge_flush_reason(current: Option<FlushReason>, next: FlushReason) -> Option<FlushReason> {
     Some(match (current, next) {
         (Some(FlushReason::Shutdown), _) | (_, FlushReason::Shutdown) => FlushReason::Shutdown,
+        (Some(FlushReason::Seal), _) | (_, FlushReason::Seal) => FlushReason::Seal,
         (Some(FlushReason::Manual), _) | (_, FlushReason::Manual) => FlushReason::Manual,
+        (Some(FlushReason::Budget), _) | (_, FlushReason::Budget) => FlushReason::Budget,
         (Some(FlushReason::Interval), _) | (_, FlushReason::Interval) => FlushReason::Interval,
         (Some(FlushReason::Bytes), _) | (_, FlushReason::Bytes) => FlushReason::Bytes,
         _ => FlushReason::Rows,
@@ -307,6 +407,7 @@ mod tests {
     use crate::{
         config::{CaptureConfig, OverflowPolicy},
         item::{CaptureItem, PartitionKey},
+        lifecycle::{LifecycleConfig, LifecycleMode},
         sink::CaptureSink,
     };
 
@@ -316,7 +417,7 @@ mod tests {
     }
 
     impl CaptureSink<u64> for TestSink {
-        fn write_batch(&self, batch: Vec<u64>) -> Result<Vec<PathBuf>> {
+        fn write_batch(&mut self, _partition_key: &str, batch: Vec<u64>) -> Result<Vec<PathBuf>> {
             self.batches.lock().expect("batches poisoned").push(batch);
             Ok(Vec::new())
         }
@@ -334,7 +435,8 @@ mod tests {
                 ..CaptureConfig::default()
             },
             sink,
-        );
+        )
+        .expect("runtime should start");
 
         runtime
             .submit(CaptureItem {
@@ -354,6 +456,46 @@ mod tests {
     }
 
     #[test]
+    fn chunked_sink_keeps_interval_flush_under_segment_lifecycle_config() {
+        let sink = TestSink::default();
+        let batches = Arc::clone(&sink.batches);
+        let mut runtime = BackgroundCaptureRuntime::new(
+            CaptureConfig {
+                flush_rows: 10,
+                queue_capacity: 10,
+                flush_interval_ms: 20,
+                lifecycle: LifecycleConfig {
+                    mode: LifecycleMode::Segment,
+                    ..LifecycleConfig::default()
+                },
+                ..CaptureConfig::default()
+            },
+            sink,
+        )
+        .expect("runtime should start");
+
+        runtime
+            .submit(CaptureItem {
+                partition_key: PartitionKey::market_data("custom_data", "TEST"),
+                event_ts_ns: 1,
+                init_ts_ns: Some(1),
+                estimated_bytes: 8,
+                payload: 99,
+            })
+            .expect("submit should succeed");
+
+        std::thread::sleep(Duration::from_millis(80));
+
+        let written = batches.lock().expect("batches poisoned").clone();
+        assert_eq!(
+            written,
+            vec![vec![99]],
+            "chunked sink should interval-flush even when lifecycle.mode = segment"
+        );
+        let _ = runtime.shutdown().expect("shutdown should succeed");
+    }
+
+    #[test]
     fn drop_oldest_evicts_queued_item_when_full() {
         let sink = TestSink::default();
         let batches = Arc::clone(&sink.batches);
@@ -366,7 +508,8 @@ mod tests {
                 ..CaptureConfig::default()
             },
             sink,
-        );
+        )
+        .expect("runtime should start");
 
         runtime
             .submit(CaptureItem {
