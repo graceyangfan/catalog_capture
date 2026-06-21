@@ -23,9 +23,12 @@ rustup component add rustfmt clippy --toolchain 1.96.0
 
 ## Build
 
+`rust-toolchain.toml` pins Rust 1.96.0 for this repository, so plain `cargo` commands work
+from the repo root:
+
 ```bash
 cd nautilus_catalog_capture
-cargo +1.96.0 build -p catalog-capture-cli
+cargo build -p catalog-capture-cli
 ```
 
 Release binary:

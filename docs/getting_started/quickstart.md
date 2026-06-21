@@ -18,10 +18,10 @@ removes artifacts when `--cleanup` is set.
 After a manual capture:
 
 ```bash
-cargo +1.96.0 run -p catalog-capture-cli -- run \
+cargo run -p catalog-capture-cli -- run \
   --config examples/capture.deribit-btc-universe-autorefresh.toml
 
-cargo +1.96.0 run -p catalog-capture-cli -- validate-option-universe \
+cargo run -p catalog-capture-cli -- validate-option-universe \
   --config examples/capture.deribit-btc-universe-autorefresh.toml \
   --catalog-uri file:///tmp/nautilus-catalog-capture-deribit-btc-universe-autorefresh \
   --option-universe-format text

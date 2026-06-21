@@ -23,7 +23,6 @@ def main() -> int:
     try:
         cmd = [
             "cargo",
-            "+1.96.0",
             "run",
             "-p",
             "catalog-capture-runtime-adapter",

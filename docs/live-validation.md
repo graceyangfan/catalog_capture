@@ -158,7 +158,7 @@ At minimum, record:
 
 1. Run the capture example:
 
-   - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo +1.96.0 run -p catalog-capture-runtime-adapter --example binance_futures_quote_capture`
+   - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --example binance_futures_quote_capture`
 
 2. Copy the printed `Catalog dir`.
 
@@ -435,13 +435,13 @@ Suggested command sequence:
 
 1. Validate the Step 1 TOML profile:
 
-   - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config examples/capture.binance-perp.ws.toml`
+   - `cargo run -p catalog-capture-cli -- validate --config examples/capture.binance-perp.ws.toml`
 
 2. Run the Step 1 live capture (CLI or example):
 
-   - `cargo +1.96.0 run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml`
+   - `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml`
    - or:
-   - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo +1.96.0 run -p catalog-capture-runtime-adapter --example binance_futures_derivatives_state_capture`
+   - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --example binance_futures_derivatives_state_capture`
 
 3. Probe all four market-data families:
 

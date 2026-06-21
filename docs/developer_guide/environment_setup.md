@@ -15,7 +15,7 @@ rustup component add rustfmt clippy --toolchain 1.96.0
 make install-tools
 pip install pre-commit
 pre-commit install
-cargo +1.96.0 build -p catalog-capture-cli
+cargo build -p catalog-capture-cli
 ```
 
 ## Daily workflow

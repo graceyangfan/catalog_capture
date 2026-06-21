@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Unified getting-started and live-validation docs on plain `cargo` commands
+  (`rust-toolchain.toml` pins 1.96.0).
 - Rewrote root `README.md`, crate READMEs, and deployment templates with
   project-owned voice and repository-relative paths.
 - Smoke tests and catalog probes resolve `../nautilus_trader` via `tests/nautilus_import.py`
