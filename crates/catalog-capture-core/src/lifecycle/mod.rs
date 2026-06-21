@@ -15,6 +15,9 @@
 pub mod seal;
 pub mod segment;
 
+#[cfg(test)]
+mod integration;
+
 pub use seal::{
     next_seal_boundary_ns, parse_seal_schedule, parse_seal_timezone, resolve_seal_schedule,
     should_seal_at, ResolvedSealSchedule, SealConfigFile,

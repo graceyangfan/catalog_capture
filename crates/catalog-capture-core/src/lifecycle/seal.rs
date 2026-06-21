@@ -168,8 +168,8 @@ mod tests {
     use chrono_tz::UTC;
 
     use super::{
-        next_seal_boundary_ns, parse_seal_schedule, resolve_seal_schedule, SealConfigFile,
-        NANOSECONDS_IN_SECOND,
+        next_seal_boundary_ns, parse_seal_schedule, resolve_seal_schedule, should_seal_at,
+        SealConfigFile, NANOSECONDS_IN_SECOND,
     };
 
     fn utc_ns(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> u64 {
@@ -209,5 +209,56 @@ mod tests {
     fn seal_timezone_parses_utc() {
         let seal = daily_seal_at_six_utc();
         assert_eq!(seal.timezone, UTC);
+    }
+
+    #[test]
+    fn next_seal_boundary_handles_us_spring_forward_gap() {
+        use chrono_tz::America::New_York;
+
+        let seal = resolve_seal_schedule(&SealConfigFile {
+            enabled: true,
+            schedule: "02:30".to_string(),
+            timezone: "America/New_York".to_string(),
+            interval_secs: 86_400,
+        })
+        .expect("seal schedule should resolve");
+        assert_eq!(seal.timezone, New_York);
+
+        // 2026-03-08 01:30 EST: 02:30 does not exist on spring-forward day.
+        let now = utc_ns(2026, 3, 8, 6, 30);
+        let next = next_seal_boundary_ns(now, &seal);
+        assert!(
+            next > now,
+            "next seal boundary must be strictly after now (got now={now}, next={next})"
+        );
+    }
+
+    #[test]
+    fn next_seal_boundary_handles_us_fall_back_ambiguity() {
+        use chrono_tz::America::New_York;
+
+        let seal = resolve_seal_schedule(&SealConfigFile {
+            enabled: true,
+            schedule: "01:30".to_string(),
+            timezone: "America/New_York".to_string(),
+            interval_secs: 86_400,
+        })
+        .expect("seal schedule should resolve");
+
+        // 2026-11-01 05:30 UTC ~= 01:30 EDT during fall-back ambiguity window.
+        let now = utc_ns(2026, 11, 1, 5, 30);
+        let next = next_seal_boundary_ns(now, &seal);
+        assert!(
+            next > now,
+            "ambiguous local schedule should still yield a future boundary"
+        );
+    }
+
+    #[test]
+    fn should_seal_at_triggers_only_on_boundary_crossing() {
+        let seal = daily_seal_at_six_utc();
+        let boundary = next_seal_boundary_ns(utc_ns(2026, 6, 22, 5, 30), &seal);
+        assert!(!should_seal_at(boundary.saturating_sub(1), boundary));
+        assert!(should_seal_at(boundary, boundary));
     }
 }

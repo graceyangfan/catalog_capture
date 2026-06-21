@@ -686,4 +686,64 @@ mod tests {
 
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn recover_orphan_parts_skips_corrupt_file_and_seals_valid_orphan() {
+        let dir = temp_segment_dir("segment-recover-corrupt-test");
+        let config = segment_capture_config(
+            &dir,
+            segment_lifecycle(SealConfigFile {
+                enabled: false,
+                ..SealConfigFile::default()
+            }),
+        );
+        let instrument_id = InstrumentId::from_str("ETH-USD-PERP.HYPERLIQUID").expect("id");
+        let partition_key = "market_data|quotes|ETH-USD-PERP.HYPERLIQUID|_";
+        let instrument_dir = dir
+            .join("data")
+            .join("quotes")
+            .join(instrument_id.to_string());
+
+        {
+            let mut sink = SegmentCaptureSink::<QuoteTick>::from_config(&config).expect("sink");
+            sink.write_batch_mut(
+                partition_key,
+                vec![quote(instrument_id, 1_000), quote(instrument_id, 2_000)],
+            )
+            .expect("append valid orphan");
+            let segment = sink
+                .segments
+                .remove(partition_key)
+                .expect("segment should exist");
+            segment.writer.close().expect("close valid orphan");
+            assert!(segment.part_path.exists());
+            drop(sink);
+        }
+
+        fs::create_dir_all(&instrument_dir).expect("instrument dir");
+        let corrupt_part = instrument_dir.join("9999999999999999999.part.parquet");
+        fs::write(&corrupt_part, b"not-a-parquet-file").expect("write corrupt orphan");
+
+        let recovered = SegmentCaptureSink::<QuoteTick>::from_config(&config).expect("recovery");
+        assert!(recovered.segments.is_empty());
+        assert_eq!(
+            fs::read_dir(&instrument_dir)
+                .expect("instrument dir")
+                .filter_map(|entry| entry.ok())
+                .filter(|entry| {
+                    let path = entry.path();
+                    path.extension().and_then(|ext| ext.to_str()) == Some("parquet")
+                        && !path.to_string_lossy().contains(".part")
+                })
+                .count(),
+            1,
+            "valid orphan should be sealed on startup"
+        );
+        assert!(
+            corrupt_part.exists(),
+            "corrupt orphan should be skipped, not deleted"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
