@@ -69,7 +69,7 @@ The design center is:
 - strategies stay focused on trading decisions
 - a dedicated capture actor owns runtime recording
 - the capture actor subscribes to a declared `CapturePlan`
-- the capture actor writes Nautilus-native `ParquetDataCatalog` assets directly
+- the capture actor writes catalog-native Parquet assets directly
 - instrument metadata can be recorded alongside market data so Python readback and backtest setup stay straightforward
 
 That keeps data capture explicit, reusable, and compatible with direct backtest reuse.
@@ -89,35 +89,34 @@ The project now validates the workflow that matters most:
 Today there is one practical PyO3 edge to be aware of:
 
 - `FundingRateUpdate` parquet assets are written correctly and are discoverable in the catalog
-- but the current Nautilus Trader PyO3 catalog surface does not yet expose a dedicated funding-rate query helper like it does for quotes, marks, and index prices
+- but the PyO3 catalog surface does not yet expose a dedicated funding-rate query helper like it does for quotes, marks, and index prices
 - this project therefore validates funding capture today through file discovery and catalog type discovery, while keeping PyO3 direct readback as the target contract
 
-Reference smoke test:
+Reference smoke tests (run from the repository root; require a PyO3-capable sibling
+`../nautilus_trader` checkout):
 
-- `/Users/yfclark/nautilus_catalog_capture/tests/pyo3_market_readback_smoke.py`
-- `/Users/yfclark/nautilus_catalog_capture/tests/python_custom_readback_smoke.py`
-- `/Users/yfclark/nautilus_catalog_capture/tests/python_hyperliquid_open_interest_smoke.py`
-- `/Users/yfclark/nautilus_catalog_capture/tests/python_readback_smoke.py`
+- `tests/pyo3_market_readback_smoke.py`
+- `tests/python_custom_readback_smoke.py`
+- `tests/python_hyperliquid_open_interest_smoke.py`
+- `tests/python_readback_smoke.py`
 
 ## CLI
 
 The repository now includes a first TOML-driven CLI:
 
 - validate a config:
-  - `cargo +1.96.0 run -p catalog-capture-cli -- validate --config /Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
+  - `cargo run -p catalog-capture-cli -- validate --config examples/capture.toml`
 - print the effective config:
-  - `cargo +1.96.0 run -p catalog-capture-cli -- print-effective-config --config /Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
+  - `cargo run -p catalog-capture-cli -- print-effective-config --config examples/capture.toml`
 - run a capture session:
-  - `cargo +1.96.0 run -p catalog-capture-cli -- run --config /Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
+  - `cargo run -p catalog-capture-cli -- run --config examples/capture.toml`
 
 The initial CLI focuses on TOML and currently supports a `binance_futures` venue kind.
 
 Useful configs:
 
-- baseline:
-  - `/Users/yfclark/nautilus_catalog_capture/examples/capture.toml`
-- low-threshold validation profile:
-  - `/Users/yfclark/nautilus_catalog_capture/examples/capture.low-threshold.toml`
+- baseline: `examples/capture.toml`
+- low-threshold validation profile: `examples/capture.low-threshold.toml`
 
 ## Prerequisites
 
@@ -162,7 +161,7 @@ make cleanup-tmp
 ### Post-run validation
 
 ```bash
-cargo +1.96.0 run -p catalog-capture-cli -- validate-option-universe \
+cargo run -p catalog-capture-cli -- validate-option-universe \
   --config examples/capture.deribit-btc-universe-autorefresh.toml \
   --catalog-uri file:///path/to/catalog \
   --option-universe-format text

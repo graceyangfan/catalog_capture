@@ -167,7 +167,7 @@ async fn main() -> Result<()> {
     println!("Catalog dir: {}", catalog_dir.display());
     println!("Parquet files: {parquet_files}");
     println!(
-        "Verify with: /Users/yfclark/nautilus_trader/.venv/bin/python /Users/yfclark/nautilus_catalog_capture/tests/python_catalog_probe.py {} {} 1",
+        "Verify with: python3 tests/python_catalog_probe.py {} {} 1",
         catalog_dir.display(),
         instrument_id
     );

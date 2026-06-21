@@ -37,6 +37,11 @@ def ensure_nautilus_trader_path() -> Path:
     return root
 
 
+def project_root() -> Path:
+    """Return the nautilus_catalog_capture repository root."""
+    return Path(__file__).resolve().parents[1]
+
+
 def load_and_ensure() -> Path:
     """Entry point for probe scripts: ensure path before importing nautilus_trader."""
     return ensure_nautilus_trader_path()

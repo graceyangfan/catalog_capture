@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Rewrote root `README.md`, crate READMEs, and deployment templates with
+  project-owned voice and repository-relative paths.
+- Smoke tests and catalog probes resolve `../nautilus_trader` via `tests/nautilus_import.py`
+  instead of machine-specific absolute paths.
 - Rewrote `examples/README.md` and `ROADMAP.md` with project-owned voice and
   repository-relative paths.
 - Rewrote concept docs (`architecture`, `custom-data-contract`, `production-architecture`,

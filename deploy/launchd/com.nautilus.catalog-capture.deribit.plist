@@ -6,28 +6,28 @@
   <string>com.nautilus.catalog-capture.deribit</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/yfclark/nautilus_catalog_capture/scripts/run-capture-service.sh</string>
+    <string>/opt/nautilus_catalog_capture/scripts/run-capture-service.sh</string>
     <string>--config</string>
-    <string>/Users/yfclark/nautilus_catalog_capture/examples/operator/capture.deribit-btc-universe-unattended.toml</string>
+    <string>/opt/nautilus_catalog_capture/examples/operator/capture.deribit-btc-universe-unattended.toml</string>
     <string>--release</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/yfclark/nautilus_catalog_capture</string>
+  <string>/opt/nautilus_catalog_capture</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>CATALOG_CAPTURE_LOG_DIR</key>
-    <string>/Users/yfclark/nautilus_catalog_capture/logs</string>
+    <string>/opt/nautilus_catalog_capture/logs</string>
     <key>PATH</key>
-    <string>/Users/yfclark/.cargo/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <string>/usr/local/bin:/usr/bin:/bin</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>/Users/yfclark/nautilus_catalog_capture/logs/launchd-deribit.stdout.log</string>
+  <string>/opt/nautilus_catalog_capture/logs/launchd-deribit.stdout.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/yfclark/nautilus_catalog_capture/logs/launchd-deribit.stderr.log</string>
+  <string>/opt/nautilus_catalog_capture/logs/launchd-deribit.stderr.log</string>
   <key>ProcessType</key>
   <string>Background</string>
 </dict>

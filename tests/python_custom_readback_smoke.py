@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
-
-REPO_ROOT = Path("/Users/yfclark/nautilus_trader")
-PROJECT_ROOT = Path("/Users/yfclark/nautilus_catalog_capture")
-
-sys.path.insert(0, str(REPO_ROOT))
+_IMPORT = Path(__file__).resolve().parent / "nautilus_import.py"
+_spec = importlib.util.spec_from_file_location("nautilus_import", _IMPORT)
+_mod = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+_spec.loader.exec_module(_mod)
+_mod.ensure_nautilus_trader_path()
+PROJECT_ROOT = _mod.project_root()
 
 from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog as PyO3ParquetDataCatalog  # noqa: E402
 from nautilus_trader.core.nautilus_pyo3.model import register_custom_data_class  # noqa: E402
