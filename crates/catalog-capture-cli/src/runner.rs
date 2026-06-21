@@ -174,7 +174,7 @@ pub async fn run_capture_with_plan_and_reports(
                 environment,
                 product_type,
             } => {
-                println!(
+                log::info!(
                     "Configuring venue {} ({product_type:?}, {environment:?})",
                     id
                 );
@@ -195,7 +195,7 @@ pub async fn run_capture_with_plan_and_reports(
                 environment,
                 product_types,
             } => {
-                println!(
+                log::info!(
                     "Configuring venue {} (product_types={product_types:?}, {environment:?})",
                     id
                 );
@@ -216,7 +216,7 @@ pub async fn run_capture_with_plan_and_reports(
                 environment,
                 product_types,
             } => {
-                println!(
+                log::info!(
                     "Configuring venue {} (product_types={product_types:?}, {environment:?})",
                     id
                 );
@@ -233,7 +233,7 @@ pub async fn run_capture_with_plan_and_reports(
                 )?;
             }
             VenueRuntimeConfig::Hyperliquid { id, environment } => {
-                println!("Configuring venue {} ({environment:?})", id);
+                log::info!("Configuring venue {} ({environment:?})", id);
                 builder = builder.add_data_client(
                     None,
                     Box::new(HyperliquidDataClientFactory::new()),
@@ -250,7 +250,7 @@ pub async fn run_capture_with_plan_and_reports(
                 instrument_types,
                 instrument_families,
             } => {
-                println!(
+                log::info!(
                     "Configuring venue {} (instrument_types={instrument_types:?}, families={instrument_families:?}, {environment:?})",
                     id
                 );
@@ -274,18 +274,18 @@ pub async fn run_capture_with_plan_and_reports(
     let mut node = builder.build()?;
     node.add_actor(capture_actor)?;
 
-    println!("Starting catalog capture");
-    println!("Catalog dir: {}", catalog_dir.display());
+    log::info!("Starting catalog capture");
+    log::info!("Catalog dir: {}", catalog_dir.display());
     if config.runtime.capture_seconds == 0 {
-        println!("Capture duration: until shutdown signal (capture_seconds=0)");
+        log::info!("Capture duration: until shutdown signal (capture_seconds=0)");
     } else {
-        println!("Capture duration: {}s", config.runtime.capture_seconds);
+        log::info!("Capture duration: {}s", config.runtime.capture_seconds);
     }
-    println!("Venues: {}", config.venues.len());
+    log::info!("Venues: {}", config.venues.len());
 
     let metrics_server = if let Some(snapshot) = metrics_snapshot {
         let server = spawn_metrics_server(&config.runtime.metrics, snapshot)?;
-        println!(
+        log::info!(
             "Metrics export: http://{}:{}/metrics (json: /metrics.json, health: /health)",
             config.runtime.metrics.bind_addr, config.runtime.metrics.port
         );
@@ -308,8 +308,8 @@ pub async fn run_capture_with_plan_and_reports(
         handle.abort();
     }
 
-    println!("Capture completed");
-    println!("Catalog dir: {}", catalog_dir.display());
+    log::info!("Capture completed");
+    log::info!("Catalog dir: {}", catalog_dir.display());
     run_option_universe_post_run_report(&catalog_dir, &config, &post_run)?;
     Ok(())
 }
@@ -814,10 +814,10 @@ fn require_venue(
 
 fn log_capture_buffer_estimate(config: &EffectiveConfig, plan: &CapturePlan) {
     let estimate = estimate_peak_buffered_bytes(plan, &config.capture);
-    println!("{}", format_buffer_estimate(&estimate));
+    log::info!("{}", format_buffer_estimate(&estimate));
     if let Some(budget_bytes) = config.runtime.resource_budget_bytes {
         if estimate.total_peak_buffered_bytes > budget_bytes {
-            eprintln!(
+            log::warn!(
                 "{}",
                 format_budget_warning(&estimate, budget_bytes)
             );

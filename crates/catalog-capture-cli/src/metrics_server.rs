@@ -39,7 +39,7 @@ pub fn spawn_metrics_server(
         let listener = match TcpListener::bind((bind_addr.as_str(), port)).await {
             Ok(listener) => listener,
             Err(error) => {
-                eprintln!("metrics server failed to bind {bind_addr}:{port}: {error}");
+                log::error!("metrics server failed to bind {bind_addr}:{port}: {error}");
                 return;
             }
         };
@@ -53,7 +53,7 @@ pub fn spawn_metrics_server(
                     let snapshot = Arc::clone(&snapshot);
                     tokio::spawn(async move {
                         if let Err(error) = serve_connection(&mut stream, &snapshot).await {
-                            eprintln!("metrics server connection error: {error}");
+                            log::error!("metrics server connection error: {error}");
                         }
                     });
                 }

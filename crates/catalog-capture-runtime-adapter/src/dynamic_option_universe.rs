@@ -230,7 +230,7 @@ impl DynamicOptionUniverseManager {
                     next_dynamic_plan = merge_capture_plans(&next_dynamic_plan, &next_plan);
                 }
                 Err(error) => {
-                    eprintln!(
+                    log::warn!(
                         "Option universe refresh failed for venue_id={} underlying={}: {}",
                         state.spec.venue_id, state.spec.underlying, error,
                     );

@@ -229,7 +229,7 @@ impl DynamicHip4UniverseManager {
                 }
                 Err(error) => {
                     refresh_failed = true;
-                    eprintln!(
+                    log::warn!(
                         "HIP-4 universe refresh failed for venue_id={} underlying={}: {}",
                         state.spec.venue_id, state.spec.underlying, error,
                     );

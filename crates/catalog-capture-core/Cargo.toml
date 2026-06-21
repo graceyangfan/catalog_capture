@@ -30,3 +30,4 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 libc = "0.2"
+log.workspace = true

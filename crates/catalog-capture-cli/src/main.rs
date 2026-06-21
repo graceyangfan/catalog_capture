@@ -27,6 +27,7 @@ use catalog_capture_core::{
     OptionUniverseReadbackReport, OptionUniverseResolutionValidationReport,
 };
 use clap::{Parser, Subcommand, ValueEnum};
+use nautilus_common::logging::ensure_logging_initialized;
 use config::{load_config, render_effective_config, resolve_config, EffectiveConfig};
 use hip4::{
     render_hip4_universe_reports_json, render_hip4_universe_reports_text,
@@ -291,6 +292,7 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
+    ensure_logging_initialized();
     let cli = Cli::parse();
 
     match cli.command {

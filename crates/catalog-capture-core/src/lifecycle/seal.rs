@@ -235,8 +235,6 @@ mod tests {
 
     #[test]
     fn next_seal_boundary_handles_us_fall_back_ambiguity() {
-        use chrono_tz::America::New_York;
-
         let seal = resolve_seal_schedule(&SealConfigFile {
             enabled: true,
             schedule: "01:30".to_string(),

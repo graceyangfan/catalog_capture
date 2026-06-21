@@ -163,7 +163,7 @@ where
                 Ok(Some(_)) => recovered += 1,
                 Ok(None) => {}
                 Err(err) => {
-                    eprintln!(
+                    log::warn!(
                         "catalog-capture: skipping unrecoverable orphan segment {}: {err}",
                         part_path.display()
                     );

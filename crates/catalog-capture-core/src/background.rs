@@ -115,7 +115,7 @@ where
             match self.config.overflow_policy {
                 OverflowPolicy::DropNewest => {
                     state.metrics.dropped_items += 1;
-                    eprintln!(
+                    log::warn!(
                         "catalog-capture: dropped newest queued item for partition {} (queue capacity {capacity})",
                         item.partition_key.stable_key()
                     );
@@ -124,7 +124,7 @@ where
                 OverflowPolicy::DropOldest => {
                     if let Some(dropped) = state.queue.pop_front() {
                         state.metrics.dropped_items += 1;
-                        eprintln!(
+                        log::warn!(
                             "catalog-capture: dropped oldest queued item for partition {} (queue capacity {capacity})",
                             dropped.partition_key.stable_key()
                         );
@@ -290,7 +290,7 @@ where
         ) = match collect_worker_batch(&state, flush_interval, segment_mode) {
             Ok(batch) => batch,
             Err(err) => {
-                eprintln!("catalog-capture: background worker exiting: {err}");
+                log::error!("catalog-capture: background worker exiting: {err}");
                 break;
             }
         };
@@ -430,7 +430,7 @@ where
             Ok(partial) => merge_flush_into(&mut aggregated, partial),
             Err(err) => {
                 runtime.metrics.dropped_items += 1;
-                eprintln!(
+                log::warn!(
                     "catalog-capture: failed to submit queued item for partition {partition}: {err}"
                 );
                 last_error = Some(err);
@@ -490,7 +490,7 @@ fn merge_runtime_step<T, S>(
     match step(runtime) {
         Ok(partial) => merge_flush_into(aggregated, partial),
         Err(err) => {
-            eprintln!("catalog-capture: background worker {label} failed: {err}");
+            log::error!("catalog-capture: background worker {label} failed: {err}");
             *last_error = Some(err);
         }
     }

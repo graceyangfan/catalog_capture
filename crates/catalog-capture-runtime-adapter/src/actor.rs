@@ -286,7 +286,7 @@ impl CatalogCaptureActor {
 
         let flags = config.plan.family_runtime_flags();
         let worker_count = config.plan.enabled_background_worker_count();
-        println!("Capture background workers: {worker_count} enabled for plan");
+        log::info!("Capture background workers: {worker_count} enabled for plan");
 
         // Instruments and custom data stay chunked: catalog paths are heterogeneous and do not
         // use the segment `.part` lifecycle.
@@ -744,7 +744,7 @@ impl CatalogCaptureActor {
         if metrics.accepted_items == 0 && metrics.completed_files == 0 {
             return;
         }
-        println!("Capture metrics: {}", metrics.summary_line());
+        log::info!("Capture metrics: {}", metrics.summary_line());
     }
 
     fn subscribe_plan(&mut self, plan: &CapturePlan) {
@@ -862,7 +862,7 @@ impl CatalogCaptureActor {
                 .refresh_from_cache(&cache, now)?
         };
         for change in &delta.changes {
-            println!(
+            log::info!(
                 "Option universe refresh venue_id={} underlying={} instruments={} -> {} add=[{}] remove=[{}]",
                 change.venue_id,
                 change.underlying,
@@ -916,7 +916,7 @@ impl CatalogCaptureActor {
             .expect("checked above")
             .refresh(now.as_u64())?;
         for change in &delta.changes {
-            println!(
+            log::info!(
                 "HIP-4 universe refresh venue_id={} underlying={} question_id={} instruments={} -> {} add=[{}] remove=[{}]",
                 change.venue_id,
                 change.underlying,
@@ -1232,7 +1232,7 @@ impl DataActor for CatalogCaptureActor {
     fn on_option_greeks(&mut self, greeks: &OptionGreeks) -> Result<()> {
         if let Some(observer) = &mut self.online_option_metrics {
             for line in observer.on_option_greeks(greeks) {
-                println!("{line}");
+                log::info!("{line}");
             }
         }
         self.submit_option_greeks(*greeks)?;
@@ -1247,7 +1247,7 @@ impl DataActor for CatalogCaptureActor {
     fn on_quote(&mut self, quote: &QuoteTick) -> Result<()> {
         if let Some(observer) = &mut self.online_option_metrics {
             for line in observer.on_quote(quote) {
-                println!("{line}");
+                log::info!("{line}");
             }
         }
         self.submit_quote(*quote)?;
