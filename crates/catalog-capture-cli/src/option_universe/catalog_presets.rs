@@ -1,3 +1,17 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 use catalog_capture_core::OptionUniverseFamily;
 
 use crate::config::EffectiveConfig;
@@ -16,13 +30,15 @@ pub fn validation_options_for_preset(
     preset: OptionUniverseCatalogValidationPreset,
 ) -> OptionUniverseCatalogValidationOptions {
     match preset {
-        OptionUniverseCatalogValidationPreset::PostCapture => OptionUniverseCatalogValidationOptions {
-            min_rows: 1,
-            min_perp_trade_rows: 0,
-            require_contract_state: false,
-            require_refresh_change: false,
-            bar_types: Vec::new(),
-        },
+        OptionUniverseCatalogValidationPreset::PostCapture => {
+            OptionUniverseCatalogValidationOptions {
+                min_rows: 1,
+                min_perp_trade_rows: 0,
+                require_contract_state: false,
+                require_refresh_change: false,
+                bar_types: Vec::new(),
+            }
+        }
         OptionUniverseCatalogValidationPreset::RollingAutorefresh => {
             OptionUniverseCatalogValidationOptions {
                 min_rows: 1,
@@ -32,13 +48,15 @@ pub fn validation_options_for_preset(
                 bar_types: Vec::new(),
             }
         }
-        OptionUniverseCatalogValidationPreset::VenueTrades => OptionUniverseCatalogValidationOptions {
-            min_rows: 1,
-            min_perp_trade_rows: 1,
-            require_contract_state: false,
-            require_refresh_change: false,
-            bar_types: Vec::new(),
-        },
+        OptionUniverseCatalogValidationPreset::VenueTrades => {
+            OptionUniverseCatalogValidationOptions {
+                min_rows: 1,
+                min_perp_trade_rows: 1,
+                require_contract_state: false,
+                require_refresh_change: false,
+                bar_types: Vec::new(),
+            }
+        }
         OptionUniverseCatalogValidationPreset::Research => OptionUniverseCatalogValidationOptions {
             min_rows: 1,
             min_perp_trade_rows: 0,
@@ -49,7 +67,9 @@ pub fn validation_options_for_preset(
     }
 }
 
-pub fn validation_options_for_config(config: &EffectiveConfig) -> OptionUniverseCatalogValidationOptions {
+pub fn validation_options_for_config(
+    config: &EffectiveConfig,
+) -> OptionUniverseCatalogValidationOptions {
     let preset = validation_preset_for_config(config);
     let mut options = validation_options_for_preset(preset);
 
@@ -66,7 +86,7 @@ pub fn validation_options_for_config(config: &EffectiveConfig) -> OptionUniverse
     if config
         .option_universes
         .iter()
-        .any(|spec| option_universe_requires_contract_state(spec))
+        .any(option_universe_requires_contract_state)
     {
         options.require_contract_state = true;
     }
@@ -98,9 +118,11 @@ fn config_has_research_baseline(config: &EffectiveConfig) -> bool {
         spec.bar_type
             .to_string()
             .contains("BTC-PERPETUAL.DERIBIT-1-MINUTE-LAST-EXTERNAL")
-    }) || config.plan.custom_data.iter().any(|spec| {
-        spec.data_type.type_name() == "DeribitVolatilityIndex"
-    })
+    }) || config
+        .plan
+        .custom_data
+        .iter()
+        .any(|spec| spec.data_type.type_name() == "DeribitVolatilityIndex")
 }
 
 fn option_universe_requires_contract_state(
@@ -216,10 +238,9 @@ mod tests {
     #[test]
     fn validation_options_for_config_adds_bybit_trade_requirement() {
         let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let config = crate::config::load_config(
-            &repo_root.join("examples/capture.bybit-btc-universe.toml"),
-        )
-        .expect("example should load");
+        let config =
+            crate::config::load_config(&repo_root.join("examples/capture.bybit-btc-universe.toml"))
+                .expect("example should load");
         let effective = crate::config::resolve_config(config).expect("example should resolve");
         let options = validation_options_for_config(&effective);
         assert_eq!(options.min_perp_trade_rows, 1);
@@ -227,7 +248,8 @@ mod tests {
 
     #[test]
     fn merge_validation_options_keeps_preset_unless_overridden() {
-        let base = validation_options_for_preset(OptionUniverseCatalogValidationPreset::PostCapture);
+        let base =
+            validation_options_for_preset(OptionUniverseCatalogValidationPreset::PostCapture);
         let merged = merge_validation_options(
             base,
             &OptionUniverseCatalogValidationOverrides {

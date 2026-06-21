@@ -1,3 +1,17 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 mod catalog;
 mod catalog_presets;
 mod discovery;
@@ -6,10 +20,10 @@ mod metadata;
 mod post_run_report;
 mod readback;
 mod report;
-mod validate_suite;
 #[cfg(test)]
 mod tests;
 mod validate;
+mod validate_suite;
 
 use std::collections::BTreeSet;
 
@@ -23,11 +37,8 @@ pub use catalog::{
     validate_option_universe_catalog, OptionUniverseCatalogValidationReport,
 };
 pub use catalog_presets::{
-    merge_validation_options, validation_options_for_preset, OptionUniverseCatalogValidationOverrides,
-    OptionUniverseCatalogValidationPreset,
-};
-pub use post_run_report::{
-    run_option_universe_post_run_report, OptionUniverseOutputFormat, PostRunReportOptions,
+    merge_validation_options, validation_options_for_preset,
+    OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
 };
 pub use discovery::resolve_option_universe_spec;
 pub use history::{
@@ -35,15 +46,16 @@ pub use history::{
     render_option_universe_summaries_text,
 };
 pub use metadata::{
-    render_option_universe_metadata_validation_json, render_option_universe_metadata_validation_text,
-    validate_option_universe_metadata, validation_options_from_cli, StrikeModeArg,
+    render_option_universe_metadata_validation_json,
+    render_option_universe_metadata_validation_text, validate_option_universe_metadata,
+    validation_options_from_cli, StrikeModeArg,
+};
+pub use post_run_report::{
+    run_option_universe_post_run_report, OptionUniverseOutputFormat, PostRunReportOptions,
 };
 pub use readback::{
     readback_options_for_config, readback_options_from_cli, render_option_universe_readback_json,
     render_option_universe_readback_text, run_option_universe_readback_validation,
-};
-pub use validate_suite::{
-    run_option_universe_validation_suite, OptionUniverseValidationSuiteOptions,
 };
 pub use report::{
     build_option_universe_resolution_report, render_option_universe_reports_json,
@@ -51,6 +63,9 @@ pub use report::{
     OptionUniverseResolutionReport,
 };
 pub use validate::validate_option_universes;
+pub use validate_suite::{
+    run_option_universe_validation_suite, OptionUniverseValidationSuiteOptions,
+};
 
 #[derive(Debug, Clone)]
 pub struct MaterializedOptionUniversePlan {

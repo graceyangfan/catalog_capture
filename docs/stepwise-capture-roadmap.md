@@ -41,17 +41,17 @@
 
 ### 关键约束
 
-1. **Actor 主路径仍是 subscribe + cache bootstrap**  
-   `on_start` 先 `bootstrap_instruments`（`subscribe_instrument` + cache 快照，冷 cache 时 `request_instrument`），再订阅行情。  
+1. **Actor 主路径仍是 subscribe + cache bootstrap**
+   `on_start` 先 `bootstrap_instruments`（`subscribe_instrument` + cache 快照，冷 cache 时 `request_instrument`），再订阅行情。
    **WS 实时流 = 主路径**；全量 universe HTTP 回填仍属 Step 8。
 
-2. **CLI runtime 已支持 `binance_futures`、`deribit`、`bybit`、`okx`**  
+2. **CLI runtime 已支持 `binance_futures`、`deribit`、`bybit`、`okx`**
    Derive 仍待 Step 4d；多 venue 单 job 已验证（Deribit + Binance）。
 
-3. **期权 universe 仍靠手写 `instrument_id`**  
+3. **期权 universe 仍靠手写 `instrument_id`**
    尚无按 underlying / expiry / OI 的发现与筛选。
 
-4. **不发明 schema**  
+4. **不发明 schema**
    `CustomData` 必须原样录制 adapter 已发出的 `type_name` 与 payload（见 `docs/custom-data-contract.md`）。
 
 ---
@@ -232,8 +232,8 @@ flowchart LR
 
 ### 范围
 
-**交易所**：Deribit  
-**标的**：BTC、ETH  
+**交易所**：Deribit
+**标的**：BTC、ETH
 **Profile**：`targeted_derivatives`（见 `docs/native-custom-data-targets.md`）
 
 | 腿 | 合约示例 | 数据家族 |
@@ -395,9 +395,9 @@ flowchart LR
 
 ### 工作项
 
-1. **扩展 capture 运行时**：二选一  
-   - **方案 A（推荐）**：新增 `CaptureScheduler` actor，定时 `request_data` → `on_data` 落盘  
-   - **方案 B**：独立 `catalog-capture-backfill` CLI，与 live 分离  
+1. **扩展 capture 运行时**：二选一
+   - **方案 A（推荐）**：新增 `CaptureScheduler` actor，定时 `request_data` → `on_data` 落盘
+   - **方案 B**：独立 `catalog-capture-backfill` CLI，与 live 分离
 2. 配置面：`[[capture.custom_data_requests]]`（interval_secs、type_name、identifier）
 3. 验证 OI 快照与 WS greeks 内嵌 OI 可交叉核对
 

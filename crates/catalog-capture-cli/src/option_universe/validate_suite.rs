@@ -1,3 +1,17 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 use std::path::Path;
 
 use anyhow::Result;
@@ -20,16 +34,16 @@ use super::history::{
     load_option_universe_summaries, render_option_universe_summaries_json,
     render_option_universe_summaries_text,
 };
+use super::metadata::{metadata_validation_options_for_config, strike_profile_from_spec};
 use super::metadata::{
-    render_option_universe_metadata_validation_json, render_option_universe_metadata_validation_text,
-    validate_option_universe_metadata,
+    render_option_universe_metadata_validation_json,
+    render_option_universe_metadata_validation_text, validate_option_universe_metadata,
 };
 use super::post_run_report::OptionUniverseOutputFormat;
 use super::readback::{
     readback_options_for_config, render_option_universe_readback_json,
     render_option_universe_readback_text, run_option_universe_readback_validation,
 };
-use super::metadata::{metadata_validation_options_for_config, strike_profile_from_spec};
 
 #[derive(Debug, Clone)]
 pub struct OptionUniverseValidationSuiteOptions {
@@ -109,7 +123,10 @@ pub fn run_option_universe_validation_suite(
             run_option_universe_readback_validation(catalog_root, &readback_options)?;
         match options.format {
             OptionUniverseOutputFormat::Json => {
-                println!("{}", render_option_universe_readback_json(&readback_report)?);
+                println!(
+                    "{}",
+                    render_option_universe_readback_json(&readback_report)?
+                );
             }
             OptionUniverseOutputFormat::Text => {
                 println!("{}", render_option_universe_readback_text(&readback_report));
@@ -139,7 +156,10 @@ pub fn run_option_universe_validation_suite(
             );
         }
         OptionUniverseOutputFormat::Text => {
-            println!("{}", render_option_universe_catalog_validation_text(&catalog_reports));
+            println!(
+                "{}",
+                render_option_universe_catalog_validation_text(&catalog_reports)
+            );
         }
     }
 

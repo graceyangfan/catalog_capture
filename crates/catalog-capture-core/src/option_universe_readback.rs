@@ -1,10 +1,24 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 use nautilus_model::{
     data::{
-        close::InstrumentClose, IndexPriceUpdate,
-        InstrumentStatus, MarkPriceUpdate, OptionGreeks, QuoteTick, TradeTick,
+        close::InstrumentClose, IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks,
+        QuoteTick, TradeTick,
     },
     identifiers::InstrumentId,
     instruments::Instrument,
@@ -83,12 +97,9 @@ fn validate_option_universe_readback_inner(
 
     let mut catalog = ParquetDataCatalog::new(catalog_root, None, None, None, None);
 
-    for instrument_id in std::iter::once(options.perp_instrument_id.as_str()).chain(
-        options
-            .option_instrument_ids
-            .iter()
-            .map(String::as_str),
-    ) {
+    for instrument_id in std::iter::once(options.perp_instrument_id.as_str())
+        .chain(options.option_instrument_ids.iter().map(String::as_str))
+    {
         assert_instrument_metadata(&catalog, instrument_id)?;
     }
 
@@ -97,11 +108,7 @@ fn validate_option_universe_readback_inner(
     let bars = validate_bars(&mut catalog, &options.bar_types, options.min_rows)?;
     let mut option_reports = Vec::with_capacity(options.option_instrument_ids.len());
     for option_id in &options.option_instrument_ids {
-        option_reports.push(validate_option_readback(
-            &mut catalog,
-            option_id,
-            options,
-        )?);
+        option_reports.push(validate_option_readback(&mut catalog, option_id, options)?);
     }
 
     Ok(OptionUniverseReadbackReport {
@@ -163,10 +170,7 @@ fn validate_option_readback(
     })
 }
 
-fn assert_instrument_metadata(
-    catalog: &ParquetDataCatalog,
-    instrument_id: &str,
-) -> Result<()> {
+fn assert_instrument_metadata(catalog: &ParquetDataCatalog, instrument_id: &str) -> Result<()> {
     let instruments = catalog
         .instruments(Some(&[instrument_id.to_string()]), None, None)
         .with_context(|| format!("failed to query instrument metadata for {instrument_id}"))?;
@@ -211,11 +215,7 @@ fn assert_mark_price_rows(
             true,
         )
         .with_context(|| format!("failed to read mark prices for {instrument_id}"))?;
-    assert_min_rows(
-        &rows,
-        min_rows,
-        &format!("mark_prices[{instrument_id}]"),
-    )?;
+    assert_min_rows(&rows, min_rows, &format!("mark_prices[{instrument_id}]"))?;
     assert_matching_instrument_ids(
         &rows,
         instrument_id,
@@ -243,11 +243,7 @@ fn assert_index_price_rows(
             true,
         )
         .with_context(|| format!("failed to read index prices for {instrument_id}"))?;
-    assert_min_rows(
-        &rows,
-        min_rows,
-        &format!("index_prices[{instrument_id}]"),
-    )?;
+    assert_min_rows(&rows, min_rows, &format!("index_prices[{instrument_id}]"))?;
     assert_matching_instrument_ids(
         &rows,
         instrument_id,
@@ -268,11 +264,7 @@ fn assert_trade_rows(
     let rows = catalog
         .trade_ticks(Some(vec![instrument_id.to_string()]), None, None)
         .with_context(|| format!("failed to read trade ticks for {instrument_id}"))?;
-    assert_min_rows(
-        &rows,
-        min_rows,
-        &format!("trade_ticks[{instrument_id}]"),
-    )?;
+    assert_min_rows(&rows, min_rows, &format!("trade_ticks[{instrument_id}]"))?;
     assert_matching_instrument_ids(
         &rows,
         instrument_id,
@@ -293,11 +285,7 @@ fn assert_option_greeks_rows(
     let rows = catalog
         .option_greeks(Some(vec![instrument_id.to_string()]), None, None)
         .with_context(|| format!("failed to read option greeks for {instrument_id}"))?;
-    assert_min_rows(
-        &rows,
-        min_rows,
-        &format!("option_greeks[{instrument_id}]"),
-    )?;
+    assert_min_rows(&rows, min_rows, &format!("option_greeks[{instrument_id}]"))?;
     assert_matching_instrument_ids(
         &rows,
         instrument_id,
@@ -328,10 +316,7 @@ fn assert_option_greeks_rows(
     Ok(rows.len())
 }
 
-fn validate_funding_rates(
-    catalog: &mut ParquetDataCatalog,
-    instrument_id: &str,
-) -> Result<usize> {
+fn validate_funding_rates(catalog: &mut ParquetDataCatalog, instrument_id: &str) -> Result<usize> {
     let rows = catalog
         .funding_rates(Some(vec![instrument_id.to_string()]), None, None)
         .with_context(|| format!("failed to read funding rates for {instrument_id}"))?;
@@ -430,10 +415,7 @@ where
     T: InstrumentIdRow,
 {
     let expected = InstrumentId::from(instrument_id);
-    if rows
-        .iter()
-        .any(|row| row.instrument_id() != expected)
-    {
+    if rows.iter().any(|row| row.instrument_id() != expected) {
         bail!("{label} contained rows for unexpected instrument ids");
     }
     Ok(())
@@ -534,12 +516,22 @@ mod tests {
             .write_to_parquet(vec![quote], None, None, None)
             .expect("write perp quote");
 
-        let mark = MarkPriceUpdate::new(perp, Price::from("1000"), UnixNanos::from(1_000), UnixNanos::from(1_000));
+        let mark = MarkPriceUpdate::new(
+            perp,
+            Price::from("1000"),
+            UnixNanos::from(1_000),
+            UnixNanos::from(1_000),
+        );
         catalog
             .write_to_parquet(vec![mark], None, None, None)
             .expect("write perp mark");
 
-        let index = IndexPriceUpdate::new(perp, Price::from("1001"), UnixNanos::from(1_000), UnixNanos::from(1_000));
+        let index = IndexPriceUpdate::new(
+            perp,
+            Price::from("1001"),
+            UnixNanos::from(1_000),
+            UnixNanos::from(1_000),
+        );
         catalog
             .write_to_parquet(vec![index], None, None, None)
             .expect("write perp index");
@@ -569,7 +561,12 @@ mod tests {
             .write_to_parquet(vec![option_quote], None, None, None)
             .expect("write option quote");
 
-        let option_mark = MarkPriceUpdate::new(option, Price::from("10"), UnixNanos::from(2_000), UnixNanos::from(2_000));
+        let option_mark = MarkPriceUpdate::new(
+            option,
+            Price::from("10"),
+            UnixNanos::from(2_000),
+            UnixNanos::from(2_000),
+        );
         catalog
             .write_to_parquet(vec![option_mark], None, None, None)
             .expect("write option mark");
@@ -601,10 +598,8 @@ mod tests {
 
     #[test]
     fn validate_option_universe_readback_accepts_minimal_catalog() {
-        let root = std::env::temp_dir().join(format!(
-            "option-universe-readback-{}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("option-universe-readback-{}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
         let (perp_id, option_id) = write_minimal_option_universe_catalog(&root);
 

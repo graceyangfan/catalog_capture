@@ -1,3 +1,17 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 use std::{fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Context, Result};
@@ -30,14 +44,11 @@ use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory}
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 use crate::option_universe::{
     materialize_capture_plan_with_reports, run_option_universe_post_run_report,
-    startup_resolution_record_from_report, validate_option_universes, OptionUniverseResolutionReport,
-    PostRunReportOptions,
+    startup_resolution_record_from_report, validate_option_universes,
+    OptionUniverseResolutionReport, PostRunReportOptions,
 };
 
-pub async fn run_capture(
-    config: EffectiveConfig,
-    post_run: PostRunReportOptions,
-) -> Result<()> {
+pub async fn run_capture(config: EffectiveConfig, post_run: PostRunReportOptions) -> Result<()> {
     let materialized = materialize_capture_plan_with_reports(&config).await?;
     run_capture_with_plan_and_reports(config, materialized.plan, &materialized.reports, post_run)
         .await
@@ -577,10 +588,17 @@ fn require_venue(
     requirement: VenueRequirement,
     error: &str,
 ) -> Result<()> {
-    let matches_requirement = venues.iter().any(|venue| match (requirement, venue) {
-        (VenueRequirement::Deribit, VenueRuntimeConfig::Deribit { .. }) => true,
-        (VenueRequirement::Hyperliquid, VenueRuntimeConfig::Hyperliquid { .. }) => true,
-        _ => false,
+    let matches_requirement = venues.iter().any(|venue| {
+        matches!(
+            (requirement, venue),
+            (
+                VenueRequirement::Deribit,
+                VenueRuntimeConfig::Deribit { .. }
+            ) | (
+                VenueRequirement::Hyperliquid,
+                VenueRuntimeConfig::Hyperliquid { .. }
+            )
+        )
     });
     if matches_requirement {
         return Ok(());

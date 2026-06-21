@@ -6,7 +6,7 @@ TMP_ROOT="/tmp"
 DRY_RUN=0
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage: scripts/cleanup-tmp-captures.sh [tmp_root] [--dry-run]
 
 Deletes:
@@ -19,7 +19,7 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -h|--help)
+    -h | --help)
       usage
       exit 0
       ;;
@@ -44,7 +44,7 @@ mapfile -t TARGETS < <(
     -name 'nautilus-catalog-capture-*' -o \
     -name 'capture.*-universe-smoke.*.toml' -o \
     -name 'capture.*-autorefresh-btc-universe-smoke.*.toml' \
-  \) -print 2>/dev/null | sort
+    \) -print 2> /dev/null | sort
 )
 
 if [[ ${#TARGETS[@]} -eq 0 ]]; then

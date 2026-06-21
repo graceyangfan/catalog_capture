@@ -9,7 +9,7 @@ CARGO="${CARGO:-cargo}"
 TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.96.0}"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage: scripts/healthcheck-option-universe.sh --config <path> [--catalog-uri <uri>]
 
 Runs validate-option-universe-metadata against the catalog referenced by the config.
@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
       CATALOG_URI="$2"
       shift 2
       ;;
-    -h|--help)
+    -h | --help)
       usage
       exit 0
       ;;

@@ -1,10 +1,24 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 use std::path::Path;
 
 use anyhow::{bail, Result};
 use catalog_capture_core::{
     read_option_universe_resolution_records, summarize_option_universe_resolution_records,
-    validate_option_universe_readback, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
-    OptionUniverseReadbackOptions, OptionUniverseReadbackReport, StrikePolicy,
+    validate_option_universe_readback, OptionUniverseReadbackOptions, OptionUniverseReadbackReport,
+    StrikePolicy, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
 };
 
 use crate::config::EffectiveConfig;
@@ -56,8 +70,8 @@ pub fn readback_options_from_cli(
     require_contract_state: bool,
     bar_types: Vec<String>,
 ) -> Result<OptionUniverseReadbackOptions> {
-    let perp_instrument_id = perp_instrument_id
-        .ok_or_else(|| anyhow::anyhow!("--perp-id is required"))?;
+    let perp_instrument_id =
+        perp_instrument_id.ok_or_else(|| anyhow::anyhow!("--perp-id is required"))?;
     if option_instrument_ids.is_empty() {
         bail!("at least one --option-id is required");
     }
@@ -79,7 +93,9 @@ pub fn run_option_universe_readback_validation(
     validate_option_universe_readback(catalog_root, options)
 }
 
-pub fn render_option_universe_readback_json(report: &OptionUniverseReadbackReport) -> Result<String> {
+pub fn render_option_universe_readback_json(
+    report: &OptionUniverseReadbackReport,
+) -> Result<String> {
     serde_json::to_string_pretty(report)
         .map_err(|err| anyhow::anyhow!("failed to render option universe readback: {err}"))
 }
@@ -186,7 +202,10 @@ mod tests {
         catalog_capture_core::append_option_universe_resolution_records(&temp, &[record]).unwrap();
 
         let options = readback_options_for_config(&effective, &temp, false).expect("options");
-        assert_eq!(options.option_instrument_ids.len(), ALL_STRIKES_READBACK_SAMPLE_LIMIT);
+        assert_eq!(
+            options.option_instrument_ids.len(),
+            ALL_STRIKES_READBACK_SAMPLE_LIMIT
+        );
 
         std::fs::remove_dir_all(temp).ok();
     }

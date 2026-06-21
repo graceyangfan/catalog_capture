@@ -6,23 +6,63 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUSTUP_TOOLCHAIN: 1.96.0
+  NAUTILUS_TRADER_REF: develop
 
 jobs:
-  test:
+  pre-commit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout catalog capture
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
         with:
           path: nautilus_catalog_capture
 
       - name: Checkout nautilus_trader
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
         with:
           repository: nautechsystems/nautilus_trader
+          ref: ${{ env.NAUTILUS_TRADER_REF }}
+          path: nautilus_trader
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit
+        working-directory: nautilus_catalog_capture
+        run: pre-commit run --all-files
+
+  test:
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    steps:
+      - name: Checkout catalog capture
+        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        with:
+          path: nautilus_catalog_capture
+
+      - name: Checkout nautilus_trader
+        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        with:
+          repository: nautechsystems/nautilus_trader
+          ref: ${{ env.NAUTILUS_TRADER_REF }}
           path: nautilus_trader
           submodules: recursive
 
@@ -44,3 +84,32 @@ jobs:
       - name: Run clippy
         working-directory: nautilus_catalog_capture
         run: cargo clippy --workspace --all-targets -- -D warnings
+
+  cargo-deny:
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    steps:
+      - name: Checkout catalog capture
+        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        with:
+          path: nautilus_catalog_capture
+
+      - name: Checkout nautilus_trader
+        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        with:
+          repository: nautechsystems/nautilus_trader
+          ref: ${{ env.NAUTILUS_TRADER_REF }}
+          path: nautilus_trader
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --version 0.19.9 --locked
+
+      - name: Check licenses
+        working-directory: nautilus_catalog_capture
+        run: cargo deny check licenses

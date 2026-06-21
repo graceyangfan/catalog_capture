@@ -9,10 +9,17 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
+rust-version = "1.96.0"
 version = "0.1.0"
 authors = ["yfclark", "Codex"]
-license = "Apache-2.0"
+license = "LGPL-3.0-or-later"
+readme = "README.md"
+description = "Direct runtime-to-catalog capture for Nautilus Trader"
+repository = "https://github.com/graceyangfan/nautilus_catalog_capture"
 publish = false
+
+[workspace.metadata.tools]
+cargo-deny = "0.19.9"
 
 [workspace.dependencies]
 ahash = "0.8"
@@ -24,20 +31,36 @@ rust_decimal = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tokio = { version = "1", features = [
+  "macros",
+  "rt-multi-thread",
+  "signal",
+  "time",
+] }
 toml = "0.8"
 ustr = "1.1.0"
-nautilus-binance = { path = "../nautilus_trader/crates/adapters/binance", features = ["examples"] }
+nautilus-binance = { path = "../nautilus_trader/crates/adapters/binance", features = [
+  "examples",
+] }
 nautilus-bybit = { path = "../nautilus_trader/crates/adapters/bybit" }
-nautilus-deribit = { path = "../nautilus_trader/crates/adapters/deribit", features = ["arrow"] }
+nautilus-deribit = { path = "../nautilus_trader/crates/adapters/deribit", features = [
+  "arrow",
+] }
 nautilus-okx = { path = "../nautilus_trader/crates/adapters/okx" }
 nautilus-common = { path = "../nautilus_trader/crates/common" }
 nautilus-core = { path = "../nautilus_trader/crates/core" }
-nautilus-hyperliquid = { path = "../nautilus_trader/crates/adapters/hyperliquid", features = ["arrow", "python"] }
-nautilus-live = { path = "../nautilus_trader/crates/live", default-features = false, features = ["node"] }
+nautilus-hyperliquid = { path = "../nautilus_trader/crates/adapters/hyperliquid", features = [
+  "arrow",
+  "python",
+] }
+nautilus-live = { path = "../nautilus_trader/crates/live", default-features = false, features = [
+  "node",
+] }
 nautilus-model = { path = "../nautilus_trader/crates/model" }
 nautilus-persistence = { path = "../nautilus_trader/crates/persistence" }
-nautilus-serialization = { path = "../nautilus_trader/crates/serialization", features = ["arrow"] }
+nautilus-serialization = { path = "../nautilus_trader/crates/serialization", features = [
+  "arrow",
+] }
 
 [patch.crates-io]
 # Align with nautilus_trader: PyO3 0.29 needs the patched pyo3-stub-gen crate.

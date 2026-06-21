@@ -176,8 +176,25 @@ cargo +1.96.0 run -p catalog-capture-cli -- validate-option-universe \
   --option-universe-format text
 ```
 
+## License
+
+This project is licensed under the [GNU Lesser General Public License v3.0 or later](https://www.gnu.org/licenses/lgpl-3.0.en.html).
+It links against [Nautilus Trader](https://github.com/nautechsystems/nautilus_trader) (LGPL-3.0-or-later).
+See `NOTICE` and `TRADEMARK.md`.
+
+## Development
+
+```bash
+make install-tools
+pip install pre-commit && pre-commit install
+make test && make clippy && make cargo-deny
+```
+
+Documentation map: [docs/index.md](docs/index.md).
+
 ## Documents
 
+- [docs/index.md](docs/index.md)
 - `docs/rfc.md`
 - `docs/architecture.md`
 - `docs/production-architecture.md`

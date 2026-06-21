@@ -14,7 +14,7 @@
 
 ### 1. 先采原始事件，再离线派生
 
-对于 ML 和期权研究，最容易后悔的事情是“采少了”。  
+对于 ML 和期权研究，最容易后悔的事情是“采少了”。
 `GEX`、`skew`、`term structure`、`implied move`、`lead-lag`、`vol regime` 这些都应该尽量由离线任务从原始数据复算，而不是把派生结果当成唯一真相源。
 
 ### 2. 同时采集标的层与期权层
@@ -30,7 +30,7 @@
 
 ### 3. 保留事件时间与接收时间
 
-所有高频与跨 venue 分析都依赖严格的时间语义。  
+所有高频与跨 venue 分析都依赖严格的时间语义。
 采集时必须尽可能保留：
 
 - `ts_event`
@@ -47,7 +47,7 @@
 
 ### 4. 采集阶段少做不可逆降采样
 
-不要在 capture 阶段就把 tick 数据强行聚成分钟线。  
+不要在 capture 阶段就把 tick 数据强行聚成分钟线。
 `Bar` 可以作为补充，但不能替代 `QuoteTick`、`TradeTick`、`OrderBookDelta`、`OptionGreeks` 这些原始事件。
 
 ### 5. 按“研究用途”设计采集，而不是按“页面组件”设计采集
@@ -87,7 +87,7 @@
   `[[capture.*]]` 支持；`option_chains` 与显式 `ForwardPrice` capture 仍待补齐。
 - 期权 universe 已支持 Deribit / Bybit / OKX；Binance / Derive 仍在 roadmap。
 
-这意味着：  
+这意味着：
 当前仓库已经具备“研究级采集器”的基本雏形，但离“真正适合期权 ML 与跨 venue 衍生品研究”的第一版，还缺关键数据面和更好的配置抽象。
 
 ## 我们应该优先采集哪些数据
@@ -409,7 +409,7 @@
 
 ## 期权 universe 选择建议
 
-第一阶段不建议一开始对所有远端 long-tail strike 做全深度录制。  
+第一阶段不建议一开始对所有远端 long-tail strike 做全深度录制。
 更合理的顺序是：
 
 1. 全量录制期权 `quotes + trades + mark_prices + option_greeks`
@@ -426,12 +426,12 @@
 
 ### 1. 事件排序必须稳定
 
-同一 `instrument_id` 下必须优先保证事件顺序和时间语义稳定。  
+同一 `instrument_id` 下必须优先保证事件顺序和时间语义稳定。
 对于跨 venue 分析，也要尽量避免不同数据家族在写入时出现不可解释的乱序。
 
 ### 2. 必须有丢数可观测性
 
-当前默认配置里存在 `overflow_policy`。  
+当前默认配置里存在 `overflow_policy`。
 如果使用 `drop_oldest`，必须同步记录：
 
 - queue depth
@@ -626,7 +626,7 @@ forward（`underlying_price` / forward API），perp 仅作 hedge leg。
 
 具体设计草案见 `docs/option-universe-manager-design.md`。
 
-其中第 4 点非常关键。  
+其中第 4 点非常关键。
 期权不能像单一永续那样把 `instrument_id` 硬编码完事，更现实的做法是支持：
 
 - 按 underlying 发现
@@ -636,7 +636,7 @@ forward（`underlying_price` / forward API），perp 仅作 hedge leg。
 
 ## 第二优先级：支持更适合研究的配置抽象
 
-当前配置是“逐个 instrument 明确列出”的方式。  
+当前配置是“逐个 instrument 明确列出”的方式。
 对于期权研究，建议后续扩展两类 selector：
 
 ### 家族选择器

@@ -1,31 +1,46 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 mod config;
 mod option_universe;
 mod runner;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use catalog_capture_core::catalog_root_from_uri;
+use catalog_capture_core::{
+    OptionUniverseReadbackReport, OptionUniverseResolutionValidationReport,
+};
 use clap::{Parser, Subcommand, ValueEnum};
 use config::{load_config, render_effective_config, resolve_config, EffectiveConfig};
 use option_universe::{
     load_option_universe_summaries, materialize_capture_plan_with_reports,
-    merge_validation_options, render_option_universe_catalog_validation_json,
-    render_option_universe_catalog_validation_text, render_option_universe_metadata_validation_json,
-    render_option_universe_metadata_validation_text, render_option_universe_reports_json,
+    merge_validation_options, readback_options_for_config, readback_options_from_cli,
+    render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
+    render_option_universe_metadata_validation_json,
+    render_option_universe_metadata_validation_text, render_option_universe_readback_json,
+    render_option_universe_readback_text, render_option_universe_reports_json,
     render_option_universe_reports_text, render_option_universe_summaries_json,
     render_option_universe_summaries_text, resolve_option_universe_reports,
-    readback_options_for_config, readback_options_from_cli, render_option_universe_readback_json,
-    render_option_universe_readback_text, run_option_universe_readback_validation,
-    run_option_universe_validation_suite, validate_option_universe_catalog,
-    validate_option_universe_metadata, validation_options_for_preset, validation_options_from_cli,
-    OptionUniverseValidationSuiteOptions, StrikeModeArg,
+    run_option_universe_readback_validation, run_option_universe_validation_suite,
+    validate_option_universe_catalog, validate_option_universe_metadata,
+    validation_options_for_preset, validation_options_from_cli,
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
     OptionUniverseCatalogValidationReport, OptionUniverseOutputFormat,
-    OptionUniverseResolutionReport, PostRunReportOptions,
-};
-use catalog_capture_core::{
-    OptionUniverseReadbackReport, OptionUniverseResolutionValidationReport,
+    OptionUniverseResolutionReport, OptionUniverseValidationSuiteOptions, PostRunReportOptions,
+    StrikeModeArg,
 };
 use runner::{run_capture, run_capture_with_plan_and_reports, validate_runtime};
 
@@ -141,7 +156,10 @@ enum Command {
         min_rows: Option<i64>,
         #[arg(long, help = "Override preset/default minimum perp trade rows")]
         min_perp_trade_rows: Option<i64>,
-        #[arg(long, help = "Require instrument_status and instrument_closes parquet rows")]
+        #[arg(
+            long,
+            help = "Require instrument_status and instrument_closes parquet rows"
+        )]
         require_contract_state: bool,
         #[arg(long, help = "Require at least one applied runtime refresh delta")]
         require_refresh_change: bool,
@@ -155,7 +173,11 @@ enum Command {
         option_universe_format: OptionUniverseOutputFormatArg,
         #[arg(long, help = "Require at least one applied runtime refresh delta")]
         require_refresh_change: bool,
-        #[arg(long, value_enum, help = "Assert strike_selection_mode-specific metadata shape")]
+        #[arg(
+            long,
+            value_enum,
+            help = "Assert strike_selection_mode-specific metadata shape"
+        )]
         strike_mode: Option<StrikeModeArg>,
         #[arg(long, help = "Expected oi_ranked_top_n when --strike-mode oi-ranked")]
         oi_ranked_top_n: Option<usize>,
@@ -172,7 +194,10 @@ enum Command {
         option_universe_format: OptionUniverseOutputFormatArg,
         #[arg(long, help = "Hedge/reference perp instrument id")]
         perp_id: Option<String>,
-        #[arg(long, help = "Option instrument id to validate; repeat for multiple options")]
+        #[arg(
+            long,
+            help = "Option instrument id to validate; repeat for multiple options"
+        )]
         option_id: Vec<String>,
         #[arg(long, help = "Minimum rows per readback family (default: 1)")]
         min_rows: Option<i64>,
@@ -195,17 +220,20 @@ enum Command {
         config: PathBuf,
         #[arg(long, value_enum, default_value_t = OptionUniverseOutputFormatArg::Json)]
         option_universe_format: OptionUniverseOutputFormatArg,
+        #[arg(long, value_enum, help = "Override inferred catalog validation preset")]
+        preset: Option<OptionUniverseCatalogValidationPresetArg>,
         #[arg(
             long,
-            value_enum,
-            help = "Override inferred catalog validation preset"
+            help = "Require instrument_status and instrument_closes parquet rows"
         )]
-        preset: Option<OptionUniverseCatalogValidationPresetArg>,
-        #[arg(long, help = "Require instrument_status and instrument_closes parquet rows")]
         require_contract_state: bool,
         #[arg(long, help = "Require at least one applied runtime refresh delta")]
         require_refresh_change: bool,
-        #[arg(long, value_enum, help = "Override strike_selection_mode metadata assertions")]
+        #[arg(
+            long,
+            value_enum,
+            help = "Override strike_selection_mode metadata assertions"
+        )]
         strike_mode: Option<StrikeModeArg>,
         #[arg(long, help = "Expected oi_ranked_top_n when --strike-mode oi-ranked")]
         oi_ranked_top_n: Option<usize>,
@@ -220,7 +248,10 @@ enum Command {
         skip_readback: bool,
         #[arg(long, help = "Override hedge/reference perp id for readback")]
         perp_id: Option<String>,
-        #[arg(long, help = "Override option ids for readback; repeat for multiple options")]
+        #[arg(
+            long,
+            help = "Override option ids for readback; repeat for multiple options"
+        )]
         option_id: Vec<String>,
     },
 }
@@ -312,7 +343,9 @@ async fn main() -> Result<()> {
                 .map(Into::into)
                 .map(validation_options_for_preset)
                 .unwrap_or_else(|| {
-                    validation_options_for_preset(OptionUniverseCatalogValidationPreset::PostCapture)
+                    validation_options_for_preset(
+                        OptionUniverseCatalogValidationPreset::PostCapture,
+                    )
                 });
             let options = merge_validation_options(
                 base,
@@ -325,7 +358,10 @@ async fn main() -> Result<()> {
                 },
             );
             let reports = validate_option_universe_catalog(&catalog_root, &options)?;
-            print_option_universe_catalog_validation_values(&reports, option_universe_format.into())?;
+            print_option_universe_catalog_validation_values(
+                &reports,
+                option_universe_format.into(),
+            )?;
         }
         Command::ValidateOptionUniverseMetadata {
             catalog_uri,
@@ -373,8 +409,7 @@ async fn main() -> Result<()> {
                     bar_type,
                 )?
             };
-            let report =
-                run_option_universe_readback_validation(&catalog_root, &options)?;
+            let report = run_option_universe_readback_validation(&catalog_root, &options)?;
             print_option_universe_readback_values(&report, option_universe_format.into())?;
         }
         Command::ValidateOptionUniverse {
@@ -394,12 +429,8 @@ async fn main() -> Result<()> {
         } => {
             let catalog_root = catalog_root_from_uri(&catalog_uri)?;
             let effective = load_validated_config(&config)?;
-            let metadata_options = validation_options_from_cli(
-                false,
-                strike_mode,
-                oi_ranked_top_n,
-                all_min_strikes,
-            )?;
+            let metadata_options =
+                validation_options_from_cli(false, strike_mode, oi_ranked_top_n, all_min_strikes)?;
             println!("=== Option universe validation suite ===");
             println!("Catalog dir: {}", catalog_root.display());
             println!("Config: {}", config.display());
@@ -442,7 +473,7 @@ fn build_post_run_report_options(
     }
 }
 
-fn load_validated_config(path: &PathBuf) -> Result<EffectiveConfig> {
+fn load_validated_config(path: &Path) -> Result<EffectiveConfig> {
     let loaded = load_config(path)?;
     let effective = resolve_config(loaded)?;
     validate_runtime(&effective)?;
@@ -463,10 +494,10 @@ fn print_option_universe_report_values(
 ) -> Result<()> {
     match format {
         OptionUniverseOutputFormat::Json => {
-            println!("{}", render_option_universe_reports_json(&reports)?);
+            println!("{}", render_option_universe_reports_json(reports)?);
         }
         OptionUniverseOutputFormat::Text => {
-            println!("{}", render_option_universe_reports_text(&reports));
+            println!("{}", render_option_universe_reports_text(reports));
         }
     }
     Ok(())

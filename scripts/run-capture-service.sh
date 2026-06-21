@@ -11,7 +11,7 @@ CARGO="${CARGO:-cargo}"
 TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.96.0}"
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 Usage: scripts/run-capture-service.sh --config <path> [options]
 
 Options:
@@ -46,7 +46,7 @@ while [[ $# -gt 0 ]]; do
       LOG_DIR="$2"
       shift 2
       ;;
-    -h|--help)
+    -h | --help)
       usage
       exit 0
       ;;

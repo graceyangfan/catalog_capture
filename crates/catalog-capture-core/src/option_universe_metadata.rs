@@ -1,3 +1,17 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 use std::{
     fs::{self, OpenOptions},
     io::Write,
@@ -321,14 +335,11 @@ fn validate_refresh_resolution_record(
         );
     }
 
-    let reason = record
-        .rollover_reason
-        .as_deref()
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "option universe {venue_id}:{underlying} refresh metadata missing rollover_reason"
-            )
-        })?;
+    let reason = record.rollover_reason.as_deref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "option universe {venue_id}:{underlying} refresh metadata missing rollover_reason"
+        )
+    })?;
     if !REFRESH_ROLLOVER_REASONS.contains(&reason) {
         bail!(
             "option universe {venue_id}:{underlying} refresh rollover_reason unexpected: got {reason:?}, expected one of {:?}",
@@ -712,7 +723,9 @@ mod tests {
             },
         )
         .expect_err("missing refresh should fail");
-        assert!(err.to_string().contains("expected at least one refresh delta"));
+        assert!(err
+            .to_string()
+            .contains("expected at least one refresh delta"));
     }
 
     #[test]

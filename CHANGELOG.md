@@ -6,15 +6,27 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- LGPL-3.0-or-later license, `NOTICE`, and `TRADEMARK.md` aligned with Nautilus Trader.
+- LGPL copyright headers on all Rust sources under `crates/`.
+- `deny.toml`, `.cargo/config.toml`, and slim `.pre-commit-config.yaml`.
+- Documentation map: `docs/index.md`, getting started, developer guide, how-to, reference.
+- Crate-level `README.md` files.
+- CI jobs for pre-commit and `cargo deny check licenses`.
+
+### Changed
+
+- Project license from Apache-2.0 to LGPL-3.0-or-later.
+
+### Added (prior)
+
 - `runtime.capture_seconds = 0` daemon mode: run until `SIGTERM` or `Ctrl+C`.
 - Operator configs under `examples/operator/` for Deribit, OKX, and Bybit unattended capture.
 - Deployment templates: `deploy/launchd/` and `deploy/systemd/`.
 - Ops scripts: `scripts/cleanup-tmp-captures.sh`, `scripts/run-capture-service.sh`, `scripts/healthcheck-option-universe.sh`.
 - `Makefile` with build, test, soak, and cleanup targets.
 - GitHub Actions CI workflow for workspace unit tests.
-- Apache-2.0 `LICENSE`.
 
-### Changed
+### Changed (prior)
 
 - `nautilus_trader` path dependencies now use `../nautilus_trader` for sibling-repo layouts.
 

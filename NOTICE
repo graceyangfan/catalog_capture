@@ -1,0 +1,15 @@
+Nautilus Catalog Capture
+Copyright (C) 2026 yfclark and contributors
+
+This project is licensed under the GNU Lesser General Public License v3.0 or
+later. See LICENSE for the full license text.
+
+Third-party components
+----------------------
+
+This project links against Nautilus Trader (https://github.com/nautechsystems/nautilus_trader),
+which is licensed under the GNU Lesser General Public License v3.0 or later.
+
+Nautilus Trader is developed by Nautech Systems Pty Ltd. This repository is an
+independent deployment-focused capture layer and is not affiliated with or
+endorsed by Nautech Systems.

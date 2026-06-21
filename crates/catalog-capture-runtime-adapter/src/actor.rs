@@ -1,3 +1,17 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 use std::{collections::BTreeSet, fmt::Debug, mem::size_of};
 
 use anyhow::Result;
@@ -684,7 +698,7 @@ impl DataActor for CatalogCaptureActor {
                 println!("{line}");
             }
         }
-        let _ = self.submit_option_greeks(greeks.clone())?;
+        let _ = self.submit_option_greeks(*greeks)?;
         if self.forward_price_targets.contains(&greeks.instrument_id) {
             if let Some(forward_price) = forward_price_from_option_greeks(greeks) {
                 self.persist_forward_price(forward_price)?;

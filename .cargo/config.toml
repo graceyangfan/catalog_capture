@@ -1,0 +1,7 @@
+[build]
+rustdocflags = ["-D", "warnings"]
+
+[target.'cfg(all())']
+rustflags = [
+  "-Aclippy::drop_non_drop",
+]

@@ -1,3 +1,17 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 use std::collections::BTreeMap;
 
 use nautilus_model::{
@@ -283,10 +297,7 @@ impl UniverseState {
                 .filter(|option| option.strike == atm_strike)
                 .filter_map(|option| option.mark_iv_decimal)
                 .collect(),
-        );
-        if atm_iv_decimal.is_none() {
-            return None;
-        }
+        )?;
 
         let low_strike = strikes.iter().copied().reduce(f64::min)?;
         let high_strike = strikes.iter().copied().reduce(f64::max)?;
@@ -319,10 +330,8 @@ impl UniverseState {
                 .flatten()
                 .collect(),
         );
-        let rough_wing_richness_decimal = match (wing_average, atm_iv_decimal) {
-            (Some(wing_average), Some(atm_iv)) => Some(wing_average - atm_iv),
-            _ => None,
-        };
+        let rough_wing_richness_decimal =
+            wing_average.map(|wing_average| wing_average - atm_iv_decimal);
 
         let greeks_ready = self
             .options
@@ -340,7 +349,7 @@ impl UniverseState {
 
         Some(Snapshot {
             atm_strike,
-            atm_iv_decimal,
+            atm_iv_decimal: Some(atm_iv_decimal),
             low_put_iv_decimal,
             high_call_iv_decimal,
             rough_risk_reversal_decimal,
