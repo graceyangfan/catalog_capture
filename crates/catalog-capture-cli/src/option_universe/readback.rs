@@ -14,6 +14,7 @@ use super::catalog_presets::validation_options_for_config;
 pub fn readback_options_for_config(
     config: &EffectiveConfig,
     catalog_root: &Path,
+    require_contract_state: bool,
 ) -> Result<OptionUniverseReadbackOptions> {
     let records = read_option_universe_resolution_records(catalog_root)?;
     let summaries = summarize_option_universe_resolution_records(&records);
@@ -42,7 +43,7 @@ pub fn readback_options_for_config(
         option_instrument_ids,
         min_rows: 1,
         min_perp_trade_rows: catalog_options.min_perp_trade_rows,
-        require_contract_state: catalog_options.require_contract_state,
+        require_contract_state,
         bar_types: catalog_options.bar_types,
     })
 }
@@ -184,7 +185,7 @@ mod tests {
         );
         catalog_capture_core::append_option_universe_resolution_records(&temp, &[record]).unwrap();
 
-        let options = readback_options_for_config(&effective, &temp).expect("options");
+        let options = readback_options_for_config(&effective, &temp, false).expect("options");
         assert_eq!(options.option_instrument_ids.len(), ALL_STRIKES_READBACK_SAMPLE_LIMIT);
 
         std::fs::remove_dir_all(temp).ok();

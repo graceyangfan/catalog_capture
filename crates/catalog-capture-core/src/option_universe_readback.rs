@@ -55,6 +55,22 @@ pub fn validate_option_universe_readback(
     catalog_root: &Path,
     options: &OptionUniverseReadbackOptions,
 ) -> Result<OptionUniverseReadbackReport> {
+    // ParquetDataCatalog uses its own Tokio runtime via `get_runtime()`. Run readback
+    // off the CLI/live capture runtime thread to avoid nested-runtime panics.
+    let catalog_root = catalog_root.to_path_buf();
+    let options = options.clone();
+    std::thread::Builder::new()
+        .name("option-universe-readback".into())
+        .spawn(move || validate_option_universe_readback_inner(&catalog_root, &options))
+        .context("failed to spawn option universe readback validation thread")?
+        .join()
+        .map_err(|_| anyhow::anyhow!("option universe readback validation thread panicked"))?
+}
+
+fn validate_option_universe_readback_inner(
+    catalog_root: &Path,
+    options: &OptionUniverseReadbackOptions,
+) -> Result<OptionUniverseReadbackReport> {
     if options.min_rows <= 0 {
         bail!("min_rows must be positive");
     }

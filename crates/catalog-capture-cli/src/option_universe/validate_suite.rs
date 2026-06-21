@@ -168,7 +168,8 @@ fn readback_options_for_suite(
     catalog_root: &Path,
     options: &OptionUniverseValidationSuiteOptions,
 ) -> Result<OptionUniverseReadbackOptions> {
-    let mut readback_options = readback_options_for_config(config, catalog_root)?;
+    let mut readback_options =
+        readback_options_for_config(config, catalog_root, options.require_contract_state)?;
     if let Some(perp_id) = &options.readback_perp_id {
         readback_options.perp_instrument_id = perp_id.clone();
     }

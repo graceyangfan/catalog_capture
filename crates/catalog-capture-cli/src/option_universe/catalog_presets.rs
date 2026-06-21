@@ -28,7 +28,7 @@ pub fn validation_options_for_preset(
                 min_rows: 1,
                 min_perp_trade_rows: 0,
                 require_contract_state: false,
-                require_refresh_change: true,
+                require_refresh_change: false,
                 bar_types: Vec::new(),
             }
         }
@@ -157,11 +157,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rolling_autorefresh_preset_requires_refresh_change() {
+    fn rolling_autorefresh_preset_defers_refresh_change_to_explicit_flag() {
         let options = validation_options_for_preset(
             OptionUniverseCatalogValidationPreset::RollingAutorefresh,
         );
-        assert!(options.require_refresh_change);
+        assert!(!options.require_refresh_change);
+        let merged = merge_validation_options(
+            options,
+            &OptionUniverseCatalogValidationOverrides {
+                require_refresh_change: true,
+                ..OptionUniverseCatalogValidationOverrides::default()
+            },
+        );
+        assert!(merged.require_refresh_change);
     }
 
     #[test]

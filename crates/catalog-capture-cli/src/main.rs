@@ -362,7 +362,7 @@ async fn main() -> Result<()> {
             let catalog_root = catalog_root_from_uri(&catalog_uri)?;
             let options = if let Some(config_path) = config {
                 let effective = load_validated_config(&config_path)?;
-                readback_options_for_config(&effective, &catalog_root)?
+                readback_options_for_config(&effective, &catalog_root, require_contract_state)?
             } else {
                 readback_options_from_cli(
                     perp_id,
