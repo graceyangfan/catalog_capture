@@ -624,7 +624,7 @@ mod tests {
             UnixNanos::from(1_000),
         );
         catalog
-            .write_to_parquet(vec![quote], None, None, None)
+            .write_to_parquet(&[quote], None, None, None)
             .expect("write perp quote");
 
         let mark = MarkPriceUpdate::new(
@@ -634,7 +634,7 @@ mod tests {
             UnixNanos::from(1_000),
         );
         catalog
-            .write_to_parquet(vec![mark], None, None, None)
+            .write_to_parquet(&[mark], None, None, None)
             .expect("write perp mark");
 
         let index = IndexPriceUpdate::new(
@@ -644,7 +644,7 @@ mod tests {
             UnixNanos::from(1_000),
         );
         catalog
-            .write_to_parquet(vec![index], None, None, None)
+            .write_to_parquet(&[index], None, None, None)
             .expect("write perp index");
 
         let funding = FundingRateUpdate::new(
@@ -656,7 +656,7 @@ mod tests {
             UnixNanos::from(1_000),
         );
         catalog
-            .write_to_parquet(vec![funding], None, None, None)
+            .write_to_parquet(&[funding], None, None, None)
             .expect("write funding");
 
         let option_quote = QuoteTick::new(
@@ -669,7 +669,7 @@ mod tests {
             UnixNanos::from(2_000),
         );
         catalog
-            .write_to_parquet(vec![option_quote], None, None, None)
+            .write_to_parquet(&[option_quote], None, None, None)
             .expect("write option quote");
 
         let option_mark = MarkPriceUpdate::new(
@@ -679,7 +679,7 @@ mod tests {
             UnixNanos::from(2_000),
         );
         catalog
-            .write_to_parquet(vec![option_mark], None, None, None)
+            .write_to_parquet(&[option_mark], None, None, None)
             .expect("write option mark");
 
         let greeks = OptionGreeks {
@@ -701,7 +701,7 @@ mod tests {
             ts_init: UnixNanos::from(2_000),
         };
         catalog
-            .write_to_parquet(vec![greeks], None, None, None)
+            .write_to_parquet(&[greeks], None, None, None)
             .expect("write option greeks");
 
         (perp_id.to_string(), option_id.to_string())

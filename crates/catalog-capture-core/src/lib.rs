@@ -27,9 +27,6 @@ pub mod lifecycle;
 pub mod metrics;
 pub mod metrics_export;
 pub mod option_universe;
-pub mod option_universe_metadata;
-pub mod option_universe_readback;
-pub mod option_universe_rollover;
 pub mod plan;
 pub mod runtime;
 pub mod sink;
@@ -73,33 +70,27 @@ pub use metrics_export::{
     FamilyCaptureMetrics,
 };
 pub use option_universe::{
-    aggregate_open_interest_by_strike, derive_perp_instrument_id, expand_option_universe,
-    merge_capture_plans, okx_instrument_family, option_instrument_ids_at_selected_expiry,
-    resolve_option_universe, select_nearest_expiry_reference_instrument_id, ExpiryPolicy,
-    OptionUniverseFamily, OptionUniverseResolveError, OptionUniverseSpec, OptionUniverseVenueKind,
-    ResolvedOptionUniverse, StrikeOpenInterestByStrike, StrikePolicy,
-};
-pub use option_universe_metadata::{
-    append_option_universe_resolution_records, catalog_root_from_uri,
-    compute_refresh_rollover_reason, option_universe_resolution_log_path,
-    read_option_universe_resolution_records, refresh_resolution_record, startup_resolution_record,
-    summarize_option_universe_resolution_records, validate_option_universe_resolution_metadata,
-    validate_option_universe_resolution_records, OptionUniverseResolutionEventKind,
+    aggregate_open_interest_by_strike, append_option_universe_resolution_records,
+    catalog_root_from_uri, compute_refresh_rollover_reason, derive_perp_instrument_id,
+    expand_option_universe, merge_capture_plans, okx_instrument_family,
+    option_instrument_ids_at_selected_expiry, option_universe_resolution_log_path,
+    read_option_universe_resolution_records, refresh_resolution_record, resolve_option_universe,
+    sample_all_strikes_instrument_ids, select_nearest_expiry_reference_instrument_id,
+    should_apply_strike_change, startup_resolution_record,
+    summarize_option_universe_resolution_records, validate_option_universe_readback,
+    validate_option_universe_resolution_metadata, validate_option_universe_resolution_records,
+    BarReadbackCount, ExpiryPolicy, InstrumentReadbackCounts, OptionUniverseFamily,
+    OptionUniverseReadbackOptions, OptionUniverseReadbackReport, OptionUniverseResolutionEventKind,
     OptionUniverseResolutionRecord, OptionUniverseResolutionSummary,
     OptionUniverseResolutionValidationOptions, OptionUniverseResolutionValidationReport,
-    StrikeSelectionProfile, ALL_STRIKES_MIN_SELECTED_STRIKES,
+    OptionUniverseResolveError, OptionUniverseSpec, OptionUniverseVenueKind,
+    ResolvedOptionUniverse, StrikeChangeSmoothingState, StrikeOpenInterestByStrike, StrikePolicy,
+    StrikeSelectionProfile, ALL_STRIKES_MIN_SELECTED_STRIKES, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
 };
-pub use option_universe_readback::{
-    sample_all_strikes_instrument_ids, validate_option_universe_readback, BarReadbackCount,
-    InstrumentReadbackCounts, OptionUniverseReadbackOptions, OptionUniverseReadbackReport,
-    ALL_STRIKES_READBACK_SAMPLE_LIMIT,
-};
-pub use option_universe_rollover::{should_apply_strike_change, StrikeChangeSmoothingState};
 pub use plan::{
     capture_plan_difference, instrument_id_difference, plan_instrument_ids, BarCaptureSpec,
     BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags, CapturePlan, CustomDataCaptureSpec,
-    ForwardPriceCaptureSpec,
-    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
+    ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
     InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
     OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
 };

@@ -85,10 +85,7 @@ async fn serve_connection(
     let request = String::from_utf8_lossy(&buffer[..read]);
     let mut lines = request.lines();
     let request_line = lines.next().unwrap_or_default();
-    let path = request_line
-        .split_whitespace()
-        .nth(1)
-        .unwrap_or_default();
+    let path = request_line.split_whitespace().nth(1).unwrap_or_default();
 
     let snapshot = snapshot
         .read()
@@ -152,9 +149,7 @@ mod tests {
                 .expect("serve");
         });
 
-        let mut stream = tokio::net::TcpStream::connect(addr)
-            .await
-            .expect("connect");
+        let mut stream = tokio::net::TcpStream::connect(addr).await.expect("connect");
         stream
             .write_all(b"GET /metrics HTTP/1.1\r\nHost: localhost\r\n\r\n")
             .await

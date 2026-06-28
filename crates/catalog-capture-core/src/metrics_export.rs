@@ -153,18 +153,58 @@ fn append_runtime_gauges(out: &mut String, snapshot: &CaptureMetricsSnapshot) {
         &snapshot.enabled_background_workers.to_string(),
     );
     if let Some(rss) = snapshot.process_rss_bytes {
-        append_line(out, "catalog_capture_process_rss_bytes", "", &rss.to_string());
+        append_line(
+            out,
+            "catalog_capture_process_rss_bytes",
+            "",
+            &rss.to_string(),
+        );
     }
 }
 
 fn append_metrics_block(out: &mut String, prefix: &str, labels: &str, metrics: &CaptureMetrics) {
-    append_line(out, &format!("{prefix}_accepted_items_total"), labels, &metrics.accepted_items.to_string());
-    append_line(out, &format!("{prefix}_dropped_items_total"), labels, &metrics.dropped_items.to_string());
-    append_line(out, &format!("{prefix}_active_partitions"), labels, &metrics.active_partitions.to_string());
-    append_line(out, &format!("{prefix}_queued_items"), labels, &metrics.queued_items.to_string());
-    append_line(out, &format!("{prefix}_buffered_bytes"), labels, &metrics.buffered_bytes.to_string());
-    append_line(out, &format!("{prefix}_flushed_rows_total"), labels, &metrics.flushed_rows.to_string());
-    append_line(out, &format!("{prefix}_completed_files_total"), labels, &metrics.completed_files.to_string());
+    append_line(
+        out,
+        &format!("{prefix}_accepted_items_total"),
+        labels,
+        &metrics.accepted_items.to_string(),
+    );
+    append_line(
+        out,
+        &format!("{prefix}_dropped_items_total"),
+        labels,
+        &metrics.dropped_items.to_string(),
+    );
+    append_line(
+        out,
+        &format!("{prefix}_active_partitions"),
+        labels,
+        &metrics.active_partitions.to_string(),
+    );
+    append_line(
+        out,
+        &format!("{prefix}_queued_items"),
+        labels,
+        &metrics.queued_items.to_string(),
+    );
+    append_line(
+        out,
+        &format!("{prefix}_buffered_bytes"),
+        labels,
+        &metrics.buffered_bytes.to_string(),
+    );
+    append_line(
+        out,
+        &format!("{prefix}_flushed_rows_total"),
+        labels,
+        &metrics.flushed_rows.to_string(),
+    );
+    append_line(
+        out,
+        &format!("{prefix}_completed_files_total"),
+        labels,
+        &metrics.completed_files.to_string(),
+    );
     append_line(
         out,
         &format!("{prefix}_completed_file_bytes_total"),

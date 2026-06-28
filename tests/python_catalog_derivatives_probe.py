@@ -3,16 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 from pathlib import Path
 
-_IMPORT = Path(__file__).resolve().parent / "nautilus_import.py"
-_spec = importlib.util.spec_from_file_location("nautilus_import", _IMPORT)
-_mod = importlib.util.module_from_spec(_spec)
-assert _spec.loader is not None
-_spec.loader.exec_module(_mod)
-_mod.ensure_nautilus_trader_path()
-
+from catalog_probe_common import assert_monotonic_ts_init  # noqa: E402
+from catalog_probe_common import print_probe_header  # noqa: E402
 from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog  # noqa: E402
 
 
@@ -50,13 +44,6 @@ def parse_args() -> argparse.Namespace:
         help="Minimum bar rows required per --bar-type (ignored when no bar types set).",
     )
     return parser.parse_args()
-
-
-def assert_monotonic_ts_init(rows: list, label: str) -> None:
-    for prev, curr in zip(rows, rows[1:]):
-        assert curr.ts_init >= prev.ts_init, (
-            f"{label} ts_init not monotonic: {prev.ts_init} -> {curr.ts_init}"
-        )
 
 
 def probe_contract_state(
@@ -188,9 +175,11 @@ def main() -> int:
     if args.bar_type:
         step_label = f"{step_label} + Step 6c bars"
 
-    print(f"Python derivatives catalog probe succeeded ({step_label})")
-    print(f"Catalog dir: {args.catalog_dir}")
-    print(f"Instrument id: {instrument_id}")
+    print_probe_header(
+        f"Python derivatives catalog probe succeeded ({step_label})",
+        args.catalog_dir,
+        [("Instrument id", instrument_id)],
+    )
     print(f"Data types: {data_types}")
     print(f"Instruments loaded: {len(instruments)}")
     print(f"Quotes loaded: {len(quotes)}")

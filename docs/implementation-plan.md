@@ -244,7 +244,7 @@ The file-lifecycle tuning criteria for that decision are documented in:
 
 These are intentionally deferred:
 
-- Binance Futures `BinanceFuturesLiquidation`, `BinanceFuturesTicker`, and `BinanceFuturesOpenInterest` custom capture until [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297) merges
+- Binance Futures `BinanceFuturesOpenInterest` custom capture until a request/poll capture path is added
 - built-in framework capture service
 - forced object-store semantics support
 - compaction as a required feature

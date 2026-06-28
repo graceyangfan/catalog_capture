@@ -143,6 +143,22 @@ environment from the sibling `../nautilus_trader` checkout (see `docs/getting_st
   - validate: `cargo run -p catalog-capture-cli -- validate --config examples/capture.deribit-dvol.toml`
   - verify:
     - `python3 tests/python_catalog_deribit_dvol_probe.py /tmp/nautilus-catalog-capture-deribit-dvol 1 --index-name btc_usd`
+- `examples/capture.binance-futures-liquidation.toml`
+  - Step 5b profile: Binance Futures all-market `BinanceFuturesLiquidation`
+  - captures the exchange-wide forced-order stream while still recording `ETHUSDT-PERP.BINANCE`
+    `instruments` + `quotes` for baseline catalog sanity
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-futures-liquidation.toml`
+  - validate: `cargo run -p catalog-capture-cli -- validate --config examples/capture.binance-futures-liquidation.toml`
+  - verify:
+    - `python3 tests/python_catalog_binance_custom_probe.py /tmp/nautilus-catalog-capture-binance-futures-liquidation BinanceFuturesLiquidation 1 --all-market --min-quotes 1`
+- `examples/capture.binance-futures-ticker.toml`
+  - Step 5c profile: Binance Futures perp + `BinanceFuturesTicker`
+  - per-instrument 24h ticker custom data on `ETHUSDT-PERP.BINANCE`
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-futures-ticker.toml`
+  - validate: `cargo run -p catalog-capture-cli -- validate --config examples/capture.binance-futures-ticker.toml`
+  - verify:
+    - `python3 tests/python_catalog_binance_custom_probe.py /tmp/nautilus-catalog-capture-binance-futures-ticker BinanceFuturesTicker ETHUSDT-PERP.BINANCE 1 --min-quotes 1`
+    - live smoke (network, 1 min): `python3 tests/probe_binance_custom_smoke.py --kind ticker --cleanup`
 - `examples/capture.hyperliquid-open-interest.toml`
   - Step 5b profile: Hyperliquid perp + `HyperliquidOpenInterest`
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-open-interest.toml`
@@ -167,7 +183,7 @@ environment from the sibling `../nautilus_trader` checkout (see `docs/getting_st
   - flushes direct Parquet chunks
   - reads the same data back through PyO3 `ParquetDataCatalog`
   - run with:
-    - `cargo run -p catalog-capture-runtime-adapter --example synthetic_quote_roundtrip`
+    - `cargo run -p catalog-capture-runtime-adapter --features example-binaries --example synthetic_quote_roundtrip`
 - `crates/catalog-capture-runtime-adapter/examples/write_python_readback_fixture.rs`
   - writes instrument + quote + mark price + index price + funding rate + instrument status + instrument close + option greeks fixture data through `CatalogCaptureActor`
   - readback validated via catalog probes and PyO3 smoke tests:
@@ -187,6 +203,12 @@ environment from the sibling `../nautilus_trader` checkout (see `docs/getting_st
   - writes native Deribit `DeribitVolatilityIndex` custom data through `CatalogCaptureActor`
   - intended to be consumed by:
     - `tests/python_deribit_dvol_smoke.py`
+- `crates/catalog-capture-runtime-adapter/examples/write_binance_custom_fixture.rs`
+  - writes native Binance `BinanceFuturesTicker` + `BinanceFuturesLiquidation` custom data
+    through `CatalogCaptureActor`
+  - intended to be consumed by:
+    - `tests/python_binance_custom_smoke.py`
+  - validates fixture typed readback through Nautilus Python `ParquetDataCatalog`
 - `crates/catalog-capture-runtime-adapter/examples/binance_futures_quote_capture.rs`
   - connects to the Binance Futures venue adapter data client
   - runs a market-data-only live capture for a fixed duration
@@ -195,13 +217,13 @@ environment from the sibling `../nautilus_trader` checkout (see `docs/getting_st
   - verify the written catalog with:
     - `python3 tests/python_catalog_probe.py <catalog_dir> <instrument_id> 1`
   - run with:
-    - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --example binance_futures_quote_capture`
+    - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --features example-binaries --example binance_futures_quote_capture`
 - `crates/catalog-capture-runtime-adapter/examples/binance_futures_derivatives_state_capture.rs`
   - Step 1 live validation: quotes + mark + index + funding via WS
   - verify the written catalog with:
     - `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> <instrument_id> 1`
   - run with:
-    - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --example binance_futures_derivatives_state_capture`
+    - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --features example-binaries --example binance_futures_derivatives_state_capture`
 
 ## Planned next examples
 

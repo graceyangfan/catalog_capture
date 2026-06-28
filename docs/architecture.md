@@ -72,10 +72,9 @@ Responsible for:
 - feeding the core runtime
 - keeping capture separate from strategy logic
 
-Two intended forms:
-
-- runtime/actor adapter
-- plugin adapter
+The current implementation keeps a single runtime/actor adapter surface. If another deployment
+surface is needed later, it should stay a thin shell around the same actor-oriented model rather
+than becoming a parallel architecture layer.
 
 ### Layer 3: deployment integration
 

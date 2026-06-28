@@ -12,200 +12,22 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{collections::BTreeMap, str::FromStr};
+use std::collections::BTreeMap;
 
 use nautilus_core::UnixNanos;
 use nautilus_model::{
-    enums::{BookType, OptionKind},
+    enums::OptionKind,
     identifiers::InstrumentId,
     instruments::{Instrument, InstrumentAny},
     types::Price,
 };
-use thiserror::Error;
 
-use crate::plan::{
-    BookDeltasCaptureSpec, CapturePlan, ForwardPriceCaptureSpec, FundingRateCaptureSpec,
-    IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
-    InstrumentStatusCaptureSpec, MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec,
-    TradeCaptureSpec,
+use super::{
+    ExpiryPolicy, OptionUniverseResolveError, OptionUniverseSpec, ResolvedOptionUniverse,
+    StrikeOpenInterestByStrike, StrikePolicy,
 };
 
 const DAY_NS: u64 = 86_400_000_000_000;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OptionUniverseFamily {
-    Instruments,
-    Quotes,
-    Trades,
-    MarkPrices,
-    IndexPrices,
-    FundingRates,
-    InstrumentStatuses,
-    InstrumentCloses,
-    OptionGreeks,
-    ForwardPrices,
-    BookDeltas,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExpiryPolicy {
-    Nearest { days_max: u32 },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StrikePolicy {
-    AtmRelative {
-        strikes_above: usize,
-        strikes_below: usize,
-    },
-    OiRanked {
-        top_n: usize,
-    },
-    AllStrikes,
-}
-
-impl StrikePolicy {
-    #[must_use]
-    pub const fn selection_mode(&self) -> &'static str {
-        match self {
-            Self::AtmRelative { .. } => "atm_relative",
-            Self::OiRanked { .. } => "oi_ranked",
-            Self::AllStrikes => "all",
-        }
-    }
-
-    #[must_use]
-    pub const fn oi_ranked_top_n(&self) -> Option<usize> {
-        match self {
-            Self::OiRanked { top_n } => Some(*top_n),
-            Self::AtmRelative { .. } | Self::AllStrikes => None,
-        }
-    }
-
-    #[must_use]
-    pub const fn requires_open_interest(&self) -> bool {
-        matches!(self, Self::OiRanked { .. })
-    }
-}
-
-pub type StrikeOpenInterestByStrike = BTreeMap<Price, f64>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OptionUniverseVenueKind {
-    Deribit,
-    Bybit,
-    Okx,
-}
-
-impl OptionUniverseVenueKind {
-    #[must_use]
-    pub const fn supports_runtime_refresh(self) -> bool {
-        matches!(self, Self::Deribit | Self::Bybit | Self::Okx)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OptionUniverseSpec {
-    pub venue_id: String,
-    pub underlying: String,
-    pub settlement_currency: Option<String>,
-    pub include_perp: bool,
-    pub families: Vec<OptionUniverseFamily>,
-    pub expiry_policy: ExpiryPolicy,
-    pub strike_policy: StrikePolicy,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedOptionUniverse {
-    pub resolved_at_ns: UnixNanos,
-    pub selected_expiry_ns: UnixNanos,
-    pub atm_reference: Price,
-    pub atm_reference_source: Option<String>,
-    pub selected_strikes: Vec<Price>,
-    pub perp_instrument_id: Option<InstrumentId>,
-    pub option_instrument_ids: Vec<InstrumentId>,
-    pub all_instrument_ids: Vec<InstrumentId>,
-}
-
-#[derive(Debug, Clone, Error, PartialEq, Eq)]
-pub enum OptionUniverseResolveError {
-    #[error(
-        "no matching option instruments found for venue_id={venue_id} underlying={underlying}"
-    )]
-    NoMatchingOptions {
-        venue_id: String,
-        underlying: String,
-    },
-    #[error("no expiry matched the configured expiry policy for venue_id={venue_id} underlying={underlying}")]
-    NoMatchingExpiry {
-        venue_id: String,
-        underlying: String,
-    },
-    #[error("no call/put pairs remained after strike filtering for venue_id={venue_id} underlying={underlying}")]
-    NoStrikePairs {
-        venue_id: String,
-        underlying: String,
-    },
-    #[error("include_perp=true requires a resolved perpetual instrument for venue_id={venue_id} underlying={underlying}")]
-    MissingPerpetual {
-        venue_id: String,
-        underlying: String,
-    },
-    #[error("capture.option_universe venue_id={venue_id} requires settlement_currency to derive the hedge instrument")]
-    MissingSettlementCurrency { venue_id: String },
-    #[error("no option instrument matched the configured expiry policy for venue_id={venue_id} underlying={underlying}")]
-    NoReferenceInstrument {
-        venue_id: String,
-        underlying: String,
-    },
-    #[error(
-        "oi_ranked strike policy requires open interest data for venue_id={venue_id} underlying={underlying}"
-    )]
-    MissingOpenInterest {
-        venue_id: String,
-        underlying: String,
-    },
-}
-
-pub fn okx_instrument_family(
-    spec: &OptionUniverseSpec,
-) -> Result<String, OptionUniverseResolveError> {
-    let Some(settlement_currency) = spec.settlement_currency.as_deref() else {
-        return Err(OptionUniverseResolveError::MissingSettlementCurrency {
-            venue_id: spec.venue_id.clone(),
-        });
-    };
-    Ok(format!("{}-{settlement_currency}", spec.underlying))
-}
-
-pub fn derive_perp_instrument_id(
-    spec: &OptionUniverseSpec,
-    venue: OptionUniverseVenueKind,
-) -> Result<InstrumentId, OptionUniverseResolveError> {
-    let instrument_id = match venue {
-        OptionUniverseVenueKind::Deribit => {
-            format!("{}-PERPETUAL.DERIBIT", spec.underlying)
-        }
-        OptionUniverseVenueKind::Bybit => {
-            let settlement_currency = spec.settlement_currency.as_deref().ok_or_else(|| {
-                OptionUniverseResolveError::MissingSettlementCurrency {
-                    venue_id: spec.venue_id.clone(),
-                }
-            })?;
-            format!("{}{}-LINEAR.BYBIT", spec.underlying, settlement_currency)
-        }
-        OptionUniverseVenueKind::Okx => {
-            format!("{}-SWAP.OKX", okx_instrument_family(spec)?)
-        }
-    };
-
-    InstrumentId::from_str(instrument_id.as_str()).map_err(|_| {
-        OptionUniverseResolveError::MissingPerpetual {
-            venue_id: spec.venue_id.clone(),
-            underlying: spec.underlying.clone(),
-        }
-    })
-}
 
 pub fn option_instrument_ids_at_selected_expiry(
     spec: &OptionUniverseSpec,
@@ -332,153 +154,10 @@ pub fn resolve_option_universe(
     })
 }
 
-pub fn expand_option_universe(
-    spec: &OptionUniverseSpec,
-    resolved: &ResolvedOptionUniverse,
-) -> CapturePlan {
-    let mut plan = CapturePlan::default();
-
-    for family in &spec.families {
-        match family {
-            OptionUniverseFamily::Instruments => {
-                for instrument_id in &resolved.all_instrument_ids {
-                    plan.instruments.push(InstrumentCaptureSpec {
-                        instrument_id: *instrument_id,
-                    });
-                }
-            }
-            OptionUniverseFamily::Quotes => {
-                for instrument_id in &resolved.all_instrument_ids {
-                    plan.quotes.push(QuoteCaptureSpec {
-                        instrument_id: *instrument_id,
-                    });
-                }
-            }
-            OptionUniverseFamily::Trades => {
-                for instrument_id in &resolved.all_instrument_ids {
-                    plan.trades.push(TradeCaptureSpec {
-                        instrument_id: *instrument_id,
-                    });
-                }
-            }
-            OptionUniverseFamily::MarkPrices => {
-                for instrument_id in &resolved.all_instrument_ids {
-                    plan.mark_prices.push(MarkPriceCaptureSpec {
-                        instrument_id: *instrument_id,
-                    });
-                }
-            }
-            OptionUniverseFamily::IndexPrices => {
-                if let Some(instrument_id) = resolved.perp_instrument_id {
-                    plan.index_prices
-                        .push(IndexPriceCaptureSpec { instrument_id });
-                }
-            }
-            OptionUniverseFamily::FundingRates => {
-                if let Some(instrument_id) = resolved.perp_instrument_id {
-                    plan.funding_rates
-                        .push(FundingRateCaptureSpec { instrument_id });
-                }
-            }
-            OptionUniverseFamily::InstrumentStatuses => {
-                for instrument_id in &resolved.all_instrument_ids {
-                    plan.instrument_statuses.push(InstrumentStatusCaptureSpec {
-                        instrument_id: *instrument_id,
-                    });
-                }
-            }
-            OptionUniverseFamily::InstrumentCloses => {
-                for instrument_id in &resolved.all_instrument_ids {
-                    plan.instrument_closes.push(InstrumentCloseCaptureSpec {
-                        instrument_id: *instrument_id,
-                    });
-                }
-            }
-            OptionUniverseFamily::OptionGreeks => {
-                for instrument_id in &resolved.option_instrument_ids {
-                    plan.option_greeks.push(OptionGreeksCaptureSpec {
-                        instrument_id: *instrument_id,
-                    });
-                }
-            }
-            OptionUniverseFamily::ForwardPrices => {
-                for instrument_id in &resolved.option_instrument_ids {
-                    plan.forward_prices.push(ForwardPriceCaptureSpec {
-                        instrument_id: *instrument_id,
-                    });
-                }
-            }
-            OptionUniverseFamily::BookDeltas => {
-                for instrument_id in &resolved.option_instrument_ids {
-                    plan.book_deltas.push(BookDeltasCaptureSpec {
-                        instrument_id: *instrument_id,
-                        book_type: BookType::L2_MBP,
-                    });
-                }
-            }
-        }
-    }
-
-    plan
-}
-
-pub fn merge_capture_plans(base: &CapturePlan, addition: &CapturePlan) -> CapturePlan {
-    let mut merged = base.clone();
-    extend_unique(
-        &mut merged.instruments,
-        addition.instruments.iter().cloned(),
-    );
-    extend_unique(&mut merged.quotes, addition.quotes.iter().cloned());
-    extend_unique(&mut merged.trades, addition.trades.iter().cloned());
-    extend_unique(&mut merged.bars, addition.bars.iter().cloned());
-    extend_unique(
-        &mut merged.book_deltas,
-        addition.book_deltas.iter().cloned(),
-    );
-    extend_unique(
-        &mut merged.mark_prices,
-        addition.mark_prices.iter().cloned(),
-    );
-    extend_unique(
-        &mut merged.index_prices,
-        addition.index_prices.iter().cloned(),
-    );
-    extend_unique(
-        &mut merged.funding_rates,
-        addition.funding_rates.iter().cloned(),
-    );
-    extend_unique(
-        &mut merged.instrument_statuses,
-        addition.instrument_statuses.iter().cloned(),
-    );
-    extend_unique(
-        &mut merged.instrument_closes,
-        addition.instrument_closes.iter().cloned(),
-    );
-    extend_unique(
-        &mut merged.option_greeks,
-        addition.option_greeks.iter().cloned(),
-    );
-    extend_unique(
-        &mut merged.forward_prices,
-        addition.forward_prices.iter().cloned(),
-    );
-    extend_unique(
-        &mut merged.custom_data,
-        addition.custom_data.iter().cloned(),
-    );
-    merged
-}
-
-fn extend_unique<T>(target: &mut Vec<T>, items: impl IntoIterator<Item = T>)
-where
-    T: PartialEq,
-{
-    for item in items {
-        if !target.contains(&item) {
-            target.push(item);
-        }
-    }
+pub fn aggregate_open_interest_by_strike(
+    instrument_open_interest: impl IntoIterator<Item = (Price, f64)>,
+) -> StrikeOpenInterestByStrike {
+    aggregate_strike_metric_by_strike(instrument_open_interest)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -584,12 +263,6 @@ fn collect_strike_pairs(
     }
 
     strike_pairs
-}
-
-pub fn aggregate_open_interest_by_strike(
-    instrument_open_interest: impl IntoIterator<Item = (Price, f64)>,
-) -> StrikeOpenInterestByStrike {
-    aggregate_strike_metric_by_strike(instrument_open_interest)
 }
 
 fn aggregate_strike_metric_by_strike(
@@ -708,6 +381,11 @@ mod tests {
     };
 
     use super::*;
+    use crate::{
+        derive_perp_instrument_id, expand_option_universe, merge_capture_plans, ExpiryPolicy,
+        FundingRateCaptureSpec, IndexPriceCaptureSpec, OptionGreeksCaptureSpec,
+        OptionUniverseFamily, OptionUniverseSpec, OptionUniverseVenueKind, StrikePolicy,
+    };
 
     fn make_deribit_option(
         symbol: &str,
@@ -833,7 +511,7 @@ mod tests {
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
         )
-        .expect("universe should resolve");
+        .unwrap();
 
         assert_eq!(
             resolved.selected_expiry_ns,
@@ -863,7 +541,7 @@ mod tests {
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
         )
-        .expect("universe should resolve");
+        .unwrap();
 
         assert_eq!(
             resolved.selected_strikes,
@@ -887,7 +565,7 @@ mod tests {
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
         )
-        .expect("universe should resolve");
+        .unwrap();
         let plan = expand_option_universe(&spec, &resolved);
 
         assert_eq!(plan.trades.len(), resolved.all_instrument_ids.len());
@@ -911,7 +589,7 @@ mod tests {
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
         )
-        .expect("universe should resolve");
+        .unwrap();
 
         let expanded = expand_option_universe(&make_spec(), &resolved);
 
@@ -919,13 +597,13 @@ mod tests {
         assert_eq!(
             expanded.index_prices,
             vec![IndexPriceCaptureSpec {
-                instrument_id: InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
+                instrument_id: InstrumentId::from("BTC-PERPETUAL.DERIBIT")
             }]
         );
         assert_eq!(
             expanded.funding_rates,
             vec![FundingRateCaptureSpec {
-                instrument_id: InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
+                instrument_id: InstrumentId::from("BTC-PERPETUAL.DERIBIT")
             }]
         );
     }
@@ -941,7 +619,7 @@ mod tests {
     fn derive_perp_instrument_id_builds_expected_symbols() {
         let spec = make_spec();
         assert_eq!(
-            derive_perp_instrument_id(&spec, OptionUniverseVenueKind::Deribit).expect("deribit"),
+            derive_perp_instrument_id(&spec, OptionUniverseVenueKind::Deribit).unwrap(),
             InstrumentId::from("BTC-PERPETUAL.DERIBIT")
         );
 
@@ -950,7 +628,7 @@ mod tests {
             ..make_spec()
         };
         assert_eq!(
-            derive_perp_instrument_id(&bybit_spec, OptionUniverseVenueKind::Bybit).expect("bybit"),
+            derive_perp_instrument_id(&bybit_spec, OptionUniverseVenueKind::Bybit).unwrap(),
             InstrumentId::from("BTCUSDT-LINEAR.BYBIT")
         );
 
@@ -960,7 +638,7 @@ mod tests {
             ..make_spec()
         };
         assert_eq!(
-            derive_perp_instrument_id(&okx_spec, OptionUniverseVenueKind::Okx).expect("okx"),
+            derive_perp_instrument_id(&okx_spec, OptionUniverseVenueKind::Okx).unwrap(),
             InstrumentId::from("BTC-USD-SWAP.OKX")
         );
     }
@@ -973,8 +651,7 @@ mod tests {
             &make_btc_option_set(),
             now,
         )
-        .expect("reference instrument should resolve");
-
+        .unwrap();
         assert_eq!(reference, InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT"));
     }
 
@@ -996,7 +673,7 @@ mod tests {
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             Some(&open_interest_by_strike),
         )
-        .expect("universe should resolve");
+        .unwrap();
 
         assert_eq!(
             resolved.selected_strikes,
@@ -1023,7 +700,7 @@ mod tests {
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             Some(&open_interest_by_strike),
         )
-        .expect("universe should resolve");
+        .unwrap();
 
         assert_eq!(
             resolved.selected_strikes,
@@ -1044,7 +721,7 @@ mod tests {
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
         )
-        .expect_err("missing open interest should fail");
+        .unwrap_err();
 
         assert_eq!(
             error,
@@ -1068,7 +745,7 @@ mod tests {
             Some(InstrumentId::from("BTC-PERPETUAL.DERIBIT")),
             None,
         )
-        .expect("universe should resolve");
+        .unwrap();
 
         assert_eq!(
             resolved.selected_strikes,
@@ -1083,20 +760,20 @@ mod tests {
 
     #[test]
     fn merge_capture_plans_dedupes_expanded_specs() {
-        let base = CapturePlan {
-            quotes: vec![QuoteCaptureSpec {
+        let base = crate::CapturePlan {
+            quotes: vec![crate::QuoteCaptureSpec {
                 instrument_id: InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
             }],
-            ..CapturePlan::default()
+            ..crate::CapturePlan::default()
         };
-        let addition = CapturePlan {
-            quotes: vec![QuoteCaptureSpec {
+        let addition = crate::CapturePlan {
+            quotes: vec![crate::QuoteCaptureSpec {
                 instrument_id: InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
             }],
             option_greeks: vec![OptionGreeksCaptureSpec {
                 instrument_id: InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT"),
             }],
-            ..CapturePlan::default()
+            ..crate::CapturePlan::default()
         };
 
         let merged = merge_capture_plans(&base, &addition);

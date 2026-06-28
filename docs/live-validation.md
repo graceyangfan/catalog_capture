@@ -158,7 +158,7 @@ At minimum, record:
 
 1. Run the capture example:
 
-   - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --example binance_futures_quote_capture`
+   - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --features example-binaries --example binance_futures_quote_capture`
 
 2. Copy the printed `Catalog dir`.
 
@@ -426,6 +426,41 @@ Run:
 - `cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-open-interest.toml`
 - `python3 tests/python_catalog_hyperliquid_open_interest_probe.py /tmp/nautilus-catalog-capture-hyperliquid-open-interest ETH-USD-PERP.HYPERLIQUID 1 --min-quotes 1`
 
+### Binance Futures ticker
+
+Reference profile:
+
+- `examples/capture.binance-futures-ticker.toml`
+- `tests/python_catalog_binance_custom_probe.py`
+- `tests/probe_binance_custom_smoke.py`
+
+Run:
+
+- `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-futures-ticker.toml`
+- `python3 tests/python_catalog_binance_custom_probe.py /tmp/nautilus-catalog-capture-binance-futures-ticker BinanceFuturesTicker ETHUSDT-PERP.BINANCE 1 --min-quotes 1`
+
+Short live smoke:
+
+- `python3 tests/probe_binance_custom_smoke.py --kind ticker --cleanup`
+
+### Binance Futures liquidation
+
+Reference profile:
+
+- `examples/capture.binance-futures-liquidation.toml`
+- `tests/python_catalog_binance_custom_probe.py`
+
+Run:
+
+- `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-futures-liquidation.toml`
+- `python3 tests/python_catalog_binance_custom_probe.py /tmp/nautilus-catalog-capture-binance-futures-liquidation BinanceFuturesLiquidation 1 --all-market --min-quotes 1`
+
+Notes:
+
+- This profile intentionally uses the Binance Futures all-market forced-order stream.
+- `BinanceFuturesLiquidation` is event-driven and can legitimately produce zero rows during a short quiet window.
+- Prefer ticker for the primary Step 5 live-parquet proof; use liquidation validation during active market periods or with longer capture windows.
+
 ## Step 1 follow-up: derivatives state WS families
 
 After the first `QuoteTick` run succeeds, Step 1 adds the built-in WS families needed for basis and carry research:
@@ -450,7 +485,7 @@ Suggested command sequence:
 
    - `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml`
    - or:
-   - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --example binance_futures_derivatives_state_capture`
+   - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --features example-binaries --example binance_futures_derivatives_state_capture`
 
 3. Probe all four market-data families:
 

@@ -14,7 +14,7 @@
 
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
     time::Duration,
 };
@@ -33,7 +33,10 @@ use catalog_capture_runtime_adapter::{
     DynamicOptionUniverseConfig, DynamicOptionUniverseEntryConfig, OnlineOptionMetricsConfig,
     OnlineOptionMetricsUniverseConfig,
 };
-use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
+use nautilus_binance::{
+    config::BinanceDataClientConfig, data_types::register_binance_custom_data,
+    factories::BinanceDataClientFactory,
+};
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::enums::Environment;
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
@@ -50,11 +53,11 @@ use nautilus_model::{
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
-use crate::metrics_server::spawn_metrics_server;
 use crate::hip4::{
     materialize_hip4_capture_plan, startup_resolution_record_from_report as hip4_startup_record,
     validate_hip4_universes, Hip4UniverseResolutionReport,
 };
+use crate::metrics_server::spawn_metrics_server;
 use crate::option_universe::{
     materialize_capture_plan_with_reports, run_option_universe_post_run_report,
     startup_resolution_record_from_report, validate_option_universes,
@@ -107,24 +110,13 @@ pub async fn run_capture_with_plan_and_reports(
     fs::create_dir_all(&catalog_dir)
         .with_context(|| format!("failed to create catalog dir {}", catalog_dir.display()))?;
 
-    if !reports.is_empty() {
-        let records = reports
-            .iter()
-            .map(startup_resolution_record_from_report)
-            .collect::<Vec<_>>();
-        append_option_universe_resolution_records(&catalog_dir, &records)
-            .with_context(|| "failed to persist startup option universe resolution metadata")?;
-    }
-    if !hip4_reports.is_empty() {
-        let records = hip4_reports
-            .iter()
-            .zip(config.hip4_universes.iter())
-            .zip(hip4_resolved.iter())
-            .map(|((report, spec), resolved)| hip4_startup_record(report, spec, resolved))
-            .collect::<Vec<_>>();
-        append_hip4_universe_resolution_records(&catalog_dir, &records)
-            .with_context(|| "failed to persist startup HIP-4 universe resolution metadata")?;
-    }
+    persist_startup_resolution_metadata(
+        &catalog_dir,
+        &config,
+        reports,
+        hip4_reports,
+        hip4_resolved,
+    )?;
 
     if plan.is_empty() {
         bail!("capture plan is empty after universe expansion");
@@ -134,32 +126,16 @@ pub async fn run_capture_with_plan_and_reports(
 
     register_known_custom_data_types(&plan.custom_data);
 
-    let metrics_snapshot = if config.runtime.metrics.enabled {
-        Some(Arc::new(RwLock::new(CaptureMetricsSnapshot::default())))
-    } else {
-        None
-    };
-    let metrics_refresh_interval_secs = if config.runtime.metrics.enabled {
-        Some(config.runtime.metrics.refresh_interval_secs)
-    } else {
-        None
-    };
-
-    let capture_actor = CatalogCaptureActor::new(CatalogCaptureActorConfig {
-        actor_id: Some(ActorId::from("CATALOG_CAPTURE-CLI")),
-        capture: config.capture.clone(),
-        plan: plan.clone(),
-        online_option_metrics: build_online_option_metrics_config(&config, &plan, reports)?,
-        dynamic_option_universe: build_dynamic_option_universe_config(&config, &plan, reports)?,
-        dynamic_hip4_universe: build_dynamic_hip4_universe_config(
-            &config,
-            &plan,
-            hip4_reports,
-            hip4_resolved,
-        )?,
-        metrics_snapshot: metrics_snapshot.clone(),
+    let (metrics_snapshot, metrics_refresh_interval_secs) = build_metrics_runtime_state(&config);
+    let capture_actor = CatalogCaptureActor::new(build_capture_actor_config(
+        &config,
+        &plan,
+        reports,
+        hip4_reports,
+        hip4_resolved,
+        metrics_snapshot.clone(),
         metrics_refresh_interval_secs,
-    })?;
+    )?)?;
 
     let trader_id = TraderId::new_checked(config.runtime.node_name.as_str())
         .unwrap_or_else(|_| TraderId::new("CAPTURE-001"));
@@ -287,7 +263,8 @@ pub async fn run_capture_with_plan_and_reports(
         let server = spawn_metrics_server(&config.runtime.metrics, snapshot)?;
         log::info!(
             "Metrics export: http://{}:{}/metrics (json: /metrics.json, health: /health)",
-            config.runtime.metrics.bind_addr, config.runtime.metrics.port
+            config.runtime.metrics.bind_addr,
+            config.runtime.metrics.port
         );
         Some(server)
     } else {
@@ -312,6 +289,79 @@ pub async fn run_capture_with_plan_and_reports(
     log::info!("Catalog dir: {}", catalog_dir.display());
     run_option_universe_post_run_report(&catalog_dir, &config, &post_run)?;
     Ok(())
+}
+
+fn persist_startup_resolution_metadata(
+    catalog_dir: &Path,
+    config: &EffectiveConfig,
+    option_reports: &[OptionUniverseResolutionReport],
+    hip4_reports: &[Hip4UniverseResolutionReport],
+    hip4_resolved: &[ResolvedHip4Universe],
+) -> Result<()> {
+    if !option_reports.is_empty() {
+        let records = option_reports
+            .iter()
+            .map(startup_resolution_record_from_report)
+            .collect::<Vec<_>>();
+        append_option_universe_resolution_records(catalog_dir, &records)
+            .with_context(|| "failed to persist startup option universe resolution metadata")?;
+    }
+
+    if !hip4_reports.is_empty() {
+        let records = hip4_reports
+            .iter()
+            .zip(config.hip4_universes.iter())
+            .zip(hip4_resolved.iter())
+            .map(|((report, spec), resolved)| hip4_startup_record(report, spec, resolved))
+            .collect::<Vec<_>>();
+        append_hip4_universe_resolution_records(catalog_dir, &records)
+            .with_context(|| "failed to persist startup HIP-4 universe resolution metadata")?;
+    }
+
+    Ok(())
+}
+
+fn build_metrics_runtime_state(
+    config: &EffectiveConfig,
+) -> (Option<Arc<RwLock<CaptureMetricsSnapshot>>>, Option<u64>) {
+    if !config.runtime.metrics.enabled {
+        return (None, None);
+    }
+
+    (
+        Some(Arc::new(RwLock::new(CaptureMetricsSnapshot::default()))),
+        Some(config.runtime.metrics.refresh_interval_secs),
+    )
+}
+
+fn build_capture_actor_config(
+    config: &EffectiveConfig,
+    plan: &CapturePlan,
+    option_reports: &[OptionUniverseResolutionReport],
+    hip4_reports: &[Hip4UniverseResolutionReport],
+    hip4_resolved: &[ResolvedHip4Universe],
+    metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
+    metrics_refresh_interval_secs: Option<u64>,
+) -> Result<CatalogCaptureActorConfig> {
+    Ok(CatalogCaptureActorConfig {
+        actor_id: Some(ActorId::from("CATALOG_CAPTURE-CLI")),
+        capture: config.capture.clone(),
+        plan: plan.clone(),
+        online_option_metrics: build_online_option_metrics_config(config, plan, option_reports)?,
+        dynamic_option_universe: build_dynamic_option_universe_config(
+            config,
+            plan,
+            option_reports,
+        )?,
+        dynamic_hip4_universe: build_dynamic_hip4_universe_config(
+            config,
+            plan,
+            hip4_reports,
+            hip4_resolved,
+        )?,
+        metrics_snapshot,
+        metrics_refresh_interval_secs,
+    })
 }
 
 async fn wait_for_capture_shutdown(capture_seconds: u64) {
@@ -346,40 +396,57 @@ async fn wait_for_shutdown_signal() {
 }
 
 pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
-    if config.runtime.shutdown_timeout_secs == 0 {
-        bail!("runtime.shutdown_timeout_secs must be > 0");
+    validate_runtime_switches(config)?;
+    validate_runtime_dependencies(config)?;
+    let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
+    Ok(())
+}
+
+fn validate_runtime_switches(config: &EffectiveConfig) -> Result<()> {
+    ensure_positive_u64(
+        config.runtime.shutdown_timeout_secs,
+        "runtime.shutdown_timeout_secs must be > 0",
+    )?;
+    if config.runtime.online_option_metrics.enabled {
+        ensure_positive_u64(
+            config.runtime.online_option_metrics.snapshot_interval_secs,
+            "runtime.online_option_metrics.snapshot_interval_secs must be > 0",
+        )?;
     }
-    if config.runtime.online_option_metrics.enabled
-        && config.runtime.online_option_metrics.snapshot_interval_secs == 0
-    {
-        bail!("runtime.online_option_metrics.snapshot_interval_secs must be > 0");
-    }
-    if config.runtime.option_universe_refresh.enabled
-        && config.runtime.option_universe_refresh.interval_secs == 0
-    {
-        bail!("runtime.option_universe_refresh.interval_secs must be > 0");
+    if config.runtime.option_universe_refresh.enabled {
+        ensure_positive_u64(
+            config.runtime.option_universe_refresh.interval_secs,
+            "runtime.option_universe_refresh.interval_secs must be > 0",
+        )?;
     }
     if config.runtime.hip4_universe_refresh.enabled {
-        if config.runtime.hip4_universe_refresh.idle_poll_secs == 0 {
-            bail!("runtime.hip4_universe_refresh.idle_poll_secs must be > 0");
-        }
-        if config.runtime.hip4_universe_refresh.active_poll_secs == 0 {
-            bail!("runtime.hip4_universe_refresh.active_poll_secs must be > 0");
-        }
-        if config.runtime.hip4_universe_refresh.http_timeout_secs == 0 {
-            bail!("runtime.hip4_universe_refresh.http_timeout_secs must be > 0");
-        }
+        ensure_positive_u64(
+            config.runtime.hip4_universe_refresh.idle_poll_secs,
+            "runtime.hip4_universe_refresh.idle_poll_secs must be > 0",
+        )?;
+        ensure_positive_u64(
+            config.runtime.hip4_universe_refresh.active_poll_secs,
+            "runtime.hip4_universe_refresh.active_poll_secs must be > 0",
+        )?;
+        ensure_positive_u64(
+            config.runtime.hip4_universe_refresh.http_timeout_secs,
+            "runtime.hip4_universe_refresh.http_timeout_secs must be > 0",
+        )?;
     }
     if config.runtime.metrics.enabled {
-        if config.runtime.metrics.port == 0 {
-            bail!("runtime.metrics.port must be > 0 when runtime.metrics.enabled = true");
-        }
-        if config.runtime.metrics.refresh_interval_secs == 0 {
-            bail!(
-                "runtime.metrics.refresh_interval_secs must be > 0 when runtime.metrics.enabled = true"
-            );
-        }
+        ensure_positive_u16(
+            config.runtime.metrics.port,
+            "runtime.metrics.port must be > 0 when runtime.metrics.enabled = true",
+        )?;
+        ensure_positive_u64(
+            config.runtime.metrics.refresh_interval_secs,
+            "runtime.metrics.refresh_interval_secs must be > 0 when runtime.metrics.enabled = true",
+        )?;
     }
+    Ok(())
+}
+
+fn validate_runtime_dependencies(config: &EffectiveConfig) -> Result<()> {
     if config.venues.is_empty() {
         bail!("at least one venue is required");
     }
@@ -389,7 +456,20 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
         bail!("runtime.hip4_universe_refresh.enabled requires capture.hip4_universe entries");
     }
     validate_known_custom_data_types(&config.plan.custom_data, &config.venues)?;
-    let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
+    Ok(())
+}
+
+fn ensure_positive_u64(value: u64, error: &str) -> Result<()> {
+    if value == 0 {
+        bail!("{error}");
+    }
+    Ok(())
+}
+
+fn ensure_positive_u16(value: u16, error: &str) -> Result<()> {
+    if value == 0 {
+        bail!("{error}");
+    }
     Ok(())
 }
 
@@ -483,45 +563,9 @@ fn build_dynamic_option_universe_config(
     let mut universes = Vec::with_capacity(reports.len());
 
     for (spec, report) in config.option_universes.iter().zip(reports.iter()) {
-        let resolved = resolved_option_universe_from_report(report)?;
-        let venue = report_venue(report)?;
-        let venue_config = config
-            .venues
-            .iter()
-            .find(|entry| entry.id() == spec.venue_id)
-            .with_context(|| {
-                format!(
-                    "capture.option_universe references unknown venue_id `{}`",
-                    spec.venue_id
-                )
-            })?;
-        let venue_kind = option_universe_venue_kind(venue_config).with_context(|| {
-            format!(
-                "runtime.option_universe_refresh is not supported for venue_id `{}`",
-                spec.venue_id
-            )
-        })?;
-        let reference_perp =
-            derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
-        if !plan_has_quotes(plan, reference_perp)
-            && !plan_has_mark_prices(plan, reference_perp)
-            && !plan_has_index_prices(plan, reference_perp)
-        {
-            bail!(
-                "runtime.option_universe_refresh requires perp quote/mark/index capture for `{}`",
-                reference_perp
-            );
-        }
-
-        let initial_plan = expand_option_universe(spec, &resolved);
-        initial_dynamic_plan = merge_capture_plans(&initial_dynamic_plan, &initial_plan);
-        universes.push(DynamicOptionUniverseEntryConfig {
-            venue,
-            venue_kind,
-            spec: spec.clone(),
-            initial_plan,
-            initial_resolved: resolved,
-        });
+        let entry = build_dynamic_option_universe_entry(config, plan, spec, report)?;
+        initial_dynamic_plan = merge_capture_plans(&initial_dynamic_plan, &entry.initial_plan);
+        universes.push(entry);
     }
 
     Ok(Some(DynamicOptionUniverseConfig {
@@ -559,33 +603,9 @@ fn build_dynamic_hip4_universe_config(
         .zip(reports.iter())
         .zip(resolved_entries.iter())
     {
-        let environment = hip4_report_environment(config, report)?;
-        if spec.include_perp_mark {
-            let perp_instrument_id = report
-                .perp_instrument_id
-                .as_deref()
-                .with_context(|| {
-                    format!(
-                        "runtime.hip4_universe_refresh requires resolved perp for venue_id `{}`",
-                        spec.venue_id
-                    )
-                })?
-                .parse()?;
-            if !plan_has_mark_prices(plan, perp_instrument_id) {
-                bail!(
-                    "runtime.hip4_universe_refresh requires perp mark_prices capture for `{perp_instrument_id}`"
-                );
-            }
-        }
-
-        let initial_plan = expand_hip4_universe(spec, resolved);
-        initial_dynamic_plan = merge_capture_plans(&initial_dynamic_plan, &initial_plan);
-        universes.push(DynamicHip4UniverseEntryConfig {
-            environment,
-            spec: spec.clone(),
-            initial_plan,
-            initial_resolved: resolved.clone(),
-        });
+        let entry = build_dynamic_hip4_universe_entry(config, plan, spec, report, resolved)?;
+        initial_dynamic_plan = merge_capture_plans(&initial_dynamic_plan, &entry.initial_plan);
+        universes.push(entry);
     }
 
     Ok(Some(DynamicHip4UniverseConfig {
@@ -597,6 +617,107 @@ fn build_dynamic_hip4_universe_config(
         initial_dynamic_plan,
         universes,
     }))
+}
+
+fn build_dynamic_option_universe_entry(
+    config: &EffectiveConfig,
+    plan: &CapturePlan,
+    spec: &catalog_capture_core::OptionUniverseSpec,
+    report: &OptionUniverseResolutionReport,
+) -> Result<DynamicOptionUniverseEntryConfig> {
+    let resolved = resolved_option_universe_from_report(report)?;
+    let venue = report_venue(report)?;
+    let venue_config = config
+        .venues
+        .iter()
+        .find(|entry| entry.id() == spec.venue_id)
+        .with_context(|| {
+            format!(
+                "capture.option_universe references unknown venue_id `{}`",
+                spec.venue_id
+            )
+        })?;
+    let venue_kind = option_universe_venue_kind(venue_config).with_context(|| {
+        format!(
+            "runtime.option_universe_refresh is not supported for venue_id `{}`",
+            spec.venue_id
+        )
+    })?;
+    let reference_perp =
+        derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
+    ensure_dynamic_option_universe_runtime_inputs(plan, reference_perp)?;
+
+    let initial_plan = expand_option_universe(spec, &resolved);
+    Ok(DynamicOptionUniverseEntryConfig {
+        venue,
+        venue_kind,
+        spec: spec.clone(),
+        initial_plan,
+        initial_resolved: resolved,
+    })
+}
+
+fn ensure_dynamic_option_universe_runtime_inputs(
+    plan: &CapturePlan,
+    reference_perp: nautilus_model::identifiers::InstrumentId,
+) -> Result<()> {
+    if !plan_has_quotes(plan, reference_perp)
+        && !plan_has_mark_prices(plan, reference_perp)
+        && !plan_has_index_prices(plan, reference_perp)
+    {
+        bail!(
+            "runtime.option_universe_refresh requires perp quote/mark/index capture for `{}`",
+            reference_perp
+        );
+    }
+    Ok(())
+}
+
+fn build_dynamic_hip4_universe_entry(
+    config: &EffectiveConfig,
+    plan: &CapturePlan,
+    spec: &catalog_capture_core::Hip4UniverseSpec,
+    report: &Hip4UniverseResolutionReport,
+    resolved: &ResolvedHip4Universe,
+) -> Result<DynamicHip4UniverseEntryConfig> {
+    let environment = hip4_report_environment(config, report)?;
+    ensure_dynamic_hip4_universe_runtime_inputs(plan, spec, report)?;
+
+    let initial_plan = expand_hip4_universe(spec, resolved);
+    Ok(DynamicHip4UniverseEntryConfig {
+        environment,
+        spec: spec.clone(),
+        initial_plan,
+        initial_resolved: resolved.clone(),
+    })
+}
+
+fn ensure_dynamic_hip4_universe_runtime_inputs(
+    plan: &CapturePlan,
+    spec: &catalog_capture_core::Hip4UniverseSpec,
+    report: &Hip4UniverseResolutionReport,
+) -> Result<()> {
+    if !spec.include_perp_mark {
+        return Ok(());
+    }
+
+    let perp_instrument_id = report
+        .perp_instrument_id
+        .as_deref()
+        .with_context(|| {
+            format!(
+                "runtime.hip4_universe_refresh requires resolved perp for venue_id `{}`",
+                spec.venue_id
+            )
+        })?
+        .parse()?;
+    if !plan_has_mark_prices(plan, perp_instrument_id) {
+        bail!(
+            "runtime.hip4_universe_refresh requires perp mark_prices capture for `{perp_instrument_id}`"
+        );
+    }
+
+    Ok(())
 }
 
 fn hip4_report_environment(
@@ -624,12 +745,16 @@ fn hip4_report_environment(
 
 fn register_known_custom_data_types(custom_data: &[catalog_capture_core::CustomDataCaptureSpec]) {
     for spec in custom_data {
-        match spec.data_type.type_name() {
-            "DeribitVolatilityIndex" => {
+        match KnownCustomDataKind::from_type_name(spec.data_type.type_name()) {
+            Some(KnownCustomDataKind::BinanceFuturesLiquidation)
+            | Some(KnownCustomDataKind::BinanceFuturesTicker) => register_binance_custom_data(),
+            Some(KnownCustomDataKind::DeribitVolatilityIndex) => {
                 nautilus_deribit::data_types::register_deribit_custom_data()
             }
-            "HyperliquidOpenInterest" => register_hyperliquid_custom_data(),
-            _ => {}
+            Some(KnownCustomDataKind::HyperliquidOpenInterest) => {
+                register_hyperliquid_custom_data()
+            }
+            Some(KnownCustomDataKind::BinanceFuturesOpenInterest) | None => {}
         }
     }
 }
@@ -644,81 +769,139 @@ fn validate_known_custom_data_types(
     Ok(())
 }
 
-const BINANCE_FUTURES_CUSTOM_DATA_UPSTREAM_ISSUE: &str =
-    "https://github.com/nautechsystems/nautilus_trader/issues/4297";
-
 fn validate_known_custom_data_type(
     data_type: &DataType,
     venues: &[VenueRuntimeConfig],
 ) -> Result<()> {
-    match data_type.type_name() {
-        "BinanceFuturesLiquidation" | "BinanceFuturesTicker" | "BinanceFuturesOpenInterest" => {
+    match KnownCustomDataKind::from_type_name(data_type.type_name()) {
+        Some(KnownCustomDataKind::BinanceFuturesLiquidation) => {
+            require_venue(
+                venues,
+                VenueRequirement::BinanceFutures,
+                "custom_data BinanceFuturesLiquidation requires at least one [[venues]] entry with kind = \"binance_futures\"",
+            )?;
+            let identifier = data_type.identifier();
+            let instrument_id = string_metadata(data_type, "instrument_id");
+            if identifier.is_some() && instrument_id.is_none() {
+                bail!(
+                    "custom_data BinanceFuturesLiquidation identifier requires metadata.instrument_id; \
+                     omit both fields for all-market capture"
+                );
+            }
+            if let Some(instrument_id) = instrument_id {
+                ensure_non_empty_metadata(
+                    instrument_id,
+                    "custom_data BinanceFuturesLiquidation metadata.instrument_id must be non-empty when provided",
+                )?;
+                ensure_identifier_matches(identifier, instrument_id, "BinanceFuturesLiquidation")?;
+            }
+        }
+        Some(KnownCustomDataKind::BinanceFuturesTicker) => {
+            require_venue(
+                venues,
+                VenueRequirement::BinanceFutures,
+                "custom_data BinanceFuturesTicker requires at least one [[venues]] entry with kind = \"binance_futures\"",
+            )?;
+            let Some(instrument_id) = string_metadata(data_type, "instrument_id") else {
+                bail!(
+                    "custom_data BinanceFuturesTicker requires metadata.instrument_id \
+                     (for example `ETHUSDT-PERP.BINANCE`)"
+                );
+            };
+            ensure_non_empty_metadata(
+                instrument_id,
+                "custom_data BinanceFuturesTicker metadata.instrument_id must be non-empty",
+            )?;
+            ensure_identifier_matches(
+                data_type.identifier(),
+                instrument_id,
+                "BinanceFuturesTicker",
+            )?;
+        }
+        Some(KnownCustomDataKind::BinanceFuturesOpenInterest) => {
             bail!(
-                "custom_data {} is deferred until nautilus-binance adds Arrow batch encoding \
-                 (upstream {BINANCE_FUTURES_CUSTOM_DATA_UPSTREAM_ISSUE})",
-                data_type.type_name()
+                "custom_data BinanceFuturesOpenInterest requires a request/poll capture path; \
+                 current capture.custom_data only supports subscribe-style custom data"
             );
         }
-        "DeribitVolatilityIndex" => {
+        Some(KnownCustomDataKind::DeribitVolatilityIndex) => {
             require_venue(
                 venues,
                 VenueRequirement::Deribit,
                 "custom_data DeribitVolatilityIndex requires at least one [[venues]] entry with kind = \"deribit\"",
             )?;
-            let Some(index_name) = data_type
-                .metadata()
-                .as_ref()
-                .and_then(|metadata| metadata.get("index_name"))
-                .and_then(|value| value.as_str())
-            else {
+            let Some(index_name) = string_metadata(data_type, "index_name") else {
                 bail!(
                     "custom_data DeribitVolatilityIndex requires metadata.index_name \
                      (for example `btc_usd`)"
                 );
             };
-            if index_name.trim().is_empty() {
-                bail!("custom_data DeribitVolatilityIndex metadata.index_name must be non-empty");
-            }
+            ensure_non_empty_metadata(
+                index_name,
+                "custom_data DeribitVolatilityIndex metadata.index_name must be non-empty",
+            )?;
         }
-        "HyperliquidOpenInterest" => {
+        Some(KnownCustomDataKind::HyperliquidOpenInterest) => {
             require_venue(
                 venues,
                 VenueRequirement::Hyperliquid,
                 "custom_data HyperliquidOpenInterest requires at least one [[venues]] entry with kind = \"hyperliquid\"",
             )?;
-            let Some(instrument_id) = data_type
-                .metadata()
-                .as_ref()
-                .and_then(|metadata| metadata.get("instrument_id"))
-                .and_then(|value| value.as_str())
-            else {
+            let Some(instrument_id) = string_metadata(data_type, "instrument_id") else {
                 bail!(
                     "custom_data HyperliquidOpenInterest requires metadata.instrument_id \
                      (for example `ETH-USD-PERP.HYPERLIQUID`)"
                 );
             };
-            if instrument_id.trim().is_empty() {
-                bail!(
-                    "custom_data HyperliquidOpenInterest metadata.instrument_id must be non-empty"
-                );
-            }
-            if let Some(identifier) = data_type.identifier() {
-                if identifier != instrument_id {
-                    bail!(
-                        "custom_data HyperliquidOpenInterest identifier `{identifier}` must match \
-                         metadata.instrument_id `{instrument_id}`"
-                    );
-                }
-            }
+            ensure_non_empty_metadata(
+                instrument_id,
+                "custom_data HyperliquidOpenInterest metadata.instrument_id must be non-empty",
+            )?;
+            ensure_identifier_matches(
+                data_type.identifier(),
+                instrument_id,
+                "HyperliquidOpenInterest",
+            )?;
         }
-        other => {
+        None => {
             bail!(
-                "unknown custom_data type_name `{other}`; supported values in this workspace: \
-                 DeribitVolatilityIndex, HyperliquidOpenInterest"
+                "unknown custom_data type_name `{}`; supported values in this workspace: {}",
+                data_type.type_name(),
+                KnownCustomDataKind::supported_csv()
             );
         }
     }
 
+    Ok(())
+}
+
+fn string_metadata<'a>(data_type: &'a DataType, key: &str) -> Option<&'a str> {
+    data_type
+        .metadata()
+        .as_ref()
+        .and_then(|metadata| metadata.get(key))
+        .and_then(|value| value.as_str())
+}
+
+fn ensure_non_empty_metadata(value: &str, error: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        bail!("{error}");
+    }
+    Ok(())
+}
+
+fn ensure_identifier_matches(
+    identifier: Option<&str>,
+    expected: &str,
+    type_name: &str,
+) -> Result<()> {
+    if let Some(identifier) = identifier {
+        if identifier != expected {
+            bail!(
+                "custom_data {type_name} identifier `{identifier}` must match metadata.instrument_id `{expected}`"
+            );
+        }
+    }
     Ok(())
 }
 
@@ -785,8 +968,35 @@ fn option_universe_venue_kind(venue: &VenueRuntimeConfig) -> Option<OptionUniver
 
 #[derive(Clone, Copy)]
 enum VenueRequirement {
+    BinanceFutures,
     Deribit,
     Hyperliquid,
+}
+
+#[derive(Clone, Copy)]
+enum KnownCustomDataKind {
+    BinanceFuturesLiquidation,
+    BinanceFuturesTicker,
+    BinanceFuturesOpenInterest,
+    DeribitVolatilityIndex,
+    HyperliquidOpenInterest,
+}
+
+impl KnownCustomDataKind {
+    fn from_type_name(type_name: &str) -> Option<Self> {
+        match type_name {
+            "BinanceFuturesLiquidation" => Some(Self::BinanceFuturesLiquidation),
+            "BinanceFuturesTicker" => Some(Self::BinanceFuturesTicker),
+            "BinanceFuturesOpenInterest" => Some(Self::BinanceFuturesOpenInterest),
+            "DeribitVolatilityIndex" => Some(Self::DeribitVolatilityIndex),
+            "HyperliquidOpenInterest" => Some(Self::HyperliquidOpenInterest),
+            _ => None,
+        }
+    }
+
+    fn supported_csv() -> &'static str {
+        "BinanceFuturesLiquidation, BinanceFuturesTicker, BinanceFuturesOpenInterest, DeribitVolatilityIndex, HyperliquidOpenInterest"
+    }
 }
 
 fn require_venue(
@@ -798,6 +1008,9 @@ fn require_venue(
         matches!(
             (requirement, venue),
             (
+                VenueRequirement::BinanceFutures,
+                VenueRuntimeConfig::BinanceFutures { .. }
+            ) | (
                 VenueRequirement::Deribit,
                 VenueRuntimeConfig::Deribit { .. }
             ) | (
@@ -817,10 +1030,7 @@ fn log_capture_buffer_estimate(config: &EffectiveConfig, plan: &CapturePlan) {
     log::info!("{}", format_buffer_estimate(&estimate));
     if let Some(budget_bytes) = config.runtime.resource_budget_bytes {
         if estimate.total_peak_buffered_bytes > budget_bytes {
-            log::warn!(
-                "{}",
-                format_budget_warning(&estimate, budget_bytes)
-            );
+            log::warn!("{}", format_budget_warning(&estimate, budget_bytes));
         }
     }
 }

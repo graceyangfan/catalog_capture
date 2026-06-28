@@ -61,8 +61,10 @@
 4. **不发明 schema**
    `CustomData` 必须原样录制 adapter 已发出的 `type_name` 与 payload（见 `docs/custom-data-contract.md`）。
 
-5. **三类 Binance Futures custom 暂不做**
-   `BinanceFuturesLiquidation`、`BinanceFuturesTicker`、`BinanceFuturesOpenInterest` 在上游补齐 Arrow/Parquet 编码前保持 deferred（[nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)）。CLI 会对这三类配置做启动前拒绝。
+5. **Binance Futures custom 分拆处理**
+   `BinanceFuturesLiquidation`、`BinanceFuturesTicker` 在上游 Arrow/Parquet 编码落地后已可接入
+   `capture.custom_data`。`BinanceFuturesOpenInterest` 仍需后续 `request/poll` 采集面，不走当前
+   订阅式 `custom_data` 路径。
 
 ### 当前焦点
 
@@ -77,7 +79,9 @@
    - 9a：Deribit/OKX OI preflight
    - 9b：从 raw catalog 离线产出 IV term / GEX / basis（`research/` 或独立仓库）
 
-Step 5 中 5a（`DeribitVolatilityIndex`）与 5c（`HyperliquidOpenInterest`）已完成；**5b 及三类 Binance custom 等上游 #4297 后再接**。
+Step 5 中 `DeribitVolatilityIndex`、`HyperliquidOpenInterest`、`BinanceFuturesLiquidation`、
+`BinanceFuturesTicker` 已完成接线；`BinanceFuturesOpenInterest` 仍需 request/poll 型
+`custom_data_requests` 路径，因此继续留在后续阶段。
 
 **Step 7–8（HTTP 录制 / 历史回填）明确跳过**；WS 主路径 + 9b 离线复算覆盖研究需求。
 
@@ -122,10 +126,10 @@ Step 5 中 5a（`DeribitVolatilityIndex`）与 5c（`HyperliquidOpenInterest`）
 | 批次 | 类型 | Adapter | 来源 | 难度 |
 |---|---|---|---|---|
 | B1 | `DeribitVolatilityIndex` | Deribit | WS | ★★ |
-| B2 | `BinanceFuturesLiquidation` | Binance Futures | WS | ★★（deferred，#4297） |
-| B2b | `BinanceFuturesTicker` | Binance Futures | WS | ★★（deferred，#4297） |
+| B2 | `BinanceFuturesLiquidation` | Binance Futures | WS | ★★ |
+| B2b | `BinanceFuturesTicker` | Binance Futures | WS | ★★ |
 | B3 | `HyperliquidOpenInterest` | Hyperliquid | WS | ★★ |
-| B4 | `BinanceFuturesOpenInterest` | Binance Futures | HTTP request | ★★★（deferred，#4297） |
+| B4 | `BinanceFuturesOpenInterest` | Binance Futures | HTTP request | ★★★（待 `custom_data_requests`） |
 | B5 | `BinanceFuturesOpenInterestHist` | Binance Futures | HTTP batch | ★★★★ |
 
 ### 第三层：HTTP / 回填（非 runtime subscribe）
@@ -368,8 +372,9 @@ flowchart LR
 | 顺序 | CustomData | 交易所 | 标识符示例 |
 |---|---|---|---|
 | 5a | `DeribitVolatilityIndex` | Deribit | metadata `index_name=btc_usd` |
-| 5b | `BinanceFuturesLiquidation` | Binance Futures | per instrument（**deferred → #4297**） |
-| 5c | `HyperliquidOpenInterest` | Hyperliquid（可选） | per instrument |
+| 5b | `BinanceFuturesLiquidation` | Binance Futures | all-market or metadata `instrument_id=ETHUSDT-PERP.BINANCE` |
+| 5c | `BinanceFuturesTicker` | Binance Futures | metadata `instrument_id=ETHUSDT-PERP.BINANCE` |
+| 5d | `HyperliquidOpenInterest` | Hyperliquid（可选） | per instrument |
 
 ### 工作项
 
@@ -381,7 +386,8 @@ flowchart LR
 ### 完成标准
 
 - [x] `DeribitVolatilityIndex` fixture 写入且 PyO3 可读；live profile 已补
-- [ ] `BinanceFuturesLiquidation` 与永续 capture 并行无串分区（**blocked：上游 #4297**）
+- [x] `BinanceFuturesLiquidation` live capture + typed catalog readback 已验证（当前 example 使用 all-market 订阅）
+- [x] `BinanceFuturesTicker` live capture + typed catalog readback 已验证
 - [x] `HyperliquidOpenInterest` fixture 写入可读；CLI venue/profile/probe 已补
 - [ ] custom parquet 路径与 `type_name` 一致，满足 `custom-data-contract.md`
 
@@ -392,7 +398,8 @@ flowchart LR
 
 ### 已知缺口（本 Step 不解决）
 
-- **`BinanceFuturesLiquidation` / `BinanceFuturesTicker`**：adapter 仅有 JSON 注册，缺 Arrow 编码 → [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)；本仓库在 PR 合并前不接，改推 **Step 6**。
+- **`BinanceFuturesOpenInterest`**：当前仍不是订阅式 custom family；需要后续
+  `custom_data_requests` 产品面。
 
 ---
 
@@ -446,7 +453,7 @@ flowchart LR
 
 | 类型 | 方式 | 说明 |
 |---|---|---|
-| `BinanceFuturesOpenInterest` | `RequestCustomData` | 快照型 OI（**deferred → #4297**，上游 Arrow 后再做） |
+| `BinanceFuturesOpenInterest` | `RequestCustomData` | 快照型 OI（需 `custom_data_requests`） |
 | 其他 venue OI | 视 adapter 能力 | 无则跳过 |
 
 ### 工作项

@@ -93,25 +93,25 @@ A custom data family is a good target when all of the following are true:
 
 ## Upstream-blocked (deferred)
 
-The following Binance Futures adapter custom types are **not implemented in this project** until
-`nautilus-binance` registers them for Arrow/Parquet encoding upstream:
+The following Binance Futures adapter custom types are relevant to this project:
 
 | Type | Planned step | Tracker |
 |---|---|---|
 | `BinanceFuturesLiquidation` | Step 5b (WS) | [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297) |
-| `BinanceFuturesTicker` | backlog (WS) | same |
+| `BinanceFuturesTicker` | Step 5c (WS) | same |
 | `BinanceFuturesOpenInterest` | Step 7 (HTTP request) | same |
 
-Runtime subscribe/request may work in Nautilus today, but direct `ParquetDataCatalog` capture
-requires Arrow registration. CLI configs referencing these `type_name` values are rejected at
-startup. **Step 6 WS families are done**; **Step 7–8 HTTP capture/backfill are skipped**; focus
-**Step 9** (see `docs/stepwise-capture-roadmap.md`).
+`BinanceFuturesLiquidation` and `BinanceFuturesTicker` are now accepted by the CLI subscribe path
+and can be written directly into catalog-native parquet. `BinanceFuturesOpenInterest` still needs a
+request/poll capture path, so it remains out of scope for the current actor model. **Step 6 WS
+families are done**; **Step 7–8 HTTP capture/backfill are skipped**; focus **Step 9** (see
+`docs/stepwise-capture-roadmap.md`).
 
 ## P0 targets
 
 These are the best next targets for direct capture support in **`targeted_derivatives`** mode.
 
-### `BinanceFuturesLiquidation`（deferred → #4297）
+### `BinanceFuturesLiquidation`
 
 - Adapter: Binance Futures
 - Source shape: live stream
@@ -122,19 +122,22 @@ These are the best next targets for direct capture support in **`targeted_deriva
   - `crates/adapters/binance/src/futures/data.rs`
   - `crates/adapters/binance/src/data_types.rs`
 - Notes:
-  - already partitioned by instrument through `DataType` metadata when subscribed per instrument
+  - supports both per-instrument subscription and Binance Futures all-market forced-order subscription
+  - all-market events still carry the concrete `instrument_id` in each payload, so catalog query remains instrument-filterable
   - stream-native and fits the runtime capture model
-  - should be used primarily for selected underlyings, not as the default all-market stream
+  - current example profile uses all-market for the simplest operations path; production retention should still watch row volume
 - Status:
-  - **deferred** until [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297) lands; do not implement locally
+  - Arrow/catalog capable after [nautilus_trader#4297](https://github.com/nautechsystems/nautilus_trader/issues/4297)
+  - now fits this project's `capture.custom_data` subscribe path
 
-### `BinanceFuturesTicker`（deferred → #4297）
+### `BinanceFuturesTicker`
 
 - Adapter: Binance Futures
 - Source shape: live stream (`ticker`)
 - Reference: `crates/adapters/binance/src/data_types.rs`
 - Status:
-  - same Arrow-registration gap as liquidation; tracked in #4297; **not in current scope**
+  - Arrow/catalog capable after #4297
+  - now fits this project's `capture.custom_data` subscribe path
 
 ### `HyperliquidOpenInterest`
 
@@ -173,7 +176,7 @@ These are the best next targets for direct capture support in **`targeted_deriva
 
 These are strong, but slightly less central to the immediate **runtime** derivatives roadmap.
 
-### `BinanceFuturesOpenInterest`（deferred → #4297）
+### `BinanceFuturesOpenInterest`
 
 - Adapter: Binance Futures
 - Source shape: request/snapshot style
@@ -184,7 +187,8 @@ These are strong, but slightly less central to the immediate **runtime** derivat
   - request/snapshot-oriented rather than naturally streaming
   - still worth supporting, but should come after the first real-time OI family
 - Status:
-  - **deferred** until #4297; Step 7 work proceeds with other venues first
+  - Arrow/catalog support is no longer the blocker
+  - still deferred in this repo until a `custom_data_requests` request/poll capture path exists
 
 ### `BinanceFuturesOpenInterestHist`
 

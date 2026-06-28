@@ -12,25 +12,19 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use anyhow::{bail, Context, Result};
+use anyhow::Result;
 use catalog_capture_core::{
-    aggregate_open_interest_by_strike, capture_plan_difference, compute_refresh_rollover_reason,
-    derive_perp_instrument_id, expand_option_universe, instrument_id_difference,
-    merge_capture_plans, option_instrument_ids_at_selected_expiry, plan_instrument_ids,
-    refresh_resolution_record, resolve_option_universe, select_cache_perp_strike_fallback,
-    should_apply_strike_change, AtmReferenceSource, CapturePlan, MarkPriceCaptureSpec,
-    OptionUniverseResolutionRecord, OptionUniverseSpec, OptionUniverseVenueKind, QuoteCaptureSpec,
-    ResolvedOptionUniverse, StrikeChangeSmoothingState, StrikeOpenInterestByStrike, StrikePolicy,
+    compute_refresh_rollover_reason, expand_option_universe, instrument_id_difference,
+    merge_capture_plans, plan_instrument_ids, refresh_resolution_record,
+    should_apply_strike_change, CapturePlan, OptionUniverseResolutionRecord, OptionUniverseSpec,
+    OptionUniverseVenueKind, ResolvedOptionUniverse, StrikeChangeSmoothingState, StrikePolicy,
 };
 use nautilus_common::cache::Cache;
 use nautilus_core::UnixNanos;
-use nautilus_model::{
-    enums::PriceType,
-    identifiers::{InstrumentId, Venue},
-    instruments::{Instrument, InstrumentAny},
-    types::Price,
-};
-use ustr::Ustr;
+use nautilus_model::identifiers::{InstrumentId, Venue};
+
+use crate::dynamic_option_universe_runtime::resolve_runtime_option_universe;
+use crate::dynamic_plan::{build_dynamic_plan_delta, merge_active_capture_plan, DynamicPlanDelta};
 
 #[derive(Debug, Clone)]
 pub struct DynamicOptionUniverseConfig {
@@ -50,20 +44,8 @@ pub struct DynamicOptionUniverseEntryConfig {
     pub initial_resolved: ResolvedOptionUniverse,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct DynamicOptionUniverseDelta {
-    pub add: CapturePlan,
-    pub remove: CapturePlan,
-    pub changes: Vec<DynamicOptionUniverseChange>,
-    pub resolution_records: Vec<OptionUniverseResolutionRecord>,
-}
-
-impl DynamicOptionUniverseDelta {
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.add.is_empty() && self.remove.is_empty()
-    }
-}
+pub type DynamicOptionUniverseDelta =
+    DynamicPlanDelta<DynamicOptionUniverseChange, OptionUniverseResolutionRecord>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DynamicOptionUniverseChange {
@@ -132,7 +114,7 @@ impl DynamicOptionUniverseManager {
 
     #[must_use]
     pub fn active_capture_plan(&self) -> CapturePlan {
-        merge_capture_plans(&self.static_plan, &self.current_dynamic_plan)
+        merge_active_capture_plan(&self.static_plan, &self.current_dynamic_plan)
     }
 
     pub fn refresh_from_cache(
@@ -232,7 +214,9 @@ impl DynamicOptionUniverseManager {
                 Err(error) => {
                     log::warn!(
                         "Option universe refresh failed for venue_id={} underlying={}: {}",
-                        state.spec.venue_id, state.spec.underlying, error,
+                        state.spec.venue_id,
+                        state.spec.underlying,
+                        error,
                     );
                     next_dynamic_plan =
                         merge_capture_plans(&next_dynamic_plan, &state.current_plan);
@@ -240,186 +224,15 @@ impl DynamicOptionUniverseManager {
             }
         }
 
-        let delta = DynamicOptionUniverseDelta {
-            add: capture_plan_difference(&next_dynamic_plan, &previous_dynamic_plan),
-            remove: capture_plan_difference(&previous_dynamic_plan, &next_dynamic_plan),
+        let delta = build_dynamic_plan_delta(
+            &previous_dynamic_plan,
+            &next_dynamic_plan,
             changes,
             resolution_records,
-        };
+        );
         self.current_dynamic_plan = next_dynamic_plan;
         Ok(delta)
     }
-}
-
-fn resolve_runtime_option_universe(
-    cache: &Cache,
-    now: UnixNanos,
-    spec: &OptionUniverseSpec,
-    venue: Venue,
-    venue_kind: OptionUniverseVenueKind,
-) -> Result<ResolvedOptionUniverse> {
-    if !venue_kind.supports_runtime_refresh() {
-        bail!(
-            "runtime option universe refresh is not supported for venue kind {:?} (venue_id={})",
-            venue_kind,
-            spec.venue_id
-        );
-    }
-
-    let underlying = Ustr::from(spec.underlying.as_str());
-    let option_instruments = cache
-        .instruments(&venue, Some(&underlying))
-        .into_iter()
-        .cloned()
-        .collect::<Vec<InstrumentAny>>();
-
-    let (atm_reference, atm_reference_source) = select_runtime_strike_reference(
-        cache, spec, venue, venue_kind, now,
-    )
-    .with_context(|| {
-        format!(
-            "failed to determine strike reference for venue_id={} underlying={}",
-            spec.venue_id, spec.underlying
-        )
-    })?;
-    let perp_instrument_id = spec
-        .include_perp
-        .then(|| derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from))
-        .transpose()?;
-
-    let open_interest_by_strike = if spec.strike_policy.requires_open_interest() {
-        Some(select_runtime_strike_open_interest(
-            cache, spec, venue, now,
-        )?)
-    } else {
-        None
-    };
-
-    let mut resolved = resolve_option_universe(
-        spec,
-        &option_instruments,
-        now,
-        atm_reference,
-        perp_instrument_id,
-        open_interest_by_strike.as_ref(),
-    )?;
-    resolved.atm_reference_source = Some(atm_reference_source);
-    Ok(resolved)
-}
-
-fn select_runtime_strike_open_interest(
-    cache: &Cache,
-    spec: &OptionUniverseSpec,
-    venue: Venue,
-    now: UnixNanos,
-) -> Result<StrikeOpenInterestByStrike> {
-    let underlying = Ustr::from(spec.underlying.as_str());
-    let option_instruments = cache
-        .instruments(&venue, Some(&underlying))
-        .into_iter()
-        .cloned()
-        .collect::<Vec<InstrumentAny>>();
-
-    let (_, instrument_ids) =
-        option_instrument_ids_at_selected_expiry(spec, &option_instruments, now)
-            .map_err(anyhow::Error::from)?;
-
-    let mut entries = Vec::new();
-    for instrument_id in instrument_ids {
-        let Some(greeks) = cache.option_greeks(&instrument_id) else {
-            continue;
-        };
-        let Some(open_interest) = greeks.open_interest else {
-            continue;
-        };
-        if !open_interest.is_finite() || open_interest <= 0.0 {
-            continue;
-        }
-        let Some(instrument) = option_instruments
-            .iter()
-            .find(|entry| entry.id() == instrument_id)
-        else {
-            continue;
-        };
-        let Some(strike) = instrument.strike_price() else {
-            continue;
-        };
-        entries.push((strike, open_interest));
-    }
-
-    Ok(aggregate_open_interest_by_strike(entries))
-}
-
-fn select_runtime_strike_reference(
-    cache: &Cache,
-    spec: &OptionUniverseSpec,
-    venue: Venue,
-    venue_kind: OptionUniverseVenueKind,
-    now: UnixNanos,
-) -> Result<(Price, String)> {
-    let underlying = Ustr::from(spec.underlying.as_str());
-    let option_instruments = cache
-        .instruments(&venue, Some(&underlying))
-        .into_iter()
-        .cloned()
-        .collect::<Vec<InstrumentAny>>();
-
-    let (_, instrument_ids) =
-        option_instrument_ids_at_selected_expiry(spec, &option_instruments, now)
-            .map_err(anyhow::Error::from)?;
-
-    for instrument_id in instrument_ids {
-        let Some(greeks) = cache.option_greeks(&instrument_id) else {
-            continue;
-        };
-        let Some(underlying_price) = greeks.underlying_price else {
-            continue;
-        };
-        let price = Price::from(format!("{underlying_price}").as_str());
-        return Ok((
-            price,
-            AtmReferenceSource::CacheGreeksUnderlyingPrice
-                .as_str()
-                .to_string(),
-        ));
-    }
-
-    let reference_perp =
-        derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
-    let quote_mid = cache
-        .quote(&reference_perp)
-        .map(|quote| quote.extract_price(PriceType::Mid));
-    let mark = cache.mark_price(&reference_perp).map(|update| update.value);
-    let index = cache
-        .index_price(&reference_perp)
-        .map(|update| update.value);
-    if let Some((price, source)) = select_cache_perp_strike_fallback(mark, quote_mid, index) {
-        return Ok((price, source.as_str().to_string()));
-    }
-
-    bail!(
-        "no option greeks underlying_price or perp fallback reference available for venue_id={} underlying={}",
-        spec.venue_id,
-        spec.underlying
-    )
-}
-
-pub fn plan_has_quotes(plan: &CapturePlan, instrument_id: InstrumentId) -> bool {
-    plan.quotes
-        .iter()
-        .any(|spec: &QuoteCaptureSpec| spec.instrument_id == instrument_id)
-}
-
-pub fn plan_has_mark_prices(plan: &CapturePlan, instrument_id: InstrumentId) -> bool {
-    plan.mark_prices
-        .iter()
-        .any(|spec: &MarkPriceCaptureSpec| spec.instrument_id == instrument_id)
-}
-
-pub fn plan_has_index_prices(plan: &CapturePlan, instrument_id: InstrumentId) -> bool {
-    plan.index_prices
-        .iter()
-        .any(|spec| spec.instrument_id == instrument_id)
 }
 
 #[cfg(test)]
@@ -428,7 +241,7 @@ mod tests {
 
     use catalog_capture_core::{
         plan_instrument_ids, CapturePlan, ExpiryPolicy, IndexPriceCaptureSpec,
-        OptionUniverseFamily, QuoteCaptureSpec, StrikePolicy,
+        MarkPriceCaptureSpec, OptionUniverseFamily, QuoteCaptureSpec, StrikePolicy,
     };
     use nautilus_common::cache::Cache;
     use nautilus_model::{
@@ -436,10 +249,11 @@ mod tests {
         enums::{GreeksConvention, OptionKind},
         identifiers::Symbol,
         instruments::{CryptoOption, CryptoPerpetual, InstrumentAny},
-        types::{Currency, Money, Quantity},
+        types::{Currency, Money, Price, Quantity},
     };
 
     use super::*;
+    use crate::{plan_has_index_prices, plan_has_mark_prices, plan_has_quotes};
 
     fn spec() -> OptionUniverseSpec {
         OptionUniverseSpec {

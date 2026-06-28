@@ -40,7 +40,6 @@ That makes strategy-owned recording the wrong default boundary.
 
 - `catalog-capture-core`: capture config, capture plan, partitioning, buffering, and sink contracts
 - `catalog-capture-runtime-adapter`: a dedicated `CatalogCaptureActor` that subscribes to a declared capture plan
-- `catalog-capture-plugin-adapter`: optional shell for stock `LiveNode` integration when plugin deployment is preferred
 
 The default shape is:
 
@@ -64,5 +63,4 @@ This keeps the first version:
 
 - `StreamingFeatherWriter` can remain a fallback or migration aid
 - direct catalog capture is the target architecture
-- plugin is a deployment adapter, not the core design center
 - the dedicated capture actor is the primary runtime model

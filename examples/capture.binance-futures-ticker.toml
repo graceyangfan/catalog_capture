@@ -1,0 +1,34 @@
+[runtime]
+capture_seconds = 30
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BINANCE-FUTURES-TICKER"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-binance-futures-ticker"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+queue_capacity = 10000
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "binance_main"
+kind = "binance_futures"
+environment = "testnet"
+product_type = "usd_m"
+
+[[capture.instruments]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.quotes]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.custom_data]]
+type_name = "BinanceFuturesTicker"
+identifier = "ETHUSDT-PERP.BINANCE"
+
+[capture.custom_data.metadata]
+instrument_id = "ETHUSDT-PERP.BINANCE"

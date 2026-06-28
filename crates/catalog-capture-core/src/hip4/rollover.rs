@@ -14,7 +14,7 @@
 
 const ONE_BILLION: u64 = 1_000_000_000;
 
-/// Adaptive HIP-4 rotation poll delay in seconds (mirrors `hyperliquid_stale_quote/rotation.py`).
+/// Adaptive HIP-4 rollover poll delay in seconds (mirrors `hyperliquid_stale_quote/rotation.py`).
 #[must_use]
 pub fn next_rotation_delay_secs(
     now_ns: u64,

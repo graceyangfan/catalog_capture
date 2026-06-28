@@ -17,27 +17,27 @@ use std::collections::BTreeSet;
 use nautilus_model::identifiers::InstrumentId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UniversePlanOverlap {
+pub struct PlanOverlap {
     pub overlapping_instrument_ids: Vec<String>,
     pub new_instrument_ids: Vec<String>,
 }
 
-pub fn universe_plan_overlap(
-    explicit_plan_instrument_ids: &BTreeSet<InstrumentId>,
-    universe_plan_instrument_ids: &BTreeSet<InstrumentId>,
-) -> UniversePlanOverlap {
-    let overlapping_instrument_ids = universe_plan_instrument_ids
+pub fn plan_overlap(
+    existing_instrument_ids: &BTreeSet<InstrumentId>,
+    candidate_instrument_ids: &BTreeSet<InstrumentId>,
+) -> PlanOverlap {
+    let overlapping_instrument_ids = candidate_instrument_ids
         .iter()
-        .filter(|instrument_id| explicit_plan_instrument_ids.contains(instrument_id))
+        .filter(|instrument_id| existing_instrument_ids.contains(instrument_id))
         .map(ToString::to_string)
         .collect();
-    let new_instrument_ids = universe_plan_instrument_ids
+    let new_instrument_ids = candidate_instrument_ids
         .iter()
-        .filter(|instrument_id| !explicit_plan_instrument_ids.contains(instrument_id))
+        .filter(|instrument_id| !existing_instrument_ids.contains(instrument_id))
         .map(ToString::to_string)
         .collect();
 
-    UniversePlanOverlap {
+    PlanOverlap {
         overlapping_instrument_ids,
         new_instrument_ids,
     }
@@ -50,17 +50,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn universe_plan_overlap_splits_shared_and_new_ids() {
-        let explicit = BTreeSet::from([
+    fn plan_overlap_splits_shared_and_new_ids() {
+        let existing = BTreeSet::from([
             InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
             InstrumentId::from("BTC-20JUN26-62000-C.DERIBIT"),
         ]);
-        let universe = BTreeSet::from([
+        let candidate = BTreeSet::from([
             InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
             InstrumentId::from("BTC-27JUN26-62000-C.DERIBIT"),
         ]);
 
-        let overlap = universe_plan_overlap(&explicit, &universe);
+        let overlap = plan_overlap(&existing, &candidate);
 
         assert_eq!(
             overlap.overlapping_instrument_ids,

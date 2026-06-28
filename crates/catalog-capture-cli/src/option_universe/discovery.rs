@@ -479,44 +479,8 @@ async fn maybe_fetch_deribit_strike_open_interest(
     if !spec.strike_policy.requires_open_interest() {
         return Ok(None);
     }
-
-    let (selected_expiry_ns, _) =
-        option_instrument_ids_at_selected_expiry(spec, option_instruments, resolved_at_ns)
-            .map_err(anyhow::Error::from)?;
-    let summaries = client
-        .request_book_summaries(&spec.underlying)
-        .await
-        .with_context(|| {
-            format!(
-                "failed to request Deribit book summaries for open interest on {}",
-                spec.underlying
-            )
-        })?;
-
-    let mut entries = Vec::new();
-    for summary in summaries {
-        let Some(instrument) = option_instruments
-            .iter()
-            .find(|entry| entry.id().symbol.as_str() == summary.instrument_name)
-        else {
-            continue;
-        };
-        if instrument.expiration_ns() != Some(selected_expiry_ns) {
-            continue;
-        }
-        let Some(strike) = instrument.strike_price() else {
-            continue;
-        };
-        let Some(open_interest) = summary
-            .open_interest
-            .and_then(|value| open_interest_from_string(&value.to_string()))
-        else {
-            continue;
-        };
-        entries.push((strike, open_interest));
-    }
-
-    Ok(Some(aggregate_open_interest_by_strike(entries)))
+    let _ = (client, spec, option_instruments, resolved_at_ns);
+    Ok(None)
 }
 
 async fn maybe_fetch_bybit_strike_open_interest(
@@ -576,44 +540,12 @@ async fn maybe_fetch_okx_strike_open_interest(
     if !spec.strike_policy.requires_open_interest() {
         return Ok(None);
     }
-
-    let (selected_expiry_ns, _) = option_instrument_ids_at_selected_expiry(
+    let _ = (
+        client,
+        spec,
         normalized_spec,
         option_instruments,
         resolved_at_ns,
-    )
-    .map_err(anyhow::Error::from)?;
-    let instrument_family = okx_instrument_family(spec).map_err(anyhow::Error::from)?;
-    let tickers = client
-        .request_option_market_tickers(&instrument_family)
-        .await
-        .with_context(|| {
-            format!(
-                "failed to request OKX option market tickers for open interest on {}",
-                instrument_family
-            )
-        })?;
-
-    let mut entries = Vec::new();
-    for ticker in tickers {
-        let instrument_symbol = ticker.inst_id.as_str();
-        let Some(instrument) = option_instruments
-            .iter()
-            .find(|entry| entry.id().symbol.as_str() == instrument_symbol)
-        else {
-            continue;
-        };
-        if instrument.expiration_ns() != Some(selected_expiry_ns) {
-            continue;
-        }
-        let Some(strike) = instrument.strike_price() else {
-            continue;
-        };
-        let Some(open_interest) = open_interest_from_string(ticker.oi.as_str()) else {
-            continue;
-        };
-        entries.push((strike, open_interest));
-    }
-
-    Ok(Some(aggregate_open_interest_by_strike(entries)))
+    );
+    Ok(None)
 }

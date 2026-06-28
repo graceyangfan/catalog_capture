@@ -40,9 +40,16 @@ pub fn family_partition_counts(plan: &CapturePlan) -> Vec<(&'static str, usize)>
         &mut counts,
         flags.instruments,
         "instruments",
-        plan.planned_instrument_ids().len().max(plan.instruments.len()),
+        plan.planned_instrument_ids()
+            .len()
+            .max(plan.instruments.len()),
     );
-    push_family_count_if(&mut counts, flags.custom_data, "custom_data", plan.custom_data.len());
+    push_family_count_if(
+        &mut counts,
+        flags.custom_data,
+        "custom_data",
+        plan.custom_data.len(),
+    );
     push_family_count_if(&mut counts, flags.quotes, "quotes", plan.quotes.len());
     push_family_count_if(&mut counts, flags.trades, "trades", plan.trades.len());
     push_family_count_if(&mut counts, flags.bars, "bars", plan.bars.len());
@@ -104,7 +111,10 @@ fn push_family_count_if(
 
 /// Upper bound on in-process partition buffer bytes across all enabled family runtimes.
 #[must_use]
-pub fn estimate_peak_buffered_bytes(plan: &CapturePlan, config: &CaptureConfig) -> BufferMemoryEstimate {
+pub fn estimate_peak_buffered_bytes(
+    plan: &CapturePlan,
+    config: &CaptureConfig,
+) -> BufferMemoryEstimate {
     let per_partition = config.max_buffer_bytes as u64;
     let per_family_cap = config.max_total_buffer_bytes as u64;
 
@@ -263,9 +273,6 @@ mod tests {
         };
 
         let counts = family_partition_counts(&plan);
-        assert_eq!(
-            counts,
-            vec![("instruments", 1), ("quotes", 1)]
-        );
+        assert_eq!(counts, vec![("instruments", 1), ("quotes", 1)]);
     }
 }

@@ -16,9 +16,9 @@ use std::{sync::mpsc, thread};
 
 use anyhow::{Context, Result};
 use catalog_capture_core::{
-    build_resolved_hip4_universe, capture_plan_difference, compute_hip4_refresh_rollover_reason,
-    expand_hip4_universe, hip4_refresh_resolution_record, instrument_id_difference,
-    merge_capture_plans, next_rotation_delay_secs, plan_instrument_ids, resolve_hip4_market,
+    build_resolved_hip4_universe, compute_hip4_refresh_rollover_reason, expand_hip4_universe,
+    hip4_refresh_resolution_record, instrument_id_difference, merge_capture_plans,
+    next_rotation_delay_secs, plan_instrument_ids, resolve_hip4_market,
     validate_hip4_refresh_resolution_record, CapturePlan, Hip4UniverseResolutionRecord,
     Hip4UniverseSpec, ResolveHip4MarketOptions, ResolvedHip4Universe,
 };
@@ -26,6 +26,8 @@ use nautilus_core::UnixNanos;
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 use nautilus_hyperliquid::http::{client::HyperliquidRawHttpClient, models::OutcomeMeta};
 use nautilus_model::identifiers::InstrumentId;
+
+use crate::dynamic_plan::{build_dynamic_plan_delta, merge_active_capture_plan, DynamicPlanDelta};
 
 #[derive(Debug, Clone)]
 pub struct DynamicHip4UniverseConfig {
@@ -46,20 +48,8 @@ pub struct DynamicHip4UniverseEntryConfig {
     pub initial_resolved: ResolvedHip4Universe,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct DynamicHip4UniverseDelta {
-    pub add: CapturePlan,
-    pub remove: CapturePlan,
-    pub changes: Vec<DynamicHip4UniverseChange>,
-    pub resolution_records: Vec<Hip4UniverseResolutionRecord>,
-}
-
-impl DynamicHip4UniverseDelta {
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.add.is_empty() && self.remove.is_empty()
-    }
-}
+pub type DynamicHip4UniverseDelta =
+    DynamicPlanDelta<DynamicHip4UniverseChange, Hip4UniverseResolutionRecord>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DynamicHip4UniverseChange {
@@ -128,7 +118,7 @@ impl DynamicHip4UniverseManager {
 
     #[must_use]
     pub fn active_capture_plan(&self) -> CapturePlan {
-        merge_capture_plans(&self.static_plan, &self.current_dynamic_plan)
+        merge_active_capture_plan(&self.static_plan, &self.current_dynamic_plan)
     }
 
     /// Mirrors `hyperliquid_stale_quote.strategy.Hip4RecorderStrategy._schedule_next_rotation_check`.
@@ -231,7 +221,9 @@ impl DynamicHip4UniverseManager {
                     refresh_failed = true;
                     log::warn!(
                         "HIP-4 universe refresh failed for venue_id={} underlying={}: {}",
-                        state.spec.venue_id, state.spec.underlying, error,
+                        state.spec.venue_id,
+                        state.spec.underlying,
+                        error,
                     );
                     next_dynamic_plan =
                         merge_capture_plans(&next_dynamic_plan, &state.current_plan);
@@ -239,12 +231,12 @@ impl DynamicHip4UniverseManager {
             }
         }
 
-        let delta = DynamicHip4UniverseDelta {
-            add: capture_plan_difference(&next_dynamic_plan, &previous_dynamic_plan),
-            remove: capture_plan_difference(&previous_dynamic_plan, &next_dynamic_plan),
+        let delta = build_dynamic_plan_delta(
+            &previous_dynamic_plan,
+            &next_dynamic_plan,
             changes,
             resolution_records,
-        };
+        );
         self.current_dynamic_plan = next_dynamic_plan;
         self.last_refresh_failed = refresh_failed;
         Ok(delta)

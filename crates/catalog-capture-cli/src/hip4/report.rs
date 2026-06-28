@@ -23,7 +23,7 @@ use nautilus_core::UnixNanos;
 use nautilus_model::identifiers::InstrumentId;
 use serde::Serialize;
 
-use crate::universe_report::universe_plan_overlap;
+use crate::plan_overlap::plan_overlap;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct Hip4UniverseResolutionReport {
@@ -49,7 +49,7 @@ pub fn build_hip4_universe_resolution_report(
     explicit_plan_instrument_ids: &BTreeSet<InstrumentId>,
     universe_plan_instrument_ids: &BTreeSet<InstrumentId>,
 ) -> Hip4UniverseResolutionReport {
-    let overlap = universe_plan_overlap(explicit_plan_instrument_ids, universe_plan_instrument_ids);
+    let overlap = plan_overlap(explicit_plan_instrument_ids, universe_plan_instrument_ids);
 
     Hip4UniverseResolutionReport {
         venue_id: spec.venue_id.clone(),

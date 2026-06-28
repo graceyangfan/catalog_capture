@@ -15,9 +15,7 @@
 mod catalog;
 mod catalog_presets;
 mod discovery;
-mod history;
 mod metadata;
-mod post_run_report;
 mod readback;
 mod report;
 #[cfg(test)]
@@ -25,12 +23,11 @@ mod tests;
 mod validate;
 mod validate_suite;
 
-use std::collections::BTreeSet;
-
 use anyhow::Result;
-use catalog_capture_core::{expand_option_universe, merge_capture_plans, CapturePlan};
+use catalog_capture_core::{expand_option_universe, CapturePlan};
 
 use crate::config::EffectiveConfig;
+use crate::universe_materialize::UniverseMaterialization;
 
 pub use catalog::{
     render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
@@ -41,30 +38,25 @@ pub use catalog_presets::{
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
 };
 pub use discovery::resolve_option_universe_spec;
-pub use history::{
-    load_option_universe_summaries, render_option_universe_summaries_json,
-    render_option_universe_summaries_text,
-};
 pub use metadata::{
     render_option_universe_metadata_validation_json,
     render_option_universe_metadata_validation_text, validate_option_universe_metadata,
     validation_options_from_cli, StrikeModeArg,
-};
-pub use post_run_report::{
-    run_option_universe_post_run_report, OptionUniverseOutputFormat, PostRunReportOptions,
 };
 pub use readback::{
     readback_options_for_config, readback_options_from_cli, render_option_universe_readback_json,
     render_option_universe_readback_text, run_option_universe_readback_validation,
 };
 pub use report::{
-    build_option_universe_resolution_report, render_option_universe_reports_json,
-    render_option_universe_reports_text, startup_resolution_record_from_report,
-    OptionUniverseResolutionReport,
+    build_option_universe_resolution_report, load_option_universe_summaries,
+    render_option_universe_reports_json, render_option_universe_reports_text,
+    render_option_universe_summaries_json, render_option_universe_summaries_text,
+    startup_resolution_record_from_report, OptionUniverseResolutionReport,
 };
 pub use validate::validate_option_universes;
 pub use validate_suite::{
-    run_option_universe_validation_suite, OptionUniverseValidationSuiteOptions,
+    run_option_universe_post_run_report, run_option_universe_validation_suite,
+    OptionUniverseOutputFormat, OptionUniverseValidationSuiteOptions, PostRunReportOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -76,30 +68,25 @@ pub struct MaterializedOptionUniversePlan {
 pub async fn materialize_capture_plan_with_reports(
     config: &EffectiveConfig,
 ) -> Result<MaterializedOptionUniversePlan> {
-    let mut plan = config.plan.clone();
-    let mut planned_instrument_ids = plan
-        .planned_instrument_ids()
-        .into_iter()
-        .collect::<BTreeSet<_>>();
+    let mut materialization = UniverseMaterialization::new(config.plan.clone());
     let mut reports = Vec::with_capacity(config.option_universes.len());
     for spec in &config.option_universes {
         let resolved = resolve_option_universe_spec(spec, &config.venues).await?;
         let expanded = expand_option_universe(spec, &resolved);
-        let universe_plan_instrument_ids = expanded
-            .planned_instrument_ids()
-            .into_iter()
-            .collect::<BTreeSet<_>>();
+        let baseline_ids = materialization.planned_instrument_ids.clone();
+        let universe_plan_instrument_ids = materialization.append_expanded_plan(&expanded);
         reports.push(build_option_universe_resolution_report(
             spec,
             &resolved,
-            &planned_instrument_ids,
+            &baseline_ids,
             &universe_plan_instrument_ids,
         ));
-        planned_instrument_ids.extend(universe_plan_instrument_ids.iter().copied());
-        plan = merge_capture_plans(&plan, &expanded);
     }
 
-    Ok(MaterializedOptionUniversePlan { plan, reports })
+    Ok(MaterializedOptionUniversePlan {
+        plan: materialization.plan,
+        reports,
+    })
 }
 
 pub async fn resolve_option_universe_reports(

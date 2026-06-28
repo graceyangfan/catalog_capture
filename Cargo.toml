@@ -1,8 +1,8 @@
 [workspace]
+default-members = ["crates/catalog-capture-cli"]
 members = [
   "crates/catalog-capture-core",
   "crates/catalog-capture-runtime-adapter",
-  "crates/catalog-capture-plugin-adapter",
   "crates/catalog-capture-cli",
 ]
 resolver = "2"
@@ -45,7 +45,7 @@ tokio = { version = "1", features = [
 toml = "0.8"
 ustr = "1.1.0"
 nautilus-binance = { path = "../nautilus_trader/crates/adapters/binance", features = [
-  "examples",
+  "arrow",
 ] }
 nautilus-bybit = { path = "../nautilus_trader/crates/adapters/bybit" }
 nautilus-deribit = { path = "../nautilus_trader/crates/adapters/deribit", features = [

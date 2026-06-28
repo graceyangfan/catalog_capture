@@ -18,9 +18,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use catalog_capture_core::{
     plan::{BarCaptureSpec, BookDeltasCaptureSpec},
     validate_capture_config, CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec,
-    ExpiryPolicy,
-    ForwardPriceCaptureSpec, FundingRateCaptureSpec, Hip4UniverseFamily, Hip4UniverseSpec,
-    IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
+    ExpiryPolicy, ForwardPriceCaptureSpec, FundingRateCaptureSpec, Hip4UniverseFamily,
+    Hip4UniverseSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
     InstrumentStatusCaptureSpec, LayoutCompatibility, LifecycleConfig, MarkPriceCaptureSpec,
     OptionGreeksCaptureSpec, OptionUniverseFamily, OptionUniverseSpec, OverflowPolicy,
     QuoteCaptureSpec, StrikePolicy, TradeCaptureSpec,
@@ -1272,7 +1271,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_runtime_rejects_binance_liquidation_until_arrow_support_exists() {
+    fn validate_runtime_accepts_binance_liquidation_custom_data() {
         let mut metadata = std::collections::BTreeMap::new();
         metadata.insert(
             "instrument_id".to_string(),
@@ -1301,41 +1300,126 @@ mod tests {
         })
         .expect("config should resolve");
 
-        let err = validate_runtime(&effective).expect_err("liquidation should fail early");
-        assert!(err.to_string().contains("deferred"));
-        assert!(err.to_string().contains("4297"));
+        validate_runtime(&effective).expect("liquidation should validate");
     }
 
     #[test]
-    fn validate_runtime_rejects_binance_ticker_and_open_interest_until_arrow_support_exists() {
-        for type_name in ["BinanceFuturesTicker", "BinanceFuturesOpenInterest"] {
-            let effective = resolve_config(CliConfigFile {
-                capture: CaptureConfigFile {
-                    custom_data: vec![CustomDataSelector {
-                        type_name: type_name.to_string(),
-                        identifier: Some("ETHUSDT-PERP.BINANCE".to_string()),
-                        metadata: std::collections::BTreeMap::new(),
-                    }],
-                    ..Default::default()
-                },
-                venues: vec![VenueConfig {
-                    id: "binance_main".to_string(),
-                    kind: "binance_futures".to_string(),
-                    environment: "testnet".to_string(),
-                    product_type: "usd_m".to_string(),
-                    product_types: Vec::new(),
-                    instrument_types: Vec::new(),
-                    instrument_families: Vec::new(),
+    fn validate_runtime_accepts_binance_liquidation_all_market_custom_data() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "BinanceFuturesLiquidation".to_string(),
+                    identifier: None,
+                    metadata: std::collections::BTreeMap::new(),
                 }],
                 ..Default::default()
-            })
-            .expect("config should resolve");
+            },
+            venues: vec![VenueConfig {
+                id: "binance_main".to_string(),
+                kind: "binance_futures".to_string(),
+                environment: "testnet".to_string(),
+                product_type: "usd_m".to_string(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
 
-            let err =
-                validate_runtime(&effective).expect_err(&format!("{type_name} should fail early"));
-            assert!(err.to_string().contains("deferred"));
-            assert!(err.to_string().contains("4297"));
-        }
+        validate_runtime(&effective).expect("all-market liquidation should validate");
+    }
+
+    #[test]
+    fn validate_runtime_rejects_binance_liquidation_identifier_without_metadata() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "BinanceFuturesLiquidation".to_string(),
+                    identifier: Some("ETHUSDT-PERP.BINANCE".to_string()),
+                    metadata: std::collections::BTreeMap::new(),
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "binance_main".to_string(),
+                kind: "binance_futures".to_string(),
+                environment: "testnet".to_string(),
+                product_type: "usd_m".to_string(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err =
+            validate_runtime(&effective).expect_err("identifier-only liquidation should fail");
+        assert!(err
+            .to_string()
+            .contains("identifier requires metadata.instrument_id"));
+    }
+
+    #[test]
+    fn validate_runtime_accepts_binance_ticker_custom_data() {
+        let mut metadata = std::collections::BTreeMap::new();
+        metadata.insert(
+            "instrument_id".to_string(),
+            "ETHUSDT-PERP.BINANCE".to_string(),
+        );
+
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "BinanceFuturesTicker".to_string(),
+                    identifier: Some("ETHUSDT-PERP.BINANCE".to_string()),
+                    metadata,
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "binance_main".to_string(),
+                kind: "binance_futures".to_string(),
+                environment: "testnet".to_string(),
+                product_type: "usd_m".to_string(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        validate_runtime(&effective).expect("ticker should validate");
+    }
+
+    #[test]
+    fn validate_runtime_rejects_binance_open_interest_without_request_path() {
+        let effective = resolve_config(CliConfigFile {
+            capture: CaptureConfigFile {
+                custom_data: vec![CustomDataSelector {
+                    type_name: "BinanceFuturesOpenInterest".to_string(),
+                    identifier: Some("ETHUSDT-PERP.BINANCE".to_string()),
+                    metadata: std::collections::BTreeMap::new(),
+                }],
+                ..Default::default()
+            },
+            venues: vec![VenueConfig {
+                id: "binance_main".to_string(),
+                kind: "binance_futures".to_string(),
+                environment: "testnet".to_string(),
+                product_type: "usd_m".to_string(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .expect("config should resolve");
+
+        let err = validate_runtime(&effective).expect_err("open interest should fail early");
+        assert!(err.to_string().contains("request/poll"));
     }
 
     #[test]
@@ -1950,6 +2034,22 @@ mod tests {
     #[test]
     fn example_hyperliquid_open_interest_config_loads_and_validates() {
         let path = repo_root().join("examples/capture.hyperliquid-open-interest.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_binance_futures_liquidation_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.binance-futures-liquidation.toml");
+        let loaded = load_config(&path).expect("example should load");
+        let effective = resolve_config(loaded).expect("example should resolve");
+        validate_runtime(&effective).expect("example should validate");
+    }
+
+    #[test]
+    fn example_binance_futures_ticker_config_loads_and_validates() {
+        let path = repo_root().join("examples/capture.binance-futures-ticker.toml");
         let loaded = load_config(&path).expect("example should load");
         let effective = resolve_config(loaded).expect("example should resolve");
         validate_runtime(&effective).expect("example should validate");

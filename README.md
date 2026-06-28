@@ -32,7 +32,6 @@ It is organized as:
 
 - `catalog-capture-core`: capture config, capture plan, partitioning, batching, and direct catalog sink primitives
 - `catalog-capture-runtime-adapter`: actor-centric runtime integration for a dedicated `CatalogCaptureActor`
-- `catalog-capture-plugin-adapter`: optional plugin-facing shell for stock `LiveNode` deployments
 - `catalog-capture-cli`: TOML-driven runner for validation and live capture
 - `tests/`: Python-native readback probes and smoke tests
 - `examples/`: end-to-end build, synthetic, fixture, and live-capture flows
@@ -112,6 +111,15 @@ The repository now includes a first TOML-driven CLI:
   - `cargo run -p catalog-capture-cli -- run --config examples/capture.toml`
 
 The initial CLI focuses on TOML and currently supports a `binance_futures` venue kind.
+
+For product builds and deployment packaging, prefer the capture CLI only:
+
+- `cargo build --release`
+- `cargo run --release -p catalog-capture-cli -- run --config examples/capture.toml`
+
+The workspace default member is `catalog-capture-cli`, so root `cargo build` targets the product
+path by default. Runtime-adapter fixture/live examples are opt-in and require
+`--features example-binaries`.
 
 Useful configs:
 

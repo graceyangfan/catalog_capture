@@ -1,19 +1,8 @@
 from __future__ import annotations
 
-import importlib.util
-import shutil
-import subprocess
-import tempfile
-from pathlib import Path
-
-_IMPORT = Path(__file__).resolve().parent / "nautilus_import.py"
-_spec = importlib.util.spec_from_file_location("nautilus_import", _IMPORT)
-_mod = importlib.util.module_from_spec(_spec)
-assert _spec.loader is not None
-_spec.loader.exec_module(_mod)
-_mod.ensure_nautilus_trader_path()
-PROJECT_ROOT = _mod.project_root()
-
+from python_smoke_common import cleanup_catalog_dir  # noqa: E402
+from python_smoke_common import make_temp_catalog_dir  # noqa: E402
+from python_smoke_common import run_fixture_example  # noqa: E402
 from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog as PyO3ParquetDataCatalog  # noqa: E402
 from nautilus_trader.core.nautilus_pyo3.model import register_custom_data_class  # noqa: E402
 from nautilus_trader.core.nautilus_pyo3.persistence import RustTestCustomData  # noqa: E402
@@ -21,19 +10,9 @@ from nautilus_trader.persistence.catalog import ParquetDataCatalog  # noqa: E402
 
 
 def main() -> int:
-    catalog_dir = Path(tempfile.mkdtemp(prefix="nautilus-python-custom-readback-"))
+    catalog_dir = make_temp_catalog_dir("nautilus-python-custom-readback-")
     try:
-        cmd = [
-            "cargo",
-            "run",
-            "-p",
-            "catalog-capture-runtime-adapter",
-            "--example",
-            "write_python_custom_readback_fixture",
-            "--",
-            str(catalog_dir),
-        ]
-        subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+        run_fixture_example("write_python_custom_readback_fixture", catalog_dir)
 
         register_custom_data_class(RustTestCustomData)
         catalog = ParquetDataCatalog(str(catalog_dir))
@@ -75,7 +54,7 @@ def main() -> int:
         print(f"Custom items loaded: {len(custom)}")
         return 0
     finally:
-        shutil.rmtree(catalog_dir, ignore_errors=True)
+        cleanup_catalog_dir(catalog_dir)
 
 
 if __name__ == "__main__":

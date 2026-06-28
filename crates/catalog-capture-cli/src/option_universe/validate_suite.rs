@@ -30,19 +30,18 @@ use super::catalog_presets::{
     merge_validation_options, validation_options_for_config, validation_options_for_preset,
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
 };
-use super::history::{
-    load_option_universe_summaries, render_option_universe_summaries_json,
-    render_option_universe_summaries_text,
-};
 use super::metadata::{metadata_validation_options_for_config, strike_profile_from_spec};
 use super::metadata::{
     render_option_universe_metadata_validation_json,
     render_option_universe_metadata_validation_text, validate_option_universe_metadata,
 };
-use super::post_run_report::OptionUniverseOutputFormat;
 use super::readback::{
     readback_options_for_config, render_option_universe_readback_json,
     render_option_universe_readback_text, run_option_universe_readback_validation,
+};
+use super::report::{
+    load_option_universe_summaries, render_option_universe_summaries_json,
+    render_option_universe_summaries_text,
 };
 
 #[derive(Debug, Clone)]
@@ -168,6 +167,60 @@ pub fn run_option_universe_validation_suite(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptionUniverseOutputFormat {
+    Json,
+    Text,
+}
+
+#[derive(Debug, Clone)]
+pub struct PostRunReportOptions {
+    pub enabled: bool,
+    pub format: OptionUniverseOutputFormat,
+    pub validation_preset_override: Option<OptionUniverseCatalogValidationPreset>,
+    pub validation_overrides: OptionUniverseCatalogValidationOverrides,
+}
+
+impl Default for PostRunReportOptions {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            format: OptionUniverseOutputFormat::Text,
+            validation_preset_override: None,
+            validation_overrides: OptionUniverseCatalogValidationOverrides::default(),
+        }
+    }
+}
+
+pub fn run_option_universe_post_run_report(
+    catalog_root: &Path,
+    config: &EffectiveConfig,
+    options: &PostRunReportOptions,
+) -> Result<()> {
+    if !options.enabled || config.option_universes.is_empty() {
+        return Ok(());
+    }
+
+    println!("\n=== Option universe post-run report ===");
+    println!("Catalog dir: {}", catalog_root.display());
+
+    run_option_universe_validation_suite(
+        catalog_root,
+        config,
+        &OptionUniverseValidationSuiteOptions {
+            format: options.format,
+            include_inspect: true,
+            include_readback: true,
+            require_refresh_change: config.runtime.option_universe_refresh.enabled
+                || options.validation_overrides.require_refresh_change,
+            require_contract_state: options.validation_overrides.require_contract_state,
+            catalog_preset_override: options.validation_preset_override,
+            catalog_overrides: options.validation_overrides.clone(),
+            ..OptionUniverseValidationSuiteOptions::default()
+        },
+    )
 }
 
 fn metadata_validation_options_for_suite(

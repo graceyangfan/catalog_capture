@@ -75,10 +75,7 @@ where
         self.metrics.accepted_items += 1;
 
         if let Some(reason) = flush_reason {
-            result = merge_flush_results(
-                result,
-                self.flush_partition_with_reason(&key, reason)?,
-            );
+            result = merge_flush_results(result, self.flush_partition_with_reason(&key, reason)?);
         }
 
         while self.total_pending_bytes() > self.config.max_total_buffer_bytes {
@@ -172,9 +169,7 @@ where
             .min_by(|(left_key, left), (right_key, right)| {
                 let left_ts = left.min_ts_ns.unwrap_or(u64::MAX);
                 let right_ts = right.min_ts_ns.unwrap_or(u64::MAX);
-                left_ts
-                    .cmp(&right_ts)
-                    .then_with(|| left_key.cmp(right_key))
+                left_ts.cmp(&right_ts).then_with(|| left_key.cmp(right_key))
             })
             .map(|(key, _)| key.clone())
     }
@@ -328,9 +323,9 @@ mod tests {
 
         assert_eq!(runtime.metrics.flush_reasons.budget, 1);
         assert_eq!(runtime.metrics.active_partitions, 1);
-        assert!(runtime.partitions.contains_key(
-            &PartitionKey::market_data("quotes", "B").stable_key()
-        ));
+        assert!(runtime
+            .partitions
+            .contains_key(&PartitionKey::market_data("quotes", "B").stable_key()));
     }
 
     #[test]
@@ -378,7 +373,10 @@ mod tests {
     impl CaptureSink<u64> for SealTrackingSink {
         fn write_batch(&mut self, _partition_key: &str, batch: Vec<u64>) -> Result<Vec<PathBuf>> {
             self.flush_rows += batch.len();
-            Ok(vec![PathBuf::from(format!("flush-{}.parquet", self.flush_rows))])
+            Ok(vec![PathBuf::from(format!(
+                "flush-{}.parquet",
+                self.flush_rows
+            ))])
         }
 
         fn seal_all(&mut self) -> Result<FlushResult> {
@@ -417,7 +415,11 @@ mod tests {
 
         let result = runtime.seal_all().expect("seal");
         assert_eq!(result.rows, 4, "rows should include flush (1) and seal (3)");
-        assert_eq!(result.files.len(), 2, "files should include flush and seal outputs");
+        assert_eq!(
+            result.files.len(),
+            2,
+            "files should include flush and seal outputs"
+        );
         assert_eq!(result.bytes, 30, "bytes should include sealed file payload");
     }
 }

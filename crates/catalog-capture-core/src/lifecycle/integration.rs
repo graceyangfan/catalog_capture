@@ -196,10 +196,10 @@ mod tests {
         let submit_runtime = Arc::clone(&runtime);
         let submitter = thread::spawn(move || {
             for offset in 0..16_u64 {
-                let _ = submit_runtime.lock().expect("lock").submit(capture_item(
-                    instrument_id,
-                    10_000 + offset,
-                ));
+                let _ = submit_runtime
+                    .lock()
+                    .expect("lock")
+                    .submit(capture_item(instrument_id, 10_000 + offset));
                 thread::sleep(Duration::from_millis(5));
             }
         });
@@ -213,11 +213,7 @@ mod tests {
         });
 
         thread::sleep(Duration::from_millis(80));
-        let shutdown_result = runtime
-            .lock()
-            .expect("lock runtime")
-            .shutdown()
-            .map(|_| ());
+        let shutdown_result = runtime.lock().expect("lock runtime").shutdown().map(|_| ());
         submitter.join().expect("submitter join");
         flusher.join().expect("flusher join");
 
@@ -268,9 +264,7 @@ mod tests {
                 self.inner.seal_all()
             }
 
-            fn seal_all_for_shutdown(
-                &mut self,
-            ) -> anyhow::Result<crate::runtime::FlushResult> {
+            fn seal_all_for_shutdown(&mut self) -> anyhow::Result<crate::runtime::FlushResult> {
                 self.inner.seal_all_for_shutdown()
             }
 
@@ -292,8 +286,7 @@ mod tests {
             inner: CatalogSink::from_config(&config).expect("segment sink"),
             fail_payload_ts: 2_000,
         };
-        let mut runtime =
-            BackgroundCaptureRuntime::new(config, sink).expect("background runtime");
+        let mut runtime = BackgroundCaptureRuntime::new(config, sink).expect("background runtime");
 
         runtime
             .submit(capture_item(instrument_id, 1_000))

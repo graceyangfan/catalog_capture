@@ -202,7 +202,7 @@ impl NautilusCatalogSink {
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("batch metadata missing instrument_id or bar_type"))?;
         let path = self.catalog.write_to_parquet(
-            data,
+            &data,
             Some(start.into()),
             Some(end.into()),
             Some(false),

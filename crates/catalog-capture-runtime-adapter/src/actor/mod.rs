@@ -1,0 +1,587 @@
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  You may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
+mod lifecycle;
+mod submit;
+
+use std::{
+    collections::BTreeSet,
+    fmt::Debug,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
+
+use anyhow::Result;
+
+use catalog_capture_core::{
+    background::BackgroundCaptureRuntime,
+    catalog_root_from_uri,
+    config::CaptureConfig,
+    item::PartitionKey,
+    metrics::CaptureMetrics,
+    metrics_export::{process_rss_bytes, unix_time_ms, CaptureMetricsSnapshot},
+    plan::CapturePlan,
+    sink::{chunked_catalog_sink_from_config, CatalogSink, ChunkedCatalogSink},
+};
+use nautilus_common::{
+    actor::{DataActorConfig, DataActorCore, DataActorNative},
+    nautilus_actor,
+};
+use nautilus_model::{
+    data::{
+        close::InstrumentClose, Bar, CustomData, FundingRateUpdate, IndexPriceUpdate,
+        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas,
+        QuoteTick, TradeTick,
+    },
+    identifiers::{ActorId, ClientId, InstrumentId},
+    instruments::{Instrument, InstrumentAny},
+};
+
+use crate::actor_plan::{
+    count_enabled_background_workers, effective_capture_plan, supplemental_capture_plan,
+};
+use crate::actor_runtime::collect_family_metrics;
+use crate::dynamic_hip4_universe::{DynamicHip4UniverseConfig, DynamicHip4UniverseManager};
+use crate::dynamic_option_universe::{DynamicOptionUniverseConfig, DynamicOptionUniverseManager};
+use crate::online_option_metrics::{OnlineOptionMetricsConfig, OnlineOptionMetricsObserver};
+const OPTION_UNIVERSE_REFRESH_TIMER: &str = "OPTION_UNIVERSE_REFRESH";
+const HIP4_UNIVERSE_REFRESH_TIMER: &str = "HIP4_UNIVERSE_REFRESH";
+const SEGMENT_SEAL_TIMER: &str = "SEGMENT_SEAL";
+const METRICS_EXPORT_TIMER: &str = "METRICS_EXPORT";
+
+#[derive(Debug, Clone)]
+pub struct CatalogCaptureActorConfig {
+    pub actor_id: Option<ActorId>,
+    pub capture: CaptureConfig,
+    pub plan: CapturePlan,
+    pub online_option_metrics: Option<OnlineOptionMetricsConfig>,
+    pub dynamic_option_universe: Option<DynamicOptionUniverseConfig>,
+    pub dynamic_hip4_universe: Option<DynamicHip4UniverseConfig>,
+    pub metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
+    pub metrics_refresh_interval_secs: Option<u64>,
+}
+
+impl CatalogCaptureActorConfig {
+    #[must_use]
+    pub fn new(capture: CaptureConfig, plan: CapturePlan) -> Self {
+        Self {
+            actor_id: None,
+            capture,
+            plan,
+            online_option_metrics: None,
+            dynamic_option_universe: None,
+            dynamic_hip4_universe: None,
+            metrics_snapshot: None,
+            metrics_refresh_interval_secs: None,
+        }
+    }
+}
+
+pub struct CatalogCaptureActor {
+    core: DataActorCore,
+    capture: CaptureConfig,
+    /// Startup materialized plan (static TOML + one-shot universe expansion).
+    initial_materialized_plan: CapturePlan,
+    /// Capture specs owned by startup materialization but not by an active refresh manager.
+    supplemental_plan: CapturePlan,
+    plan: CapturePlan,
+    instrument_runtime: Option<BackgroundCaptureRuntime<InstrumentAny, ChunkedCatalogSink>>,
+    custom_data_runtime: Option<BackgroundCaptureRuntime<CustomData, ChunkedCatalogSink>>,
+    mark_price_runtime:
+        Option<BackgroundCaptureRuntime<MarkPriceUpdate, CatalogSink<MarkPriceUpdate>>>,
+    index_price_runtime:
+        Option<BackgroundCaptureRuntime<IndexPriceUpdate, CatalogSink<IndexPriceUpdate>>>,
+    funding_rate_runtime:
+        Option<BackgroundCaptureRuntime<FundingRateUpdate, CatalogSink<FundingRateUpdate>>>,
+    instrument_status_runtime:
+        Option<BackgroundCaptureRuntime<InstrumentStatus, CatalogSink<InstrumentStatus>>>,
+    instrument_close_runtime:
+        Option<BackgroundCaptureRuntime<InstrumentClose, CatalogSink<InstrumentClose>>>,
+    option_greeks_runtime:
+        Option<BackgroundCaptureRuntime<OptionGreeks, CatalogSink<OptionGreeks>>>,
+    forward_price_targets: BTreeSet<InstrumentId>,
+    quote_runtime: Option<BackgroundCaptureRuntime<QuoteTick, CatalogSink<QuoteTick>>>,
+    trade_runtime: Option<BackgroundCaptureRuntime<TradeTick, CatalogSink<TradeTick>>>,
+    bar_runtime: Option<BackgroundCaptureRuntime<Bar, CatalogSink<Bar>>>,
+    book_delta_runtime:
+        Option<BackgroundCaptureRuntime<OrderBookDelta, CatalogSink<OrderBookDelta>>>,
+    online_option_metrics: Option<OnlineOptionMetricsObserver>,
+    dynamic_option_universe: Option<DynamicOptionUniverseManager>,
+    dynamic_hip4_universe: Option<DynamicHip4UniverseManager>,
+    metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
+    metrics_refresh_interval_secs: Option<u64>,
+    catalog_root: PathBuf,
+    shutdown_completed: bool,
+}
+
+impl CatalogCaptureActor {
+    pub fn new(config: CatalogCaptureActorConfig) -> Result<Self> {
+        let actor_config = DataActorConfig {
+            actor_id: Some(
+                config
+                    .actor_id
+                    .unwrap_or_else(|| ActorId::from("CATALOG_CAPTURE-001")),
+            ),
+            ..Default::default()
+        };
+
+        let flags = config.plan.family_runtime_flags();
+        let worker_count = config.plan.enabled_background_worker_count();
+        log::info!("Capture background workers: {worker_count} enabled for plan");
+
+        // Instruments and custom data stay chunked: catalog paths are heterogeneous and do not
+        // use the segment `.part` lifecycle.
+        let capture = config.capture.clone();
+        let instrument_runtime = if flags.instruments {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                chunked_catalog_sink_from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let custom_data_runtime = if flags.custom_data {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                chunked_catalog_sink_from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let mark_price_runtime = if flags.mark_prices {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<MarkPriceUpdate>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let index_price_runtime = if flags.index_prices {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<IndexPriceUpdate>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let funding_rate_runtime = if flags.funding_rates {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<FundingRateUpdate>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let instrument_status_runtime = if flags.instrument_statuses {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<InstrumentStatus>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let instrument_close_runtime = if flags.instrument_closes {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<InstrumentClose>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let option_greeks_runtime = if flags.option_greeks {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<OptionGreeks>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let quote_runtime = if flags.quotes {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<QuoteTick>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let trade_runtime = if flags.trades {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<TradeTick>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let bar_runtime = if flags.bars {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<Bar>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let book_delta_runtime = if flags.book_deltas {
+            Some(BackgroundCaptureRuntime::new(
+                capture.clone(),
+                CatalogSink::<OrderBookDelta>::from_config(&capture)?,
+            )?)
+        } else {
+            None
+        };
+        let catalog_root = catalog_root_from_uri(&config.capture.catalog_uri)?;
+        let initial_materialized_plan = config.plan.clone();
+        let supplemental_plan = supplemental_capture_plan(
+            &initial_materialized_plan,
+            &config.dynamic_option_universe,
+            &config.dynamic_hip4_universe,
+        );
+        let forward_price_targets = initial_materialized_plan
+            .forward_prices
+            .iter()
+            .map(|spec| spec.instrument_id)
+            .collect();
+
+        Ok(Self {
+            core: DataActorCore::new(actor_config),
+            capture: config.capture.clone(),
+            initial_materialized_plan,
+            supplemental_plan,
+            plan: config.plan,
+            instrument_runtime,
+            custom_data_runtime,
+            mark_price_runtime,
+            index_price_runtime,
+            funding_rate_runtime,
+            instrument_status_runtime,
+            instrument_close_runtime,
+            option_greeks_runtime,
+            forward_price_targets,
+            quote_runtime,
+            trade_runtime,
+            bar_runtime,
+            book_delta_runtime,
+            online_option_metrics: config
+                .online_option_metrics
+                .map(OnlineOptionMetricsObserver::new),
+            dynamic_option_universe: config
+                .dynamic_option_universe
+                .map(DynamicOptionUniverseManager::new),
+            dynamic_hip4_universe: config
+                .dynamic_hip4_universe
+                .map(DynamicHip4UniverseManager::new),
+            metrics_snapshot: config.metrics_snapshot,
+            metrics_refresh_interval_secs: config.metrics_refresh_interval_secs,
+            catalog_root,
+            shutdown_completed: false,
+        })
+    }
+
+    #[must_use]
+    pub fn enabled_background_worker_count(&self) -> usize {
+        count_enabled_background_workers([
+            self.instrument_runtime.is_some(),
+            self.custom_data_runtime.is_some(),
+            self.mark_price_runtime.is_some(),
+            self.index_price_runtime.is_some(),
+            self.funding_rate_runtime.is_some(),
+            self.instrument_status_runtime.is_some(),
+            self.instrument_close_runtime.is_some(),
+            self.option_greeks_runtime.is_some(),
+            self.quote_runtime.is_some(),
+            self.trade_runtime.is_some(),
+            self.bar_runtime.is_some(),
+            self.book_delta_runtime.is_some(),
+        ])
+    }
+
+    fn capture_metrics(&self) -> CaptureMetrics {
+        self.metrics_snapshot_data().aggregated
+    }
+
+    #[must_use]
+    pub fn metrics_snapshot_data(&self) -> CaptureMetricsSnapshot {
+        let mut aggregated = CaptureMetrics::default();
+        let mut families = Vec::new();
+        collect_family_metrics(
+            "instruments",
+            &self.instrument_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "custom_data",
+            &self.custom_data_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "mark_prices",
+            &self.mark_price_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "index_prices",
+            &self.index_price_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "funding_rates",
+            &self.funding_rate_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "instrument_statuses",
+            &self.instrument_status_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "instrument_closes",
+            &self.instrument_close_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "option_greeks",
+            &self.option_greeks_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "quotes",
+            &self.quote_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics(
+            "trades",
+            &self.trade_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+        collect_family_metrics("bars", &self.bar_runtime, &mut families, &mut aggregated);
+        collect_family_metrics(
+            "book_deltas",
+            &self.book_delta_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+
+        CaptureMetricsSnapshot {
+            captured_at_unix_ms: unix_time_ms(),
+            enabled_background_workers: self.enabled_background_worker_count(),
+            process_rss_bytes: process_rss_bytes(),
+            aggregated,
+            families,
+        }
+    }
+
+    pub fn publish_metrics_snapshot(&self) {
+        let Some(snapshot_store) = &self.metrics_snapshot else {
+            return;
+        };
+        let snapshot = self.metrics_snapshot_data();
+        if let Ok(mut store) = snapshot_store.write() {
+            *store = snapshot;
+        }
+    }
+
+    fn log_capture_metrics_summary(&self) {
+        let metrics = self.capture_metrics();
+        if metrics.accepted_items == 0 && metrics.completed_files == 0 {
+            return;
+        }
+        log::info!("Capture metrics: {}", metrics.summary_line());
+    }
+
+    fn effective_capture_plan(&self) -> CapturePlan {
+        effective_capture_plan(
+            &self.initial_materialized_plan,
+            &self.supplemental_plan,
+            self.dynamic_option_universe.as_ref(),
+            self.dynamic_hip4_universe.as_ref(),
+        )
+    }
+
+    fn sync_plan_state(&mut self) {
+        let plan = self.effective_capture_plan();
+        self.sync_forward_price_targets(&plan);
+        self.plan = plan;
+    }
+
+    fn sync_forward_price_targets(&mut self, plan: &CapturePlan) {
+        self.forward_price_targets = plan
+            .forward_prices
+            .iter()
+            .map(|spec| spec.instrument_id)
+            .collect();
+    }
+}
+
+nautilus_actor!(CatalogCaptureActor);
+
+impl Debug for CatalogCaptureActor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CatalogCaptureActor")
+            .field("plan", &self.plan)
+            .field(
+                "enabled_background_workers",
+                &self.enabled_background_worker_count(),
+            )
+            .field(
+                "instrument_queue_depth",
+                &self
+                    .instrument_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "custom_data_queue_depth",
+                &self
+                    .custom_data_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "mark_price_queue_depth",
+                &self
+                    .mark_price_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "index_price_queue_depth",
+                &self
+                    .index_price_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "funding_rate_queue_depth",
+                &self
+                    .funding_rate_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "instrument_status_queue_depth",
+                &self
+                    .instrument_status_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "instrument_close_queue_depth",
+                &self
+                    .instrument_close_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "option_greeks_queue_depth",
+                &self
+                    .option_greeks_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "quote_queue_depth",
+                &self
+                    .quote_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "trade_queue_depth",
+                &self
+                    .trade_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "bar_queue_depth",
+                &self
+                    .bar_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "book_delta_queue_depth",
+                &self
+                    .book_delta_runtime
+                    .as_ref()
+                    .map(BackgroundCaptureRuntime::queue_depth),
+            )
+            .field(
+                "online_option_metrics",
+                &self.online_option_metrics.is_some(),
+            )
+            .finish()
+    }
+}
+
+pub trait RuntimeCaptureAdapter {
+    fn build_capture_actor(&self) -> Result<CatalogCaptureActor>;
+}
+
+impl Drop for CatalogCaptureActor {
+    fn drop(&mut self) {
+        if !self.shutdown_completed {
+            let _ = self.shutdown_all();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use catalog_capture_core::{
+        plan::{CapturePlan, QuoteCaptureSpec},
+        CaptureConfig,
+    };
+    use nautilus_model::identifiers::InstrumentId;
+
+    use super::*;
+
+    #[test]
+    fn actor_starts_only_plan_enabled_background_workers() {
+        let catalog_dir = std::env::temp_dir().join("catalog-capture-actor-lazy-runtime-test");
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir should exist");
+        let plan = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: InstrumentId::from("BTCUSDT-PERP.BINANCE"),
+            }],
+            ..CapturePlan::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            plan,
+        ))
+        .expect("actor should construct");
+
+        assert_eq!(actor.enabled_background_worker_count(), 2);
+        assert!(actor.instrument_runtime.is_some());
+        assert!(actor.quote_runtime.is_some());
+        assert!(actor.trade_runtime.is_none());
+        assert!(actor.book_delta_runtime.is_none());
+        let _ = actor.shutdown_all().expect("shutdown should succeed");
+    }
+}

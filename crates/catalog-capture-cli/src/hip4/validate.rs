@@ -12,16 +12,31 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-#[derive(Debug, Default)]
-pub struct PluginAdapterNotes;
+use anyhow::{bail, Result};
+use catalog_capture_core::Hip4UniverseSpec;
 
-impl PluginAdapterNotes {
-    pub const STATUS: &'static str =
-        "Treat plugin integration as a deployment shell around a dedicated capture actor, not as the core capture architecture.";
+use crate::config::VenueRuntimeConfig;
 
-    pub const PLATFORM_NOTE: &'static str =
-        "Current Nautilus live plugin support should be treated conservatively and validated per deployment target.";
-
-    pub const DESIGN_INTENT: &'static str =
-        "If plugin deployment is chosen, the plugin adapter should forward runtime callbacks into the same capture core and actor-oriented batching model used by non-plugin deployments.";
+pub fn validate_hip4_universes(
+    specs: &[Hip4UniverseSpec],
+    venues: &[VenueRuntimeConfig],
+) -> Result<()> {
+    for spec in specs {
+        let venue = venues
+            .iter()
+            .find(|entry| entry.id() == spec.venue_id)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "capture.hip4_universe references unknown venue_id `{}`",
+                    spec.venue_id
+                )
+            })?;
+        if !matches!(venue, VenueRuntimeConfig::Hyperliquid { .. }) {
+            bail!(
+                "capture.hip4_universe venue_id `{}` must reference a hyperliquid venue",
+                spec.venue_id
+            );
+        }
+    }
+    Ok(())
 }

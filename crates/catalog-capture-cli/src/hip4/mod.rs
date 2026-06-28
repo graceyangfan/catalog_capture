@@ -14,13 +14,13 @@
 
 mod discovery;
 mod report;
+mod validate;
 
-use std::collections::BTreeSet;
-
-use anyhow::{bail, Result};
-use catalog_capture_core::{expand_hip4_universe, merge_capture_plans, CapturePlan};
+use anyhow::Result;
+use catalog_capture_core::{expand_hip4_universe, CapturePlan};
 
 use crate::config::EffectiveConfig;
+use crate::universe_materialize::UniverseMaterialization;
 
 pub use discovery::resolve_hip4_universe_spec;
 pub use report::{
@@ -28,6 +28,7 @@ pub use report::{
     render_hip4_universe_reports_text, startup_resolution_record_from_report,
     Hip4UniverseResolutionReport,
 };
+pub use validate::validate_hip4_universes;
 
 #[derive(Debug, Clone)]
 pub struct MaterializedHip4UniversePlan {
@@ -52,60 +53,30 @@ pub async fn materialize_hip4_capture_plan(
         .hip4_universe_refresh
         .http_timeout_secs
         .max(1);
-    let mut plan = CapturePlan::default();
-    let mut planned_instrument_ids = config
-        .plan
-        .planned_instrument_ids()
-        .into_iter()
-        .collect::<BTreeSet<_>>();
+    let mut materialization = UniverseMaterialization::new(CapturePlan::default());
+    materialization
+        .planned_instrument_ids
+        .extend(config.plan.planned_instrument_ids());
     let mut reports = Vec::with_capacity(config.hip4_universes.len());
     let mut resolved_entries = Vec::with_capacity(config.hip4_universes.len());
 
     for spec in &config.hip4_universes {
         let resolved = resolve_hip4_universe_spec(spec, &config.venues, http_timeout_secs).await?;
         let expanded = expand_hip4_universe(spec, &resolved);
-        let universe_plan_instrument_ids = expanded
-            .planned_instrument_ids()
-            .into_iter()
-            .collect::<BTreeSet<_>>();
+        let baseline_ids = materialization.planned_instrument_ids.clone();
+        let universe_plan_instrument_ids = materialization.append_expanded_plan(&expanded);
         reports.push(build_hip4_universe_resolution_report(
             spec,
             &resolved,
-            &planned_instrument_ids,
+            &baseline_ids,
             &universe_plan_instrument_ids,
         ));
-        planned_instrument_ids.extend(universe_plan_instrument_ids.iter().copied());
         resolved_entries.push(resolved);
-        plan = merge_capture_plans(&plan, &expanded);
     }
 
     Ok(MaterializedHip4UniversePlan {
-        plan,
+        plan: materialization.plan,
         reports,
         resolved: resolved_entries,
     })
-}
-
-pub fn validate_hip4_universes(
-    specs: &[catalog_capture_core::Hip4UniverseSpec],
-    venues: &[crate::config::VenueRuntimeConfig],
-) -> Result<()> {
-    for spec in specs {
-        let venue = venues
-            .iter()
-            .find(|entry| entry.id() == spec.venue_id)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "capture.hip4_universe references unknown venue_id `{}`",
-                    spec.venue_id
-                )
-            })?;
-        if !matches!(venue, crate::config::VenueRuntimeConfig::Hyperliquid { .. }) {
-            bail!(
-                "capture.hip4_universe venue_id `{}` must reference a hyperliquid venue",
-                spec.venue_id
-            );
-        }
-    }
-    Ok(())
 }

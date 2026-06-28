@@ -451,7 +451,7 @@ where
             .segments
             .get_mut(partition_key)
             .expect("segment opened above");
-        let batches = self.catalog.data_to_record_batches(batch)?;
+        let batches = self.catalog.data_to_record_batches(&batch)?;
         for record_batch in &batches {
             segment.writer.write(record_batch)?;
             segment.row_count += record_batch.num_rows() as u64;

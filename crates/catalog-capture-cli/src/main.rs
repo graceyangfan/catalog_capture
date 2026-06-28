@@ -16,8 +16,9 @@ mod config;
 mod hip4;
 mod metrics_server;
 mod option_universe;
+mod plan_overlap;
 mod runner;
-mod universe_report;
+mod universe_materialize;
 
 use std::path::{Path, PathBuf};
 
@@ -27,12 +28,12 @@ use catalog_capture_core::{
     OptionUniverseReadbackReport, OptionUniverseResolutionValidationReport,
 };
 use clap::{Parser, Subcommand, ValueEnum};
-use nautilus_common::logging::ensure_logging_initialized;
 use config::{load_config, render_effective_config, resolve_config, EffectiveConfig};
 use hip4::{
     render_hip4_universe_reports_json, render_hip4_universe_reports_text,
     Hip4UniverseResolutionReport,
 };
+use nautilus_common::logging::ensure_logging_initialized;
 use option_universe::{
     load_option_universe_summaries, merge_validation_options, readback_options_for_config,
     readback_options_from_cli, render_option_universe_catalog_validation_json,

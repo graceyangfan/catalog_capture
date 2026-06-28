@@ -15,7 +15,7 @@
 pub mod expand;
 pub mod metadata;
 pub mod outcome_meta;
-pub mod rotation;
+pub mod rollover;
 pub mod spec;
 
 pub use expand::expand_hip4_universe;
@@ -31,7 +31,7 @@ pub use outcome_meta::{
     hip4_perp_instrument_id, instrument_ids_from_outcomes, parse_expiry_to_ns, resolve_hip4_market,
     ResolveHip4MarketOptions, ResolvedHip4Market,
 };
-pub use rotation::next_rotation_delay_secs;
+pub use rollover::next_rotation_delay_secs;
 pub use spec::{
     build_resolved_hip4_universe, Hip4UniverseFamily, Hip4UniverseSpec, ResolvedHip4Universe,
 };
