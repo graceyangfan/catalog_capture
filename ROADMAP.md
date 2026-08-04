@@ -25,12 +25,13 @@ Standalone **write-focused** capture service for research-grade derivatives data
 
 ## Next (post 0.1.0)
 
-1. **L5 / L6** — stronger offline layout fixtures; custom path audit  
-2. **C4** — examples directory tiers (`minimal` / `research` / `operator`)  
-3. **C5** — core public API surface docs  
-4. **R3** — per-family flush guidance tables  
-5. Optional: Docker/GHCR (B3), HIP-4 optional feature to slim residual HL link  
-6. Nightly live smoke against pinned nautilus rev  
+1. **C4** — examples directory tiers (`minimal` / `research` / `operator`)  
+2. **C5** — core public API surface docs  
+3. **R3** — per-family flush guidance tables  
+4. Optional: Docker/GHCR (B3), HIP-4 optional feature to slim residual HL link  
+5. Nightly live smoke against pinned nautilus rev  
+
+Done recently: L5/L6 offline layout write proofs + custom path audit (`catalog_layout`).  
 
 ## Historical phases
 

@@ -8,6 +8,12 @@ All notable changes to this project are documented in this file.
 
 - Credentials simplified to two modes: public (`None`) or complete env key+secret pair.
 
+### Added
+
+- Offline catalog layout proofs (L5/L6): `catalog_layout` helpers + unit tests that
+  write quotes under `data/quotes/` and custom data under `data/custom/{TypeName}/`
+  (subscribe and request share the same on-disk contract).
+
 ## 0.1.0
 
 First public-shaped baseline: single CLI, Rust-canonical catalog only, multi-venue

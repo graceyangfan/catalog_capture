@@ -41,6 +41,18 @@ design discussion covering:
 - PyO3/readback expectations
 - long-term catalog compatibility
 
+## Catalog path (Rust layout)
+
+Both TOML channels write through the **same** custom sink:
+
+| TOML | Nautilus API | On-disk path |
+|------|--------------|--------------|
+| `[[capture.custom_data]]` | `subscribe_data` → `on_data` | `data/custom/{type_name}/[{identifier}/]…` |
+| `[[capture.custom_data_requests]]` | `request_data` → response | **same** `data/custom/{type_name}/…` |
+
+Type name is the adapter `DataType` type string (for example `DeribitBookSummary`).
+Offline proofs live in `catalog-capture-core` (`catalog_layout` unit tests).
+
 ## Naming guidance
 
 Custom data names should be:

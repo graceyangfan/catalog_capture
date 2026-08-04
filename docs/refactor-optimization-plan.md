@@ -66,8 +66,8 @@ capture → file://catalog_uri  (Rust canonical only)
 | L2 | examples 全量改为 canonical | **done** |
 | L3 | 拒绝 mirror 配置 | **done**（报错迁移） |
 | L4 | how-to rust backtest | **done** |
-| L5 | 无网 fixture / unit 证明写路径 | partial（segment/core tests） |
-| L6 | custom 路径审计 | open |
+| L5 | 无网 fixture / unit 证明写路径 | **done**（`catalog_layout` quotes + custom 写盘测试） |
+| L6 | custom 路径审计 | **done**（`data/custom/{TypeName}`；subscribe/request 同 sink） |
 | L7 | `metadata/capture_run.json` | **done** |
 
 ---
@@ -314,11 +314,10 @@ layout_compatibility = "rust_canonical_only"  # 唯一合法值；可省略
 
 1. **C4** — examples 分层（minimal / research / operator）  
 2. **C5** — core public API 文档  
-3. **L5 / L6** — fixture 加强 + custom 路径审计  
-4. **R3** — per-family flush 建议表  
-5. 可选：P8 bin 改名、B3 Docker、HIP-4 optional feature  
+3. **R3** — per-family flush 建议表  
+4. 可选：P8 bin 改名、B3 Docker、HIP-4 optional feature  
 
-~~M1 开源可装 O1–O8（除持续 polish）/ R1–R2 / L7 / D1–D3~~ **done**
+~~M1 开源可装~~ **done** · ~~L5/L6 写路径~~ **done**
 
 ---
 

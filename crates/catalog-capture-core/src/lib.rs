@@ -48,6 +48,10 @@ pub use capture_run::{
     CaptureRunPlanSummary, CaptureRunRecord, CaptureRunVenueRecord, CAPTURE_RUN_FILE,
     CAPTURE_RUN_SCHEMA_VERSION,
 };
+pub use catalog_layout::{
+    assert_known_custom_type_dirs, custom_data_dir, instrument_identifier, market_data_dir,
+    path_is_under_custom_type, path_is_under_market_family, KNOWN_CUSTOM_TYPE_NAMES,
+};
 pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy};
 pub use forward_price::forward_price_from_option_greeks;
 pub use forward_price_metadata::{
