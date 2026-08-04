@@ -26,8 +26,12 @@ if [[ ! -d ../nautilus_trader ]]; then
   make bootstrap-deps
 fi
 
-echo "building release catalog-capture-cli..."
-cargo build --release -p catalog-capture-cli
+# Only venues used by multi-venue mainnet (smaller link graph than all-venues).
+CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid}"
+echo "building release catalog-capture-cli (features=${CAPTURE_FEATURES})..."
+cargo build --release -p catalog-capture-cli \
+  --no-default-features \
+  --features "${CAPTURE_FEATURES}"
 
 BIN="$ROOT/target/release/catalog-capture-cli"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"

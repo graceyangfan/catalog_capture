@@ -70,22 +70,25 @@ nautilus-serialization = { path = "../nautilus_trader/crates/serialization", fea
 pyo3-stub-gen = { path = "../nautilus_trader/patches/pyo3-stub-gen" }
 
 # -----------------------------------------------------------------------------
-# Profiles (aligned with nautilus_trader: one product binary, lean dev artifacts)
+# Profiles: lean artifacts (path-deps pull a large Nautilus graph into target/)
 # -----------------------------------------------------------------------------
 [profile.dev]
 opt-level = 0
 debug = false
 strip = "debuginfo"
 lto = false
+# incremental=true speeds rebuilds but can add many GB under target/*/incremental
 incremental = true
 
-# Third-party crates recompile rarely; slight optimization speeds test/run loops.
+# Rarely-rebuilt deps: slight opt for faster tests/runs without fat local crates.
 [profile.dev.package."*"]
 opt-level = 1
 
 [profile.test]
 opt-level = 0
-debug = true
+# debug=true balloons target/ for tests; keep symbols off unless debugging tests
+debug = false
+strip = "debuginfo"
 incremental = true
 
 [profile.test.package."*"]
@@ -95,8 +98,20 @@ opt-level = 1
 inherits = "dev"
 incremental = false
 
+# Default cloud/server binary: fast compile, modest binary size (no fat LTO).
 [profile.release]
 opt-level = 3
 debug = false
+strip = "symbols"
 lto = false
 codegen-units = 16
+incremental = false
+panic = "abort"
+
+# Smallest practical binary (slower compile). Use: cargo build --profile release-small
+[profile.release-small]
+inherits = "release"
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
