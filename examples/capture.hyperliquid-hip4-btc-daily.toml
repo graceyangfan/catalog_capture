@@ -1,15 +1,7 @@
-# HIP-4 BTC priceBinary **daily** capture — aligned with strategy day boundary.
+# Hyperliquid HIP-4 style daily universe (mainnet).
+# Auto-discovers outcomes via outcomeMeta; on roll: unsubscribe old, subscribe new.
+# File seal at 06:00 UTC (segment lifecycle).
 #
-# Instrument / outcomeMeta rotation (discovery):
-#   idle 1800s → within 900s of expiry active 10s  (same as hyperliquid_stale_quote)
-# File / segment seal (catalog day):
-#   06:00 UTC every 86400s  (same as stale_quote StreamingConfig rotation_time)
-#
-# Covers data for:
-#   - polyup_deribit_rs hip4_btc_daily: instruments + YES/NO quotes + HL BTC-PERP mark
-#   - cjp_mm_rs HIP-4 replay: + outcome trades  (Binance L2 is a separate capture)
-#
-# Run from repo root:
 #   cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-hip4-btc-daily.toml
 
 [runtime]

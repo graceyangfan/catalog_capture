@@ -17,7 +17,7 @@ overflow_policy = "drop_oldest"
 [[venues]]
 id = "binance_main"
 kind = "binance_futures"
-environment = "testnet"
+environment = "live"
 product_type = "usd_m"
 
 [[capture.instruments]]

@@ -23,7 +23,7 @@ overflow_policy = "drop_oldest"
 [[venues]]
 id = "hyperliquid_main"
 kind = "hyperliquid"
-environment = "testnet"
+environment = "mainnet"
 
 [[capture.instruments]]
 instrument_id = "ETH-USD-PERP.HYPERLIQUID"

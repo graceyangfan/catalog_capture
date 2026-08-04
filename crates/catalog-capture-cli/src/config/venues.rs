@@ -106,7 +106,7 @@ fn venue_feature_required(kind: &str, feature: &str) -> Result<VenueRuntimeConfi
 }
 
 fn default_binance_environment() -> String {
-    "testnet".to_string()
+    "live".to_string()
 }
 
 pub(crate) fn default_binance_product_type() -> String {
@@ -218,10 +218,11 @@ pub(crate) fn validate_unique_venue_ids(venues: &[VenueRuntimeConfig]) -> Result
 #[cfg(feature = "venue-binance")]
 fn parse_binance_environment(value: &str) -> Result<BinanceEnvironment> {
     match value.to_ascii_lowercase().as_str() {
-        "live" => Ok(BinanceEnvironment::Live),
+        // `mainnet` accepted as alias for live (production market data).
+        "live" | "mainnet" => Ok(BinanceEnvironment::Live),
         "testnet" => Ok(BinanceEnvironment::Testnet),
         "demo" => Ok(BinanceEnvironment::Demo),
-        other => bail!("unsupported Binance environment {other}; expected live|testnet|demo"),
+        other => bail!("unsupported Binance environment {other}; expected live|mainnet|testnet|demo"),
     }
 }
 

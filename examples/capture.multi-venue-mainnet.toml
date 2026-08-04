@@ -1,0 +1,101 @@
+# Multi-venue mainnet capture example (public market data).
+#
+# Hyperliquid HIP-4 style universe (auto-discover / rotate outcomes):
+#   instruments, quotes, trades, mark_prices  + adaptive refresh
+# Binance USD-M perpetual:
+#   trades + L2 book deltas (depth=20; Futures WS is @depth@0ms)
+# Deribit:
+#   BookSummary request poll (public API)
+#
+# Run from repo root:
+#   cargo run -p catalog-capture-cli -- run --config examples/capture.multi-venue-mainnet.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-MULTI-VENUE-MAINNET"
+
+[runtime.hip4_universe_refresh]
+enabled = true
+idle_poll_secs = 1800
+active_poll_secs = 10
+pre_expiry_window_secs = 900
+http_timeout_secs = 10
+purge_removed_instruments = true
+
+[output]
+catalog_uri = "file://./data/multi-venue-mainnet"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 2000
+flush_interval_ms = 1000
+max_buffer_bytes = 67108864
+queue_capacity = 50000
+overflow_policy = "drop_oldest"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 5000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "06:00"
+timezone = "UTC"
+interval_secs = 86400
+
+[[venues]]
+id = "hyperliquid_main"
+kind = "hyperliquid"
+environment = "live"
+
+[[venues]]
+id = "binance_futures_main"
+kind = "binance_futures"
+environment = "live"
+product_type = "usd_m"
+
+[[venues]]
+id = "deribit_main"
+kind = "deribit"
+environment = "live"
+product_types = ["option"]
+
+# Hyperliquid — rolling HIP-4 universe (unsubscribe old / subscribe new on roll)
+[[capture.hip4_universe]]
+venue_id = "hyperliquid_main"
+underlying = "BTC"
+period = "1d"
+market_class = "priceBinary"
+include_fallback = false
+include_perp_mark = true
+families = ["instruments", "quotes", "trades", "mark_prices"]
+
+# Binance USD-M — L2 + trades (mainnet)
+[[capture.instruments]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+depth = 20
+
+# Deribit — book summary (one public call / currency; 1s poll is ~1 rps, under ~20 rps non-matching budget)
+[[capture.custom_data_requests]]
+type_name = "DeribitBookSummary"
+interval_secs = 1
+fire_immediately = true
+overlap_policy = "skip"
+request_timeout_secs = 5
+
+[capture.custom_data_requests.metadata]
+currency = "BTC"
+kind = "option"

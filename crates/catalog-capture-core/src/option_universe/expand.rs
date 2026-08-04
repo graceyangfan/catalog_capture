@@ -104,6 +104,7 @@ pub fn expand_option_universe(
                     plan.book_deltas.push(BookDeltasCaptureSpec {
                         instrument_id: *instrument_id,
                         book_type: BookType::L2_MBP,
+                        depth: None,
                     });
                 }
             }

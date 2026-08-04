@@ -44,6 +44,10 @@ pub struct BarCaptureSpec {
 pub struct BookDeltasCaptureSpec {
     pub instrument_id: InstrumentId,
     pub book_type: BookType,
+    /// Venue book depth for snapshot / partial book (e.g. Binance Futures 5/10/20/…).
+    /// `None` = adapter default. Futures L2 streams use `@depth@0ms`; `depth` is
+    /// the snapshot level count (recommend 20 for USD-M research capture).
+    pub depth: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,8 +137,9 @@ pub const MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS: u64 = 1;
 pub const DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS: u64 = 5;
 /// Soft in-flight timeout when response correlation is incomplete.
 pub const DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS: u64 = 15;
-/// Aggregate request budget share (~10% of Deribit non-matching ~20 rps).
-pub const DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS: f64 = 2.0;
+/// Aggregate request budget (fraction of Deribit public non-matching ~20 rps).
+/// Single BookSummary at 1s ≈ 1 rps; leave headroom for extra request jobs.
+pub const DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS: f64 = 5.0;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CaptureFamilyRuntimeFlags {

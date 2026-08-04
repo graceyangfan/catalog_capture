@@ -90,7 +90,19 @@ impl CatalogCaptureActor {
             self.subscribe_bars(spec.bar_type, None, None);
         }
         for spec in &plan.book_deltas {
-            self.subscribe_book_deltas(spec.instrument_id, spec.book_type, None, None, false, None);
+            let depth = spec
+                .depth
+                .and_then(|levels| std::num::NonZeroUsize::new(levels));
+            // Binance Futures: WS channel is `@depth@0ms` for L2_MBP; `depth` is
+            // the snapshot size (e.g. 20). Other venues ignore unused depth.
+            self.subscribe_book_deltas(
+                spec.instrument_id,
+                spec.book_type,
+                depth,
+                None,
+                false,
+                None,
+            );
         }
     }
 
@@ -137,11 +149,13 @@ impl CatalogCaptureActor {
     }
 
     fn apply_subscription_delta(&mut self, add: &CapturePlan, remove: &CapturePlan) -> Result<()> {
+        // Drop stale streams first (HIP-4 / option universe day-roll), then
+        // bootstrap and attach the new plan. Keeps one coherent subscription set.
+        self.unsubscribe_plan(remove);
         for instrument_id in add.planned_instrument_ids() {
             self.bootstrap_instrument(instrument_id)?;
         }
         self.subscribe_plan(add);
-        self.unsubscribe_plan(remove);
         self.sync_plan_state();
         Ok(())
     }

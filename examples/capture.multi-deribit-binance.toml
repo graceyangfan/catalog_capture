@@ -1,4 +1,4 @@
-# Step 4 profile: dual-venue capture (Binance testnet perp + Deribit mainnet perp).
+# Step 4 profile: dual-venue capture (Binance mainnet perp + Deribit mainnet perp).
 
 [runtime]
 capture_seconds = 60
@@ -19,13 +19,13 @@ overflow_policy = "drop_oldest"
 [[venues]]
 id = "binance_futures_main"
 kind = "binance_futures"
-environment = "testnet"
+environment = "live"
 product_type = "usd_m"
 
 [[venues]]
 id = "deribit_main"
 kind = "deribit"
-environment = "mainnet"
+environment = "live"
 product_types = ["future"]
 
 [[capture.instruments]]

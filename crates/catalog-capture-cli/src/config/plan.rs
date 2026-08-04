@@ -14,7 +14,7 @@
 
 use std::str::FromStr;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use catalog_capture_core::{
     plan::{BarCaptureSpec, BookDeltasCaptureSpec},
     ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
@@ -174,9 +174,15 @@ pub(crate) fn parse_book_delta_specs(
         .map(|item| {
             let book_type = BookType::from_str(&item.book_type)
                 .with_context(|| format!("invalid book_type {}", item.book_type))?;
+            if let Some(depth) = item.depth {
+                if depth == 0 {
+                    bail!("capture.book_deltas.depth must be > 0 when set");
+                }
+            }
             Ok(BookDeltasCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
                 book_type,
+                depth: item.depth,
             })
         })
         .collect()
