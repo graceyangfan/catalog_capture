@@ -12,7 +12,7 @@ cargo test -p catalog-capture-core --lib catalog_layout
 
 ## First live run
 
-Edit `catalog_uri` in a starter TOML if needed, then:
+Examples write under `./data/…` (gitignored). From the repo root:
 
 ```bash
 cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml

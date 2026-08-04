@@ -5,7 +5,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-BINANCE-FUTURES-LIQUIDATION"
 
 [output]
-catalog_uri = "file:///tmp/catalog-capture-binance-futures-liquidation"
+catalog_uri = "file://./data/binance-futures-liquidation"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 5000

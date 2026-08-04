@@ -10,7 +10,7 @@ interval_secs = 15
 strike_change_confirmations = 2
 
 [output]
-catalog_uri = "file:///tmp/catalog-capture-deribit-btc-universe-oi-ranked-autorefresh"
+catalog_uri = "file://./data/deribit-btc-universe-oi-ranked-autorefresh"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000

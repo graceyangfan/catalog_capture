@@ -5,7 +5,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-DERIBIT-DVOL"
 
 [output]
-catalog_uri = "file:///tmp/catalog-capture-deribit-dvol"
+catalog_uri = "file://./data/deribit-dvol"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 5000

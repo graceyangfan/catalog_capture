@@ -24,6 +24,7 @@ venues → catalog-capture-cli + TOML
 ## Quick start
 
 Requires Rust **1.97.1** and a sibling `../nautilus_trader` checkout.
+Run everything from the **repository root** (no system install).
 
 ```bash
 make bootstrap-deps
@@ -31,6 +32,7 @@ make build
 
 cargo run -p catalog-capture-cli -- validate --config examples/capture.toml
 cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
+# writes under ./data/… (gitignored)
 
 # Offline: write path is catalog-readable
 cargo test -p catalog-capture-core --lib catalog_layout

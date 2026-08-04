@@ -1,12 +1,7 @@
 # Unattended capture
 
-Set `runtime.capture_seconds = 0` to run until `SIGTERM` / `Ctrl+C`.
-
-Operator configs:
-
-- `examples/operator/capture.deribit-btc-universe-unattended.toml`
-- `examples/operator/capture.okx-btc-universe-unattended.toml`
-- `examples/operator/capture.bybit-btc-universe-unattended.toml`
+Run from the **repository root**. Set `runtime.capture_seconds = 0` to run until
+`SIGTERM` / `Ctrl+C`. Catalogs land under `./data/…` (see TOML).
 
 ```bash
 make build-release
@@ -22,5 +17,5 @@ Health check:
   --config examples/operator/capture.deribit-btc-universe-unattended.toml
 ```
 
-Deploy templates: `deploy/launchd/`, `deploy/systemd/`.  
-Details: [examples/operator/README.md](../../examples/operator/README.md).
+Optional user-level service (still uses this clone, not `/opt`):  
+`./scripts/optional-user-service.sh --help` — see [deploy/README.md](../../deploy/README.md).

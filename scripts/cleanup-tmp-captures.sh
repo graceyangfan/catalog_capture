@@ -1,68 +1,64 @@
 #!/usr/bin/env bash
-# Remove smoke/soak capture artifacts from a temp directory.
+# Remove local capture artifacts created by examples / smokes.
 set -euo pipefail
 
-TMP_ROOT="/tmp"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TARGET="${1:-}"
 DRY_RUN=0
 
 usage() {
   cat << 'EOF'
-Usage: scripts/cleanup-tmp-captures.sh [tmp_root] [--dry-run]
+Usage: scripts/cleanup-tmp-captures.sh [path] [--dry-run]
 
-Deletes:
-  - catalog-capture-* directories
-  - legacy nautilus-catalog-capture-* directories (old path prefix)
-  - capture.*-universe-smoke.*.toml files
+Default path: <repo>/data
 
-Defaults to /tmp. Pass --dry-run to list targets without deleting.
+Also accepts an explicit directory (e.g. /tmp for leftover legacy smokes).
+
+Deletes under the target:
+  - everything when target is the repo data/ dir (careful)
+  - or, when target is /tmp: catalog-capture-* and legacy nautilus-catalog-capture-*
 EOF
 }
 
+ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    --dry-run)
-      DRY_RUN=1
-      shift
-      ;;
-    *)
-      TMP_ROOT="$1"
-      shift
-      ;;
+    -h|--help) usage; exit 0 ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    *) ARGS+=("$1"); shift ;;
   esac
 done
 
-if [[ ! -d "$TMP_ROOT" ]]; then
-  echo "tmp root does not exist: $TMP_ROOT" >&2
-  exit 1
-fi
+DIR="${ARGS[0]:-$ROOT/data}"
 
-mapfile -t TARGETS < <(
-  find "$TMP_ROOT" -maxdepth 1 \( \
-    -name 'catalog-capture-*' -o \
-    -name 'nautilus-catalog-capture-*' -o \
-    -name 'capture.*-universe-smoke.*.toml' -o \
-    -name 'capture.*-autorefresh-btc-universe-smoke.*.toml' \
-    \) -print 2> /dev/null | sort
-)
-
-if [[ ${#TARGETS[@]} -eq 0 ]]; then
-  echo "No capture artifacts found under $TMP_ROOT"
+if [[ ! -d "$DIR" ]]; then
+  echo "Nothing to clean (missing): $DIR"
   exit 0
 fi
 
-echo "Found ${#TARGETS[@]} artifact(s) under $TMP_ROOT:"
-printf '  %s\n' "${TARGETS[@]}"
+if [[ "$(cd "$DIR" && pwd)" == "$ROOT/data" ]]; then
+  mapfile -t TARGETS < <(find "$DIR" -mindepth 1 -maxdepth 1 -print 2>/dev/null | sort)
+else
+  mapfile -t TARGETS < <(
+    find "$DIR" -maxdepth 1 \( \
+      -name 'catalog-capture-*' -o \
+      -name 'nautilus-catalog-capture-*' -o \
+      -name 'capture.*-universe-smoke.*.toml' \
+      \) -print 2>/dev/null | sort
+  )
+fi
 
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+  echo "No capture artifacts under $DIR"
+  exit 0
+fi
+
+echo "Found ${#TARGETS[@]} under $DIR:"
+printf '  %s\n' "${TARGETS[@]}"
 if [[ $DRY_RUN -eq 1 ]]; then
   exit 0
 fi
-
-for target in "${TARGETS[@]}"; do
-  rm -rf "$target"
+for t in "${TARGETS[@]}"; do
+  rm -rf "$t"
 done
-
 echo "Cleanup complete."

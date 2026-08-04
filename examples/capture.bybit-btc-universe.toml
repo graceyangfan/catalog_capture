@@ -5,7 +5,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-BYBIT-BTC-UNIVERSE"
 
 [output]
-catalog_uri = "file:///tmp/catalog-capture-bybit-btc-universe"
+catalog_uri = "file://./data/bybit-btc-universe"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000

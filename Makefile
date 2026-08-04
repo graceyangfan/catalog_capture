@@ -28,7 +28,7 @@ help:
 	@echo "  cargo-deny     Run cargo-deny license checks"
 	@echo "  install-tools  Install pinned cargo-deny"
 	@echo "  smoke-soak     Run daily-live soak (180s, with cleanup)"
-	@echo "  cleanup-tmp    Remove /tmp smoke/soak capture artifacts"
+	@echo "  cleanup-tmp    Remove ./data capture artifacts (or pass a dir)"
 	@echo "  run-service    Run unattended capture (CONFIG=... required)"
 
 bootstrap-deps:

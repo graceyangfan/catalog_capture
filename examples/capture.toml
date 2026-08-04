@@ -5,7 +5,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-CLI-001"
 
 [output]
-catalog_uri = "file:///tmp/catalog-capture"
+catalog_uri = "file://./data/catalog"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 5000

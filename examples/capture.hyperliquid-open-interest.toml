@@ -5,7 +5,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-HYPERLIQUID-OI"
 
 [output]
-catalog_uri = "file:///tmp/catalog-capture-hyperliquid-open-interest"
+catalog_uri = "file://./data/hyperliquid-open-interest"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 5000

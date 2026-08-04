@@ -6,10 +6,10 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Local-first paths:** examples and defaults use `file://./data/…` under the repo.
+  Removed system install roots (`/opt`, `/var/lib`). Optional user service helper only:
+  `scripts/optional-user-service.sh`.
 - **Product branding:** public name is **Catalog Capture** (independent, unofficial).
-  Docs, NOTICE, TRADEMARK, deploy units, and example `catalog_uri` paths no longer
-  use “Nautilus …” as the product title or `com.nautilus.*` system identity.
-  Default/example paths use `/tmp/catalog-capture-*` and `/var/lib/catalog-capture/…`.
   CLI clap name is `catalog-capture-cli` (was `nautilus-capture`).
 - Credentials simplified to two modes: public (`None`) or complete env key+secret pair.
 - **Documentation** restructured like Nautilus Trader (getting_started / concepts /

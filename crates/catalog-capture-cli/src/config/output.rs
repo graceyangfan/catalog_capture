@@ -61,7 +61,7 @@ impl Default for OutputConfig {
 }
 
 fn default_catalog_uri() -> String {
-    "file:///tmp/catalog-capture".to_string()
+    "file://./data/catalog".to_string()
 }
 
 fn default_compression() -> String {

@@ -12,7 +12,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-BINANCE-PERP-TRADES"
 
 [output]
-catalog_uri = "file:///tmp/catalog-capture-binance-perp-trades"
+catalog_uri = "file://./data/binance-perp-trades"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000

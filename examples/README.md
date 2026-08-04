@@ -1,6 +1,7 @@
 # Examples
 
 TOML configs for `catalog-capture-cli` only (not cargo examples).
+Run from the repo root. Default `catalog_uri` values use `file://./data/…`.
 
 ```bash
 cargo run -p catalog-capture-cli -- validate --config examples/capture.toml

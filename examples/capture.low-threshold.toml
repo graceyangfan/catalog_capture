@@ -5,7 +5,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-LOW-THRESHOLD-001"
 
 [output]
-catalog_uri = "file:///tmp/catalog-capture-low-threshold"
+catalog_uri = "file://./data/low-threshold"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 3

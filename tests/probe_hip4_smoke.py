@@ -167,7 +167,7 @@ def write_temp_config(
 ) -> None:
     text = SOURCE_CONFIG.read_text()
     text = text.replace(
-        'catalog_uri = "file:///tmp/catalog-capture-hyperliquid-hip4-smoke"',
+        'catalog_uri = "file://./data/hyperliquid-hip4-smoke"',
         f'catalog_uri = "file://{catalog_dir}"',
     )
     lines = []

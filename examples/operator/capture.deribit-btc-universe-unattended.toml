@@ -12,7 +12,7 @@ enabled = true
 interval_secs = 300
 
 [output]
-catalog_uri = "file:///var/lib/catalog-capture/deribit-btc-universe"
+catalog_uri = "file://./data/deribit-btc-universe"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 5000
