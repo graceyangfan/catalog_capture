@@ -33,7 +33,10 @@ use crate::{
     runtime::FlushResult,
 };
 
-const PART_SUFFIX: &str = ".part.parquet";
+// Must NOT end with `.parquet`: Nautilus `list_parquet_files` includes any `*.parquet`,
+// so in-progress segments use a non-queryable suffix. Sealed files use
+// `timestamps_to_filename` → `…_….parquet` (official catalog name).
+const PART_SUFFIX: &str = ".parquet.part";
 
 #[derive(Debug)]
 struct SegmentOpenParams {
@@ -121,7 +124,17 @@ where
         Ok(sink)
     }
 
-    /// Seal orphaned `.part.parquet` files left by a crashed process.
+    /// Map `ParquetDataCatalog::make_path` onto a filesystem directory under this catalog.
+    fn catalog_fs_directory(&self, type_name: &str, identifier: Option<&str>) -> Result<PathBuf> {
+        let made = self.catalog.make_path(type_name, identifier)?;
+        let made_path = PathBuf::from(&made);
+        if made_path.is_absolute() {
+            return Ok(made_path);
+        }
+        Ok(self.local_root.join(made_path))
+    }
+
+    /// Seal orphaned active segment files left by a crashed process.
     pub fn recover_orphan_parts(&mut self) -> Result<usize> {
         let family_dir = self.local_root.join("data").join(T::path_prefix());
         if !family_dir.is_dir() {
@@ -398,10 +411,10 @@ where
             .cloned()
             .ok_or_else(|| anyhow!("segment batch metadata missing instrument_id or bar_type"))?;
 
-        let directory_rel = self
-            .catalog
-            .make_path(T::path_prefix(), Some(identifier.as_str()))?;
-        let directory = self.local_root.join(directory_rel);
+        // Same directory key as ParquetDataCatalog::write_to_parquet (via make_path).
+        // Local object-store roots often yield a catalog-relative `data/...` path;
+        // absolute make_path results are used as-is.
+        let directory = self.catalog_fs_directory(T::path_prefix(), Some(identifier.as_str()))?;
 
         if !self.segments.contains_key(partition_key) {
             self.open_segment(

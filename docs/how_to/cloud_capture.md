@@ -127,20 +127,19 @@ curl -s http://127.0.0.1:9108/metrics | egrep 'rss|dropped|active_partitions|flu
 tail -f logs/*.log
 ```
 
-## 6) What gets written (multi-venue example)
+## 6) What gets written (Nautilus Rust catalog layout)
 
-| Path under `./data/multi-venue-mainnet/` | Content |
-|------------------------------------------|---------|
-| `data/instruments/` | Instrument defs |
-| `data/quotes/` | HL outcome BBO |
-| `data/trades/` | HL outcomes + Binance BTCUSDT-PERP |
-| `data/mark_prices/` | HL BTC-USD-PERP mark |
-| `data/order_book_deltas/` | Binance L2 (depth=20, `@depth@0ms`) |
-| `data/custom/DeribitBookSummary/` | Deribit book summary polls |
-| `metadata/` | `capture_run.json`, HIP-4 resolution lineage |
+Same as `ParquetDataCatalog`:
 
-- **HIP-4 roll:** unsubscribe old / subscribe new on discovery (adaptive poll).  
-- **File day cut:** segment seal **06:00 UTC**.
+```text
+./data/multi-venue-mainnet/data/{quotes,trades,order_book_deltas,mark_prices,instruments,...}/{id}/…parquet
+./data/multi-venue-mainnet/data/custom/DeribitBookSummary/…parquet
+```
+
+Optional `metadata/` next to `data/` is operator lineage only (not a catalog type folder).
+
+- **HIP-4 roll:** unsubscribe old / subscribe new on discovery.  
+- **File day cut (segment mode):** seal sealed names with Nautilus `timestamps_to_filename` at **06:00 UTC**.
 
 ## 7) Disk / process notes
 

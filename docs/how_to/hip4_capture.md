@@ -58,7 +58,7 @@ At 1s with a single BookSummary job, load is ~**1 rps** — headroom remains for
 | Clock | What it does | When |
 |-------|----------------|------|
 | **HIP-4 universe refresh** | HTTP outcomeMeta → new YES/NO set → **unsubscribe old / subscribe new** | Adaptive: idle ~1800s, near expiry ~10s |
-| **Segment seal** | Close open `.part` parquet into day files | Wall clock **06:00 UTC** only |
+| **Segment seal** | Seal active segments to Nautilus `{start}_{end}.parquet` names | Wall clock **06:00 UTC** only |
 
 **Not** all streams “rotate content” at 06:00. Only **file segments** seal at 06:00.
 Outcome **subscriptions** roll when the next daily market appears (often near that boundary).

@@ -12,22 +12,17 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Nautilus Trader **Rust** catalog path contract (Track L / L5–L6).
-//!
-//! Capture writes only through `ParquetDataCatalog` under:
+//! Path helpers matching Nautilus Trader Rust `ParquetDataCatalog`:
 //!
 //! ```text
-//! {catalog_root}/
-//!   data/
-//!     quotes/…  trades/…  bars/…  mark_prices/…  …
-//!     custom/{TypeName}/[{identifier}/]…
-//!   metadata/
-//!     capture_run.json
-//!     …
+//! {catalog_root}/data/{type}/{instrument_id}/{start}_{end}.parquet
+//! {catalog_root}/data/custom/{TypeName}/[{identifier}/]/{start}_{end}.parquet
 //! ```
 //!
-//! Custom **subscribe** and **request** paths share one sink
-//! (`write_custom_data_batch`) → both land under `data/custom/{type_name}/`.
+//! Built-in types use `CatalogPathPrefix` (`quotes`, `trades`, `order_book_deltas`,
+//! `mark_prices`, …). Custom data uses `write_custom_data_batch` /
+//! `make_path_custom_data`. Optional operator files under `metadata/` are
+//! **outside** the catalog data tree and are not required for backtest load.
 
 use std::path::{Path, PathBuf};
 

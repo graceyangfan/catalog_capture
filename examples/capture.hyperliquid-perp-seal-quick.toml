@@ -8,7 +8,7 @@
 #   cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-perp-seal-quick.toml
 #
 # After run, expect sealed parquet under catalog (no .part suffix):
-#   find ./data/hyperliquid-perp-seal-quick -name '*.parquet' ! -name '*.part.parquet'
+#   find ./data/hyperliquid-perp-seal-quick -name '*.parquet'
 
 [runtime]
 capture_seconds = 150

@@ -1,34 +1,49 @@
 # Catalog layout
 
-## Contract
+Aligned with Nautilus Trader Rust `ParquetDataCatalog` only — no alternate layout.
 
-Only Nautilus Trader **Rust** `ParquetDataCatalog` paths are written.
+## Official tree
+
+```text
+{catalog_root}/
+  data/
+    instruments/{instrument_id}/{start}_{end}.parquet
+    quotes/{instrument_id}/{start}_{end}.parquet
+    trades/{instrument_id}/{start}_{end}.parquet
+    order_book_deltas/{instrument_id}/{start}_{end}.parquet
+    mark_prices/{instrument_id}/{start}_{end}.parquet
+    index_prices/…  funding_rate_update/…  bars/…  option_greeks/…
+    custom/{TypeName}/[{identifier}/]/{start}_{end}.parquet
+```
+
+- `{start}_{end}` = Nautilus `timestamps_to_filename` (ISO-8601 filesystem-safe).
+- `{instrument_id}` = `urisafe_instrument_id` (e.g. `BTCUSDT-PERP.BINANCE`).
+- Type folder names come from `CatalogPathPrefix` on the model type
+  (`quotes`, `trades`, `order_book_deltas`, `mark_prices`, …).
+
+## How this project writes
+
+| Mode | Writer | Final files |
+|------|--------|-------------|
+| **chunked** (default families) | `ParquetDataCatalog::write_to_parquet` / `write_instruments` / `write_custom_data_batch` | Official paths only |
+| **segment** (optional lifecycle) | Append under same `make_path` dirs; seal renames with `timestamps_to_filename` | Same final layout; active temp is `*.parquet.part` (not queried) |
+
+Config:
 
 ```toml
 [output]
 catalog_uri = "file:///path/to/catalog"
-# layout_compatibility = "rust_canonical_only"  # default; only accepted value
+layout_compatibility = "rust_canonical_only"  # only accepted value
 ```
 
-```text
-{catalog_uri}/
-  data/
-    instruments/  quotes/  trades/
-    mark_prices/  index_prices/  funding_rate_update/
-    option_greeks/  order_book_deltas/  bars/
-    custom/{TypeName}/[{identifier}/]…
-  metadata/
-    capture_run.json
-    …
-```
+## Not part of the catalog data contract
 
-Python legacy path mirroring is **not** supported.
+Operator-only files (optional) under `{catalog_root}/metadata/` — lineage / run
+records. Backtest loaders use `ParquetDataCatalog` on `data/` only.
 
-## Proof
+## Verify
 
 ```bash
 cargo test -p catalog-capture-core --lib catalog_layout
+# roundtrip: write quotes → ParquetDataCatalog::quote_ticks
 ```
-
-Load the same URI with Nautilus Trader Rust `ParquetDataCatalog` (see
-[Rust backtest from catalog](../how_to/rust_backtest_from_catalog.md)).
