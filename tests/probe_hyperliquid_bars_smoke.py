@@ -68,7 +68,7 @@ def main() -> int:
 
     catalog_dir, temp_config = make_probe_paths(
         args.catalog_root,
-        "nautilus-catalog-capture-hyperliquid-bars-smoke",
+        "catalog-capture-hyperliquid-bars-smoke",
         "capture.hyperliquid-bars-smoke",
     )
     write_temp_capture_config(SOURCE_CONFIG, temp_config, catalog_dir, args.seconds)

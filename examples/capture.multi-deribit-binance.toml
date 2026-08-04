@@ -7,7 +7,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-MULTI-DERIBIT-BINANCE"
 
 [output]
-catalog_uri = "file:///tmp/nautilus-catalog-capture-multi-deribit-binance"
+catalog_uri = "file:///tmp/catalog-capture-multi-deribit-binance"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000

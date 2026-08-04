@@ -7,7 +7,7 @@ import shutil
 import time
 from pathlib import Path
 
-SMOKE_CATALOG_GLOB = "nautilus-catalog-capture-*"
+SMOKE_CATALOG_GLOB = "catalog-capture-*"
 SMOKE_CONFIG_GLOBS = (
     "capture.*-smoke*.toml",
     "capture.*-universe-smoke*.toml",

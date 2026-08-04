@@ -61,7 +61,7 @@ impl Default for OutputConfig {
 }
 
 fn default_catalog_uri() -> String {
-    "file:///tmp/nautilus-catalog-capture".to_string()
+    "file:///tmp/catalog-capture".to_string()
 }
 
 fn default_compression() -> String {

@@ -10,7 +10,8 @@ usage() {
 Usage: scripts/cleanup-tmp-captures.sh [tmp_root] [--dry-run]
 
 Deletes:
-  - nautilus-catalog-capture-* directories
+  - catalog-capture-* directories
+  - legacy nautilus-catalog-capture-* directories (old path prefix)
   - capture.*-universe-smoke.*.toml files
 
 Defaults to /tmp. Pass --dry-run to list targets without deleting.
@@ -41,6 +42,7 @@ fi
 
 mapfile -t TARGETS < <(
   find "$TMP_ROOT" -maxdepth 1 \( \
+    -name 'catalog-capture-*' -o \
     -name 'nautilus-catalog-capture-*' -o \
     -name 'capture.*-universe-smoke.*.toml' -o \
     -name 'capture.*-autorefresh-btc-universe-smoke.*.toml' \

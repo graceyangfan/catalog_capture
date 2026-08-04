@@ -7,7 +7,7 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-# One product binary; optional venue adapters (Nautilus-style).
+# One product binary; optional venue adapters.
 # Default keeps full multi-venue support for operators.
 default = ["all-venues"]
 all-venues = [

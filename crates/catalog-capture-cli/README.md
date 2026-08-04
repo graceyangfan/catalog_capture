@@ -1,6 +1,10 @@
 # catalog-capture-cli
 
-TOML-driven CLI for validation, live capture, and option-universe post-run reporting.
+Product binary: TOML-driven capture, validation, and option-universe reporting.
 
-Primary subcommands: `run`, `validate`, `validate-option-universe`, and
-`inspect-option-universe`.
+```bash
+cargo run -p catalog-capture-cli -- validate --config examples/capture.toml
+cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
+```
+
+See [docs/reference/cli.md](../../docs/reference/cli.md).

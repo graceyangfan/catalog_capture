@@ -36,7 +36,7 @@ def main() -> int:
         parser.error("--seconds must be positive")
 
     timestamp = int(time.time())
-    catalog_dir = Path(args.catalog_root) / f"nautilus-catalog-capture-hip4-smoke-{timestamp}"
+    catalog_dir = Path(args.catalog_root) / f"catalog-capture-hip4-smoke-{timestamp}"
     temp_config = Path(args.catalog_root) / f"capture.hyperliquid-hip4-smoke.{timestamp}.toml"
     write_temp_config(temp_config, catalog_dir, args.seconds, args.idle_poll_secs)
 
@@ -167,7 +167,7 @@ def write_temp_config(
 ) -> None:
     text = SOURCE_CONFIG.read_text()
     text = text.replace(
-        'catalog_uri = "file:///tmp/nautilus-catalog-capture-hyperliquid-hip4-smoke"',
+        'catalog_uri = "file:///tmp/catalog-capture-hyperliquid-hip4-smoke"',
         f'catalog_uri = "file://{catalog_dir}"',
     )
     lines = []

@@ -18,7 +18,7 @@ hip4 = []
 
 [lib]
 name = "catalog_capture_runtime_adapter"
-# Library only — product binary is catalog-capture-cli (Nautilus-style single entrypoint).
+# Library only — product binary is catalog-capture-cli.
 crate-type = ["rlib"]
 
 [dependencies]

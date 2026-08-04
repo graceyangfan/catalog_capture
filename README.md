@@ -1,105 +1,64 @@
-# Nautilus Catalog Capture
+# Catalog Capture
 
-**Unofficial, community-maintained** capture tooling for [Nautilus Trader](https://github.com/nautechsystems/nautilus_trader).  
-Not affiliated with or endorsed by Nautech Systems Pty Ltd. See [TRADEMARK.md](TRADEMARK.md) and [NOTICE](NOTICE).
+Independent, community-maintained capture tool that writes live market data into
+[Nautilus Trader](https://github.com/nautechsystems/nautilus_trader) **Rust
+`ParquetDataCatalog`** layouts for direct backtest use.
 
-Record live (and runtime-generated) market data **directly** into Nautilus Trader’s
-**Rust `ParquetDataCatalog` layout**, then load the same catalog in Rust backtest —
-no feather→convert step, no Python legacy path mirror.
+Not affiliated with or endorsed by Nautech Systems Pty Ltd.
+See [TRADEMARK.md](TRADEMARK.md) and [NOTICE](NOTICE).
 
-## What this is / is not
+```text
+venues → catalog-capture-cli + TOML
+      → file://…/data/…   (rust_canonical_only)
+      → ParquetDataCatalog / Rust backtest
+```
 
-| This project **does** | This project **does not** |
-|----------------------|---------------------------|
-| Write catalog-native Parquet (`rust_canonical_only`) | Fork or replace Nautilus Trader |
-| Drive capture from **one CLI** + declarative TOML configs | Ship demo `[[bin]]` / cargo `[[example]]` product entries |
-| Support multi-venue adapters (Binance Futures, Deribit, Bybit, OKX, Hyperliquid) | Treat `examples/` as code samples to compile |
-| Own flush/rotation, universe, and ops policy | Mirror Python legacy catalog layouts |
+## Features
 
-`examples/*.toml` are **configs only** — run them with `catalog-capture-cli`, like Nautilus
-configs driven by the single `nautilus` binary.
+- **Single product binary** — `catalog-capture-cli` (configs are TOML only)
+- **Rust-canonical catalog** — no Feather convert, no Python legacy path mirror
+- **Multi-venue** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (cargo features)
+- **Custom data** — subscribe vs request channels stay separate
+- **Ops-ready** — unattended run, segment seal, optional metrics HTTP
 
-**Layout:** only Nautilus Rust catalog paths under `file://…/data/…`.  
-Backtest how-to: [docs/how_to/rust_backtest_from_catalog.md](docs/how_to/rust_backtest_from_catalog.md).
+## Quick start
 
-## Quick start (3 happy paths)
-
-Requires Rust **1.97.1** (`rust-toolchain.toml`) and a sibling `../nautilus_trader` tree.
-
-### 1) Bootstrap dependencies
+Requires Rust **1.97.1** and a sibling `../nautilus_trader` checkout.
 
 ```bash
-# Prefer existing local ../nautilus_trader; if missing, clone upstream develop
 make bootstrap-deps
-```
-
-Optional: match CI’s fixed pin → `./scripts/bootstrap-deps.sh --pin-ci`  
-Details: [docs/getting_started/installation.md](docs/getting_started/installation.md).
-
-### 2) Validate a config (offline)
-
-```bash
 make build
+
 cargo run -p catalog-capture-cli -- validate --config examples/capture.toml
-cargo run -p catalog-capture-cli -- print-effective-config --config examples/capture.toml
-```
-
-### 3) Short live capture (network)
-
-```bash
-# Example: Deribit DVOL (subscribe custom data) — adjust catalog_uri in the TOML first
 cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
-```
 
-Other starter configs: see [examples/README.md](examples/README.md).  
-Operator / unattended: `examples/operator/`.
-
-```bash
-# Slim build (one venue only)
-cargo build -p catalog-capture-cli --no-default-features --features venue-deribit
-
-# Offline: prove capture write is Rust-catalog readable (no network)
+# Offline: write path is catalog-readable
 cargo test -p catalog-capture-core --lib catalog_layout
 ```
 
-## Product surface
-
-- **One product binary:** `catalog-capture-cli` (Nautilus-style single entrypoint).
-- **Libraries only:** `catalog-capture-core`, `catalog-capture-runtime-adapter` (`rlib`).
-- **Configs:** `examples/*.toml` — not cargo `[[example]]` binaries.
-- **Custom data:**  
-  - stream → `[[capture.custom_data]]`  
-  - poll/request → `[[capture.custom_data_requests]]`  
-  (strict separation; wrong channel fails validation.)
+Slim build (one venue):
 
 ```bash
-make build
-make build-release   # target/release/catalog-capture-cli
-make clean-debug
+cargo build -p catalog-capture-cli --no-default-features --features venue-deribit
 ```
 
-## Credentials (optional)
+## Documentation
 
-- **Public (default):** leave API env vars unset → keys are `None`
-- **Authenticated:** set complete `*_API_KEY` + `*_API_SECRET` in env (not TOML)
+Aligned with the [Divio](https://docs.divio.com/documentation-system/) layout used by Nautilus Trader:
 
-See [docs/how_to/credentials.md](docs/how_to/credentials.md).
+| Section | Path |
+|---------|------|
+| Getting started | [docs/getting_started/](docs/getting_started/) |
+| Concepts | [docs/concepts/](docs/concepts/) |
+| How-to | [docs/how_to/](docs/how_to/) |
+| Developer guide | [docs/developer_guide/](docs/developer_guide/) |
+| CLI reference | [docs/reference/cli.md](docs/reference/cli.md) |
+| Examples | [examples/README.md](examples/README.md) |
+| Doc map | [docs/index.md](docs/index.md) |
 
-## Operations (optional)
+## Credentials
 
-```bash
-# Smoke / soak (network)
-python3 tests/probe_option_universe_smoke.py --venue deribit-autorefresh --seconds 30 --cleanup
-
-# Unattended until SIGTERM
-make build-release
-./scripts/run-capture-service.sh \
-  --config examples/operator/capture.deribit-btc-universe-unattended.toml \
-  --release
-```
-
-Deploy templates: `deploy/launchd/`, `deploy/systemd/`.  
-Metrics (when enabled in TOML): `http://…/metrics`.
+Public capture is the default (leave API env vars unset). For authenticated venues, set a complete key+secret pair in the environment — never in TOML. See [credentials](docs/how_to/credentials.md).
 
 ## Development
 
@@ -110,24 +69,8 @@ pip install pre-commit && pre-commit install
 make test && make clippy && make cargo-deny
 ```
 
-Execution plan: [docs/refactor-optimization-plan.md](docs/refactor-optimization-plan.md)  
-Doc map: [docs/index.md](docs/index.md)
+See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [ROADMAP.md](ROADMAP.md).
 
-## License & trademark
+## License
 
-- **License:** [LGPL-3.0-or-later](https://www.gnu.org/licenses/lgpl-3.0.en.html) — see [LICENSE](LICENSE).
-- Links against Nautilus Trader (LGPL-3.0-or-later). Third-party notices: [NOTICE](NOTICE).
-- “NautilusTrader” / “Nautilus Trader” are trademarks of Nautech Systems Pty Ltd.
-  This project is independent; use those names only for compatibility statements.
-  Policy: [TRADEMARK.md](TRADEMARK.md).
-
-## Documents
-
-| Doc | Topic |
-|-----|--------|
-| [docs/index.md](docs/index.md) | Full map |
-| [docs/architecture.md](docs/architecture.md) | Design |
-| [docs/custom-data-contract.md](docs/custom-data-contract.md) | Custom subscribe/request |
-| [docs/how_to/rust_backtest_from_catalog.md](docs/how_to/rust_backtest_from_catalog.md) | Rust backtest from capture |
-| [docs/how_to/smoke_and_soak.md](docs/how_to/smoke_and_soak.md) | Live validation |
-| [docs/refactor-optimization-plan.md](docs/refactor-optimization-plan.md) | Active roadmap |
+[LGPL-3.0-or-later](LICENSE). Links against Nautilus Trader (LGPL). Third-party notices: [NOTICE](NOTICE).

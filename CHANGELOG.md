@@ -6,20 +6,23 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Product branding:** public name is **Catalog Capture** (independent, unofficial).
+  Docs, NOTICE, TRADEMARK, deploy units, and example `catalog_uri` paths no longer
+  use “Nautilus …” as the product title or `com.nautilus.*` system identity.
+  Default/example paths use `/tmp/catalog-capture-*` and `/var/lib/catalog-capture/…`.
+  CLI clap name is `catalog-capture-cli` (was `nautilus-capture`).
 - Credentials simplified to two modes: public (`None`) or complete env key+secret pair.
+- **Documentation** restructured like Nautilus Trader (getting_started / concepts /
+  how_to / developer_guide / reference). Removed historical plan docs, design dumps,
+  `dev/legacy-examples/`, and `research/`.
 
 ### Added
 
-- Offline catalog layout proofs (L5/L6): `catalog_layout` helpers + unit tests that
-  write quotes under `data/quotes/` and custom data under `data/custom/{TypeName}/`
-  (subscribe and request share the same on-disk contract).
-- Capture → Rust load roundtrip: write quotes via capture sink then
-  `ParquetDataCatalog::quote_ticks` (same load style as research backtests).
-- Examples policy: TOML configs only for the single `catalog-capture-cli` binary
-  (Nautilus-style); see `examples/README.md`.
-- Per-family flush guidance table and global profiles A–E (R3) in
-  `docs/flush-rotation-policy.md`.
-- Core stable API surface docs (C5) in `crates/catalog-capture-core/README.md`.
+- Offline catalog layout proofs and capture → `ParquetDataCatalog` readback tests.
+- Examples policy: TOML configs only for the single product binary.
+- Community hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
+  `tests/README.md`.
+
 
 ## 0.1.0
 

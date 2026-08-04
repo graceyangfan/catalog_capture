@@ -18,7 +18,7 @@ from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog  # noqa: E402
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Probe Deribit perp and option greeks written by nautilus_catalog_capture.",
+        description="Probe Deribit perp and option greeks written by Catalog Capture.",
     )
     parser.add_argument("catalog_dir", type=Path)
     parser.add_argument("perp_id", type=str, default="BTC-PERPETUAL.DERIBIT", nargs="?")

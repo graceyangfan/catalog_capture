@@ -165,7 +165,7 @@ def main() -> int:
     metrics_url = args.metrics_url or f"http://127.0.0.1:{args.metrics_port}/metrics"
     timestamp = int(time.time())
     catalog_dir = (
-        Path(args.catalog_root) / f"nautilus-catalog-capture-metrics-r4-lite-{timestamp}"
+        Path(args.catalog_root) / f"catalog-capture-metrics-r4-lite-{timestamp}"
     )
     temp_config = (
         Path(args.catalog_root) / f"capture.metrics-r4-lite.{timestamp}.toml"

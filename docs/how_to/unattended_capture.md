@@ -1,36 +1,26 @@
 # Unattended capture
 
-## Daemon mode
+Set `runtime.capture_seconds = 0` to run until `SIGTERM` / `Ctrl+C`.
 
-Set `runtime.capture_seconds = 0` in your TOML. The process runs until `SIGTERM` or
-`Ctrl+C`, suitable for launchd/systemd supervision.
-
-Production-shaped configs:
+Operator configs:
 
 - `examples/operator/capture.deribit-btc-universe-unattended.toml`
 - `examples/operator/capture.okx-btc-universe-unattended.toml`
 - `examples/operator/capture.bybit-btc-universe-unattended.toml`
 
-## Run with logging
-
 ```bash
+make build-release
 ./scripts/run-capture-service.sh \
   --config examples/operator/capture.deribit-btc-universe-unattended.toml \
   --release
 ```
 
-Add `--validate` to run `validate-option-universe` after graceful shutdown.
-
-## Health check
+Health check:
 
 ```bash
 ./scripts/healthcheck-option-universe.sh \
   --config examples/operator/capture.deribit-btc-universe-unattended.toml
 ```
 
-## Deployment templates
-
-- macOS: `deploy/launchd/`
-- Linux: `deploy/systemd/`
-
-See `examples/operator/README.md` for install steps.
+Deploy templates: `deploy/launchd/`, `deploy/systemd/`.  
+Details: [examples/operator/README.md](../../examples/operator/README.md).

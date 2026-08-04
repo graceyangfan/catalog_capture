@@ -5,7 +5,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-OKX-BTC-UNIVERSE-OI-RANKED"
 
 [output]
-catalog_uri = "file:///tmp/nautilus-catalog-capture-okx-btc-universe-oi-ranked"
+catalog_uri = "file:///tmp/catalog-capture-okx-btc-universe-oi-ranked"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000

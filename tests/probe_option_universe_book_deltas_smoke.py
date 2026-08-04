@@ -111,7 +111,7 @@ def run_book_deltas_venue_smoke(venue: str, args: argparse.Namespace) -> None:
     timestamp = int(time.time())
     catalog_dir = (
         Path(args.catalog_root)
-        / f"nautilus-catalog-capture-{venue}-universe-book-deltas-smoke-{timestamp}"
+        / f"catalog-capture-{venue}-universe-book-deltas-smoke-{timestamp}"
     )
     temp_config = (
         Path(args.catalog_root)

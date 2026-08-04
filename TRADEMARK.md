@@ -1,29 +1,39 @@
 # Trademark policy
 
 This project is an **independent, unofficial, community-maintained** open-source
-deployment tool. It is **not** an official Nautilus Trader product and is **not**
-affiliated with, sponsored by, or endorsed by Nautech Systems Pty Ltd.
+tool. It is **not** an official Nautilus Trader product and is **not** affiliated
+with, sponsored by, or endorsed by Nautech Systems Pty Ltd.
+
+## Product name
+
+When referring to this repository publicly, use:
+
+- **Catalog Capture** (product title)
+- **catalog-capture** / `catalog-capture-cli` (technical identifiers)
+
+Do **not** brand this project as “Nautilus Catalog Capture”, “Official Nautilus
+capture”, or similar names that suggest Nautech Systems authorship or endorsement.
 
 ## NautilusTrader and Nautilus Trader
 
-"NautilusTrader" and "Nautilus Trader" are trademarks of Nautech Systems Pty Ltd.
+“NautilusTrader” and “Nautilus Trader” are trademarks of Nautech Systems Pty Ltd.
 
-You may use those names in this project **only** to describe compatibility with
-the Nautilus Trader open-source software (for example: “writes Parquet layouts
-readable by Nautilus Trader Rust `ParquetDataCatalog`”).
+You may use those names **only** to describe software compatibility, for example:
+
+> Catalog Capture writes Parquet layouts readable by Nautilus Trader Rust
+> `ParquetDataCatalog`.
 
 Do **not**:
 
 - imply official sponsorship, partnership, or endorsement by Nautech Systems;
-- present this repository as “official Nautilus” capture tooling;
-- use Nautech Systems logos or branding without permission.
+- present this repository as official Nautilus capture tooling;
+- use Nautech Systems logos or branding without permission;
+- use `nautilus` as a reverse-DNS label, package namespace, or system identity for
+  this project (for example prefer `com.github.catalog-capture.*` over
+  `com.nautilus.*`).
 
-## This project name
+## Dependency vs brand
 
-When referring to this repository in documentation or community listings, prefer:
-
-- **nautilus_catalog_capture** (repository name), or
-- **Nautilus Catalog Capture** (descriptive title)
-
-Always include a short disclaimer that the project is community-maintained and
-independent of Nautech Systems when presenting it publicly.
+Linking against the open-source Nautilus Trader libraries (LGPL) does not grant
+trademark rights. Compatibility language is fair descriptive use; product branding
+must remain independent.

@@ -68,7 +68,7 @@ impl Default for CaptureConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            catalog_uri: String::from("file:///tmp/nautilus-catalog"),
+            catalog_uri: String::from("file:///tmp/catalog-capture"),
             lifecycle: LifecycleConfig::default(),
             queue_capacity: 10_000,
             flush_rows: 5_000,

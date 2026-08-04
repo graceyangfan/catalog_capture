@@ -1,47 +1,36 @@
 # Roadmap
 
-## Product direction
+## Direction
 
-Standalone **write-focused** capture service for research-grade derivatives data:
+Write-focused capture for research-grade derivatives data:
 
-- ingress via sibling `../nautilus_trader` venue adapters  
-- write **Nautilus Trader Rust-canonical** Parquet (`rust_canonical_only`)  
-- consumers: **Rust backtest**, research, optional PyO3 readback  
+- sibling `../nautilus_trader` adapters
+- Rust-canonical Parquet (`rust_canonical_only`)
+- consumers: Rust backtest and research loaders
 
-**Active plan:** [docs/refactor-optimization-plan.md](docs/refactor-optimization-plan.md)
+Independent product (**Catalog Capture**). Nautilus names are compatibility only —
+see [TRADEMARK.md](TRADEMARK.md).
 
-## Current status (0.1.0 baseline)
+## Status (0.1.x)
 
 | Area | Status |
 |------|--------|
-| Single product CLI + TOML | done |
-| Multi-venue features (`venue-*` / `all-venues`) | done |
-| Bootstrap sibling nautilus_trader | done (`make bootstrap-deps`) |
-| Custom subscribe vs request registry | done |
-| Request-path `/metrics` | done |
-| Optional API keys from env | done |
-| `metadata/capture_run.json` | done |
-| Unattended / segment lifecycle | done (see segment-lifecycle docs) |
+| Single CLI + TOML | done |
+| Venue features | done |
+| Bootstrap + CI pin | done |
+| Custom subscribe / request | done |
+| Metrics + capture_run metadata | done |
+| Segment lifecycle / unattended | done |
+| Catalog write + ParquetDataCatalog readback | done |
+| Independent branding / docs | done |
 
-## Next (post 0.1.0)
+## Next
 
-1. Optional: physical examples subdirs; Docker/GHCR; HIP-4 optional feature  
-2. Optional: per-family flush **code** overrides (docs already have R3 table)  
-3. Nightly live smoke against pinned nautilus rev  
-4. Optional: full `BacktestNode` smoke (catalog query already proves load)  
+1. Minimal BacktestNode (or load) smoke beyond catalog query  
+2. Nightly live smoke against pinned Nautilus rev  
+3. Optional: HIP-4 as a true optional feature  
+4. Optional: per-family flush overrides in code  
+5. Config `schema_version` when TOML next breaks  
 
-Done recently:
-
-- L5/L6 offline write + **Rust `ParquetDataCatalog` readback**  
-- Examples = **configs only** + one product CLI  
-- **R3** flush guidance table · **C5** core stable API README · **R4** operator canonical  
-
-## Historical phases
-
-Older “Phase 1–3 / Step N” lists are **historical**. Treat
-[docs/refactor-optimization-plan.md](docs/refactor-optimization-plan.md) as the
-source of truth for open work. See also:
-
-- [docs/implementation-plan.md](docs/implementation-plan.md) (historical)  
-- [docs/stepwise-capture-roadmap.md](docs/stepwise-capture-roadmap.md) (historical)  
-- [docs/segment-lifecycle.md](docs/segment-lifecycle.md) (Track S — largely done)  
+When changing `NAUTILUS_TRADER_REF`, update `.github/workflows/ci.yml` and
+[installation](docs/getting_started/installation.md).

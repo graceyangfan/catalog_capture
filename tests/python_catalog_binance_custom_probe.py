@@ -22,7 +22,7 @@ SUPPORTED_TYPES = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Probe Binance Futures custom-data capture written by nautilus_catalog_capture.",
+        description="Probe Binance Futures custom-data capture written by Catalog Capture.",
     )
     parser.add_argument("catalog_dir", type=Path)
     parser.add_argument("type_name", choices=sorted(SUPPORTED_TYPES))

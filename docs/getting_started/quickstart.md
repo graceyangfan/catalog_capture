@@ -1,34 +1,27 @@
 # Quickstart
 
-Run a 30-second Deribit option-universe smoke capture and validate the catalog:
+After [installation](installation.md):
 
 ```bash
-cd nautilus_catalog_capture
-python3 tests/probe_option_universe_smoke.py \
-  --venue deribit-autorefresh \
-  --seconds 30 \
-  --cleanup
+make bootstrap-deps
+make build
+
+cargo run -p catalog-capture-cli -- validate --config examples/capture.toml
+cargo test -p catalog-capture-core --lib catalog_layout
 ```
 
-The probe writes a temporary catalog under `/tmp`, runs `validate-option-universe`, then
-removes artifacts when `--cleanup` is set.
+## First live run
 
-## CLI-only validation
-
-After a manual capture:
+Edit `catalog_uri` in a starter TOML if needed, then:
 
 ```bash
-cargo run -p catalog-capture-cli -- run \
-  --config examples/capture.deribit-btc-universe-autorefresh.toml
-
-cargo run -p catalog-capture-cli -- validate-option-universe \
-  --config examples/capture.deribit-btc-universe-autorefresh.toml \
-  --catalog-uri file:///tmp/nautilus-catalog-capture-deribit-btc-universe-autorefresh \
-  --option-universe-format text
+cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
 ```
 
-## Next steps
+More profiles: [examples/README.md](../../examples/README.md).
 
-- [Smoke and soak](../how_to/smoke_and_soak.md)
+## Next
+
+- [Rust backtest from catalog](../how_to/rust_backtest_from_catalog.md)
+- [Credentials](../how_to/credentials.md)
 - [Unattended capture](../how_to/unattended_capture.md)
-- [CLI reference](../reference/cli.md)

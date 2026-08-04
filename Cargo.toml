@@ -14,7 +14,7 @@ version = "0.1.0"
 authors = ["yfclark", "Codex"]
 license = "LGPL-3.0-or-later"
 readme = "README.md"
-description = "Direct runtime-to-catalog capture for derivatives research datasets"
+description = "Independent market-data capture writing Nautilus Trader Rust ParquetDataCatalog layouts"
 repository = "https://github.com/graceyangfan/nautilus_catalog_capture"
 publish = false
 

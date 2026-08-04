@@ -4,7 +4,7 @@ TOOLCHAIN ?= 1.97.1
 CARGO_TOOL := $(CARGO) +$(TOOLCHAIN)
 CARGO_DENY_VERSION ?= 0.19.9
 
-# Product binary only (Nautilus-style single entrypoint).
+# Product binary only (single entrypoint).
 CLI_PKG := catalog-capture-cli
 
 .PHONY: bootstrap-deps build build-slim build-release test test-lib fmt clippy pre-commit cargo-deny install-tools \

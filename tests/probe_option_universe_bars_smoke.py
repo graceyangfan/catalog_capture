@@ -111,7 +111,7 @@ def run_bars_venue_smoke(venue: str, args: argparse.Namespace) -> None:
     timestamp = int(time.time())
     catalog_dir = (
         Path(args.catalog_root)
-        / f"nautilus-catalog-capture-{venue}-universe-bars-smoke-{timestamp}"
+        / f"catalog-capture-{venue}-universe-bars-smoke-{timestamp}"
     )
     temp_config = (
         Path(args.catalog_root)

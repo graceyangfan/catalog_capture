@@ -8,7 +8,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-DERIBIT-BTC"
 
 [output]
-catalog_uri = "file:///tmp/nautilus-catalog-capture-deribit-btc"
+catalog_uri = "file:///tmp/catalog-capture-deribit-btc"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000

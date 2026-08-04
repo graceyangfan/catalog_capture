@@ -68,7 +68,7 @@ def main() -> int:
 
     catalog_dir, temp_config = make_probe_paths(
         args.catalog_root,
-        "nautilus-catalog-capture-binance-bars-smoke",
+        "catalog-capture-binance-bars-smoke",
         "capture.binance-perp-bars-smoke",
     )
     write_temp_capture_config(SOURCE_CONFIG, temp_config, catalog_dir, args.seconds)

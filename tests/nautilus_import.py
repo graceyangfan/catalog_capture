@@ -38,7 +38,7 @@ def ensure_nautilus_trader_path() -> Path:
 
 
 def project_root() -> Path:
-    """Return the nautilus_catalog_capture repository root."""
+    """Return the catalog_capture repository root."""
     return Path(__file__).resolve().parents[1]
 
 

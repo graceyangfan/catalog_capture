@@ -13,7 +13,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-DERIBIT-BOOK-SUMMARY"
 
 [output]
-catalog_uri = "file:///tmp/nautilus-catalog-capture-deribit-book-summary"
+catalog_uri = "file:///tmp/catalog-capture-deribit-book-summary"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 5000

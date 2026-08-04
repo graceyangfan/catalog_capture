@@ -58,8 +58,10 @@ use runner::{
 };
 
 #[derive(Debug, Parser)]
-#[command(name = "nautilus-capture")]
-#[command(about = "Run direct Nautilus catalog capture from a TOML config")]
+#[command(name = "catalog-capture-cli")]
+#[command(
+    about = "Catalog Capture: write market data to Nautilus Trader Rust ParquetDataCatalog layouts"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

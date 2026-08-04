@@ -14,7 +14,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Probe quotes, mark/index/funding, instruments, and optional contract-state "
-            "families written by nautilus_catalog_capture (Binance perp WS profile)."
+            "families written by Catalog Capture (Binance perp WS profile)."
         ),
     )
     parser.add_argument("catalog_dir", type=Path)

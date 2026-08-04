@@ -16,7 +16,7 @@ http_timeout_secs = 10
 purge_removed_instruments = true
 
 [output]
-catalog_uri = "file:///tmp/nautilus-catalog-capture-hyperliquid-hip4-smoke"
+catalog_uri = "file:///tmp/catalog-capture-hyperliquid-hip4-smoke"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 100

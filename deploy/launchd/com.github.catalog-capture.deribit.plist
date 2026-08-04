@@ -3,20 +3,20 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.nautilus.catalog-capture.deribit</string>
+  <string>com.github.catalog-capture.deribit</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/opt/nautilus_catalog_capture/scripts/run-capture-service.sh</string>
+    <string>/opt/catalog-capture/scripts/run-capture-service.sh</string>
     <string>--config</string>
-    <string>/opt/nautilus_catalog_capture/examples/operator/capture.deribit-btc-universe-unattended.toml</string>
+    <string>/opt/catalog-capture/examples/operator/capture.deribit-btc-universe-unattended.toml</string>
     <string>--release</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/opt/nautilus_catalog_capture</string>
+  <string>/opt/catalog-capture</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>CATALOG_CAPTURE_LOG_DIR</key>
-    <string>/opt/nautilus_catalog_capture/logs</string>
+    <string>/opt/catalog-capture/logs</string>
     <key>PATH</key>
     <string>/usr/local/bin:/usr/bin:/bin</string>
   </dict>
@@ -25,9 +25,9 @@
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>/opt/nautilus_catalog_capture/logs/launchd-deribit.stdout.log</string>
+  <string>/opt/catalog-capture/logs/launchd-deribit.stdout.log</string>
   <key>StandardErrorPath</key>
-  <string>/opt/nautilus_catalog_capture/logs/launchd-deribit.stderr.log</string>
+  <string>/opt/catalog-capture/logs/launchd-deribit.stderr.log</string>
   <key>ProcessType</key>
   <string>Background</string>
 </dict>

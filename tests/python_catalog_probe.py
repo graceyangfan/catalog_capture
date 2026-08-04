@@ -11,7 +11,7 @@ from nautilus_trader.model.data import QuoteTick  # noqa: E402
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Probe a catalog written by nautilus_catalog_capture using Nautilus Python readback.",
+        description="Probe a catalog written by Catalog Capture using Nautilus Python readback.",
     )
     parser.add_argument("catalog_dir", type=Path)
     parser.add_argument("instrument_id", type=str)

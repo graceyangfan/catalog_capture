@@ -22,14 +22,14 @@ INSTRUMENT_ID = "ETHUSDT-PERP.BINANCE"
 KIND_CONFIG = {
     "ticker": {
         "source_config": PROJECT_ROOT / "examples" / "capture.binance-futures-ticker.toml",
-        "catalog_prefix": "nautilus-catalog-capture-binance-futures-ticker-smoke",
+        "catalog_prefix": "catalog-capture-binance-futures-ticker-smoke",
         "config_prefix": "capture.binance-futures-ticker-smoke",
         "type_name": "BinanceFuturesTicker",
         "default_min_rows": 1,
     },
     "liquidation": {
         "source_config": PROJECT_ROOT / "examples" / "capture.binance-futures-liquidation.toml",
-        "catalog_prefix": "nautilus-catalog-capture-binance-futures-liquidation-smoke",
+        "catalog_prefix": "catalog-capture-binance-futures-liquidation-smoke",
         "config_prefix": "capture.binance-futures-liquidation-smoke",
         "type_name": "BinanceFuturesLiquidation",
         "default_min_rows": 0,

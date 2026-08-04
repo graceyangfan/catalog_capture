@@ -20,7 +20,7 @@ from nautilus_trader.core.nautilus_pyo3.model import register_custom_data_class 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Probe Deribit DVOL capture written by nautilus_catalog_capture.",
+        description="Probe Deribit DVOL capture written by Catalog Capture.",
     )
     parser.add_argument("catalog_dir", type=Path)
     parser.add_argument("min_rows", type=int, nargs="?", default=1)

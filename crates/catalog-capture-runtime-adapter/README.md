@@ -1,6 +1,6 @@
 # catalog-capture-runtime-adapter
 
-Runtime integration for `CatalogCaptureActor`: subscribes to a materialized capture plan,
-buffers events, and writes catalog-native Parquet assets readable by PyO3 `ParquetDataCatalog`.
+Live integration for `CatalogCaptureActor`: plan subscription, background writers,
+option/HIP-4 universe hooks, and custom request polling.
 
-Includes dynamic option-universe refresh and online option-metrics observers.
+Library only (`rlib`). Product entrypoint is `catalog-capture-cli`.

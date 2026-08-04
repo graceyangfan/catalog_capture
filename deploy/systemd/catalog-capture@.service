@@ -1,17 +1,17 @@
 [Unit]
-Description=Nautilus catalog capture (%i)
+Description=Catalog Capture (%i)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=nautilus
-Group=nautilus
-WorkingDirectory=/opt/nautilus_catalog_capture
+User=catalog-capture
+Group=catalog-capture
+WorkingDirectory=/opt/catalog-capture
 Environment=RUSTUP_TOOLCHAIN=1.97.1
-Environment=CATALOG_CAPTURE_LOG_DIR=/var/log/nautilus-catalog-capture
-Environment=CATALOG_CAPTURE_CONFIG=/opt/nautilus_catalog_capture/examples/operator/capture.%i-unattended.toml
-ExecStart=/opt/nautilus_catalog_capture/scripts/run-capture-service.sh --config ${CATALOG_CAPTURE_CONFIG} --release
+Environment=CATALOG_CAPTURE_LOG_DIR=/var/log/catalog-capture
+Environment=CATALOG_CAPTURE_CONFIG=/opt/catalog-capture/examples/operator/capture.%i-unattended.toml
+ExecStart=/opt/catalog-capture/scripts/run-capture-service.sh --config ${CATALOG_CAPTURE_CONFIG} --release
 Restart=on-failure
 RestartSec=30
 KillSignal=SIGTERM

@@ -1,4 +1,4 @@
-Nautilus Catalog Capture
+Catalog Capture
 Copyright (C) 2026 yfclark and contributors
 
 This project is licensed under the GNU Lesser General Public License v3.0 or
@@ -7,9 +7,10 @@ later. See LICENSE for the full license text.
 Unofficial / independent status
 -------------------------------
 
-This repository is a **community-maintained, unofficial** capture layer for use
-with Nautilus Trader. It is **not** an official product of Nautech Systems Pty Ltd
-and is not affiliated with, sponsored by, or endorsed by Nautech Systems.
+This repository is a **community-maintained, unofficial** capture tool that
+writes data in layouts compatible with Nautilus Trader. It is **not** an official
+product of Nautech Systems Pty Ltd and is not affiliated with, sponsored by, or
+endorsed by Nautech Systems.
 
 Trademark notice
 ----------------
