@@ -1,144 +1,130 @@
-# HIP-4 capture for live strategies
+# HIP-4 capture (BTC daily)
 
-How Catalog Capture should be configured for Hyperliquid **HIP-4 BTC daily**
-(`priceBinary` / `1d`), based on:
+Target: one Hyperliquid capture that serves both:
 
-| Project | Role |
-|---------|------|
-| `polyup_deribit_rs` (`Hip4BtcDailyStrategy`) | Live paper/live edge on YES/NO + HL mark + Deribit surface |
-| `hyperliquid_stale_quote` / `cjp_mm_rs` | Research replay: outcome L1 + optional Binance alpha |
+1. **polyup_deribit_rs** `Hip4BtcDailyStrategy` (live edge)  
+2. **cjp_mm_rs** / research catalog (replay)
 
-## What each strategy consumes
+without running two overlapping HIP-4 recorders.
 
-### polyup_deribit_rs (`strategy_hip4`)
+## Can discovery / rotation run correctly?
 
-| Stream | Instrument | Why |
-|--------|------------|-----|
-| **Quotes** | Active YES + NO `BinaryOption` | Entry/exit BBO, spread as cost (venue fee = 0) |
-| **Mark prices** | `BTC-USD-PERP.HYPERLIQUID` | Spot / S for Deribit surface pricing |
-| **Index** (optional) | `BTC-PERPETUAL.DERIBIT` | Fallback only if HL mark missing |
-| **Custom / REST** | Deribit book summary | Volatility surface (not HIP-4 catalog) |
-| **Instruments** | Cache from `outcomeMeta` | Discovery of next daily pair |
-
-Strategy **does not** need outcome trades for the edge path; it is quote + mark driven.
-
-### cjp_mm_rs / stale_quote research catalog
-
-| Stream | Instrument | Why |
-|--------|------------|-----|
-| **Quotes** | YES/NO outcomes | L1 BBO |
-| **Trades** | YES/NO outcomes | Execution / flow replay |
-| **Trades + book deltas** | Binance perp | Alpha / L2 state (separate venue) |
-| **Instruments** | Outcomes (+ mark perp) | Load keys for backtest |
-
-`cjp_mm_rs` `require_layout` expects `data/{quotes,trades,order_book_deltas,instruments}/`.
-HIP-4-only capture fills quotes/trades/instruments (+ mark under mark_prices).  
-Binance L2 is **not** produced by `[[capture.hip4_universe]]` — run a Binance
-profile (or multi-venue config) if you need that alpha path.
-
-### stale_quote Python recorder (reference)
-
-Also records `OrderBookDepth10`, raw `OutcomeMetaSnapshot`, and seals files with:
+### What we do (capture side)
 
 ```text
-RotationMode.SCHEDULED_DATES
-rotation_interval = 1 day
-rotation_time = 06:00 UTC
+timer → HTTP get_outcome_meta()
+      → resolve BTC priceBinary daily (nearest unexpired question)
+      → expand YES/NO (+ optional BTC-USD-PERP mark)
+      → subscribe delta / unsubscribe removed
+      → adaptive next poll (idle 1800s / active 10s / pre-expiry 900s)
 ```
 
-Catalog Capture maps that to **segment lifecycle seal** at `06:00` UTC.
+| Piece | Status | Notes |
+|-------|--------|--------|
+| Fetch `outcomeMeta` | **Supported** | `HyperliquidRawHttpClient::get_outcome_meta` (same meta polyup needs) |
+| Filter `priceBinary` + BTC + daily | **Supported** | Case-insensitive; period aliases `1d`/`daily`/`24h` (polyup-compatible) |
+| Pick nearest future expiry | **Supported** | Unit-tested (`resolve_selects_nearest_future_question`) |
+| YES+NO instrument ids | **Supported** | `{outcomeId}-YES-OUTCOME.HYPERLIQUID` / `…-NO-…` |
+| Adaptive poll | **Supported** | Mirrors `hyperliquid_stale_quote/rotation.py` |
+| Plan delta subscribe | **Supported** | Actor applies add/remove plans |
+| Purge old instruments | **Supported** | `purge_removed_instruments = true` |
+| File seal at 06:00 UTC | **Supported** | Segment lifecycle on daily example |
 
-## How they discover instruments and rotate
+### vs polyup (verified live)
 
-### polyup (cache-first)
+polyup discovers from the **Nautilus cache** after `request_instruments` every ~60s, and only binds when **both** YES and NO are already `BinaryOption` in cache.
 
-1. HL adapter loads `outcomeMeta` → `BinaryOption` in the Nautilus cache  
-   (strategy notes: connect-time load is not enough; **`request_instruments` every ~60s**).
-2. `find_active_btc_daily`: scan cache for  
-   `class=priceBinary`, `underlying=BTC`, `period ∈ {1d,daily,24h}`,  
-   both YES and NO present, `expiry_ns > now`, pick **soonest expiry**.
-3. On change: unsubscribe old quotes → subscribe new YES/NO; keep mark on BTC-PERP.
+We discover from **HTTP outcomeMeta** (stale_quote style), then subscribe by **canonical ids**. That is the right path for a **capture service** (we own the write plan; we do not need strategy cache scan).
 
-Incomplete pairs (only one side) are ignored — same discipline as capture should use.
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Venue not yet listing a brand-new id | Medium | Adaptive poll near expiry; smoke requires quote rows |
+| Meta field spelling drift | Low | Loose class/underlying; daily period aliases |
+| HTTP failure mid-day | Low | Keep previous plan on refresh error |
+| Incomplete namedOutcomes | Medium | Empty namedOutcomes skipped; binary expands YES+NO from each id |
 
-### stale_quote / our `hip4_universe_refresh`
+**Conclusion:** rotation logic is sound and unit-tested; live correctness still needs a short network smoke after deploy (`probe_hip4_smoke` or daily config for a few minutes). It is **not** the same code path as polyup’s cache scan, but it is the capture-appropriate equivalent and matches the already-proven stale_quote recorder design.
 
-HTTP/outcomeMeta poll with **adaptive delay** (we already mirror this):
+## What each strategy needs vs what we record
 
-| Phase | When | Poll |
-|-------|------|------|
-| Idle | Far from expiry | `idle_poll_secs` (1800) |
-| Approach | Within `pre_expiry_window_secs` (900) | Cap delay to window start |
-| Active | Near / after expiry | `active_poll_secs` (10) |
+### polyup `hip4_btc_daily` (Hyperliquid leg)
 
-This is **instrument universe rotation**, not Parquet file seal.
+| Need | Record? | Where |
+|------|---------|--------|
+| YES/NO **quotes** | **Yes** | `families` → `quotes` |
+| BTC-PERP **mark** | **Yes** | `include_perp_mark` + `mark_prices` |
+| **Instruments** (defs) | **Yes** | `instruments` |
+| Deribit **index** fallback | Optional | Not in HIP-4 block (rarely needed if HL mark healthy) |
+| Deribit **book summary** surface | Optional | Separate Deribit request capture if you want offline surface |
 
-### Two clocks (do not conflate)
+### cjp_mm_rs / research (Hyperliquid leg)
 
-```text
-Universe refresh  → which YES/NO (+ mark) we subscribe  (adaptive poll)
-Segment seal      → when open .part files become day-bounded parquet  (06:00 UTC)
-```
+| Need | Record? | Where |
+|------|---------|--------|
+| YES/NO **quotes** | **Yes** | `quotes` |
+| YES/NO **trades** | **Yes** | `trades` |
+| **Instruments** | **Yes** | `instruments` |
+| Binance **trades + book deltas** | **No** (by design) | Separate Binance config / catalog |
 
-HIP-4 **daily** products expire on the **06:00 UTC** boundary. File seal should
-use the same wall clock so each sealed day aligns with one contract day.
+### Support matrix (HIP-4 HL only)
 
-## Recommended Catalog Capture config
+| Data | Supported in Catalog Capture HIP-4 |
+|------|-------------------------------------|
+| instruments | yes |
+| quotes (outcomes) | yes |
+| trades (outcomes) | yes |
+| mark_prices (BTC-PERP) | yes |
+| order_book_deltas (HL outcomes) | no (neither strategy requires HL L2 for core path) |
+| Deribit surface | yes, via other examples (not hip4_universe) |
+| Binance L2 alpha | yes, via Binance venue configs (not hip4_universe) |
 
-Use:
+## One capture for both strategies (no double HIP-4)
+
+**Do not** run two processes both on `[[capture.hip4_universe]]` BTC daily — that duplicates WS and HTTP.
+
+**Do** run **one** unattended HIP-4 job with the **union** of HL fields:
 
 ```bash
+# From repo root — single process, single catalog
 cargo run -p catalog-capture-cli -- run \
   --config examples/capture.hyperliquid-hip4-btc-daily.toml
 ```
 
-That profile:
-
-1. **Discovers** BTC `priceBinary` `1d` via `[[capture.hip4_universe]]`  
-2. **Refreshes** with idle/active/pre-expiry polls + `purge_removed_instruments`  
-3. **Records** `instruments`, `quotes`, `trades`, `mark_prices` on the active set  
-4. **Seals** segments at **06:00 UTC** (`interval_secs = 86400`)
-
-Output: `./data/hyperliquid-hip4-btc-daily/`.
-
-### Minimal (polyup-shaped, no trades)
-
-```toml
-families = ["instruments", "quotes", "mark_prices"]
-```
-
-### Research / CJP-shaped (default daily example)
+That profile already unions:
 
 ```toml
 families = ["instruments", "quotes", "trades", "mark_prices"]
 ```
 
-### Optional Deribit surface (polyup pricing)
+| Consumer | Uses from this catalog |
+|----------|-------------------------|
+| polyup live / research load | instruments, quotes, mark_prices |
+| cjp_mm_rs HIP-4 window | instruments, quotes, trades (+ mark if needed) |
 
-Not part of HIP-4 universe expand. Add a second venue + custom request, or a
-separate Deribit DVOL / book-summary config, if you need surface offline.
+Optional add-ons (separate processes / catalogs — **not** HIP-4 duplicates):
 
-### Optional Binance alpha (cjp_mm_rs)
+| Add-on | When | Example |
+|--------|------|---------|
+| Deribit book summary / DVOL | polyup surface offline | `capture.deribit-dvol.toml` or book-summary |
+| Binance trades + book | cjp alpha | `capture.binance-perp.ws.toml` style |
 
-Separate `venue-binance` capture of trades + book deltas for the signal symbol;
-merge catalogs only if your backtest loader supports multi-root or you co-locate
-paths carefully.
+Recommended layout:
 
-## What we already learned and keep
-
-| Idea | Source | Our status |
-|------|--------|------------|
-| Adaptive poll near expiry | stale_quote `rotation.py` | `next_rotation_delay_secs` + TOML |
-| Require complete YES+NO | polyup discovery | Resolve only full markets |
-| Periodic instrument refresh | polyup `request_instruments` | HIP-4 universe refresh loop |
-| Daily file rotation 06:00 UTC | stale_quote StreamingConfig | segment seal on daily example |
-| Quotes + mark for live edge | polyup | hip4 families |
-| Outcome trades for research | cjp_mm_rs | `trades` family |
+```text
+./data/hyperliquid-hip4-btc-daily/   # one HIP-4 day stream (shared)
+./data/binance-alpha/                # optional, only if cjp needs L2
+./data/deribit-surface/              # optional, only if surface offline
+```
 
 ## Smoke
 
 ```bash
 python3 tests/probe_hip4_smoke.py --seconds 60 --cleanup
-# or short config:
-cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-hip4-btc-smoke.toml
+# expects: discovery metadata + quote_rows + mark_rows
 ```
+
+## Related
+
+- Example: `examples/capture.hyperliquid-hip4-btc-daily.toml`  
+- Segment seal (file day): [segment lifecycle](../concepts/segment_lifecycle.md)  
+- Adaptive poll unit tests: `catalog-capture-core` `hip4::rollover`  

@@ -199,9 +199,29 @@ fn matches_hip4_market_filter(
     period: &str,
     market_class: &str,
 ) -> bool {
-    fields.get("underlying").map(String::as_str) == Some(underlying)
-        && fields.get("period").map(String::as_str) == Some(period)
-        && fields.get("class").map(String::as_str) == Some(market_class)
+    // Case-insensitive field match; period aliases align with polyup_deribit_rs
+    // `is_btc_daily_price_binary` (1d | daily | 24h).
+    let class_ok = fields
+        .get("class")
+        .is_some_and(|value| value.eq_ignore_ascii_case(market_class));
+    let underlying_ok = fields
+        .get("underlying")
+        .is_some_and(|value| value.eq_ignore_ascii_case(underlying));
+    let period_ok = fields
+        .get("period")
+        .is_some_and(|value| periods_equivalent(value, period));
+    class_ok && underlying_ok && period_ok
+}
+
+fn periods_equivalent(left: &str, right: &str) -> bool {
+    let l = left.trim().to_ascii_lowercase();
+    let r = right.trim().to_ascii_lowercase();
+    // polyup accepts 1d | daily | 24h as the same BTC daily bucket.
+    if matches!(l.as_str(), "1d" | "daily" | "24h") && matches!(r.as_str(), "1d" | "daily" | "24h")
+    {
+        return true;
+    }
+    l == r
 }
 
 fn build_resolved_hip4_market(
@@ -383,5 +403,29 @@ mod tests {
                 "326-NO-OUTCOME.HYPERLIQUID".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn period_aliases_match_polyup_daily() {
+        let payload = serde_json::json!({
+            "questions": [{
+                "question": 55,
+                "description": "class:priceBinary|underlying:btc|expiry:20260614-0600|period:daily",
+                "namedOutcomes": [326]
+            }]
+        });
+        let market = resolve_hip4_market(
+            &payload,
+            &ResolveHip4MarketOptions {
+                underlying: "BTC",
+                period: "1d",
+                market_class: "priceBinary",
+                include_fallback: false,
+                now_ns: parse_expiry_to_ns("20260614-0559").unwrap_or(0),
+            },
+        )
+        .expect("daily alias should match 1d");
+        assert_eq!(market.question_id, 55);
+        assert_eq!(market.instrument_ids.len(), 2);
     }
 }
