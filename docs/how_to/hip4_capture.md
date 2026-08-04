@@ -53,7 +53,33 @@ Unit tests cover selection and adaptive delay; live smoke still needs network.
 
 At 1s with a single BookSummary job, load is ~**1 rps** — headroom remains for other Deribit calls on the same IP.
 
-## Example configs (mainnet)
+## Two clocks (do not conflate)
+
+| Clock | What it does | When |
+|-------|----------------|------|
+| **HIP-4 universe refresh** | HTTP outcomeMeta → new YES/NO set → **unsubscribe old / subscribe new** | Adaptive: idle ~1800s, near expiry ~10s |
+| **Segment seal** | Close open `.part` parquet into day files | Wall clock **06:00 UTC** only |
+
+**Not** all streams “rotate content” at 06:00. Only **file segments** seal at 06:00.
+Outcome **subscriptions** roll when the next daily market appears (often near that boundary).
+
+## Lightweight runtime (memory / CPU)
+
+Capture node defaults (in code, inspired by lean live nodes):
+
+| Knob | Value | Why |
+|------|-------|-----|
+| `CacheConfig.save_market_data` | `false` | Do not retain ticks in cache; parquet actor is the sink |
+| `tick_capacity` / `bar_capacity` | 2000 / 64 | Bounded if anything is cached |
+| Binance `instrument_provider` | `load_all=false` + plan `load_ids` | Avoid loading entire futures universe |
+| HL `update_instruments_interval_mins` | 1 | Prefer fresh instrument defs while rolling |
+| `flush_rows` / `max_buffer_*` | tight in multi-venue example | Bound capture queues under L2 load |
+| Metrics HTTP | optional `runtime.metrics` | RSS + dropped_items without heavy tooling |
+
+Monitor (when metrics enabled): `http://127.0.0.1:9108/metrics` — watch
+`catalog_capture_process_rss_bytes`, `dropped_items`, `active_partitions`.
+
+## Example configs (mainnet / live)
 
 ```bash
 # Combined multi-venue
@@ -69,4 +95,4 @@ cargo run -p catalog-capture-cli -- run \
   --config examples/capture.deribit-btc-book-summary.toml
 ```
 
-Catalog root is always local (`file://./data/…`). No system install.
+Catalog root is always local (`file://./data/…`).

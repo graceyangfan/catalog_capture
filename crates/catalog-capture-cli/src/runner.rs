@@ -40,7 +40,7 @@ use catalog_capture_runtime_adapter::{
 use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
-use nautilus_common::enums::Environment;
+use nautilus_common::{cache::CacheConfig, enums::Environment};
 #[cfg(feature = "venue-deribit")]
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
 #[cfg(feature = "venue-hyperliquid")]
@@ -151,8 +151,18 @@ pub async fn run_capture_with_plan_and_reports(
 
     let trader_id = TraderId::new_checked(config.runtime.node_name.as_str())
         .unwrap_or_else(|_| TraderId::new("CAPTURE-001"));
+    // Capture writes parquet via the actor; do not retain market data in cache.
+    // Bounded tick/bar deques match lightweight live strategy practice.
+    let cache_config = CacheConfig {
+        tick_capacity: 2_000,
+        bar_capacity: 64,
+        save_market_data: false,
+        ..Default::default()
+    };
     let mut builder = LiveNode::builder(trader_id, Environment::Live)?
         .with_name(config.runtime.node_name.as_str())
+        .with_cache_config(cache_config)
+        .with_timeout_connection(60)
         .with_delay_post_stop_secs(config.runtime.delay_post_stop_secs);
 
     for venue in &config.venues {
@@ -164,15 +174,30 @@ pub async fn run_capture_with_plan_and_reports(
                 product_type,
             } => {
                 let creds = binance_credentials(id);
+                let load_ids = instrument_id_strings_for_venue(&plan, "BINANCE");
                 log::info!(
-                    "Configuring venue {} ({product_type:?}, {environment:?}, credentials={})",
+                    "Configuring venue {} ({product_type:?}, {environment:?}, credentials={}, load_ids={})",
                     id,
                     if api_key_secret_present(&creds) {
                         "from_env"
                     } else {
                         "public"
+                    },
+                    if load_ids.is_empty() {
+                        "all".to_string()
+                    } else {
+                        format!("{}", load_ids.len())
                     }
                 );
+                let instrument_provider = if load_ids.is_empty() {
+                    nautilus_binance::config::BinanceInstrumentProviderConfig::default()
+                } else {
+                    nautilus_binance::config::BinanceInstrumentProviderConfig {
+                        load_all: false,
+                        load_ids: Some(load_ids),
+                        ..Default::default()
+                    }
+                };
                 builder = builder.add_data_client(
                     None,
                     Box::new(BinanceDataClientFactory::new()),
@@ -181,6 +206,7 @@ pub async fn run_capture_with_plan_and_reports(
                         environment: *environment,
                         api_key: creds.api_key,
                         api_secret: creds.api_secret,
+                        instrument_provider,
                         ..Default::default()
                     }),
                 )?;
@@ -259,6 +285,10 @@ pub async fn run_capture_with_plan_and_reports(
                     Box::new(HyperliquidDataClientConfig {
                         environment: *environment,
                         private_key,
+                        // Prefer frequent instrument refresh when rolling outcome markets.
+                        update_instruments_interval_mins: 1,
+                        stale_stream_receive_timeout_secs: 90,
+                        stream_health_check_interval_secs: 15,
                         ..Default::default()
                     }),
                 )?;
@@ -954,6 +984,38 @@ fn option_universe_venue_kind(venue: &VenueRuntimeConfig) -> Option<OptionUniver
         #[allow(unreachable_patterns)]
         _ => None,
     }
+}
+
+/// Instrument IDs in the capture plan that belong to `venue` (e.g. `"BINANCE"`).
+fn instrument_id_strings_for_venue(plan: &CapturePlan, venue: &str) -> Vec<String> {
+    let mut ids = std::collections::BTreeSet::new();
+    for instrument_id in plan.planned_instrument_ids() {
+        if instrument_id.venue.as_str() == venue {
+            ids.insert(instrument_id.to_string());
+        }
+    }
+    // book/trade/quote/mark families also pin instruments
+    for spec in &plan.book_deltas {
+        if spec.instrument_id.venue.as_str() == venue {
+            ids.insert(spec.instrument_id.to_string());
+        }
+    }
+    for spec in &plan.trades {
+        if spec.instrument_id.venue.as_str() == venue {
+            ids.insert(spec.instrument_id.to_string());
+        }
+    }
+    for spec in &plan.quotes {
+        if spec.instrument_id.venue.as_str() == venue {
+            ids.insert(spec.instrument_id.to_string());
+        }
+    }
+    for spec in &plan.mark_prices {
+        if spec.instrument_id.venue.as_str() == venue {
+            ids.insert(spec.instrument_id.to_string());
+        }
+    }
+    ids.into_iter().collect()
 }
 
 fn log_capture_buffer_estimate(config: &EffectiveConfig, plan: &CapturePlan) {
