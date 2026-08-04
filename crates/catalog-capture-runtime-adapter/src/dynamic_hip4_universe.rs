@@ -35,6 +35,7 @@ pub struct DynamicHip4UniverseConfig {
     pub active_poll_secs: u64,
     pub pre_expiry_window_secs: u64,
     pub http_timeout_secs: u64,
+    pub purge_removed_instruments: bool,
     pub static_plan: CapturePlan,
     pub initial_dynamic_plan: CapturePlan,
     pub universes: Vec<DynamicHip4UniverseEntryConfig>,
@@ -83,6 +84,7 @@ pub struct DynamicHip4UniverseManager {
     active_poll_secs: u64,
     pre_expiry_window_secs: u64,
     http_timeout_secs: u64,
+    purge_removed_instruments: bool,
     static_plan: CapturePlan,
     current_dynamic_plan: CapturePlan,
     universes: Vec<DynamicHip4UniverseState>,
@@ -109,6 +111,7 @@ impl DynamicHip4UniverseManager {
             active_poll_secs: config.active_poll_secs,
             pre_expiry_window_secs: config.pre_expiry_window_secs,
             http_timeout_secs: config.http_timeout_secs,
+            purge_removed_instruments: config.purge_removed_instruments,
             static_plan: config.static_plan,
             current_dynamic_plan: config.initial_dynamic_plan,
             universes,
@@ -119,6 +122,11 @@ impl DynamicHip4UniverseManager {
     #[must_use]
     pub fn active_capture_plan(&self) -> CapturePlan {
         merge_active_capture_plan(&self.static_plan, &self.current_dynamic_plan)
+    }
+
+    #[must_use]
+    pub fn purge_removed_instruments_enabled(&self) -> bool {
+        self.purge_removed_instruments
     }
 
     /// Mirrors `hyperliquid_stale_quote.strategy.Hip4RecorderStrategy._schedule_next_rotation_check`.
@@ -166,49 +174,10 @@ impl DynamicHip4UniverseManager {
             ) {
                 Ok(resolved) => {
                     let next_plan = expand_hip4_universe(&state.spec, &resolved);
-                    let previous_ids = plan_instrument_ids(&state.current_plan);
-                    let next_ids = plan_instrument_ids(&next_plan);
-                    if next_ids != previous_ids {
-                        let added_instrument_ids =
-                            instrument_id_difference(&next_ids, &previous_ids);
-                        let removed_instrument_ids =
-                            instrument_id_difference(&previous_ids, &next_ids);
-                        let rollover_reason = compute_hip4_refresh_rollover_reason(
-                            Some(state.last_question_id),
-                            Some(state.last_expiration_ns),
-                            &resolved,
-                            true,
-                        );
-                        changes.push(DynamicHip4UniverseChange {
-                            venue_id: state.spec.venue_id.clone(),
-                            underlying: state.spec.underlying.clone(),
-                            period: state.spec.period.clone(),
-                            market_class: state.spec.market_class.clone(),
-                            question_id: resolved.market.question_id,
-                            expiration_iso8601: nautilus_core::datetime::unix_nanos_to_iso8601(
-                                UnixNanos::from(resolved.market.expiration_ns),
-                            ),
-                            perp_instrument_id: resolved.perp_instrument_id,
-                            outcome_instrument_ids: resolved.outcome_instrument_ids.clone(),
-                            previous_count: previous_ids.len(),
-                            next_count: next_ids.len(),
-                            added_instrument_ids: added_instrument_ids.clone(),
-                            removed_instrument_ids: removed_instrument_ids.clone(),
-                        });
-                        let record = hip4_refresh_resolution_record(
-                            &state.spec,
-                            &resolved,
-                            added_instrument_ids
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect(),
-                            removed_instrument_ids
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect(),
-                            rollover_reason,
-                        );
-                        validate_hip4_refresh_resolution_record(&record)?;
+                    if let Some((change, record)) =
+                        apply_resolved_state_transition(state, &resolved, &next_plan)?
+                    {
+                        changes.push(change);
                         resolution_records.push(record);
                     }
                     state.applied_resolved = resolved.clone();
@@ -241,6 +210,59 @@ impl DynamicHip4UniverseManager {
         self.last_refresh_failed = refresh_failed;
         Ok(delta)
     }
+}
+
+fn apply_resolved_state_transition(
+    state: &DynamicHip4UniverseState,
+    resolved: &ResolvedHip4Universe,
+    next_plan: &CapturePlan,
+) -> Result<Option<(DynamicHip4UniverseChange, Hip4UniverseResolutionRecord)>> {
+    let previous_ids = plan_instrument_ids(&state.current_plan);
+    let next_ids = plan_instrument_ids(next_plan);
+    if next_ids == previous_ids {
+        return Ok(None);
+    }
+
+    let added_instrument_ids = instrument_id_difference(&next_ids, &previous_ids);
+    let removed_instrument_ids = instrument_id_difference(&previous_ids, &next_ids);
+    let rollover_reason = compute_hip4_refresh_rollover_reason(
+        Some(state.last_question_id),
+        Some(state.last_expiration_ns),
+        resolved,
+        true,
+    );
+
+    let change = DynamicHip4UniverseChange {
+        venue_id: state.spec.venue_id.clone(),
+        underlying: state.spec.underlying.clone(),
+        period: state.spec.period.clone(),
+        market_class: state.spec.market_class.clone(),
+        question_id: resolved.market.question_id,
+        expiration_iso8601: nautilus_core::datetime::unix_nanos_to_iso8601(UnixNanos::from(
+            resolved.market.expiration_ns,
+        )),
+        perp_instrument_id: resolved.perp_instrument_id,
+        outcome_instrument_ids: resolved.outcome_instrument_ids.clone(),
+        previous_count: previous_ids.len(),
+        next_count: next_ids.len(),
+        added_instrument_ids: added_instrument_ids.clone(),
+        removed_instrument_ids: removed_instrument_ids.clone(),
+    };
+    let record = hip4_refresh_resolution_record(
+        &state.spec,
+        resolved,
+        added_instrument_ids
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+        removed_instrument_ids
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+        rollover_reason,
+    );
+    validate_hip4_refresh_resolution_record(&record)?;
+    Ok(Some((change, record)))
 }
 
 fn resolve_runtime_hip4_universe(
@@ -301,7 +323,8 @@ mod tests {
     };
 
     use super::{
-        DynamicHip4UniverseConfig, DynamicHip4UniverseEntryConfig, DynamicHip4UniverseManager,
+        apply_resolved_state_transition, DynamicHip4UniverseConfig, DynamicHip4UniverseEntryConfig,
+        DynamicHip4UniverseManager, DynamicHip4UniverseState,
     };
     use nautilus_model::identifiers::InstrumentId;
 
@@ -413,6 +436,7 @@ mod tests {
             active_poll_secs: 10,
             pre_expiry_window_secs: 900,
             http_timeout_secs: 10,
+            purge_removed_instruments: false,
             static_plan: CapturePlan::default(),
             initial_dynamic_plan: expand_hip4_universe(&spec, &resolved),
             universes: vec![DynamicHip4UniverseEntryConfig {
@@ -434,6 +458,69 @@ mod tests {
             manager.next_rotation_check_delay_secs(0),
             1800,
             "successful refresh far from expiry should use idle poll"
+        );
+    }
+
+    #[test]
+    fn state_transition_replaces_old_outcomes_without_plan_growth() {
+        let spec = spec();
+        let first = build_resolved_hip4_universe(
+            &spec,
+            market(55, 326, 1_781_416_800_000_000_000),
+            1_781_410_000_000_000_000,
+        );
+        let second = build_resolved_hip4_universe(
+            &spec,
+            market(56, 330, 1_781_503_200_000_000_000),
+            1_781_417_000_000_000_000,
+        );
+        let third = build_resolved_hip4_universe(
+            &spec,
+            market(57, 334, 1_781_589_600_000_000_000),
+            1_781_503_300_000_000_000,
+        );
+        let mut state = DynamicHip4UniverseState {
+            environment: nautilus_hyperliquid::common::enums::HyperliquidEnvironment::Mainnet,
+            spec: spec.clone(),
+            current_plan: expand_hip4_universe(&spec, &first),
+            applied_resolved: first.clone(),
+            last_question_id: first.market.question_id,
+            last_expiration_ns: first.market.expiration_ns,
+        };
+
+        let second_plan = expand_hip4_universe(&spec, &second);
+        let (second_change, _) = apply_resolved_state_transition(&state, &second, &second_plan)
+            .expect("second transition should succeed")
+            .expect("second transition should produce a change");
+        assert_eq!(second_change.previous_count, second_change.next_count);
+        assert_eq!(second_change.previous_count, 3);
+        assert_eq!(second_change.added_instrument_ids.len(), 2);
+        assert_eq!(second_change.removed_instrument_ids.len(), 2);
+        assert_eq!(
+            plan_instrument_ids(&state.current_plan).len(),
+            plan_instrument_ids(&second_plan).len()
+        );
+
+        state.current_plan = second_plan;
+        state.applied_resolved = second.clone();
+        state.last_question_id = second.market.question_id;
+        state.last_expiration_ns = second.market.expiration_ns;
+
+        let third_plan = expand_hip4_universe(&spec, &third);
+        let (third_change, _) = apply_resolved_state_transition(&state, &third, &third_plan)
+            .expect("third transition should succeed")
+            .expect("third transition should produce a change");
+        assert_eq!(third_change.previous_count, third_change.next_count);
+        assert_eq!(third_change.previous_count, 3);
+        assert_eq!(third_change.added_instrument_ids.len(), 2);
+        assert_eq!(third_change.removed_instrument_ids.len(), 2);
+        assert_eq!(
+            plan_instrument_ids(&third_plan),
+            BTreeSet::from([
+                InstrumentId::from("BTC-USD-PERP.HYPERLIQUID"),
+                InstrumentId::from("334-YES-OUTCOME.HYPERLIQUID"),
+                InstrumentId::from("334-NO-OUTCOME.HYPERLIQUID"),
+            ])
         );
     }
 }

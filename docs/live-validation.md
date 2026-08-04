@@ -201,6 +201,28 @@ Profiles:
 
 OKX options require `instrument_families` (e.g. `BTC-USD`) when `instrument_types` includes `option`.
 
+### Step 4.5: Hyperliquid HIP-4 rolling capture smoke
+
+The HIP-4 runtime refresh path can be validated with short live captures that resolve the current
+BTC daily market, subscribe the current YES/NO outcomes plus perp mark, and then verify the
+catalog readback path after shutdown.
+
+Run:
+
+- `python3 tests/probe_hip4_smoke.py --seconds 60 --cleanup`
+
+Reference profiles:
+
+- `examples/capture.hyperliquid-hip4-btc-smoke.toml`
+- `examples/capture.hyperliquid-hip4-btc-daily.toml`
+
+Production recommendation:
+
+- set `runtime.hip4_universe_refresh.purge_removed_instruments = true`
+
+This keeps the long-running process closer to a bounded-memory shape by purging rotated outcome
+contracts from the Nautilus cache after unsubscribe. The hedge perp is preserved.
+
 ### Step 9a-lite option universe smoke
 
 The option universe resolver can be validated with short live captures that resolve the current

@@ -12,13 +12,18 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+use std::any::Any;
+
 use super::*;
 use crate::actor_runtime::{custom_data_client_id, optional_flush_all, optional_seal_all};
+use crate::custom_data_requests::{parse_request_timer_index, CUSTOM_DATA_REQUEST_TIMER_PREFIX};
 use catalog_capture_core::{
     append_hip4_universe_resolution_records, append_option_universe_resolution_records,
     forward_price_from_option_greeks, next_seal_boundary_ns,
 };
-use nautilus_common::{actor::DataActor, timer::TimeEvent};
+use nautilus_common::{
+    actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent,
+};
 use nautilus_core::UnixNanos;
 
 impl CatalogCaptureActor {
@@ -49,6 +54,8 @@ impl CatalogCaptureActor {
     }
 
     fn subscribe_plan(&mut self, plan: &CapturePlan) {
+        // Subscribe path only (`subscribe_data` → live `on_data`).
+        // Request-style jobs (`custom_data_requests`) must NOT be subscribed here.
         for spec in &plan.custom_data {
             self.subscribe_data(
                 spec.data_type.clone(),
@@ -90,6 +97,7 @@ impl CatalogCaptureActor {
     }
 
     fn unsubscribe_plan(&mut self, plan: &CapturePlan) {
+        // Subscribe path only — request jobs have no subscription to tear down.
         for spec in &plan.custom_data {
             self.unsubscribe_data(
                 spec.data_type.clone(),
@@ -241,9 +249,33 @@ impl CatalogCaptureActor {
                 )?;
             }
             self.apply_subscription_delta(&delta.add, &delta.remove)?;
+            self.purge_removed_hip4_instruments(&delta.changes);
         }
         self.schedule_hip4_universe_refresh()?;
         Ok(())
+    }
+
+    pub(crate) fn purge_removed_hip4_instruments(
+        &mut self,
+        changes: &[crate::DynamicHip4UniverseChange],
+    ) {
+        let Some(manager) = self.dynamic_hip4_universe.as_ref() else {
+            return;
+        };
+        if !manager.purge_removed_instruments_enabled() {
+            return;
+        }
+
+        let cache = self.cache_rc();
+        let mut cache = cache.borrow_mut();
+        for change in changes {
+            for instrument_id in &change.removed_instrument_ids {
+                if Some(*instrument_id) == change.perp_instrument_id {
+                    continue;
+                }
+                cache.purge_instrument(*instrument_id);
+            }
+        }
     }
 
     fn schedule_hip4_universe_refresh(&mut self) -> Result<()> {
@@ -319,6 +351,115 @@ impl CatalogCaptureActor {
         optional_seal_all(&self.book_delta_runtime)?;
         Ok(())
     }
+
+    /// Start request-style custom data polling (`request_data` only).
+    fn start_custom_data_request_jobs(&mut self) -> Result<()> {
+        let job_count = self.custom_data_request_jobs.len();
+        for index in 0..job_count {
+            let fire_immediately = self.custom_data_request_jobs[index].spec.fire_immediately;
+            if fire_immediately {
+                self.fire_custom_data_request(index)?;
+            }
+            self.schedule_custom_data_request_timer(index)?;
+        }
+        Ok(())
+    }
+
+    fn schedule_custom_data_request_timer(&mut self, index: usize) -> Result<()> {
+        let Some(job) = self.custom_data_request_jobs.get(index) else {
+            return Ok(());
+        };
+        let timer_name = job.timer_name();
+        let interval_ns = job.interval_ns();
+        self.clock().cancel_timer(&timer_name);
+        self.clock().set_timer_ns(
+            timer_name.as_str(),
+            interval_ns,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )?;
+        Ok(())
+    }
+
+    fn cancel_custom_data_request_timers(&mut self) {
+        let timer_names: Vec<String> = self
+            .custom_data_request_jobs
+            .iter()
+            .map(CustomDataRequestJob::timer_name)
+            .collect();
+        for timer_name in timer_names {
+            self.clock().cancel_timer(&timer_name);
+        }
+    }
+
+    /// Fire one Nautilus `request_data` for a request job (never `subscribe_data`).
+    fn fire_custom_data_request(&mut self, index: usize) -> Result<()> {
+        let now_ns = self.clock().timestamp_ns().as_u64();
+        let Some(job) = self.custom_data_request_jobs.get_mut(index) else {
+            return Ok(());
+        };
+        if !job.prepare_fire(now_ns) {
+            return Ok(());
+        }
+
+        let data_type = job.data_type().clone();
+        let client_id = ClientId::from(job.client_id_str());
+        let type_name = data_type.type_name().to_string();
+        let identifier = data_type.identifier().map(str::to_string);
+        let polls = job.polls;
+
+        log::info!(
+            "custom_data_request fire type={type_name} id={identifier:?} client_id={client_id} poll={polls}"
+        );
+
+        // HTTP is owned by the venue DataClient (e.g. DeribitDataClient.http_client).
+        DataActor::request_data(self, data_type, client_id, None, None, None, None)?;
+        Ok(())
+    }
+
+    /// Sink request-response payloads and clear matching in-flight jobs.
+    ///
+    /// This is the request path only. Live subscribe traffic uses `on_data`.
+    fn apply_custom_data_request_response(&mut self, resp: &CustomDataResponse) -> Result<()> {
+        let items = resp
+            .data
+            .downcast_ref::<Vec<CustomData>>()
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+
+        for item in items {
+            self.submit_custom_data(item.clone())?;
+        }
+
+        let rows = items.len() as u64;
+        let mut matched = false;
+        for job in &mut self.custom_data_request_jobs {
+            if job.matches_data_type(&resp.data_type) {
+                job.complete_response(rows);
+                matched = true;
+                log::info!(
+                    "custom_data_request response type={} id={:?} rows={rows} polls={} total_rows={}",
+                    resp.data_type.type_name(),
+                    resp.data_type.identifier(),
+                    job.polls,
+                    job.rows
+                );
+            }
+        }
+
+        if !matched && !items.is_empty() {
+            log::debug!(
+                "custom_data_request response type={} id={:?} rows={rows} had no matching poll job",
+                resp.data_type.type_name(),
+                resp.data_type.identifier()
+            );
+        }
+
+        Ok(())
+    }
 }
 
 impl DataActor for CatalogCaptureActor {
@@ -326,7 +467,10 @@ impl DataActor for CatalogCaptureActor {
         self.bootstrap_instruments()?;
         let plan = self.plan.clone();
         self.sync_forward_price_targets(&plan);
+        // 1) Subscribe streams (includes subscribe-style custom_data only).
         self.subscribe_plan(&plan);
+        // 2) Request polls (custom_data_requests only) — separate Nautilus path.
+        self.start_custom_data_request_jobs()?;
 
         if let Some(manager) = &self.dynamic_option_universe {
             self.clock().set_timer_ns(
@@ -352,6 +496,7 @@ impl DataActor for CatalogCaptureActor {
         self.clock().cancel_timer(HIP4_UNIVERSE_REFRESH_TIMER);
         self.clock().cancel_timer(SEGMENT_SEAL_TIMER);
         self.clock().cancel_timer(METRICS_EXPORT_TIMER);
+        self.cancel_custom_data_request_timers();
         let _ = self.shutdown_all()?;
         self.publish_metrics_snapshot();
         self.log_capture_metrics_summary();
@@ -373,6 +518,11 @@ impl DataActor for CatalogCaptureActor {
             self.publish_metrics_snapshot();
             self.schedule_metrics_export()?;
         }
+        if event.name.starts_with(CUSTOM_DATA_REQUEST_TIMER_PREFIX) {
+            if let Some(index) = parse_request_timer_index(event.name.as_str()) {
+                self.fire_custom_data_request(index)?;
+            }
+        }
         Ok(())
     }
 
@@ -380,8 +530,32 @@ impl DataActor for CatalogCaptureActor {
         self.submit_instrument(instrument.clone())
     }
 
+    /// Live subscribe path only (`subscribe_data` → stream).
+    ///
+    /// Request/poll responses must not use this callback; they arrive via
+    /// `handle_data_response` / `on_historical_data`.
     fn on_data(&mut self, data: &CustomData) -> Result<()> {
         self.submit_custom_data(data.clone())
+    }
+
+    /// Request path completion (`request_data` → `CustomDataResponse`).
+    ///
+    /// Overrides the default handler so we retain `data_type` for in-flight
+    /// job correlation (default only forwards the payload to `on_historical_data`).
+    fn handle_data_response(&mut self, resp: &CustomDataResponse) {
+        if let Err(error) = self.apply_custom_data_request_response(resp) {
+            log::error!("custom_data_request response handling failed: {error:#}");
+        }
+    }
+
+    /// Fallback request-path sink if a response arrives without our override path.
+    fn on_historical_data(&mut self, data: &dyn Any) -> Result<()> {
+        if let Some(items) = data.downcast_ref::<Vec<CustomData>>() {
+            for item in items {
+                self.submit_custom_data(item.clone())?;
+            }
+        }
+        Ok(())
     }
 
     fn on_mark_price(&mut self, mark_price: &MarkPriceUpdate) -> Result<()> {

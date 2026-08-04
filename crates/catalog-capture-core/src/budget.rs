@@ -44,11 +44,15 @@ pub fn family_partition_counts(plan: &CapturePlan) -> Vec<(&'static str, usize)>
             .len()
             .max(plan.instruments.len()),
     );
+    // Physical CustomData parquet sink is shared; Nautilus command paths stay separate.
     push_family_count_if(
         &mut counts,
-        flags.custom_data,
+        flags.needs_custom_data_writer(),
         "custom_data",
-        plan.custom_data.len(),
+        plan.custom_data
+            .len()
+            .saturating_add(plan.custom_data_requests.len())
+            .max(1),
     );
     push_family_count_if(&mut counts, flags.quotes, "quotes", plan.quotes.len());
     push_family_count_if(&mut counts, flags.trades, "trades", plan.trades.len());

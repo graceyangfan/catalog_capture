@@ -1,0 +1,40 @@
+# Request-style Deribit book summary capture (Nautilus request_data + HTTP client).
+#
+# This is NOT [[capture.custom_data]] (subscribe_data → on_data).
+# DeribitBookSummary is request-only via public/get_book_summary_by_currency.
+#
+# interval_secs default 5 aligns with Deribit non-matching REST capacity (~20 rps)
+# while leaving headroom; overlap_policy=skip prevents stacked HTTP when RTT is high.
+
+[runtime]
+capture_seconds = 60
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-DERIBIT-BOOK-SUMMARY"
+
+[output]
+catalog_uri = "file:///tmp/nautilus-catalog-capture-deribit-book-summary"
+compression = "snappy"
+layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 67108864
+queue_capacity = 50000
+overflow_policy = "drop_oldest"
+
+[[venues]]
+id = "deribit_main"
+kind = "deribit"
+environment = "mainnet"
+product_types = ["option"]
+
+[[capture.custom_data_requests]]
+type_name = "DeribitBookSummary"
+interval_secs = 5
+fire_immediately = true
+overlap_policy = "skip"
+request_timeout_secs = 15
+
+[capture.custom_data_requests.metadata]
+currency = "BTC"
+kind = "option"

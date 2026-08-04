@@ -119,6 +119,10 @@ pub fn collect_family_metrics<T, S>(
     });
 }
 
+/// ClientId for **subscribe-style** custom data only (`subscribe_data`).
+///
+/// Request-style types (e.g. `DeribitBookSummary`) are not listed here; they use
+/// `custom_data_requests` + `request_data` with their own client_id resolution.
 pub fn custom_data_client_id(data_type: &DataType) -> Option<&'static str> {
     match data_type.type_name() {
         "BinanceFuturesLiquidation" | "BinanceFuturesTicker" => Some("BINANCE"),

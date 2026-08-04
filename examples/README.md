@@ -126,6 +126,14 @@ environment from the sibling `../nautilus_trader` checkout (see `docs/getting_st
   - current recommendation: use for config validation and runtime-refresh-oriented work; startup
     OI-ranked preflight is not yet supported by the OKX adapter HTTP discovery path
   - run: `cargo run -p catalog-capture-cli -- validate --config examples/capture.okx-btc-universe-oi-ranked.toml`
+- `examples/capture.hyperliquid-hip4-btc-daily.toml`
+  - HIP-4 BTC 1d rolling capture with runtime universe refresh
+  - production recommendation: keep `purge_removed_instruments = true` so rotated outcome
+    contracts are purged from the Nautilus cache after unsubscribe
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-hip4-btc-daily.toml`
+- `examples/capture.hyperliquid-hip4-btc-smoke.toml`
+  - short HIP-4 smoke profile for discovery + refresh validation
+  - run: `python3 tests/probe_hip4_smoke.py --seconds 60 --cleanup`
 - `examples/capture.bybit-btc.toml`
   - Step 4b profile: Bybit linear perp + ATM call/put
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.bybit-btc.toml`
@@ -139,10 +147,18 @@ environment from the sibling `../nautilus_trader` checkout (see `docs/getting_st
   - verify: `python3 tests/python_catalog_multi_venue_probe.py /tmp/nautilus-catalog-capture-multi-deribit-binance`
 - `examples/capture.deribit-dvol.toml`
   - Step 5a profile: Deribit BTC perp + `DeribitVolatilityIndex`
+  - **subscribe-style** custom data (`[[capture.custom_data]]` → `subscribe_data` → `on_data`)
   - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml`
   - validate: `cargo run -p catalog-capture-cli -- validate --config examples/capture.deribit-dvol.toml`
   - verify:
     - `python3 tests/python_catalog_deribit_dvol_probe.py /tmp/nautilus-catalog-capture-deribit-dvol 1 --index-name btc_usd`
+- `examples/capture.deribit-btc-book-summary.toml`
+  - **request-style** custom data only (`[[capture.custom_data_requests]]` → `request_data` → response handler)
+  - polls `DeribitBookSummary` via Nautilus Deribit HTTP client (`public/get_book_summary_by_currency`)
+  - default `interval_secs = 5`, `overlap_policy = "skip"`
+  - run: `cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-btc-book-summary.toml`
+  - validate: `cargo run -p catalog-capture-cli -- validate --config examples/capture.deribit-btc-book-summary.toml`
+  - note: do **not** put `DeribitBookSummary` under `[[capture.custom_data]]` (subscribe path rejects it)
 - `examples/capture.binance-futures-liquidation.toml`
   - Step 5b profile: Binance Futures all-market `BinanceFuturesLiquidation`
   - captures the exchange-wide forced-order stream while still recording `ETHUSDT-PERP.BINANCE`

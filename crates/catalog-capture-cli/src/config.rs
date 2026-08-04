@@ -18,11 +18,13 @@ use anyhow::{anyhow, bail, Context, Result};
 use catalog_capture_core::{
     plan::{BarCaptureSpec, BookDeltasCaptureSpec},
     validate_capture_config, CaptureConfig, CapturePlan, CompressionKind, CustomDataCaptureSpec,
-    ExpiryPolicy, ForwardPriceCaptureSpec, FundingRateCaptureSpec, Hip4UniverseFamily,
-    Hip4UniverseSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
-    InstrumentStatusCaptureSpec, LayoutCompatibility, LifecycleConfig, MarkPriceCaptureSpec,
-    OptionGreeksCaptureSpec, OptionUniverseFamily, OptionUniverseSpec, OverflowPolicy,
-    QuoteCaptureSpec, StrikePolicy, TradeCaptureSpec,
+    CustomDataRequestCaptureSpec, ExpiryPolicy, ForwardPriceCaptureSpec, FundingRateCaptureSpec,
+    Hip4UniverseFamily, Hip4UniverseSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
+    InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, LayoutCompatibility, LifecycleConfig,
+    MarkPriceCaptureSpec, OptionGreeksCaptureSpec, OptionUniverseFamily, OptionUniverseSpec,
+    OverflowPolicy, QuoteCaptureSpec, RequestOverlapPolicy, StrikePolicy, TradeCaptureSpec,
+    DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS, DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS,
+    DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS, MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
 };
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
 use nautilus_bybit::common::enums::{BybitEnvironment, BybitProductType};
@@ -125,6 +127,8 @@ pub struct Hip4UniverseRefreshRuntimeConfig {
     pub pre_expiry_window_secs: u64,
     #[serde(default = "default_hip4_http_timeout_secs")]
     pub http_timeout_secs: u64,
+    #[serde(default)]
+    pub purge_removed_instruments: bool,
 }
 
 impl Default for Hip4UniverseRefreshRuntimeConfig {
@@ -135,6 +139,7 @@ impl Default for Hip4UniverseRefreshRuntimeConfig {
             active_poll_secs: default_hip4_active_poll_secs(),
             pre_expiry_window_secs: default_hip4_pre_expiry_window_secs(),
             http_timeout_secs: default_hip4_http_timeout_secs(),
+            purge_removed_instruments: false,
         }
     }
 }
@@ -248,8 +253,14 @@ pub struct CaptureConfigFile {
     pub bars: Vec<BarSelector>,
     #[serde(default)]
     pub book_deltas: Vec<BookDeltasSelector>,
+    /// Subscribe-style custom data only (`subscribe_data` → live `on_data`).
+    /// Do not put request-only types (e.g. DeribitBookSummary) here.
     #[serde(default)]
     pub custom_data: Vec<CustomDataSelector>,
+    /// Request-style custom data only (`request_data` → response handler).
+    /// Do not put stream/subscribe types (e.g. DeribitVolatilityIndex) here.
+    #[serde(default)]
+    pub custom_data_requests: Vec<CustomDataRequestSelector>,
     #[serde(default)]
     pub option_universe: Vec<OptionUniverseSelector>,
     #[serde(default)]
@@ -279,6 +290,44 @@ pub struct CustomDataSelector {
     pub identifier: Option<String>,
     #[serde(default)]
     pub metadata: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomDataRequestSelector {
+    pub type_name: String,
+    #[serde(default)]
+    pub identifier: Option<String>,
+    #[serde(default)]
+    pub metadata: std::collections::BTreeMap<String, String>,
+    /// Poll interval in seconds (min 1; recommended 5 for Deribit book summary).
+    #[serde(default = "default_custom_data_request_interval_secs")]
+    pub interval_secs: u64,
+    #[serde(default = "default_true")]
+    pub fire_immediately: bool,
+    /// Currently only `skip` is supported.
+    #[serde(default = "default_overlap_policy")]
+    pub overlap_policy: String,
+    #[serde(default = "default_custom_data_request_timeout_secs")]
+    pub request_timeout_secs: u64,
+    /// Optional ClientId override (defaults by type, e.g. DERIBIT).
+    #[serde(default)]
+    pub client_id: Option<String>,
+}
+
+fn default_custom_data_request_interval_secs() -> u64 {
+    DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS
+}
+
+fn default_custom_data_request_timeout_secs() -> u64 {
+    DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS
+}
+
+fn default_overlap_policy() -> String {
+    "skip".to_string()
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -444,6 +493,9 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         option_greeks: parse_option_greeks_specs(&config.capture.option_greeks)?,
         forward_prices: parse_forward_price_specs(&config.capture.forward_prices)?,
         custom_data: parse_custom_data_specs(&config.capture.custom_data)?,
+        custom_data_requests: parse_custom_data_request_specs(
+            &config.capture.custom_data_requests,
+        )?,
     };
     let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
     let hip4_universes = parse_hip4_universe_specs(&config.capture.hip4_universe)?;
@@ -623,6 +675,141 @@ fn parse_custom_data_specs(items: &[CustomDataSelector]) -> Result<Vec<CustomDat
             })
         })
         .collect()
+}
+
+fn parse_custom_data_request_specs(
+    items: &[CustomDataRequestSelector],
+) -> Result<Vec<CustomDataRequestCaptureSpec>> {
+    let mut specs = Vec::with_capacity(items.len());
+    for item in items {
+        specs.push(parse_custom_data_request_spec(item)?);
+    }
+    validate_custom_data_request_aggregate_budget(&specs)?;
+    Ok(specs)
+}
+
+fn parse_custom_data_request_spec(
+    item: &CustomDataRequestSelector,
+) -> Result<CustomDataRequestCaptureSpec> {
+    if item.type_name.trim().is_empty() {
+        bail!("capture.custom_data_requests.type_name must be non-empty");
+    }
+    if item.interval_secs < MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS {
+        bail!(
+            "capture.custom_data_requests.interval_secs must be >= {MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS} \
+             (got {})",
+            item.interval_secs
+        );
+    }
+    if item.request_timeout_secs == 0 {
+        bail!("capture.custom_data_requests.request_timeout_secs must be > 0");
+    }
+
+    let overlap_policy = parse_overlap_policy(&item.overlap_policy)?;
+    let (data_type, default_client_id) =
+        build_custom_data_request_data_type(&item.type_name, &item.metadata, item.identifier.as_deref())?;
+
+    let client_id = item
+        .client_id
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or(default_client_id);
+
+    Ok(CustomDataRequestCaptureSpec {
+        data_type,
+        interval_secs: item.interval_secs,
+        fire_immediately: item.fire_immediately,
+        overlap_policy,
+        request_timeout_secs: item.request_timeout_secs,
+        client_id,
+    })
+}
+
+fn parse_overlap_policy(value: &str) -> Result<RequestOverlapPolicy> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "skip" => Ok(RequestOverlapPolicy::Skip),
+        other => bail!(
+            "unsupported capture.custom_data_requests.overlap_policy `{other}`; supported: skip"
+        ),
+    }
+}
+
+/// Builds a `DataType` aligned with venue adapter request metadata conventions.
+fn build_custom_data_request_data_type(
+    type_name: &str,
+    metadata: &std::collections::BTreeMap<String, String>,
+    identifier: Option<&str>,
+) -> Result<(DataType, Option<String>)> {
+    match type_name {
+        "DeribitBookSummary" => {
+            let currency = metadata
+                .get("currency")
+                .map(|value| value.trim())
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    anyhow!(
+                        "capture.custom_data_requests DeribitBookSummary requires metadata.currency \
+                         (for example `BTC`)"
+                    )
+                })?
+                .to_ascii_uppercase();
+            let kind = metadata
+                .get("kind")
+                .map(|value| value.trim())
+                .filter(|value| !value.is_empty())
+                .unwrap_or("option")
+                .to_ascii_lowercase();
+            let expected_id = format!("{currency}:{kind}");
+            if let Some(identifier) = identifier {
+                let identifier = identifier.trim();
+                if !identifier.is_empty() && identifier != expected_id {
+                    bail!(
+                        "capture.custom_data_requests DeribitBookSummary identifier `{identifier}` \
+                         must match `{expected_id}` (or be omitted)"
+                    );
+                }
+            }
+            let mut params = Params::new();
+            params.insert(
+                "currency".to_string(),
+                JsonValue::String(currency.clone()),
+            );
+            params.insert("kind".to_string(), JsonValue::String(kind));
+            Ok((
+                DataType::new(
+                    "DeribitBookSummary",
+                    Some(params),
+                    Some(expected_id),
+                ),
+                Some("DERIBIT".to_string()),
+            ))
+        }
+        other => bail!(
+            "unsupported capture.custom_data_requests.type_name `{other}`; \
+             supported: DeribitBookSummary"
+        ),
+    }
+}
+
+fn validate_custom_data_request_aggregate_budget(
+    specs: &[CustomDataRequestCaptureSpec],
+) -> Result<()> {
+    if specs.is_empty() {
+        return Ok(());
+    }
+    let aggregate_rps: f64 = specs
+        .iter()
+        .map(|spec| 1.0 / spec.interval_secs as f64)
+        .sum();
+    if aggregate_rps > DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS + f64::EPSILON {
+        bail!(
+            "capture.custom_data_requests aggregate rate {aggregate_rps:.3} rps exceeds \
+             budget {DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS} rps \
+             (~10% of Deribit non-matching REST capacity); increase interval_secs or reduce jobs"
+        );
+    }
+    Ok(())
 }
 
 fn parse_option_universe_specs(
@@ -2080,6 +2267,12 @@ mod tests {
         assert_eq!(effective.hip4_universes.len(), 1);
         assert_eq!(effective.hip4_universes[0].market_class, "priceBinary");
         assert!(effective.runtime.hip4_universe_refresh.enabled);
+        assert!(
+            effective
+                .runtime
+                .hip4_universe_refresh
+                .purge_removed_instruments
+        );
     }
 
     #[test]

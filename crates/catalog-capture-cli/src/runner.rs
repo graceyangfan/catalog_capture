@@ -125,6 +125,7 @@ pub async fn run_capture_with_plan_and_reports(
     log_capture_buffer_estimate(&config, &plan);
 
     register_known_custom_data_types(&plan.custom_data);
+    register_known_custom_data_request_types(&plan.custom_data_requests);
 
     let (metrics_snapshot, metrics_refresh_interval_secs) = build_metrics_runtime_state(&config);
     let capture_actor = CatalogCaptureActor::new(build_capture_actor_config(
@@ -456,6 +457,7 @@ fn validate_runtime_dependencies(config: &EffectiveConfig) -> Result<()> {
         bail!("runtime.hip4_universe_refresh.enabled requires capture.hip4_universe entries");
     }
     validate_known_custom_data_types(&config.plan.custom_data, &config.venues)?;
+    validate_known_custom_data_request_types(&config.plan.custom_data_requests, &config.venues)?;
     Ok(())
 }
 
@@ -613,6 +615,7 @@ fn build_dynamic_hip4_universe_config(
         active_poll_secs: refresh.active_poll_secs,
         pre_expiry_window_secs: refresh.pre_expiry_window_secs,
         http_timeout_secs: refresh.http_timeout_secs,
+        purge_removed_instruments: refresh.purge_removed_instruments,
         static_plan: config.plan.clone(),
         initial_dynamic_plan,
         universes,
@@ -745,16 +748,31 @@ fn hip4_report_environment(
 
 fn register_known_custom_data_types(custom_data: &[catalog_capture_core::CustomDataCaptureSpec]) {
     for spec in custom_data {
-        match KnownCustomDataKind::from_type_name(spec.data_type.type_name()) {
-            Some(KnownCustomDataKind::BinanceFuturesLiquidation)
-            | Some(KnownCustomDataKind::BinanceFuturesTicker) => register_binance_custom_data(),
-            Some(KnownCustomDataKind::DeribitVolatilityIndex) => {
+        match KnownSubscribeCustomDataKind::from_type_name(spec.data_type.type_name()) {
+            Some(KnownSubscribeCustomDataKind::BinanceFuturesLiquidation)
+            | Some(KnownSubscribeCustomDataKind::BinanceFuturesTicker) => {
+                register_binance_custom_data()
+            }
+            Some(KnownSubscribeCustomDataKind::DeribitVolatilityIndex) => {
                 nautilus_deribit::data_types::register_deribit_custom_data()
             }
-            Some(KnownCustomDataKind::HyperliquidOpenInterest) => {
+            Some(KnownSubscribeCustomDataKind::HyperliquidOpenInterest) => {
                 register_hyperliquid_custom_data()
             }
-            Some(KnownCustomDataKind::BinanceFuturesOpenInterest) | None => {}
+            None => {}
+        }
+    }
+}
+
+fn register_known_custom_data_request_types(
+    requests: &[catalog_capture_core::CustomDataRequestCaptureSpec],
+) {
+    for spec in requests {
+        match KnownRequestCustomDataKind::from_type_name(spec.data_type.type_name()) {
+            Some(KnownRequestCustomDataKind::DeribitBookSummary) => {
+                nautilus_deribit::data_types::register_deribit_custom_data()
+            }
+            None => {}
         }
     }
 }
@@ -764,17 +782,36 @@ fn validate_known_custom_data_types(
     venues: &[VenueRuntimeConfig],
 ) -> Result<()> {
     for spec in custom_data {
-        validate_known_custom_data_type(&spec.data_type, venues)?;
+        validate_known_subscribe_custom_data_type(&spec.data_type, venues)?;
     }
     Ok(())
 }
 
-fn validate_known_custom_data_type(
+fn validate_known_custom_data_request_types(
+    requests: &[catalog_capture_core::CustomDataRequestCaptureSpec],
+    venues: &[VenueRuntimeConfig],
+) -> Result<()> {
+    for spec in requests {
+        validate_known_request_custom_data_type(&spec.data_type, venues)?;
+    }
+    Ok(())
+}
+
+fn validate_known_subscribe_custom_data_type(
     data_type: &DataType,
     venues: &[VenueRuntimeConfig],
 ) -> Result<()> {
-    match KnownCustomDataKind::from_type_name(data_type.type_name()) {
-        Some(KnownCustomDataKind::BinanceFuturesLiquidation) => {
+    // Reject request-only types that must use [[capture.custom_data_requests]].
+    if KnownRequestCustomDataKind::from_type_name(data_type.type_name()).is_some() {
+        bail!(
+            "custom_data type_name `{}` is request-only; use [[capture.custom_data_requests]] \
+             (Nautilus request_data), not [[capture.custom_data]] (subscribe_data)",
+            data_type.type_name()
+        );
+    }
+
+    match KnownSubscribeCustomDataKind::from_type_name(data_type.type_name()) {
+        Some(KnownSubscribeCustomDataKind::BinanceFuturesLiquidation) => {
             require_venue(
                 venues,
                 VenueRequirement::BinanceFutures,
@@ -796,7 +833,7 @@ fn validate_known_custom_data_type(
                 ensure_identifier_matches(identifier, instrument_id, "BinanceFuturesLiquidation")?;
             }
         }
-        Some(KnownCustomDataKind::BinanceFuturesTicker) => {
+        Some(KnownSubscribeCustomDataKind::BinanceFuturesTicker) => {
             require_venue(
                 venues,
                 VenueRequirement::BinanceFutures,
@@ -818,13 +855,7 @@ fn validate_known_custom_data_type(
                 "BinanceFuturesTicker",
             )?;
         }
-        Some(KnownCustomDataKind::BinanceFuturesOpenInterest) => {
-            bail!(
-                "custom_data BinanceFuturesOpenInterest requires a request/poll capture path; \
-                 current capture.custom_data only supports subscribe-style custom data"
-            );
-        }
-        Some(KnownCustomDataKind::DeribitVolatilityIndex) => {
+        Some(KnownSubscribeCustomDataKind::DeribitVolatilityIndex) => {
             require_venue(
                 venues,
                 VenueRequirement::Deribit,
@@ -841,7 +872,7 @@ fn validate_known_custom_data_type(
                 "custom_data DeribitVolatilityIndex metadata.index_name must be non-empty",
             )?;
         }
-        Some(KnownCustomDataKind::HyperliquidOpenInterest) => {
+        Some(KnownSubscribeCustomDataKind::HyperliquidOpenInterest) => {
             require_venue(
                 venues,
                 VenueRequirement::Hyperliquid,
@@ -865,13 +896,55 @@ fn validate_known_custom_data_type(
         }
         None => {
             bail!(
-                "unknown custom_data type_name `{}`; supported values in this workspace: {}",
+                "unknown custom_data type_name `{}`; supported subscribe types: {}. \
+                 For request-only types (e.g. DeribitBookSummary) use [[capture.custom_data_requests]]",
                 data_type.type_name(),
-                KnownCustomDataKind::supported_csv()
+                KnownSubscribeCustomDataKind::supported_csv()
             );
         }
     }
+    Ok(())
+}
 
+fn validate_known_request_custom_data_type(
+    data_type: &DataType,
+    venues: &[VenueRuntimeConfig],
+) -> Result<()> {
+    // Reject subscribe-only types that must use [[capture.custom_data]].
+    if KnownSubscribeCustomDataKind::from_type_name(data_type.type_name()).is_some() {
+        bail!(
+            "custom_data_requests type_name `{}` is subscribe-only; use [[capture.custom_data]] \
+             (Nautilus subscribe_data), not [[capture.custom_data_requests]] (request_data)",
+            data_type.type_name()
+        );
+    }
+
+    match KnownRequestCustomDataKind::from_type_name(data_type.type_name()) {
+        Some(KnownRequestCustomDataKind::DeribitBookSummary) => {
+            require_venue(
+                venues,
+                VenueRequirement::Deribit,
+                "custom_data_requests DeribitBookSummary requires at least one [[venues]] entry with kind = \"deribit\"",
+            )?;
+            let Some(currency) = string_metadata(data_type, "currency") else {
+                bail!(
+                    "custom_data_requests DeribitBookSummary requires metadata.currency \
+                     (for example `BTC`)"
+                );
+            };
+            ensure_non_empty_metadata(
+                currency,
+                "custom_data_requests DeribitBookSummary metadata.currency must be non-empty",
+            )?;
+        }
+        None => {
+            bail!(
+                "unknown custom_data_requests type_name `{}`; supported request types: {}",
+                data_type.type_name(),
+                KnownRequestCustomDataKind::supported_csv()
+            );
+        }
+    }
     Ok(())
 }
 
@@ -973,21 +1046,20 @@ enum VenueRequirement {
     Hyperliquid,
 }
 
+/// Subscribe-style custom data only (`subscribe_data` → `on_data`).
 #[derive(Clone, Copy)]
-enum KnownCustomDataKind {
+enum KnownSubscribeCustomDataKind {
     BinanceFuturesLiquidation,
     BinanceFuturesTicker,
-    BinanceFuturesOpenInterest,
     DeribitVolatilityIndex,
     HyperliquidOpenInterest,
 }
 
-impl KnownCustomDataKind {
+impl KnownSubscribeCustomDataKind {
     fn from_type_name(type_name: &str) -> Option<Self> {
         match type_name {
             "BinanceFuturesLiquidation" => Some(Self::BinanceFuturesLiquidation),
             "BinanceFuturesTicker" => Some(Self::BinanceFuturesTicker),
-            "BinanceFuturesOpenInterest" => Some(Self::BinanceFuturesOpenInterest),
             "DeribitVolatilityIndex" => Some(Self::DeribitVolatilityIndex),
             "HyperliquidOpenInterest" => Some(Self::HyperliquidOpenInterest),
             _ => None,
@@ -995,7 +1067,26 @@ impl KnownCustomDataKind {
     }
 
     fn supported_csv() -> &'static str {
-        "BinanceFuturesLiquidation, BinanceFuturesTicker, BinanceFuturesOpenInterest, DeribitVolatilityIndex, HyperliquidOpenInterest"
+        "BinanceFuturesLiquidation, BinanceFuturesTicker, DeribitVolatilityIndex, HyperliquidOpenInterest"
+    }
+}
+
+/// Request-style custom data only (`request_data` → response handler).
+#[derive(Clone, Copy)]
+enum KnownRequestCustomDataKind {
+    DeribitBookSummary,
+}
+
+impl KnownRequestCustomDataKind {
+    fn from_type_name(type_name: &str) -> Option<Self> {
+        match type_name {
+            "DeribitBookSummary" => Some(Self::DeribitBookSummary),
+            _ => None,
+        }
+    }
+
+    fn supported_csv() -> &'static str {
+        "DeribitBookSummary"
     }
 }
 

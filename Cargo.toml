@@ -9,7 +9,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.96.0"
+rust-version = "1.97.1"
 version = "0.1.0"
 authors = ["yfclark", "Codex"]
 license = "LGPL-3.0-or-later"
@@ -44,9 +44,7 @@ tokio = { version = "1", features = [
 ] }
 toml = "0.8"
 ustr = "1.1.0"
-nautilus-binance = { path = "../nautilus_trader/crates/adapters/binance", features = [
-  "arrow",
-] }
+nautilus-binance = { path = "../nautilus_trader/crates/adapters/binance" }
 nautilus-bybit = { path = "../nautilus_trader/crates/adapters/bybit" }
 nautilus-deribit = { path = "../nautilus_trader/crates/adapters/deribit", features = [
   "arrow",

@@ -90,9 +90,12 @@ pub use option_universe::{
 pub use plan::{
     capture_plan_difference, instrument_id_difference, plan_instrument_ids, BarCaptureSpec,
     BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags, CapturePlan, CustomDataCaptureSpec,
-    ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
-    InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
-    OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
+    CustomDataRequestCaptureSpec, ForwardPriceCaptureSpec, FundingRateCaptureSpec,
+    IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
+    InstrumentStatusCaptureSpec, MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec,
+    RequestOverlapPolicy, TradeCaptureSpec, DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
+    DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS, DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS,
+    MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
 };
 pub use runtime::{CaptureRuntime, FlushResult};
 pub use sink::{

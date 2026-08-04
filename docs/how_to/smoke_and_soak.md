@@ -13,6 +13,10 @@ python3 tests/probe_option_universe_smoke.py --venue bybit-autorefresh --seconds
 python3 tests/probe_hip4_smoke.py --seconds 60 --cleanup
 ```
 
+HIP-4 production note: prefer `purge_removed_instruments = true` under
+`[runtime.hip4_universe_refresh]` so long-running rotations do not retain expired outcome
+contracts in the Nautilus cache indefinitely.
+
 After code changes: `cargo test` and pre-commit before any soak longer than a few minutes.
 
 ## Soak profiles

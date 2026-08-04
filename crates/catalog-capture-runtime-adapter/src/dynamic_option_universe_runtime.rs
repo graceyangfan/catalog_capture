@@ -180,7 +180,7 @@ fn select_runtime_strike_reference(
         derive_perp_instrument_id(spec, venue_kind).map_err(anyhow::Error::from)?;
     let quote_mid = cache
         .quote(&reference_perp)
-        .map(|quote| quote.extract_price(PriceType::Mid));
+        .and_then(|quote| quote.extract_price(PriceType::Mid).ok());
     let mark = cache.mark_price(&reference_perp).map(|update| update.value);
     let index = cache
         .index_price(&reference_perp)

@@ -108,6 +108,7 @@ mod tests {
             active_poll_secs: 10,
             pre_expiry_window_secs: 900,
             http_timeout_secs: 10,
+            purge_removed_instruments: false,
             static_plan: static_plan.clone(),
             initial_dynamic_plan: hip4_dynamic,
             universes: vec![],

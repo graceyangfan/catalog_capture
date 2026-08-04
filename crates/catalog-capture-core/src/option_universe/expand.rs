@@ -158,6 +158,10 @@ pub fn merge_capture_plans(base: &CapturePlan, addition: &CapturePlan) -> Captur
         &mut merged.custom_data,
         addition.custom_data.iter().cloned(),
     );
+    extend_unique(
+        &mut merged.custom_data_requests,
+        addition.custom_data_requests.iter().cloned(),
+    );
     merged
 }
 

@@ -52,6 +52,7 @@ use crate::actor_plan::{
     count_enabled_background_workers, effective_capture_plan, supplemental_capture_plan,
 };
 use crate::actor_runtime::collect_family_metrics;
+use crate::custom_data_requests::CustomDataRequestJob;
 use crate::dynamic_hip4_universe::{DynamicHip4UniverseConfig, DynamicHip4UniverseManager};
 use crate::dynamic_option_universe::{DynamicOptionUniverseConfig, DynamicOptionUniverseManager};
 use crate::online_option_metrics::{OnlineOptionMetricsConfig, OnlineOptionMetricsObserver};
@@ -119,6 +120,8 @@ pub struct CatalogCaptureActor {
     online_option_metrics: Option<OnlineOptionMetricsObserver>,
     dynamic_option_universe: Option<DynamicOptionUniverseManager>,
     dynamic_hip4_universe: Option<DynamicHip4UniverseManager>,
+    /// Request-style custom data jobs only (`request_data`). Never mixed with subscribe.
+    custom_data_request_jobs: Vec<CustomDataRequestJob>,
     metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
     metrics_refresh_interval_secs: Option<u64>,
     catalog_root: PathBuf,
@@ -142,6 +145,9 @@ impl CatalogCaptureActor {
 
         // Instruments and custom data stay chunked: catalog paths are heterogeneous and do not
         // use the segment `.part` lifecycle.
+        //
+        // CustomData parquet sink is shared for subscribe (`on_data`) and request
+        // (`handle_data_response`) payloads — Nautilus command paths remain separate.
         let capture = config.capture.clone();
         let instrument_runtime = if flags.instruments {
             Some(BackgroundCaptureRuntime::new(
@@ -151,7 +157,7 @@ impl CatalogCaptureActor {
         } else {
             None
         };
-        let custom_data_runtime = if flags.custom_data {
+        let custom_data_runtime = if flags.needs_custom_data_writer() {
             Some(BackgroundCaptureRuntime::new(
                 capture.clone(),
                 chunked_catalog_sink_from_config(&capture)?,
@@ -159,6 +165,14 @@ impl CatalogCaptureActor {
         } else {
             None
         };
+        let custom_data_request_jobs = config
+            .plan
+            .custom_data_requests
+            .iter()
+            .cloned()
+            .enumerate()
+            .map(|(index, spec)| CustomDataRequestJob::new(index, spec))
+            .collect();
         let mark_price_runtime = if flags.mark_prices {
             Some(BackgroundCaptureRuntime::new(
                 capture.clone(),
@@ -280,6 +294,7 @@ impl CatalogCaptureActor {
             dynamic_hip4_universe: config
                 .dynamic_hip4_universe
                 .map(DynamicHip4UniverseManager::new),
+            custom_data_request_jobs,
             metrics_snapshot: config.metrics_snapshot,
             metrics_refresh_interval_secs: config.metrics_refresh_interval_secs,
             catalog_root,
@@ -548,15 +563,22 @@ impl Drop for CatalogCaptureActor {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{cell::RefCell, fs, rc::Rc};
 
     use catalog_capture_core::{
         plan::{CapturePlan, QuoteCaptureSpec},
         CaptureConfig,
     };
-    use nautilus_model::identifiers::InstrumentId;
+    use nautilus_common::{actor::Component, cache::Cache, clock::TestClock};
+    use nautilus_model::{
+        data::QuoteTick,
+        identifiers::{InstrumentId, TraderId},
+        instruments::{stubs::audusd_sim, InstrumentAny},
+        stubs::TestDefault,
+    };
 
     use super::*;
+    use crate::DynamicHip4UniverseChange;
 
     #[test]
     fn actor_starts_only_plan_enabled_background_workers() {
@@ -582,6 +604,75 @@ mod tests {
         assert!(actor.quote_runtime.is_some());
         assert!(actor.trade_runtime.is_none());
         assert!(actor.book_delta_runtime.is_none());
+        let _ = actor.shutdown_all().expect("shutdown should succeed");
+    }
+
+    #[test]
+    fn actor_purges_removed_hip4_instruments_from_cache_when_enabled() {
+        let catalog_dir = std::env::temp_dir().join("catalog-capture-actor-hip4-purge-test");
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir should exist");
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            CapturePlan::default(),
+        ))
+        .expect("actor should construct");
+        actor.dynamic_hip4_universe =
+            Some(DynamicHip4UniverseManager::new(DynamicHip4UniverseConfig {
+                idle_poll_secs: 1800,
+                active_poll_secs: 10,
+                pre_expiry_window_secs: 900,
+                http_timeout_secs: 10,
+                purge_removed_instruments: true,
+                static_plan: CapturePlan::default(),
+                initial_dynamic_plan: CapturePlan::default(),
+                universes: vec![],
+            }));
+
+        let clock = Rc::new(RefCell::new(TestClock::new()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        actor
+            .register(TraderId::test_default(), clock, cache.clone())
+            .expect("actor should register");
+
+        let instrument = audusd_sim();
+        let instrument_id = instrument.id;
+        {
+            let mut cache = cache.borrow_mut();
+            cache
+                .add_instrument(InstrumentAny::CurrencyPair(instrument))
+                .expect("instrument should be cached");
+            cache
+                .add_quote(QuoteTick {
+                    instrument_id,
+                    ..QuoteTick::default()
+                })
+                .expect("quote should be cached");
+        }
+
+        assert!(cache.borrow().instrument(&instrument_id).is_some());
+        assert!(cache.borrow().quote(&instrument_id).is_some());
+
+        actor.purge_removed_hip4_instruments(&[DynamicHip4UniverseChange {
+            venue_id: "hyperliquid_main".to_string(),
+            underlying: "BTC".to_string(),
+            period: "1d".to_string(),
+            market_class: "priceBinary".to_string(),
+            question_id: 55,
+            expiration_iso8601: "2026-06-21T06:00:00Z".to_string(),
+            perp_instrument_id: Some(InstrumentId::from("BTC-USD-PERP.HYPERLIQUID")),
+            outcome_instrument_ids: vec![instrument_id],
+            previous_count: 3,
+            next_count: 3,
+            added_instrument_ids: vec![],
+            removed_instrument_ids: vec![instrument_id],
+        }]);
+
+        assert!(cache.borrow().instrument(&instrument_id).is_none());
+        assert!(cache.borrow().quote(&instrument_id).is_none());
+
         let _ = actor.shutdown_all().expect("shutdown should succeed");
     }
 }
