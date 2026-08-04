@@ -13,6 +13,8 @@
 // -------------------------------------------------------------------------------------------------
 
 mod config;
+mod credentials;
+mod custom_data;
 mod hip4;
 mod metrics_server;
 mod option_universe;

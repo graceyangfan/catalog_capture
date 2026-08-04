@@ -8,20 +8,25 @@ publish.workspace = true
 
 [features]
 default = ["high-precision"]
-# Example binaries are opt-in smoke/fixture helpers, not part of the default
-# product build path.
-example-binaries = []
 high-precision = [
   "catalog-capture-core/high-precision",
   "nautilus-model/high-precision",
   "nautilus-persistence/high-precision",
 ]
+# Reserved for future full-graph slimming (optional Hyperliquid/HIP-4).
+hip4 = []
+
+[lib]
+name = "catalog_capture_runtime_adapter"
+# Library only — product binary is catalog-capture-cli (Nautilus-style single entrypoint).
+crate-type = ["rlib"]
 
 [dependencies]
 anyhow.workspace = true
 catalog-capture-core = { path = "../catalog-capture-core" }
 nautilus-common.workspace = true
-nautilus-hyperliquid.workspace = true
+# HIP-4 dynamic universe (always linked for now; CLI venue features still drop other venues).
+nautilus-hyperliquid = { workspace = true }
 nautilus-core.workspace = true
 nautilus-model.workspace = true
 nautilus-persistence.workspace = true
@@ -30,90 +35,8 @@ tokio.workspace = true
 ustr.workspace = true
 log.workspace = true
 
-[[example]]
-name = "binance_futures_derivatives_state_capture"
-path = "examples/binance_futures_derivatives_state_capture.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "binance_futures_quote_capture"
-path = "examples/binance_futures_quote_capture.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "build_capture_actor"
-path = "examples/build_capture_actor.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "segment_quote_roundtrip"
-path = "examples/segment_quote_roundtrip.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "synthetic_quote_roundtrip"
-path = "examples/synthetic_quote_roundtrip.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "write_binance_custom_fixture"
-path = "examples/write_binance_custom_fixture.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "write_book_deltas_readback_fixture"
-path = "examples/write_book_deltas_readback_fixture.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "write_deribit_dvol_fixture"
-path = "examples/write_deribit_dvol_fixture.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "write_hyperliquid_open_interest_fixture"
-path = "examples/write_hyperliquid_open_interest_fixture.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "write_python_custom_readback_fixture"
-path = "examples/write_python_custom_readback_fixture.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
-[[example]]
-name = "write_python_readback_fixture"
-path = "examples/write_python_readback_fixture.rs"
-required-features = ["example-binaries"]
-test = false
-doc = false
-
 [dev-dependencies]
-dotenvy.workspace = true
-nautilus-binance.workspace = true
-nautilus-deribit.workspace = true
-nautilus-hyperliquid.workspace = true
-nautilus-live.workspace = true
-nautilus-serialization.workspace = true
+# Unit/integration tests only — no cargo [[example]] binaries.
 rust_decimal.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

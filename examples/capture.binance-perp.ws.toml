@@ -11,7 +11,7 @@ node_name = "CATALOG-CAPTURE-BINANCE-PERP-WS"
 [output]
 catalog_uri = "file:///tmp/nautilus-catalog-capture-binance-perp-ws"
 compression = "snappy"
-layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+layout_compatibility = "rust_canonical_only"
 flush_rows = 1000
 flush_interval_ms = 1000
 max_buffer_bytes = 33554432

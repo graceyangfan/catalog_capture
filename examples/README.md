@@ -194,59 +194,27 @@ environment from the sibling `../nautilus_trader` checkout (see `docs/getting_st
   - builds a dedicated `CatalogCaptureActor`
   - demonstrates a declared `CapturePlan`
   - demonstrates the intended user-facing configuration shape
-- `crates/catalog-capture-runtime-adapter/examples/synthetic_quote_roundtrip.rs`
-  - writes synthetic `QuoteTick` data through `CatalogCaptureActor`
-  - flushes direct Parquet chunks
-  - reads the same data back through PyO3 `ParquetDataCatalog`
-  - run with:
-    - `cargo run -p catalog-capture-runtime-adapter --features example-binaries --example synthetic_quote_roundtrip`
-- `crates/catalog-capture-runtime-adapter/examples/write_python_readback_fixture.rs`
-  - writes instrument + quote + mark price + index price + funding rate + instrument status + instrument close + option greeks fixture data through `CatalogCaptureActor`
-  - readback validated via catalog probes and PyO3 smoke tests:
-    - `tests/pyo3_market_readback_smoke.py`
-    - `tests/python_readback_smoke.py`
-- `crates/catalog-capture-runtime-adapter/examples/write_python_custom_readback_fixture.rs`
-  - writes instrument + Rust custom data fixture items through `CatalogCaptureActor`
-  - demonstrates `subscribe_data(...)` / `on_data(...)` capture rather than a market-data-only path
-  - intended to be consumed by the Python smoke test:
-    - `tests/python_custom_readback_smoke.py`
-- `crates/catalog-capture-runtime-adapter/examples/write_hyperliquid_open_interest_fixture.rs`
-  - writes instrument + native Hyperliquid `HyperliquidOpenInterest` custom data through `CatalogCaptureActor`
-  - demonstrates the P0 targeted-derivatives custom-data path using an adapter-emitted type rather than a project-local schema
-  - intended to be consumed by:
-    - `tests/python_hyperliquid_open_interest_smoke.py`
-- `crates/catalog-capture-runtime-adapter/examples/write_deribit_dvol_fixture.rs`
-  - writes native Deribit `DeribitVolatilityIndex` custom data through `CatalogCaptureActor`
-  - intended to be consumed by:
-    - `tests/python_deribit_dvol_smoke.py`
-- `crates/catalog-capture-runtime-adapter/examples/write_binance_custom_fixture.rs`
-  - writes native Binance `BinanceFuturesTicker` + `BinanceFuturesLiquidation` custom data
-    through `CatalogCaptureActor`
-  - intended to be consumed by:
-    - `tests/python_binance_custom_smoke.py`
-  - validates fixture typed readback through Nautilus Python `ParquetDataCatalog`
-- `crates/catalog-capture-runtime-adapter/examples/binance_futures_quote_capture.rs`
-  - connects to the Binance Futures venue adapter data client
-  - runs a market-data-only live capture for a fixed duration
-  - declares instrument + quote capture through the same `CatalogCaptureActor`
-  - uses venue adapter runtime callbacks rather than manual protocol handling
-  - verify the written catalog with:
-    - `python3 tests/python_catalog_probe.py <catalog_dir> <instrument_id> 1`
-  - run with:
-    - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --features example-binaries --example binance_futures_quote_capture`
-- `crates/catalog-capture-runtime-adapter/examples/binance_futures_derivatives_state_capture.rs`
-  - Step 1 live validation: quotes + mark + index + funding via WS
-  - verify the written catalog with:
-    - `python3 tests/python_catalog_derivatives_probe.py <catalog_dir> <instrument_id> 1`
-  - run with:
-    - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --features example-binaries --example binance_futures_derivatives_state_capture`
+### Product path (preferred)
 
-## Planned next examples
+There is **one product binary**: `catalog-capture-cli`. Prefer TOML configs above plus:
 
-- `backtest_reads_captured_catalog`
-  - proves the captured files can be reused without conversion
-- `plugin_capture_demo`
-  - deployment shell example for stock `LiveNode`
+```bash
+cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml
+cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
+```
+
+Unit tests under `catalog-capture-core` / `catalog-capture-runtime-adapter` cover actor and layout contracts without extra binaries.
+
+### Demoted cargo examples
+
+Former `[[example]]` binaries were moved to `dev/legacy-examples/runtime-adapter/` and are
+**not** part of the product build (see `dev/legacy-examples/README.md` and
+`docs/refactor-optimization-plan.md` Track P).
+
+## Planned next
+
+- Documented Rust backtest smoke against a captured catalog URI
+- Keep demos as TOML + CLI only (no new cargo example binaries)
 
 The next major validation target is the Binance Futures `QuoteTick` capture path described in `docs/live-validation.md`.
 

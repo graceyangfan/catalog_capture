@@ -13,7 +13,7 @@ interval_secs = 300
 [output]
 catalog_uri = "file:///var/lib/nautilus-catalog-capture/okx-btc-universe"
 compression = "snappy"
-layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+layout_compatibility = "rust_canonical_only"
 flush_rows = 5000
 flush_interval_ms = 5000
 max_buffer_bytes = 67108864

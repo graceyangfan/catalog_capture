@@ -30,7 +30,9 @@ use catalog_capture_core::{
     config::CaptureConfig,
     item::PartitionKey,
     metrics::CaptureMetrics,
-    metrics_export::{process_rss_bytes, unix_time_ms, CaptureMetricsSnapshot},
+    metrics_export::{
+        process_rss_bytes, unix_time_ms, CaptureMetricsSnapshot, CustomDataRequestJobMetrics,
+    },
     plan::CapturePlan,
     sink::{chunked_catalog_sink_from_config, CatalogSink, ChunkedCatalogSink},
 };
@@ -396,12 +398,28 @@ impl CatalogCaptureActor {
             &mut aggregated,
         );
 
+        let custom_data_requests = self
+            .custom_data_request_jobs
+            .iter()
+            .map(|job| CustomDataRequestJobMetrics {
+                index: job.index,
+                type_name: job.spec.data_type.type_name().to_string(),
+                identifier: job.spec.data_type.identifier().map(str::to_string),
+                in_flight: job.in_flight,
+                polls: job.polls,
+                rows: job.rows,
+                skipped_inflight: job.skipped_inflight,
+                timeouts: job.timeouts,
+            })
+            .collect();
+
         CaptureMetricsSnapshot {
             captured_at_unix_ms: unix_time_ms(),
             enabled_background_workers: self.enabled_background_worker_count(),
             process_rss_bytes: process_rss_bytes(),
             aggregated,
             families,
+            custom_data_requests,
         }
     }
 

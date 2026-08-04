@@ -12,32 +12,50 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+#[cfg(feature = "venue-deribit")]
 use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
+#[cfg(feature = "venue-okx")]
+use catalog_capture_core::okx_instrument_family;
+#[cfg(any(feature = "venue-deribit", feature = "venue-bybit"))]
+use catalog_capture_core::select_strike_reference_from_decimal_string;
+#[cfg(feature = "venue-bybit")]
 use catalog_capture_core::{
-    aggregate_open_interest_by_strike, derive_perp_instrument_id, okx_instrument_family,
-    option_instrument_ids_at_selected_expiry, resolve_option_universe,
-    select_nearest_expiry_reference_instrument_id, select_strike_reference_from_decimal_string,
-    AtmReferenceSource, OptionUniverseSpec, OptionUniverseVenueKind, ResolvedOptionUniverse,
-    StrikeOpenInterestByStrike,
+    aggregate_open_interest_by_strike, option_instrument_ids_at_selected_expiry,
 };
+use catalog_capture_core::{
+    derive_perp_instrument_id, resolve_option_universe, OptionUniverseSpec,
+    OptionUniverseVenueKind, ResolvedOptionUniverse, StrikeOpenInterestByStrike,
+};
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
+use catalog_capture_core::{select_nearest_expiry_reference_instrument_id, AtmReferenceSource};
+#[cfg(feature = "venue-bybit")]
 use nautilus_bybit::common::enums::BybitProductType;
+#[cfg(feature = "venue-bybit")]
 use nautilus_bybit::{
     common::{enums::BybitEnvironment, parse::extract_raw_symbol, urls::bybit_http_base_url},
     http::{client::BybitHttpClient, query::BybitTickersParams},
 };
+#[cfg(feature = "venue-deribit")]
 use nautilus_deribit::{
     common::enums::{DeribitCurrency, DeribitEnvironment},
     http::{client::DeribitHttpClient, models::DeribitProductType},
 };
 use nautilus_model::instruments::{Instrument, InstrumentAny};
 use nautilus_model::{identifiers::InstrumentId, types::Price};
+#[cfg(feature = "venue-okx")]
 use nautilus_okx::{
     common::enums::{OKXEnvironment, OKXInstrumentType},
     http::client::OKXHttpClient,
 };
+#[cfg(feature = "venue-deribit")]
 use rust_decimal::Decimal;
+#[cfg(feature = "venue-bybit")]
 use ustr::Ustr;
 
 use crate::config::VenueRuntimeConfig;
@@ -57,15 +75,19 @@ async fn dispatch_option_universe_resolution(
     venue: &VenueRuntimeConfig,
 ) -> Result<ResolvedOptionUniverse> {
     match venue {
+        #[cfg(feature = "venue-deribit")]
         VenueRuntimeConfig::Deribit { environment, .. } => {
             resolve_deribit_option_universe(spec, *environment).await
         }
+        #[cfg(feature = "venue-bybit")]
         VenueRuntimeConfig::Bybit { environment, .. } => {
             resolve_bybit_option_universe(spec, *environment).await
         }
+        #[cfg(feature = "venue-okx")]
         VenueRuntimeConfig::Okx { environment, .. } => {
             resolve_okx_option_universe(spec, *environment).await
         }
+        #[allow(unreachable_patterns)]
         _ => bail!(
             "capture.option_universe currently only supports Deribit/Bybit/OKX venues; got venue_id `{}`",
             spec.venue_id
@@ -124,6 +146,7 @@ fn normalized_resolution_spec(
     normalized
 }
 
+#[cfg(feature = "venue-deribit")]
 async fn resolve_deribit_option_universe(
     spec: &OptionUniverseSpec,
     environment: DeribitEnvironment,
@@ -177,6 +200,7 @@ async fn resolve_deribit_option_universe(
     })
 }
 
+#[cfg(feature = "venue-bybit")]
 async fn resolve_bybit_option_universe(
     spec: &OptionUniverseSpec,
     environment: BybitEnvironment,
@@ -231,6 +255,7 @@ async fn resolve_bybit_option_universe(
     })
 }
 
+#[cfg(feature = "venue-okx")]
 async fn resolve_okx_option_universe(
     spec: &OptionUniverseSpec,
     environment: OKXEnvironment,
@@ -291,6 +316,7 @@ async fn resolve_okx_option_universe(
     })
 }
 
+#[cfg(feature = "venue-deribit")]
 async fn request_deribit_strike_reference(
     client: &DeribitHttpClient,
     spec: &OptionUniverseSpec,
@@ -355,6 +381,7 @@ async fn request_deribit_strike_reference(
     )
 }
 
+#[cfg(feature = "venue-bybit")]
 async fn request_bybit_strike_reference(
     client: &BybitHttpClient,
     spec: &OptionUniverseSpec,
@@ -400,6 +427,7 @@ async fn request_bybit_strike_reference(
     )
 }
 
+#[cfg(feature = "venue-okx")]
 async fn request_okx_strike_reference(
     client: &OKXHttpClient,
     spec: &OptionUniverseSpec,
@@ -430,6 +458,7 @@ async fn request_okx_strike_reference(
     ))
 }
 
+#[cfg(feature = "venue-okx")]
 fn select_okx_strike_reference(
     forward_prices: &[nautilus_model::data::ForwardPrice],
     underlying: &str,
@@ -446,6 +475,7 @@ fn select_okx_strike_reference(
     ))
 }
 
+#[cfg(feature = "venue-deribit")]
 fn price_from_decimal(
     value: Option<Decimal>,
     source: AtmReferenceSource,
@@ -455,10 +485,12 @@ fn price_from_decimal(
     })
 }
 
+#[cfg(feature = "venue-bybit")]
 fn open_interest_from_string(value: &str) -> Option<f64> {
     metric_from_string(value)
 }
 
+#[cfg(feature = "venue-bybit")]
 fn metric_from_string(value: &str) -> Option<f64> {
     value
         .parse::<f64>()
@@ -466,10 +498,12 @@ fn metric_from_string(value: &str) -> Option<f64> {
         .filter(|metric| metric.is_finite() && *metric > 0.0)
 }
 
+#[cfg(feature = "venue-bybit")]
 fn bybit_option_instrument_symbol_from_ticker(ticker_symbol: &str) -> String {
     format!("{ticker_symbol}-OPTION")
 }
 
+#[cfg(feature = "venue-deribit")]
 async fn maybe_fetch_deribit_strike_open_interest(
     client: &DeribitHttpClient,
     spec: &OptionUniverseSpec,
@@ -483,6 +517,7 @@ async fn maybe_fetch_deribit_strike_open_interest(
     Ok(None)
 }
 
+#[cfg(feature = "venue-bybit")]
 async fn maybe_fetch_bybit_strike_open_interest(
     client: &BybitHttpClient,
     spec: &OptionUniverseSpec,
@@ -530,6 +565,7 @@ async fn maybe_fetch_bybit_strike_open_interest(
     Ok(Some(aggregate_open_interest_by_strike(entries)))
 }
 
+#[cfg(feature = "venue-okx")]
 async fn maybe_fetch_okx_strike_open_interest(
     client: &OKXHttpClient,
     spec: &OptionUniverseSpec,

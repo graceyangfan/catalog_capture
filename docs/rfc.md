@@ -1,3 +1,6 @@
+> **Historical document.** Current priorities live in [refactor-optimization-plan.md](refactor-optimization-plan.md) and [ROADMAP.md](../ROADMAP.md).
+>
+
 # RFC: Direct catalog capture
 
 ## Summary

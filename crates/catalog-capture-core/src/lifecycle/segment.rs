@@ -28,8 +28,7 @@ use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterPr
 use serde::Serialize;
 
 use crate::{
-    catalog_layout::{legacy_market_data_prefix, mirror_market_data_path},
-    config::{CaptureConfig, CompressionKind, LayoutCompatibility},
+    config::{CaptureConfig, CompressionKind},
     lifecycle::ResolvedSealSchedule,
     runtime::FlushResult,
 };
@@ -39,7 +38,6 @@ const PART_SUFFIX: &str = ".part.parquet";
 #[derive(Debug)]
 struct SegmentOpenParams {
     directory: PathBuf,
-    legacy_prefix: String,
     identifier: String,
     schema_metadata: HashMap<String, String>,
     open_ts_ns: u64,
@@ -50,7 +48,6 @@ struct ActiveSegment {
     directory: PathBuf,
     part_path: PathBuf,
     writer: ArrowWriter<File>,
-    legacy_prefix: String,
     identifier: String,
     schema_metadata: HashMap<String, String>,
     min_ts_ns: u64,
@@ -63,30 +60,12 @@ struct ActiveSegment {
 pub struct SegmentCaptureSink<T> {
     catalog: ParquetDataCatalog,
     local_root: PathBuf,
-    layout_compatibility: LayoutCompatibility,
     seal: Option<ResolvedSealSchedule>,
     compression: Compression,
     row_group_rows: usize,
     sync_interval_ns: u64,
     segments: HashMap<String, ActiveSegment>,
     _marker: std::marker::PhantomData<T>,
-}
-
-impl<T> SegmentCaptureSink<T> {
-    fn mirror_market_data_path(
-        &self,
-        original_path: &Path,
-        legacy_prefix: &str,
-        identifier: &str,
-    ) -> Result<()> {
-        mirror_market_data_path(
-            &self.local_root,
-            self.layout_compatibility.clone(),
-            original_path,
-            legacy_prefix,
-            identifier,
-        )
-    }
 }
 
 impl<T> SegmentCaptureSink<T>
@@ -127,7 +106,6 @@ where
         let mut sink = Self {
             catalog,
             local_root: PathBuf::from(uri),
-            layout_compatibility: config.layout_compatibility.clone(),
             seal: config.lifecycle.resolved_seal()?,
             row_group_rows: config.lifecycle.batch_row_threshold(config.flush_rows),
             sync_interval_ns: config
@@ -230,11 +208,7 @@ where
         let final_path = directory.join(final_name);
         fs::rename(part_path, &final_path)
             .with_context(|| format!("failed to recover orphan segment {}", part_path.display()))?;
-        self.mirror_market_data_path(
-            &final_path,
-            legacy_market_data_prefix(T::path_prefix()),
-            identifier,
-        )?;
+        let _identifier = identifier;
         Ok(Some(final_path))
     }
 
@@ -256,7 +230,6 @@ where
                 directory: params.directory,
                 part_path,
                 writer,
-                legacy_prefix: params.legacy_prefix,
                 identifier: params.identifier,
                 schema_metadata: params.schema_metadata,
                 min_ts_ns: 0,
@@ -379,8 +352,6 @@ where
         fs::rename(&segment.part_path, &final_path)
             .with_context(|| format!("failed to seal segment {}", segment.part_path.display()))?;
 
-        self.mirror_market_data_path(&final_path, &segment.legacy_prefix, &segment.identifier)?;
-
         let bytes = fs::metadata(&final_path)
             .map(|meta| meta.len())
             .unwrap_or(0);
@@ -390,7 +361,6 @@ where
                 key,
                 SegmentOpenParams {
                     directory: segment.directory.clone(),
-                    legacy_prefix: segment.legacy_prefix.clone(),
                     identifier: segment.identifier.clone(),
                     schema_metadata: segment.schema_metadata.clone(),
                     open_ts_ns: segment.max_ts_ns,
@@ -432,14 +402,12 @@ where
             .catalog
             .make_path(T::path_prefix(), Some(identifier.as_str()))?;
         let directory = self.local_root.join(directory_rel);
-        let legacy_prefix = legacy_market_data_prefix(T::path_prefix()).to_string();
 
         if !self.segments.contains_key(partition_key) {
             self.open_segment(
                 partition_key,
                 SegmentOpenParams {
                     directory,
-                    legacy_prefix,
                     identifier: identifier.clone(),
                     schema_metadata: schema_metadata.clone(),
                     open_ts_ns: min_ts_ns,

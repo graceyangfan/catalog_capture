@@ -20,11 +20,14 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
+#[cfg(feature = "venue-hyperliquid")]
+use catalog_capture_core::expand_hip4_universe;
 use catalog_capture_core::{
     append_hip4_universe_resolution_records, append_option_universe_resolution_records,
     catalog_root_from_uri, derive_perp_instrument_id, estimate_peak_buffered_bytes,
-    expand_hip4_universe, expand_option_universe, format_budget_warning, format_buffer_estimate,
-    merge_capture_plans, CaptureMetricsSnapshot, CapturePlan, OptionUniverseVenueKind,
+    expand_option_universe, format_budget_warning, format_buffer_estimate, merge_capture_plans,
+    new_capture_run_record, write_capture_run_record, CaptureMetricsSnapshot, CapturePlan,
+    CaptureRunInput, CaptureRunVenueRecord, LayoutCompatibility, OptionUniverseVenueKind,
     ResolvedHip4Universe, ResolvedOptionUniverse,
 };
 use catalog_capture_runtime_adapter::{
@@ -33,26 +36,33 @@ use catalog_capture_runtime_adapter::{
     DynamicOptionUniverseConfig, DynamicOptionUniverseEntryConfig, OnlineOptionMetricsConfig,
     OnlineOptionMetricsUniverseConfig,
 };
-use nautilus_binance::{
-    config::BinanceDataClientConfig, data_types::register_binance_custom_data,
-    factories::BinanceDataClientFactory,
-};
+#[cfg(feature = "venue-binance")]
+use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
+#[cfg(feature = "venue-bybit")]
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::enums::Environment;
+#[cfg(feature = "venue-deribit")]
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
+#[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
-use nautilus_hyperliquid::data_types::register_hyperliquid_custom_data;
+#[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::{
     config::HyperliquidDataClientConfig, factories::HyperliquidDataClientFactory,
 };
 use nautilus_live::node::LiveNode;
-use nautilus_model::{
-    data::DataType,
-    identifiers::{ActorId, TraderId},
-};
+use nautilus_model::identifiers::{ActorId, TraderId};
+#[cfg(feature = "venue-okx")]
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
+use crate::credentials::{
+    api_key_secret_present, binance_credentials, bybit_credentials, deribit_credentials,
+    hyperliquid_private_key, okx_credentials,
+};
+use crate::custom_data::{
+    register_request_types, register_subscribe_types, validate_request_data_type,
+    validate_subscribe_data_type,
+};
 use crate::hip4::{
     materialize_hip4_capture_plan, startup_resolution_record_from_report as hip4_startup_record,
     validate_hip4_universes, Hip4UniverseResolutionReport,
@@ -117,6 +127,7 @@ pub async fn run_capture_with_plan_and_reports(
         hip4_reports,
         hip4_resolved,
     )?;
+    persist_capture_run_metadata(&catalog_dir, &config, &plan)?;
 
     if plan.is_empty() {
         bail!("capture plan is empty after universe expansion");
@@ -124,8 +135,8 @@ pub async fn run_capture_with_plan_and_reports(
 
     log_capture_buffer_estimate(&config, &plan);
 
-    register_known_custom_data_types(&plan.custom_data);
-    register_known_custom_data_request_types(&plan.custom_data_requests);
+    register_subscribe_types(&plan.custom_data);
+    register_request_types(&plan.custom_data_requests);
 
     let (metrics_snapshot, metrics_refresh_interval_secs) = build_metrics_runtime_state(&config);
     let capture_actor = CatalogCaptureActor::new(build_capture_actor_config(
@@ -146,14 +157,21 @@ pub async fn run_capture_with_plan_and_reports(
 
     for venue in &config.venues {
         match venue {
+            #[cfg(feature = "venue-binance")]
             VenueRuntimeConfig::BinanceFutures {
                 id,
                 environment,
                 product_type,
             } => {
+                let creds = binance_credentials(id);
                 log::info!(
-                    "Configuring venue {} ({product_type:?}, {environment:?})",
-                    id
+                    "Configuring venue {} ({product_type:?}, {environment:?}, credentials={})",
+                    id,
+                    if api_key_secret_present(&creds) {
+                        "from_env"
+                    } else {
+                        "public"
+                    }
                 );
                 builder = builder.add_data_client(
                     None,
@@ -161,20 +179,27 @@ pub async fn run_capture_with_plan_and_reports(
                     Box::new(BinanceDataClientConfig {
                         product_type: *product_type,
                         environment: *environment,
-                        api_key: None,
-                        api_secret: None,
+                        api_key: creds.api_key,
+                        api_secret: creds.api_secret,
                         ..Default::default()
                     }),
                 )?;
             }
+            #[cfg(feature = "venue-deribit")]
             VenueRuntimeConfig::Deribit {
                 id,
                 environment,
                 product_types,
             } => {
+                let creds = deribit_credentials(id);
                 log::info!(
-                    "Configuring venue {} (product_types={product_types:?}, {environment:?})",
-                    id
+                    "Configuring venue {} (product_types={product_types:?}, {environment:?}, credentials={})",
+                    id,
+                    if api_key_secret_present(&creds) {
+                        "from_env"
+                    } else {
+                        "public"
+                    }
                 );
                 builder = builder.add_data_client(
                     None,
@@ -182,20 +207,27 @@ pub async fn run_capture_with_plan_and_reports(
                     Box::new(DeribitDataClientConfig {
                         environment: *environment,
                         product_types: product_types.clone(),
-                        api_key: None,
-                        api_secret: None,
+                        api_key: creds.api_key,
+                        api_secret: creds.api_secret,
                         ..Default::default()
                     }),
                 )?;
             }
+            #[cfg(feature = "venue-bybit")]
             VenueRuntimeConfig::Bybit {
                 id,
                 environment,
                 product_types,
             } => {
+                let creds = bybit_credentials(id);
                 log::info!(
-                    "Configuring venue {} (product_types={product_types:?}, {environment:?})",
-                    id
+                    "Configuring venue {} (product_types={product_types:?}, {environment:?}, credentials={})",
+                    id,
+                    if api_key_secret_present(&creds) {
+                        "from_env"
+                    } else {
+                        "public"
+                    }
                 );
                 builder = builder.add_data_client(
                     None,
@@ -203,33 +235,50 @@ pub async fn run_capture_with_plan_and_reports(
                     Box::new(BybitDataClientConfig {
                         environment: *environment,
                         product_types: product_types.clone(),
-                        api_key: None,
-                        api_secret: None,
+                        api_key: creds.api_key,
+                        api_secret: creds.api_secret,
                         ..Default::default()
                     }),
                 )?;
             }
+            #[cfg(feature = "venue-hyperliquid")]
             VenueRuntimeConfig::Hyperliquid { id, environment } => {
-                log::info!("Configuring venue {} ({environment:?})", id);
+                let private_key = hyperliquid_private_key(id);
+                log::info!(
+                    "Configuring venue {} ({environment:?}, credentials={})",
+                    id,
+                    if private_key.is_some() {
+                        "from_env"
+                    } else {
+                        "public"
+                    }
+                );
                 builder = builder.add_data_client(
                     None,
                     Box::new(HyperliquidDataClientFactory::new()),
                     Box::new(HyperliquidDataClientConfig {
                         environment: *environment,
-                        private_key: None,
+                        private_key,
                         ..Default::default()
                     }),
                 )?;
             }
+            #[cfg(feature = "venue-okx")]
             VenueRuntimeConfig::Okx {
                 id,
                 environment,
                 instrument_types,
                 instrument_families,
             } => {
+                let creds = okx_credentials(id);
                 log::info!(
-                    "Configuring venue {} (instrument_types={instrument_types:?}, families={instrument_families:?}, {environment:?})",
-                    id
+                    "Configuring venue {} (instrument_types={instrument_types:?}, families={instrument_families:?}, {environment:?}, credentials={})",
+                    id,
+                    if creds.api_key.is_some() || creds.api_secret.is_some() || creds.api_passphrase.is_some() {
+                        "from_env"
+                    } else {
+                        "public"
+                    }
                 );
                 builder = builder.add_data_client(
                     None,
@@ -238,9 +287,9 @@ pub async fn run_capture_with_plan_and_reports(
                         environment: *environment,
                         instrument_types: instrument_types.clone(),
                         instrument_families: instrument_families.clone(),
-                        api_key: None,
-                        api_secret: None,
-                        api_passphrase: None,
+                        api_key: creds.api_key,
+                        api_secret: creds.api_secret,
+                        api_passphrase: creds.api_passphrase,
                         ..Default::default()
                     }),
                 )?;
@@ -320,6 +369,84 @@ fn persist_startup_resolution_metadata(
     }
 
     Ok(())
+}
+
+fn persist_capture_run_metadata(
+    catalog_dir: &Path,
+    config: &EffectiveConfig,
+    plan: &CapturePlan,
+) -> Result<()> {
+    let venues = config
+        .venues
+        .iter()
+        .map(|venue| CaptureRunVenueRecord {
+            id: venue.id().to_string(),
+            kind: venue_kind_label(venue).to_string(),
+        })
+        .collect();
+    let nautilus_trader_ref = std::env::var("NAUTILUS_TRADER_REF")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let record = new_capture_run_record(CaptureRunInput {
+        node_name: config.runtime.node_name.clone(),
+        catalog_uri: config.capture.catalog_uri.clone(),
+        layout_compatibility: layout_compatibility_label(&config.capture.layout_compatibility)
+            .to_string(),
+        capture_seconds: config.runtime.capture_seconds,
+        venues,
+        plan,
+        option_universe_count: config.option_universes.len(),
+        hip4_universe_count: config.hip4_universes.len(),
+        nautilus_trader_ref,
+        cli_venue_features: compiled_venue_features(),
+    });
+    write_capture_run_record(catalog_dir, &record)
+        .with_context(|| "failed to persist metadata/capture_run.json")?;
+    log::info!(
+        "Wrote capture run metadata: {}",
+        catalog_dir.join("metadata/capture_run.json").display()
+    );
+    Ok(())
+}
+
+fn layout_compatibility_label(value: &LayoutCompatibility) -> &'static str {
+    match value {
+        LayoutCompatibility::RustCanonicalOnly => "rust_canonical_only",
+    }
+}
+
+fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
+    match venue {
+        #[cfg(feature = "venue-binance")]
+        VenueRuntimeConfig::BinanceFutures { .. } => "binance_futures",
+        #[cfg(feature = "venue-deribit")]
+        VenueRuntimeConfig::Deribit { .. } => "deribit",
+        #[cfg(feature = "venue-bybit")]
+        VenueRuntimeConfig::Bybit { .. } => "bybit",
+        #[cfg(feature = "venue-hyperliquid")]
+        VenueRuntimeConfig::Hyperliquid { .. } => "hyperliquid",
+        #[cfg(feature = "venue-okx")]
+        VenueRuntimeConfig::Okx { .. } => "okx",
+    }
+}
+
+fn compiled_venue_features() -> Vec<String> {
+    [
+        #[cfg(feature = "venue-binance")]
+        "venue-binance",
+        #[cfg(feature = "venue-bybit")]
+        "venue-bybit",
+        #[cfg(feature = "venue-deribit")]
+        "venue-deribit",
+        #[cfg(feature = "venue-okx")]
+        "venue-okx",
+        #[cfg(feature = "venue-hyperliquid")]
+        "venue-hyperliquid",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect()
 }
 
 fn build_metrics_runtime_state(
@@ -456,8 +583,12 @@ fn validate_runtime_dependencies(config: &EffectiveConfig) -> Result<()> {
     if config.runtime.hip4_universe_refresh.enabled && config.hip4_universes.is_empty() {
         bail!("runtime.hip4_universe_refresh.enabled requires capture.hip4_universe entries");
     }
-    validate_known_custom_data_types(&config.plan.custom_data, &config.venues)?;
-    validate_known_custom_data_request_types(&config.plan.custom_data_requests, &config.venues)?;
+    for spec in &config.plan.custom_data {
+        validate_subscribe_data_type(&spec.data_type, &config.venues)?;
+    }
+    for spec in &config.plan.custom_data_requests {
+        validate_request_data_type(&spec.data_type, &config.venues)?;
+    }
     Ok(())
 }
 
@@ -683,18 +814,30 @@ fn build_dynamic_hip4_universe_entry(
     report: &Hip4UniverseResolutionReport,
     resolved: &ResolvedHip4Universe,
 ) -> Result<DynamicHip4UniverseEntryConfig> {
-    let environment = hip4_report_environment(config, report)?;
-    ensure_dynamic_hip4_universe_runtime_inputs(plan, spec, report)?;
+    #[cfg(not(feature = "venue-hyperliquid"))]
+    {
+        let _ = (config, plan, spec, report, resolved);
+        bail!(
+            "capture.hip4_universe requires cargo feature `venue-hyperliquid` \
+             (rebuild with `--features venue-hyperliquid` or `--features all-venues`)"
+        );
+    }
+    #[cfg(feature = "venue-hyperliquid")]
+    {
+        let environment = hip4_report_environment(config, report)?;
+        ensure_dynamic_hip4_universe_runtime_inputs(plan, spec, report)?;
 
-    let initial_plan = expand_hip4_universe(spec, resolved);
-    Ok(DynamicHip4UniverseEntryConfig {
-        environment,
-        spec: spec.clone(),
-        initial_plan,
-        initial_resolved: resolved.clone(),
-    })
+        let initial_plan = expand_hip4_universe(spec, resolved);
+        Ok(DynamicHip4UniverseEntryConfig {
+            environment,
+            spec: spec.clone(),
+            initial_plan,
+            initial_resolved: resolved.clone(),
+        })
+    }
 }
 
+#[cfg(feature = "venue-hyperliquid")]
 fn ensure_dynamic_hip4_universe_runtime_inputs(
     plan: &CapturePlan,
     spec: &catalog_capture_core::Hip4UniverseSpec,
@@ -723,6 +866,7 @@ fn ensure_dynamic_hip4_universe_runtime_inputs(
     Ok(())
 }
 
+#[cfg(feature = "venue-hyperliquid")]
 fn hip4_report_environment(
     config: &EffectiveConfig,
     report: &Hip4UniverseResolutionReport,
@@ -739,243 +883,12 @@ fn hip4_report_environment(
         })?;
     match venue {
         VenueRuntimeConfig::Hyperliquid { environment, .. } => Ok(*environment),
+        #[allow(unreachable_patterns)]
         _ => bail!(
             "runtime.hip4_universe_refresh requires hyperliquid venue for `{}`",
             report.venue_id
         ),
     }
-}
-
-fn register_known_custom_data_types(custom_data: &[catalog_capture_core::CustomDataCaptureSpec]) {
-    for spec in custom_data {
-        match KnownSubscribeCustomDataKind::from_type_name(spec.data_type.type_name()) {
-            Some(KnownSubscribeCustomDataKind::BinanceFuturesLiquidation)
-            | Some(KnownSubscribeCustomDataKind::BinanceFuturesTicker) => {
-                register_binance_custom_data()
-            }
-            Some(KnownSubscribeCustomDataKind::DeribitVolatilityIndex) => {
-                nautilus_deribit::data_types::register_deribit_custom_data()
-            }
-            Some(KnownSubscribeCustomDataKind::HyperliquidOpenInterest) => {
-                register_hyperliquid_custom_data()
-            }
-            None => {}
-        }
-    }
-}
-
-fn register_known_custom_data_request_types(
-    requests: &[catalog_capture_core::CustomDataRequestCaptureSpec],
-) {
-    for spec in requests {
-        match KnownRequestCustomDataKind::from_type_name(spec.data_type.type_name()) {
-            Some(KnownRequestCustomDataKind::DeribitBookSummary) => {
-                nautilus_deribit::data_types::register_deribit_custom_data()
-            }
-            None => {}
-        }
-    }
-}
-
-fn validate_known_custom_data_types(
-    custom_data: &[catalog_capture_core::CustomDataCaptureSpec],
-    venues: &[VenueRuntimeConfig],
-) -> Result<()> {
-    for spec in custom_data {
-        validate_known_subscribe_custom_data_type(&spec.data_type, venues)?;
-    }
-    Ok(())
-}
-
-fn validate_known_custom_data_request_types(
-    requests: &[catalog_capture_core::CustomDataRequestCaptureSpec],
-    venues: &[VenueRuntimeConfig],
-) -> Result<()> {
-    for spec in requests {
-        validate_known_request_custom_data_type(&spec.data_type, venues)?;
-    }
-    Ok(())
-}
-
-fn validate_known_subscribe_custom_data_type(
-    data_type: &DataType,
-    venues: &[VenueRuntimeConfig],
-) -> Result<()> {
-    // Reject request-only types that must use [[capture.custom_data_requests]].
-    if KnownRequestCustomDataKind::from_type_name(data_type.type_name()).is_some() {
-        bail!(
-            "custom_data type_name `{}` is request-only; use [[capture.custom_data_requests]] \
-             (Nautilus request_data), not [[capture.custom_data]] (subscribe_data)",
-            data_type.type_name()
-        );
-    }
-
-    match KnownSubscribeCustomDataKind::from_type_name(data_type.type_name()) {
-        Some(KnownSubscribeCustomDataKind::BinanceFuturesLiquidation) => {
-            require_venue(
-                venues,
-                VenueRequirement::BinanceFutures,
-                "custom_data BinanceFuturesLiquidation requires at least one [[venues]] entry with kind = \"binance_futures\"",
-            )?;
-            let identifier = data_type.identifier();
-            let instrument_id = string_metadata(data_type, "instrument_id");
-            if identifier.is_some() && instrument_id.is_none() {
-                bail!(
-                    "custom_data BinanceFuturesLiquidation identifier requires metadata.instrument_id; \
-                     omit both fields for all-market capture"
-                );
-            }
-            if let Some(instrument_id) = instrument_id {
-                ensure_non_empty_metadata(
-                    instrument_id,
-                    "custom_data BinanceFuturesLiquidation metadata.instrument_id must be non-empty when provided",
-                )?;
-                ensure_identifier_matches(identifier, instrument_id, "BinanceFuturesLiquidation")?;
-            }
-        }
-        Some(KnownSubscribeCustomDataKind::BinanceFuturesTicker) => {
-            require_venue(
-                venues,
-                VenueRequirement::BinanceFutures,
-                "custom_data BinanceFuturesTicker requires at least one [[venues]] entry with kind = \"binance_futures\"",
-            )?;
-            let Some(instrument_id) = string_metadata(data_type, "instrument_id") else {
-                bail!(
-                    "custom_data BinanceFuturesTicker requires metadata.instrument_id \
-                     (for example `ETHUSDT-PERP.BINANCE`)"
-                );
-            };
-            ensure_non_empty_metadata(
-                instrument_id,
-                "custom_data BinanceFuturesTicker metadata.instrument_id must be non-empty",
-            )?;
-            ensure_identifier_matches(
-                data_type.identifier(),
-                instrument_id,
-                "BinanceFuturesTicker",
-            )?;
-        }
-        Some(KnownSubscribeCustomDataKind::DeribitVolatilityIndex) => {
-            require_venue(
-                venues,
-                VenueRequirement::Deribit,
-                "custom_data DeribitVolatilityIndex requires at least one [[venues]] entry with kind = \"deribit\"",
-            )?;
-            let Some(index_name) = string_metadata(data_type, "index_name") else {
-                bail!(
-                    "custom_data DeribitVolatilityIndex requires metadata.index_name \
-                     (for example `btc_usd`)"
-                );
-            };
-            ensure_non_empty_metadata(
-                index_name,
-                "custom_data DeribitVolatilityIndex metadata.index_name must be non-empty",
-            )?;
-        }
-        Some(KnownSubscribeCustomDataKind::HyperliquidOpenInterest) => {
-            require_venue(
-                venues,
-                VenueRequirement::Hyperliquid,
-                "custom_data HyperliquidOpenInterest requires at least one [[venues]] entry with kind = \"hyperliquid\"",
-            )?;
-            let Some(instrument_id) = string_metadata(data_type, "instrument_id") else {
-                bail!(
-                    "custom_data HyperliquidOpenInterest requires metadata.instrument_id \
-                     (for example `ETH-USD-PERP.HYPERLIQUID`)"
-                );
-            };
-            ensure_non_empty_metadata(
-                instrument_id,
-                "custom_data HyperliquidOpenInterest metadata.instrument_id must be non-empty",
-            )?;
-            ensure_identifier_matches(
-                data_type.identifier(),
-                instrument_id,
-                "HyperliquidOpenInterest",
-            )?;
-        }
-        None => {
-            bail!(
-                "unknown custom_data type_name `{}`; supported subscribe types: {}. \
-                 For request-only types (e.g. DeribitBookSummary) use [[capture.custom_data_requests]]",
-                data_type.type_name(),
-                KnownSubscribeCustomDataKind::supported_csv()
-            );
-        }
-    }
-    Ok(())
-}
-
-fn validate_known_request_custom_data_type(
-    data_type: &DataType,
-    venues: &[VenueRuntimeConfig],
-) -> Result<()> {
-    // Reject subscribe-only types that must use [[capture.custom_data]].
-    if KnownSubscribeCustomDataKind::from_type_name(data_type.type_name()).is_some() {
-        bail!(
-            "custom_data_requests type_name `{}` is subscribe-only; use [[capture.custom_data]] \
-             (Nautilus subscribe_data), not [[capture.custom_data_requests]] (request_data)",
-            data_type.type_name()
-        );
-    }
-
-    match KnownRequestCustomDataKind::from_type_name(data_type.type_name()) {
-        Some(KnownRequestCustomDataKind::DeribitBookSummary) => {
-            require_venue(
-                venues,
-                VenueRequirement::Deribit,
-                "custom_data_requests DeribitBookSummary requires at least one [[venues]] entry with kind = \"deribit\"",
-            )?;
-            let Some(currency) = string_metadata(data_type, "currency") else {
-                bail!(
-                    "custom_data_requests DeribitBookSummary requires metadata.currency \
-                     (for example `BTC`)"
-                );
-            };
-            ensure_non_empty_metadata(
-                currency,
-                "custom_data_requests DeribitBookSummary metadata.currency must be non-empty",
-            )?;
-        }
-        None => {
-            bail!(
-                "unknown custom_data_requests type_name `{}`; supported request types: {}",
-                data_type.type_name(),
-                KnownRequestCustomDataKind::supported_csv()
-            );
-        }
-    }
-    Ok(())
-}
-
-fn string_metadata<'a>(data_type: &'a DataType, key: &str) -> Option<&'a str> {
-    data_type
-        .metadata()
-        .as_ref()
-        .and_then(|metadata| metadata.get(key))
-        .and_then(|value| value.as_str())
-}
-
-fn ensure_non_empty_metadata(value: &str, error: &str) -> Result<()> {
-    if value.trim().is_empty() {
-        bail!("{error}");
-    }
-    Ok(())
-}
-
-fn ensure_identifier_matches(
-    identifier: Option<&str>,
-    expected: &str,
-    type_name: &str,
-) -> Result<()> {
-    if let Some(identifier) = identifier {
-        if identifier != expected {
-            bail!(
-                "custom_data {type_name} identifier `{identifier}` must match metadata.instrument_id `{expected}`"
-            );
-        }
-    }
-    Ok(())
 }
 
 fn resolved_option_universe_from_report(
@@ -1032,88 +945,15 @@ fn report_venue(
 
 fn option_universe_venue_kind(venue: &VenueRuntimeConfig) -> Option<OptionUniverseVenueKind> {
     match venue {
+        #[cfg(feature = "venue-deribit")]
         VenueRuntimeConfig::Deribit { .. } => Some(OptionUniverseVenueKind::Deribit),
+        #[cfg(feature = "venue-bybit")]
         VenueRuntimeConfig::Bybit { .. } => Some(OptionUniverseVenueKind::Bybit),
+        #[cfg(feature = "venue-okx")]
         VenueRuntimeConfig::Okx { .. } => Some(OptionUniverseVenueKind::Okx),
+        #[allow(unreachable_patterns)]
         _ => None,
     }
-}
-
-#[derive(Clone, Copy)]
-enum VenueRequirement {
-    BinanceFutures,
-    Deribit,
-    Hyperliquid,
-}
-
-/// Subscribe-style custom data only (`subscribe_data` → `on_data`).
-#[derive(Clone, Copy)]
-enum KnownSubscribeCustomDataKind {
-    BinanceFuturesLiquidation,
-    BinanceFuturesTicker,
-    DeribitVolatilityIndex,
-    HyperliquidOpenInterest,
-}
-
-impl KnownSubscribeCustomDataKind {
-    fn from_type_name(type_name: &str) -> Option<Self> {
-        match type_name {
-            "BinanceFuturesLiquidation" => Some(Self::BinanceFuturesLiquidation),
-            "BinanceFuturesTicker" => Some(Self::BinanceFuturesTicker),
-            "DeribitVolatilityIndex" => Some(Self::DeribitVolatilityIndex),
-            "HyperliquidOpenInterest" => Some(Self::HyperliquidOpenInterest),
-            _ => None,
-        }
-    }
-
-    fn supported_csv() -> &'static str {
-        "BinanceFuturesLiquidation, BinanceFuturesTicker, DeribitVolatilityIndex, HyperliquidOpenInterest"
-    }
-}
-
-/// Request-style custom data only (`request_data` → response handler).
-#[derive(Clone, Copy)]
-enum KnownRequestCustomDataKind {
-    DeribitBookSummary,
-}
-
-impl KnownRequestCustomDataKind {
-    fn from_type_name(type_name: &str) -> Option<Self> {
-        match type_name {
-            "DeribitBookSummary" => Some(Self::DeribitBookSummary),
-            _ => None,
-        }
-    }
-
-    fn supported_csv() -> &'static str {
-        "DeribitBookSummary"
-    }
-}
-
-fn require_venue(
-    venues: &[VenueRuntimeConfig],
-    requirement: VenueRequirement,
-    error: &str,
-) -> Result<()> {
-    let matches_requirement = venues.iter().any(|venue| {
-        matches!(
-            (requirement, venue),
-            (
-                VenueRequirement::BinanceFutures,
-                VenueRuntimeConfig::BinanceFutures { .. }
-            ) | (
-                VenueRequirement::Deribit,
-                VenueRuntimeConfig::Deribit { .. }
-            ) | (
-                VenueRequirement::Hyperliquid,
-                VenueRuntimeConfig::Hyperliquid { .. }
-            )
-        )
-    });
-    if matches_requirement {
-        return Ok(());
-    }
-    bail!("{error}")
 }
 
 fn log_capture_buffer_estimate(config: &EffectiveConfig, plan: &CapturePlan) {

@@ -38,7 +38,7 @@ The current implementation is intentionally simple:
 - per-partition in-memory buffers
 - chunked direct parquet writes
 - timed flush skeleton
-- local filesystem Python-legacy mirror compatibility
+- Rust-canonical catalog layout only (for direct Rust backtest)
 - first-class actor capture for instruments, market data, and custom data
 
 ## Capture modes

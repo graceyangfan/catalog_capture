@@ -39,7 +39,7 @@ fn build_capture_config(catalog_dir: &Path) -> CaptureConfig {
         max_buffer_bytes: 8 * 1024 * 1024,
         compression: CompressionKind::Snappy,
         overflow_policy: OverflowPolicy::DropOldest,
-        layout_compatibility: LayoutCompatibility::RustCanonicalWithPythonLegacyMirror,
+        layout_compatibility: LayoutCompatibility::RustCanonicalOnly,
         ..CaptureConfig::default()
     }
 }

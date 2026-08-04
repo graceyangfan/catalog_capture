@@ -29,10 +29,16 @@ pub enum OverflowPolicy {
     FailFast,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Catalog directory layout is always Nautilus Trader **Rust** `ParquetDataCatalog`
+/// canonical paths. Python legacy path mirrors are not supported.
+///
+/// Retained as a single-variant enum so operators and docs can still name the
+/// contract explicitly (`rust_canonical_only`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum LayoutCompatibility {
+    /// Write only Rust-canonical catalog paths (required for Rust backtest).
+    #[default]
     RustCanonicalOnly,
-    RustCanonicalWithPythonLegacyMirror,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -53,6 +59,8 @@ pub struct CaptureConfig {
     pub max_active_partitions: usize,
     pub compression: CompressionKind,
     pub overflow_policy: OverflowPolicy,
+    /// Always `RustCanonicalOnly`. Field kept for explicit config/docs alignment.
+    #[serde(default)]
     pub layout_compatibility: LayoutCompatibility,
 }
 
@@ -70,7 +78,7 @@ impl Default for CaptureConfig {
             max_active_partitions: default_max_active_partitions(),
             compression: CompressionKind::Snappy,
             overflow_policy: OverflowPolicy::DropNewest,
-            layout_compatibility: LayoutCompatibility::RustCanonicalWithPythonLegacyMirror,
+            layout_compatibility: LayoutCompatibility::RustCanonicalOnly,
         }
     }
 }

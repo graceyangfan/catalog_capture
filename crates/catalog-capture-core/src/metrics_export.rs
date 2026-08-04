@@ -24,6 +24,19 @@ pub struct FamilyCaptureMetrics {
     pub metrics: CaptureMetrics,
 }
 
+/// Per-job counters for `[[capture.custom_data_requests]]` (request/poll path).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct CustomDataRequestJobMetrics {
+    pub index: usize,
+    pub type_name: String,
+    pub identifier: Option<String>,
+    pub in_flight: bool,
+    pub polls: u64,
+    pub rows: u64,
+    pub skipped_inflight: u64,
+    pub timeouts: u64,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct CaptureMetricsSnapshot {
     pub captured_at_unix_ms: u64,
@@ -31,6 +44,8 @@ pub struct CaptureMetricsSnapshot {
     pub process_rss_bytes: Option<u64>,
     pub aggregated: CaptureMetrics,
     pub families: Vec<FamilyCaptureMetrics>,
+    /// Request-path jobs (`request_data` poll timers). Empty when no requests configured.
+    pub custom_data_requests: Vec<CustomDataRequestJobMetrics>,
 }
 
 #[must_use]
@@ -95,6 +110,7 @@ pub fn render_prometheus(snapshot: &CaptureMetricsSnapshot) -> String {
         let labels = format!(r#"{{family="{}"}}"#, escape_label(&family.family));
         append_metrics_block(&mut out, "catalog_capture", &labels, &family.metrics);
     }
+    append_custom_data_request_metrics(&mut out, snapshot);
     out
 }
 
@@ -134,6 +150,118 @@ fn append_snapshot_help(out: &mut String) {
     out.push_str("# TYPE catalog_capture_completed_file_bytes_total counter\n");
     out.push_str("# HELP catalog_capture_flush_reasons_total Flush invocations by reason\n");
     out.push_str("# TYPE catalog_capture_flush_reasons_total counter\n");
+    out.push_str(
+        "# HELP catalog_capture_custom_data_request_polls_total request_data poll attempts\n",
+    );
+    out.push_str("# TYPE catalog_capture_custom_data_request_polls_total counter\n");
+    out.push_str(
+        "# HELP catalog_capture_custom_data_request_rows_total rows accepted from request responses\n",
+    );
+    out.push_str("# TYPE catalog_capture_custom_data_request_rows_total counter\n");
+    out.push_str(
+        "# HELP catalog_capture_custom_data_request_skipped_inflight_total poll ticks skipped while a request was in flight\n",
+    );
+    out.push_str("# TYPE catalog_capture_custom_data_request_skipped_inflight_total counter\n");
+    out.push_str(
+        "# HELP catalog_capture_custom_data_request_timeouts_total in-flight request timeouts cleared for re-fire\n",
+    );
+    out.push_str("# TYPE catalog_capture_custom_data_request_timeouts_total counter\n");
+    out.push_str(
+        "# HELP catalog_capture_custom_data_request_in_flight whether a request is currently in flight (1/0)\n",
+    );
+    out.push_str("# TYPE catalog_capture_custom_data_request_in_flight gauge\n");
+}
+
+fn append_custom_data_request_metrics(out: &mut String, snapshot: &CaptureMetricsSnapshot) {
+    if snapshot.custom_data_requests.is_empty() {
+        return;
+    }
+
+    let mut total_polls = 0_u64;
+    let mut total_rows = 0_u64;
+    let mut total_skipped = 0_u64;
+    let mut total_timeouts = 0_u64;
+    let mut in_flight_jobs = 0_u64;
+
+    for job in &snapshot.custom_data_requests {
+        total_polls = total_polls.saturating_add(job.polls);
+        total_rows = total_rows.saturating_add(job.rows);
+        total_skipped = total_skipped.saturating_add(job.skipped_inflight);
+        total_timeouts = total_timeouts.saturating_add(job.timeouts);
+        if job.in_flight {
+            in_flight_jobs = in_flight_jobs.saturating_add(1);
+        }
+
+        let id = job.identifier.as_deref().unwrap_or("");
+        let labels = format!(
+            r#"{{index="{}",type_name="{}",id="{}"}}"#,
+            job.index,
+            escape_label(&job.type_name),
+            escape_label(id)
+        );
+        append_line(
+            out,
+            "catalog_capture_custom_data_request_polls_total",
+            &labels,
+            &job.polls.to_string(),
+        );
+        append_line(
+            out,
+            "catalog_capture_custom_data_request_rows_total",
+            &labels,
+            &job.rows.to_string(),
+        );
+        append_line(
+            out,
+            "catalog_capture_custom_data_request_skipped_inflight_total",
+            &labels,
+            &job.skipped_inflight.to_string(),
+        );
+        append_line(
+            out,
+            "catalog_capture_custom_data_request_timeouts_total",
+            &labels,
+            &job.timeouts.to_string(),
+        );
+        append_line(
+            out,
+            "catalog_capture_custom_data_request_in_flight",
+            &labels,
+            if job.in_flight { "1" } else { "0" },
+        );
+    }
+
+    // Aggregate totals (no labels) for simple alerts / dashboards.
+    append_line(
+        out,
+        "catalog_capture_custom_data_request_polls_total",
+        "",
+        &total_polls.to_string(),
+    );
+    append_line(
+        out,
+        "catalog_capture_custom_data_request_rows_total",
+        "",
+        &total_rows.to_string(),
+    );
+    append_line(
+        out,
+        "catalog_capture_custom_data_request_skipped_inflight_total",
+        "",
+        &total_skipped.to_string(),
+    );
+    append_line(
+        out,
+        "catalog_capture_custom_data_request_timeouts_total",
+        "",
+        &total_timeouts.to_string(),
+    );
+    append_line(
+        out,
+        "catalog_capture_custom_data_request_in_flight",
+        "",
+        &in_flight_jobs.to_string(),
+    );
 }
 
 fn append_runtime_gauges(out: &mut String, snapshot: &CaptureMetricsSnapshot) {
@@ -286,6 +414,7 @@ mod tests {
                     ..CaptureMetrics::default()
                 },
             }],
+            custom_data_requests: Vec::new(),
         };
 
         let body = render_prometheus(&snapshot);
@@ -294,6 +423,34 @@ mod tests {
         assert!(body.contains("catalog_capture_queued_items 5"));
         assert!(body.contains(r#"catalog_capture_accepted_items_total{family="quotes"} 10"#));
         assert!(body.contains("catalog_capture_process_rss_bytes"));
+    }
+
+    #[test]
+    fn prometheus_includes_custom_data_request_counters() {
+        let snapshot = CaptureMetricsSnapshot {
+            custom_data_requests: vec![CustomDataRequestJobMetrics {
+                index: 0,
+                type_name: "DeribitBookSummary".to_string(),
+                identifier: Some("BTC:option".to_string()),
+                in_flight: true,
+                polls: 7,
+                rows: 100,
+                skipped_inflight: 2,
+                timeouts: 1,
+            }],
+            ..CaptureMetricsSnapshot::default()
+        };
+        let body = render_prometheus(&snapshot);
+        assert!(body.contains("catalog_capture_custom_data_request_polls_total 7"));
+        assert!(body.contains("catalog_capture_custom_data_request_rows_total 100"));
+        assert!(body.contains("catalog_capture_custom_data_request_skipped_inflight_total 2"));
+        assert!(body.contains("catalog_capture_custom_data_request_timeouts_total 1"));
+        assert!(body.contains(
+            r#"catalog_capture_custom_data_request_polls_total{index="0",type_name="DeribitBookSummary",id="BTC:option"} 7"#
+        ));
+        assert!(body.contains(
+            r#"catalog_capture_custom_data_request_in_flight{index="0",type_name="DeribitBookSummary",id="BTC:option"} 1"#
+        ));
     }
 
     #[test]
@@ -307,5 +464,26 @@ mod tests {
         };
         let json = render_json(&snapshot);
         assert!(json.contains("\"family\":\"trades\""));
+    }
+
+    #[test]
+    fn json_includes_custom_data_requests() {
+        let snapshot = CaptureMetricsSnapshot {
+            custom_data_requests: vec![CustomDataRequestJobMetrics {
+                index: 0,
+                type_name: "DeribitBookSummary".to_string(),
+                identifier: Some("BTC:option".to_string()),
+                in_flight: false,
+                polls: 3,
+                rows: 9,
+                skipped_inflight: 0,
+                timeouts: 0,
+            }],
+            ..CaptureMetricsSnapshot::default()
+        };
+        let json = render_json(&snapshot);
+        assert!(json.contains("\"type_name\":\"DeribitBookSummary\""));
+        assert!(json.contains("\"polls\":3"));
+        assert!(json.contains("\"rows\":9"));
     }
 }

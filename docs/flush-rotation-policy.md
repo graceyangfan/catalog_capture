@@ -30,7 +30,7 @@ Instead it works like this:
 4. Each partition accumulates in-memory rows and estimated bytes.
 5. A flush occurs when one of the configured flush conditions is met.
 6. That flush writes one **complete immutable parquet chunk file** through `ParquetDataCatalog`.
-7. If legacy compatibility mirroring is enabled, the completed file is mirrored into the Python legacy discovery layout on local filesystems.
+7. Paths follow Nautilus Trader Rust `ParquetDataCatalog` layout only (no Python legacy mirror).
 
 This means the current system uses **flush-driven chunking**, not active-file rotation.
 

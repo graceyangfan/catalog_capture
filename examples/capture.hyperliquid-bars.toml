@@ -13,7 +13,7 @@ node_name = "CATALOG-CAPTURE-HYPERLIQUID-BARS"
 [output]
 catalog_uri = "file:///tmp/nautilus-catalog-capture-hyperliquid-bars"
 compression = "snappy"
-layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+layout_compatibility = "rust_canonical_only"
 flush_rows = 1000
 flush_interval_ms = 1000
 max_buffer_bytes = 33554432

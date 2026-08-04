@@ -8,7 +8,7 @@ RELEASE=0
 VALIDATE=0
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
 CARGO="${CARGO:-cargo}"
-TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.96.0}"
+TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.97.1}"
 
 usage() {
   cat << 'EOF'
@@ -23,7 +23,7 @@ Options:
 
 Environment:
   CARGO               Cargo executable (default: cargo)
-  RUSTUP_TOOLCHAIN    Rust toolchain channel (default: 1.96.0)
+  RUSTUP_TOOLCHAIN    Rust toolchain channel (default: 1.97.1)
   CATALOG_CAPTURE_LOG_DIR  Override default log directory
 EOF
 }

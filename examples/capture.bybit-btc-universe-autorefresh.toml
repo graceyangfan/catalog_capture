@@ -11,7 +11,7 @@ interval_secs = 15
 [output]
 catalog_uri = "file:///tmp/nautilus-catalog-capture-bybit-btc-universe-autorefresh"
 compression = "snappy"
-layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+layout_compatibility = "rust_canonical_only"
 flush_rows = 1000
 flush_interval_ms = 1000
 max_buffer_bytes = 33554432

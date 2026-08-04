@@ -14,8 +14,11 @@
 
 use anyhow::{bail, Context, Result};
 use catalog_capture_core::{OptionUniverseFamily, OptionUniverseSpec, StrikePolicy};
+#[cfg(feature = "venue-bybit")]
 use nautilus_bybit::common::enums::BybitProductType;
+#[cfg(feature = "venue-deribit")]
 use nautilus_deribit::http::models::DeribitProductType;
+#[cfg(feature = "venue-okx")]
 use nautilus_okx::common::enums::OKXInstrumentType;
 
 use crate::config::VenueRuntimeConfig;
@@ -52,6 +55,7 @@ fn validate_option_universe(
     let venue = resolve_option_universe_venue(spec, venues)?;
 
     match venue {
+        #[cfg(feature = "venue-deribit")]
         VenueRuntimeConfig::Deribit { product_types, .. } => {
             if !product_types.contains(&DeribitProductType::Option) {
                 bail!(
@@ -66,6 +70,7 @@ fn validate_option_universe(
                 );
             }
         }
+        #[cfg(feature = "venue-bybit")]
         VenueRuntimeConfig::Bybit { product_types, .. } => {
             if !product_types.contains(&BybitProductType::Option) {
                 bail!(
@@ -86,6 +91,7 @@ fn validate_option_universe(
                 );
             }
         }
+        #[cfg(feature = "venue-okx")]
         VenueRuntimeConfig::Okx {
             instrument_types,
             instrument_families,
@@ -120,6 +126,7 @@ fn validate_option_universe(
                 );
             }
         }
+        #[allow(unreachable_patterns)]
         _ => bail!(
             "capture.option_universe currently only supports [[venues]] entries with kind = \"deribit\", \"bybit\", or \"okx\""
         ),

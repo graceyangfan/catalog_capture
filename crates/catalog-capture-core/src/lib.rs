@@ -16,6 +16,7 @@ pub mod atm_reference;
 pub mod background;
 pub mod budget;
 pub mod buffer;
+pub mod capture_run;
 pub mod catalog_layout;
 pub mod config;
 pub mod forward_price;
@@ -42,6 +43,11 @@ pub use budget::{
     format_buffer_estimate, validate_capture_config, BufferMemoryEstimate, FamilyBufferEstimate,
 };
 pub use buffer::PartitionBuffer;
+pub use capture_run::{
+    capture_run_path, new_capture_run_record, write_capture_run_record, CaptureRunInput,
+    CaptureRunPlanSummary, CaptureRunRecord, CaptureRunVenueRecord, CAPTURE_RUN_FILE,
+    CAPTURE_RUN_SCHEMA_VERSION,
+};
 pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy};
 pub use forward_price::forward_price_from_option_greeks;
 pub use forward_price_metadata::{
@@ -67,7 +73,7 @@ pub use lifecycle::{
 pub use metrics::{CaptureMetrics, FlushReason, FlushReasonMetrics};
 pub use metrics_export::{
     process_rss_bytes, render_json, render_prometheus, unix_time_ms, CaptureMetricsSnapshot,
-    FamilyCaptureMetrics,
+    CustomDataRequestJobMetrics, FamilyCaptureMetrics,
 };
 pub use option_universe::{
     aggregate_open_interest_by_strike, append_option_universe_resolution_records,

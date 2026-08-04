@@ -7,7 +7,7 @@ node_name = "CATALOG-CAPTURE-LOW-THRESHOLD-001"
 [output]
 catalog_uri = "file:///tmp/nautilus-catalog-capture-low-threshold"
 compression = "snappy"
-layout_compatibility = "rust_canonical_with_python_legacy_mirror"
+layout_compatibility = "rust_canonical_only"
 flush_rows = 3
 flush_interval_ms = 250
 max_buffer_bytes = 65536

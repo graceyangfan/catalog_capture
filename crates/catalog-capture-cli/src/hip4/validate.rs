@@ -31,9 +31,19 @@ pub fn validate_hip4_universes(
                     spec.venue_id
                 )
             })?;
+        #[cfg(feature = "venue-hyperliquid")]
         if !matches!(venue, VenueRuntimeConfig::Hyperliquid { .. }) {
             bail!(
                 "capture.hip4_universe venue_id `{}` must reference a hyperliquid venue",
+                spec.venue_id
+            );
+        }
+        #[cfg(not(feature = "venue-hyperliquid"))]
+        {
+            let _ = venue;
+            bail!(
+                "capture.hip4_universe requires cargo feature `venue-hyperliquid` \
+                 (venue_id `{}`)",
                 spec.venue_id
             );
         }

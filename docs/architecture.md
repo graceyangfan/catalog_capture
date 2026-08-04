@@ -30,16 +30,9 @@ catalog surfaces strategies already use.
 That means:
 
 - this project owns runtime capture and parquet writing
-- PyO3 `ParquetDataCatalog` is the preferred primary readback path
-- legacy Python `ParquetDataCatalog` remains a compatibility target where practical
-- backtest reuse is validated through standard catalog workflows, not a parallel reader stack in this repository
-
-To make that practical today, the writer currently does two things by default on local filesystems:
-
-- writes the canonical Rust catalog layout through `ParquetDataCatalog`
-- mirrors each completed file into the legacy Python-discovery layout expected by current high-level Python catalog APIs
-
-This keeps the project write-focused while still targeting today's Python-native consumer path.
+- **Nautilus Trader Rust** `ParquetDataCatalog` / Rust backtest is the primary read path
+- the writer writes **only** Rust-canonical catalog layout (no Python legacy path mirror)
+- backtest reuse uses the same catalog URI without conversion
 
 ## Layering
 
@@ -92,7 +85,7 @@ Phase 1 uses direct chunk files:
 - accumulate a partition buffer
 - flush one chunk into one canonical parquet file
 - rely on existing catalog semantics for path layout and interval disjointness
-- mirror completed local files into Python legacy layout when configured
+- write only Rust-canonical catalog paths (no Python legacy mirror)
 
 This is intentionally simpler than active `.part` append writers.
 
@@ -109,8 +102,7 @@ The intended flow is:
 3. `on_quote`, `on_trade`, `on_bar`, and `on_book_deltas` callbacks translate runtime events into `CaptureItem`s.
 4. The core runtime batches by partition.
 5. Reaching `flush_rows` or `max_buffer_bytes` writes a canonical parquet chunk through `ParquetDataCatalog`.
-6. For local filesystems, the completed chunk is also mirrored into Python legacy discovery paths when enabled.
-7. Backtest and PyO3 catalog read those assets directly.
+6. Rust backtest / Rust `ParquetDataCatalog` read those assets directly from the same URI.
 
 This keeps capture explicit without requiring strategies to own persistence policy.
 

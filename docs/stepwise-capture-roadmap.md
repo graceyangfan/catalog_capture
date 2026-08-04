@@ -1,3 +1,6 @@
+> **Historical document.** Current priorities live in [refactor-optimization-plan.md](refactor-optimization-plan.md) and [ROADMAP.md](../ROADMAP.md).
+>
+
 # 分步采集实施路线图
 
 ## 文档目的

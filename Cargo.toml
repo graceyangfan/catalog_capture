@@ -52,9 +52,9 @@ nautilus-deribit = { path = "../nautilus_trader/crates/adapters/deribit", featur
 nautilus-okx = { path = "../nautilus_trader/crates/adapters/okx" }
 nautilus-common = { path = "../nautilus_trader/crates/common" }
 nautilus-core = { path = "../nautilus_trader/crates/core" }
+# Capture path does not need Hyperliquid Python bindings (keeps the graph lighter).
 nautilus-hyperliquid = { path = "../nautilus_trader/crates/adapters/hyperliquid", features = [
   "arrow",
-  "python",
 ] }
 nautilus-live = { path = "../nautilus_trader/crates/live", default-features = false, features = [
   "node",
@@ -68,3 +68,35 @@ nautilus-serialization = { path = "../nautilus_trader/crates/serialization", fea
 [patch.crates-io]
 # PyO3 0.29 requires the patched pyo3-stub-gen crate from the sibling dependency tree.
 pyo3-stub-gen = { path = "../nautilus_trader/patches/pyo3-stub-gen" }
+
+# -----------------------------------------------------------------------------
+# Profiles (aligned with nautilus_trader: one product binary, lean dev artifacts)
+# -----------------------------------------------------------------------------
+[profile.dev]
+opt-level = 0
+debug = false
+strip = "debuginfo"
+lto = false
+incremental = true
+
+# Third-party crates recompile rarely; slight optimization speeds test/run loops.
+[profile.dev.package."*"]
+opt-level = 1
+
+[profile.test]
+opt-level = 0
+debug = true
+incremental = true
+
+[profile.test.package."*"]
+opt-level = 1
+
+[profile.ci]
+inherits = "dev"
+incremental = false
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16

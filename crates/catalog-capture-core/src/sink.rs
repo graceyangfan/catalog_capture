@@ -14,6 +14,8 @@
 
 use std::path::{Path, PathBuf};
 
+// Path is used for catalog URI roots.
+
 use anyhow::Result;
 use nautilus_model::{
     data::{
@@ -31,11 +33,7 @@ use parquet::basic::Compression;
 use serde::Serialize;
 
 use crate::{
-    catalog_layout::{
-        instrument_identifier, instrument_legacy_prefix, legacy_market_data_prefix,
-        mirror_custom_data_path, mirror_market_data_path,
-    },
-    config::{CaptureConfig, CompressionKind, LayoutCompatibility},
+    config::{CaptureConfig, CompressionKind},
     lifecycle::SegmentCaptureSink,
     runtime::FlushResult,
 };
@@ -148,8 +146,6 @@ pub fn chunked_catalog_sink_from_config(config: &CaptureConfig) -> Result<Nautil
 #[derive(Debug)]
 pub struct NautilusCatalogSink {
     catalog: ParquetDataCatalog,
-    local_root: PathBuf,
-    layout_compatibility: LayoutCompatibility,
 }
 
 impl NautilusCatalogSink {
@@ -171,11 +167,7 @@ impl NautilusCatalogSink {
             Some(config.flush_rows),
         );
 
-        Ok(Self {
-            catalog,
-            local_root: PathBuf::from(uri),
-            layout_compatibility: config.layout_compatibility.clone(),
-        })
+        Ok(Self { catalog })
     }
 
     fn range_from_ts<T: HasTsInit>(data: &[T]) -> Result<(u64, u64)> {
@@ -195,22 +187,11 @@ impl NautilusCatalogSink {
             + Clone,
     {
         let (start, end) = Self::range_from_ts(&data)?;
-        let metadata = EncodeToRecordBatch::chunk_metadata(&data);
-        let identifier = metadata
-            .get("instrument_id")
-            .or_else(|| metadata.get("bar_type"))
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("batch metadata missing instrument_id or bar_type"))?;
         let path = self.catalog.write_to_parquet(
             &data,
             Some(start.into()),
             Some(end.into()),
             Some(false),
-        )?;
-        self.mirror_market_data_path(
-            &path,
-            legacy_market_data_prefix(<T as CatalogPathPrefix>::path_prefix()),
-            identifier.as_str(),
         )?;
         Ok(path)
     }
@@ -228,52 +209,12 @@ impl NautilusCatalogSink {
     }
 
     pub fn write_instruments(&self, data: Vec<InstrumentAny>) -> Result<Vec<PathBuf>> {
-        let mirrored_specs: Vec<(String, String)> = data
-            .iter()
-            .map(|instrument| {
-                (
-                    instrument_legacy_prefix(instrument),
-                    instrument_identifier(instrument),
-                )
-            })
-            .collect();
-        let paths = self.catalog.write_instruments(data)?;
-        for (path, (legacy_prefix, instrument_id)) in paths.iter().zip(mirrored_specs.iter()) {
-            self.mirror_market_data_path(path, legacy_prefix.as_str(), instrument_id.as_str())?;
-        }
-        Ok(paths)
+        self.catalog.write_instruments(data)
     }
 
     pub fn write_custom_data_batch(&self, data: Vec<CustomData>) -> Result<PathBuf> {
-        let first = data.first().expect("non-empty batch");
-        let type_name = first.data_type.type_name().to_string();
-        let identifier = first.data_type.identifier().map(str::to_string);
-        let path = self
-            .catalog
-            .write_custom_data_batch(data, None, None, Some(false))?;
-        mirror_custom_data_path(
-            &self.local_root,
-            self.layout_compatibility.clone(),
-            &path,
-            &type_name,
-            identifier.as_deref(),
-        )?;
-        Ok(path)
-    }
-
-    fn mirror_market_data_path(
-        &self,
-        original_path: &Path,
-        legacy_prefix: &str,
-        identifier: &str,
-    ) -> Result<()> {
-        mirror_market_data_path(
-            &self.local_root,
-            self.layout_compatibility.clone(),
-            original_path,
-            legacy_prefix,
-            identifier,
-        )
+        self.catalog
+            .write_custom_data_batch(data, None, None, Some(false))
     }
 }
 

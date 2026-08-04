@@ -158,7 +158,7 @@ At minimum, record:
 
 1. Run the capture example:
 
-   - `CAPTURE_SECONDS=30 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --features example-binaries --example binance_futures_quote_capture`
+   - Prefer CLI: `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml`
 
 2. Copy the printed `Catalog dir`.
 
@@ -507,7 +507,7 @@ Suggested command sequence:
 
    - `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml`
    - or:
-   - `CAPTURE_SECONDS=60 BINANCE_ENV=testnet cargo run -p catalog-capture-runtime-adapter --features example-binaries --example binance_futures_derivatives_state_capture`
+   - Prefer CLI: `cargo run -p catalog-capture-cli -- run --config examples/capture.binance-perp.ws.toml`
 
 3. Probe all four market-data families:
 

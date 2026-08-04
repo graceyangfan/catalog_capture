@@ -14,8 +14,24 @@ Contributions are accepted under the **GNU Lesser General Public License v3.0 or
 
 ## Prerequisites
 
-See [installation](docs/getting_started/installation.md). Use Rust `1.96.0`
+See [installation](docs/getting_started/installation.md). Use Rust `1.97.1`
 (`rust-toolchain.toml`).
+
+```bash
+make bootstrap-deps   # local sibling first; else clone nautechsystems/nautilus_trader@develop
+```
+
+## Product surface (keep it simple)
+
+- **One product binary:** `catalog-capture-cli` (same idea as Nautilus Trader’s `nautilus` CLI).
+- **Libraries are `rlib` only** — do not add `[[bin]]` to core/runtime-adapter.
+- **Do not add cargo `[[example]]` binaries** for demos; use `examples/*.toml` + the CLI, or unit tests.
+- **Venue adapters are optional cargo features** (`venue-*` / `all-venues`; default is all venues).
+  Slim build: `make build-slim` or
+  `cargo build -p catalog-capture-cli --no-default-features --features venue-deribit`.
+- Sibling `nautilus_trader`: prefer local; clone `develop` if missing; CI uses a fixed pin
+  (`./scripts/bootstrap-deps.sh --pin-ci` to match).
+- Execution plan: [docs/refactor-optimization-plan.md](docs/refactor-optimization-plan.md) (Track P / L).
 
 ## Workflow
 
@@ -28,8 +44,10 @@ See [installation](docs/getting_started/installation.md). Use Rust `1.96.0`
 ## Local checks
 
 ```bash
+make bootstrap-deps
 make install-tools
 pip install pre-commit && pre-commit install
+make build          # product CLI only
 make test
 make fmt
 make clippy
@@ -37,6 +55,7 @@ make cargo-deny
 make pre-commit
 ```
 
+If `target/debug` grows large: `make clean-debug` (or `make clean`).
 Live smoke (requires network):
 
 ```bash

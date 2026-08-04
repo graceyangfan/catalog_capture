@@ -92,7 +92,8 @@ Single stable `catalog_uri` for the whole job. Days are distinguished by sealed 
 - `crates/catalog-capture-runtime-adapter/examples/segment_quote_roundtrip.rs` — segment seal + catalog readback
 
 ```bash
-cargo run -p catalog-capture-runtime-adapter --features example-binaries --example segment_quote_roundtrip
+# Segment capture via product CLI (single binary)
+cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-perp-seal-quick.toml
 cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-perp-daily.toml
 python tests/probe_segment_seal_readback.py /path/to/catalog BTC-USD-PERP.HYPERLIQUID
 ```

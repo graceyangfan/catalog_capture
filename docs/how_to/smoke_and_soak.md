@@ -65,7 +65,8 @@ Record these during soak; treat failures as release blockers for unattended prof
 | `active_partitions` | stable or bounded after warm-up | spikes at universe refresh are OK if they decay |
 | Process RSS | below VM budget with headroom | compare start vs 2h mark |
 | Seal / flush | sealed files appear on schedule | segment mode: readback probe passes |
-| PyO3 readback | smoke or probe scripts green | same contract as backtest |
+| PyO3 / Rust readback | smoke or probe scripts green | same contract as backtest |
+| **Request path** (if `[[capture.custom_data_requests]]`) | `polls` increases; `rows` grows over time; `timeouts` ≈ 0; `skipped_inflight` not dominating | Metrics: `catalog_capture_custom_data_request_*` |
 
 ## What to watch
 
@@ -73,6 +74,9 @@ Record these during soak; treat failures as release blockers for unattended prof
 - `active_partitions` — in-memory buffers not yet flushed
 - `flush_reasons` — row / byte / interval / seal / shutdown mix
 - Universe refresh cycles — temporary partition count bumps
+- Request jobs: `catalog_capture_custom_data_request_polls_total`,
+  `_rows_total`, `_skipped_inflight_total`, `_timeouts_total`, `_in_flight`
+  (also in `/metrics.json` under `custom_data_requests`)
 
 ## Optional offline validation (Step 9b)
 

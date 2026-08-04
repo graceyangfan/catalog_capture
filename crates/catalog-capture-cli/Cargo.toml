@@ -6,17 +6,34 @@ authors.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+# One product binary; optional venue adapters (Nautilus-style).
+# Default keeps full multi-venue support for operators.
+default = ["all-venues"]
+all-venues = [
+  "venue-binance",
+  "venue-bybit",
+  "venue-deribit",
+  "venue-okx",
+  "venue-hyperliquid",
+]
+venue-binance = ["dep:nautilus-binance"]
+venue-bybit = ["dep:nautilus-bybit"]
+venue-deribit = ["dep:nautilus-deribit"]
+venue-okx = ["dep:nautilus-okx"]
+venue-hyperliquid = ["dep:nautilus-hyperliquid"]
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
 catalog-capture-core = { path = "../catalog-capture-core" }
 catalog-capture-runtime-adapter = { path = "../catalog-capture-runtime-adapter" }
 dotenvy.workspace = true
-nautilus-binance.workspace = true
-nautilus-bybit.workspace = true
-nautilus-deribit.workspace = true
-nautilus-hyperliquid.workspace = true
-nautilus-okx.workspace = true
+nautilus-binance = { workspace = true, optional = true }
+nautilus-bybit = { workspace = true, optional = true }
+nautilus-deribit = { workspace = true, optional = true }
+nautilus-hyperliquid = { workspace = true, optional = true }
+nautilus-okx = { workspace = true, optional = true }
 nautilus-common.workspace = true
 nautilus-core.workspace = true
 nautilus-live.workspace = true

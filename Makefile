@@ -1,17 +1,29 @@
 CARGO ?= cargo
-TOOLCHAIN ?= 1.96.0
+# Keep in sync with rust-toolchain.toml
+TOOLCHAIN ?= 1.97.1
 CARGO_TOOL := $(CARGO) +$(TOOLCHAIN)
 CARGO_DENY_VERSION ?= 0.19.9
 
-.PHONY: build build-release test fmt clippy pre-commit cargo-deny install-tools smoke-soak cleanup-tmp run-service help
+# Product binary only (Nautilus-style single entrypoint).
+CLI_PKG := catalog-capture-cli
+
+.PHONY: bootstrap-deps build build-slim build-release test test-lib fmt clippy pre-commit cargo-deny install-tools \
+	smoke-soak cleanup-tmp run-service clean clean-debug help
 
 help:
+	@echo "Product binary: $(CLI_PKG) only (no cargo examples in the product path)."
+	@echo ""
 	@echo "Targets:"
-	@echo "  build          Build debug catalog-capture-cli"
-	@echo "  build-release  Build release catalog-capture-cli"
-	@echo "  test           Run workspace unit tests"
+	@echo "  bootstrap-deps Prepare sibling nautilus_trader (prefer local; else clone develop)"
+	@echo "  build          Build debug $(CLI_PKG) (default features = all-venues)"
+	@echo "  build-slim     Slim CLI: --no-default-features --features \$$FEATURES (default venue-deribit)"
+	@echo "  build-release  Build release $(CLI_PKG)"
+	@echo "  test           Run workspace unit tests (libs + cli unit tests)"
+	@echo "  test-lib       Run core + runtime-adapter lib tests only"
 	@echo "  fmt            Run rustfmt"
-	@echo "  clippy         Run clippy on workspace"
+	@echo "  clippy         Run clippy on workspace libraries/cli (no examples)"
+	@echo "  clean          cargo clean (full target/)"
+	@echo "  clean-debug    Remove target/debug only"
 	@echo "  pre-commit     Run all pre-commit hooks"
 	@echo "  cargo-deny     Run cargo-deny license checks"
 	@echo "  install-tools  Install pinned cargo-deny"
@@ -19,20 +31,38 @@ help:
 	@echo "  cleanup-tmp    Remove /tmp smoke/soak capture artifacts"
 	@echo "  run-service    Run unattended capture (CONFIG=... required)"
 
+bootstrap-deps:
+	./scripts/bootstrap-deps.sh
+
 build:
-	$(CARGO_TOOL) build -p catalog-capture-cli
+	$(CARGO_TOOL) build -p $(CLI_PKG)
+
+# Slim product CLI (example: Deribit-only). Override: make build-slim FEATURES=venue-binance
+FEATURES ?= venue-deribit
+build-slim:
+	$(CARGO_TOOL) build -p $(CLI_PKG) --no-default-features --features $(FEATURES)
 
 build-release:
-	$(CARGO_TOOL) build --release -p catalog-capture-cli
+	$(CARGO_TOOL) build --release -p $(CLI_PKG)
 
 test:
-	$(CARGO_TOOL) test --workspace
+	$(CARGO_TOOL) test --workspace --lib --bins
+
+test-lib:
+	$(CARGO_TOOL) test -p catalog-capture-core --lib
+	$(CARGO_TOOL) test -p catalog-capture-runtime-adapter --lib
 
 fmt:
 	$(CARGO_TOOL) fmt --all
 
 clippy:
-	$(CARGO_TOOL) clippy --workspace --all-targets -- -D warnings
+	$(CARGO_TOOL) clippy -p catalog-capture-core -p catalog-capture-runtime-adapter -p $(CLI_PKG) --all-targets -- -D warnings
+
+clean:
+	$(CARGO_TOOL) clean
+
+clean-debug:
+	rm -rf target/debug
 
 install-tools:
 	@if ! cargo deny --version 2>/dev/null | grep -q "$(CARGO_DENY_VERSION)"; then \

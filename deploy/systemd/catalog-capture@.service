@@ -8,7 +8,7 @@ Type=simple
 User=nautilus
 Group=nautilus
 WorkingDirectory=/opt/nautilus_catalog_capture
-Environment=RUSTUP_TOOLCHAIN=1.96.0
+Environment=RUSTUP_TOOLCHAIN=1.97.1
 Environment=CATALOG_CAPTURE_LOG_DIR=/var/log/nautilus-catalog-capture
 Environment=CATALOG_CAPTURE_CONFIG=/opt/nautilus_catalog_capture/examples/operator/capture.%i-unattended.toml
 ExecStart=/opt/nautilus_catalog_capture/scripts/run-capture-service.sh --config ${CATALOG_CAPTURE_CONFIG} --release

@@ -131,7 +131,7 @@ fn main() -> Result<()> {
     assert_eq!(loaded, written, "loaded ticks should equal written ticks");
     assert!(
         sealed_files >= 1,
-        "segment mode should produce at least one sealed parquet file after shutdown (includes legacy mirror links)"
+        "segment mode should produce at least one sealed parquet file after shutdown"
     );
     assert_eq!(
         rows_flushed, 5,

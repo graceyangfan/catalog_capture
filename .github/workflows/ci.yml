@@ -11,8 +11,11 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTUP_TOOLCHAIN: 1.96.0
-  NAUTILUS_TRADER_REF: develop
+  # Keep in sync with rust-toolchain.toml / workspace.package.rust-version
+  RUSTUP_TOOLCHAIN: 1.97.1
+  # Pin sibling nautilus_trader revision (do not track develop tip).
+  # Local checkout used for BookSummary request path + adapters: a7159b484e816a8b73388ff58db71de454253222
+  NAUTILUS_TRADER_REF: a7159b484e816a8b73388ff58db71de454253222
 
 jobs:
   pre-commit:
@@ -34,7 +37,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.96.0
+          toolchain: 1.97.1
           components: rustfmt, clippy
 
       - name: Set up Python
@@ -69,7 +72,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.96.0
+          toolchain: 1.97.1
           components: rustfmt, clippy
 
       - name: Cache cargo
@@ -77,13 +80,19 @@ jobs:
         with:
           workspaces: nautilus_catalog_capture
 
-      - name: Run unit tests
+      # Default features = all-venues (operator-friendly full CLI).
+      - name: Run unit tests (default features)
         working-directory: nautilus_catalog_capture
-        run: cargo test --workspace
+        run: cargo test --workspace --lib --bins
+
+      # Slim CLI graph smoke: deribit-only product binary still compiles.
+      - name: Check slim venue-deribit CLI
+        working-directory: nautilus_catalog_capture
+        run: cargo check -p catalog-capture-cli --no-default-features --features venue-deribit
 
       - name: Run clippy
         working-directory: nautilus_catalog_capture
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy -p catalog-capture-core -p catalog-capture-runtime-adapter -p catalog-capture-cli --all-targets -- -D warnings
 
   cargo-deny:
     runs-on: ubuntu-latest
@@ -105,7 +114,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.96.0
+          toolchain: 1.97.1
 
       - name: Install cargo-deny
         run: cargo install cargo-deny --version 0.19.9 --locked

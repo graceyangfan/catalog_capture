@@ -21,9 +21,7 @@ use catalog_capture_core::{
     append_hip4_universe_resolution_records, append_option_universe_resolution_records,
     forward_price_from_option_greeks, next_seal_boundary_ns,
 };
-use nautilus_common::{
-    actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent,
-};
+use nautilus_common::{actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent};
 use nautilus_core::UnixNanos;
 
 impl CatalogCaptureActor {
