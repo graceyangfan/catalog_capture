@@ -203,6 +203,59 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
+    /// Capture sink write → Rust `ParquetDataCatalog` query (cjp_mm_rs-style load path).
+    ///
+    /// Proves direct-record catalog is loadable without conversion for backtest.
+    #[test]
+    fn write_quotes_then_query_with_parquet_data_catalog() {
+        use nautilus_persistence::backend::catalog::ParquetDataCatalog;
+
+        let root = temp_catalog("quotes-roundtrip");
+        let sink = NautilusCatalogSink::from_config(&capture_config(&root)).expect("sink");
+        let instrument_id = InstrumentId::from_str("ETH-USD-PERP.TEST").expect("id");
+        let quotes = vec![
+            QuoteTick::new(
+                instrument_id,
+                Price::from("2000.0"),
+                Price::from("2000.5"),
+                Quantity::from("1"),
+                Quantity::from("2"),
+                UnixNanos::from(10_000),
+                UnixNanos::from(10_000),
+            ),
+            QuoteTick::new(
+                instrument_id,
+                Price::from("2001.0"),
+                Price::from("2001.5"),
+                Quantity::from("1"),
+                Quantity::from("2"),
+                UnixNanos::from(20_000),
+                UnixNanos::from(20_000),
+            ),
+        ];
+        let path = sink
+            .write_encoded_batch(quotes)
+            .expect("write quotes batch");
+        assert!(
+            path_is_under_market_family(&root, &path, "quotes"),
+            "write path {}",
+            path.display()
+        );
+
+        // Same load style as cjp_mm_rs: ParquetDataCatalog::new(root, …) then query.
+        let mut catalog = ParquetDataCatalog::new(&root, None, None, None, None);
+        let rows = catalog
+            .quote_ticks(Some(vec![instrument_id.to_string()]), None, None)
+            .expect("query quote_ticks after capture write");
+        assert_eq!(rows.len(), 2, "expected both quotes back from catalog");
+        assert_eq!(rows[0].instrument_id, instrument_id);
+        assert_eq!(rows[1].instrument_id, instrument_id);
+        ParquetDataCatalog::check_ascending_timestamps(&rows, "quotes-roundtrip")
+            .expect("timestamps ascending");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn write_custom_data_lands_under_data_custom_type() {
         ensure_custom_data_registered::<RustTestCustomData>();
@@ -231,6 +284,62 @@ mod tests {
         assert!(path.to_string_lossy().contains("RUST.TEST"));
         assert!(path.extension().is_some_and(|e| e == "parquet"));
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn write_custom_data_then_list_files_under_custom_prefix() {
+        ensure_custom_data_registered::<RustTestCustomData>();
+        let root = temp_catalog("custom-list");
+        let sink = NautilusCatalogSink::from_config(&capture_config(&root)).expect("sink");
+        let instrument_id = InstrumentId::from_str("RUST.TEST").expect("id");
+        let payload = RustTestCustomData {
+            instrument_id,
+            value: 9.0,
+            flag: false,
+            ts_event: UnixNanos::from(3_000),
+            ts_init: UnixNanos::from(3_000),
+        };
+        let data_type = DataType::new("RustTestCustomData", None, Some(instrument_id.to_string()));
+        sink.write_custom_data_batch(vec![CustomData::new(Arc::new(payload), data_type)])
+            .expect("write");
+
+        // cjp_mm_rs-style layout check: data/custom/{Type} must exist on disk.
+        let custom_root = root.join("data").join("custom").join("RustTestCustomData");
+        assert!(
+            custom_root.is_dir() || root.join("data/custom/RustTestCustomData").exists(),
+            "missing custom type dir under {}",
+            root.display()
+        );
+        // Walk for at least one parquet (path layout may use identifier subdirs).
+        let mut found = false;
+        if let Ok(walker) = fs::read_dir(root.join("data").join("custom")) {
+            for entry in walker.flatten() {
+                if entry.path().is_dir() {
+                    found |= walk_has_parquet(&entry.path());
+                }
+            }
+        }
+        // Also try relative write path style
+        found |= walk_has_parquet(&root);
+        assert!(found, "expected at least one parquet under custom write");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    fn walk_has_parquet(dir: &Path) -> bool {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return false;
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() && walk_has_parquet(&p) {
+                return true;
+            }
+            if p.extension().is_some_and(|e| e == "parquet") {
+                return true;
+            }
+        }
+        false
     }
 
     #[test]

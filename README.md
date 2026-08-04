@@ -12,9 +12,12 @@ no feather→convert step, no Python legacy path mirror.
 | This project **does** | This project **does not** |
 |----------------------|---------------------------|
 | Write catalog-native Parquet (`rust_canonical_only`) | Fork or replace Nautilus Trader |
-| Drive capture from **one CLI** + declarative TOML | Be a trading engine, query DB, or ML pipeline |
-| Support multi-venue adapters (Binance Futures, Deribit, Bybit, OKX, Hyperliquid) | Ship multiple product binaries or cargo “demo bins” |
+| Drive capture from **one CLI** + declarative TOML configs | Ship demo `[[bin]]` / cargo `[[example]]` product entries |
+| Support multi-venue adapters (Binance Futures, Deribit, Bybit, OKX, Hyperliquid) | Treat `examples/` as code samples to compile |
 | Own flush/rotation, universe, and ops policy | Mirror Python legacy catalog layouts |
+
+`examples/*.toml` are **configs only** — run them with `catalog-capture-cli`, like Nautilus
+configs driven by the single `nautilus` binary.
 
 **Layout:** only Nautilus Rust catalog paths under `file://…/data/…`.  
 Backtest how-to: [docs/how_to/rust_backtest_from_catalog.md](docs/how_to/rust_backtest_from_catalog.md).
@@ -48,13 +51,15 @@ cargo run -p catalog-capture-cli -- print-effective-config --config examples/cap
 cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
 ```
 
-Other starter configs: `examples/capture.binance-perp-trades.toml`,  
-`examples/capture.deribit-btc-universe.toml`, `examples/capture.hyperliquid-open-interest.toml`.  
+Other starter configs: see [examples/README.md](examples/README.md).  
 Operator / unattended: `examples/operator/`.
 
 ```bash
 # Slim build (one venue only)
 cargo build -p catalog-capture-cli --no-default-features --features venue-deribit
+
+# Offline: prove capture write is Rust-catalog readable (no network)
+cargo test -p catalog-capture-core --lib catalog_layout
 ```
 
 ## Product surface

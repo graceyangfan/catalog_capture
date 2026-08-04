@@ -164,7 +164,7 @@ Track D  Docs IA
 | C1 | 拆分 `cli/src/config.rs` 为 `config/` 模块（venues、plan、custom subscribe/request、universe、hip4、validate） | **done**（生产代码模块均 <400 行；测试仍集中在 `tests.rs`） |
 | C2 | custom 类型 registry：subscribe vs request 白名单单点维护 | **done**（`custom_data/`；parse/validate/register 共用） |
 | C3 | 保持 `[[capture.custom_data]]` vs `[[capture.custom_data_requests]]` 严格分离 | **done**（双向拒绝 + unit/config 测试） |
-| C4 | examples 目录：`minimal/` `research/` `production/` `experimental/` | README 只推 minimal + 一条 research |
+| C4 | examples **仅 TOML 配置** + 单 CLI；不新增 cargo example/bin | **done**（README/examples 策略；目录分层仍可选） |
 | C5 | core 公共 API：标注 stable surface；内部 `pub(crate)` 收敛 | 文档一小节 |
 
 ---
@@ -312,12 +312,12 @@ layout_compatibility = "rust_canonical_only"  # 唯一合法值；可省略
 
 ### 下一步（建议，post 0.1.0）
 
-1. **C4** — examples 分层（minimal / research / operator）  
-2. **C5** — core public API 文档  
-3. **R3** — per-family flush 建议表  
-4. 可选：P8 bin 改名、B3 Docker、HIP-4 optional feature  
+1. **C5** — core public API 文档  
+2. **R3** — per-family flush 建议表  
+3. 可选：C4 物理目录分层、P8 bin 改名、B3 Docker、HIP-4 optional feature  
+4. 可选：带 `BacktestNode` 的端到端 smoke（依赖 nautilus-backtest；当前已用 catalog query 证明可读）  
 
-~~M1 开源可装~~ **done** · ~~L5/L6 写路径~~ **done**
+~~M1~~ **done** · ~~L5/L6 写盘+Rust 回读~~ **done** · ~~C4 策略（configs only）~~ **done**
 
 ---
 

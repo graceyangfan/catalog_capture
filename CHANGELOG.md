@@ -13,6 +13,10 @@ All notable changes to this project are documented in this file.
 - Offline catalog layout proofs (L5/L6): `catalog_layout` helpers + unit tests that
   write quotes under `data/quotes/` and custom data under `data/custom/{TypeName}/`
   (subscribe and request share the same on-disk contract).
+- Capture → Rust load roundtrip: write quotes via capture sink then
+  `ParquetDataCatalog::quote_ticks` (same load style as research backtests).
+- Examples policy: TOML configs only for the single `catalog-capture-cli` binary
+  (Nautilus-style); see `examples/README.md`.
 
 ## 0.1.0
 
