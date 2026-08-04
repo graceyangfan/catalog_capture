@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Remove local capture artifacts created by examples / smokes.
+# Portable (no mapfile; works on macOS bash 3.x).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,11 +12,11 @@ Usage: scripts/cleanup-tmp-captures.sh [path] [--dry-run]
 
 Default path: <repo>/data
 
-Also accepts an explicit directory (e.g. /tmp for leftover legacy smokes).
+Also accepts an explicit directory (e.g. /tmp for leftover smokes).
 
 Deletes under the target:
   - everything when target is the repo data/ dir (careful)
-  - or, when target is /tmp: catalog-capture-* and legacy nautilus-catalog-capture-*
+  - or, when target is /tmp: catalog-capture-*, verify-*, legacy names, capture.*.toml smokes
 EOF
 }
 
@@ -44,14 +45,22 @@ if [[ ! -d "$DIR" ]]; then
   exit 0
 fi
 
+TARGETS=()
 if [[ "$(cd "$DIR" && pwd)" == "$ROOT/data" ]]; then
-  mapfile -t TARGETS < <(find "$DIR" -mindepth 1 -maxdepth 1 -print 2> /dev/null | sort)
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && TARGETS+=("$line")
+  done < <(find "$DIR" -mindepth 1 -maxdepth 1 -print 2> /dev/null | sort)
 else
-  mapfile -t TARGETS < <(
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && TARGETS+=("$line")
+  done < <(
     find "$DIR" -maxdepth 1 \( \
       -name 'catalog-capture-*' -o \
       -name 'nautilus-catalog-capture-*' -o \
-      -name 'capture.*-universe-smoke.*.toml' \
+      -name 'verify-*' -o \
+      -name 'capture.verify-*' -o \
+      -name 'capture.*-universe-smoke.*.toml' -o \
+      -name 'capture.hyperliquid-hip4-smoke.*.toml' \
       \) -print 2> /dev/null | sort
   )
 fi
