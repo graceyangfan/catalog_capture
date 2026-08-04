@@ -12,7 +12,7 @@
 make bootstrap-deps
 make install-tools
 pip install pre-commit && pre-commit install
-make build
+make build-release-capture   # or: make build (all-venues debug)
 ```
 
 ## Daily
@@ -26,12 +26,14 @@ make pre-commit
 
 Before a PR: `make test`, `make clippy`, `make cargo-deny`.
 
+Disk: `make clean` or `make clean-all-targets` — see [build size](../how_to/build_size.md).
+
 ## Dependency pin
 
 | Mode | Behavior |
 |------|----------|
 | Local | Prefer existing sibling; bootstrap may clone `develop` |
-| CI | Fixed `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml` |
+| CI | Fixed pin — [installation](../getting_started/installation.md) |
 
 ```bash
 ./scripts/bootstrap-deps.sh --pin-ci
