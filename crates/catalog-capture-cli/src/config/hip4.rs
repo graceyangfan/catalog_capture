@@ -80,9 +80,11 @@ pub(crate) fn parse_hip4_universe_family(value: &str) -> Result<Hip4UniverseFami
     match value.to_ascii_lowercase().as_str() {
         "instruments" => Ok(Hip4UniverseFamily::Instruments),
         "quotes" => Ok(Hip4UniverseFamily::Quotes),
+        "trades" => Ok(Hip4UniverseFamily::Trades),
         "mark_prices" => Ok(Hip4UniverseFamily::MarkPrices),
         other => bail!(
-            "unsupported capture.hip4_universe family {other}; expected instruments|quotes|mark_prices"
+            "unsupported capture.hip4_universe family {other}; \
+             expected instruments|quotes|trades|mark_prices"
         ),
     }
 }

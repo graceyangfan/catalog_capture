@@ -17,6 +17,7 @@ cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.t
 | Deribit book summary (request) | `capture.deribit-btc-book-summary.toml` |
 | Binance perp WS | `capture.binance-perp.ws.toml` |
 | Hyperliquid OI | `capture.hyperliquid-open-interest.toml` |
+| HIP-4 BTC daily (+ 06:00 UTC seal) | `capture.hyperliquid-hip4-btc-daily.toml` |
 | Unattended | `operator/*.toml` |
 
 ## Option universe

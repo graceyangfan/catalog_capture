@@ -18,7 +18,6 @@ mod custom_data;
 mod hip4;
 mod metrics_server;
 mod option_universe;
-mod plan_overlap;
 mod runner;
 mod universe_materialize;
 

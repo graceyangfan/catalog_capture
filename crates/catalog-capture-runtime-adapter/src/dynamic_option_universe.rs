@@ -24,7 +24,7 @@ use nautilus_core::UnixNanos;
 use nautilus_model::identifiers::{InstrumentId, Venue};
 
 use crate::dynamic_option_universe_runtime::resolve_runtime_option_universe;
-use crate::dynamic_plan::{build_dynamic_plan_delta, merge_active_capture_plan, DynamicPlanDelta};
+use crate::dynamic_plan::{build_dynamic_plan_delta, DynamicPlanDelta};
 
 #[derive(Debug, Clone)]
 pub struct DynamicOptionUniverseConfig {
@@ -114,7 +114,7 @@ impl DynamicOptionUniverseManager {
 
     #[must_use]
     pub fn active_capture_plan(&self) -> CapturePlan {
-        merge_active_capture_plan(&self.static_plan, &self.current_dynamic_plan)
+        merge_capture_plans(&self.static_plan, &self.current_dynamic_plan)
     }
 
     pub fn refresh_from_cache(

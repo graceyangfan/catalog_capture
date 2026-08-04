@@ -13,7 +13,9 @@
 // -------------------------------------------------------------------------------------------------
 
 use crate::hip4::spec::{Hip4UniverseFamily, Hip4UniverseSpec, ResolvedHip4Universe};
-use crate::plan::{CapturePlan, InstrumentCaptureSpec, MarkPriceCaptureSpec, QuoteCaptureSpec};
+use crate::plan::{
+    CapturePlan, InstrumentCaptureSpec, MarkPriceCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
+};
 
 pub fn expand_hip4_universe(
     spec: &Hip4UniverseSpec,
@@ -33,6 +35,13 @@ pub fn expand_hip4_universe(
             Hip4UniverseFamily::Quotes => {
                 for instrument_id in &resolved.outcome_instrument_ids {
                     plan.quotes.push(QuoteCaptureSpec {
+                        instrument_id: *instrument_id,
+                    });
+                }
+            }
+            Hip4UniverseFamily::Trades => {
+                for instrument_id in &resolved.outcome_instrument_ids {
+                    plan.trades.push(TradeCaptureSpec {
                         instrument_id: *instrument_id,
                     });
                 }

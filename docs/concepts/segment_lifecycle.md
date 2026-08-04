@@ -35,5 +35,11 @@ interval_secs = 86400
 - Sealed: `data/{family}/{instrument_id}/{start}_{end}.parquet` (catalog-readable)
 
 Keep a single stable `catalog_uri` for the job. Examples:
-`examples/capture.hyperliquid-perp-daily.toml`,
-`examples/operator/*-unattended.toml`.
+
+- `examples/capture.hyperliquid-perp-daily.toml` — perp day files at 06:00 UTC  
+- `examples/capture.hyperliquid-hip4-btc-daily.toml` — **HIP-4 daily** instrument
+  refresh + **same 06:00 UTC seal** as contract day boundary  
+- `examples/operator/*-unattended.toml` — long option-universe runs  
+
+HIP-4: universe poll (which YES/NO) is separate from seal (file day). See
+[HIP-4 capture](../how_to/hip4_capture.md).

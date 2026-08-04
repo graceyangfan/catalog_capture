@@ -36,23 +36,20 @@ use catalog_capture_core::{
     validate_capture_config, CaptureConfig, CapturePlan, Hip4UniverseSpec, OptionUniverseSpec,
 };
 
-// Public TOML/runtime surface (used by CLI modules, tests, and serde types).
-#[allow(unused_imports)]
-pub use capture::{BarSelector, BookDeltasSelector, CaptureConfigFile, InstrumentSelector};
-#[allow(unused_imports)]
+// Field type for CliConfigFile; tests re-export selectors via super::*.
+#[cfg(not(test))]
+use capture::CaptureConfigFile;
+#[cfg(test)]
+pub use capture::{CaptureConfigFile, InstrumentSelector};
+#[cfg(test)]
 pub use custom::{CustomDataRequestSelector, CustomDataSelector};
-#[allow(unused_imports)]
+#[cfg(test)]
 pub use hip4::Hip4UniverseSelector;
-#[allow(unused_imports)]
+#[cfg(test)]
 pub use option_universe::{ExpiryPolicySelector, OptionUniverseSelector, StrikePolicySelector};
-#[allow(unused_imports)]
+
 pub use output::OutputConfig;
-#[allow(unused_imports)]
-pub use runtime::{
-    Hip4UniverseRefreshRuntimeConfig, MetricsExportRuntimeConfig, OnlineOptionMetricsRuntimeConfig,
-    OptionUniverseRefreshRuntimeConfig, RuntimeConfig,
-};
-#[allow(unused_imports)]
+pub use runtime::{MetricsExportRuntimeConfig, RuntimeConfig};
 pub use venues::{VenueConfig, VenueRuntimeConfig};
 
 use custom::{parse_custom_data_request_specs, parse_custom_data_specs};

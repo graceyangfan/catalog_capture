@@ -26,6 +26,7 @@ catalog layouts. Structure follows the same Divio split as Nautilus Trader docs.
 | [Credentials](how_to/credentials.md) | Public vs env keys |
 | [Rust backtest from catalog](how_to/rust_backtest_from_catalog.md) | Load captured data |
 | [Unattended capture](how_to/unattended_capture.md) | Long-running service |
+| [HIP-4 capture](how_to/hip4_capture.md) | BTC daily strategies + rotation |
 | [Smoke and soak](how_to/smoke_and_soak.md) | Live validation |
 
 ## Developer guide

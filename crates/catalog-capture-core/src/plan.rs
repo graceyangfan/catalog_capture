@@ -345,6 +345,17 @@ pub fn instrument_id_difference(
     left.difference(right).copied().collect()
 }
 
+/// Split `candidate` into IDs already in `existing` and IDs only in `candidate`.
+#[must_use]
+pub fn instrument_id_overlap_and_new(
+    existing: &BTreeSet<InstrumentId>,
+    candidate: &BTreeSet<InstrumentId>,
+) -> (Vec<InstrumentId>, Vec<InstrumentId>) {
+    let overlapping = candidate.intersection(existing).copied().collect();
+    let new_ids = instrument_id_difference(candidate, existing);
+    (overlapping, new_ids)
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;

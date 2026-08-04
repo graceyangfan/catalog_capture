@@ -49,8 +49,7 @@ pub use capture_run::{
     CAPTURE_RUN_SCHEMA_VERSION,
 };
 pub use catalog_layout::{
-    assert_known_custom_type_dirs, custom_data_dir, instrument_identifier, market_data_dir,
-    path_is_under_custom_type, path_is_under_market_family, KNOWN_CUSTOM_TYPE_NAMES,
+    custom_data_dir, market_data_dir, path_is_under_custom_type, path_is_under_market_family,
 };
 pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy};
 pub use forward_price::forward_price_from_option_greeks;
@@ -98,10 +97,10 @@ pub use option_universe::{
     StrikeSelectionProfile, ALL_STRIKES_MIN_SELECTED_STRIKES, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
 };
 pub use plan::{
-    capture_plan_difference, instrument_id_difference, plan_instrument_ids, BarCaptureSpec,
-    BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags, CapturePlan, CustomDataCaptureSpec,
-    CustomDataRequestCaptureSpec, ForwardPriceCaptureSpec, FundingRateCaptureSpec,
-    IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
+    capture_plan_difference, instrument_id_difference, instrument_id_overlap_and_new,
+    plan_instrument_ids, BarCaptureSpec, BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags,
+    CapturePlan, CustomDataCaptureSpec, CustomDataRequestCaptureSpec, ForwardPriceCaptureSpec,
+    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
     InstrumentStatusCaptureSpec, MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec,
     RequestOverlapPolicy, TradeCaptureSpec, DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
     DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS, DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS,

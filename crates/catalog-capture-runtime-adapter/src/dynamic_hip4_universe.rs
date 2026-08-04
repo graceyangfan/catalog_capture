@@ -27,7 +27,7 @@ use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 use nautilus_hyperliquid::http::{client::HyperliquidRawHttpClient, models::OutcomeMeta};
 use nautilus_model::identifiers::InstrumentId;
 
-use crate::dynamic_plan::{build_dynamic_plan_delta, merge_active_capture_plan, DynamicPlanDelta};
+use crate::dynamic_plan::{build_dynamic_plan_delta, DynamicPlanDelta};
 
 #[derive(Debug, Clone)]
 pub struct DynamicHip4UniverseConfig {
@@ -121,7 +121,7 @@ impl DynamicHip4UniverseManager {
 
     #[must_use]
     pub fn active_capture_plan(&self) -> CapturePlan {
-        merge_active_capture_plan(&self.static_plan, &self.current_dynamic_plan)
+        merge_capture_plans(&self.static_plan, &self.current_dynamic_plan)
     }
 
     #[must_use]

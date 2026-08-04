@@ -23,6 +23,8 @@ use super::outcome_meta::{hip4_perp_instrument_id, ResolvedHip4Market};
 pub enum Hip4UniverseFamily {
     Instruments,
     Quotes,
+    /// Outcome YES/NO trade ticks (needed for CJP-style replay; polyup uses quotes).
+    Trades,
     MarkPrices,
 }
 

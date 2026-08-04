@@ -16,7 +16,6 @@ use catalog_capture_core::{capture_plan_difference, merge_capture_plans, Capture
 
 use crate::dynamic_hip4_universe::{DynamicHip4UniverseConfig, DynamicHip4UniverseManager};
 use crate::dynamic_option_universe::{DynamicOptionUniverseConfig, DynamicOptionUniverseManager};
-use crate::dynamic_plan::merge_active_capture_plan;
 
 pub fn supplemental_capture_plan(
     initial_materialized_plan: &CapturePlan,
@@ -25,10 +24,10 @@ pub fn supplemental_capture_plan(
 ) -> CapturePlan {
     let option_active = dynamic_option_universe
         .as_ref()
-        .map(|config| merge_active_capture_plan(&config.static_plan, &config.initial_dynamic_plan));
+        .map(|config| merge_capture_plans(&config.static_plan, &config.initial_dynamic_plan));
     let hip4_active = dynamic_hip4_universe
         .as_ref()
-        .map(|config| merge_active_capture_plan(&config.static_plan, &config.initial_dynamic_plan));
+        .map(|config| merge_capture_plans(&config.static_plan, &config.initial_dynamic_plan));
 
     match (&option_active, &hip4_active) {
         (Some(_), Some(_)) => CapturePlan::default(),

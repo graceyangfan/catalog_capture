@@ -14,12 +14,12 @@
 
 use std::collections::BTreeSet;
 
-use crate::plan_overlap::plan_overlap;
 use anyhow::Result;
 use catalog_capture_core::{
-    read_option_universe_resolution_records, summarize_option_universe_resolution_records,
-    OptionUniverseResolutionEventKind, OptionUniverseResolutionRecord,
-    OptionUniverseResolutionSummary, OptionUniverseSpec, ResolvedOptionUniverse,
+    instrument_id_overlap_and_new, read_option_universe_resolution_records,
+    summarize_option_universe_resolution_records, OptionUniverseResolutionEventKind,
+    OptionUniverseResolutionRecord, OptionUniverseResolutionSummary, OptionUniverseSpec,
+    ResolvedOptionUniverse,
 };
 use nautilus_model::identifiers::InstrumentId;
 use serde::Serialize;
@@ -49,7 +49,8 @@ pub fn build_option_universe_resolution_report(
     explicit_plan_instrument_ids: &BTreeSet<InstrumentId>,
     universe_plan_instrument_ids: &BTreeSet<InstrumentId>,
 ) -> OptionUniverseResolutionReport {
-    let overlap = plan_overlap(explicit_plan_instrument_ids, universe_plan_instrument_ids);
+    let (overlapping, new_ids) =
+        instrument_id_overlap_and_new(explicit_plan_instrument_ids, universe_plan_instrument_ids);
 
     OptionUniverseResolutionReport {
         venue_id: spec.venue_id.clone(),
@@ -82,8 +83,8 @@ pub fn build_option_universe_resolution_report(
             .iter()
             .map(ToString::to_string)
             .collect(),
-        overlapping_instrument_ids: overlap.overlapping_instrument_ids,
-        new_instrument_ids: overlap.new_instrument_ids,
+        overlapping_instrument_ids: overlapping.iter().map(ToString::to_string).collect(),
+        new_instrument_ids: new_ids.iter().map(ToString::to_string).collect(),
     }
 }
 

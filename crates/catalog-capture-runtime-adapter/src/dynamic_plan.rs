@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use catalog_capture_core::{capture_plan_difference, merge_capture_plans, CapturePlan};
+use catalog_capture_core::{capture_plan_difference, CapturePlan};
 
 #[derive(Debug, Clone, Default)]
 pub struct DynamicPlanDelta<TChange, TRecord> {
@@ -42,12 +42,4 @@ pub fn build_dynamic_plan_delta<TChange, TRecord>(
         changes,
         resolution_records,
     }
-}
-
-#[must_use]
-pub fn merge_active_capture_plan(
-    static_plan: &CapturePlan,
-    current_dynamic_plan: &CapturePlan,
-) -> CapturePlan {
-    merge_capture_plans(static_plan, current_dynamic_plan)
 }

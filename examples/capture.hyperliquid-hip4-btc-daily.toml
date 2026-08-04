@@ -1,7 +1,15 @@
-# HIP-4 priceBinary daily capture (BTC 1d recurring, 06:00 UTC expiry rotation).
-# Mirrors hyperliquid_stale_quote instrument rotation with adaptive outcomeMeta polling.
+# HIP-4 BTC priceBinary **daily** capture — aligned with strategy day boundary.
 #
-# Live smoke:
+# Instrument / outcomeMeta rotation (discovery):
+#   idle 1800s → within 900s of expiry active 10s  (same as hyperliquid_stale_quote)
+# File / segment seal (catalog day):
+#   06:00 UTC every 86400s  (same as stale_quote StreamingConfig rotation_time)
+#
+# Covers data for:
+#   - polyup_deribit_rs hip4_btc_daily: instruments + YES/NO quotes + HL BTC-PERP mark
+#   - cjp_mm_rs HIP-4 replay: + outcome trades  (Binance L2 is a separate capture)
+#
+# Run from repo root:
 #   cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-hip4-btc-daily.toml
 
 [runtime]
@@ -10,6 +18,7 @@ shutdown_timeout_secs = 10
 delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-HYPERLIQUID-HIP4-BTC-DAILY"
 
+# Adaptive outcomeMeta / next-daily discovery (not the same as file seal).
 [runtime.hip4_universe_refresh]
 enabled = true
 idle_poll_secs = 1800
@@ -28,6 +37,22 @@ max_buffer_bytes = 33554432
 queue_capacity = 10000
 overflow_policy = "drop_oldest"
 
+# Day-aligned sealed parquet (HIP-4 daily expires ~06:00 UTC).
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 5000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "06:00"
+timezone = "UTC"
+interval_secs = 86400
+
 [[venues]]
 id = "hyperliquid_main"
 kind = "hyperliquid"
@@ -40,4 +65,4 @@ period = "1d"
 market_class = "priceBinary"
 include_fallback = false
 include_perp_mark = true
-families = ["instruments", "quotes", "mark_prices"]
+families = ["instruments", "quotes", "trades", "mark_prices"]

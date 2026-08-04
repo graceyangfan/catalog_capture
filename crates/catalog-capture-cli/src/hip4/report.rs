@@ -16,14 +16,12 @@ use std::collections::BTreeSet;
 
 use anyhow::Result;
 use catalog_capture_core::{
-    hip4_startup_resolution_record, Hip4UniverseResolutionRecord, Hip4UniverseSpec,
-    ResolvedHip4Universe,
+    hip4_startup_resolution_record, instrument_id_overlap_and_new, Hip4UniverseResolutionRecord,
+    Hip4UniverseSpec, ResolvedHip4Universe,
 };
 use nautilus_core::UnixNanos;
 use nautilus_model::identifiers::InstrumentId;
 use serde::Serialize;
-
-use crate::plan_overlap::plan_overlap;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct Hip4UniverseResolutionReport {
@@ -49,7 +47,8 @@ pub fn build_hip4_universe_resolution_report(
     explicit_plan_instrument_ids: &BTreeSet<InstrumentId>,
     universe_plan_instrument_ids: &BTreeSet<InstrumentId>,
 ) -> Hip4UniverseResolutionReport {
-    let overlap = plan_overlap(explicit_plan_instrument_ids, universe_plan_instrument_ids);
+    let (overlapping, new_ids) =
+        instrument_id_overlap_and_new(explicit_plan_instrument_ids, universe_plan_instrument_ids);
 
     Hip4UniverseResolutionReport {
         venue_id: spec.venue_id.clone(),
@@ -74,8 +73,8 @@ pub fn build_hip4_universe_resolution_report(
             .iter()
             .map(ToString::to_string)
             .collect(),
-        overlapping_instrument_ids: overlap.overlapping_instrument_ids,
-        new_instrument_ids: overlap.new_instrument_ids,
+        overlapping_instrument_ids: overlapping.iter().map(ToString::to_string).collect(),
+        new_instrument_ids: new_ids.iter().map(ToString::to_string).collect(),
     }
 }
 

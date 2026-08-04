@@ -31,14 +31,6 @@
 
 use std::path::{Path, PathBuf};
 
-use nautilus_model::instruments::{Instrument, InstrumentAny};
-
-/// Instrument id string used in catalog partition keys.
-#[must_use]
-pub fn instrument_identifier(instrument: &InstrumentAny) -> String {
-    Instrument::id(instrument).to_string()
-}
-
 /// Relative directory for a built-in market-data family under the catalog root.
 ///
 /// Example: `market_data_dir("quotes")` → `data/quotes`.
@@ -86,37 +78,35 @@ fn path_contains_dir_prefix(path: &Path, relative_prefix: &Path) -> bool {
     path_s.contains(&*prefix_s)
 }
 
-/// Known CLI custom type names (must match `catalog-capture-cli` registry).
-/// Used for path-audit tests so rename drift is visible.
-pub const KNOWN_CUSTOM_TYPE_NAMES: &[&str] = &[
-    "BinanceFuturesLiquidation",
-    "BinanceFuturesTicker",
-    "DeribitVolatilityIndex",
-    "HyperliquidOpenInterest",
-    "DeribitBookSummary",
-];
-
-/// Asserts every known custom type name maps to a `data/custom/{name}` relative dir.
-pub fn assert_known_custom_type_dirs() {
-    for name in KNOWN_CUSTOM_TYPE_NAMES {
-        let dir = custom_data_dir(name, None);
-        assert_eq!(
-            dir,
-            PathBuf::from("data").join("custom").join(name),
-            "custom type {name} path contract"
-        );
-        let with_id = custom_data_dir(name, Some("BTC:option"));
-        assert!(
-            with_id.ends_with("BTC:option")
-                || with_id.components().any(|c| c.as_os_str() == "BTC:option"),
-            "identifier segment missing for {name}: {}",
-            with_id.display()
-        );
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    /// Must match `catalog-capture-cli` custom-data registry type names.
+    const KNOWN_CUSTOM_TYPE_NAMES: &[&str] = &[
+        "BinanceFuturesLiquidation",
+        "BinanceFuturesTicker",
+        "DeribitVolatilityIndex",
+        "HyperliquidOpenInterest",
+        "DeribitBookSummary",
+    ];
+
+    fn assert_known_custom_type_dirs() {
+        for name in KNOWN_CUSTOM_TYPE_NAMES {
+            let dir = custom_data_dir(name, None);
+            assert_eq!(
+                dir,
+                PathBuf::from("data").join("custom").join(name),
+                "custom type {name} path contract"
+            );
+            let with_id = custom_data_dir(name, Some("BTC:option"));
+            assert!(
+                with_id.ends_with("BTC:option")
+                    || with_id.components().any(|c| c.as_os_str() == "BTC:option"),
+                "identifier segment missing for {name}: {}",
+                with_id.display()
+            );
+        }
+    }
+
     use super::*;
     use crate::{
         config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy},
