@@ -25,11 +25,27 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --platform) PLATFORM="$2"; shift 2 ;;
-    --config) CONFIG="$2"; shift 2 ;;
-    --name) NAME="$2"; shift 2 ;;
-    -h|--help) usage; exit 0 ;;
-    *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
+    --platform)
+      PLATFORM="$2"
+      shift 2
+      ;;
+    --config)
+      CONFIG="$2"
+      shift 2
+      ;;
+    --name)
+      NAME="$2"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown arg: $1" >&2
+      usage >&2
+      exit 2
+      ;;
   esac
 done
 
@@ -56,7 +72,7 @@ case "$PLATFORM" in
     LABEL="com.github.${NAME}"
     OUT="${HOME}/Library/LaunchAgents/${LABEL}.plist"
     mkdir -p "$(dirname "$OUT")"
-    cat >"$OUT" <<EOF
+    cat > "$OUT" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -98,7 +114,7 @@ EOF
   systemd)
     OUT="${HOME}/.config/systemd/user/${NAME}.service"
     mkdir -p "$(dirname "$OUT")"
-    cat >"$OUT" <<EOF
+    cat > "$OUT" << EOF
 [Unit]
 Description=Catalog Capture (${NAME})
 After=network-online.target

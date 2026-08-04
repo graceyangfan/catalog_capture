@@ -13,9 +13,6 @@ high-precision = [
   "nautilus-model/high-precision",
   "nautilus-persistence/high-precision",
 ]
-# Reserved for future full-graph slimming (optional Hyperliquid/HIP-4).
-hip4 = []
-
 [lib]
 name = "catalog_capture_runtime_adapter"
 # Library only — product binary is catalog-capture-cli.
@@ -25,7 +22,7 @@ crate-type = ["rlib"]
 anyhow.workspace = true
 catalog-capture-core = { path = "../catalog-capture-core" }
 nautilus-common.workspace = true
-# HIP-4 dynamic universe (always linked for now; CLI venue features still drop other venues).
+# Hyperliquid adapter used for HIP-4 universe helpers in this crate.
 nautilus-hyperliquid = { workspace = true }
 nautilus-core.workspace = true
 nautilus-model.workspace = true

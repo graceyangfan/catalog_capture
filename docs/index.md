@@ -5,9 +5,9 @@ catalog layouts. Structure follows the same Divio split as Nautilus Trader docs.
 
 ## Getting started
 
-1. [Installation](getting_started/installation.md) — sibling deps, toolchain, build  
-2. [Quickstart](getting_started/quickstart.md) — validate and first run  
-3. [Examples](../examples/README.md) — TOML profiles  
+1. [Installation](getting_started/installation.md) — sibling deps, toolchain, build
+2. [Quickstart](getting_started/quickstart.md) — validate and first run
+3. [Examples](../examples/README.md) — TOML profiles
 
 ## Concepts
 

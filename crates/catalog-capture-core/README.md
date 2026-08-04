@@ -51,9 +51,9 @@ stays in the CLI.
 
 ## Not stable
 
-- Module-private helpers and test-only utilities  
-- Exact error strings (may improve without a major version)  
-- Anything under `pub use` that is not listed above may still move  
+- Module-private helpers and test-only utilities
+- Exact error strings (may improve without a major version)
+- Anything under `pub use` that is not listed above may still move
 
 ## Tests
 
@@ -65,7 +65,6 @@ cargo test -p catalog-capture-core --lib catalog_layout
 
 ## Related
 
-- Product binary: `catalog-capture-cli` + `examples/*.toml`  
-- How-to: [rust_backtest_from_catalog](../../docs/how_to/rust_backtest_from_catalog.md)  
-- Flush policy: [flush_and_rotation](../../docs/concepts/flush_and_rotation.md)  
-
+- Product binary: `catalog-capture-cli` + `examples/*.toml`
+- How-to: [rust_backtest_from_catalog](../../docs/how_to/rust_backtest_from_catalog.md)
+- Flush policy: [flush_and_rotation](../../docs/concepts/flush_and_rotation.md)

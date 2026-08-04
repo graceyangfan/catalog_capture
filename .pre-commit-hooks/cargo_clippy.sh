@@ -14,5 +14,12 @@ if [[ ! -d ../nautilus_trader ]]; then
   exit 0
 fi
 
-TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.96.0}"
-cargo "+${TOOLCHAIN}" clippy --workspace --all-targets -- -D warnings
+export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.97.1}"
+
+# Product crates only (matches Makefile / CI).
+cargo clippy \
+  -p catalog-capture-core \
+  -p catalog-capture-runtime-adapter \
+  -p catalog-capture-cli \
+  --all-targets \
+  -- -D warnings

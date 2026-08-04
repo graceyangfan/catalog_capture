@@ -54,7 +54,7 @@ python3 tests/probe_option_universe_smoke.py --venue deribit-autorefresh --secon
 ## Product surface (keep it simple)
 
 - Venue adapters are optional cargo features (`venue-*` / `all-venues`).
-- Slim build: `make build-slim` or  
+- Slim build: `make build-slim` or
   `cargo build -p catalog-capture-cli --no-default-features --features venue-deribit`
 - CI pins Nautilus Trader — see [docs/getting_started/installation.md](docs/getting_started/installation.md).
 

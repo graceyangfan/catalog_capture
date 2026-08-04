@@ -26,11 +26,11 @@ see [TRADEMARK.md](TRADEMARK.md).
 
 ## Next
 
-1. Minimal BacktestNode (or load) smoke beyond catalog query  
-2. Nightly live smoke against pinned Nautilus rev  
-3. Optional: HIP-4 as a true optional feature  
-4. Optional: per-family flush overrides in code  
-5. Config `schema_version` when TOML next breaks  
+1. Minimal BacktestNode (or load) smoke beyond catalog query
+2. Nightly live smoke against pinned Nautilus rev
+3. Optional: HIP-4 as a true optional feature
+4. Optional: per-family flush overrides in code
+5. Config `schema_version` when TOML next breaks
 
 When changing `NAUTILUS_TRADER_REF`, update `.github/workflows/ci.yml` and
 [installation](docs/getting_started/installation.md).

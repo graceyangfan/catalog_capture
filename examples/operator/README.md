@@ -4,8 +4,8 @@ Long-running option-universe profiles. Run from the **repository root** after bu
 
 ## Settings
 
-- `runtime.capture_seconds = 0` — until SIGTERM / Ctrl+C  
-- `catalog_uri` — under `./data/…` (created on first run)  
+- `runtime.capture_seconds = 0` — until SIGTERM / Ctrl+C
+- `catalog_uri` — under `./data/…` (created on first run)
 - Flush profile B — see `docs/concepts/flush_and_rotation.md`
 
 ```bash

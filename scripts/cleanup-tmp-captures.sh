@@ -3,7 +3,6 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET="${1:-}"
 DRY_RUN=0
 
 usage() {
@@ -23,9 +22,18 @@ EOF
 ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -h|--help) usage; exit 0 ;;
-    --dry-run) DRY_RUN=1; shift ;;
-    *) ARGS+=("$1"); shift ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
   esac
 done
 
@@ -37,14 +45,14 @@ if [[ ! -d "$DIR" ]]; then
 fi
 
 if [[ "$(cd "$DIR" && pwd)" == "$ROOT/data" ]]; then
-  mapfile -t TARGETS < <(find "$DIR" -mindepth 1 -maxdepth 1 -print 2>/dev/null | sort)
+  mapfile -t TARGETS < <(find "$DIR" -mindepth 1 -maxdepth 1 -print 2> /dev/null | sort)
 else
   mapfile -t TARGETS < <(
     find "$DIR" -maxdepth 1 \( \
       -name 'catalog-capture-*' -o \
       -name 'nautilus-catalog-capture-*' -o \
       -name 'capture.*-universe-smoke.*.toml' \
-      \) -print 2>/dev/null | sort
+      \) -print 2> /dev/null | sort
   )
 fi
 

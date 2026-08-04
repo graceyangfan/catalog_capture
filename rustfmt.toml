@@ -1,5 +1,5 @@
-# This project uses rustfmt to format source code. Run `cargo fmt [-- --check]`.
-# https://github.com/rust-lang/rustfmt/blob/master/Configurations.md
+# Nightly-only options. Stable pre-commit fmt uses an empty config
+# (see .pre-commit-hooks/cargo_fmt_stable.sh).
 
 group_imports = "StdExternalCrate"
 imports_granularity = "Crate"

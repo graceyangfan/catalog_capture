@@ -11,11 +11,11 @@ resolver = "2"
 edition = "2021"
 rust-version = "1.97.1"
 version = "0.1.0"
-authors = ["yfclark", "Codex"]
+authors = ["yfclark"]
 license = "LGPL-3.0-or-later"
 readme = "README.md"
-description = "Independent market-data capture writing Nautilus Trader Rust ParquetDataCatalog layouts"
-repository = "https://github.com/graceyangfan/nautilus_catalog_capture"
+description = "Catalog Capture: live market data → Nautilus Trader Rust ParquetDataCatalog"
+repository = "https://github.com/graceyangfan/catalog_capture"
 publish = false
 
 [workspace.metadata.tools]

@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Repository:** GitHub path is `graceyangfan/catalog_capture` (was
+  `nautilus_catalog_capture`).
 - **Local-first paths:** examples and defaults use `file://./data/…` under the repo.
   Removed system install roots (`/opt`, `/var/lib`). Optional user service helper only:
   `scripts/optional-user-service.sh`.
@@ -15,6 +17,8 @@ All notable changes to this project are documented in this file.
 - **Documentation** restructured like Nautilus Trader (getting_started / concepts /
   how_to / developer_guide / reference). Removed historical plan docs, design dumps,
   `dev/legacy-examples/`, and `research/`.
+- **Tooling:** pre-commit uses stable `cargo fmt` (empty-config pattern) + product-crate
+  clippy; toolchain 1.97.1. Clippy `doc-valid-idents` limited to supported venues only.
 
 ### Added
 

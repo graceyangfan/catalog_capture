@@ -1,8 +1,9 @@
 # Catalog Capture
 
-Independent, community-maintained capture tool that writes live market data into
-[Nautilus Trader](https://github.com/nautechsystems/nautilus_trader) **Rust
-`ParquetDataCatalog`** layouts for direct backtest use.
+Independent, community-maintained capture tool
+([catalog_capture](https://github.com/graceyangfan/catalog_capture)) that writes live
+market data into [Nautilus Trader](https://github.com/nautechsystems/nautilus_trader)
+**Rust `ParquetDataCatalog`** layouts for direct backtest use.
 
 Not affiliated with or endorsed by Nautech Systems Pty Ltd.
 See [TRADEMARK.md](TRADEMARK.md) and [NOTICE](NOTICE).
@@ -17,7 +18,7 @@ venues → catalog-capture-cli + TOML
 
 - **Single product binary** — `catalog-capture-cli` (configs are TOML only)
 - **Rust-canonical catalog** — no Feather convert, no Python legacy path mirror
-- **Multi-venue** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (cargo features)
+- **Venues (only these)** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (`venue-*` features)
 - **Custom data** — subscribe vs request channels stay separate
 - **Ops-ready** — unattended run, segment seal, optional metrics HTTP
 

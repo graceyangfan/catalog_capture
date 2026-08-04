@@ -1,11 +1,15 @@
+# Project-local Clippy config. Only names that appear in *this* codebase docs.
+# Supported venues: Binance Futures, Bybit, Deribit, OKX, Hyperliquid.
 cognitive-complexity-threshold = 10
 allow-expect-in-tests = true
 allow-unwrap-in-tests = true
 doc-valid-idents = [
-  "BitMEX",
+  "Binance",
+  "Bybit",
+  "Deribit",
   "Hyperliquid",
-  "MessagePack",
   "NautilusTrader",
+  "OKX",
   "PyO3",
   "..",
 ]

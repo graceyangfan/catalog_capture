@@ -17,5 +17,5 @@ Health check:
   --config examples/operator/capture.deribit-btc-universe-unattended.toml
 ```
 
-Optional user-level service (still uses this clone, not `/opt`):  
+Optional user-level service (still uses this clone, not `/opt`):
 `./scripts/optional-user-service.sh --help` — see [deploy/README.md](../../deploy/README.md).

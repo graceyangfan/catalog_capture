@@ -32,7 +32,7 @@ SKIP_VERIFY=0
 FORCE_CLONE=0
 
 usage() {
-  cat <<'EOF'
+  cat << 'EOF'
 bootstrap-deps.sh — prepare sibling nautilus_trader for catalog-capture builds
 
   Prefer local checkout; clone upstream develop only when missing.
@@ -54,14 +54,29 @@ EOF
 
 log() { printf '==> %s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
-die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+die() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --pin-ci) PIN_CI=1; shift ;;
-    --force-clone) FORCE_CLONE=1; shift ;;
-    --skip-verify) SKIP_VERIFY=1; shift ;;
-    -h|--help) usage; exit 0 ;;
+    --pin-ci)
+      PIN_CI=1
+      shift
+      ;;
+    --force-clone)
+      FORCE_CLONE=1
+      shift
+      ;;
+    --skip-verify)
+      SKIP_VERIFY=1
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
     *) die "unknown option: $1 (see --help)" ;;
   esac
 done
@@ -74,7 +89,7 @@ is_usable_checkout() {
 resolve_source_path() {
   if [[ -n "${NAUTILUS_TRADER_PATH:-}" ]]; then
     local p
-    p="$(cd "${NAUTILUS_TRADER_PATH}" 2>/dev/null && pwd)" || die "NAUTILUS_TRADER_PATH is not a directory: ${NAUTILUS_TRADER_PATH}"
+    p="$(cd "${NAUTILUS_TRADER_PATH}" 2> /dev/null && pwd)" || die "NAUTILUS_TRADER_PATH is not a directory: ${NAUTILUS_TRADER_PATH}"
     printf '%s\n' "${p}"
     return
   fi
@@ -139,8 +154,8 @@ maybe_pin() {
   log "checking out pin NAUTILUS_TRADER_REF=${NAUTILUS_TRADER_REF}"
   (
     cd "${path}"
-    git fetch --tags --recurse-submodules origin "${NAUTILUS_TRADER_REF}" 2>/dev/null \
-      || git fetch --tags --recurse-submodules origin
+    git fetch --tags --recurse-submodules origin "${NAUTILUS_TRADER_REF}" 2> /dev/null ||
+      git fetch --tags --recurse-submodules origin
     git checkout --recurse-submodules "${NAUTILUS_TRADER_REF}"
   )
 }
@@ -152,8 +167,8 @@ print_status() {
     (
       cd "${path}"
       local rev branch
-      rev="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-      branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+      rev="$(git rev-parse HEAD 2> /dev/null || echo unknown)"
+      branch="$(git rev-parse --abbrev-ref HEAD 2> /dev/null || echo detached)"
       printf '    rev:    %s\n' "${rev}"
       printf '    branch: %s\n' "${branch}"
       if [[ "${rev}" != "${NAUTILUS_TRADER_REF}" ]]; then
@@ -169,7 +184,7 @@ verify_core() {
     log "skipping cargo verify (--skip-verify)"
     return 0
   fi
-  if ! command -v cargo >/dev/null 2>&1; then
+  if ! command -v cargo > /dev/null 2>&1; then
     warn "cargo not found; skip verify. Install Rust 1.97.1 then: cargo test -p catalog-capture-core --lib"
     return 0
   fi
