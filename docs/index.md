@@ -30,8 +30,9 @@ backtest without conversion. Documentation follows the
 
 - [Architecture](architecture.md)
 - [Production architecture](production-architecture.md)
-- [Flush and rotation policy](flush-rotation-policy.md)
+- [Flush and rotation policy](flush-rotation-policy.md) — **per-family flush table (R3)**
 - [Custom data contract](custom-data-contract.md)
+- Core library surface: [crates/catalog-capture-core/README.md](../crates/catalog-capture-core/README.md) **(C5)**
 - [Segment lifecycle](segment-lifecycle.md)
 - [Live validation](live-validation.md)
 - [Option universe preflight](option-universe-preflight.md)

@@ -17,6 +17,9 @@ All notable changes to this project are documented in this file.
   `ParquetDataCatalog::quote_ticks` (same load style as research backtests).
 - Examples policy: TOML configs only for the single `catalog-capture-cli` binary
   (Nautilus-style); see `examples/README.md`.
+- Per-family flush guidance table and global profiles A–E (R3) in
+  `docs/flush-rotation-policy.md`.
+- Core stable API surface docs (C5) in `crates/catalog-capture-core/README.md`.
 
 ## 0.1.0
 

@@ -165,7 +165,7 @@ Track D  Docs IA
 | C2 | custom 类型 registry：subscribe vs request 白名单单点维护 | **done**（`custom_data/`；parse/validate/register 共用） |
 | C3 | 保持 `[[capture.custom_data]]` vs `[[capture.custom_data_requests]]` 严格分离 | **done**（双向拒绝 + unit/config 测试） |
 | C4 | examples **仅 TOML 配置** + 单 CLI；不新增 cargo example/bin | **done**（README/examples 策略；目录分层仍可选） |
-| C5 | core 公共 API：标注 stable surface；内部 `pub(crate)` 收敛 | 文档一小节 |
+| C5 | core 公共 API：标注 stable surface；内部 `pub(crate)` 收敛 | **done**（`crates/catalog-capture-core/README.md`） |
 
 ---
 
@@ -195,8 +195,8 @@ Track D  Docs IA
 |----|------|------|
 | R1 | request 指标：polls / rows / skipped_inflight / timeouts | **done**（`/metrics` + `/metrics.json`） |
 | R2 | soak 表增加 request 路径通过标准 | **done**（smoke_and_soak 验收表 + watch list） |
-| R3 | per-family flush 默认建议表（文档 + 可选 overrides） | quotes vs greeks vs book_summary |
-| R4 | unattended 默认 profile 使用 `rust_canonical_only` | operator 示例对齐 L2 |
+| R3 | per-family flush 默认建议表（文档 + 可选 overrides） | **done**（flush-rotation-policy 表 + 全局 profile A–E） |
+| R4 | unattended 默认 profile 使用 `rust_canonical_only` | **done**（operator TOML 已对齐） |
 
 ---
 
@@ -312,12 +312,12 @@ layout_compatibility = "rust_canonical_only"  # 唯一合法值；可省略
 
 ### 下一步（建议，post 0.1.0）
 
-1. **C5** — core public API 文档  
-2. **R3** — per-family flush 建议表  
-3. 可选：C4 物理目录分层、P8 bin 改名、B3 Docker、HIP-4 optional feature  
-4. 可选：带 `BacktestNode` 的端到端 smoke（依赖 nautilus-backtest；当前已用 catalog query 证明可读）  
+1. 可选：C4 物理目录分层（`minimal/` 等）  
+2. 可选：P8 bin 改名、B3 Docker、HIP-4 optional feature  
+3. 可选：`BacktestNode` 端到端 smoke；nightly live smoke  
+4. 代码向：per-family flush **overrides**（文档 R3 已就位）  
 
-~~M1~~ **done** · ~~L5/L6 写盘+Rust 回读~~ **done** · ~~C4 策略（configs only）~~ **done**
+~~M1 / L5–L7 / C1–C5 / R1–R4~~ **done**（产品与文档基线）
 
 ---
 

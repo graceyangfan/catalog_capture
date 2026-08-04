@@ -6,7 +6,10 @@ These configs target long-running, production-shaped option-universe capture.
 
 - `runtime.capture_seconds = 0` runs until `SIGTERM` or `Ctrl+C`.
 - `catalog_uri` points to a persistent directory (not `/tmp`).
-- Flush thresholds are more conservative than smoke examples; see `docs/flush-rotation-policy.md`.
+- `layout_compatibility = "rust_canonical_only"` (required for Rust backtest).
+- Flush profile **B** (unattended mixed universe): `flush_rows = 5000`,
+  `flush_interval_ms = 5000`, `max_buffer_bytes = 64MiB` — see the per-family
+  table in `docs/flush-rotation-policy.md` (Track R3).
 
 Before deploying, create the catalog root and ensure the service user can write to it:
 

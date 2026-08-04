@@ -25,15 +25,16 @@ Standalone **write-focused** capture service for research-grade derivatives data
 
 ## Next (post 0.1.0)
 
-1. **C5** — core public API surface docs  
-2. **R3** — per-family flush guidance tables  
-3. Optional: physical examples subdirs; Docker/GHCR; HIP-4 optional feature  
-4. Nightly live smoke against pinned nautilus rev  
+1. Optional: physical examples subdirs; Docker/GHCR; HIP-4 optional feature  
+2. Optional: per-family flush **code** overrides (docs already have R3 table)  
+3. Nightly live smoke against pinned nautilus rev  
+4. Optional: full `BacktestNode` smoke (catalog query already proves load)  
 
 Done recently:
 
-- L5/L6 offline write + **Rust `ParquetDataCatalog` readback** (`catalog_layout`)  
-- Examples = **configs only** + one product CLI (no cargo example bins)  
+- L5/L6 offline write + **Rust `ParquetDataCatalog` readback**  
+- Examples = **configs only** + one product CLI  
+- **R3** flush guidance table · **C5** core stable API README · **R4** operator canonical  
 
 ## Historical phases
 

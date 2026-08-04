@@ -199,11 +199,33 @@ This kind of profile is excellent for proving:
 
 It should not become the default for long-running live capture.
 
-## Recommended production defaults
+## Recommended production defaults (Track R3)
 
-These are suggested starting points, not final hard-coded values.
+Config is still **global** (`[output]` applies to all families). Use the tables
+below to choose global numbers for the **dominant** family in a plan, or a mixed
+compromise when several families run together.
 
-### General-purpose live market capture
+### Per-family guidance (when that family dominates the plan)
+
+| Family / path | Typical rate | Suggested `flush_rows` | Suggested `flush_interval_ms` | Suggested `max_buffer_bytes` | Notes |
+|---------------|--------------|------------------------|-------------------------------|------------------------------|-------|
+| `quotes` | high | 5_000–20_000 | 1_000–2_000 | 32–64 MiB | Prefer larger chunks; watch `dropped_items` |
+| `trades` | high–med | 5_000–15_000 | 1_000–2_000 | 32–64 MiB | Same band as quotes |
+| `order_book_deltas` / book | very high | 10_000–50_000 | 500–1_000 | 64–128 MiB | Memory first; tighten only after metrics |
+| `bars` | low–med | 500–2_000 | 5_000–30_000 | 16–32 MiB | Avoid tiny bar files |
+| `mark_prices` / `index_prices` | med | 2_000–5_000 | 2_000–5_000 | 16–32 MiB | Moderate cadence |
+| `funding_rates` | low | 100–1_000 | 30_000–300_000 | 8–16 MiB | Interval / shutdown often enough |
+| `option_greeks` | med (options) | 1_000–5_000 | 2_000–5_000 | 32–64 MiB | More conservative than quotes |
+| `instrument_statuses` / `instrument_closes` | low | 100–500 | 30_000–300_000 | 8–16 MiB | Prefer interval + shutdown |
+| `instruments` | rare | 50–200 | 60_000+ | 8 MiB | Mostly startup / refresh |
+| Custom **subscribe** (e.g. DVOL) | med | 1_000–5_000 | 1_000–5_000 | 16–32 MiB | Same sink as request custom |
+| Custom **request** (e.g. book summary poll) | low–med (interval-driven) | 500–5_000 | ≥ poll `interval_secs` × 1000 | 16–64 MiB | Do not flush faster than poll rate; see `/metrics` request counters |
+
+MiB = 1024² bytes (`33554432` = 32 MiB).
+
+### Ready-made global profiles (TOML)
+
+**A — General live (quotes/trades-heavy)** — default examples:
 
 ```toml
 [output]
@@ -213,25 +235,54 @@ max_buffer_bytes = 33554432
 queue_capacity = 10000
 ```
 
-This profile is intentionally moderate:
+**B — Unattended / option-universe (mixed greeks + quotes)** — operator configs:
 
-- large enough to avoid many tiny files in common quote/trade flows
-- small enough to bound memory
-- frequent enough to make trailing data visible reasonably quickly
+```toml
+[output]
+flush_rows = 5000
+flush_interval_ms = 5000
+max_buffer_bytes = 67108864
+queue_capacity = 10000
+```
 
-### Lower-frequency operational families
+**C — Book deltas / high message rate**
 
-If per-family overrides are introduced later, the following direction is recommended:
+```toml
+[output]
+flush_rows = 20000
+flush_interval_ms = 1000
+max_buffer_bytes = 134217728
+queue_capacity = 50000
+```
 
-- `instrument_status`
-  - longer interval
-  - small row thresholds are acceptable
-- `instrument_close`
-  - longer interval
-  - shutdown flush is often sufficient
-- `option_greeks`
-  - depends heavily on venue cadence
-  - default more conservatively than quotes
+**D — Sparse / request-poll custom only** (e.g. book summary every 5s)
+
+```toml
+[output]
+flush_rows = 1000
+flush_interval_ms = 10000
+max_buffer_bytes = 16777216
+queue_capacity = 5000
+```
+
+**E — Smoke / unit-style force many chunks** (not for production):
+
+```toml
+[output]
+flush_rows = 3
+flush_interval_ms = 250
+max_buffer_bytes = 65536
+queue_capacity = 100
+```
+
+Tune using `/metrics` (`flush_reasons`, `active_partitions`, `dropped_items`,
+`catalog_capture_custom_data_request_*` for request jobs).
+
+### Per-family overrides (future)
+
+Code still has **one** global `[output]`. When overrides land, prefer optional
+TOML maps rather than many new top-level knobs. Until then, pick A–D from the
+dominant family in the plan.
 
 ## Observability that must exist before we judge the policy
 
