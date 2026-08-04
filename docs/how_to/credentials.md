@@ -1,49 +1,57 @@
 # Venue credentials (optional)
 
-**Default:** public market data only — no API keys required.
+**Default: public market data only — no API keys used.**
 
-When a venue needs authenticated REST/WS, set credentials in the **process
-environment** (or a local `.env` loaded by the CLI). **Never put secrets in TOML.**
+Most catalog capture (quotes, trades, book summary polls, option chains, etc.)
+uses **public** venue endpoints. The CLI is designed so that:
 
-## Variable names
+| Situation | Behavior |
+|-----------|----------|
+| No API env vars | Public clients (`api_key` / `api_secret` = `None`) |
+| Fake / placeholder keys in env (`none`, `xxx`, `test`, …) | Treated as **absent**; public clients |
+| Incomplete pair (key without secret) | **Not** injected; public clients |
+| Real keys present by accident | **Still ignored** unless you opt in (see below) |
+
+Nautilus adapters may fall back to env vars when config keys are `None`. In
+public mode the CLI therefore **clears known credential env vars** before
+building data clients, so leftover fake keys cannot affect the session.
+
+## Opt-in authenticated clients
+
+Only when you truly need private endpoints:
+
+```bash
+export CAPTURE_USE_VENUE_CREDENTIALS=1   # required opt-in
+export DERIBIT_API_KEY='...'
+export DERIBIT_API_SECRET='...'
+```
+
+Without `CAPTURE_USE_VENUE_CREDENTIALS=1|true|yes|on`, credentials are never
+passed into data clients.
+
+## Variable names (when opted in)
 
 | Venue | Environment variables |
 |-------|------------------------|
 | Binance Futures | `BINANCE_API_KEY`, `BINANCE_API_SECRET` |
-| Deribit | `DERIBIT_API_KEY`, `DERIBIT_API_SECRET` |
+| Deribit | `DERIBIT_API_KEY`, `DERIBIT_API_SECRET` (or `CLIENT_ID` / `CLIENT_SECRET`) |
 | Bybit | `BYBIT_API_KEY`, `BYBIT_API_SECRET` |
-| OKX | `OKX_API_KEY`, `OKX_API_SECRET`, `OKX_API_PASSPHRASE` (or `OKX_PASSPHRASE`) |
-| Hyperliquid | `HYPERLIQUID_PRIVATE_KEY` (or `HL_PRIVATE_KEY`) |
+| OKX | `OKX_API_KEY`, `OKX_API_SECRET`, `OKX_API_PASSPHRASE` |
+| Hyperliquid | `HYPERLIQUID_PRIVATE_KEY` |
 
 ### Per-venue-id override
 
-If you run multiple configs for the same kind, scope by `[[venues]].id`
-(non-alphanumeric → `_`, uppercased):
-
 ```bash
-# id = "deribit_main"
+# [[venues]] id = "deribit_main"
 export CAPTURE_VENUE_DERIBIT_MAIN_API_KEY=...
 export CAPTURE_VENUE_DERIBIT_MAIN_API_SECRET=...
 ```
 
-Scoped vars take precedence over the global `VENUE_*` names.
-
-## Usage
-
-```bash
-# optional local dotenv (gitignored)
-cp .env.example .env   # if present; or create your own
-
-export DERIBIT_API_KEY=...
-export DERIBIT_API_SECRET=...
-
-cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
-```
-
-Logs report `credentials=from_env` or `credentials=public` without printing secrets.
+Scoped vars take precedence over global `VENUE_*` names.
 
 ## Safety
 
-- Keep `.env` out of git (see `.gitignore`).
-- Prefer least-privilege / read-only keys for capture-only deployments.
-- CI and public smoke tests should stay on public endpoints.
+- Never put secrets in TOML.
+- Prefer `.env` only for local opt-in auth (gitignored).
+- Logs show `credentials=from_env` or `credentials=public` — never print secrets.
+- CI and smoke/soak should stay on public endpoints (do not set the opt-in flag).

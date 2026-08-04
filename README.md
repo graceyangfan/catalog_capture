@@ -75,8 +75,10 @@ make clean-debug
 
 ## Credentials (optional)
 
-Public data by default. For authenticated venues, set env vars (never TOML):
-see [docs/how_to/credentials.md](docs/how_to/credentials.md) and `.env.example`.
+**Public market data by default** — missing, empty, or fake API keys are ignored.
+Authenticated clients require `CAPTURE_USE_VENUE_CREDENTIALS=1` plus a complete
+real key pair (never put secrets in TOML). See
+[docs/how_to/credentials.md](docs/how_to/credentials.md) and `.env.example`.
 
 ## Operations (optional)
 
