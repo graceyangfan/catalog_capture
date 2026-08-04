@@ -1,33 +1,48 @@
 #!/usr/bin/env bash
-# Run a long-lived capture session with logging and optional post-run validation.
+# Long-lived capture with logging. Run from anywhere; resolves repo root.
+#
+# Usage:
+#   ./scripts/run-capture-service.sh --config examples/capture.multi-venue-mainnet.toml --release
+#
+# Env:
+#   CAPTURE_FEATURES  --no-default-features --features … (release only)
+#                     default when --release: venue-binance,venue-deribit,venue-hyperliquid
+#   RUSTUP_TOOLCHAIN  default 1.97.1
+#   CATALOG_CAPTURE_LOG_DIR  default <repo>/logs
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
 CONFIG=""
 RELEASE=0
 VALIDATE=0
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
 CARGO="${CARGO:-cargo}"
 TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.97.1}"
+CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid}"
 
 usage() {
   cat << 'EOF'
 Usage: scripts/run-capture-service.sh --config <path> [options]
 
 Options:
-  --config <path>     Required TOML config (use capture_seconds=0 for daemons)
-  --release           Build and run the release binary
+  --config <path>     Required TOML config (capture_seconds=0 for daemons)
+  --release           Build/run release binary (slim features via CAPTURE_FEATURES)
+  --all-venues        With --release: build default all-venues features
   --validate          Run validate-option-universe after a successful capture
-  --log-dir <path>    Log directory (default: ./logs or $CATALOG_CAPTURE_LOG_DIR)
+  --log-dir <path>    Log directory (default: ./logs)
   -h, --help          Show this help
 
 Environment:
-  CARGO               Cargo executable (default: cargo)
-  RUSTUP_TOOLCHAIN    Rust toolchain channel (default: 1.97.1)
-  CATALOG_CAPTURE_LOG_DIR  Override default log directory
+  CAPTURE_FEATURES    Comma features for slim release (default multi-venue set)
+  CARGO               Cargo executable
+  RUSTUP_TOOLCHAIN    Rust toolchain (default 1.97.1)
+  CATALOG_CAPTURE_LOG_DIR
 EOF
 }
 
+ALL_VENUES=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --config)
@@ -36,6 +51,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --release)
       RELEASE=1
+      shift
+      ;;
+    --all-venues)
+      ALL_VENUES=1
       shift
       ;;
     --validate)
@@ -69,13 +88,21 @@ if [[ ! -f "$CONFIG" ]]; then
   exit 1
 fi
 
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" data
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 CONFIG_BASENAME="$(basename "$CONFIG" .toml)"
 LOG_FILE="$LOG_DIR/${CONFIG_BASENAME}-${STAMP}.log"
 
 if [[ $RELEASE -eq 1 ]]; then
-  "$CARGO" "+$TOOLCHAIN" build --release -p catalog-capture-cli
+  if [[ $ALL_VENUES -eq 1 ]]; then
+    echo "Building release (all-venues)..." | tee -a "$LOG_FILE"
+    "$CARGO" "+$TOOLCHAIN" build --release -p catalog-capture-cli
+  else
+    echo "Building release (features=${CAPTURE_FEATURES})..." | tee -a "$LOG_FILE"
+    "$CARGO" "+$TOOLCHAIN" build --release -p catalog-capture-cli \
+      --no-default-features \
+      --features "${CAPTURE_FEATURES}"
+  fi
   BIN="$ROOT/target/release/catalog-capture-cli"
 else
   BIN="$ROOT/target/debug/catalog-capture-cli"

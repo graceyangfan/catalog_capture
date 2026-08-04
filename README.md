@@ -10,58 +10,97 @@ See [TRADEMARK.md](TRADEMARK.md) and [NOTICE](NOTICE).
 
 ```text
 venues → catalog-capture-cli + TOML
-      → file://…/data/…   (rust_canonical_only)
+      → {catalog}/data/{type}/{instrument_id}/…parquet
       → ParquetDataCatalog / Rust backtest
 ```
 
 ## Features
 
-- **Single product binary** — `catalog-capture-cli` (configs are TOML only)
-- **Rust-canonical catalog** — no Feather convert, no Python legacy path mirror
-- **Venues (only these)** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (`venue-*` features)
-- **Custom data** — subscribe vs request channels stay separate
-- **Ops-ready** — unattended run, segment seal, optional metrics HTTP
+- **One product binary** — `catalog-capture-cli` (TOML configs only)
+- **Rust catalog layout only** — `rust_canonical_only` (Nautilus `ParquetDataCatalog`)
+- **Venues** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (`venue-*` features)
+- **Universe refresh** — e.g. HIP-4 style outcome roll (unsub old / sub new)
+- **Mainnet-oriented examples** — public data by default (no keys in TOML)
 
 ## Quick start
 
-Requires Rust **1.97.1** and a sibling `../nautilus_trader` checkout.
-Run everything from the **repository root** (no system install).
+Requires Rust **1.97.1** and sibling `../nautilus_trader`. Run from the **repo root**.
 
 ```bash
 make bootstrap-deps
-make build
 
-cargo run -p catalog-capture-cli -- validate --config examples/capture.toml
-cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
-# writes under ./data/… (gitignored)
+# Cloud / multi-venue capture: only link venues you need (smaller, faster)
+make build-release-capture
+# features: venue-binance,venue-deribit,venue-hyperliquid
 
-# Offline: write path is catalog-readable
-cargo test -p catalog-capture-core --lib catalog_layout
+./target/release/catalog-capture-cli validate \
+  --config examples/capture.multi-venue-mainnet.toml
+
+# Long-running mainnet capture (logs under ./logs/)
+./scripts/run-mainnet-capture.sh
+# default config: examples/capture.multi-venue-mainnet.toml
 ```
 
-Slim build (one venue):
+Short smoke:
 
 ```bash
-cargo build -p catalog-capture-cli --no-default-features --features venue-deribit
+CAPTURE_SECONDS=120 ./scripts/run-mainnet-capture.sh
+```
+
+Data: `./data/…` (gitignored). Catalog layout: [docs/concepts/catalog_layout.md](docs/concepts/catalog_layout.md).
+
+## Recommended configs
+
+| Config | Use |
+|--------|-----|
+| **`examples/capture.multi-venue-mainnet.toml`** | HL rolling universe + Binance L2 d20 + Deribit BookSummary |
+| `examples/capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid universe only |
+| `examples/capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (1s poll) |
+
+More: [examples/README.md](examples/README.md).
+
+## Build options
+
+| Command | When |
+|---------|------|
+| `make build-release-capture` | **Preferred** for multi-venue mainnet capture |
+| `make build-release` | All venues (`all-venues`) |
+| `make build-slim FEATURES=venue-deribit` | Single-venue debug |
+| `make build-release-small` | Smaller binary, slower compile |
+| `make clean` / `make clean-all-targets` | Free disk (`clean-all` also clears `../nautilus_trader/target`) |
+
+Build size notes: [docs/how_to/build_size.md](docs/how_to/build_size.md).
+
+## Cloud / unattended
+
+```bash
+# Full runbook
+# docs/how_to/cloud_capture.md
+
+nohup ./scripts/run-mainnet-capture.sh \
+  examples/capture.multi-venue-mainnet.toml \
+  > logs/nohup.out 2>&1 &
+
+# Metrics (if enabled in TOML): http://127.0.0.1:9108/metrics
+# Stop: kill -TERM <pid>
 ```
 
 ## Documentation
 
-Aligned with the [Divio](https://docs.divio.com/documentation-system/) layout used by Nautilus Trader:
-
 | Section | Path |
 |---------|------|
-| Getting started | [docs/getting_started/](docs/getting_started/) |
-| Concepts | [docs/concepts/](docs/concepts/) |
-| How-to | [docs/how_to/](docs/how_to/) |
-| Developer guide | [docs/developer_guide/](docs/developer_guide/) |
-| CLI reference | [docs/reference/cli.md](docs/reference/cli.md) |
-| Examples | [examples/README.md](examples/README.md) |
 | Doc map | [docs/index.md](docs/index.md) |
+| Install | [docs/getting_started/installation.md](docs/getting_started/installation.md) |
+| Cloud capture | [docs/how_to/cloud_capture.md](docs/how_to/cloud_capture.md) |
+| Catalog layout | [docs/concepts/catalog_layout.md](docs/concepts/catalog_layout.md) |
+| Multi-venue / HIP-4 style | [docs/how_to/hip4_capture.md](docs/how_to/hip4_capture.md) |
+| Build size | [docs/how_to/build_size.md](docs/how_to/build_size.md) |
+| CLI | [docs/reference/cli.md](docs/reference/cli.md) |
 
 ## Credentials
 
-Public capture is the default (leave API env vars unset). For authenticated venues, set a complete key+secret pair in the environment — never in TOML. See [credentials](docs/how_to/credentials.md).
+Public capture by default (unset API env vars). Optional key+secret in env only —
+see [credentials](docs/how_to/credentials.md).
 
 ## Development
 
@@ -76,4 +115,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [ROADMAP.md]
 
 ## License
 
-[LGPL-3.0-or-later](LICENSE). Links against Nautilus Trader (LGPL). Third-party notices: [NOTICE](NOTICE).
+[LGPL-3.0-or-later](LICENSE). Links against Nautilus Trader (LGPL). [NOTICE](NOTICE).

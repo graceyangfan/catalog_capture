@@ -1,39 +1,57 @@
 # Examples
 
 TOML configs for `catalog-capture-cli` only (not cargo examples).
-Run from the repo root. Default `catalog_uri` values use `file://./data/…`.
+Run from the **repository root**. Catalog roots use `file://./data/…` (gitignored).
+
+Layout is Nautilus Rust `ParquetDataCatalog` only — see
+[docs/concepts/catalog_layout.md](../docs/concepts/catalog_layout.md).
+
+## Recommended (mainnet)
 
 ```bash
-cargo run -p catalog-capture-cli -- validate --config examples/capture.toml
-cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
+make build-release-capture
+
+./target/release/catalog-capture-cli validate \
+  --config examples/capture.multi-venue-mainnet.toml
+
+./scripts/run-mainnet-capture.sh
+# or: ./scripts/run-mainnet-capture.sh examples/capture.multi-venue-mainnet.toml
 ```
 
-## Starters
+| Config | Content |
+|--------|---------|
+| **`capture.multi-venue-mainnet.toml`** | HL rolling universe (quotes/trades/mark) + Binance L2 d20 + trades + Deribit BookSummary 1s |
+| `capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid universe only + 06:00 UTC seal |
+| `capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (`interval_secs = 1`) |
+
+## Other starters
 
 | Intent | Config |
 |--------|--------|
-| Minimal | `capture.toml` |
-| Deribit DVOL | `capture.deribit-dvol.toml` |
-| Deribit book summary (request) | `capture.deribit-btc-book-summary.toml` |
+| Minimal validate | `capture.toml` |
+| Deribit DVOL (subscribe custom) | `capture.deribit-dvol.toml` |
 | Binance perp WS | `capture.binance-perp.ws.toml` |
 | Hyperliquid OI | `capture.hyperliquid-open-interest.toml` |
-| HL HIP-4 style daily universe | `capture.hyperliquid-hip4-btc-daily.toml` |
-| Multi-venue mainnet (HL + Binance L2 d20 + Deribit book summary) | `capture.multi-venue-mainnet.toml` |
-| Unattended | `operator/*.toml` |
+| Operator / unattended option universe | `operator/*.toml` |
 
-## Option universe
+## Option universe (Deribit / Bybit / OKX)
 
-| Intent | Deribit | Bybit | OKX |
-|--------|---------|-------|-----|
-| Rolling | `*-universe-autorefresh.toml` | same pattern | same |
-| Research | `*-universe-research.toml` / `*-universe.toml` | … | … |
-| OI-ranked | `*-oi-ranked*.toml` | … | … |
-| Full chain | `*-universe-all.toml` | … | … |
+| Intent | Naming |
+|--------|--------|
+| Rolling | `*-universe-autorefresh.toml` |
+| Research | `*-universe-research.toml` / `*-universe.toml` |
+| OI-ranked | `*-oi-ranked*.toml` |
+| Full chain | `*-universe-all.toml` |
 
-## Prove layout (offline)
+## Offline layout proof
 
 ```bash
 cargo test -p catalog-capture-core --lib catalog_layout
 ```
 
-See [docs/how_to/rust_backtest_from_catalog.md](../docs/how_to/rust_backtest_from_catalog.md).
+## Cleanup
+
+```bash
+./scripts/cleanup-tmp-captures.sh          # ./data
+./scripts/cleanup-tmp-captures.sh /tmp     # smoke leftovers
+```
