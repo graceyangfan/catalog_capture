@@ -6,9 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Public-first credentials: ignore fake/placeholder API keys by default; scrub
-  credential env vars before building data clients so Nautilus env fallback cannot
-  force auth. Opt in with `CAPTURE_USE_VENUE_CREDENTIALS=1` for real keys.
+- Credentials simplified to two modes: public (`None`) or complete env key+secret pair.
 
 ## 0.1.0
 

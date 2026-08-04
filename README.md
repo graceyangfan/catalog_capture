@@ -75,10 +75,10 @@ make clean-debug
 
 ## Credentials (optional)
 
-**Public market data by default** — missing, empty, or fake API keys are ignored.
-Authenticated clients require `CAPTURE_USE_VENUE_CREDENTIALS=1` plus a complete
-real key pair (never put secrets in TOML). See
-[docs/how_to/credentials.md](docs/how_to/credentials.md) and `.env.example`.
+- **Public (default):** leave API env vars unset → keys are `None`
+- **Authenticated:** set complete `*_API_KEY` + `*_API_SECRET` in env (not TOML)
+
+See [docs/how_to/credentials.md](docs/how_to/credentials.md).
 
 ## Operations (optional)
 

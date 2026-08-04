@@ -57,7 +57,7 @@ use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory}
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
 use crate::credentials::{
     api_key_secret_present, binance_credentials, bybit_credentials, deribit_credentials,
-    hyperliquid_private_key, okx_credentials, prepare_public_capture_env,
+    hyperliquid_private_key, okx_credentials,
 };
 use crate::custom_data::{
     register_request_types, register_subscribe_types, validate_request_data_type,
@@ -154,10 +154,6 @@ pub async fn run_capture_with_plan_and_reports(
     let mut builder = LiveNode::builder(trader_id, Environment::Live)?
         .with_name(config.runtime.node_name.as_str())
         .with_delay_post_stop_secs(config.runtime.delay_post_stop_secs);
-
-    // Public market data is the default. Scrub placeholder/fake credential env
-    // vars so Nautilus adapters cannot authenticate via env fallback.
-    prepare_public_capture_env();
 
     for venue in &config.venues {
         match venue {
