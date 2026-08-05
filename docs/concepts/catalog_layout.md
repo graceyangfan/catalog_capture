@@ -25,7 +25,9 @@ Aligned with Nautilus Trader Rust `ParquetDataCatalog` only — no alternate lay
 
 | Mode | Writer | Final files |
 |------|--------|-------------|
-| **chunked** (default families) | `ParquetDataCatalog::write_to_parquet` / `write_instruments` / `write_custom_data_batch` | Official paths only |
+| **chunked** | `write_to_parquet` / `write_instruments` / `write_custom_data_batch` | Official paths only |
+| **segment** (market + custom when `mode=segment`) | Append `*.parquet.part`, seal via `timestamps_to_filename` | Active part not queryable; sealed files match catalog names |
+| **instruments** | Always chunked | Sparse defs; no day segment |
 | **segment** (optional lifecycle) | Append under same `make_path` dirs; seal renames with `timestamps_to_filename` | Same final layout; active temp is `*.parquet.part` (not queried) |
 
 Config:

@@ -12,6 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+pub mod advisories;
 pub mod atm_reference;
 pub mod background;
 pub mod budget;
@@ -19,6 +20,7 @@ pub mod buffer;
 pub mod capture_run;
 pub mod catalog_layout;
 pub mod config;
+pub mod flush_profile;
 pub mod forward_price;
 pub mod forward_price_metadata;
 pub mod hip4;
@@ -32,6 +34,7 @@ pub mod plan;
 pub mod runtime;
 pub mod sink;
 
+pub use advisories::{capture_advisories, CHUNKED_CUSTOM_DATA_ADVISORY};
 pub use atm_reference::{
     select_cache_atm_reference, select_cache_perp_strike_fallback,
     select_http_perp_ticker_atm_reference, select_strike_reference_from_decimal_string,
@@ -43,6 +46,9 @@ pub use budget::{
     format_buffer_estimate, validate_capture_config, BufferMemoryEstimate, FamilyBufferEstimate,
 };
 pub use buffer::PartitionBuffer;
+pub use flush_profile::{
+    capture_config_for_family, family_row_threshold, CaptureFlushFamily,
+};
 pub use capture_run::{
     capture_run_path, new_capture_run_record, write_capture_run_record, CaptureRunInput,
     CaptureRunPlanSummary, CaptureRunRecord, CaptureRunVenueRecord, CAPTURE_RUN_FILE,
@@ -71,7 +77,7 @@ pub use item::{CaptureItem, PartitionKey};
 pub use lifecycle::{
     next_seal_boundary_ns, resolve_seal_schedule, should_seal_at, DurabilityConfig,
     LifecycleConfig, LifecycleMode, ResolvedSealSchedule, SealConfigFile, SegmentCaptureSink,
-    SegmentLifecycleConfig,
+    SegmentCustomDataSink, SegmentLifecycleConfig,
 };
 pub use metrics::{CaptureMetrics, FlushReason, FlushReasonMetrics};
 pub use metrics_export::{
@@ -108,6 +114,6 @@ pub use plan::{
 };
 pub use runtime::{CaptureRuntime, FlushResult};
 pub use sink::{
-    chunked_catalog_sink_from_config, CaptureSink, CatalogSink, ChunkedCatalogSink,
-    NautilusCatalogSink,
+    chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config, CaptureSink,
+    CatalogSink, ChunkedCatalogSink, CustomDataCatalogSink, NautilusCatalogSink,
 };

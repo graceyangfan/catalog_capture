@@ -12,31 +12,26 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{
-    collections::HashMap,
-    fs::{self, File, OpenOptions},
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, fs, path::PathBuf};
 
-use anyhow::{anyhow, bail, Context, Result};
-use arrow::array::{Array, UInt64Array};
-use nautilus_core::UnixNanos;
+use anyhow::{anyhow, Result};
 use nautilus_model::data::{CatalogPathPrefix, HasTsInit};
-use nautilus_persistence::backend::catalog::{timestamps_to_filename, ParquetDataCatalog};
+use nautilus_persistence::backend::catalog::ParquetDataCatalog;
 use nautilus_serialization::arrow::{ArrowSchemaProvider, EncodeToRecordBatch};
-use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties};
+use parquet::basic::Compression;
 use serde::Serialize;
 
 use crate::{
-    config::{CaptureConfig, CompressionKind},
-    lifecycle::ResolvedSealSchedule,
+    config::CaptureConfig,
+    lifecycle::{
+        segment_support::{
+            catalog_fs_directory, merge_flush, recover_orphans_under, segment_runtime_parts,
+            tick_parts_map, ActivePart,
+        },
+        ResolvedSealSchedule,
+    },
     runtime::FlushResult,
 };
-
-// Must NOT end with `.parquet`: Nautilus `list_parquet_files` includes any `*.parquet`,
-// so in-progress segments use a non-queryable suffix. Sealed files use
-// `timestamps_to_filename` → `…_….parquet` (official catalog name).
-const PART_SUFFIX: &str = ".parquet.part";
 
 #[derive(Debug)]
 struct SegmentOpenParams {
@@ -48,15 +43,9 @@ struct SegmentOpenParams {
 
 #[derive(Debug)]
 struct ActiveSegment {
-    directory: PathBuf,
-    part_path: PathBuf,
-    writer: ArrowWriter<File>,
+    part: ActivePart,
     identifier: String,
     schema_metadata: HashMap<String, String>,
-    min_ts_ns: u64,
-    max_ts_ns: u64,
-    row_count: u64,
-    last_sync_ns: u64,
 }
 
 #[derive(Debug)]
@@ -81,42 +70,14 @@ where
         + Clone,
 {
     pub fn from_config(config: &CaptureConfig) -> Result<Self> {
-        if !config.lifecycle.is_segment_mode() {
-            bail!("SegmentCaptureSink requires output.lifecycle.mode = segment");
-        }
-
-        let uri = config
-            .catalog_uri
-            .strip_prefix("file://")
-            .unwrap_or(&config.catalog_uri);
-        if !config.catalog_uri.starts_with("file://") {
-            bail!("segment lifecycle requires a file:// catalog_uri");
-        }
-
-        let compression = match config.compression {
-            CompressionKind::Snappy => Compression::SNAPPY,
-            CompressionKind::Zstd => Compression::ZSTD(Default::default()),
-        };
-
-        let catalog = ParquetDataCatalog::new(
-            Path::new(uri),
-            None,
-            Some(config.flush_rows),
-            Some(compression),
-            Some(config.flush_rows),
-        );
-
+        let parts = segment_runtime_parts(config)?;
         let mut sink = Self {
-            catalog,
-            local_root: PathBuf::from(uri),
-            seal: config.lifecycle.resolved_seal()?,
-            row_group_rows: config.lifecycle.batch_row_threshold(config.flush_rows),
-            sync_interval_ns: config
-                .lifecycle
-                .durability
-                .sync_interval_ms
-                .saturating_mul(1_000_000),
-            compression,
+            catalog: parts.catalog,
+            local_root: parts.local_root,
+            seal: parts.seal,
+            row_group_rows: parts.row_group_rows,
+            sync_interval_ns: parts.sync_interval_ns,
+            compression: parts.compression,
             segments: HashMap::new(),
             _marker: std::marker::PhantomData,
         };
@@ -124,189 +85,43 @@ where
         Ok(sink)
     }
 
-    /// Map `ParquetDataCatalog::make_path` onto a filesystem directory under this catalog.
-    fn catalog_fs_directory(&self, type_name: &str, identifier: Option<&str>) -> Result<PathBuf> {
-        let made = self.catalog.make_path(type_name, identifier)?;
-        let made_path = PathBuf::from(&made);
-        if made_path.is_absolute() {
-            return Ok(made_path);
-        }
-        Ok(self.local_root.join(made_path))
-    }
-
     /// Seal orphaned active segment files left by a crashed process.
     pub fn recover_orphan_parts(&mut self) -> Result<usize> {
         let family_dir = self.local_root.join("data").join(T::path_prefix());
-        if !family_dir.is_dir() {
-            return Ok(0);
-        }
-
-        let mut recovered = 0usize;
-        for (part_path, identifier) in Self::collect_orphan_part_files(&family_dir)? {
-            if self
-                .segments
+        recover_orphans_under(&family_dir, |path| {
+            self.segments
                 .values()
-                .any(|segment| segment.part_path == part_path)
-            {
-                continue;
-            }
-            match self.finalize_orphan_part(&part_path, &identifier) {
-                Ok(Some(_)) => recovered += 1,
-                Ok(None) => {}
-                Err(err) => {
-                    log::warn!(
-                        "catalog-capture: skipping unrecoverable orphan segment {}: {err}",
-                        part_path.display()
-                    );
-                }
-            }
-        }
-        Ok(recovered)
-    }
-
-    fn collect_orphan_part_files(root: &Path) -> Result<Vec<(PathBuf, String)>> {
-        let mut orphans = Vec::new();
-        Self::walk_orphan_part_files(root, &mut orphans)?;
-        orphans.sort_by(|left, right| left.0.cmp(&right.0));
-        Ok(orphans)
-    }
-
-    fn walk_orphan_part_files(dir: &Path, orphans: &mut Vec<(PathBuf, String)>) -> Result<()> {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                Self::walk_orphan_part_files(&path, orphans)?;
-                continue;
-            }
-            let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
-                continue;
-            };
-            if !file_name.ends_with(PART_SUFFIX) {
-                continue;
-            }
-            let Some(identifier) = path
-                .parent()
-                .and_then(|parent| parent.file_name())
-                .and_then(|name| name.to_str())
-                .map(str::to_string)
-            else {
-                continue;
-            };
-            orphans.push((path, identifier));
-        }
-        Ok(())
-    }
-
-    fn finalize_orphan_part(&self, part_path: &Path, identifier: &str) -> Result<Option<PathBuf>> {
-        let metadata = fs::metadata(part_path)?;
-        if metadata.len() == 0 {
-            let _ = fs::remove_file(part_path);
-            return Ok(None);
-        }
-
-        let file = File::open(part_path)?;
-        let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)?;
-        let mut reader = builder.build()?;
-        let Some((min_ts_ns, max_ts_ns)) = Self::min_max_ts_init_from_reader(&mut reader)? else {
-            let _ = fs::remove_file(part_path);
-            return Ok(None);
-        };
-        let directory = part_path
-            .parent()
-            .expect("part path always has a parent")
-            .to_path_buf();
-        let final_name =
-            timestamps_to_filename(UnixNanos::from(min_ts_ns), UnixNanos::from(max_ts_ns));
-        let final_path = directory.join(final_name);
-        fs::rename(part_path, &final_path)
-            .with_context(|| format!("failed to recover orphan segment {}", part_path.display()))?;
-        let _identifier = identifier;
-        Ok(Some(final_path))
+                .any(|segment| segment.part.part_path == path)
+        })
     }
 
     fn open_segment(&mut self, partition_key: &str, params: SegmentOpenParams) -> Result<()> {
-        fs::create_dir_all(&params.directory)?;
-        let part_path = params
-            .directory
-            .join(format!("{}{PART_SUFFIX}", params.open_ts_ns));
-        let file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&part_path)?;
         let schema = T::get_schema(Some(params.schema_metadata.clone())).into();
-        let writer = ArrowWriter::try_new(file, schema, Some(self.writer_props()))?;
+        let part = ActivePart::open(
+            params.directory,
+            params.open_ts_ns,
+            schema,
+            self.compression,
+            self.row_group_rows,
+        )?;
         self.segments.insert(
             partition_key.to_string(),
             ActiveSegment {
-                directory: params.directory,
-                part_path,
-                writer,
+                part,
                 identifier: params.identifier,
                 schema_metadata: params.schema_metadata,
-                min_ts_ns: 0,
-                max_ts_ns: 0,
-                row_count: 0,
-                last_sync_ns: params.open_ts_ns,
             },
         );
         Ok(())
     }
 
-    fn writer_props(&self) -> WriterProperties {
-        WriterProperties::builder()
-            .set_compression(self.compression)
-            .set_max_row_group_row_count(Some(self.row_group_rows))
-            .build()
-    }
-
-    fn min_max_ts_init_from_reader(
-        reader: &mut parquet::arrow::arrow_reader::ParquetRecordBatchReader,
-    ) -> Result<Option<(u64, u64)>> {
-        let mut min_ts_ns = None::<u64>;
-        let mut max_ts_ns = None::<u64>;
-        let mut saw_rows = false;
-
-        for batch in reader.by_ref() {
-            let batch = batch?;
-            if batch.num_rows() == 0 {
-                continue;
-            }
-            saw_rows = true;
-            let column_index = batch
-                .schema()
-                .fields()
-                .iter()
-                .position(|field| field.name() == "ts_init")
-                .ok_or_else(|| anyhow!("orphan part missing ts_init column"))?;
-            let column = batch
-                .column(column_index)
-                .as_any()
-                .downcast_ref::<UInt64Array>()
-                .ok_or_else(|| anyhow!("orphan part ts_init column has unexpected type"))?;
-            for &value in column.values() {
-                min_ts_ns = Some(min_ts_ns.map_or(value, |current| current.min(value)));
-                max_ts_ns = Some(max_ts_ns.map_or(value, |current| current.max(value)));
-            }
-        }
-
-        Ok(match (saw_rows, min_ts_ns, max_ts_ns) {
-            (true, Some(min_ts), Some(max_ts)) => Some((min_ts, max_ts)),
-            _ => None,
-        })
-    }
-
     pub fn on_tick(&mut self, now_ns: u64) -> Result<FlushResult> {
-        let mut result = FlushResult::default();
-        let keys: Vec<String> = self.segments.keys().cloned().collect();
-        for key in keys {
-            let partial = self.tick_segment(&key, now_ns)?;
-            result.rows += partial.rows;
-            result.bytes += partial.bytes;
-            result.files.extend(partial.files);
-        }
-        Ok(result)
+        tick_parts_map(
+            &mut self.segments,
+            self.sync_interval_ns,
+            now_ns,
+            |segment| &mut segment.part,
+        )
     }
 
     pub fn seal_all(&mut self) -> Result<FlushResult> {
@@ -321,28 +136,9 @@ where
         let mut result = FlushResult::default();
         let keys: Vec<String> = self.segments.keys().cloned().collect();
         for key in keys {
-            let partial = self.seal_segment(&key, reopen_after_seal)?;
-            result.rows += partial.rows;
-            result.bytes += partial.bytes;
-            result.files.extend(partial.files);
+            merge_flush(&mut result, self.seal_segment(&key, reopen_after_seal)?);
         }
         Ok(result)
-    }
-
-    fn tick_segment(&mut self, key: &str, now_ns: u64) -> Result<FlushResult> {
-        let Some(segment) = self.segments.get_mut(key) else {
-            return Ok(FlushResult::default());
-        };
-
-        if self.sync_interval_ns > 0
-            && now_ns.saturating_sub(segment.last_sync_ns) >= self.sync_interval_ns
-        {
-            segment.writer.flush()?;
-            segment.writer.inner_mut().sync_all()?;
-            segment.last_sync_ns = now_ns;
-        }
-
-        Ok(FlushResult::default())
     }
 
     fn seal_segment(&mut self, key: &str, reopen_after_seal: bool) -> Result<FlushResult> {
@@ -350,42 +146,23 @@ where
             return Ok(FlushResult::default());
         };
 
-        if segment.row_count == 0 {
-            let _ = segment.writer.into_inner();
-            let _ = fs::remove_file(&segment.part_path);
-            return Ok(FlushResult::default());
-        }
+        let max_ts_ns = segment.part.max_ts_ns;
+        let directory = segment.part.directory.clone();
+        let sealed = segment.part.seal()?;
 
-        segment.writer.close()?;
-        let final_name = timestamps_to_filename(
-            UnixNanos::from(segment.min_ts_ns),
-            UnixNanos::from(segment.max_ts_ns),
-        );
-        let final_path = segment.directory.join(final_name);
-        fs::rename(&segment.part_path, &final_path)
-            .with_context(|| format!("failed to seal segment {}", segment.part_path.display()))?;
-
-        let bytes = fs::metadata(&final_path)
-            .map(|meta| meta.len())
-            .unwrap_or(0);
-
-        if reopen_after_seal && self.seal.is_some() {
+        if reopen_after_seal && self.seal.is_some() && !sealed.files.is_empty() {
             self.open_segment(
                 key,
                 SegmentOpenParams {
-                    directory: segment.directory.clone(),
-                    identifier: segment.identifier.clone(),
-                    schema_metadata: segment.schema_metadata.clone(),
-                    open_ts_ns: segment.max_ts_ns,
+                    directory,
+                    identifier: segment.identifier,
+                    schema_metadata: segment.schema_metadata,
+                    open_ts_ns: max_ts_ns,
                 },
             )?;
         }
 
-        Ok(FlushResult {
-            files: vec![final_path],
-            rows: segment.row_count as usize,
-            bytes,
-        })
+        Ok(sealed)
     }
 
     pub fn write_batch_mut(&mut self, partition_key: &str, batch: Vec<T>) -> Result<Vec<PathBuf>> {
@@ -411,10 +188,12 @@ where
             .cloned()
             .ok_or_else(|| anyhow!("segment batch metadata missing instrument_id or bar_type"))?;
 
-        // Same directory key as ParquetDataCatalog::write_to_parquet (via make_path).
-        // Local object-store roots often yield a catalog-relative `data/...` path;
-        // absolute make_path results are used as-is.
-        let directory = self.catalog_fs_directory(T::path_prefix(), Some(identifier.as_str()))?;
+        let directory = catalog_fs_directory(
+            &self.local_root,
+            &self.catalog,
+            T::path_prefix(),
+            Some(identifier.as_str()),
+        )?;
 
         if !self.segments.contains_key(partition_key) {
             self.open_segment(
@@ -434,16 +213,9 @@ where
             .expect("segment opened above");
         let batches = self.catalog.data_to_record_batches(&batch)?;
         for record_batch in &batches {
-            segment.writer.write(record_batch)?;
-            segment.row_count += record_batch.num_rows() as u64;
+            segment.part.write_record_batch(record_batch)?;
         }
-
-        if segment.min_ts_ns == 0 {
-            segment.min_ts_ns = min_ts_ns;
-        } else {
-            segment.min_ts_ns = segment.min_ts_ns.min(min_ts_ns);
-        }
-        segment.max_ts_ns = segment.max_ts_ns.max(max_ts_ns);
+        segment.part.note_ts_range(min_ts_ns, max_ts_ns);
 
         Ok(Vec::new())
     }
@@ -451,7 +223,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{path::Path, str::FromStr};
 
     use nautilus_core::UnixNanos;
     use nautilus_model::{
@@ -643,8 +415,8 @@ mod tests {
                 .segments
                 .remove(partition_key)
                 .expect("segment should exist");
-            segment.writer.close().expect("close orphan part");
-            assert!(segment.part_path.exists());
+            segment.part.writer.close().expect("close orphan part");
+            assert!(segment.part.part_path.exists());
             drop(sink);
         }
 
@@ -696,13 +468,13 @@ mod tests {
                 .segments
                 .remove(partition_key)
                 .expect("segment should exist");
-            segment.writer.close().expect("close valid orphan");
-            assert!(segment.part_path.exists());
+            segment.part.writer.close().expect("close valid orphan");
+            assert!(segment.part.part_path.exists());
             drop(sink);
         }
 
         fs::create_dir_all(&instrument_dir).expect("instrument dir");
-        let corrupt_part = instrument_dir.join("9999999999999999999.part.parquet");
+        let corrupt_part = instrument_dir.join("9999999999999999999.parquet.part");
         fs::write(&corrupt_part, b"not-a-parquet-file").expect("write corrupt orphan");
 
         let recovered = SegmentCaptureSink::<QuoteTick>::from_config(&config).expect("recovery");

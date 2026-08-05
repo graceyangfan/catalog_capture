@@ -347,6 +347,10 @@ async fn main() -> Result<()> {
         } => {
             let _effective = load_validated_config(&config)?;
             println!("Configuration is valid: {}", config.display());
+            println!(
+                "Note: any WARNING above is advisory only (config still valid). \
+                 Default lifecycle is segment; mode = \"chunked\" is smoke-only for custom data."
+            );
             if print_option_universe {
                 println!(
                     "Option universe preflight requires live venue metadata; use `resolve-option-universe` or `run --dry-run-resolve`."

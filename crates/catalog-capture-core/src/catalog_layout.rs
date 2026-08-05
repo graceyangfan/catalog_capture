@@ -105,7 +105,7 @@ mod tests {
     use super::*;
     use crate::{
         config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy},
-        lifecycle::LifecycleConfig,
+        lifecycle::{LifecycleConfig, LifecycleMode},
         sink::NautilusCatalogSink,
     };
     use nautilus_core::UnixNanos;
@@ -137,7 +137,11 @@ mod tests {
         CaptureConfig {
             enabled: true,
             catalog_uri: format!("file://{}", dir.display()),
-            lifecycle: LifecycleConfig::default(),
+            // Layout path checks use immediate catalog writes (chunked sink APIs).
+            lifecycle: LifecycleConfig {
+                mode: LifecycleMode::Chunked,
+                ..LifecycleConfig::default()
+            },
             queue_capacity: 1_000,
             flush_rows: 10,
             flush_interval_ms: 1_000,
@@ -307,6 +311,59 @@ mod tests {
         // Also try relative write path style
         found |= walk_has_parquet(&root);
         assert!(found, "expected at least one parquet under custom write");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn write_custom_data_same_ts_batches_stay_disjoint() {
+        // Mirrors Deribit BookSummary: many rows share one ts_init per poll/flush.
+        ensure_custom_data_registered::<RustTestCustomData>();
+        let root = temp_catalog("custom-same-ts");
+        let sink = NautilusCatalogSink::from_config(&capture_config(&root)).expect("sink");
+        let instrument_id = InstrumentId::from_str("RUST.TEST").expect("id");
+        let data_type = DataType::new("RustTestCustomData", None, Some(instrument_id.to_string()));
+        let ts = UnixNanos::from(5_000);
+
+        let batch = |value: f64| {
+            vec![CustomData::new(
+                Arc::new(RustTestCustomData {
+                    instrument_id,
+                    value,
+                    flag: true,
+                    ts_event: ts,
+                    ts_init: ts,
+                }),
+                data_type.clone(),
+            )]
+        };
+
+        let path1 = sink
+            .write_custom_data_batch(batch(1.0))
+            .expect("first same-ts write");
+        let path2 = sink
+            .write_custom_data_batch(batch(2.0))
+            .expect("second same-ts write must not non-disjoint");
+        let path3 = sink
+            .write_custom_data_batch(batch(3.0))
+            .expect("third same-ts write must not non-disjoint");
+
+        assert_ne!(path1, path2, "file intervals must advance for identical ts_init");
+        assert_ne!(path2, path3);
+        // Catalog returns object-store relative paths; resolve under catalog root.
+        for path in [&path1, &path2, &path3] {
+            let abs = if path.is_absolute() {
+                path.clone()
+            } else {
+                root.join(path)
+            };
+            assert!(
+                abs.is_file(),
+                "expected parquet on disk, got {} (resolved {})",
+                path.display(),
+                abs.display()
+            );
+        }
 
         let _ = fs::remove_dir_all(&root);
     }

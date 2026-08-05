@@ -14,6 +14,8 @@
 
 pub mod seal;
 pub mod segment;
+pub mod segment_custom;
+pub(crate) mod segment_support;
 
 #[cfg(test)]
 mod integration;
@@ -23,14 +25,17 @@ pub use seal::{
     should_seal_at, ResolvedSealSchedule, SealConfigFile,
 };
 pub use segment::SegmentCaptureSink;
+pub use segment_custom::SegmentCustomDataSink;
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum LifecycleMode {
-    #[default]
+    /// Immediate catalog parquet per flush — opt-in for short smoke tests only.
     Chunked,
+    /// Append `*.parquet.part` and seal on schedule (production default).
+    #[default]
     Segment,
 }
 
@@ -77,7 +82,7 @@ pub struct LifecycleConfig {
 impl Default for LifecycleConfig {
     fn default() -> Self {
         Self {
-            mode: LifecycleMode::Chunked,
+            mode: LifecycleMode::Segment,
             segment: SegmentLifecycleConfig::default(),
             durability: DurabilityConfig::default(),
             seal: SealConfigFile::default(),

@@ -15,6 +15,9 @@
 use anyhow::{bail, Result};
 use catalog_capture_core::{
     background::BackgroundCaptureRuntime,
+    capture_config_for_family,
+    config::CaptureConfig,
+    flush_profile::CaptureFlushFamily,
     item::{CaptureItem, PartitionKey},
     metrics::CaptureMetrics,
     metrics_export::FamilyCaptureMetrics,
@@ -22,6 +25,28 @@ use catalog_capture_core::{
     sink::CaptureSink,
 };
 use nautilus_model::data::DataType;
+
+/// Start a family worker with per-family flush thresholds, or `None` if disabled.
+pub fn maybe_family_runtime<T, S, F>(
+    enabled: bool,
+    family: CaptureFlushFamily,
+    base: &CaptureConfig,
+    make_sink: F,
+) -> Result<Option<BackgroundCaptureRuntime<T, S>>>
+where
+    T: Send + 'static,
+    S: CaptureSink<T> + Send + 'static,
+    F: FnOnce(&CaptureConfig) -> Result<S>,
+{
+    if !enabled {
+        return Ok(None);
+    }
+    let cfg = capture_config_for_family(base, family);
+    Ok(Some(BackgroundCaptureRuntime::new(
+        cfg.clone(),
+        make_sink(&cfg)?,
+    )?))
+}
 
 pub fn optional_submit<T, S>(
     runtime: &Option<BackgroundCaptureRuntime<T, S>>,

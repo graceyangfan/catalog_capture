@@ -349,8 +349,9 @@ impl CatalogCaptureActor {
             return Ok(());
         }
 
+        // Instruments remain chunked — flush only. Custom + market families seal together.
         optional_flush_all(&self.instrument_runtime)?;
-        optional_flush_all(&self.custom_data_runtime)?;
+        optional_seal_all(&self.custom_data_runtime)?;
         optional_seal_all(&self.mark_price_runtime)?;
         optional_seal_all(&self.index_price_runtime)?;
         optional_seal_all(&self.funding_rate_runtime)?;

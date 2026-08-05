@@ -7,9 +7,9 @@
 # Streams:
 #   Hyperliquid: instruments, quotes, trades, mark_prices (rolling universe)
 #   Binance USD-M: trades + L2 book_deltas depth=20 (@depth@0ms stream)
-#   Deribit: BookSummary request ~1 rps
+#   Deribit: BookSummary request ~1 rps → segment .part (not 1 catalog file/sec); seal 06:00 UTC
 #
-# Lightweight: flush often; LiveNode uses bounded cache (see runner).
+# Lightweight: flush often into open segments; LiveNode uses bounded cache (see runner).
 #
 #   cargo run -p catalog-capture-cli -- run --config examples/capture.multi-venue-mainnet.toml
 
@@ -39,8 +39,10 @@ refresh_interval_secs = 5
 catalog_uri = "file://./data/multi-venue-mainnet"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
-# Keep buffers tight under book-delta load
-flush_rows = 1000
+# Baseline only — actor applies per-family flush profiles (see flush_profile):
+#   book_deltas ~20k | trades ~2k | custom/BookSummary ~1k | quotes ~500 | mark ~100
+# queue_capacity is the *ingress queue* depth (not row flush threshold).
+flush_rows = 2000
 flush_interval_ms = 1000
 max_buffer_bytes = 16777216
 max_total_buffer_bytes = 134217728
@@ -52,9 +54,11 @@ overflow_policy = "drop_oldest"
 mode = "segment"
 
 [output.lifecycle.segment]
+# Default mid baseline; per-family overrides raise L2 and cap BookSummary.
 row_group_rows = 2000
 
 [output.lifecycle.durability]
+# Segment: fsync open *.part AND interval-flush memory → part (not a new catalog file).
 sync_interval_ms = 1000
 
 [output.lifecycle.seal]

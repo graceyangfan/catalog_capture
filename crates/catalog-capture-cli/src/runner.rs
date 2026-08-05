@@ -557,7 +557,17 @@ pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
     validate_runtime_switches(config)?;
     validate_runtime_dependencies(config)?;
     let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;
+    emit_capture_advisories(config);
     Ok(())
+}
+
+/// Print/log non-fatal operator advisories (e.g. chunked custom = smoke only).
+pub fn emit_capture_advisories(config: &EffectiveConfig) {
+    for advisory in catalog_capture_core::capture_advisories(&config.capture, &config.plan) {
+        log::warn!("{advisory}");
+        // Always surface on stderr so `validate` is visible without RUST_LOG.
+        eprintln!("WARNING: {advisory}");
+    }
 }
 
 fn validate_runtime_switches(config: &EffectiveConfig) -> Result<()> {

@@ -12,11 +12,16 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 
 // Path is used for catalog URI roots.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{
         close::InstrumentClose, Bar, CatalogPathPrefix, CustomData, FundingRateUpdate, HasTsInit,
@@ -34,7 +39,7 @@ use serde::Serialize;
 
 use crate::{
     config::{CaptureConfig, CompressionKind},
-    lifecycle::SegmentCaptureSink,
+    lifecycle::{SegmentCaptureSink, SegmentCustomDataSink},
     runtime::FlushResult,
 };
 
@@ -133,19 +138,93 @@ where
     }
 }
 
-/// Flush-driven catalog writer for reference families (instruments, custom data).
+/// Flush-driven catalog writer for **instruments** (and other non-segment reference paths).
 ///
-/// These families use heterogeneous catalog paths and always remain chunked even when
-/// market-data capture runs in segment lifecycle mode.
+/// Instruments stay chunked (definitions are sparse). Custom data uses
+/// [`CustomDataCatalogSink`] so segment mode gets daily `.part` + seal.
 pub type ChunkedCatalogSink = NautilusCatalogSink;
 
 pub fn chunked_catalog_sink_from_config(config: &CaptureConfig) -> Result<NautilusCatalogSink> {
     NautilusCatalogSink::from_config(config)
 }
 
+/// Custom-data sink: **segment** when `output.lifecycle.mode = segment` (append
+/// `data/custom/{Type}/…/*.parquet.part`, seal at schedule), else chunked catalog files.
+#[derive(Debug)]
+pub enum CustomDataCatalogSink {
+    Chunked(NautilusCatalogSink),
+    Segment(SegmentCustomDataSink),
+}
+
+impl CustomDataCatalogSink {
+    pub fn from_config(config: &CaptureConfig) -> Result<Self> {
+        if config.lifecycle.is_segment_mode() {
+            Ok(Self::Segment(SegmentCustomDataSink::from_config(config)?))
+        } else {
+            // Non-fatal: same text as validate/run advisories — smoke OK, prod should use segment.
+            log::warn!("{}", crate::advisories::CHUNKED_CUSTOM_DATA_ADVISORY);
+            Ok(Self::Chunked(NautilusCatalogSink::from_config(config)?))
+        }
+    }
+
+    #[must_use]
+    pub fn is_segment_mode(&self) -> bool {
+        matches!(self, Self::Segment(_))
+    }
+}
+
+impl CaptureSink<CustomData> for CustomDataCatalogSink {
+    fn write_batch(
+        &mut self,
+        partition_key: &str,
+        batch: Vec<CustomData>,
+    ) -> Result<Vec<PathBuf>> {
+        match self {
+            Self::Chunked(sink) => sink.write_custom_data_batch(batch).map(|path| vec![path]),
+            Self::Segment(sink) => sink.write_batch_mut(partition_key, batch),
+        }
+    }
+
+    fn on_tick(&mut self, now_ns: u64) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.on_tick(now_ns),
+        }
+    }
+
+    fn seal_all(&mut self) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.seal_all(),
+        }
+    }
+
+    fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.seal_all_for_shutdown(),
+        }
+    }
+
+    fn is_segment_mode(&self) -> bool {
+        CustomDataCatalogSink::is_segment_mode(self)
+    }
+}
+
+pub fn custom_data_catalog_sink_from_config(config: &CaptureConfig) -> Result<CustomDataCatalogSink> {
+    CustomDataCatalogSink::from_config(config)
+}
+
 #[derive(Debug)]
 pub struct NautilusCatalogSink {
     catalog: ParquetDataCatalog,
+    /// **Chunked-mode only.** Segment custom data uses [`SegmentCustomDataSink`] and
+    /// never hits this path.
+    ///
+    /// When `mode = chunked`, snapshot custom (e.g. BookSummary) may flush many rows
+    /// with the same `ts_init`; catalog closed intervals reject touching ranges, so
+    /// we advance file-name intervals without mutating row timestamps.
+    custom_last_end_ns: Mutex<HashMap<String, u64>>,
 }
 
 impl NautilusCatalogSink {
@@ -167,7 +246,10 @@ impl NautilusCatalogSink {
             Some(config.flush_rows),
         );
 
-        Ok(Self { catalog })
+        Ok(Self {
+            catalog,
+            custom_last_end_ns: Mutex::new(HashMap::new()),
+        })
     }
 
     fn range_from_ts<T: HasTsInit>(data: &[T]) -> Result<(u64, u64)> {
@@ -212,9 +294,124 @@ impl NautilusCatalogSink {
         self.catalog.write_instruments(data)
     }
 
+    /// Chunked-only: shift file interval so `prev_end < next_start`.
+    fn disjoint_file_interval(last_end: Option<u64>, data_start: u64, data_end: u64) -> (u64, u64) {
+        let mut start = data_start;
+        let mut end = data_end.max(data_start);
+        if let Some(prev_end) = last_end {
+            if start <= prev_end {
+                start = prev_end.saturating_add(1);
+            }
+            if end < start {
+                end = start;
+            }
+        }
+        (start, end)
+    }
+
+    fn custom_partition_key(data: &[CustomData]) -> Result<(String, String, Option<String>)> {
+        let first = data
+            .first()
+            .context("cannot derive custom-data partition key from empty batch")?;
+        let type_name = first.data.type_name().to_string();
+        let identifier = first.data_type.identifier().map(str::to_string);
+        let key = match identifier.as_deref() {
+            Some(id) => format!("{type_name}/{id}"),
+            None => type_name.clone(),
+        };
+        Ok((key, type_name, identifier))
+    }
+
+    fn custom_data_ts_range(data: &[CustomData]) -> Result<(u64, u64)> {
+        let mut iter = data.iter().map(|item| item.ts_init().as_u64());
+        let Some(first) = iter.next() else {
+            anyhow::bail!("cannot derive timestamp range from empty custom-data batch");
+        };
+        let (min_ts, max_ts) = iter.fold((first, first), |(min_ts, max_ts), ts| {
+            (min_ts.min(ts), max_ts.max(ts))
+        });
+        Ok((min_ts, max_ts))
+    }
+
+    fn seed_custom_last_end(&self, type_name: &str, identifier: Option<&str>) -> Option<u64> {
+        let directory = self
+            .catalog
+            .make_path_custom_data(type_name, identifier)
+            .ok()?;
+        let intervals = self.catalog.get_directory_intervals(&directory).ok()?;
+        intervals.into_iter().map(|(_, end)| end).max()
+    }
+
     pub fn write_custom_data_batch(&self, data: Vec<CustomData>) -> Result<PathBuf> {
-        self.catalog
-            .write_custom_data_batch(data, None, None, Some(false))
+        if data.is_empty() {
+            return Ok(PathBuf::new());
+        }
+
+        let (key, type_name, identifier) = Self::custom_partition_key(&data)?;
+        let (data_start, data_end) = Self::custom_data_ts_range(&data)?;
+
+        let (start, end) = {
+            let mut last_ends = self
+                .custom_last_end_ns
+                .lock()
+                .map_err(|_| anyhow::anyhow!("custom_last_end_ns mutex poisoned"))?;
+            if !last_ends.contains_key(&key) {
+                if let Some(seed) =
+                    self.seed_custom_last_end(&type_name, identifier.as_deref())
+                {
+                    last_ends.insert(key.clone(), seed);
+                }
+            }
+            let last_end = last_ends.get(&key).copied();
+            Self::disjoint_file_interval(last_end, data_start, data_end)
+        };
+
+        let path = self.catalog.write_custom_data_batch(
+            data,
+            Some(UnixNanos::from(start)),
+            Some(UnixNanos::from(end)),
+            Some(false),
+        )?;
+
+        // Only advance watermark after a successful write so failed attempts can retry.
+        // Empty path means catalog skipped an empty batch.
+        if !path.as_os_str().is_empty() {
+            let mut last_ends = self
+                .custom_last_end_ns
+                .lock()
+                .map_err(|_| anyhow::anyhow!("custom_last_end_ns mutex poisoned"))?;
+            last_ends.insert(key, end);
+        }
+
+        Ok(path)
+    }
+}
+
+#[cfg(test)]
+mod custom_interval_tests {
+    use super::NautilusCatalogSink;
+
+    #[test]
+    fn disjoint_file_interval_advances_past_previous_end() {
+        assert_eq!(
+            NautilusCatalogSink::disjoint_file_interval(None, 100, 100),
+            (100, 100)
+        );
+        // Same-ts snapshot split across flushes must not touch previous end.
+        assert_eq!(
+            NautilusCatalogSink::disjoint_file_interval(Some(100), 100, 100),
+            (101, 101)
+        );
+        // Contiguous multi-poll batch that would touch (prev_end == next_start).
+        assert_eq!(
+            NautilusCatalogSink::disjoint_file_interval(Some(200), 200, 300),
+            (201, 300)
+        );
+        // Already strictly after previous end — leave data range intact.
+        assert_eq!(
+            NautilusCatalogSink::disjoint_file_interval(Some(100), 150, 180),
+            (150, 180)
+        );
     }
 }
 

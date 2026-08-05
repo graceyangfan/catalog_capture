@@ -2,6 +2,10 @@
 # One HTTP call per currency via get_book_summary_by_currency.
 # interval_secs=1 ≈ 1 rps; Deribit non-matching public budget is ~20 rps.
 # overlap_policy=skip avoids stacking if a call is still in flight.
+#
+# Default lifecycle is segment (*.parquet.part + seal 06:00 UTC). For a pure
+# short smoke that writes immediate catalog parquets, set mode = "chunked"
+# (emits a WARNING — not for production).
 
 [runtime]
 capture_seconds = 0
@@ -18,6 +22,10 @@ flush_interval_ms = 1000
 max_buffer_bytes = 67108864
 queue_capacity = 50000
 overflow_policy = "drop_oldest"
+
+# Defaults: mode = segment, seal enabled @ 06:00 UTC. Uncomment for smoke-only chunked:
+# [output.lifecycle]
+# mode = "chunked"
 
 [[venues]]
 id = "deribit_main"

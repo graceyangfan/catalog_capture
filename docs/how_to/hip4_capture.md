@@ -53,6 +53,18 @@ Unit tests cover selection and adaptive delay; live smoke still needs network.
 
 At 1s with a single BookSummary job, load is ~**1 rps** — headroom remains for other Deribit calls on the same IP.
 
+### File layout (with `output.lifecycle.mode = segment`)
+
+BookSummary is **custom data** but uses the **same segment lifecycle** as market series:
+
+- Poll ~1 Hz → rows append into `data/custom/DeribitBookSummary/…/{open_ts}.parquet.part`
+- **Not** one catalog parquet per second
+- Seal at **06:00 UTC** (or shutdown) → official `{start}_{end}.parquet`
+
+Default lifecycle is **`segment`** (`.part` + seal). Explicit `mode = "chunked"` is
+**smoke only** — `validate` / `run` print a WARNING when custom data is also configured.
+See [segment lifecycle](../concepts/segment_lifecycle.md).
+
 ## Two clocks (do not conflate)
 
 | Clock | What it does | When |

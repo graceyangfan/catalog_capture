@@ -271,13 +271,8 @@ where
     let segment_mode = sink.is_segment_mode();
     let mut runtime = CaptureRuntime::new(config.clone(), sink);
     let flush_interval = worker_interval(&config, segment_mode);
-    let mut worker_failed = false;
 
     loop {
-        if worker_failed {
-            break;
-        }
-
         let (
             batch,
             flush_reason,
@@ -309,6 +304,10 @@ where
             queue_state.metrics = metrics_snapshot;
         }
 
+        // Write/submit failures are reported to waiters but must not kill the family
+        // worker: snapshot custom data (e.g. DeribitBookSummary) can hit recoverable
+        // catalog interval conflicts, and aborting the whole stream permanently drops
+        // all subsequent polls for that family.
         let worker_should_exit = match &flush_result {
             Ok(result) => {
                 notify_waiters(
@@ -321,14 +320,16 @@ where
             }
             Err(err) => {
                 let message = err.to_string();
+                log::error!(
+                    "catalog-capture: background worker batch failed (continuing): {message}"
+                );
                 notify_waiters(
                     &flush_waiters,
                     &seal_waiters,
                     &shutdown_waiters,
                     Err(message),
                 );
-                worker_failed = true;
-                true
+                should_shutdown
             }
         };
 
@@ -358,11 +359,12 @@ fn collect_worker_batch<T>(
         queue_state = waited.0;
 
         if waited.1.timed_out() {
+            // Chunked: new catalog parquet. Segment: append open *.part (not a new day file).
+            queue_state.flush_reason =
+                merge_flush_reason(queue_state.flush_reason, FlushReason::Interval);
             if segment_mode {
+                // Durability fsync of open part writers (after the memory flush above).
                 queue_state.tick_requested = true;
-            } else {
-                queue_state.flush_reason =
-                    merge_flush_reason(queue_state.flush_reason, FlushReason::Interval);
             }
         }
     }
@@ -584,6 +586,7 @@ mod tests {
 
     #[test]
     fn chunked_sink_keeps_interval_flush_under_segment_lifecycle_config() {
+        // TestSink reports is_segment_mode=false → uses flush_interval_ms path.
         let sink = TestSink::default();
         let batches = Arc::clone(&sink.batches);
         let mut runtime = BackgroundCaptureRuntime::new(
@@ -618,6 +621,76 @@ mod tests {
             written,
             vec![vec![99]],
             "chunked sink should interval-flush even when lifecycle.mode = segment"
+        );
+        let _ = runtime.shutdown().expect("shutdown should succeed");
+    }
+
+    #[derive(Clone, Default)]
+    struct SegmentModeTestSink {
+        batches: Arc<Mutex<Vec<Vec<u64>>>>,
+        ticks: Arc<Mutex<u64>>,
+    }
+
+    impl CaptureSink<u64> for SegmentModeTestSink {
+        fn write_batch(&mut self, _partition_key: &str, batch: Vec<u64>) -> Result<Vec<PathBuf>> {
+            self.batches.lock().expect("batches poisoned").push(batch);
+            Ok(Vec::new())
+        }
+
+        fn on_tick(&mut self, _now_ns: u64) -> Result<crate::runtime::FlushResult> {
+            *self.ticks.lock().expect("ticks poisoned") += 1;
+            Ok(crate::runtime::FlushResult::default())
+        }
+
+        fn is_segment_mode(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn segment_sink_interval_flushes_memory_and_ticks() {
+        let sink = SegmentModeTestSink::default();
+        let batches = Arc::clone(&sink.batches);
+        let ticks = Arc::clone(&sink.ticks);
+        let mut runtime = BackgroundCaptureRuntime::new(
+            CaptureConfig {
+                flush_rows: 10_000,
+                queue_capacity: 10,
+                flush_interval_ms: 1_000,
+                lifecycle: LifecycleConfig {
+                    mode: LifecycleMode::Segment,
+                    durability: crate::lifecycle::DurabilityConfig {
+                        sync_interval_ms: 20,
+                    },
+                    ..LifecycleConfig::default()
+                },
+                ..CaptureConfig::default()
+            },
+            sink,
+        )
+        .expect("runtime should start");
+
+        runtime
+            .submit(CaptureItem {
+                partition_key: PartitionKey::market_data("quotes", "TEST"),
+                event_ts_ns: 1,
+                init_ts_ns: Some(1),
+                estimated_bytes: 8,
+                payload: 7,
+            })
+            .expect("submit should succeed");
+
+        std::thread::sleep(Duration::from_millis(100));
+
+        let written = batches.lock().expect("batches poisoned").clone();
+        assert_eq!(
+            written,
+            vec![vec![7]],
+            "segment mode must interval-flush into the open part (not wait only for row_group_rows)"
+        );
+        assert!(
+            *ticks.lock().expect("ticks poisoned") >= 1,
+            "segment mode should also durability-tick"
         );
         let _ = runtime.shutdown().expect("shutdown should succeed");
     }
@@ -674,6 +747,31 @@ mod tests {
         );
     }
 
+    /// Row-threshold tests: use chunked lifecycle so `flush_rows` is the batch trigger
+    /// (production default is segment → `row_group_rows`, which would swallow tiny batches).
+    fn unit_flush_config(flush_rows: usize, queue_capacity: usize) -> CaptureConfig {
+        CaptureConfig {
+            flush_rows,
+            queue_capacity,
+            flush_interval_ms: 10,
+            lifecycle: LifecycleConfig {
+                mode: LifecycleMode::Chunked,
+                ..LifecycleConfig::default()
+            },
+            ..CaptureConfig::default()
+        }
+    }
+
+    fn wait_queue_empty(runtime: &BackgroundCaptureRuntime<u64, TestSink>) {
+        for _ in 0..100 {
+            if runtime.queue_depth() == 0 {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        panic!("queue did not drain in time (depth={})", runtime.queue_depth());
+    }
+
     #[test]
     fn process_batch_continues_after_single_item_failure() {
         let sink = TestSink {
@@ -681,16 +779,8 @@ mod tests {
             ..TestSink::default()
         };
         let batches = Arc::clone(&sink.batches);
-        let mut runtime = BackgroundCaptureRuntime::new(
-            CaptureConfig {
-                flush_rows: 1,
-                queue_capacity: 10,
-                flush_interval_ms: 1_000,
-                ..CaptureConfig::default()
-            },
-            sink,
-        )
-        .expect("runtime should start");
+        let mut runtime = BackgroundCaptureRuntime::new(unit_flush_config(1, 10), sink)
+            .expect("runtime should start");
 
         for payload in [1_u64, 2, 3] {
             runtime
@@ -704,8 +794,10 @@ mod tests {
                 .expect("submit should succeed");
         }
 
-        let shutdown = runtime.shutdown();
-        assert!(shutdown.is_err(), "shutdown should report worker failure");
+        wait_queue_empty(&runtime);
+
+        // Worker stays up after a single write failure so later items still land.
+        let _ = runtime.shutdown().expect("shutdown should succeed");
         let written = batches.lock().expect("batches poisoned").clone();
         let flattened: Vec<u64> = written.into_iter().flatten().collect();
         assert!(flattened.contains(&1));
@@ -714,21 +806,14 @@ mod tests {
     }
 
     #[test]
-    fn submit_fails_after_worker_exits() {
+    fn worker_continues_accepting_after_write_failure() {
         let sink = TestSink {
             fail_on_payload: Some(9),
             ..TestSink::default()
         };
-        let runtime = BackgroundCaptureRuntime::new(
-            CaptureConfig {
-                flush_rows: 1,
-                queue_capacity: 4,
-                flush_interval_ms: 1_000,
-                ..CaptureConfig::default()
-            },
-            sink,
-        )
-        .expect("runtime should start");
+        let batches = Arc::clone(&sink.batches);
+        let mut runtime = BackgroundCaptureRuntime::new(unit_flush_config(1, 4), sink)
+            .expect("runtime should start");
 
         runtime
             .submit(CaptureItem {
@@ -740,9 +825,9 @@ mod tests {
             })
             .expect("submit should succeed");
 
-        std::thread::sleep(Duration::from_millis(50));
+        wait_queue_empty(&runtime);
 
-        let err = runtime
+        runtime
             .submit(CaptureItem {
                 partition_key: PartitionKey::market_data("quotes", "TEST"),
                 event_ts_ns: 10,
@@ -750,10 +835,19 @@ mod tests {
                 estimated_bytes: 8,
                 payload: 10,
             })
-            .expect_err("submit should fail once worker has exited");
+            .expect("submit should still succeed after prior write failure");
+
+        wait_queue_empty(&runtime);
+        let _ = runtime.shutdown().expect("shutdown should succeed");
+        let written = batches.lock().expect("batches poisoned").clone();
+        let flattened: Vec<u64> = written.into_iter().flatten().collect();
         assert!(
-            err.to_string().contains("not running"),
-            "unexpected error: {err}"
+            flattened.contains(&10),
+            "item after failed write should still be captured: {flattened:?}"
+        );
+        assert!(
+            !flattened.contains(&9),
+            "failed payload should not appear in written batches"
         );
     }
 }

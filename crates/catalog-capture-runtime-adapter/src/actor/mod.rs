@@ -28,14 +28,19 @@ use catalog_capture_core::{
     background::BackgroundCaptureRuntime,
     catalog_root_from_uri,
     config::CaptureConfig,
+    flush_profile::CaptureFlushFamily,
     item::PartitionKey,
     metrics::CaptureMetrics,
     metrics_export::{
         process_rss_bytes, unix_time_ms, CaptureMetricsSnapshot, CustomDataRequestJobMetrics,
     },
     plan::CapturePlan,
-    sink::{chunked_catalog_sink_from_config, CatalogSink, ChunkedCatalogSink},
+    sink::{
+        chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config, CatalogSink,
+        ChunkedCatalogSink, CustomDataCatalogSink,
+    },
 };
+use crate::actor_runtime::maybe_family_runtime;
 use nautilus_common::{
     actor::{DataActorConfig, DataActorCore, DataActorNative},
     nautilus_actor,
@@ -100,7 +105,10 @@ pub struct CatalogCaptureActor {
     supplemental_plan: CapturePlan,
     plan: CapturePlan,
     instrument_runtime: Option<BackgroundCaptureRuntime<InstrumentAny, ChunkedCatalogSink>>,
-    custom_data_runtime: Option<BackgroundCaptureRuntime<CustomData, ChunkedCatalogSink>>,
+    /// Subscribe + request custom payloads share one writer. Segment mode uses
+    /// `*.parquet.part` + wall-clock seal (same as market data); chunked mode keeps
+    /// immediate catalog parquet files.
+    custom_data_runtime: Option<BackgroundCaptureRuntime<CustomData, CustomDataCatalogSink>>,
     mark_price_runtime:
         Option<BackgroundCaptureRuntime<MarkPriceUpdate, CatalogSink<MarkPriceUpdate>>>,
     index_price_runtime:
@@ -145,28 +153,22 @@ impl CatalogCaptureActor {
         let worker_count = config.plan.enabled_background_worker_count();
         log::info!("Capture background workers: {worker_count} enabled for plan");
 
-        // Instruments and custom data stay chunked: catalog paths are heterogeneous and do not
-        // use the segment `.part` lifecycle.
-        //
-        // CustomData parquet sink is shared for subscribe (`on_data`) and request
-        // (`handle_data_response`) payloads — Nautilus command paths remain separate.
+        // Instruments: always chunked. Custom: segment when mode=segment (shared for
+        // subscribe + request). Market families: CatalogSink + per-family flush profile.
         let capture = config.capture.clone();
-        let instrument_runtime = if flags.instruments {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                chunked_catalog_sink_from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let custom_data_runtime = if flags.needs_custom_data_writer() {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                chunked_catalog_sink_from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
+
+        let instrument_runtime = maybe_family_runtime(
+            flags.instruments,
+            CaptureFlushFamily::Instruments,
+            &capture,
+            chunked_catalog_sink_from_config,
+        )?;
+        let custom_data_runtime = maybe_family_runtime(
+            flags.needs_custom_data_writer(),
+            CaptureFlushFamily::CustomData,
+            &capture,
+            custom_data_catalog_sink_from_config,
+        )?;
         let custom_data_request_jobs = config
             .plan
             .custom_data_requests
@@ -175,86 +177,67 @@ impl CatalogCaptureActor {
             .enumerate()
             .map(|(index, spec)| CustomDataRequestJob::new(index, spec))
             .collect();
-        let mark_price_runtime = if flags.mark_prices {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<MarkPriceUpdate>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let index_price_runtime = if flags.index_prices {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<IndexPriceUpdate>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let funding_rate_runtime = if flags.funding_rates {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<FundingRateUpdate>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let instrument_status_runtime = if flags.instrument_statuses {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<InstrumentStatus>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let instrument_close_runtime = if flags.instrument_closes {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<InstrumentClose>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let option_greeks_runtime = if flags.option_greeks {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<OptionGreeks>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let quote_runtime = if flags.quotes {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<QuoteTick>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let trade_runtime = if flags.trades {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<TradeTick>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let bar_runtime = if flags.bars {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<Bar>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
-        let book_delta_runtime = if flags.book_deltas {
-            Some(BackgroundCaptureRuntime::new(
-                capture.clone(),
-                CatalogSink::<OrderBookDelta>::from_config(&capture)?,
-            )?)
-        } else {
-            None
-        };
+
+        let mark_price_runtime = maybe_family_runtime(
+            flags.mark_prices,
+            CaptureFlushFamily::MarkPrices,
+            &capture,
+            CatalogSink::<MarkPriceUpdate>::from_config,
+        )?;
+        let index_price_runtime = maybe_family_runtime(
+            flags.index_prices,
+            CaptureFlushFamily::IndexPrices,
+            &capture,
+            CatalogSink::<IndexPriceUpdate>::from_config,
+        )?;
+        let funding_rate_runtime = maybe_family_runtime(
+            flags.funding_rates,
+            CaptureFlushFamily::FundingRates,
+            &capture,
+            CatalogSink::<FundingRateUpdate>::from_config,
+        )?;
+        let instrument_status_runtime = maybe_family_runtime(
+            flags.instrument_statuses,
+            CaptureFlushFamily::InstrumentStatus,
+            &capture,
+            CatalogSink::<InstrumentStatus>::from_config,
+        )?;
+        let instrument_close_runtime = maybe_family_runtime(
+            flags.instrument_closes,
+            CaptureFlushFamily::InstrumentClose,
+            &capture,
+            CatalogSink::<InstrumentClose>::from_config,
+        )?;
+        let option_greeks_runtime = maybe_family_runtime(
+            flags.option_greeks,
+            CaptureFlushFamily::OptionGreeks,
+            &capture,
+            CatalogSink::<OptionGreeks>::from_config,
+        )?;
+        let quote_runtime = maybe_family_runtime(
+            flags.quotes,
+            CaptureFlushFamily::Quotes,
+            &capture,
+            CatalogSink::<QuoteTick>::from_config,
+        )?;
+        let trade_runtime = maybe_family_runtime(
+            flags.trades,
+            CaptureFlushFamily::Trades,
+            &capture,
+            CatalogSink::<TradeTick>::from_config,
+        )?;
+        let bar_runtime = maybe_family_runtime(
+            flags.bars,
+            CaptureFlushFamily::Bars,
+            &capture,
+            CatalogSink::<Bar>::from_config,
+        )?;
+        let book_delta_runtime = maybe_family_runtime(
+            flags.book_deltas,
+            CaptureFlushFamily::BookDeltas,
+            &capture,
+            CatalogSink::<OrderBookDelta>::from_config,
+        )?;
         let catalog_root = catalog_root_from_uri(&config.capture.catalog_uri)?;
         let initial_materialized_plan = config.plan.clone();
         let supplemental_plan = supplemental_capture_plan(

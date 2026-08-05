@@ -28,7 +28,8 @@ pub struct ResolvedSealSchedule {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SealConfigFile {
-    #[serde(default)]
+    /// When true (default), segment mode seals on the wall-clock schedule.
+    #[serde(default = "default_seal_enabled")]
     pub enabled: bool,
     #[serde(default = "default_seal_schedule")]
     pub schedule: String,
@@ -41,12 +42,17 @@ pub struct SealConfigFile {
 impl Default for SealConfigFile {
     fn default() -> Self {
         Self {
-            enabled: false,
+            // Production default: daily seal with segment mode (see LifecycleMode::Segment).
+            enabled: true,
             schedule: default_seal_schedule(),
             timezone: default_seal_timezone(),
             interval_secs: default_seal_interval_secs(),
         }
     }
+}
+
+const fn default_seal_enabled() -> bool {
+    true
 }
 
 pub fn parse_seal_schedule(value: &str) -> Result<u64> {
