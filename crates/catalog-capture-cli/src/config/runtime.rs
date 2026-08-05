@@ -89,7 +89,9 @@ pub struct Hip4UniverseRefreshRuntimeConfig {
     pub pre_expiry_window_secs: u64,
     #[serde(default = "default_hip4_http_timeout_secs")]
     pub http_timeout_secs: u64,
-    #[serde(default)]
+    /// Purge rolled-off outcome instruments from Nautilus `Cache` (definition + quotes/trades/…).
+    /// Default **true** so daily rolls do not retain expired instruments in process memory.
+    #[serde(default = "default_hip4_purge_removed_instruments")]
     pub purge_removed_instruments: bool,
 }
 
@@ -101,7 +103,7 @@ impl Default for Hip4UniverseRefreshRuntimeConfig {
             active_poll_secs: default_hip4_active_poll_secs(),
             pre_expiry_window_secs: default_hip4_pre_expiry_window_secs(),
             http_timeout_secs: default_hip4_http_timeout_secs(),
-            purge_removed_instruments: false,
+            purge_removed_instruments: default_hip4_purge_removed_instruments(),
         }
     }
 }
@@ -133,6 +135,11 @@ pub struct OptionUniverseRefreshRuntimeConfig {
     /// is applied. Zero disables smoothing.
     #[serde(default = "default_option_universe_strike_change_confirmations")]
     pub strike_change_confirmations: u32,
+    /// Purge rolled-off option instruments from Nautilus `Cache` (definition + quotes/trades/…).
+    /// Default **true** so expiry/ATM/OI rolls do not retain expired options in process memory.
+    /// Catalog parquet on disk is never deleted.
+    #[serde(default = "default_option_universe_purge_removed_instruments")]
+    pub purge_removed_instruments: bool,
 }
 
 impl Default for OptionUniverseRefreshRuntimeConfig {
@@ -141,6 +148,7 @@ impl Default for OptionUniverseRefreshRuntimeConfig {
             enabled: false,
             interval_secs: default_option_universe_refresh_interval_secs(),
             strike_change_confirmations: default_option_universe_strike_change_confirmations(),
+            purge_removed_instruments: default_option_universe_purge_removed_instruments(),
         }
     }
 }
@@ -197,6 +205,14 @@ const fn default_hip4_http_timeout_secs() -> u64 {
     10
 }
 
+const fn default_hip4_purge_removed_instruments() -> bool {
+    true
+}
+
 const fn default_option_universe_strike_change_confirmations() -> u32 {
     2
+}
+
+const fn default_option_universe_purge_removed_instruments() -> bool {
+    true
 }

@@ -30,6 +30,9 @@ use crate::dynamic_plan::{build_dynamic_plan_delta, DynamicPlanDelta};
 pub struct DynamicOptionUniverseConfig {
     pub refresh_interval_secs: u64,
     pub strike_change_confirmations: u32,
+    /// When true, rolled-off option instruments are purged from Nautilus Cache
+    /// (definition + market-data maps). Catalog parquet on disk is never deleted.
+    pub purge_removed_instruments: bool,
     pub static_plan: CapturePlan,
     pub initial_dynamic_plan: CapturePlan,
     pub universes: Vec<DynamicOptionUniverseEntryConfig>,
@@ -76,6 +79,7 @@ struct DynamicOptionUniverseState {
 pub struct DynamicOptionUniverseManager {
     refresh_interval_secs: u64,
     strike_change_confirmations: u32,
+    purge_removed_instruments: bool,
     static_plan: CapturePlan,
     current_dynamic_plan: CapturePlan,
     universes: Vec<DynamicOptionUniverseState>,
@@ -101,6 +105,7 @@ impl DynamicOptionUniverseManager {
         Self {
             refresh_interval_secs: config.refresh_interval_secs,
             strike_change_confirmations: config.strike_change_confirmations,
+            purge_removed_instruments: config.purge_removed_instruments,
             static_plan: config.static_plan,
             current_dynamic_plan: config.initial_dynamic_plan,
             universes,
@@ -110,6 +115,11 @@ impl DynamicOptionUniverseManager {
     #[must_use]
     pub fn refresh_interval_secs(&self) -> u64 {
         self.refresh_interval_secs
+    }
+
+    #[must_use]
+    pub fn purge_removed_instruments_enabled(&self) -> bool {
+        self.purge_removed_instruments
     }
 
     #[must_use]
@@ -501,6 +511,7 @@ mod tests {
         let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
             strike_change_confirmations: 0,
+            purge_removed_instruments: true,
             static_plan: CapturePlan::default(),
             initial_dynamic_plan: initial_plan.clone(),
             universes: vec![DynamicOptionUniverseEntryConfig {
@@ -667,6 +678,7 @@ mod tests {
         let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
             strike_change_confirmations: 2,
+            purge_removed_instruments: true,
             static_plan: CapturePlan::default(),
             initial_dynamic_plan: initial_plan.clone(),
             universes: vec![DynamicOptionUniverseEntryConfig {
@@ -736,6 +748,7 @@ mod tests {
         let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
             strike_change_confirmations: 0,
+            purge_removed_instruments: true,
             static_plan: CapturePlan::default(),
             initial_dynamic_plan: initial_plan.clone(),
             universes: vec![DynamicOptionUniverseEntryConfig {
@@ -981,6 +994,7 @@ mod tests {
         let mut manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
             strike_change_confirmations: 0,
+            purge_removed_instruments: true,
             static_plan: CapturePlan::default(),
             initial_dynamic_plan: initial_plan.clone(),
             universes: vec![DynamicOptionUniverseEntryConfig {

@@ -67,6 +67,12 @@ const OPTION_UNIVERSE_REFRESH_TIMER: &str = "OPTION_UNIVERSE_REFRESH";
 const HIP4_UNIVERSE_REFRESH_TIMER: &str = "HIP4_UNIVERSE_REFRESH";
 const SEGMENT_SEAL_TIMER: &str = "SEGMENT_SEAL";
 const METRICS_EXPORT_TIMER: &str = "METRICS_EXPORT";
+/// One-shot timer name for post-roll deferred market-data (only while pending non-empty).
+const PENDING_MARKET_DATA_TIMER: &str = "PENDING_MARKET_DATA";
+/// First re-request interval after a roll when instrument is not yet cached (seconds).
+const PENDING_MD_BACKOFF_START_SECS: u64 = 1;
+/// Cap on re-request poll interval only — total wait is unbounded until cache-ready or roll-clear.
+const PENDING_MD_BACKOFF_MAX_SECS: u64 = 60;
 
 #[derive(Debug, Clone)]
 pub struct CatalogCaptureActorConfig {
@@ -132,6 +138,13 @@ pub struct CatalogCaptureActor {
     dynamic_hip4_universe: Option<DynamicHip4UniverseManager>,
     /// Request-style custom data jobs only (`request_data`). Never mixed with subscribe.
     custom_data_request_jobs: Vec<CustomDataRequestJob>,
+    /// Post-roll only: market-data subs waiting for instrument to enter cache.
+    /// Empty most of the day — no timer / re-request work while empty.
+    pending_market_data: BTreeSet<InstrumentId>,
+    /// Instrument IDs that already received market-data subscribe commands.
+    market_data_live: BTreeSet<InstrumentId>,
+    /// Adaptive re-request backoff (seconds) while `pending_market_data` is non-empty.
+    pending_market_data_backoff_secs: u64,
     metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
     metrics_refresh_interval_secs: Option<u64>,
     catalog_root: PathBuf,
@@ -280,6 +293,9 @@ impl CatalogCaptureActor {
                 .dynamic_hip4_universe
                 .map(DynamicHip4UniverseManager::new),
             custom_data_request_jobs,
+            pending_market_data: BTreeSet::new(),
+            market_data_live: BTreeSet::new(),
+            pending_market_data_backoff_secs: PENDING_MD_BACKOFF_START_SECS,
             metrics_snapshot: config.metrics_snapshot,
             metrics_refresh_interval_secs: config.metrics_refresh_interval_secs,
             catalog_root,
@@ -570,7 +586,11 @@ mod tests {
         plan::{CapturePlan, QuoteCaptureSpec},
         CaptureConfig,
     };
-    use nautilus_common::{actor::Component, cache::Cache, clock::TestClock};
+    use nautilus_common::{
+        actor::{Component, DataActor},
+        cache::Cache,
+        clock::TestClock,
+    };
     use nautilus_model::{
         data::QuoteTick,
         identifiers::{InstrumentId, TraderId},
@@ -653,6 +673,10 @@ mod tests {
                 .expect("quote should be cached");
         }
 
+        // Simulate post-roll actor bookkeeping still holding the expired id.
+        actor.pending_market_data.insert(instrument_id);
+        actor.market_data_live.insert(instrument_id);
+
         assert!(cache.borrow().instrument(&instrument_id).is_some());
         assert!(cache.borrow().quote(&instrument_id).is_some());
 
@@ -671,9 +695,330 @@ mod tests {
             removed_instrument_ids: vec![instrument_id],
         }]);
 
+        // Nautilus Cache::purge_instrument clears definition + per-instrument market data.
         assert!(cache.borrow().instrument(&instrument_id).is_none());
         assert!(cache.borrow().quote(&instrument_id).is_none());
+        assert!(!actor.pending_market_data.contains(&instrument_id));
+        assert!(!actor.market_data_live.contains(&instrument_id));
 
         let _ = actor.shutdown_all().expect("shutdown should succeed");
+    }
+
+    #[test]
+    fn hip4_roll_defers_market_data_until_instrument_ready_then_subscribes() {
+        use catalog_capture_core::plan::TradeCaptureSpec;
+
+        let catalog_dir = std::env::temp_dir().join(format!(
+            "catalog-capture-actor-hip4-defer-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&catalog_dir);
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
+
+        let old_id = InstrumentId::from("1001-NO-OUTCOME.HYPERLIQUID");
+        let new_id = InstrumentId::from("1009-NO-OUTCOME.HYPERLIQUID");
+        let initial_plan = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: old_id,
+            }],
+            trades: vec![TradeCaptureSpec {
+                instrument_id: old_id,
+            }],
+            ..CapturePlan::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            initial_plan.clone(),
+        ))
+        .expect("actor");
+
+        let clock = Rc::new(RefCell::new(TestClock::new()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        actor
+            .register(TraderId::test_default(), clock, cache.clone())
+            .expect("register");
+
+        // Pretend old outcome was live.
+        actor.market_data_live.insert(old_id);
+        actor.plan = initial_plan;
+
+        let add = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: new_id,
+            }],
+            trades: vec![TradeCaptureSpec {
+                instrument_id: new_id,
+            }],
+            ..CapturePlan::default()
+        };
+        let remove = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: old_id,
+            }],
+            trades: vec![TradeCaptureSpec {
+                instrument_id: old_id,
+            }],
+            ..CapturePlan::default()
+        };
+
+        // New instrument not in cache yet → must defer (no race subscribe).
+        actor
+            .apply_subscription_delta(&add, &remove)
+            .expect("delta");
+        assert!(
+            actor.pending_market_data.contains(&new_id),
+            "new instrument should be pending until cache-ready"
+        );
+        assert!(
+            !actor.market_data_live.contains(&new_id),
+            "must not mark market-data live before instrument is cached"
+        );
+        assert!(
+            !actor.market_data_live.contains(&old_id),
+            "removed instrument must leave market_data_live"
+        );
+
+        // Instrument arrives (simulates request_instrument / adapter response).
+        let mut new_inst = audusd_sim();
+        new_inst.id = new_id;
+        cache
+            .borrow_mut()
+            .add_instrument(InstrumentAny::CurrencyPair(new_inst.clone()))
+            .expect("cache add");
+        // Plan already synced by apply_subscription_delta to effective plan (may be empty
+        // without dynamic managers). Point plan at the post-roll add set for on_instrument.
+        actor.plan = add;
+        actor
+            .on_instrument(&InstrumentAny::CurrencyPair(new_inst))
+            .expect("on_instrument");
+
+        assert!(
+            !actor.pending_market_data.contains(&new_id),
+            "pending cleared once instrument is ready"
+        );
+        assert!(
+            actor.market_data_live.contains(&new_id),
+            "market-data marked live after ready-then-subscribe"
+        );
+
+        let _ = actor.shutdown_all().expect("shutdown");
+        let _ = fs::remove_dir_all(&catalog_dir);
+    }
+
+    #[test]
+    fn purge_skips_perp_and_clears_expired_outcome_only() {
+        let catalog_dir = std::env::temp_dir().join(format!(
+            "catalog-capture-actor-hip4-purge-perp-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&catalog_dir);
+        fs::create_dir_all(&catalog_dir).expect("temp");
+
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            CapturePlan::default(),
+        ))
+        .expect("actor");
+        actor.dynamic_hip4_universe =
+            Some(DynamicHip4UniverseManager::new(DynamicHip4UniverseConfig {
+                idle_poll_secs: 1800,
+                active_poll_secs: 10,
+                pre_expiry_window_secs: 900,
+                http_timeout_secs: 10,
+                purge_removed_instruments: true,
+                static_plan: CapturePlan::default(),
+                initial_dynamic_plan: CapturePlan::default(),
+                universes: vec![],
+            }));
+
+        let clock = Rc::new(RefCell::new(TestClock::new()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        actor
+            .register(TraderId::test_default(), clock, cache.clone())
+            .expect("register");
+
+        let mut outcome = audusd_sim();
+        let outcome_id = InstrumentId::from("1001-NO-OUTCOME.HYPERLIQUID");
+        outcome.id = outcome_id;
+        let mut perp = audusd_sim();
+        let perp_id = InstrumentId::from("BTC-USD-PERP.HYPERLIQUID");
+        perp.id = perp_id;
+        {
+            let mut c = cache.borrow_mut();
+            c.add_instrument(InstrumentAny::CurrencyPair(outcome))
+                .unwrap();
+            c.add_instrument(InstrumentAny::CurrencyPair(perp))
+                .unwrap();
+            c.add_quote(QuoteTick {
+                instrument_id: outcome_id,
+                ..QuoteTick::default()
+            })
+            .unwrap();
+            c.add_quote(QuoteTick {
+                instrument_id: perp_id,
+                ..QuoteTick::default()
+            })
+            .unwrap();
+        }
+        actor.market_data_live.insert(outcome_id);
+        actor.market_data_live.insert(perp_id);
+
+        actor.purge_removed_hip4_instruments(&[DynamicHip4UniverseChange {
+            venue_id: "hyperliquid_main".to_string(),
+            underlying: "BTC".to_string(),
+            period: "1d".to_string(),
+            market_class: "priceBinary".to_string(),
+            question_id: 1009,
+            expiration_iso8601: "2026-08-05T06:00:00Z".to_string(),
+            perp_instrument_id: Some(perp_id),
+            outcome_instrument_ids: vec![InstrumentId::from("1009-NO-OUTCOME.HYPERLIQUID")],
+            previous_count: 3,
+            next_count: 3,
+            added_instrument_ids: vec![InstrumentId::from("1009-NO-OUTCOME.HYPERLIQUID")],
+            // Even if remove list wrongly includes perp, purge must keep it.
+            removed_instrument_ids: vec![outcome_id, perp_id],
+        }]);
+
+        assert!(
+            cache.borrow().instrument(&outcome_id).is_none(),
+            "expired outcome purged"
+        );
+        assert!(
+            cache.borrow().quote(&outcome_id).is_none(),
+            "outcome quotes purged with instrument"
+        );
+        assert!(
+            cache.borrow().instrument(&perp_id).is_some(),
+            "perp reference retained"
+        );
+        assert!(
+            cache.borrow().quote(&perp_id).is_some(),
+            "perp market data retained"
+        );
+        assert!(!actor.market_data_live.contains(&outcome_id));
+        assert!(
+            actor.market_data_live.contains(&perp_id),
+            "perp live flag not cleared by purge of outcomes"
+        );
+
+        let _ = actor.shutdown_all().expect("shutdown");
+        let _ = fs::remove_dir_all(&catalog_dir);
+    }
+
+    #[test]
+    fn option_universe_purge_clears_expired_options_keeps_perp_and_still_active() {
+        use catalog_capture_core::plan::QuoteCaptureSpec;
+
+        let catalog_dir = std::env::temp_dir().join(format!(
+            "catalog-capture-actor-option-purge-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&catalog_dir);
+        fs::create_dir_all(&catalog_dir).expect("temp");
+
+        let expired = InstrumentId::from("BTC-26JUN26-65000-C.DERIBIT");
+        let still_active = InstrumentId::from("BTC-26JUN26-66000-C.DERIBIT");
+        let perp = InstrumentId::from("BTC-PERPETUAL.DERIBIT");
+
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            CapturePlan {
+                // Static plan still references still_active → must not purge it
+                // even if a change lists it under removed.
+                quotes: vec![QuoteCaptureSpec {
+                    instrument_id: still_active,
+                }],
+                ..CapturePlan::default()
+            },
+        ))
+        .expect("actor");
+        actor.dynamic_option_universe =
+            Some(DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
+                refresh_interval_secs: 60,
+                strike_change_confirmations: 0,
+                purge_removed_instruments: true,
+                static_plan: CapturePlan {
+                    quotes: vec![QuoteCaptureSpec {
+                        instrument_id: still_active,
+                    }],
+                    ..CapturePlan::default()
+                },
+                initial_dynamic_plan: CapturePlan::default(),
+                universes: vec![],
+            }));
+
+        let clock = Rc::new(RefCell::new(TestClock::new()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        actor
+            .register(TraderId::test_default(), clock, cache.clone())
+            .expect("register");
+
+        // Seed cache like a multi-day option capture.
+        for id in [expired, still_active, perp] {
+            let mut inst = audusd_sim();
+            inst.id = id;
+            cache
+                .borrow_mut()
+                .add_instrument(InstrumentAny::CurrencyPair(inst))
+                .unwrap();
+            cache
+                .borrow_mut()
+                .add_quote(QuoteTick {
+                    instrument_id: id,
+                    ..QuoteTick::default()
+                })
+                .unwrap();
+            actor.market_data_live.insert(id);
+        }
+        actor.pending_market_data.insert(expired);
+        // Post-roll plan already applied (still_active remains).
+        actor.sync_plan_state();
+
+        actor.purge_removed_option_instruments(&[crate::DynamicOptionUniverseChange {
+            venue_id: "deribit_main".to_string(),
+            underlying: "BTC".to_string(),
+            selected_expiry_iso8601: "2026-06-26T08:00:00.000000000Z".to_string(),
+            perp_instrument_id: Some(perp),
+            option_instrument_ids: vec![still_active],
+            previous_count: 3,
+            next_count: 2,
+            added_instrument_ids: vec![],
+            // Include still_active + perp in remove list to prove guards work.
+            removed_instrument_ids: vec![expired, still_active, perp],
+        }]);
+
+        assert!(
+            cache.borrow().instrument(&expired).is_none(),
+            "expired option definition purged from Cache"
+        );
+        assert!(
+            cache.borrow().quote(&expired).is_none(),
+            "expired option quotes purged with instrument"
+        );
+        assert!(!actor.market_data_live.contains(&expired));
+        assert!(!actor.pending_market_data.contains(&expired));
+
+        assert!(
+            cache.borrow().instrument(&perp).is_some(),
+            "perp reference must not be purged"
+        );
+        assert!(cache.borrow().quote(&perp).is_some());
+        assert!(
+            cache.borrow().instrument(&still_active).is_some(),
+            "still-active plan instrument must not be purged"
+        );
+        assert!(cache.borrow().quote(&still_active).is_some());
+
+        let _ = actor.shutdown_all().expect("shutdown");
+        let _ = fs::remove_dir_all(&catalog_dir);
     }
 }

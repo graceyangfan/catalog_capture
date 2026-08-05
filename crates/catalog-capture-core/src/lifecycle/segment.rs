@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use nautilus_model::data::{CatalogPathPrefix, HasTsInit};
@@ -223,7 +223,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, str::FromStr};
+    use std::{fs, path::Path, str::FromStr};
 
     use nautilus_core::UnixNanos;
     use nautilus_model::{

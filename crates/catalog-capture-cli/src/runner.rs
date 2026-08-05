@@ -747,6 +747,10 @@ fn build_dynamic_option_universe_config(
             .runtime
             .option_universe_refresh
             .strike_change_confirmations,
+        purge_removed_instruments: config
+            .runtime
+            .option_universe_refresh
+            .purge_removed_instruments,
         static_plan: config.plan.clone(),
         initial_dynamic_plan,
         universes,

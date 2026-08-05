@@ -7,6 +7,7 @@ node_name = "CATALOG-CAPTURE-DERIBIT-BTC-UNIVERSE-AUTOREFRESH"
 [runtime.option_universe_refresh]
 enabled = true
 interval_secs = 15
+# purge_removed_instruments defaults to true (Cache purge only; catalog files kept)
 
 [output]
 catalog_uri = "file://./data/deribit-btc-universe-autorefresh"

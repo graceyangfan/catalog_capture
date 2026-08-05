@@ -35,10 +35,28 @@ When `[runtime.hip4_universe_refresh]` is enabled:
 1. Poll Hyperliquid `outcomeMeta` on an adaptive schedule  
    (idle far from expiry, faster near expiry).  
 2. Resolve the next matching market (e.g. BTC `priceBinary` `1d`).  
-3. **Unsubscribe** the previous plan, **bootstrap** new instruments, **subscribe** the new plan.  
-4. Optionally purge removed instruments from cache.
+3. **Unsubscribe** the previous plan, **bootstrap** new instruments.  
+4. **Ready-then-subscribe** for quotes/trades/…: only after the new instrument is in
+   the actor cache (`on_instrument`). If not ready yet, the id stays **pending** and
+   we re-request with adaptive backoff (1s→…→60s poll only) until cache-ready or the
+   next roll clears it — **no fixed wait-before-subscribe and no total-wait cap**.
+   Work runs only while pending is non-empty (not all day).  
+5. **Purge expired outcomes** when `purge_removed_instruments = true` (default): call
+   Nautilus `Cache::purge_instrument`, which drops the definition **and** cache-owned
+   quotes/trades/books/marks/… so RSS does not grow across daily rolls. Perp reference
+   is kept.
 
-Unit tests cover selection and adaptive delay; live smoke still needs network.
+### Option universe (Deribit / Bybit / OKX)
+
+Same memory policy as HIP-4 after expiry / ATM / OI rolls:
+
+- `[runtime.option_universe_refresh] purge_removed_instruments = true` (**default**)
+- Unsub + forget runtime state, then `Cache::purge_instrument` on removed options
+- Keeps **perp** and any id still in the active capture plan (static or other universes)
+- **Does not** delete catalog parquet on disk
+
+Unit tests cover HIP-4 roll defer → ready subscribe, HIP-4/option purge guards, and
+selection/adaptive delay; live smoke still needs network.
 
 ## Deribit book summary rate
 

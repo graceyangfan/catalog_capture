@@ -98,6 +98,7 @@ mod tests {
         let option_manager = DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
             strike_change_confirmations: 0,
+            purge_removed_instruments: true,
             static_plan: static_plan.clone(),
             initial_dynamic_plan: option_dynamic,
             universes: vec![],
@@ -145,6 +146,7 @@ mod tests {
         let option_config = DynamicOptionUniverseConfig {
             refresh_interval_secs: 60,
             strike_change_confirmations: 0,
+            purge_removed_instruments: true,
             static_plan: static_plan.clone(),
             initial_dynamic_plan: option_dynamic,
             universes: vec![],

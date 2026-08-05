@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::any::Any;
+use std::{any::Any, collections::BTreeSet};
 
 use super::*;
 use crate::actor_runtime::{custom_data_client_id, optional_flush_all, optional_seal_all};
@@ -23,6 +23,7 @@ use catalog_capture_core::{
 };
 use nautilus_common::{actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent};
 use nautilus_core::UnixNanos;
+use nautilus_model::instruments::Instrument;
 
 impl CatalogCaptureActor {
     /// Bootstrap instrument metadata before market-data subscriptions.
@@ -43,7 +44,10 @@ impl CatalogCaptureActor {
     fn bootstrap_instrument(&mut self, instrument_id: InstrumentId) -> Result<()> {
         let instrument = { self.cache().instrument(&instrument_id) };
         if let Some(instrument) = instrument {
-            self.on_instrument(&instrument)
+            // Capture instrument snapshot only; market-data is gated separately so HIP-4
+            // rolls do not race SubscribeQuotes/Trades against a cold adapter cache.
+            self.submit_instrument(instrument)?;
+            Ok(())
         } else {
             self.request_instrument(instrument_id, None, None, None, None)?;
             self.subscribe_instrument(instrument_id, None, None);
@@ -51,9 +55,14 @@ impl CatalogCaptureActor {
         }
     }
 
+    /// Subscribe path only (`subscribe_data` → live `on_data`).
+    ///
+    /// Market-data (quotes/trades/…) is **ready-then-subscribe**: only after the instrument
+    /// is in the actor cache. Cold instruments after a universe roll go into
+    /// `pending_market_data` and are completed on `on_instrument` (or by a backup
+    /// re-request loop that runs **only while pending is non-empty** — not all day).
+    /// Request-style jobs (`custom_data_requests`) must NOT be subscribed here.
     fn subscribe_plan(&mut self, plan: &CapturePlan) {
-        // Subscribe path only (`subscribe_data` → live `on_data`).
-        // Request-style jobs (`custom_data_requests`) must NOT be subscribed here.
         for spec in &plan.custom_data {
             self.subscribe_data(
                 spec.data_type.clone(),
@@ -62,34 +71,82 @@ impl CatalogCaptureActor {
             );
         }
 
+        let mut deferred_any = false;
+        for instrument_id in plan.planned_instrument_ids() {
+            if self.cache().instrument(&instrument_id).is_some() {
+                self.subscribe_market_data_for_instrument(instrument_id);
+            } else {
+                self.pending_market_data.insert(instrument_id);
+                deferred_any = true;
+                log::info!(
+                    "catalog-capture: deferring market-data for {instrument_id} until instrument is in cache (ready-then-subscribe)"
+                );
+            }
+        }
+        if deferred_any {
+            // Reset backoff for this roll; timer only runs while pending stays non-empty.
+            self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
+            self.schedule_pending_market_data_retry();
+        }
+    }
+
+    /// Subscribe quotes/trades/… for one instrument (idempotent).
+    fn subscribe_market_data_for_instrument(&mut self, instrument_id: InstrumentId) {
+        if !self.market_data_live.insert(instrument_id) {
+            return;
+        }
+        self.pending_market_data.remove(&instrument_id);
+
+        let plan = self.plan.clone();
         for spec in &plan.mark_prices {
-            self.subscribe_mark_prices(spec.instrument_id, None, None);
+            if spec.instrument_id == instrument_id {
+                self.subscribe_mark_prices(spec.instrument_id, None, None);
+            }
         }
         for spec in &plan.index_prices {
-            self.subscribe_index_prices(spec.instrument_id, None, None);
+            if spec.instrument_id == instrument_id {
+                self.subscribe_index_prices(spec.instrument_id, None, None);
+            }
         }
         for spec in &plan.funding_rates {
-            self.subscribe_funding_rates(spec.instrument_id, None, None);
+            if spec.instrument_id == instrument_id {
+                self.subscribe_funding_rates(spec.instrument_id, None, None);
+            }
         }
         for spec in &plan.instrument_statuses {
-            self.subscribe_instrument_status(spec.instrument_id, None, None);
+            if spec.instrument_id == instrument_id {
+                self.subscribe_instrument_status(spec.instrument_id, None, None);
+            }
         }
         for spec in &plan.instrument_closes {
-            self.subscribe_instrument_close(spec.instrument_id, None, None);
+            if spec.instrument_id == instrument_id {
+                self.subscribe_instrument_close(spec.instrument_id, None, None);
+            }
         }
         for spec in &plan.option_greeks {
-            self.subscribe_option_greeks(spec.instrument_id, None, None);
+            if spec.instrument_id == instrument_id {
+                self.subscribe_option_greeks(spec.instrument_id, None, None);
+            }
         }
         for spec in &plan.quotes {
-            self.subscribe_quotes(spec.instrument_id, None, None);
+            if spec.instrument_id == instrument_id {
+                self.subscribe_quotes(spec.instrument_id, None, None);
+            }
         }
         for spec in &plan.trades {
-            self.subscribe_trades(spec.instrument_id, None, None);
+            if spec.instrument_id == instrument_id {
+                self.subscribe_trades(spec.instrument_id, None, None);
+            }
         }
         for spec in &plan.bars {
-            self.subscribe_bars(spec.bar_type, None, None);
+            if spec.bar_type.instrument_id() == instrument_id {
+                self.subscribe_bars(spec.bar_type, None, None);
+            }
         }
         for spec in &plan.book_deltas {
+            if spec.instrument_id != instrument_id {
+                continue;
+            }
             let depth = spec
                 .depth
                 .and_then(|levels| std::num::NonZeroUsize::new(levels));
@@ -104,6 +161,72 @@ impl CatalogCaptureActor {
                 None,
             );
         }
+        log::info!("catalog-capture: market-data subscribed for {instrument_id}");
+    }
+
+    /// Schedule a **one-shot** re-request only while post-roll pending is non-empty.
+    /// Wait time is unbounded: we keep rescheduling until cache-ready or the id is rolled off.
+    fn schedule_pending_market_data_retry(&mut self) {
+        self.clock().cancel_timer(PENDING_MARKET_DATA_TIMER);
+        if self.pending_market_data.is_empty() {
+            self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
+            return;
+        }
+        let delay_secs = self
+            .pending_market_data_backoff_secs
+            .clamp(PENDING_MD_BACKOFF_START_SECS, PENDING_MD_BACKOFF_MAX_SECS);
+        let interval_ns = delay_secs.saturating_mul(1_000_000_000);
+        // One-shot alert: fire once after `delay_secs`, not a continuous all-day timer.
+        let fire_at = self.clock().timestamp_ns() + UnixNanos::from(interval_ns);
+        if let Err(err) = self.clock().set_time_alert_ns(
+            PENDING_MARKET_DATA_TIMER,
+            fire_at,
+            None,
+            None,
+        ) {
+            log::warn!("catalog-capture: failed to schedule pending market-data retry: {err}");
+        }
+    }
+
+    /// Backup path while instruments from a roll are still missing from cache.
+    /// Primary path is [`Self::on_instrument`] (immediate ready-then-subscribe).
+    fn retry_pending_market_data(&mut self) -> Result<()> {
+        if self.pending_market_data.is_empty() {
+            self.clock().cancel_timer(PENDING_MARKET_DATA_TIMER);
+            self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
+            return Ok(());
+        }
+
+        let pending: Vec<InstrumentId> = self.pending_market_data.iter().copied().collect();
+        let mut still_waiting = false;
+        for instrument_id in pending {
+            if self.cache().instrument(&instrument_id).is_some() {
+                log::info!(
+                    "catalog-capture: instrument {instrument_id} ready in cache; subscribing market data"
+                );
+                self.subscribe_market_data_for_instrument(instrument_id);
+            } else {
+                still_waiting = true;
+                log::info!(
+                    "catalog-capture: instrument {instrument_id} not in cache yet; re-requesting (unbounded wait until ready or next roll)"
+                );
+                let _ = self.request_instrument(instrument_id, None, None, None, None);
+                self.subscribe_instrument(instrument_id, None, None);
+            }
+        }
+
+        if still_waiting {
+            // Adaptive poll interval only (1→2→4…→60s). No cap on total wall-clock wait.
+            self.pending_market_data_backoff_secs = self
+                .pending_market_data_backoff_secs
+                .saturating_mul(2)
+                .clamp(PENDING_MD_BACKOFF_START_SECS, PENDING_MD_BACKOFF_MAX_SECS);
+            self.schedule_pending_market_data_retry();
+        } else {
+            self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
+            self.clock().cancel_timer(PENDING_MARKET_DATA_TIMER);
+        }
+        Ok(())
     }
 
     fn unsubscribe_plan(&mut self, plan: &CapturePlan) {
@@ -148,16 +271,52 @@ impl CatalogCaptureActor {
         }
     }
 
-    fn apply_subscription_delta(&mut self, add: &CapturePlan, remove: &CapturePlan) -> Result<()> {
+    pub(crate) fn apply_subscription_delta(
+        &mut self,
+        add: &CapturePlan,
+        remove: &CapturePlan,
+    ) -> Result<()> {
         // Drop stale streams first (HIP-4 / option universe day-roll), then
         // bootstrap and attach the new plan. Keeps one coherent subscription set.
         self.unsubscribe_plan(remove);
+        for instrument_id in remove.planned_instrument_ids() {
+            // Always drop local subscribe bookkeeping so expired ids cannot keep
+            // pending timers / live flags alive across rolls.
+            self.forget_instrument_runtime_state(instrument_id);
+        }
         for instrument_id in add.planned_instrument_ids() {
             self.bootstrap_instrument(instrument_id)?;
         }
-        self.subscribe_plan(add);
+        // Plan must reflect the post-roll universe before market-data subscribe / on_instrument.
         self.sync_plan_state();
+        self.subscribe_plan(add);
         Ok(())
+    }
+
+    /// Drop actor-side market-data bookkeeping for an instrument (pending + live + timer).
+    fn forget_instrument_runtime_state(&mut self, instrument_id: InstrumentId) {
+        self.pending_market_data.remove(&instrument_id);
+        self.market_data_live.remove(&instrument_id);
+        if self.pending_market_data.is_empty() {
+            self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
+            self.clock().cancel_timer(PENDING_MARKET_DATA_TIMER);
+        }
+    }
+
+    /// Purge an expired instrument via Nautilus `Cache::purge_instrument`.
+    ///
+    /// NT removes the definition **and** cache-owned per-instrument market data
+    /// (quotes, trades, books, mark/index/funding, statuses, greeks, bar types).
+    /// Capture has no open orders/positions, so the standard purge path is correct.
+    fn purge_instrument_from_cache(&mut self, instrument_id: InstrumentId) {
+        self.forget_instrument_runtime_state(instrument_id);
+        let cache = self.cache_rc();
+        let mut cache = cache.borrow_mut();
+        // Official API: see nautilus_common::cache::Cache::purge_instrument
+        cache.purge_instrument(instrument_id);
+        log::info!(
+            "catalog-capture: purged expired instrument {instrument_id} from cache (definition + market-data maps)"
+        );
     }
 
     fn log_option_universe_refresh(&self, change: &crate::DynamicOptionUniverseChange) {
@@ -235,6 +394,7 @@ impl CatalogCaptureActor {
                 )?;
             }
             self.apply_subscription_delta(&delta.add, &delta.remove)?;
+            self.purge_removed_option_instruments(&delta.changes);
         }
         Ok(())
     }
@@ -267,6 +427,11 @@ impl CatalogCaptureActor {
         Ok(())
     }
 
+    /// Purge rolled-off HIP-4 outcome instruments from the shared Nautilus cache.
+    ///
+    /// Keeps the perpetual reference (shared across days). Uses
+    /// [`Cache::purge_instrument`] so quotes/trades/books/etc. do not accumulate
+    /// across daily rolls and inflate process RSS.
     pub(crate) fn purge_removed_hip4_instruments(
         &mut self,
         changes: &[crate::DynamicHip4UniverseChange],
@@ -278,15 +443,61 @@ impl CatalogCaptureActor {
             return;
         }
 
-        let cache = self.cache_rc();
-        let mut cache = cache.borrow_mut();
+        let mut to_purge: BTreeSet<InstrumentId> = BTreeSet::new();
         for change in changes {
             for instrument_id in &change.removed_instrument_ids {
                 if Some(*instrument_id) == change.perp_instrument_id {
                     continue;
                 }
-                cache.purge_instrument(*instrument_id);
+                to_purge.insert(*instrument_id);
             }
+        }
+        // Still referenced by static/other universe plan → keep in cache.
+        let still_active: BTreeSet<InstrumentId> =
+            self.plan.planned_instrument_ids().into_iter().collect();
+        for instrument_id in to_purge {
+            if still_active.contains(&instrument_id) {
+                continue;
+            }
+            self.purge_instrument_from_cache(instrument_id);
+        }
+    }
+
+    /// Purge rolled-off Deribit/Bybit/OKX option instruments from Nautilus Cache.
+    ///
+    /// Same memory semantics as HIP-4: definition + cache market-data maps only;
+    /// catalog parquet on disk is never deleted. Skips perps and any id still in
+    /// the post-roll active capture plan (static + other universes).
+    pub(crate) fn purge_removed_option_instruments(
+        &mut self,
+        changes: &[crate::DynamicOptionUniverseChange],
+    ) {
+        let Some(manager) = self.dynamic_option_universe.as_ref() else {
+            return;
+        };
+        if !manager.purge_removed_instruments_enabled() {
+            return;
+        }
+
+        let mut to_purge: BTreeSet<InstrumentId> = BTreeSet::new();
+        for change in changes {
+            for instrument_id in &change.removed_instrument_ids {
+                if Some(*instrument_id) == change.perp_instrument_id {
+                    continue;
+                }
+                to_purge.insert(*instrument_id);
+            }
+        }
+        let still_active: BTreeSet<InstrumentId> =
+            self.plan.planned_instrument_ids().into_iter().collect();
+        for instrument_id in to_purge {
+            if still_active.contains(&instrument_id) {
+                log::debug!(
+                    "catalog-capture: skip purge of {instrument_id} (still in active capture plan)"
+                );
+                continue;
+            }
+            self.purge_instrument_from_cache(instrument_id);
         }
     }
 
@@ -478,9 +689,9 @@ impl CatalogCaptureActor {
 impl DataActor for CatalogCaptureActor {
     fn on_start(&mut self) -> Result<()> {
         self.bootstrap_instruments()?;
+        self.sync_plan_state();
         let plan = self.plan.clone();
-        self.sync_forward_price_targets(&plan);
-        // 1) Subscribe streams (includes subscribe-style custom_data only).
+        // 1) Subscribe streams (custom immediate; market-data waits for instrument cache).
         self.subscribe_plan(&plan);
         // 2) Request polls (custom_data_requests only) — separate Nautilus path.
         self.start_custom_data_request_jobs()?;
@@ -523,6 +734,9 @@ impl DataActor for CatalogCaptureActor {
         if event.name == HIP4_UNIVERSE_REFRESH_TIMER {
             self.apply_dynamic_hip4_universe_refresh()?;
         }
+        if event.name == PENDING_MARKET_DATA_TIMER {
+            self.retry_pending_market_data()?;
+        }
         if event.name == SEGMENT_SEAL_TIMER {
             self.seal_segment_runtimes()?;
             self.schedule_segment_seal()?;
@@ -540,7 +754,20 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_instrument(&mut self, instrument: &InstrumentAny) -> Result<()> {
-        self.submit_instrument(instrument.clone())
+        self.submit_instrument(instrument.clone())?;
+        let instrument_id = instrument.id();
+        // Primary path: instrument entered cache → subscribe market data immediately (any delay).
+        let needs_md = self.pending_market_data.contains(&instrument_id)
+            || (self.plan.planned_instrument_ids().contains(&instrument_id)
+                && !self.market_data_live.contains(&instrument_id));
+        if needs_md {
+            self.subscribe_market_data_for_instrument(instrument_id);
+            if self.pending_market_data.is_empty() {
+                self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
+                self.clock().cancel_timer(PENDING_MARKET_DATA_TIMER);
+            }
+        }
+        Ok(())
     }
 
     /// Live subscribe path only (`subscribe_data` → stream).

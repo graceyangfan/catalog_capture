@@ -13,8 +13,9 @@ python3 tests/probe_hip4_smoke.py --seconds 60 --cleanup
 set `mode = "chunked"` explicitly — `validate` / `run` print a **WARNING** when custom data
 is present. Prefer default segment for multi-venue / forever runs.
 
-Prefer `purge_removed_instruments = true` under `[runtime.hip4_universe_refresh]`
-for long HIP-4 runs.
+HIP-4 and option-universe `purge_removed_instruments` default to **true** (purge
+rolled-off instruments via Nautilus `Cache::purge_instrument` — memory only, not
+catalog files). Keep enabled for multi-day forever runs.
 
 ## Soak profiles
 
