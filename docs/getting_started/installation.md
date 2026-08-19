@@ -12,18 +12,17 @@ Path dependencies expect a sibling Nautilus Trader tree:
 ## Bootstrap
 
 ```bash
-make bootstrap-deps
+make bootstrap-deps          # recommended: resolve sibling + checkout CI pin
+# make bootstrap-deps-local  # resolve sibling only (no pin checkout)
 ```
 
 1. Uses `NAUTILUS_TRADER_PATH` if set, else existing `../nautilus_trader`.
-2. If missing, clones `nautechsystems/nautilus_trader` **develop** into `../nautilus_trader`.
-3. Runs a workspace check.
+2. If missing, clones `nautechsystems/nautilus_trader` into `../nautilus_trader`.
+3. `make bootstrap-deps` checks out the **CI-pinned** revision (`--pin-ci`).
+4. Runs a workspace check.
 
-Match CI pin:
-
-```bash
-./scripts/bootstrap-deps.sh --pin-ci
-```
+First-time / reproducible builds should use the pin. Use `bootstrap-deps-local` only
+when you intentionally develop against a different Nautilus checkout.
 
 ### Pinned Nautilus Trader revision (CI)
 

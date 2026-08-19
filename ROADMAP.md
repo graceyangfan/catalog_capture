@@ -23,13 +23,15 @@ see [TRADEMARK.md](TRADEMARK.md).
 | Segment lifecycle / unattended | done |
 | Catalog write + ParquetDataCatalog readback | done |
 | Independent branding / docs | done |
+| Row-group capacity (BookSummary long parts) | done |
+| Multi-day mainnet unattended soak | done (operator-validated) |
 
 ## Next
 
 1. Minimal BacktestNode (or load) smoke beyond catalog query
-2. Nightly live smoke against pinned Nautilus rev
+2. Nightly live smoke against pinned Nautilus rev (when CI minutes available)
 3. Optional: HIP-4 as a true optional feature
-4. Optional: per-family flush overrides in code
+4. Optional: per-family flush overrides in TOML
 5. Config `schema_version` when TOML next breaks
 
 When changing `NAUTILUS_TRADER_REF`, update `.github/workflows/ci.yml` and

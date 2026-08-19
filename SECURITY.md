@@ -12,8 +12,8 @@
 Please **do not** open a public GitHub issue for security problems that could
 enable remote compromise, secret leakage, or silent data corruption.
 
-Instead, email the maintainer contact on the GitHub profile for this repository,
-or open a **private** security advisory on GitHub if available.
+Instead, open a **private** GitHub security advisory on this repository when
+available, or contact the repository owner via their GitHub profile.
 
 Include:
 

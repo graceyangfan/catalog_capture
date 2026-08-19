@@ -14,12 +14,23 @@ venues → catalog-capture-cli + TOML
       → ParquetDataCatalog / Rust backtest
 ```
 
+## Status
+
+**0.1.x — early open source, research / operator oriented.**
+
+- Multi-venue mainnet capture (public market data) has been run unattended for
+  multi-day windows, including Hyperliquid rolling universe, Binance L2, and
+  Deribit BookSummary with daily segment seal.
+- APIs and TOML may still evolve; pin a commit for production jobs.
+- Best-effort support — see [SECURITY.md](SECURITY.md) and [ROADMAP.md](ROADMAP.md).
+
 ## Features
 
 - **One product binary** — `catalog-capture-cli` (TOML configs only)
 - **Rust catalog layout only** — `rust_canonical_only` (Nautilus `ParquetDataCatalog`)
 - **Venues** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (`venue-*` features)
 - **Universe refresh** — e.g. HIP-4 style outcome roll (unsub old / sub new)
+- **Segment lifecycle** — append `*.parquet.part`, seal on schedule (default 06:00 UTC)
 - **Mainnet-oriented examples** — public data by default (no keys in TOML)
 
 ## Quick start
@@ -27,6 +38,7 @@ venues → catalog-capture-cli + TOML
 Requires Rust **1.97.1** and sibling `../nautilus_trader`. Run from the **repo root**.
 
 ```bash
+# Clone + checkout the Nautilus revision pinned by CI (recommended)
 make bootstrap-deps
 
 # Cloud / multi-venue capture: only link venues you need (smaller, faster)

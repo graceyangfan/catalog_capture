@@ -10,7 +10,8 @@ CLI_PKG := catalog-capture-cli
 # Cloud multi-venue capture (no bybit/okx in the link graph).
 CAPTURE_FEATURES ?= venue-binance,venue-deribit,venue-hyperliquid
 
-.PHONY: bootstrap-deps build build-slim build-release build-release-capture build-release-small \
+.PHONY: bootstrap-deps bootstrap-deps-local build build-slim build-release \
+	build-release-capture build-release-small \
 	test test-lib fmt clippy pre-commit cargo-deny install-tools \
 	smoke-soak cleanup-tmp run-service clean clean-debug clean-all-targets help
 
@@ -26,9 +27,14 @@ help:
 	@echo "  clean / clean-debug    wipe this repo target/ (not ../nautilus_trader/target)"
 	@echo "  clean-all-targets      also wipe sibling nautilus_trader/target (frees tens of GB)"
 	@echo ""
-	@echo "Other: bootstrap-deps, test, test-lib, clippy, run-service CONFIG=..."
+	@echo "Other: bootstrap-deps (--pin-ci), bootstrap-deps-local, test, clippy, run-service..."
 
+# First-time / reproducible: match CI Nautilus pin.
 bootstrap-deps:
+	./scripts/bootstrap-deps.sh --pin-ci
+
+# Existing editable sibling tree — do not force-checkout the CI pin.
+bootstrap-deps-local:
 	./scripts/bootstrap-deps.sh
 
 build:

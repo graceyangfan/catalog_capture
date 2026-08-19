@@ -19,7 +19,11 @@ Contributions are accepted under **LGPL-3.0-or-later**. See `LICENSE` and `NOTIC
 ## Prerequisites
 
 ```bash
-make bootstrap-deps   # local sibling first; else clone nautechsystems/nautilus_trader@develop
+# Prefer the CI-pinned Nautilus revision (reproducible builds)
+make bootstrap-deps
+# Power users with an existing editable ../nautilus_trader tree:
+#   make bootstrap-deps-local
+
 make install-tools
 pip install pre-commit && pre-commit install
 ```

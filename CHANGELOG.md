@@ -16,6 +16,11 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Bootstrap default:** `make bootstrap-deps` now runs with `--pin-ci` so first-time
+  builds match CI’s Nautilus revision. Use `make bootstrap-deps-local` for an
+  editable sibling tree without forcing the pin.
+- **README Status:** document 0.1.x early-open-source expectations and multi-day
+  mainnet soak validation.
 - **Repository:** GitHub path is `graceyangfan/catalog_capture` (was
   `nautilus_catalog_capture`).
 - **Local-first paths:** examples and defaults use `file://./data/…` under the repo.
