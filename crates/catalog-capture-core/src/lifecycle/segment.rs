@@ -23,12 +23,9 @@ use serde::Serialize;
 
 use crate::{
     config::CaptureConfig,
-    lifecycle::{
-        segment_support::{
-            catalog_fs_directory, merge_flush, recover_orphans_under, segment_runtime_parts,
-            tick_parts_map, ActivePart,
-        },
-        ResolvedSealSchedule,
+    lifecycle::segment_support::{
+        catalog_fs_directory, merge_flush, recover_orphans_under, segment_runtime_parts,
+        tick_parts_map, ActivePart,
     },
     runtime::FlushResult,
 };
@@ -52,7 +49,6 @@ struct ActiveSegment {
 pub struct SegmentCaptureSink<T> {
     catalog: ParquetDataCatalog,
     local_root: PathBuf,
-    seal: Option<ResolvedSealSchedule>,
     compression: Compression,
     row_group_rows: usize,
     sync_interval_ns: u64,
@@ -74,7 +70,6 @@ where
         let mut sink = Self {
             catalog: parts.catalog,
             local_root: parts.local_root,
-            seal: parts.seal,
             row_group_rows: parts.row_group_rows,
             sync_interval_ns: parts.sync_interval_ns,
             compression: parts.compression,
@@ -150,7 +145,9 @@ where
         let directory = segment.part.directory.clone();
         let sealed = segment.part.seal()?;
 
-        if reopen_after_seal && self.seal.is_some() && !sealed.files.is_empty() {
+        // Reopen for continued capture (wall-clock seal and capacity roll).
+        // Do not gate on seal schedule: long parts with seal disabled still need roll.
+        if reopen_after_seal && !sealed.files.is_empty() {
             self.open_segment(
                 key,
                 SegmentOpenParams {
@@ -163,6 +160,22 @@ where
         }
 
         Ok(sealed)
+    }
+
+    /// Seal + reopen when the open part approaches the parquet row-group limit.
+    fn roll_if_at_capacity(&mut self, partition_key: &str) -> Result<Vec<PathBuf>> {
+        let needs = self
+            .segments
+            .get(partition_key)
+            .is_some_and(|segment| segment.part.needs_capacity_roll());
+        if !needs {
+            return Ok(Vec::new());
+        }
+        log::info!(
+            "catalog-capture: rolling segment part {partition_key} near parquet row-group limit ({})",
+            crate::lifecycle::segment_support::ROW_GROUP_ROLL_THRESHOLD
+        );
+        Ok(self.seal_segment(partition_key, true)?.files)
     }
 
     pub fn write_batch_mut(&mut self, partition_key: &str, batch: Vec<T>) -> Result<Vec<PathBuf>> {
@@ -195,6 +208,8 @@ where
             Some(identifier.as_str()),
         )?;
 
+        let mut sealed_paths = self.roll_if_at_capacity(partition_key)?;
+
         if !self.segments.contains_key(partition_key) {
             self.open_segment(
                 partition_key,
@@ -217,7 +232,8 @@ where
         }
         segment.part.note_ts_range(min_ts_ns, max_ts_ns);
 
-        Ok(Vec::new())
+        sealed_paths.extend(self.roll_if_at_capacity(partition_key)?);
+        Ok(sealed_paths)
     }
 }
 
@@ -327,12 +343,18 @@ mod tests {
         )
         .expect("append");
 
+        let rgs_before = sink.segments[partition_key].part.flushed_row_group_count();
         let ticked = sink
             .on_tick(base_ts + 86_400 * 1_000_000_000)
             .expect("tick");
         assert!(
             ticked.files.is_empty(),
             "worker tick should only fsync; wall-clock seal is actor-driven"
+        );
+        assert_eq!(
+            sink.segments[partition_key].part.flushed_row_group_count(),
+            rgs_before,
+            "durability tick must not finalize parquet row groups"
         );
         assert!(sink.segments.contains_key(partition_key));
 
@@ -342,6 +364,61 @@ mod tests {
         assert!(
             sink.segments.contains_key(partition_key),
             "scheduled seal should reopen the segment"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn capacity_roll_seals_and_reopens_before_row_group_limit() {
+        let dir = temp_segment_dir("segment-capacity-roll");
+        // One row per row group so a few writes cross a low test threshold.
+        let mut lifecycle = segment_lifecycle(SealConfigFile {
+            enabled: false,
+            ..SealConfigFile::default()
+        });
+        lifecycle.segment.row_group_rows = 1;
+        let config = segment_capture_config(&dir, lifecycle);
+
+        let instrument_id = InstrumentId::from_str("BTC-USD-PERP.HYPERLIQUID").expect("id");
+        let partition_key = "market_data|quotes|BTC-USD-PERP.HYPERLIQUID|_";
+        let mut sink = SegmentCaptureSink::<QuoteTick>::from_config(&config).expect("sink");
+
+        sink.write_batch_mut(partition_key, vec![quote(instrument_id, 1_000)])
+            .expect("first row");
+        sink.segments
+            .get_mut(partition_key)
+            .expect("open")
+            .part
+            .set_row_group_roll_threshold_for_test(2);
+
+        // Drive enough single-row batches for auto-flushed RGs to hit the soft cap.
+        let mut sealed_total = 0usize;
+        for i in 0..6_u64 {
+            let paths = sink
+                .write_batch_mut(
+                    partition_key,
+                    vec![quote(instrument_id, 2_000 + i * 1_000)],
+                )
+                .expect("append");
+            sealed_total += paths.len();
+        }
+
+        assert!(
+            sealed_total >= 1,
+            "capacity roll should emit at least one sealed catalog parquet"
+        );
+        assert!(
+            sink.segments.contains_key(partition_key),
+            "capacity roll must reopen an active part"
+        );
+        assert!(
+            sink.segments[partition_key]
+                .part
+                .flushed_row_group_count()
+                < 2
+                || sink.segments[partition_key].part.row_count > 0,
+            "new part should be under the soft cap after roll"
         );
 
         let _ = fs::remove_dir_all(&dir);

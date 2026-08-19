@@ -67,9 +67,23 @@ interval_secs = 86400
   - Custom: `data/custom/{TypeName}/{identifier}/{open_ts}.parquet.part`
 - Sealed: `{start}_{end}.parquet` via `timestamps_to_filename` (same clock for market + custom)
 
-Memory flushes into the open `.part` when `row_group_rows` / buffer limits hit; durability
-tick only **fsyncs** the part. Wall-clock seal (e.g. 06:00 UTC) closes the day file and
-opens the next part — it is **not** “hold all day in RAM then write once”.
+Memory flushes into the open `.part` when buffer / family flush limits hit; the parquet
+writer packs rows into row groups up to `row_group_rows`. **Sizing is model-driven**
+(see `lifecycle/row_group_capacity.rs`), not free-hand:
+
+| Constant | Value | Source |
+|----------|------:|--------|
+| Hard RG limit | **32 767** | parquet/arrow-rs `i16::MAX` (cloud error: `currently: 32768`) |
+| Soft capacity roll | **30 000** | hard − 2 767 headroom (~91.5 %) |
+| Cloud BookSummary rate | **~830 rows/s** | ~800–1000 rows/poll × 1 s poll (observed blow-up) |
+| Custom memory flush | **1 000** | one poll |
+| Custom parquet RG | **50 000** | ≥ min for 10× slack vs soft roll over 24 h @ 830 r/s → ~1 435 RGs/day |
+
+Durability tick only **fsyncs** bytes already on disk — it must **not** finalize a row
+group each second (that was the cloud 1 RG/s path: hard fail in ~9.1 h). Wall-clock seal
+(e.g. 06:00 UTC) closes the day file and opens the next part. Soft capacity roll seals
+and reopens near 30 k RGs if misconfig/rate ever approaches the hard cap (same seal path
+as day roll; same UTC day may contain multiple catalog parquets).
 
 Keep a single stable `catalog_uri` for the job. Examples:
 

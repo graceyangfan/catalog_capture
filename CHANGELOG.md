@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- **Segment durability tick** no longer calls `ArrowWriter::flush` (that sealed a
+  parquet row group every sync interval and could hit the 32 767 RG/file limit on
+  Deribit BookSummary-style custom streams). Tick only fsyncs the open `.part`.
+- **Custom/BookSummary** memory flush stays ~1 000 rows/poll while parquet row groups
+  target **50 000** rows so a day part stays far under the RG limit.
+- **Capacity roll:** open parts seal and reopen near ~30 000 flushed row groups
+  (same path as day seal; mid-day multi-file is valid).
+
 ### Changed
 
 - **Repository:** GitHub path is `graceyangfan/catalog_capture` (was

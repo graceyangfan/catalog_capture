@@ -47,7 +47,7 @@ pub use budget::{
 };
 pub use buffer::PartitionBuffer;
 pub use flush_profile::{
-    capture_config_for_family, family_row_threshold, CaptureFlushFamily,
+    capture_config_for_family, family_row_group_rows, family_row_threshold, CaptureFlushFamily,
 };
 pub use capture_run::{
     capture_run_path, new_capture_run_record, write_capture_run_record, CaptureRunInput,
@@ -75,9 +75,12 @@ pub use hip4::{
 };
 pub use item::{CaptureItem, PartitionKey};
 pub use lifecycle::{
-    next_seal_boundary_ns, resolve_seal_schedule, should_seal_at, DurabilityConfig,
+    estimated_row_groups, min_row_group_rows_for_day, next_seal_boundary_ns,
+    resolve_seal_schedule, seconds_to_hard_limit, should_seal_at, DurabilityConfig,
     LifecycleConfig, LifecycleMode, ResolvedSealSchedule, SealConfigFile, SegmentCaptureSink,
-    SegmentCustomDataSink, SegmentLifecycleConfig,
+    SegmentCustomDataSink, SegmentLifecycleConfig, CLOUD_BOOK_SUMMARY_POLL_ROWS,
+    CLOUD_BOOK_SUMMARY_ROWS_PER_SEC, CUSTOM_MEMORY_FLUSH_ROWS, CUSTOM_ROW_GROUP_ROWS,
+    DEFAULT_SEAL_INTERVAL_SECS, PARQUET_MAX_ROW_GROUPS, ROW_GROUP_ROLL_THRESHOLD,
 };
 pub use metrics::{CaptureMetrics, FlushReason, FlushReasonMetrics};
 pub use metrics_export::{

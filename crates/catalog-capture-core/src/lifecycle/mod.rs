@@ -12,6 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+pub mod row_group_capacity;
 pub mod seal;
 pub mod segment;
 pub mod segment_custom;
@@ -20,6 +21,12 @@ pub(crate) mod segment_support;
 #[cfg(test)]
 mod integration;
 
+pub use row_group_capacity::{
+    estimated_row_groups, min_row_group_rows_for_day, seconds_to_hard_limit,
+    CLOUD_BOOK_SUMMARY_POLL_ROWS, CLOUD_BOOK_SUMMARY_ROWS_PER_SEC, CUSTOM_MEMORY_FLUSH_ROWS,
+    CUSTOM_ROW_GROUP_ROWS, DEFAULT_SEAL_INTERVAL_SECS, PARQUET_MAX_ROW_GROUPS,
+    ROW_GROUP_ROLL_THRESHOLD,
+};
 pub use seal::{
     next_seal_boundary_ns, parse_seal_schedule, parse_seal_timezone, resolve_seal_schedule,
     should_seal_at, ResolvedSealSchedule, SealConfigFile,

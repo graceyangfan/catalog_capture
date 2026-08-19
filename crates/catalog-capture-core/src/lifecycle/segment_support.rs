@@ -31,18 +31,19 @@ use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterPr
 
 use crate::{
     config::{CaptureConfig, CompressionKind},
-    lifecycle::ResolvedSealSchedule,
     runtime::FlushResult,
 };
 
 /// Must NOT end with `.parquet` (catalog queries match any `*.parquet`).
 pub(crate) const PART_SUFFIX: &str = ".parquet.part";
 
+// Capacity constants: single derivation source (`row_group_capacity`).
+pub(crate) use crate::lifecycle::row_group_capacity::ROW_GROUP_ROLL_THRESHOLD;
+
 #[derive(Debug)]
 pub(crate) struct SegmentRuntimeParts {
     pub catalog: ParquetDataCatalog,
     pub local_root: PathBuf,
-    pub seal: Option<ResolvedSealSchedule>,
     pub compression: Compression,
     pub row_group_rows: usize,
     pub sync_interval_ns: u64,
@@ -55,6 +56,8 @@ pub(crate) fn segment_runtime_parts(config: &CaptureConfig) -> Result<SegmentRun
     if !config.catalog_uri.starts_with("file://") {
         bail!("segment lifecycle requires a file:// catalog_uri");
     }
+    // Validate seal schedule at sink construction (actor owns the wall-clock timer).
+    let _ = config.lifecycle.resolved_seal()?;
 
     let uri = config
         .catalog_uri
@@ -75,7 +78,6 @@ pub(crate) fn segment_runtime_parts(config: &CaptureConfig) -> Result<SegmentRun
     Ok(SegmentRuntimeParts {
         catalog,
         local_root: PathBuf::from(uri),
-        seal: config.lifecycle.resolved_seal()?,
         row_group_rows: config.lifecycle.batch_row_threshold(config.flush_rows),
         sync_interval_ns: config
             .lifecycle
@@ -293,6 +295,8 @@ pub(crate) struct ActivePart {
     pub max_ts_ns: u64,
     pub row_count: u64,
     pub last_sync_ns: u64,
+    /// Soft cap on flushed row groups; seal+reopen when reached (see [`ROW_GROUP_ROLL_THRESHOLD`]).
+    row_group_roll_threshold: usize,
 }
 
 impl ActivePart {
@@ -313,6 +317,7 @@ impl ActivePart {
             max_ts_ns: 0,
             row_count: 0,
             last_sync_ns: open_ts_ns,
+            row_group_roll_threshold: ROW_GROUP_ROLL_THRESHOLD,
         })
     }
 
@@ -326,10 +331,27 @@ impl ActivePart {
         update_ts_bounds(&mut self.min_ts_ns, &mut self.max_ts_ns, lo, hi);
     }
 
-    /// Fsync the open part when `sync_interval_ns` has elapsed.
+    /// Number of row groups already finalized into the open part file.
+    #[must_use]
+    pub(crate) fn flushed_row_group_count(&self) -> usize {
+        self.writer.flushed_row_groups().len()
+    }
+
+    /// True when this part should seal and reopen before more appends.
+    #[must_use]
+    pub(crate) fn needs_capacity_roll(&self) -> bool {
+        self.flushed_row_group_count() >= self.row_group_roll_threshold
+    }
+
+    /// Durability only: fsync bytes already on the part file.
+    ///
+    /// **Must not** call [`ArrowWriter::flush`] here. That finalizes a parquet row
+    /// group; doing so every `sync_interval` exhausts the format limit of
+    /// [`crate::lifecycle::PARQUET_MAX_ROW_GROUPS`] on high-rate streams
+    /// (e.g. Deribit BookSummary). Row groups close when they hit
+    /// `max_row_group_row_count`, on capacity roll, or on seal/close.
     pub(crate) fn tick(&mut self, sync_interval_ns: u64, now_ns: u64) -> Result<()> {
         if sync_interval_ns > 0 && now_ns.saturating_sub(self.last_sync_ns) >= sync_interval_ns {
-            self.writer.flush()?;
             self.writer.inner_mut().sync_all()?;
             self.last_sync_ns = now_ns;
         }
@@ -361,6 +383,11 @@ impl ActivePart {
             rows: row_count as usize,
             bytes,
         })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_row_group_roll_threshold_for_test(&mut self, threshold: usize) {
+        self.row_group_roll_threshold = threshold.max(1);
     }
 }
 

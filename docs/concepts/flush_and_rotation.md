@@ -28,25 +28,29 @@ queue_capacity = 10000        # ingress queue depth — not the row flush thresh
 
 ## Runtime family profile (segment multi-venue)
 
-| Family | Effective rows | Notes |
-|--------|----------------|--------|
-| book_deltas | max(configured, 20k) capped 50k | Profile C |
-| trades | 2 000 | Medium |
-| quotes | 500 | Sparse outcomes |
-| mark / funding / status | 100 | Very sparse |
-| **custom (BookSummary)** | **1 000** | ≈ one poll; append `.part`, not 1 file/s |
-| instruments | 50 | Always chunked |
+| Family | Memory flush | Parquet row group | Notes |
+|--------|--------------|-------------------|--------|
+| book_deltas | max(configured, 20k) capped 50k | same | Profile C |
+| trades | 2 000 | same | Medium |
+| quotes | 500 | same | Sparse outcomes |
+| mark / funding / status | 100 | same | Very sparse |
+| **custom (BookSummary)** | **1 000** | **50 000** | Poll often; many polls per RG (≪ 32k RG/file/day) |
+| instruments | 50 | n/a | Always chunked |
 
-Smoke configs with `flush_rows` / `row_group_rows` **&lt; 200** are left unchanged.
+Smoke configs with `flush_rows` / `row_group_rows` **&lt; 200** are left unchanged (both knobs stay tiny).
 
 ## Segment interval
 
 With `mode = segment`, every `durability.sync_interval_ms` the worker:
 
 1. **Interval-flush** memory → append open `*.parquet.part`
-2. **Tick** fsync that part
+2. **Tick** fsync that part only (does **not** call `ArrowWriter::flush` / seal a row group)
 
 Seal (e.g. 06:00 UTC) renames the part to a catalog parquet — it is not the first write.
+If an open part approaches **30 000** flushed row groups (soft cap =
+`i16::MAX − 2767`), the sink seals and reopens mid-day so parquet’s **32 767** hard
+limit cannot abort the job. Derivation and cloud-rate checks live in
+`row_group_capacity` unit tests.
 
 ## Profiles (dominant-family TOML when not multi-stream)
 

@@ -29,12 +29,9 @@ use parquet::basic::Compression;
 
 use crate::{
     config::CaptureConfig,
-    lifecycle::{
-        segment_support::{
-            catalog_fs_custom_directory, merge_flush, recover_orphans_under, segment_runtime_parts,
-            tick_parts_map, ts_init_range_from_batch, ActivePart,
-        },
-        ResolvedSealSchedule,
+    lifecycle::segment_support::{
+        catalog_fs_custom_directory, merge_flush, recover_orphans_under, segment_runtime_parts,
+        tick_parts_map, ts_init_range_from_batch, ActivePart,
     },
     runtime::FlushResult,
 };
@@ -61,7 +58,6 @@ struct ActiveCustomSegment {
 pub struct SegmentCustomDataSink {
     catalog: ParquetDataCatalog,
     local_root: PathBuf,
-    seal: Option<ResolvedSealSchedule>,
     compression: Compression,
     row_group_rows: usize,
     sync_interval_ns: u64,
@@ -74,7 +70,6 @@ impl SegmentCustomDataSink {
         let mut sink = Self {
             catalog: parts.catalog,
             local_root: parts.local_root,
-            seal: parts.seal,
             row_group_rows: parts.row_group_rows,
             sync_interval_ns: parts.sync_interval_ns,
             compression: parts.compression,
@@ -149,7 +144,9 @@ impl SegmentCustomDataSink {
         let directory = segment.part.directory.clone();
         let sealed = segment.part.seal()?;
 
-        if reopen_after_seal && self.seal.is_some() && !sealed.files.is_empty() {
+        // Reopen for continued capture (wall-clock seal and capacity roll).
+        // Do not gate on seal schedule: long parts with seal disabled still need roll.
+        if reopen_after_seal && !sealed.files.is_empty() {
             self.open_segment(
                 key,
                 CustomSegmentOpenParams {
@@ -163,6 +160,22 @@ impl SegmentCustomDataSink {
         }
 
         Ok(sealed)
+    }
+
+    /// Seal + reopen when the open part approaches the parquet row-group limit.
+    fn roll_if_at_capacity(&mut self, partition_key: &str) -> Result<Vec<PathBuf>> {
+        let needs = self
+            .segments
+            .get(partition_key)
+            .is_some_and(|segment| segment.part.needs_capacity_roll());
+        if !needs {
+            return Ok(Vec::new());
+        }
+        log::info!(
+            "catalog-capture: rolling custom segment part {partition_key} near parquet row-group limit ({})",
+            crate::lifecycle::segment_support::ROW_GROUP_ROLL_THRESHOLD
+        );
+        Ok(self.seal_segment(partition_key, true)?.files)
     }
 
     pub fn write_batch_mut(
@@ -183,6 +196,8 @@ impl SegmentCustomDataSink {
             identifier.as_deref(),
         )?;
         let schema = record_batch.schema();
+
+        let mut sealed_paths = self.roll_if_at_capacity(partition_key)?;
 
         if !self.segments.contains_key(partition_key) {
             self.open_segment(
@@ -210,7 +225,8 @@ impl SegmentCustomDataSink {
         segment.part.write_record_batch(&record_batch)?;
         segment.part.note_ts_range(min_ts_ns, max_ts_ns);
 
-        Ok(Vec::new())
+        sealed_paths.extend(self.roll_if_at_capacity(partition_key)?);
+        Ok(sealed_paths)
     }
 }
 
@@ -389,6 +405,114 @@ mod tests {
         assert_eq!(sealed.rows, 400);
         assert!(sealed.files[0].is_file());
         assert!(!sealed.files[0].to_string_lossy().contains(PART_SUFFIX));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cloud_like_book_summary_packs_polls_into_few_row_groups() {
+        // Production-shaped: 50k RG, ~1k-row polls, durability ticks between polls.
+        // At cloud rate this is ~1 min/RG; here we write 120 polls → expect ≤3 RGs.
+        ensure_custom_data_registered::<RustTestCustomData>();
+        let dir = temp_dir("cloud-like-pack");
+        let mut config = segment_config(&dir);
+        config.lifecycle.segment.row_group_rows =
+            crate::lifecycle::CUSTOM_ROW_GROUP_ROWS;
+        config.lifecycle.durability.sync_interval_ms = 1;
+        let mut sink = SegmentCustomDataSink::from_config(&config).expect("sink");
+        let partition = "custom_data|RustTestCustomData|RUST.TEST|_";
+
+        let poll_rows = crate::lifecycle::CUSTOM_MEMORY_FLUSH_ROWS;
+        let polls = 120_u64;
+        for poll in 0..polls {
+            let ts = 1_000_000 + poll * 1_000_000_000;
+            let batch: Vec<CustomData> = (0..poll_rows)
+                .map(|i| custom_row(ts, f64::from(i as u32)))
+                .collect();
+            sink.write_batch_mut(partition, batch).expect("poll");
+            // Durability tick every poll (old bug sealed 1 RG here).
+            sink.on_tick(ts + 500_000_000).expect("tick");
+        }
+
+        let part = &sink.segments[partition].part;
+        assert_eq!(part.row_count, polls * poll_rows as u64);
+        let rgs = part.flushed_row_group_count();
+        // 120_000 rows / 50_000 = 2 full RGs flushed; remainder open in progress.
+        assert!(
+            rgs <= 3,
+            "expected few RGs with 50k packing + no tick-flush, got {rgs}"
+        );
+        assert!(
+            rgs < crate::lifecycle::ROW_GROUP_ROLL_THRESHOLD,
+            "must stay far under soft roll"
+        );
+        assert!(walk_sealed_parquet(&dir).is_empty());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn durability_tick_does_not_finalize_row_groups() {
+        ensure_custom_data_registered::<RustTestCustomData>();
+        let dir = temp_dir("tick-no-rg");
+        let config = segment_config(&dir);
+        let mut sink = SegmentCustomDataSink::from_config(&config).expect("sink");
+        let partition = "custom_data|RustTestCustomData|RUST.TEST|_";
+
+        // Small batches under row_group_rows so data stays in the open group.
+        sink.write_batch_mut(partition, vec![custom_row(1_000, 1.0)])
+            .expect("append");
+        let rgs_before = sink.segments[partition].part.flushed_row_group_count();
+
+        for step in 1..=5_u64 {
+            sink.on_tick(1_000 + step * 2_000_000_000).expect("tick");
+        }
+
+        assert_eq!(
+            sink.segments[partition].part.flushed_row_group_count(),
+            rgs_before,
+            "durability tick must fsync only — not ArrowWriter::flush (RG seal)"
+        );
+        assert!(walk_sealed_parquet(&dir).is_empty());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn capacity_roll_mid_part_for_custom_data() {
+        ensure_custom_data_registered::<RustTestCustomData>();
+        let dir = temp_dir("capacity-roll");
+        let mut config = segment_config(&dir);
+        config.lifecycle.segment.row_group_rows = 1;
+        config.lifecycle.seal.enabled = false;
+        let mut sink = SegmentCustomDataSink::from_config(&config).expect("sink");
+        let partition = "custom_data|RustTestCustomData|RUST.TEST|_";
+
+        sink.write_batch_mut(partition, vec![custom_row(1_000, 1.0)])
+            .expect("seed");
+        sink.segments
+            .get_mut(partition)
+            .expect("open")
+            .part
+            .set_row_group_roll_threshold_for_test(2);
+
+        let mut sealed_from_write = 0usize;
+        for i in 0..6_u64 {
+            let paths = sink
+                .write_batch_mut(partition, vec![custom_row(2_000 + i * 1_000, f64::from(i as u32))])
+                .expect("append");
+            sealed_from_write += paths.len();
+        }
+
+        assert!(
+            sealed_from_write >= 1,
+            "custom capacity roll should seal mid-part"
+        );
+        assert!(sink.segments.contains_key(partition));
+        assert!(
+            !walk_sealed_parquet(&dir).is_empty(),
+            "sealed catalog files must exist after capacity roll"
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
