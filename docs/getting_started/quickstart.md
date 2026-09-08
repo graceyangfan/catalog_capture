@@ -6,7 +6,7 @@ After [installation](installation.md), from the **repository root**:
 make bootstrap-deps
 make build-release-capture
 
-./target/release/catalog-capture-cli validate \
+./bin/catalog-capture-cli validate \
   --config examples/capture.multi-venue-mainnet.toml
 ```
 

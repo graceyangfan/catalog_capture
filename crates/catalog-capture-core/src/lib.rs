@@ -58,7 +58,7 @@ pub use catalog_layout::{
     custom_data_dir, market_data_dir, path_is_under_custom_type, path_is_under_market_family,
 };
 pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy};
-pub use forward_price::forward_price_from_option_greeks;
+pub use forward_price::{forward_price_from_option_greeks, ForwardPrice};
 pub use forward_price_metadata::{
     append_forward_price_records, forward_price_log_path, forward_price_record_from_model,
     ForwardPriceRecord, FORWARD_PRICES_FILE,

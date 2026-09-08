@@ -17,7 +17,7 @@ high-precision = [
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-arrow = "58.3.0"
+arrow = "59.3.0"
 chrono.workspace = true
 chrono-tz.workspace = true
 nautilus-core.workspace = true

@@ -284,9 +284,7 @@ async fn resolve_okx_option_universe(
     let (atm_reference, atm_reference_source) = request_okx_strike_reference(
         &client,
         spec,
-        &normalized_spec,
-        &option_instruments,
-        resolved_at_ns,
+        &instrument_family,
     )
     .await?;
     let open_interest_by_strike = maybe_fetch_okx_strike_open_interest(
@@ -431,47 +429,37 @@ async fn request_bybit_strike_reference(
 async fn request_okx_strike_reference(
     client: &OKXHttpClient,
     spec: &OptionUniverseSpec,
-    normalized_spec: &OptionUniverseSpec,
-    option_instruments: &[InstrumentAny],
-    resolved_at_ns: nautilus_core::UnixNanos,
+    instrument_family: &str,
 ) -> Result<(Price, String)> {
-    let reference_instrument_id = select_nearest_expiry_reference_instrument_id(
-        normalized_spec,
-        option_instruments,
-        resolved_at_ns,
-    )
-    .map_err(anyhow::Error::from)?;
-    let forward_prices = client
-        .request_forward_prices(&spec.underlying, Some(reference_instrument_id))
+    let perp_instrument_id = derive_perp_instrument_id(spec, OptionUniverseVenueKind::Okx)
+        .map_err(anyhow::Error::from)?;
+    let (perp_instruments, _) = client
+        .request_instruments(OKXInstrumentType::Swap, Some(instrument_family.to_string()))
         .await
         .with_context(|| {
             format!(
-                "failed to request OKX option forward prices for underlying {}",
+                "failed to request OKX swap instrument for underlying {}",
+                spec.underlying,
+            )
+        })?;
+    let perp = perp_instruments
+        .into_iter()
+        .find(|instrument| instrument.id() == perp_instrument_id)
+        .with_context(|| format!("no OKX swap instrument returned for {perp_instrument_id}"))?;
+    client.cache_instrument(perp);
+
+    let index_price = client
+        .request_index_price(perp_instrument_id)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to request OKX index price for underlying {}",
                 spec.underlying
             )
         })?;
-
-    let price = select_okx_strike_reference(&forward_prices, &spec.underlying)?;
     Ok((
-        price,
-        AtmReferenceSource::HttpForwardPrice.as_str().to_string(),
-    ))
-}
-
-#[cfg(feature = "venue-okx")]
-fn select_okx_strike_reference(
-    forward_prices: &[nautilus_model::data::ForwardPrice],
-    underlying: &str,
-) -> Result<Price> {
-    let Some(forward_price) = forward_prices.first() else {
-        bail!(
-            "no OKX forward prices were returned for underlying {}",
-            underlying
-        );
-    };
-
-    Ok(Price::from(
-        forward_price.forward_price.to_string().as_str(),
+        index_price.value,
+        AtmReferenceSource::HttpPerpTickerIndex.as_str().to_string(),
     ))
 }
 

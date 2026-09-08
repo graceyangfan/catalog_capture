@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Sibling `../nautilus_trader` — [installation](../getting_started/installation.md)
-- Rust 1.97.1 with rustfmt + clippy
+- Rust 1.98.0 with rustfmt + clippy
 - Optional network for live probes
 
 ## One-time

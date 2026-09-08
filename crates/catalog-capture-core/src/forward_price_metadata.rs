@@ -15,10 +15,9 @@
 use std::path::Path;
 
 use anyhow::Result;
-use nautilus_model::data::ForwardPrice;
 use serde::{Deserialize, Serialize};
 
-use crate::jsonl::append_jsonl_records;
+use crate::{forward_price::ForwardPrice, jsonl::append_jsonl_records};
 
 pub const FORWARD_PRICES_FILE: &str = "metadata/forward_prices.jsonl";
 
@@ -66,7 +65,7 @@ mod tests {
     use std::fs;
 
     use nautilus_core::UnixNanos;
-    use nautilus_model::{data::ForwardPrice, identifiers::InstrumentId};
+    use nautilus_model::identifiers::InstrumentId;
     use rust_decimal::Decimal;
 
     use super::*;

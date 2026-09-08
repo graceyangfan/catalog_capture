@@ -19,11 +19,15 @@ use std::path::{Path, PathBuf};
 
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
+#[cfg(feature = "venue-lighter")]
+use nautilus_lighter::common::enums::LighterEnvironment;
 #[cfg(feature = "venue-okx")]
 use nautilus_okx::common::enums::OKXInstrumentType;
 
 #[cfg(feature = "venue-hyperliquid")]
 use super::venues::parse_hyperliquid_environment;
+#[cfg(feature = "venue-lighter")]
+use super::venues::parse_lighter_environment;
 #[cfg(feature = "venue-okx")]
 use super::venues::parse_okx_instrument_types;
 use super::venues::{default_binance_product_type, parse_venue};
@@ -442,6 +446,28 @@ fn parse_hyperliquid_venue_is_supported() {
 
     let runtime = parse_venue(venue).expect("valid hyperliquid venue");
     assert!(matches!(runtime, VenueRuntimeConfig::Hyperliquid { .. }));
+}
+
+#[cfg(feature = "venue-lighter")]
+#[test]
+fn parse_lighter_venue_is_supported() {
+    assert_eq!(
+        parse_lighter_environment("live").expect("live should parse"),
+        LighterEnvironment::Mainnet
+    );
+
+    let venue = VenueConfig {
+        id: "lighter_main".to_string(),
+        kind: "lighter".to_string(),
+        environment: "mainnet".to_string(),
+        product_type: default_binance_product_type(),
+        product_types: Vec::new(),
+        instrument_types: Vec::new(),
+        instrument_families: Vec::new(),
+    };
+
+    let runtime = parse_venue(venue).expect("valid Lighter venue");
+    assert!(matches!(runtime, VenueRuntimeConfig::Lighter { .. }));
 }
 
 #[cfg(feature = "venue-hyperliquid")]

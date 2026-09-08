@@ -28,7 +28,7 @@ make install-tools
 pip install pre-commit && pre-commit install
 ```
 
-Rust **1.97.1** (`rust-toolchain.toml`). Details:
+Rust **1.98.0** (`rust-toolchain.toml`). Details:
 [docs/getting_started/installation.md](docs/getting_started/installation.md).
 
 ## Workflow

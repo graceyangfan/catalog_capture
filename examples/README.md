@@ -11,7 +11,7 @@ Layout is Nautilus Rust `ParquetDataCatalog` only — see
 ```bash
 make build-release-capture
 
-./target/release/catalog-capture-cli validate \
+./bin/catalog-capture-cli validate \
   --config examples/capture.multi-venue-mainnet.toml
 
 ./scripts/run-mainnet-capture.sh
@@ -20,7 +20,8 @@ make build-release-capture
 
 | Config | Content |
 |--------|---------|
-| **`capture.multi-venue-mainnet.toml`** | HL rolling universe (quotes/trades/mark) + Binance L2 d20 + trades + Deribit BookSummary 1s |
+| **`capture.multi-venue-mainnet.toml`** | HL rolling universe (quotes/trades) + Binance L2 d20 + trades + Deribit BookSummary 1s |
+| **`capture.binance-lighter-btc-sol-perp-books.toml`** | Binance BTC/SOL USD-M + Lighter SOL perpetual L2 book and trades, with 06:00 UTC seal |
 | `capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid universe only + 06:00 UTC seal |
 | `capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (`interval_secs = 1`) |
 

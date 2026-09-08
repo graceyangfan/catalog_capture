@@ -3,6 +3,13 @@
 Public **mainnet** market-data recording. One process can combine Hyperliquid
 outcome rotation, Binance USD-M L2, and Deribit book-summary polls.
 
+For a fixed-perpetual book capture using the same daily file boundary, use
+[`capture.binance-lighter-btc-sol-perp-books.toml`](../../examples/capture.binance-lighter-btc-sol-perp-books.toml).
+It records Binance BTC/SOL USD-M and Lighter SOL perpetual `book_deltas`
+plus trade ticks and seals segments at 06:00 UTC. The Lighter adapter bootstraps
+its instrument registry and publishes the initial snapshot before incremental
+updates; no custom snapshot request is needed.
+
 ## Subscriptions (channel-level)
 
 | Venue | Data | How Catalog Capture maps it |
@@ -10,7 +17,6 @@ outcome rotation, Binance USD-M L2, and Deribit book-summary polls.
 | Hyperliquid | Instruments for active outcomes | `[[capture.hip4_universe]]` → `instruments` |
 | Hyperliquid | BBO (YES/NO) | `quotes` → QuoteTick |
 | Hyperliquid | Trade ticks (YES/NO) | `trades` → TradeTick |
-| Hyperliquid | Mark on USD perp | `mark_prices` (when `include_perp_mark`) |
 | Binance Futures | Trade ticks | `[[capture.trades]]` |
 | Binance Futures | L2 deltas | `[[capture.book_deltas]]` `L2_MBP` **`depth = 20`** |
 | Deribit | Book summary | `[[capture.custom_data_requests]]` `DeribitBookSummary` |
@@ -61,6 +67,10 @@ selection/adaptive delay; live smoke still needs network.
 ## Deribit book summary rate
 
 `get_book_summary_by_currency` is **one public HTTP call per currency** (not per strike).
+
+The HIP-4 baseline intentionally records instruments, quotes, and trades only;
+it does not subscribe to Hyperliquid perp mark prices. Mark-price capture remains
+available in the separate fixed-instrument examples.
 
 | Setting | Recommendation |
 |---------|----------------|

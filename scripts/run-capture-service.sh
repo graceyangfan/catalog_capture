@@ -7,7 +7,7 @@
 # Env:
 #   CAPTURE_FEATURES  --no-default-features --features … (release only)
 #                     default when --release: venue-binance,venue-deribit,venue-hyperliquid
-#   RUSTUP_TOOLCHAIN  default 1.97.1
+#   RUSTUP_TOOLCHAIN  default 1.98.0
 #   CATALOG_CAPTURE_LOG_DIR  default <repo>/logs
 set -euo pipefail
 
@@ -18,9 +18,10 @@ CONFIG=""
 RELEASE=0
 VALIDATE=0
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
+BIN_DIR="${CATALOG_CAPTURE_BIN_DIR:-$ROOT/bin}"
 CARGO="${CARGO:-cargo}"
-TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.97.1}"
-CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid}"
+TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.98.0}"
+CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid,venue-lighter}"
 
 usage() {
   cat << 'EOF'
@@ -37,8 +38,9 @@ Options:
 Environment:
   CAPTURE_FEATURES    Comma features for slim release (default multi-venue set)
   CARGO               Cargo executable
-  RUSTUP_TOOLCHAIN    Rust toolchain (default 1.97.1)
+  RUSTUP_TOOLCHAIN    Rust toolchain (default 1.98.0)
   CATALOG_CAPTURE_LOG_DIR
+  CATALOG_CAPTURE_BIN_DIR  Product binary directory (default: ./bin)
 EOF
 }
 
@@ -88,7 +90,7 @@ if [[ ! -f "$CONFIG" ]]; then
   exit 1
 fi
 
-mkdir -p "$LOG_DIR" data
+mkdir -p "$LOG_DIR" data "$BIN_DIR"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 CONFIG_BASENAME="$(basename "$CONFIG" .toml)"
 LOG_FILE="$LOG_DIR/${CONFIG_BASENAME}-${STAMP}.log"
@@ -103,7 +105,8 @@ if [[ $RELEASE -eq 1 ]]; then
       --no-default-features \
       --features "${CAPTURE_FEATURES}"
   fi
-  BIN="$ROOT/target/release/catalog-capture-cli"
+  install -m 755 "$ROOT/target/release/catalog-capture-cli" "$BIN_DIR/catalog-capture-cli"
+  BIN="$BIN_DIR/catalog-capture-cli"
 else
   BIN="$ROOT/target/debug/catalog-capture-cli"
   if [[ ! -x "$BIN" ]]; then

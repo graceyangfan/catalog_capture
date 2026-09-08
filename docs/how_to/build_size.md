@@ -39,7 +39,7 @@ Do **not** run `cargo build` / `cargo test` / nextest on the full
 
 ## Smallest + practical cloud binary (recommended)
 
-Only link venues you capture (Binance + Deribit + Hyperliquid):
+Only link venues you capture (for example Binance + Deribit + Hyperliquid + Lighter):
 
 ```bash
 cd catalog_capture
@@ -47,7 +47,7 @@ make bootstrap-deps
 
 # Fast release, smaller graph than all-venues
 make build-release-capture
-# → target/release/catalog-capture-cli
+# → bin/catalog-capture-cli (copied from target/release)
 
 # Even smaller binary (slower compile)
 make build-release-small
@@ -58,7 +58,7 @@ Equivalent:
 ```bash
 cargo build --release -p catalog-capture-cli \
   --no-default-features \
-  --features venue-binance,venue-deribit,venue-hyperliquid
+  --features venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
 ```
 
 `./scripts/run-mainnet-capture.sh` already uses these features.
@@ -98,7 +98,7 @@ Avoid on capture servers:
 
 | Artifact | Order |
 |----------|--------|
-| `target/release/catalog-capture-cli` | tens of MB |
+| `bin/catalog-capture-cli` | deployable product binary (tens of MB) |
 | Fresh `target/` after one slim release | several GB (deps once) |
 | NT full workspace debug + nextest | tens of GB |
 

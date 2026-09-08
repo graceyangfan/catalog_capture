@@ -41,6 +41,7 @@ use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataCl
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::{cache::CacheConfig, enums::Environment};
+use nautilus_core::string::secret::SecretString;
 #[cfg(feature = "venue-deribit")]
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
 #[cfg(feature = "venue-hyperliquid")]
@@ -48,6 +49,11 @@ use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::{
     config::HyperliquidDataClientConfig, factories::HyperliquidDataClientFactory,
+};
+#[cfg(feature = "venue-lighter")]
+use nautilus_lighter::{
+    config::LighterDataClientConfig,
+    factories::LighterDataClientFactory,
 };
 use nautilus_live::node::LiveNode;
 use nautilus_model::identifiers::{ActorId, TraderId};
@@ -204,8 +210,8 @@ pub async fn run_capture_with_plan_and_reports(
                     Box::new(BinanceDataClientConfig {
                         product_type: *product_type,
                         environment: *environment,
-                        api_key: creds.api_key,
-                        api_secret: creds.api_secret,
+                        api_key: creds.api_key.map(SecretString::from),
+                        api_secret: creds.api_secret.map(SecretString::from),
                         instrument_provider,
                         ..Default::default()
                     }),
@@ -233,8 +239,8 @@ pub async fn run_capture_with_plan_and_reports(
                     Box::new(DeribitDataClientConfig {
                         environment: *environment,
                         product_types: product_types.clone(),
-                        api_key: creds.api_key,
-                        api_secret: creds.api_secret,
+                        api_key: creds.api_key.map(SecretString::from),
+                        api_secret: creds.api_secret.map(SecretString::from),
                         ..Default::default()
                     }),
                 )?;
@@ -261,8 +267,8 @@ pub async fn run_capture_with_plan_and_reports(
                     Box::new(BybitDataClientConfig {
                         environment: *environment,
                         product_types: product_types.clone(),
-                        api_key: creds.api_key,
-                        api_secret: creds.api_secret,
+                        api_key: creds.api_key.map(SecretString::from),
+                        api_secret: creds.api_secret.map(SecretString::from),
                         ..Default::default()
                     }),
                 )?;
@@ -284,11 +290,29 @@ pub async fn run_capture_with_plan_and_reports(
                     Box::new(HyperliquidDataClientFactory::new()),
                     Box::new(HyperliquidDataClientConfig {
                         environment: *environment,
-                        private_key,
+                        private_key: private_key.map(SecretString::from),
                         // Prefer frequent instrument refresh when rolling outcome markets.
                         update_instruments_interval_mins: 1,
                         stale_stream_receive_timeout_secs: 90,
                         stream_health_check_interval_secs: 15,
+                        ..Default::default()
+                    }),
+                )?;
+            }
+            #[cfg(feature = "venue-lighter")]
+            VenueRuntimeConfig::Lighter { id, environment } => {
+                log::info!(
+                    "Configuring venue {} ({environment:?}, public read-only data)",
+                    id
+                );
+                builder = builder.add_data_client(
+                    None,
+                    Box::new(LighterDataClientFactory::new()),
+                    Box::new(LighterDataClientConfig {
+                        environment: *environment,
+                        // Keep the adapter's periodic instrument refresh enabled so
+                        // its registry remains current without a custom resolver.
+                        update_instruments_interval_mins: 60,
                         ..Default::default()
                     }),
                 )?;
@@ -317,9 +341,9 @@ pub async fn run_capture_with_plan_and_reports(
                         environment: *environment,
                         instrument_types: instrument_types.clone(),
                         instrument_families: instrument_families.clone(),
-                        api_key: creds.api_key,
-                        api_secret: creds.api_secret,
-                        api_passphrase: creds.api_passphrase,
+                        api_key: creds.api_key.map(SecretString::from),
+                        api_secret: creds.api_secret.map(SecretString::from),
+                        api_passphrase: creds.api_passphrase.map(SecretString::from),
                         ..Default::default()
                     }),
                 )?;
@@ -456,6 +480,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
         VenueRuntimeConfig::Bybit { .. } => "bybit",
         #[cfg(feature = "venue-hyperliquid")]
         VenueRuntimeConfig::Hyperliquid { .. } => "hyperliquid",
+        #[cfg(feature = "venue-lighter")]
+        VenueRuntimeConfig::Lighter { .. } => "lighter",
         #[cfg(feature = "venue-okx")]
         VenueRuntimeConfig::Okx { .. } => "okx",
     }
@@ -473,6 +499,8 @@ fn compiled_venue_features() -> Vec<String> {
         "venue-okx",
         #[cfg(feature = "venue-hyperliquid")]
         "venue-hyperliquid",
+        #[cfg(feature = "venue-lighter")]
+        "venue-lighter",
     ]
     .into_iter()
     .map(str::to_string)

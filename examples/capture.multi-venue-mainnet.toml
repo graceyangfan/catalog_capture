@@ -5,7 +5,7 @@
 #   2) Segment seal — close parquet files at 06:00 UTC (not the same as universe roll)
 #
 # Streams:
-#   Hyperliquid: instruments, quotes, trades, mark_prices (rolling universe)
+#   Hyperliquid: instruments, quotes, trades (rolling HIP-4 universe)
 #   Binance USD-M: trades + L2 book_deltas depth=20 (@depth@0ms stream)
 #   Deribit: BookSummary request ~1 rps → segment .part (not 1 catalog file/sec); seal 06:00 UTC
 #
@@ -40,7 +40,7 @@ catalog_uri = "file://./data/multi-venue-mainnet"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 # Baseline only — actor applies per-family flush profiles (see flush_profile):
-#   book_deltas ~20k | trades ~2k | custom/BookSummary ~1k | quotes ~500 | mark ~100
+#   book_deltas ~20k | trades ~2k | custom/BookSummary ~1k | quotes ~500
 # queue_capacity is the *ingress queue* depth (not row flush threshold).
 flush_rows = 2000
 flush_interval_ms = 1000
@@ -90,8 +90,8 @@ underlying = "BTC"
 period = "1d"
 market_class = "priceBinary"
 include_fallback = false
-include_perp_mark = true
-families = ["instruments", "quotes", "trades", "mark_prices"]
+include_perp_mark = false
+families = ["instruments", "quotes", "trades"]
 
 [[capture.instruments]]
 instrument_id = "BTCUSDT-PERP.BINANCE"

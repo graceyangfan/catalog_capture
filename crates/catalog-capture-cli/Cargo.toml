@@ -16,12 +16,14 @@ all-venues = [
   "venue-deribit",
   "venue-okx",
   "venue-hyperliquid",
+  "venue-lighter",
 ]
 venue-binance = ["dep:nautilus-binance"]
 venue-bybit = ["dep:nautilus-bybit"]
 venue-deribit = ["dep:nautilus-deribit"]
 venue-okx = ["dep:nautilus-okx"]
 venue-hyperliquid = ["dep:nautilus-hyperliquid"]
+venue-lighter = ["dep:nautilus-lighter"]
 
 [dependencies]
 anyhow.workspace = true
@@ -33,6 +35,7 @@ nautilus-binance = { workspace = true, optional = true }
 nautilus-bybit = { workspace = true, optional = true }
 nautilus-deribit = { workspace = true, optional = true }
 nautilus-hyperliquid = { workspace = true, optional = true }
+nautilus-lighter = { workspace = true, optional = true }
 nautilus-okx = { workspace = true, optional = true }
 nautilus-common.workspace = true
 nautilus-core.workspace = true

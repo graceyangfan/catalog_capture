@@ -22,7 +22,7 @@ use catalog_capture_core::{
     forward_price_from_option_greeks, next_seal_boundary_ns,
 };
 use nautilus_common::{actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent};
-use nautilus_core::UnixNanos;
+use nautilus_core::{DurationNanos, UnixNanos};
 use nautilus_model::instruments::Instrument;
 
 impl CatalogCaptureActor {
@@ -177,7 +177,7 @@ impl CatalogCaptureActor {
             .clamp(PENDING_MD_BACKOFF_START_SECS, PENDING_MD_BACKOFF_MAX_SECS);
         let interval_ns = delay_secs.saturating_mul(1_000_000_000);
         // One-shot alert: fire once after `delay_secs`, not a continuous all-day timer.
-        let fire_at = self.clock().timestamp_ns() + UnixNanos::from(interval_ns);
+        let fire_at = self.clock().timestamp_ns() + DurationNanos::new(interval_ns);
         if let Err(err) = self.clock().set_time_alert_ns(
             PENDING_MARKET_DATA_TIMER,
             fire_at,
@@ -508,7 +508,7 @@ impl CatalogCaptureActor {
 
         let now = self.clock().timestamp_ns();
         let delay_secs = manager.next_rotation_check_delay_secs(now.as_u64());
-        let alert_time = now + UnixNanos::from(delay_secs.saturating_mul(1_000_000_000));
+        let alert_time = now + DurationNanos::new(delay_secs.saturating_mul(1_000_000_000));
         self.clock().cancel_timer(HIP4_UNIVERSE_REFRESH_TIMER);
         self.clock()
             .set_time_alert_ns(HIP4_UNIVERSE_REFRESH_TIMER, alert_time, None, None)?;
@@ -527,7 +527,7 @@ impl CatalogCaptureActor {
         self.clock().cancel_timer(METRICS_EXPORT_TIMER);
         self.clock().set_timer_ns(
             METRICS_EXPORT_TIMER,
-            interval_ns,
+            DurationNanos::new(interval_ns),
             None,
             None,
             None,
@@ -598,7 +598,7 @@ impl CatalogCaptureActor {
         self.clock().cancel_timer(&timer_name);
         self.clock().set_timer_ns(
             timer_name.as_str(),
-            interval_ns,
+            DurationNanos::new(interval_ns),
             None,
             None,
             None,
@@ -699,7 +699,7 @@ impl DataActor for CatalogCaptureActor {
         if let Some(manager) = &self.dynamic_option_universe {
             self.clock().set_timer_ns(
                 OPTION_UNIVERSE_REFRESH_TIMER,
-                manager.refresh_interval_secs() * 1_000_000_000,
+                DurationNanos::new(manager.refresh_interval_secs() * 1_000_000_000),
                 None,
                 None,
                 None,

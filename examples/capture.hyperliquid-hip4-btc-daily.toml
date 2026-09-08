@@ -56,5 +56,5 @@ underlying = "BTC"
 period = "1d"
 market_class = "priceBinary"
 include_fallback = false
-include_perp_mark = true
-families = ["instruments", "quotes", "trades", "mark_prices"]
+include_perp_mark = false
+families = ["instruments", "quotes", "trades"]

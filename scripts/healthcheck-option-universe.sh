@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG=""
 CATALOG_URI=""
 CARGO="${CARGO:-cargo}"
-TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.97.1}"
+TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.98.0}"
 
 usage() {
   cat << 'EOF'
@@ -53,7 +53,7 @@ if [[ -z "$CATALOG_URI" ]]; then
   exit 2
 fi
 
-BIN="$ROOT/target/release/catalog-capture-cli"
+BIN="${CATALOG_CAPTURE_BIN:-$ROOT/bin/catalog-capture-cli}"
 if [[ ! -x "$BIN" ]]; then
   BIN="$ROOT/target/debug/catalog-capture-cli"
 fi

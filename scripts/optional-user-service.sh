@@ -62,7 +62,6 @@ if [[ ! -f "$CONFIG" ]]; then
   exit 1
 fi
 
-BIN="$ROOT/target/release/catalog-capture-cli"
 RUNNER="$ROOT/scripts/run-capture-service.sh"
 LOG_DIR="$ROOT/logs"
 mkdir -p "$LOG_DIR"
@@ -122,7 +121,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=${ROOT}
-Environment=RUSTUP_TOOLCHAIN=1.97.1
+Environment=RUSTUP_TOOLCHAIN=1.98.0
 Environment=CATALOG_CAPTURE_LOG_DIR=${LOG_DIR}
 ExecStart=${RUNNER} --config ${CONFIG} --release
 Restart=on-failure

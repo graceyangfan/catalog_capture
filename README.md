@@ -35,7 +35,7 @@ venues → catalog-capture-cli + TOML
 
 ## Quick start
 
-Requires Rust **1.97.1** and sibling `../nautilus_trader`. Run from the **repo root**.
+Requires Rust **1.98.0** and sibling `../nautilus_trader`. Run from the **repo root**.
 
 ```bash
 # Clone + checkout the Nautilus revision pinned by CI (recommended)
@@ -43,9 +43,9 @@ make bootstrap-deps
 
 # Cloud / multi-venue capture: only link venues you need (smaller, faster)
 make build-release-capture
-# features: venue-binance,venue-deribit,venue-hyperliquid
+# features: venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
 
-./target/release/catalog-capture-cli validate \
+./bin/catalog-capture-cli validate \
   --config examples/capture.multi-venue-mainnet.toml
 
 # Long-running mainnet capture (logs under ./logs/)

@@ -11,7 +11,8 @@ cd "$ROOT"
 
 CONFIG="${1:-examples/capture.multi-venue-mainnet.toml}"
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
-RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.97.1}"
+BIN_DIR="${CATALOG_CAPTURE_BIN_DIR:-$ROOT/bin}"
+RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.98.0}"
 export RUSTUP_TOOLCHAIN
 
 if [[ ! -f "$CONFIG" ]]; then
@@ -19,7 +20,7 @@ if [[ ! -f "$CONFIG" ]]; then
   exit 1
 fi
 
-mkdir -p "$LOG_DIR" data
+mkdir -p "$LOG_DIR" data "$BIN_DIR"
 
 if [[ ! -d ../nautilus_trader ]]; then
   echo "bootstrap sibling nautilus_trader..."
@@ -27,13 +28,14 @@ if [[ ! -d ../nautilus_trader ]]; then
 fi
 
 # Only venues used by multi-venue mainnet (smaller link graph than all-venues).
-CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid}"
+CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid,venue-lighter}"
 echo "building release catalog-capture-cli (features=${CAPTURE_FEATURES})..."
 cargo build --release -p catalog-capture-cli \
   --no-default-features \
   --features "${CAPTURE_FEATURES}"
 
-BIN="$ROOT/target/release/catalog-capture-cli"
+install -m 755 "$ROOT/target/release/catalog-capture-cli" "$BIN_DIR/catalog-capture-cli"
+BIN="$BIN_DIR/catalog-capture-cli"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BASENAME="$(basename "$CONFIG" .toml)"
 LOG_FILE="$LOG_DIR/${BASENAME}-${STAMP}.log"

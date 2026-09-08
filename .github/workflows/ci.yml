@@ -12,10 +12,10 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   # Keep in sync with rust-toolchain.toml / workspace.package.rust-version
-  RUSTUP_TOOLCHAIN: 1.97.1
+  RUSTUP_TOOLCHAIN: 1.98.0
   # Pin sibling nautilus_trader revision (do not track develop tip).
-  # Local checkout used for BookSummary request path + adapters: a7159b484e816a8b73388ff58db71de454253222
-  NAUTILUS_TRADER_REF: a7159b484e816a8b73388ff58db71de454253222
+  # Local checkout used for current adapters: 18893faf8b356be3320add8de2f861b0b647cf06
+  NAUTILUS_TRADER_REF: 18893faf8b356be3320add8de2f861b0b647cf06
 
 jobs:
   pre-commit:
@@ -37,7 +37,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.97.1
+          toolchain: 1.98.0
           components: rustfmt, clippy
 
       - name: Set up Python
@@ -72,7 +72,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.97.1
+          toolchain: 1.98.0
           components: rustfmt, clippy
 
       - name: Cache cargo
@@ -114,7 +114,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.97.1
+          toolchain: 1.98.0
 
       - name: Install cargo-deny
         run: cargo install cargo-deny --version 0.19.9 --locked

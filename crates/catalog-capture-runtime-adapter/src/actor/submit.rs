@@ -18,6 +18,7 @@ use crate::actor_runtime::{
 };
 use catalog_capture_core::{
     append_forward_price_records, forward_price_record_from_model, item::CaptureItem,
+    ForwardPrice,
     runtime::FlushResult,
 };
 
@@ -131,7 +132,7 @@ impl CatalogCaptureActor {
 
     pub(super) fn persist_forward_price(
         &mut self,
-        forward_price: nautilus_model::data::ForwardPrice,
+        forward_price: ForwardPrice,
     ) -> Result<()> {
         let record =
             forward_price_record_from_model(&forward_price, "option_greeks_underlying_price");

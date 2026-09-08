@@ -28,24 +28,25 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `a7159b484e816a8b73388ff58db71de454253222` |
+| 0.1.x / main | `18893faf8b356be3320add8de2f861b0b647cf06` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
 
 ## Toolchain
 
-Rust **1.97.1** (`rust-toolchain.toml`):
+Rust **1.98.0** (`rust-toolchain.toml`):
 
 ```bash
-rustup toolchain install 1.97.1
-rustup component add rustfmt clippy --toolchain 1.97.1
+rustup toolchain install 1.98.0
+rustup component add rustfmt clippy --toolchain 1.98.0
 ```
 
 ## Build
 
 ```bash
-# Recommended for multi-venue mainnet capture (Binance + Deribit + Hyperliquid only)
+# Recommended for multi-venue mainnet capture (Binance + Deribit + Hyperliquid + Lighter)
 make build-release-capture
+# Deployable binary: ./bin/catalog-capture-cli (target/ is only build cache)
 
 # All venues
 make build-release
@@ -58,7 +59,7 @@ make build-release-small
 ```
 
 Venue features: `venue-binance`, `venue-bybit`, `venue-deribit`, `venue-okx`,
-`venue-hyperliquid`, or `all-venues`.
+`venue-hyperliquid`, `venue-lighter`, or `all-venues`.
 
 `examples/*.toml` are CLI configs, not cargo examples.
 

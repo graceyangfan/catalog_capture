@@ -11,11 +11,11 @@ sudo apt-get install -y build-essential pkg-config libssl-dev curl git clang
 
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 source "$HOME/.cargo/env"
-rustup toolchain install 1.97.1
-rustup default 1.97.1
+rustup toolchain install 1.98.0
+rustup default 1.98.0
 ```
 
-Outbound mainnet access: Hyperliquid, Binance Futures, Deribit (HTTPS/WSS).
+Outbound mainnet access: Hyperliquid, Binance Futures, Deribit, Lighter (HTTPS/WSS).
 Public capture needs **no API keys**.
 
 ## 1) Clone and bootstrap
@@ -33,7 +33,7 @@ make bootstrap-deps
 ## 2) Build (slim multi-venue graph)
 
 ```bash
-# Binance + Deribit + Hyperliquid only (preferred)
+# Binance + Deribit + Hyperliquid + Lighter (preferred)
 make build-release-capture
 
 # Free disk if needed (this repo + sibling NT target/)
@@ -45,7 +45,7 @@ See [build size](build_size.md).
 ## 3) Validate
 
 ```bash
-./target/release/catalog-capture-cli validate \
+./bin/catalog-capture-cli validate \
   --config examples/capture.multi-venue-mainnet.toml
 ```
 
@@ -103,7 +103,7 @@ tail -f logs/*.log
 ## 7) Catalog layout (Nautilus)
 
 ```text
-./data/multi-venue-mainnet/data/{quotes,trades,order_book_deltas,mark_prices,instruments}/…
+./data/multi-venue-mainnet/data/{quotes,trades,order_book_deltas,instruments}/…
 ./data/multi-venue-mainnet/data/custom/DeribitBookSummary/…
 ```
 

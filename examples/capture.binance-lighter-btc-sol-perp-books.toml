@@ -1,0 +1,89 @@
+# Long-running Binance Futures + Lighter perpetual order-book capture.
+#
+# `book_deltas` is the Nautilus canonical L2 stream: the adapters publish the
+# initial order-book snapshot followed by incremental updates. The recorder
+# preserves CLEAR/F_SNAPSHOT/F_LAST/sequence fields in order_book_deltas.
+#
+# Both venues use the same 06:00 UTC segment seal as the HIP-4 profiles. This
+# seals files only; it does not interrupt or rotate the live subscriptions.
+# Public market data does not require API credentials.
+#
+# Run:
+#   make build-release-capture
+#   ./bin/catalog-capture-cli run --config examples/capture.binance-lighter-btc-sol-perp-books.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BINANCE-LIGHTER-BTC-SOL-PERP-BOOKS"
+
+[output]
+catalog_uri = "file://./data/binance-lighter-btc-sol-perp-books"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 134217728
+queue_capacity = 50000
+# L2 data must not be silently discarded. Let the service supervisor restart
+# and let Nautilus rebuild each book from a fresh exchange snapshot.
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 20000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "06:00"
+timezone = "UTC"
+interval_secs = 86400
+
+[[venues]]
+id = "binance_futures_main"
+kind = "binance_futures"
+environment = "live"
+product_type = "usd_m"
+
+[[venues]]
+id = "lighter_main"
+kind = "lighter"
+environment = "mainnet"
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+depth = 20
+
+[[capture.instruments]]
+instrument_id = "SOLUSDT-PERP.BINANCE"
+
+[[capture.trades]]
+instrument_id = "SOLUSDT-PERP.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "SOLUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+depth = 20
+
+[[capture.instruments]]
+instrument_id = "SOL-PERP.LIGHTER"
+
+[[capture.trades]]
+instrument_id = "SOL-PERP.LIGHTER"
+
+[[capture.book_deltas]]
+instrument_id = "SOL-PERP.LIGHTER"
+book_type = "L2_MBP"

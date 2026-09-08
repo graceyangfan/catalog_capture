@@ -23,6 +23,8 @@ use nautilus_bybit::common::enums::{BybitEnvironment, BybitProductType};
 use nautilus_deribit::{common::enums::DeribitEnvironment, http::models::DeribitProductType};
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
+#[cfg(feature = "venue-lighter")]
+use nautilus_lighter::common::enums::LighterEnvironment;
 #[cfg(feature = "venue-okx")]
 use nautilus_okx::common::enums::{OKXEnvironment, OKXInstrumentType};
 
@@ -70,6 +72,11 @@ pub enum VenueRuntimeConfig {
         id: String,
         environment: HyperliquidEnvironment,
     },
+    #[cfg(feature = "venue-lighter")]
+    Lighter {
+        id: String,
+        environment: LighterEnvironment,
+    },
     #[cfg(feature = "venue-okx")]
     Okx {
         id: String,
@@ -90,6 +97,8 @@ impl VenueRuntimeConfig {
             Self::Bybit { id, .. } => id,
             #[cfg(feature = "venue-hyperliquid")]
             Self::Hyperliquid { id, .. } => id,
+            #[cfg(feature = "venue-lighter")]
+            Self::Lighter { id, .. } => id,
             #[cfg(feature = "venue-okx")]
             Self::Okx { id, .. } => id,
         }
@@ -170,6 +179,19 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
                 venue_feature_required("hyperliquid", "venue-hyperliquid")
             }
         }
+        "lighter" => {
+            #[cfg(feature = "venue-lighter")]
+            {
+                Ok(VenueRuntimeConfig::Lighter {
+                    id: venue.id,
+                    environment: parse_lighter_environment(&venue.environment)?,
+                })
+            }
+            #[cfg(not(feature = "venue-lighter"))]
+            {
+                venue_feature_required("lighter", "venue-lighter")
+            }
+        }
         "okx" => {
             #[cfg(feature = "venue-okx")]
             {
@@ -195,7 +217,7 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             }
         }
         other => bail!(
-            "unsupported venue kind {other}; known kinds: binance_futures, deribit, bybit, hyperliquid, okx \
+            "unsupported venue kind {other}; known kinds: binance_futures, deribit, bybit, hyperliquid, lighter, okx \
              (enabled at build time via cargo features venue-* / all-venues)"
         ),
     }
@@ -222,7 +244,9 @@ fn parse_binance_environment(value: &str) -> Result<BinanceEnvironment> {
         "live" | "mainnet" => Ok(BinanceEnvironment::Live),
         "testnet" => Ok(BinanceEnvironment::Testnet),
         "demo" => Ok(BinanceEnvironment::Demo),
-        other => bail!("unsupported Binance environment {other}; expected live|mainnet|testnet|demo"),
+        other => {
+            bail!("unsupported Binance environment {other}; expected live|mainnet|testnet|demo")
+        }
     }
 }
 
@@ -251,6 +275,15 @@ pub(crate) fn parse_hyperliquid_environment(value: &str) -> Result<HyperliquidEn
         "mainnet" | "live" => Ok(HyperliquidEnvironment::Mainnet),
         "testnet" => Ok(HyperliquidEnvironment::Testnet),
         other => bail!("unsupported Hyperliquid environment {other}; expected mainnet|testnet"),
+    }
+}
+
+#[cfg(feature = "venue-lighter")]
+pub(crate) fn parse_lighter_environment(value: &str) -> Result<LighterEnvironment> {
+    match value.to_ascii_lowercase().as_str() {
+        "mainnet" | "live" => Ok(LighterEnvironment::Mainnet),
+        "testnet" => Ok(LighterEnvironment::Testnet),
+        other => bail!("unsupported Lighter environment {other}; expected mainnet|testnet"),
     }
 }
 

@@ -12,8 +12,42 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use nautilus_model::data::{ForwardPrice, OptionGreeks};
+use nautilus_core::UnixNanos;
+use nautilus_model::{data::OptionGreeks, identifiers::InstrumentId};
 use rust_decimal::Decimal;
+
+/// Lightweight forward-price record used by the capture metadata path.
+///
+/// Nautilus Trader no longer exposes the legacy `data::ForwardPrice` model;
+/// this value is capture metadata derived from option greeks, not a venue
+/// market-data type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ForwardPrice {
+    pub instrument_id: InstrumentId,
+    pub forward_price: Decimal,
+    pub underlying_index: Option<String>,
+    pub ts_event: UnixNanos,
+    pub ts_init: UnixNanos,
+}
+
+impl ForwardPrice {
+    #[must_use]
+    pub fn new(
+        instrument_id: InstrumentId,
+        forward_price: Decimal,
+        underlying_index: Option<String>,
+        ts_event: UnixNanos,
+        ts_init: UnixNanos,
+    ) -> Self {
+        Self {
+            instrument_id,
+            forward_price,
+            underlying_index,
+            ts_event,
+            ts_init,
+        }
+    }
+}
 
 pub fn forward_price_from_option_greeks(greeks: &OptionGreeks) -> Option<ForwardPrice> {
     let underlying = greeks.underlying_price?;

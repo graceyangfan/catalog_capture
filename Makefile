@@ -1,14 +1,16 @@
 CARGO ?= cargo
 # Keep in sync with rust-toolchain.toml
-TOOLCHAIN ?= 1.97.1
+TOOLCHAIN ?= 1.98.0
 CARGO_TOOL := $(CARGO) +$(TOOLCHAIN)
 CARGO_DENY_VERSION ?= 0.19.9
 
 # Product binary only (single entrypoint).
 CLI_PKG := catalog-capture-cli
+BIN_DIR ?= bin
+PRODUCT_BIN := $(BIN_DIR)/catalog-capture-cli
 
-# Cloud multi-venue capture (no bybit/okx in the link graph).
-CAPTURE_FEATURES ?= venue-binance,venue-deribit,venue-hyperliquid
+# Cloud multi-venue capture (only adapters needed by the capture service).
+CAPTURE_FEATURES ?= venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
 
 .PHONY: bootstrap-deps bootstrap-deps-local build build-slim build-release \
 	build-release-capture build-release-small \
@@ -17,6 +19,7 @@ CAPTURE_FEATURES ?= venue-binance,venue-deribit,venue-hyperliquid
 
 help:
 	@echo "Product binary: $(CLI_PKG) only."
+	@echo "  product binary: $(PRODUCT_BIN) (target/ is disposable build cache)"
 	@echo ""
 	@echo "Build (smaller / faster):"
 	@echo "  build-release-capture  release + only venues needed for multi-venue mainnet"
@@ -47,13 +50,19 @@ build-slim:
 
 build-release:
 	$(CARGO_TOOL) build --release -p $(CLI_PKG)
+	@mkdir -p $(BIN_DIR)
+	cp target/release/$(CLI_PKG) $(PRODUCT_BIN)
 
 # Recommended for cloud multi-venue capture: fewer adapters → less disk + faster link.
 build-release-capture:
 	$(CARGO_TOOL) build --release -p $(CLI_PKG) --no-default-features --features $(CAPTURE_FEATURES)
+	@mkdir -p $(BIN_DIR)
+	cp target/release/$(CLI_PKG) $(PRODUCT_BIN)
 
 build-release-small:
 	$(CARGO_TOOL) build --profile release-small -p $(CLI_PKG) --no-default-features --features $(CAPTURE_FEATURES)
+	@mkdir -p $(BIN_DIR)
+	cp target/release-small/$(CLI_PKG) $(PRODUCT_BIN)
 
 test:
 	$(CARGO_TOOL) test --workspace --lib --bins
