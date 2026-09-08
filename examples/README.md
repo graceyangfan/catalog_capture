@@ -20,7 +20,7 @@ make build-release-capture
 
 | Config | Content |
 |--------|---------|
-| **`capture.multi-venue-mainnet.toml`** | HL rolling universe (quotes/trades) + Binance L2 d20 + trades + Deribit BookSummary 1s |
+| **`capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
 | **`capture.binance-lighter-btc-sol-perp-books.toml`** | Binance BTC/SOL USD-M + Lighter SOL perpetual L2 book and trades, with 06:00 UTC seal |
 | `capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid universe only + 06:00 UTC seal |
 | `capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (`interval_secs = 1`) |

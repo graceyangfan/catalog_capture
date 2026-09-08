@@ -19,8 +19,7 @@ venues → catalog-capture-cli + TOML
 **0.1.x — early open source, research / operator oriented.**
 
 - Multi-venue mainnet capture (public market data) has been run unattended for
-  multi-day windows, including Hyperliquid rolling universe, Binance L2, and
-  Deribit BookSummary with daily segment seal.
+  multi-day windows with scheduled segment sealing and Parquet readback.
 - APIs and TOML may still evolve; pin a commit for production jobs.
 - Best-effort support — see [SECURITY.md](SECURITY.md) and [ROADMAP.md](ROADMAP.md).
 
@@ -29,7 +28,8 @@ venues → catalog-capture-cli + TOML
 - **One product binary** — `catalog-capture-cli` (TOML configs only)
 - **Rust catalog layout only** — `rust_canonical_only` (Nautilus `ParquetDataCatalog`)
 - **Venues** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (`venue-*` features)
-- **Universe refresh** — e.g. HIP-4 style outcome roll (unsub old / sub new)
+- **Subscription lifecycle** — optional universe refresh with old subscriptions
+  removed and new subscriptions added
 - **Segment lifecycle** — append `*.parquet.part`, seal on schedule (default 06:00 UTC)
 - **Mainnet-oriented examples** — public data by default (no keys in TOML)
 
@@ -65,8 +65,8 @@ Data: `./data/…` (gitignored). Catalog layout: [docs/concepts/catalog_layout.m
 
 | Config | Use |
 |--------|-----|
-| **`examples/capture.multi-venue-mainnet.toml`** | HL rolling universe + Binance L2 d20 + Deribit BookSummary |
-| `examples/capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid universe only |
+| **`examples/capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
+| `examples/capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid rolling-universe example |
 | `examples/capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (1s poll) |
 
 More: [examples/README.md](examples/README.md).
@@ -105,7 +105,7 @@ nohup ./scripts/run-mainnet-capture.sh \
 | Install | [docs/getting_started/installation.md](docs/getting_started/installation.md) |
 | Cloud capture | [docs/how_to/cloud_capture.md](docs/how_to/cloud_capture.md) |
 | Catalog layout | [docs/concepts/catalog_layout.md](docs/concepts/catalog_layout.md) |
-| Multi-venue / HIP-4 style | [docs/how_to/hip4_capture.md](docs/how_to/hip4_capture.md) |
+| Dynamic universe / subscription lifecycle | [docs/how_to/hip4_capture.md](docs/how_to/hip4_capture.md) |
 | Build size | [docs/how_to/build_size.md](docs/how_to/build_size.md) |
 | CLI | [docs/reference/cli.md](docs/reference/cli.md) |
 

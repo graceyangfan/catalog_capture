@@ -1,4 +1,4 @@
-# Cloud / bare-metal capture (mainnet)
+# Long-running market data capture (cloud / bare metal)
 
 Run from the **repository root**. Data under `./data/` (gitignored). No system install.
 
@@ -15,7 +15,7 @@ rustup toolchain install 1.98.0
 rustup default 1.98.0
 ```
 
-Outbound mainnet access: Hyperliquid, Binance Futures, Deribit, Lighter (HTTPS/WSS).
+Outbound mainnet access to the configured venues (HTTPS/WSS).
 Public capture needs **no API keys**.
 
 ## 1) Clone and bootstrap
@@ -30,10 +30,10 @@ make bootstrap-deps
 # optional CI pin: ./scripts/bootstrap-deps.sh --pin-ci
 ```
 
-## 2) Build (slim multi-venue graph)
+## 2) Build the product binary
 
 ```bash
-# Binance + Deribit + Hyperliquid + Lighter (preferred)
+# Default cloud feature set; override CAPTURE_FEATURES for a smaller venue set.
 make build-release-capture
 
 # Free disk if needed (this repo + sibling NT target/)
@@ -41,6 +41,30 @@ make build-release-capture
 ```
 
 See [build size](build_size.md).
+
+## 2a) Create a deployment package
+
+Run this on the target cloud OS and architecture. The script builds the
+native release binary, includes one TOML config and the runtime service
+helpers, then writes a small package without `target/` or source code:
+
+```bash
+./scripts/package-cloud.sh \
+  --config examples/capture.multi-venue-mainnet.toml
+```
+
+Transfer the generated `dist/catalog-capture-cloud-*.tar.gz` and its `.sha256`
+file to the server, verify and extract it:
+
+```bash
+sha256sum -c catalog-capture-cloud-*.tar.gz.sha256
+tar -xzf catalog-capture-cloud-*.tar.gz
+cd catalog-capture-cloud-*/
+./scripts/run-capture-service.sh --config config/capture.toml --prebuilt
+```
+
+The packaged binary is native to the machine where the package was built;
+cross-compilation is intentionally not attempted.
 
 ## 3) Validate
 
@@ -103,8 +127,8 @@ tail -f logs/*.log
 ## 7) Catalog layout (Nautilus)
 
 ```text
-./data/multi-venue-mainnet/data/{quotes,trades,order_book_deltas,instruments}/…
-./data/multi-venue-mainnet/data/custom/DeribitBookSummary/…
+./data/<catalog>/data/{instruments,quotes,trades,order_book_deltas,…}/…
+./data/<catalog>/data/custom/<CustomDataType>/…
 ```
 
 Optional `metadata/` is operator lineage only. See
@@ -112,8 +136,8 @@ Optional `metadata/` is operator lineage only. See
 
 | Clock | Behavior |
 |-------|----------|
-| HIP-4 universe refresh | Unsub old / sub new on discovery |
-| Segment seal | Day files at **06:00 UTC** |
+| Dynamic universe refresh | Unsub old / sub new when enabled by the config |
+| Segment seal | Configured rotation boundary (the example uses **06:00 UTC**) |
 
 ## 8) Cleanup
 

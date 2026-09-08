@@ -9,6 +9,7 @@
 #                     default when --release: venue-binance,venue-deribit,venue-hyperliquid
 #   RUSTUP_TOOLCHAIN  default 1.98.0
 #   CATALOG_CAPTURE_LOG_DIR  default <repo>/logs
+#   CATALOG_CAPTURE_BIN_DIR  default <repo>/bin
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,6 +17,7 @@ cd "$ROOT"
 
 CONFIG=""
 RELEASE=0
+PREBUILT=0
 VALIDATE=0
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
 BIN_DIR="${CATALOG_CAPTURE_BIN_DIR:-$ROOT/bin}"
@@ -30,6 +32,7 @@ Usage: scripts/run-capture-service.sh --config <path> [options]
 Options:
   --config <path>     Required TOML config (capture_seconds=0 for daemons)
   --release           Build/run release binary (slim features via CAPTURE_FEATURES)
+  --prebuilt          Run bin/catalog-capture-cli without compiling (packaged deployment)
   --all-venues        With --release: build default all-venues features
   --validate          Run validate-option-universe after a successful capture
   --log-dir <path>    Log directory (default: ./logs)
@@ -53,6 +56,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --release)
       RELEASE=1
+      shift
+      ;;
+    --prebuilt)
+      PREBUILT=1
       shift
       ;;
     --all-venues)
@@ -90,12 +97,23 @@ if [[ ! -f "$CONFIG" ]]; then
   exit 1
 fi
 
+if [[ $PREBUILT -eq 1 && $ALL_VENUES -eq 1 ]]; then
+  echo "--prebuilt cannot be combined with --all-venues" >&2
+  exit 2
+fi
+
 mkdir -p "$LOG_DIR" data "$BIN_DIR"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 CONFIG_BASENAME="$(basename "$CONFIG" .toml)"
 LOG_FILE="$LOG_DIR/${CONFIG_BASENAME}-${STAMP}.log"
 
-if [[ $RELEASE -eq 1 ]]; then
+if [[ $PREBUILT -eq 1 ]]; then
+  BIN="$BIN_DIR/catalog-capture-cli"
+  if [[ ! -x "$BIN" ]]; then
+    echo "Prebuilt binary not found: $BIN" >&2
+    exit 1
+  fi
+elif [[ $RELEASE -eq 1 ]]; then
   if [[ $ALL_VENUES -eq 1 ]]; then
     echo "Building release (all-venues)..." | tee -a "$LOG_FILE"
     "$CARGO" "+$TOOLCHAIN" build --release -p catalog-capture-cli

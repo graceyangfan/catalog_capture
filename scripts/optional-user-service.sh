@@ -7,10 +7,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLATFORM=""
 CONFIG=""
 NAME="catalog-capture"
+PREBUILT=0
 
 usage() {
   cat << 'EOF'
-Usage: scripts/optional-user-service.sh --platform launchd|systemd --config <toml> [--name <id>]
+Usage: scripts/optional-user-service.sh --platform launchd|systemd --config <toml> [--name <id>] [--prebuilt]
 
 Generates a user-level service that runs catalog-capture from this repository
 checkout (WorkingDirectory = repo root). Catalogs still come from the TOML
@@ -36,6 +37,10 @@ while [[ $# -gt 0 ]]; do
     --name)
       NAME="$2"
       shift 2
+      ;;
+    --prebuilt)
+      PREBUILT=1
+      shift
       ;;
     -h | --help)
       usage
@@ -65,6 +70,10 @@ fi
 RUNNER="$ROOT/scripts/run-capture-service.sh"
 LOG_DIR="$ROOT/logs"
 mkdir -p "$LOG_DIR"
+RUNNER_ARGS="--config ${CONFIG} --release"
+if [[ $PREBUILT -eq 1 ]]; then
+  RUNNER_ARGS="${RUNNER_ARGS} --prebuilt"
+fi
 
 case "$PLATFORM" in
   launchd)
@@ -84,6 +93,7 @@ case "$PLATFORM" in
     <string>--config</string>
     <string>${CONFIG}</string>
     <string>--release</string>
+$(if [[ $PREBUILT -eq 1 ]]; then echo '    <string>--prebuilt</string>'; fi)
   </array>
   <key>WorkingDirectory</key>
   <string>${ROOT}</string>
@@ -123,7 +133,7 @@ Type=simple
 WorkingDirectory=${ROOT}
 Environment=RUSTUP_TOOLCHAIN=1.98.0
 Environment=CATALOG_CAPTURE_LOG_DIR=${LOG_DIR}
-ExecStart=${RUNNER} --config ${CONFIG} --release
+ExecStart=${RUNNER} ${RUNNER_ARGS}
 Restart=on-failure
 RestartSec=30
 KillSignal=SIGTERM
@@ -142,6 +152,3 @@ EOF
     exit 2
     ;;
 esac
-
-# silence unused
-: "${BIN}"

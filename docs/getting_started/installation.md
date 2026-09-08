@@ -48,6 +48,9 @@ rustup component add rustfmt clippy --toolchain 1.98.0
 make build-release-capture
 # Deployable binary: ./bin/catalog-capture-cli (target/ is only build cache)
 
+# Optional: create a self-contained cloud deployment archive
+./scripts/package-cloud.sh --config examples/capture.multi-venue-mainnet.toml
+
 # All venues
 make build-release
 

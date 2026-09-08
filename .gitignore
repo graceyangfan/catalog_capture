@@ -1,5 +1,6 @@
 target/
 bin/
+dist/
 logs/
 data/
 config.json

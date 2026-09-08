@@ -14,6 +14,7 @@ CAPTURE_FEATURES ?= venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
 
 .PHONY: bootstrap-deps bootstrap-deps-local build build-slim build-release \
 	build-release-capture build-release-small \
+	package-cloud \
 	test test-lib fmt clippy pre-commit cargo-deny install-tools \
 	smoke-soak cleanup-tmp run-service clean clean-debug clean-all-targets help
 
@@ -26,6 +27,7 @@ help:
 	@echo "                         (FEATURES=$(CAPTURE_FEATURES))"
 	@echo "  build-release          release, all venues (largest graph)"
 	@echo "  build-release-small    --profile release-small (slower, smaller binary)"
+	@echo "  package-cloud          build a self-contained cloud deployment tarball"
 	@echo "  build-slim             debug slim: FEATURES=venue-deribit (override FEATURES=...)"
 	@echo "  clean / clean-debug    wipe this repo target/ (not ../nautilus_trader/target)"
 	@echo "  clean-all-targets      also wipe sibling nautilus_trader/target (frees tens of GB)"
@@ -63,6 +65,9 @@ build-release-small:
 	$(CARGO_TOOL) build --profile release-small -p $(CLI_PKG) --no-default-features --features $(CAPTURE_FEATURES)
 	@mkdir -p $(BIN_DIR)
 	cp target/release-small/$(CLI_PKG) $(PRODUCT_BIN)
+
+package-cloud:
+	./scripts/package-cloud.sh
 
 test:
 	$(CARGO_TOOL) test --workspace --lib --bins
