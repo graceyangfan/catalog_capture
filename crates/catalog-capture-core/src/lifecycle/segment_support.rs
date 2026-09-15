@@ -204,15 +204,10 @@ pub(crate) fn rename_part_to_catalog_parquet(
     min_ts_ns: u64,
     max_ts_ns: u64,
 ) -> Result<(PathBuf, u64)> {
-    let final_name =
-        timestamps_to_filename(UnixNanos::from(min_ts_ns), UnixNanos::from(max_ts_ns));
+    let final_name = timestamps_to_filename(UnixNanos::from(min_ts_ns), UnixNanos::from(max_ts_ns));
     let final_path = directory.join(final_name);
-    fs::rename(part_path, &final_path).with_context(|| {
-        format!(
-            "failed to seal segment part {}",
-            part_path.display()
-        )
-    })?;
+    fs::rename(part_path, &final_path)
+        .with_context(|| format!("failed to seal segment part {}", part_path.display()))?;
     let bytes = fs::metadata(&final_path)
         .map(|meta| meta.len())
         .unwrap_or(0);

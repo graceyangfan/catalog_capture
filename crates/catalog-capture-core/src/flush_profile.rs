@@ -105,7 +105,10 @@ pub fn family_row_group_rows(base: &CaptureConfig, family: CaptureFlushFamily) -
 
 /// Clone config with family-specific row thresholds applied.
 #[must_use]
-pub fn capture_config_for_family(base: &CaptureConfig, family: CaptureFlushFamily) -> CaptureConfig {
+pub fn capture_config_for_family(
+    base: &CaptureConfig,
+    family: CaptureFlushFamily,
+) -> CaptureConfig {
     let flush_rows = family_row_threshold(base, family);
     let row_group_rows = family_row_group_rows(base, family);
     let mut config = base.clone();

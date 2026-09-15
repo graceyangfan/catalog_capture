@@ -11,8 +11,8 @@ sudo apt-get install -y build-essential pkg-config libssl-dev curl git clang
 
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 source "$HOME/.cargo/env"
-rustup toolchain install 1.98.0
-rustup default 1.98.0
+rustup toolchain install 1.98.1
+rustup default 1.98.1
 ```
 
 Outbound mainnet access to the configured venues (HTTPS/WSS).

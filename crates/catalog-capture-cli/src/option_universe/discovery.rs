@@ -281,12 +281,8 @@ async fn resolve_okx_option_universe(
         client.cache_instrument(instrument.clone());
     }
 
-    let (atm_reference, atm_reference_source) = request_okx_strike_reference(
-        &client,
-        spec,
-        &instrument_family,
-    )
-    .await?;
+    let (atm_reference, atm_reference_source) =
+        request_okx_strike_reference(&client, spec, &instrument_family).await?;
     let open_interest_by_strike = maybe_fetch_okx_strike_open_interest(
         &client,
         spec,

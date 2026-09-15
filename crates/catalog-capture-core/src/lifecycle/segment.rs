@@ -396,10 +396,7 @@ mod tests {
         let mut sealed_total = 0usize;
         for i in 0..6_u64 {
             let paths = sink
-                .write_batch_mut(
-                    partition_key,
-                    vec![quote(instrument_id, 2_000 + i * 1_000)],
-                )
+                .write_batch_mut(partition_key, vec![quote(instrument_id, 2_000 + i * 1_000)])
                 .expect("append");
             sealed_total += paths.len();
         }
@@ -413,10 +410,7 @@ mod tests {
             "capacity roll must reopen an active part"
         );
         assert!(
-            sink.segments[partition_key]
-                .part
-                .flushed_row_group_count()
-                < 2
+            sink.segments[partition_key].part.flushed_row_group_count() < 2
                 || sink.segments[partition_key].part.row_count > 0,
             "new part should be under the soft cap after roll"
         );

@@ -348,7 +348,10 @@ mod tests {
             .write_custom_data_batch(batch(3.0))
             .expect("third same-ts write must not non-disjoint");
 
-        assert_ne!(path1, path2, "file intervals must advance for identical ts_init");
+        assert_ne!(
+            path1, path2,
+            "file intervals must advance for identical ts_init"
+        );
         assert_ne!(path2, path3);
         // Catalog returns object-store relative paths; resolve under catalog root.
         for path in [&path1, &path2, &path3] {

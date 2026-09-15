@@ -46,9 +46,6 @@ pub use budget::{
     format_buffer_estimate, validate_capture_config, BufferMemoryEstimate, FamilyBufferEstimate,
 };
 pub use buffer::PartitionBuffer;
-pub use flush_profile::{
-    capture_config_for_family, family_row_group_rows, family_row_threshold, CaptureFlushFamily,
-};
 pub use capture_run::{
     capture_run_path, new_capture_run_record, write_capture_run_record, CaptureRunInput,
     CaptureRunPlanSummary, CaptureRunRecord, CaptureRunVenueRecord, CAPTURE_RUN_FILE,
@@ -58,6 +55,9 @@ pub use catalog_layout::{
     custom_data_dir, market_data_dir, path_is_under_custom_type, path_is_under_market_family,
 };
 pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy};
+pub use flush_profile::{
+    capture_config_for_family, family_row_group_rows, family_row_threshold, CaptureFlushFamily,
+};
 pub use forward_price::{forward_price_from_option_greeks, ForwardPrice};
 pub use forward_price_metadata::{
     append_forward_price_records, forward_price_log_path, forward_price_record_from_model,
@@ -75,12 +75,12 @@ pub use hip4::{
 };
 pub use item::{CaptureItem, PartitionKey};
 pub use lifecycle::{
-    estimated_row_groups, min_row_group_rows_for_day, next_seal_boundary_ns,
-    resolve_seal_schedule, seconds_to_hard_limit, should_seal_at, DurabilityConfig,
-    LifecycleConfig, LifecycleMode, ResolvedSealSchedule, SealConfigFile, SegmentCaptureSink,
-    SegmentCustomDataSink, SegmentLifecycleConfig, CLOUD_BOOK_SUMMARY_POLL_ROWS,
-    CLOUD_BOOK_SUMMARY_ROWS_PER_SEC, CUSTOM_MEMORY_FLUSH_ROWS, CUSTOM_ROW_GROUP_ROWS,
-    DEFAULT_SEAL_INTERVAL_SECS, PARQUET_MAX_ROW_GROUPS, ROW_GROUP_ROLL_THRESHOLD,
+    estimated_row_groups, min_row_group_rows_for_day, next_seal_boundary_ns, resolve_seal_schedule,
+    seconds_to_hard_limit, should_seal_at, DurabilityConfig, LifecycleConfig, LifecycleMode,
+    ResolvedSealSchedule, SealConfigFile, SegmentCaptureSink, SegmentCustomDataSink,
+    SegmentLifecycleConfig, CLOUD_BOOK_SUMMARY_POLL_ROWS, CLOUD_BOOK_SUMMARY_ROWS_PER_SEC,
+    CUSTOM_MEMORY_FLUSH_ROWS, CUSTOM_ROW_GROUP_ROWS, DEFAULT_SEAL_INTERVAL_SECS,
+    PARQUET_MAX_ROW_GROUPS, ROW_GROUP_ROLL_THRESHOLD,
 };
 pub use metrics::{CaptureMetrics, FlushReason, FlushReasonMetrics};
 pub use metrics_export::{
@@ -109,11 +109,11 @@ pub use plan::{
     capture_plan_difference, instrument_id_difference, instrument_id_overlap_and_new,
     plan_instrument_ids, BarCaptureSpec, BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags,
     CapturePlan, CustomDataCaptureSpec, CustomDataRequestCaptureSpec, ForwardPriceCaptureSpec,
-    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
-    InstrumentStatusCaptureSpec, MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec,
-    RequestOverlapPolicy, TradeCaptureSpec, DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
-    DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS, DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS,
-    MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
+    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
+    InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
+    OptionGreeksCaptureSpec, QuoteCaptureSpec, RequestOverlapPolicy, TradeCaptureSpec,
+    DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS, DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS,
+    DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS, MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
 };
 pub use runtime::{CaptureRuntime, FlushResult};
 pub use sink::{

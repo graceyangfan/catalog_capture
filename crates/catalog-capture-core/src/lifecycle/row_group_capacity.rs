@@ -123,7 +123,7 @@ mod tests {
         assert_eq!(ROW_GROUP_ROLL_THRESHOLD, 30_000);
         assert_eq!(PARQUET_MAX_ROW_GROUPS - ROW_GROUP_ROLL_THRESHOLD, 2_767);
         // Headroom covers ≫ production single-write RG bursts (≤3 for L2 profile).
-        assert!(PARQUET_MAX_ROW_GROUPS - ROW_GROUP_ROLL_THRESHOLD > 100);
+        const { assert!(PARQUET_MAX_ROW_GROUPS - ROW_GROUP_ROLL_THRESHOLD > 100) };
     }
 
     #[test]
@@ -223,14 +223,14 @@ mod tests {
         // headroom ≥ max RGs from one custom poll written as size-1 groups, and
         // production L2 flush split by min production RG (20k) → 3 groups.
         assert!(headroom >= CLOUD_BOOK_SUMMARY_POLL_ROWS as u64);
-        let l2_rgs_per_flush = (max_flush_rows + 20_000 - 1) / 20_000;
+        let l2_rgs_per_flush = max_flush_rows.div_ceil(20_000);
         assert!(headroom >= l2_rgs_per_flush);
     }
 
     #[test]
     fn memory_flush_stays_one_poll_row_group_packs_many() {
         assert_eq!(CUSTOM_MEMORY_FLUSH_ROWS, 1_000);
-        assert!(CUSTOM_ROW_GROUP_ROWS > CUSTOM_MEMORY_FLUSH_ROWS);
+        const { assert!(CUSTOM_ROW_GROUP_ROWS > CUSTOM_MEMORY_FLUSH_ROWS) };
         assert_eq!(CUSTOM_ROW_GROUP_ROWS / CUSTOM_MEMORY_FLUSH_ROWS, 50);
     }
 }

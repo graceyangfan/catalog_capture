@@ -95,3 +95,15 @@ Keep a single stable `catalog_uri` for the job. Examples:
 
 HIP-4: universe poll (which YES/NO) is separate from seal (file day). See
 [HIP-4 capture](../how_to/hip4_capture.md).
+
+## Order book checkpoints
+
+When `book_deltas` is enabled, the capture actor uses Nautilus' managed
+`OrderBook` cache and subscribes to `subscribe_book_at_interval` at a one-hour
+interval. Nautilus aligns that timer to UTC hour boundaries; the actor converts
+each `OrderBook` to canonical `OrderBookDeltas` with `OrderBook::to_deltas`.
+
+At segment seal, the actor writes one cache checkpoint after sealing the old
+part, so the first book batch in the new segment is a snapshot. This is a
+capture-lifecycle checkpoint, not an extra exchange REST request. An empty or
+never-updated book is skipped because it cannot provide a valid state snapshot.

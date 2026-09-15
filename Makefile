@@ -1,6 +1,6 @@
 CARGO ?= cargo
 # Keep in sync with rust-toolchain.toml
-TOOLCHAIN ?= 1.98.0
+TOOLCHAIN ?= 1.98.1
 CARGO_TOOL := $(CARGO) +$(TOOLCHAIN)
 CARGO_DENY_VERSION ?= 0.19.9
 

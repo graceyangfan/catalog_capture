@@ -245,9 +245,7 @@ mod tests {
     use super::*;
     use crate::{
         config::CaptureConfig,
-        lifecycle::{
-            segment_support::PART_SUFFIX, LifecycleConfig, LifecycleMode, SealConfigFile,
-        },
+        lifecycle::{segment_support::PART_SUFFIX, LifecycleConfig, LifecycleMode, SealConfigFile},
     };
 
     fn temp_dir(prefix: &str) -> PathBuf {
@@ -384,9 +382,7 @@ mod tests {
         for poll in 0..5_u64 {
             let ts = 1_000_000 + poll * 1_000_000_000;
             // ~poll-sized batch with identical ts_init (snapshot semantics).
-            let batch: Vec<CustomData> = (0..80)
-                .map(|i| custom_row(ts, f64::from(i)))
-                .collect();
+            let batch: Vec<CustomData> = (0..80).map(|i| custom_row(ts, f64::from(i))).collect();
             sink.write_batch_mut(partition, batch).expect("poll append");
         }
 
@@ -416,8 +412,7 @@ mod tests {
         ensure_custom_data_registered::<RustTestCustomData>();
         let dir = temp_dir("cloud-like-pack");
         let mut config = segment_config(&dir);
-        config.lifecycle.segment.row_group_rows =
-            crate::lifecycle::CUSTOM_ROW_GROUP_ROWS;
+        config.lifecycle.segment.row_group_rows = crate::lifecycle::CUSTOM_ROW_GROUP_ROWS;
         config.lifecycle.durability.sync_interval_ms = 1;
         let mut sink = SegmentCustomDataSink::from_config(&config).expect("sink");
         let partition = "custom_data|RustTestCustomData|RUST.TEST|_";
@@ -499,7 +494,10 @@ mod tests {
         let mut sealed_from_write = 0usize;
         for i in 0..6_u64 {
             let paths = sink
-                .write_batch_mut(partition, vec![custom_row(2_000 + i * 1_000, f64::from(i as u32))])
+                .write_batch_mut(
+                    partition,
+                    vec![custom_row(2_000 + i * 1_000, f64::from(i as u32))],
+                )
                 .expect("append");
             sealed_from_write += paths.len();
         }

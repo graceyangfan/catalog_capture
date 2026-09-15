@@ -44,8 +44,6 @@ pub use capture::{CaptureConfigFile, InstrumentSelector};
 #[cfg(test)]
 pub use custom::{CustomDataRequestSelector, CustomDataSelector};
 #[cfg(test)]
-pub use hip4::Hip4UniverseSelector;
-#[cfg(test)]
 pub use option_universe::{ExpiryPolicySelector, OptionUniverseSelector, StrikePolicySelector};
 
 pub use output::OutputConfig;

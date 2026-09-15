@@ -28,17 +28,17 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `18893faf8b356be3320add8de2f861b0b647cf06` |
+| 0.1.x / main | `e96f180a5abe29a361c4c86f6a3fc2cf0b347c42` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
 
 ## Toolchain
 
-Rust **1.98.0** (`rust-toolchain.toml`):
+Rust **1.98.1** (`rust-toolchain.toml`):
 
 ```bash
-rustup toolchain install 1.98.0
-rustup component add rustfmt clippy --toolchain 1.98.0
+rustup toolchain install 1.98.1
+rustup component add rustfmt clippy --toolchain 1.98.1
 ```
 
 ## Build

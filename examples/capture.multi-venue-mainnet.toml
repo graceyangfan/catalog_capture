@@ -8,6 +8,7 @@
 #   Hyperliquid: instruments, quotes, trades (rolling HIP-4 universe)
 #   Binance USD-M: trades + L2 book_deltas depth=20 (@depth@0ms stream)
 #   Deribit: BookSummary request ~1 rps → segment .part (not 1 catalog file/sec); seal 06:00 UTC
+#   Selected books: Nautilus-managed hourly snapshots, aligned to UTC hour boundaries
 #
 # Lightweight: flush often into open segments; LiveNode uses bounded cache (see runner).
 #

@@ -7,7 +7,7 @@
 # Env:
 #   CAPTURE_FEATURES  --no-default-features --features … (release only)
 #                     default when --release: venue-binance,venue-deribit,venue-hyperliquid
-#   RUSTUP_TOOLCHAIN  default 1.98.0
+#   RUSTUP_TOOLCHAIN  default 1.98.1
 #   CATALOG_CAPTURE_LOG_DIR  default <repo>/logs
 #   CATALOG_CAPTURE_BIN_DIR  default <repo>/bin
 set -euo pipefail
@@ -22,7 +22,7 @@ VALIDATE=0
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
 BIN_DIR="${CATALOG_CAPTURE_BIN_DIR:-$ROOT/bin}"
 CARGO="${CARGO:-cargo}"
-TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.98.0}"
+TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.98.1}"
 CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid,venue-lighter}"
 
 usage() {
@@ -41,7 +41,7 @@ Options:
 Environment:
   CAPTURE_FEATURES    Comma features for slim release (default multi-venue set)
   CARGO               Cargo executable
-  RUSTUP_TOOLCHAIN    Rust toolchain (default 1.98.0)
+  RUSTUP_TOOLCHAIN    Rust toolchain (default 1.98.1)
   CATALOG_CAPTURE_LOG_DIR
   CATALOG_CAPTURE_BIN_DIR  Product binary directory (default: ./bin)
 EOF

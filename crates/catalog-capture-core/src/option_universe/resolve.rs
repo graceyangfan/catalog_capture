@@ -393,38 +393,31 @@ mod tests {
         kind: OptionKind,
         expiration_ns: u64,
     ) -> InstrumentAny {
-        InstrumentAny::CryptoOption(CryptoOption::new(
-            InstrumentId::from(format!("{symbol}.DERIBIT").as_str()),
-            Symbol::from(symbol),
-            Currency::from("BTC"),
-            Currency::from("USD"),
-            Currency::from("BTC"),
-            false,
-            kind,
-            Price::from(strike),
-            UnixNanos::from(1_700_000_000_000_000_000u64),
-            UnixNanos::from(expiration_ns),
-            3,
-            1,
-            Price::from("0.001"),
-            Quantity::from("0.1"),
-            Some(Quantity::from(1)),
-            Some(Quantity::from("0.1")),
-            None,
-            Some(Quantity::from("0.1")),
-            None,
-            Some(Money::new(10.0, Currency::from("USD"))),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0.into(),
-            0.into(),
-        ))
+        InstrumentAny::CryptoOption(
+            CryptoOption::builder()
+                .instrument_id(InstrumentId::from(format!("{symbol}.DERIBIT").as_str()))
+                .raw_symbol(Symbol::from(symbol))
+                .underlying(Currency::from("BTC"))
+                .quote_currency(Currency::from("USD"))
+                .settlement_currency(Currency::from("BTC"))
+                .is_inverse(false)
+                .option_kind(kind)
+                .strike_price(Price::from(strike))
+                .activation_ns(UnixNanos::from(1_700_000_000_000_000_000u64))
+                .expiration_ns(UnixNanos::from(expiration_ns))
+                .price_precision(3)
+                .size_precision(1)
+                .price_increment(Price::from("0.001"))
+                .size_increment(Quantity::from("0.1"))
+                .multiplier(Quantity::from(1))
+                .lot_size(Quantity::from("0.1"))
+                .min_quantity(Quantity::from("0.1"))
+                .min_notional(Money::new(10.0, Currency::from("USD")))
+                .ts_event(0.into())
+                .ts_init(0.into())
+                .build()
+                .expect("valid Deribit option fixture"),
+        )
     }
 
     fn make_btc_option_set() -> Vec<InstrumentAny> {

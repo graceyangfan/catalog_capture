@@ -51,10 +51,7 @@ use nautilus_hyperliquid::{
     config::HyperliquidDataClientConfig, factories::HyperliquidDataClientFactory,
 };
 #[cfg(feature = "venue-lighter")]
-use nautilus_lighter::{
-    config::LighterDataClientConfig,
-    factories::LighterDataClientFactory,
-};
+use nautilus_lighter::{config::LighterDataClientConfig, factories::LighterDataClientFactory};
 use nautilus_live::node::LiveNode;
 use nautilus_model::identifiers::{ActorId, TraderId};
 #[cfg(feature = "venue-okx")]

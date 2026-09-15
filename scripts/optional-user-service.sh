@@ -131,7 +131,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=${ROOT}
-Environment=RUSTUP_TOOLCHAIN=1.98.0
+Environment=RUSTUP_TOOLCHAIN=1.98.1
 Environment=CATALOG_CAPTURE_LOG_DIR=${LOG_DIR}
 ExecStart=${RUNNER} ${RUNNER_ARGS}
 Restart=on-failure

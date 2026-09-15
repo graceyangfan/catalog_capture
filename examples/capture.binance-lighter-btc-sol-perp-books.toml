@@ -2,10 +2,12 @@
 #
 # `book_deltas` is the Nautilus canonical L2 stream: the adapters publish the
 # initial order-book snapshot followed by incremental updates. The recorder
-# preserves CLEAR/F_SNAPSHOT/F_LAST/sequence fields in order_book_deltas.
+# preserves CLEAR/F_SNAPSHOT/F_LAST/sequence fields in order_book_deltas and
+# writes an hourly checkpoint from Nautilus' managed OrderBook cache.
 #
 # Both venues use the same 06:00 UTC segment seal as the HIP-4 profiles. This
 # seals files only; it does not interrupt or rotate the live subscriptions.
+# The hourly snapshot timer and the 06:00 UTC boundary use the same UTC clock.
 # Public market data does not require API credentials.
 #
 # Run:

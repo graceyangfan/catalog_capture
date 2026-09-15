@@ -34,6 +34,7 @@ log.workspace = true
 
 [dev-dependencies]
 # Unit/integration tests only — no cargo [[example]] binaries.
+nautilus-model = { workspace = true, features = ["test-support"] }
 rust_decimal.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

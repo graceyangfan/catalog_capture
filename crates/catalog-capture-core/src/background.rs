@@ -769,7 +769,10 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(10));
         }
-        panic!("queue did not drain in time (depth={})", runtime.queue_depth());
+        panic!(
+            "queue did not drain in time (depth={})",
+            runtime.queue_depth()
+        );
     }
 
     #[test]

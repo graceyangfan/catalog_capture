@@ -174,11 +174,7 @@ impl CustomDataCatalogSink {
 }
 
 impl CaptureSink<CustomData> for CustomDataCatalogSink {
-    fn write_batch(
-        &mut self,
-        partition_key: &str,
-        batch: Vec<CustomData>,
-    ) -> Result<Vec<PathBuf>> {
+    fn write_batch(&mut self, partition_key: &str, batch: Vec<CustomData>) -> Result<Vec<PathBuf>> {
         match self {
             Self::Chunked(sink) => sink.write_custom_data_batch(batch).map(|path| vec![path]),
             Self::Segment(sink) => sink.write_batch_mut(partition_key, batch),
@@ -211,7 +207,9 @@ impl CaptureSink<CustomData> for CustomDataCatalogSink {
     }
 }
 
-pub fn custom_data_catalog_sink_from_config(config: &CaptureConfig) -> Result<CustomDataCatalogSink> {
+pub fn custom_data_catalog_sink_from_config(
+    config: &CaptureConfig,
+) -> Result<CustomDataCatalogSink> {
     CustomDataCatalogSink::from_config(config)
 }
 
@@ -356,9 +354,7 @@ impl NautilusCatalogSink {
                 .lock()
                 .map_err(|_| anyhow::anyhow!("custom_last_end_ns mutex poisoned"))?;
             if !last_ends.contains_key(&key) {
-                if let Some(seed) =
-                    self.seed_custom_last_end(&type_name, identifier.as_deref())
-                {
+                if let Some(seed) = self.seed_custom_last_end(&type_name, identifier.as_deref()) {
                     last_ends.insert(key.clone(), seed);
                 }
             }
@@ -384,34 +380,6 @@ impl NautilusCatalogSink {
         }
 
         Ok(path)
-    }
-}
-
-#[cfg(test)]
-mod custom_interval_tests {
-    use super::NautilusCatalogSink;
-
-    #[test]
-    fn disjoint_file_interval_advances_past_previous_end() {
-        assert_eq!(
-            NautilusCatalogSink::disjoint_file_interval(None, 100, 100),
-            (100, 100)
-        );
-        // Same-ts snapshot split across flushes must not touch previous end.
-        assert_eq!(
-            NautilusCatalogSink::disjoint_file_interval(Some(100), 100, 100),
-            (101, 101)
-        );
-        // Contiguous multi-poll batch that would touch (prev_end == next_start).
-        assert_eq!(
-            NautilusCatalogSink::disjoint_file_interval(Some(200), 200, 300),
-            (201, 300)
-        );
-        // Already strictly after previous end — leave data range intact.
-        assert_eq!(
-            NautilusCatalogSink::disjoint_file_interval(Some(100), 150, 180),
-            (150, 180)
-        );
     }
 }
 
@@ -520,5 +488,33 @@ impl CaptureSink<CustomData> for NautilusCatalogSink {
         batch: Vec<CustomData>,
     ) -> Result<Vec<PathBuf>> {
         self.write_custom_data_batch(batch).map(|path| vec![path])
+    }
+}
+
+#[cfg(test)]
+mod custom_interval_tests {
+    use super::NautilusCatalogSink;
+
+    #[test]
+    fn disjoint_file_interval_advances_past_previous_end() {
+        assert_eq!(
+            NautilusCatalogSink::disjoint_file_interval(None, 100, 100),
+            (100, 100)
+        );
+        // Same-ts snapshot split across flushes must not touch previous end.
+        assert_eq!(
+            NautilusCatalogSink::disjoint_file_interval(Some(100), 100, 100),
+            (101, 101)
+        );
+        // Contiguous multi-poll batch that would touch (prev_end == next_start).
+        assert_eq!(
+            NautilusCatalogSink::disjoint_file_interval(Some(200), 200, 300),
+            (201, 300)
+        );
+        // Already strictly after previous end — leave data range intact.
+        assert_eq!(
+            NautilusCatalogSink::disjoint_file_interval(Some(100), 150, 180),
+            (150, 180)
+        );
     }
 }

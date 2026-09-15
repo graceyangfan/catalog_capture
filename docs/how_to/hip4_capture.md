@@ -8,7 +8,9 @@ For a fixed-perpetual book capture using the same daily file boundary, use
 It records Binance BTC/SOL USD-M and Lighter SOL perpetual `book_deltas`
 plus trade ticks and seals segments at 06:00 UTC. The Lighter adapter bootstraps
 its instrument registry and publishes the initial snapshot before incremental
-updates; no custom snapshot request is needed.
+updates; no custom snapshot request is needed. Selected books are also maintained
+by Nautilus and checkpointed hourly using `subscribe_book_at_interval`, with the
+06:00 UTC segment boundary checkpointed into the new segment.
 
 ## Subscriptions (channel-level)
 

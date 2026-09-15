@@ -30,12 +30,14 @@ venues → catalog-capture-cli + TOML
 - **Venues** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (`venue-*` features)
 - **Subscription lifecycle** — optional universe refresh with old subscriptions
   removed and new subscriptions added
+- **Order book checkpoints** — managed Nautilus books checkpointed hourly and at
+  segment boundaries
 - **Segment lifecycle** — append `*.parquet.part`, seal on schedule (default 06:00 UTC)
 - **Mainnet-oriented examples** — public data by default (no keys in TOML)
 
 ## Quick start
 
-Requires Rust **1.98.0** and sibling `../nautilus_trader`. Run from the **repo root**.
+Requires Rust **1.98.1** and sibling `../nautilus_trader`. Run from the **repo root**.
 
 ```bash
 # Clone + checkout the Nautilus revision pinned by CI (recommended)

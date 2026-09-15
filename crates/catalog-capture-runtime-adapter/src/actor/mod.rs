@@ -16,7 +16,7 @@ mod lifecycle;
 mod submit;
 
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fmt::Debug,
     path::PathBuf,
     sync::{Arc, RwLock},
@@ -24,6 +24,7 @@ use std::{
 
 use anyhow::Result;
 
+use crate::actor_runtime::maybe_family_runtime;
 use catalog_capture_core::{
     background::BackgroundCaptureRuntime,
     catalog_root_from_uri,
@@ -40,7 +41,6 @@ use catalog_capture_core::{
         ChunkedCatalogSink, CustomDataCatalogSink,
     },
 };
-use crate::actor_runtime::maybe_family_runtime;
 use nautilus_common::{
     actor::{DataActorConfig, DataActorCore, DataActorNative},
     nautilus_actor,
@@ -53,6 +53,7 @@ use nautilus_model::{
     },
     identifiers::{ActorId, ClientId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
+    orderbook::OrderBook,
 };
 
 use crate::actor_plan::{
@@ -73,6 +74,9 @@ const PENDING_MARKET_DATA_TIMER: &str = "PENDING_MARKET_DATA";
 const PENDING_MD_BACKOFF_START_SECS: u64 = 1;
 /// Cap on re-request poll interval only — total wait is unbounded until cache-ready or roll-clear.
 const PENDING_MD_BACKOFF_MAX_SECS: u64 = 60;
+/// Hourly checkpoints align with the UTC segment boundary (06:00 UTC).
+const BOOK_SNAPSHOT_INTERVAL_MS: usize = 60 * 60 * 1_000;
+const BOOK_SNAPSHOT_INTERVAL_NS: u64 = BOOK_SNAPSHOT_INTERVAL_MS as u64 * 1_000_000;
 
 #[derive(Debug, Clone)]
 pub struct CatalogCaptureActorConfig {
@@ -143,6 +147,9 @@ pub struct CatalogCaptureActor {
     pending_market_data: BTreeSet<InstrumentId>,
     /// Instrument IDs that already received market-data subscribe commands.
     market_data_live: BTreeSet<InstrumentId>,
+    /// Last snapshot identity per instrument, preventing duplicate timer and
+    /// boundary snapshots without suppressing unchanged books in later hours.
+    last_book_snapshot: BTreeMap<InstrumentId, (u64, u64)>,
     /// Adaptive re-request backoff (seconds) while `pending_market_data` is non-empty.
     pending_market_data_backoff_secs: u64,
     metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
@@ -295,6 +302,7 @@ impl CatalogCaptureActor {
             custom_data_request_jobs,
             pending_market_data: BTreeSet::new(),
             market_data_live: BTreeSet::new(),
+            last_book_snapshot: BTreeMap::new(),
             pending_market_data_backoff_secs: PENDING_MD_BACKOFF_START_SECS,
             metrics_snapshot: config.metrics_snapshot,
             metrics_refresh_interval_secs: config.metrics_refresh_interval_secs,
@@ -591,15 +599,29 @@ mod tests {
         cache::Cache,
         clock::TestClock,
     };
+    use nautilus_core::UnixNanos;
     use nautilus_model::{
         data::QuoteTick,
         identifiers::{InstrumentId, TraderId},
         instruments::{stubs::audusd_sim, InstrumentAny},
         stubs::TestDefault,
+        types::{Price, Quantity},
     };
 
     use super::*;
     use crate::DynamicHip4UniverseChange;
+
+    fn test_quote(instrument_id: InstrumentId) -> QuoteTick {
+        QuoteTick::new(
+            instrument_id,
+            Price::from("1.0"),
+            Price::from("1.1"),
+            Quantity::from("1"),
+            Quantity::from("1"),
+            UnixNanos::default(),
+            UnixNanos::default(),
+        )
+    }
 
     #[test]
     fn actor_starts_only_plan_enabled_background_workers() {
@@ -666,10 +688,7 @@ mod tests {
                 .add_instrument(InstrumentAny::CurrencyPair(instrument))
                 .expect("instrument should be cached");
             cache
-                .add_quote(QuoteTick {
-                    instrument_id,
-                    ..QuoteTick::default()
-                })
+                .add_quote(test_quote(instrument_id))
                 .expect("quote should be cached");
         }
 
@@ -853,18 +872,9 @@ mod tests {
             let mut c = cache.borrow_mut();
             c.add_instrument(InstrumentAny::CurrencyPair(outcome))
                 .unwrap();
-            c.add_instrument(InstrumentAny::CurrencyPair(perp))
-                .unwrap();
-            c.add_quote(QuoteTick {
-                instrument_id: outcome_id,
-                ..QuoteTick::default()
-            })
-            .unwrap();
-            c.add_quote(QuoteTick {
-                instrument_id: perp_id,
-                ..QuoteTick::default()
-            })
-            .unwrap();
+            c.add_instrument(InstrumentAny::CurrencyPair(perp)).unwrap();
+            c.add_quote(test_quote(outcome_id)).unwrap();
+            c.add_quote(test_quote(perp_id)).unwrap();
         }
         actor.market_data_live.insert(outcome_id);
         actor.market_data_live.insert(perp_id);
@@ -941,8 +951,8 @@ mod tests {
             },
         ))
         .expect("actor");
-        actor.dynamic_option_universe =
-            Some(DynamicOptionUniverseManager::new(DynamicOptionUniverseConfig {
+        actor.dynamic_option_universe = Some(DynamicOptionUniverseManager::new(
+            DynamicOptionUniverseConfig {
                 refresh_interval_secs: 60,
                 strike_change_confirmations: 0,
                 purge_removed_instruments: true,
@@ -954,7 +964,8 @@ mod tests {
                 },
                 initial_dynamic_plan: CapturePlan::default(),
                 universes: vec![],
-            }));
+            },
+        ));
 
         let clock = Rc::new(RefCell::new(TestClock::new()));
         let cache = Rc::new(RefCell::new(Cache::new(None, None)));
@@ -970,13 +981,7 @@ mod tests {
                 .borrow_mut()
                 .add_instrument(InstrumentAny::CurrencyPair(inst))
                 .unwrap();
-            cache
-                .borrow_mut()
-                .add_quote(QuoteTick {
-                    instrument_id: id,
-                    ..QuoteTick::default()
-                })
-                .unwrap();
+            cache.borrow_mut().add_quote(test_quote(id)).unwrap();
             actor.market_data_live.insert(id);
         }
         actor.pending_market_data.insert(expired);

@@ -292,38 +292,31 @@ mod tests {
         kind: OptionKind,
         expiration_ns: u64,
     ) -> InstrumentAny {
-        InstrumentAny::CryptoOption(CryptoOption::new(
-            InstrumentId::from(format!("{symbol}.DERIBIT").as_str()),
-            Symbol::from(symbol),
-            Currency::from("BTC"),
-            Currency::from("USD"),
-            Currency::from("BTC"),
-            false,
-            kind,
-            Price::from(strike),
-            UnixNanos::from(1_700_000_000_000_000_000u64),
-            UnixNanos::from(expiration_ns),
-            3,
-            1,
-            Price::from("0.001"),
-            Quantity::from("0.1"),
-            Some(Quantity::from(1)),
-            Some(Quantity::from("0.1")),
-            None,
-            Some(Quantity::from("0.1")),
-            None,
-            Some(Money::new(10.0, Currency::from("USD"))),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0.into(),
-            0.into(),
-        ))
+        InstrumentAny::CryptoOption(
+            CryptoOption::builder()
+                .instrument_id(InstrumentId::from(format!("{symbol}.DERIBIT").as_str()))
+                .raw_symbol(Symbol::from(symbol))
+                .underlying(Currency::from("BTC"))
+                .quote_currency(Currency::from("USD"))
+                .settlement_currency(Currency::from("BTC"))
+                .is_inverse(false)
+                .option_kind(kind)
+                .strike_price(Price::from(strike))
+                .activation_ns(UnixNanos::from(1_700_000_000_000_000_000u64))
+                .expiration_ns(UnixNanos::from(expiration_ns))
+                .price_precision(3)
+                .size_precision(1)
+                .price_increment(Price::from("0.001"))
+                .size_increment(Quantity::from("0.1"))
+                .multiplier(Quantity::from(1))
+                .lot_size(Quantity::from("0.1"))
+                .min_quantity(Quantity::from("0.1"))
+                .min_notional(Money::new(10.0, Currency::from("USD")))
+                .ts_event(0.into())
+                .ts_init(0.into())
+                .build()
+                .expect("valid Deribit option fixture"),
+        )
     }
 
     fn make_btc_option_set() -> Vec<InstrumentAny> {
@@ -380,34 +373,27 @@ mod tests {
     }
 
     fn make_deribit_perpetual() -> InstrumentAny {
-        InstrumentAny::CryptoPerpetual(CryptoPerpetual::new(
-            InstrumentId::from("BTC-PERPETUAL.DERIBIT"),
-            Symbol::from("BTC-PERPETUAL"),
-            Currency::from("BTC"),
-            Currency::from("USD"),
-            Currency::from("BTC"),
-            false,
-            1,
-            1,
-            Price::from("0.5"),
-            Quantity::from("0.1"),
-            None,
-            None,
-            None,
-            None,
-            Some(Money::from("10 USD")),
-            Some(Money::from("1 USD")),
-            Some(Price::from("1000000")),
-            Some(Price::from("1")),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            UnixNanos::default(),
-            UnixNanos::default(),
-        ))
+        InstrumentAny::CryptoPerpetual(
+            CryptoPerpetual::builder()
+                .instrument_id(InstrumentId::from("BTC-PERPETUAL.DERIBIT"))
+                .raw_symbol(Symbol::from("BTC-PERPETUAL"))
+                .base_currency(Currency::from("BTC"))
+                .quote_currency(Currency::from("USD"))
+                .settlement_currency(Currency::from("BTC"))
+                .is_inverse(false)
+                .price_precision(1)
+                .size_precision(1)
+                .price_increment(Price::from("0.5"))
+                .size_increment(Quantity::from("0.1"))
+                .max_notional(Money::from("10 USD"))
+                .min_notional(Money::from("1 USD"))
+                .max_price(Price::from("1000000"))
+                .min_price(Price::from("1"))
+                .ts_event(UnixNanos::default())
+                .ts_init(UnixNanos::default())
+                .build()
+                .expect("valid Deribit perpetual fixture"),
+        )
     }
 
     fn make_quote(instrument_id: InstrumentId, bid: &str, ask: &str) -> QuoteTick {
@@ -855,69 +841,55 @@ mod tests {
         kind: OptionKind,
         expiration_ns: u64,
     ) -> InstrumentAny {
-        InstrumentAny::CryptoOption(CryptoOption::new(
-            InstrumentId::from(format!("{symbol}.BYBIT").as_str()),
-            Symbol::from(symbol),
-            Currency::from("BTC"),
-            Currency::from("USDT"),
-            Currency::from("USDT"),
-            false,
-            kind,
-            Price::from(strike),
-            UnixNanos::from(1_700_000_000_000_000_000u64),
-            UnixNanos::from(expiration_ns),
-            3,
-            1,
-            Price::from("0.001"),
-            Quantity::from("0.1"),
-            Some(Quantity::from(1)),
-            Some(Quantity::from("0.1")),
-            None,
-            Some(Quantity::from("0.1")),
-            None,
-            Some(Money::new(10.0, Currency::from("USDT"))),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0.into(),
-            0.into(),
-        ))
+        InstrumentAny::CryptoOption(
+            CryptoOption::builder()
+                .instrument_id(InstrumentId::from(format!("{symbol}.BYBIT").as_str()))
+                .raw_symbol(Symbol::from(symbol))
+                .underlying(Currency::from("BTC"))
+                .quote_currency(Currency::from("USDT"))
+                .settlement_currency(Currency::from("USDT"))
+                .is_inverse(false)
+                .option_kind(kind)
+                .strike_price(Price::from(strike))
+                .activation_ns(UnixNanos::from(1_700_000_000_000_000_000u64))
+                .expiration_ns(UnixNanos::from(expiration_ns))
+                .price_precision(3)
+                .size_precision(1)
+                .price_increment(Price::from("0.001"))
+                .size_increment(Quantity::from("0.1"))
+                .multiplier(Quantity::from(1))
+                .lot_size(Quantity::from("0.1"))
+                .min_quantity(Quantity::from("0.1"))
+                .min_notional(Money::new(10.0, Currency::from("USDT")))
+                .ts_event(0.into())
+                .ts_init(0.into())
+                .build()
+                .expect("valid Bybit option fixture"),
+        )
     }
 
     fn make_bybit_perpetual() -> InstrumentAny {
-        InstrumentAny::CryptoPerpetual(CryptoPerpetual::new(
-            InstrumentId::from("BTCUSDT-LINEAR.BYBIT"),
-            Symbol::from("BTCUSDT"),
-            Currency::from("BTC"),
-            Currency::from("USDT"),
-            Currency::from("USDT"),
-            false,
-            1,
-            1,
-            Price::from("0.5"),
-            Quantity::from("0.1"),
-            None,
-            None,
-            None,
-            None,
-            Some(Money::from("10 USDT")),
-            Some(Money::from("1 USDT")),
-            Some(Price::from("1000000")),
-            Some(Price::from("1")),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            UnixNanos::default(),
-            UnixNanos::default(),
-        ))
+        InstrumentAny::CryptoPerpetual(
+            CryptoPerpetual::builder()
+                .instrument_id(InstrumentId::from("BTCUSDT-LINEAR.BYBIT"))
+                .raw_symbol(Symbol::from("BTCUSDT"))
+                .base_currency(Currency::from("BTC"))
+                .quote_currency(Currency::from("USDT"))
+                .settlement_currency(Currency::from("USDT"))
+                .is_inverse(false)
+                .price_precision(1)
+                .size_precision(1)
+                .price_increment(Price::from("0.5"))
+                .size_increment(Quantity::from("0.1"))
+                .max_notional(Money::from("10 USDT"))
+                .min_notional(Money::from("1 USDT"))
+                .max_price(Price::from("1000000"))
+                .min_price(Price::from("1"))
+                .ts_event(UnixNanos::default())
+                .ts_init(UnixNanos::default())
+                .build()
+                .expect("valid Bybit perpetual fixture"),
+        )
     }
 
     #[test]
