@@ -1,0 +1,136 @@
+# Lighter and Robinhood Chain market-data capture for XEMM research.
+#
+# Both deployments use the same Nautilus adapter, but they are separate venues:
+#   OPENAI-PERP.LIGHTER              / OPENAI-PERP.LIGHTER_ROBINHOOD
+#   ANTHROPIC-PERP.LIGHTER           / ANTHROPIC-PERP.LIGHTER_ROBINHOOD
+#
+# Order-book subscriptions emit the venue snapshot followed by L2 deltas.
+# Funding, mark, and index prices are native Nautilus data types; no custom
+# schema is needed for this capture.
+#
+# Run:
+#   make build-release-capture
+#   ./bin/catalog-capture-cli run --config examples/capture.lighter-xemm-openai-anthropic.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-LIGHTER-XEMM-OPENAI-ANTHROPIC"
+
+[output]
+catalog_uri = "file://./data/lighter-xemm-openai-anthropic"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 134217728
+queue_capacity = 50000
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 20000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "06:00"
+timezone = "UTC"
+interval_secs = 86400
+
+[[venues]]
+id = "lighter_main"
+kind = "lighter"
+deployment = "lighter"
+environment = "mainnet"
+
+[[venues]]
+id = "lighter_robinhood_main"
+kind = "lighter"
+deployment = "robinhood"
+environment = "mainnet"
+
+[[capture.instruments]]
+instrument_id = "OPENAI-PERP.LIGHTER"
+
+[[capture.trades]]
+instrument_id = "OPENAI-PERP.LIGHTER"
+
+[[capture.book_deltas]]
+instrument_id = "OPENAI-PERP.LIGHTER"
+book_type = "L2_MBP"
+depth = 20
+
+[[capture.mark_prices]]
+instrument_id = "OPENAI-PERP.LIGHTER"
+
+[[capture.index_prices]]
+instrument_id = "OPENAI-PERP.LIGHTER"
+
+[[capture.funding_rates]]
+instrument_id = "OPENAI-PERP.LIGHTER"
+
+[[capture.instruments]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER"
+
+[[capture.trades]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER"
+
+[[capture.book_deltas]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER"
+book_type = "L2_MBP"
+depth = 20
+
+[[capture.mark_prices]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER"
+
+[[capture.index_prices]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER"
+
+[[capture.funding_rates]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER"
+
+[[capture.instruments]]
+instrument_id = "OPENAI-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.trades]]
+instrument_id = "OPENAI-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.book_deltas]]
+instrument_id = "OPENAI-PERP.LIGHTER_ROBINHOOD"
+book_type = "L2_MBP"
+depth = 20
+
+[[capture.mark_prices]]
+instrument_id = "OPENAI-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.index_prices]]
+instrument_id = "OPENAI-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.funding_rates]]
+instrument_id = "OPENAI-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.instruments]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.trades]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.book_deltas]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER_ROBINHOOD"
+book_type = "L2_MBP"
+depth = 20
+
+[[capture.mark_prices]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.index_prices]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER_ROBINHOOD"
+
+[[capture.funding_rates]]
+instrument_id = "ANTHROPIC-PERP.LIGHTER_ROBINHOOD"

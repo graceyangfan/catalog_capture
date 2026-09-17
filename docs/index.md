@@ -17,6 +17,7 @@ Docs follow the Divio split (getting started / concepts / how-to / reference).
 |-----|---------|
 | [Cloud capture](how_to/cloud_capture.md) | Clone, build, unattended mainnet, monitor |
 | [Multi-venue / HIP-4 style](how_to/hip4_capture.md) | Streams, rotation clocks, BookSummary rate |
+| [Lighter XEMM capture](how_to/lighter_xemm_capture.md) | Lighter and Robinhood Chain L2, trades and funding |
 | [Build size](how_to/build_size.md) | Why `target/` is large; slim release |
 | [Unattended capture](how_to/unattended_capture.md) | Long-running process |
 | [Credentials](how_to/credentials.md) | Public vs env keys |

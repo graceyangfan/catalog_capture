@@ -300,16 +300,21 @@ pub async fn run_capture_with_plan_and_reports(
                 )?;
             }
             #[cfg(feature = "venue-lighter")]
-            VenueRuntimeConfig::Lighter { id, environment } => {
+            VenueRuntimeConfig::Lighter {
+                id,
+                environment,
+                deployment,
+            } => {
                 log::info!(
-                    "Configuring venue {} ({environment:?}, public read-only data)",
-                    id
+                    "Configuring venue {} ({deployment:?}, {environment:?}, public read-only data)",
+                    id,
                 );
                 builder = builder.add_data_client(
                     None,
                     Box::new(LighterDataClientFactory::new()),
                     Box::new(LighterDataClientConfig {
                         environment: *environment,
+                        deployment: *deployment,
                         // Keep the adapter's periodic instrument refresh enabled so
                         // its registry remains current without a custom resolver.
                         update_instruments_interval_mins: 60,

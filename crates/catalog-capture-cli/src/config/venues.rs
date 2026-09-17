@@ -24,7 +24,7 @@ use nautilus_deribit::{common::enums::DeribitEnvironment, http::models::DeribitP
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 #[cfg(feature = "venue-lighter")]
-use nautilus_lighter::common::enums::LighterEnvironment;
+use nautilus_lighter::common::enums::{LighterDeployment, LighterEnvironment};
 #[cfg(feature = "venue-okx")]
 use nautilus_okx::common::enums::{OKXEnvironment, OKXInstrumentType};
 
@@ -34,6 +34,9 @@ pub struct VenueConfig {
     pub kind: String,
     #[serde(default = "default_binance_environment")]
     pub environment: String,
+    /// Lighter deployment: `lighter` or `robinhood`.
+    #[serde(default = "default_lighter_deployment")]
+    pub deployment: String,
     #[serde(default = "default_binance_product_type")]
     pub product_type: String,
     /// Deribit / Bybit: product types to load (e.g. `future`, `option`, `linear`).
@@ -76,6 +79,7 @@ pub enum VenueRuntimeConfig {
     Lighter {
         id: String,
         environment: LighterEnvironment,
+        deployment: LighterDeployment,
     },
     #[cfg(feature = "venue-okx")]
     Okx {
@@ -116,6 +120,10 @@ fn venue_feature_required(kind: &str, feature: &str) -> Result<VenueRuntimeConfi
 
 fn default_binance_environment() -> String {
     "live".to_string()
+}
+
+fn default_lighter_deployment() -> String {
+    "lighter".to_string()
 }
 
 pub(crate) fn default_binance_product_type() -> String {
@@ -185,6 +193,7 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
                 Ok(VenueRuntimeConfig::Lighter {
                     id: venue.id,
                     environment: parse_lighter_environment(&venue.environment)?,
+                    deployment: parse_lighter_deployment(&venue.deployment)?,
                 })
             }
             #[cfg(not(feature = "venue-lighter"))]
@@ -284,6 +293,15 @@ pub(crate) fn parse_lighter_environment(value: &str) -> Result<LighterEnvironmen
         "mainnet" | "live" => Ok(LighterEnvironment::Mainnet),
         "testnet" => Ok(LighterEnvironment::Testnet),
         other => bail!("unsupported Lighter environment {other}; expected mainnet|testnet"),
+    }
+}
+
+#[cfg(feature = "venue-lighter")]
+pub(crate) fn parse_lighter_deployment(value: &str) -> Result<LighterDeployment> {
+    match value.to_ascii_lowercase().as_str() {
+        "lighter" => Ok(LighterDeployment::Lighter),
+        "robinhood" | "robinhood_chain" => Ok(LighterDeployment::Robinhood),
+        other => bail!("unsupported Lighter deployment {other}; expected lighter|robinhood"),
     }
 }
 

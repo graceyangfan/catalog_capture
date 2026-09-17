@@ -22,6 +22,7 @@ make build-release-capture
 |--------|---------|
 | **`capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
 | **`capture.binance-lighter-btc-sol-perp-books.toml`** | Binance BTC/SOL USD-M + Lighter SOL perpetual L2 book and trades, with 06:00 UTC seal |
+| **`capture.lighter-xemm-openai-anthropic.toml`** | Lighter + Robinhood Chain OPENAI/ANTHROPIC L2, trades, funding, mark and index prices |
 | `capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid universe only + 06:00 UTC seal |
 | `capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (`interval_secs = 1`) |
 

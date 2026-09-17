@@ -20,17 +20,17 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 #[cfg(feature = "venue-lighter")]
-use nautilus_lighter::common::enums::LighterEnvironment;
+use nautilus_lighter::common::enums::{LighterDeployment, LighterEnvironment};
 #[cfg(feature = "venue-okx")]
 use nautilus_okx::common::enums::OKXInstrumentType;
 
 #[cfg(feature = "venue-hyperliquid")]
 use super::venues::parse_hyperliquid_environment;
-#[cfg(feature = "venue-lighter")]
-use super::venues::parse_lighter_environment;
 #[cfg(feature = "venue-okx")]
 use super::venues::parse_okx_instrument_types;
 use super::venues::{default_binance_product_type, parse_venue};
+#[cfg(feature = "venue-lighter")]
+use super::venues::{parse_lighter_deployment, parse_lighter_environment};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -54,6 +54,7 @@ fn okx_option_without_families_is_rejected() {
         id: "okx_main".to_string(),
         kind: "okx".to_string(),
         environment: "live".to_string(),
+        deployment: "lighter".to_string(),
         product_type: default_binance_product_type(),
         product_types: Vec::new(),
         instrument_types: vec!["option".to_string()],
@@ -74,6 +75,7 @@ fn okx_option_with_families_is_accepted() {
         id: "okx_main".to_string(),
         kind: "okx".to_string(),
         environment: "live".to_string(),
+        deployment: "lighter".to_string(),
         product_type: default_binance_product_type(),
         product_types: Vec::new(),
         instrument_types: vec!["swap".to_string(), "option".to_string()],
@@ -100,6 +102,7 @@ fn validate_runtime_rejects_deribit_dvol_without_index_name() {
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["option".to_string()],
             instrument_types: Vec::new(),
@@ -132,6 +135,7 @@ fn validate_runtime_accepts_deribit_dvol_with_index_name() {
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["option".to_string()],
             instrument_types: Vec::new(),
@@ -161,6 +165,7 @@ fn validate_runtime_accepts_binance_perp_trades_profile() {
             id: "binance_futures_main".to_string(),
             kind: "binance_futures".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: "usd_m".to_string(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -200,6 +205,7 @@ fn validate_runtime_accepts_binance_liquidation_custom_data() {
             id: "binance_main".to_string(),
             kind: "binance_futures".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: "usd_m".to_string(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -228,6 +234,7 @@ fn validate_runtime_accepts_binance_liquidation_all_market_custom_data() {
             id: "binance_main".to_string(),
             kind: "binance_futures".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: "usd_m".to_string(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -256,6 +263,7 @@ fn validate_runtime_rejects_binance_liquidation_identifier_without_metadata() {
             id: "binance_main".to_string(),
             kind: "binance_futures".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: "usd_m".to_string(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -293,6 +301,7 @@ fn validate_runtime_accepts_binance_ticker_custom_data() {
             id: "binance_main".to_string(),
             kind: "binance_futures".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: "usd_m".to_string(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -325,6 +334,7 @@ fn validate_runtime_rejects_request_type_in_subscribe_custom_data() {
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["option".to_string()],
             instrument_types: Vec::new(),
@@ -367,6 +377,7 @@ fn resolve_config_rejects_subscribe_type_in_custom_data_requests() {
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["option".to_string()],
             instrument_types: Vec::new(),
@@ -399,6 +410,7 @@ fn validate_runtime_rejects_binance_open_interest_without_request_path() {
             id: "binance_main".to_string(),
             kind: "binance_futures".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: "usd_m".to_string(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -438,6 +450,7 @@ fn parse_hyperliquid_venue_is_supported() {
         id: "hl_main".to_string(),
         kind: "hyperliquid".to_string(),
         environment: "testnet".to_string(),
+        deployment: "lighter".to_string(),
         product_type: default_binance_product_type(),
         product_types: Vec::new(),
         instrument_types: Vec::new(),
@@ -455,11 +468,16 @@ fn parse_lighter_venue_is_supported() {
         parse_lighter_environment("live").expect("live should parse"),
         LighterEnvironment::Mainnet
     );
+    assert_eq!(
+        parse_lighter_deployment("robinhood").expect("Robinhood should parse"),
+        LighterDeployment::Robinhood
+    );
 
     let venue = VenueConfig {
         id: "lighter_main".to_string(),
         kind: "lighter".to_string(),
         environment: "mainnet".to_string(),
+        deployment: "robinhood".to_string(),
         product_type: default_binance_product_type(),
         product_types: Vec::new(),
         instrument_types: Vec::new(),
@@ -467,7 +485,26 @@ fn parse_lighter_venue_is_supported() {
     };
 
     let runtime = parse_venue(venue).expect("valid Lighter venue");
-    assert!(matches!(runtime, VenueRuntimeConfig::Lighter { .. }));
+    assert!(matches!(
+        runtime,
+        VenueRuntimeConfig::Lighter {
+            deployment: LighterDeployment::Robinhood,
+            ..
+        }
+    ));
+}
+
+#[cfg(feature = "venue-lighter")]
+#[test]
+fn example_lighter_xemm_config_loads_and_validates() {
+    let path = repo_root().join("examples/capture.lighter-xemm-openai-anthropic.toml");
+    let loaded = load_config(&path).expect("example should load");
+    let effective = resolve_config(loaded).expect("example should resolve");
+    validate_runtime(&effective).expect("example should validate");
+    assert_eq!(effective.plan.instruments.len(), 4);
+    assert_eq!(effective.plan.book_deltas.len(), 4);
+    assert_eq!(effective.plan.trades.len(), 4);
+    assert_eq!(effective.plan.funding_rates.len(), 4);
 }
 
 #[cfg(feature = "venue-hyperliquid")]
@@ -492,6 +529,7 @@ fn validate_runtime_accepts_hyperliquid_open_interest() {
             id: "hl_main".to_string(),
             kind: "hyperliquid".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -520,6 +558,7 @@ fn validate_runtime_rejects_unknown_custom_type() {
             id: "hl_main".to_string(),
             kind: "hyperliquid".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -552,6 +591,7 @@ fn validate_runtime_rejects_deribit_dvol_without_deribit_venue() {
             id: "hl_main".to_string(),
             kind: "hyperliquid".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -587,6 +627,7 @@ fn validate_runtime_rejects_hyperliquid_identifier_mismatch() {
             id: "hl_main".to_string(),
             kind: "hyperliquid".to_string(),
             environment: "testnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: Vec::new(),
             instrument_types: Vec::new(),
@@ -636,6 +677,7 @@ fn resolve_config_accepts_option_universe_without_explicit_capture_entries() {
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["future".to_string(), "option".to_string()],
             instrument_types: Vec::new(),
@@ -678,6 +720,7 @@ fn resolve_config_rejects_unknown_option_universe_family() {
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["future".to_string(), "option".to_string()],
             instrument_types: Vec::new(),
@@ -724,6 +767,7 @@ fn validate_runtime_rejects_option_universe_missing_future_product_type_for_perp
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["option".to_string()],
             instrument_types: Vec::new(),
@@ -770,6 +814,7 @@ fn validate_runtime_rejects_option_universe_unknown_venue_id() {
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["future".to_string(), "option".to_string()],
             instrument_types: Vec::new(),
@@ -817,6 +862,7 @@ fn validate_runtime_accepts_bybit_option_universe() {
             id: "bybit_main".to_string(),
             kind: "bybit".to_string(),
             environment: "mainnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["linear".to_string(), "option".to_string()],
             instrument_types: Vec::new(),
@@ -861,6 +907,7 @@ fn validate_runtime_accepts_signal_only_capture_seconds() {
             id: "deribit_main".to_string(),
             kind: "deribit".to_string(),
             environment: "mainnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["future".to_string(), "option".to_string()],
             instrument_types: Vec::new(),
@@ -905,6 +952,7 @@ fn validate_runtime_rejects_bybit_option_universe_without_settlement_currency() 
             id: "bybit_main".to_string(),
             kind: "bybit".to_string(),
             environment: "mainnet".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: vec!["linear".to_string(), "option".to_string()],
             instrument_types: Vec::new(),
@@ -953,6 +1001,7 @@ fn validate_runtime_accepts_okx_option_universe() {
             id: "okx_main".to_string(),
             kind: "okx".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: Vec::new(),
             instrument_types: vec!["swap".to_string(), "option".to_string()],
@@ -997,6 +1046,7 @@ fn validate_runtime_rejects_okx_option_universe_without_settlement_currency() {
             id: "okx_main".to_string(),
             kind: "okx".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: Vec::new(),
             instrument_types: vec!["swap".to_string(), "option".to_string()],
@@ -1043,6 +1093,7 @@ fn validate_runtime_rejects_okx_option_universe_without_matching_instrument_fami
             id: "okx_main".to_string(),
             kind: "okx".to_string(),
             environment: "live".to_string(),
+            deployment: "lighter".to_string(),
             product_type: default_binance_product_type(),
             product_types: Vec::new(),
             instrument_types: vec!["swap".to_string(), "option".to_string()],
