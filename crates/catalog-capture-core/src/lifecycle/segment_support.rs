@@ -23,7 +23,7 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use arrow::array::{Array, TimestampNanosecondArray, UInt64Array};
+use arrow::array::{Array, TimestampNanosecondArray};
 use arrow::record_batch::RecordBatch;
 use nautilus_core::UnixNanos;
 use nautilus_persistence::backend::catalog::{timestamps_to_filename, ParquetDataCatalog};
@@ -180,14 +180,12 @@ pub(crate) fn ts_init_range_from_batch(batch: &RecordBatch) -> Result<(u64, u64)
         .position(|field| field.name() == "ts_init")
         .ok_or_else(|| anyhow!("batch missing ts_init column"))?;
     let column = batch.column(column_index);
-    let values = if let Some(column) = column.as_any().downcast_ref::<UInt64Array>() {
-        (0..column.len())
-            .map(|index| {
-                anyhow::ensure!(!column.is_null(index), "ts_init column contains null");
-                Ok(column.value(index))
-            })
-            .collect::<Result<Vec<_>>>()?
-    } else if let Some(column) = column.as_any().downcast_ref::<TimestampNanosecondArray>() {
+    let Some(column) = column.as_any().downcast_ref::<TimestampNanosecondArray>() else {
+        return Err(anyhow!(
+            "ts_init column must use Timestamp(Nanosecond, Some(\"UTC\"))"
+        ));
+    };
+    let values = {
         (0..column.len())
             .map(|index| {
                 anyhow::ensure!(!column.is_null(index), "ts_init column contains null");
@@ -195,8 +193,6 @@ pub(crate) fn ts_init_range_from_batch(batch: &RecordBatch) -> Result<(u64, u64)
                     .map_err(|_| anyhow!("ts_init column contains a negative timestamp"))
             })
             .collect::<Result<Vec<_>>>()?
-    } else {
-        return Err(anyhow!("ts_init column has unexpected type"));
     };
     if values.is_empty() {
         bail!("ts_init column is empty");

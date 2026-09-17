@@ -314,6 +314,17 @@ mod tests {
         assert!(sealed.files[0].exists());
         assert!(!sealed.files[0].to_string_lossy().contains(".part"));
 
+        let mut catalog = ParquetDataCatalog::new(&dir, None, None, None, None);
+        let rows = catalog
+            .quote_ticks(Some(vec![instrument_id.to_string()]), None, None)
+            .expect("sealed quotes should be readable");
+        assert_eq!(
+            rows,
+            vec![quote(instrument_id, 1_000), quote(instrument_id, 2_000)]
+        );
+        ParquetDataCatalog::check_ascending_timestamps(&rows, "segment quotes")
+            .expect("sealed timestamps should be ascending");
+
         let _ = fs::remove_dir_all(&dir);
     }
 
