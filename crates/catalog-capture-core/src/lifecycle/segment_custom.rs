@@ -24,7 +24,7 @@ use anyhow::{bail, Result};
 use arrow::datatypes::SchemaRef;
 use nautilus_model::data::CustomData;
 use nautilus_persistence::backend::catalog::ParquetDataCatalog;
-use nautilus_persistence::backend::custom::prepare_custom_data_batch;
+use nautilus_persistence::common::custom::prepare_custom_data_batch;
 use parquet::basic::Compression;
 
 use crate::{
@@ -187,7 +187,9 @@ impl SegmentCustomDataSink {
             return Ok(Vec::new());
         }
 
-        let (record_batch, type_name, identifier, _start, _end) = prepare_custom_data_batch(batch)?;
+        let batch_refs: Vec<&CustomData> = batch.iter().collect();
+        let (record_batch, type_name, identifier, _start, _end) =
+            prepare_custom_data_batch(&batch_refs)?;
         let (min_ts_ns, max_ts_ns) = ts_init_range_from_batch(&record_batch)?;
         let directory = catalog_fs_custom_directory(
             &self.local_root,

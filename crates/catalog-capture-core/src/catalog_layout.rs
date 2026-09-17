@@ -19,7 +19,8 @@
 //! {catalog_root}/data/custom/{TypeName}/[{identifier}/]/{start}_{end}.parquet
 //! ```
 //!
-//! Built-in types use `CatalogPathPrefix` (`quotes`, `trades`, `order_book_deltas`,
+//! Built-in types use persistence's `CatalogPathPrefix` contract (`quotes`, `trades`,
+//! `order_book_deltas`,
 //! `mark_prices`, …). Custom data uses `write_custom_data_batch` /
 //! `make_path_custom_data`. Optional operator files under `metadata/` are
 //! **outside** the catalog data tree and are not required for backtest load.

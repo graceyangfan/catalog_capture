@@ -14,7 +14,7 @@
 
 use std::fmt::Display;
 
-use nautilus_model::data::CatalogPathPrefix;
+use nautilus_persistence::common::paths::CatalogPathPrefix;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PartitionKey {

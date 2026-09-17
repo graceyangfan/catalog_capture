@@ -12,12 +12,14 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, Result};
-use nautilus_model::data::{CatalogPathPrefix, HasTsInit};
+use arrow::datatypes::Schema;
+use nautilus_model::data::HasTsInit;
 use nautilus_persistence::backend::catalog::ParquetDataCatalog;
-use nautilus_serialization::arrow::{ArrowSchemaProvider, EncodeToRecordBatch};
+use nautilus_persistence::common::paths::CatalogPathPrefix;
+use nautilus_serialization::arrow::EncodeToRecordBatch;
 use parquet::basic::Compression;
 use serde::Serialize;
 
@@ -34,7 +36,7 @@ use crate::{
 struct SegmentOpenParams {
     directory: PathBuf,
     identifier: String,
-    schema_metadata: HashMap<String, String>,
+    schema: Arc<Schema>,
     open_ts_ns: u64,
 }
 
@@ -42,7 +44,7 @@ struct SegmentOpenParams {
 struct ActiveSegment {
     part: ActivePart,
     identifier: String,
-    schema_metadata: HashMap<String, String>,
+    schema: Arc<Schema>,
 }
 
 #[derive(Debug)]
@@ -58,12 +60,7 @@ pub struct SegmentCaptureSink<T> {
 
 impl<T> SegmentCaptureSink<T>
 where
-    T: HasTsInit
-        + EncodeToRecordBatch
-        + CatalogPathPrefix
-        + ArrowSchemaProvider
-        + Serialize
-        + Clone,
+    T: HasTsInit + EncodeToRecordBatch + CatalogPathPrefix + Serialize + Clone,
 {
     pub fn from_config(config: &CaptureConfig) -> Result<Self> {
         let parts = segment_runtime_parts(config)?;
@@ -91,11 +88,10 @@ where
     }
 
     fn open_segment(&mut self, partition_key: &str, params: SegmentOpenParams) -> Result<()> {
-        let schema = T::get_schema(Some(params.schema_metadata.clone())).into();
         let part = ActivePart::open(
             params.directory,
             params.open_ts_ns,
-            schema,
+            Arc::clone(&params.schema),
             self.compression,
             self.row_group_rows,
         )?;
@@ -104,7 +100,7 @@ where
             ActiveSegment {
                 part,
                 identifier: params.identifier,
-                schema_metadata: params.schema_metadata,
+                schema: params.schema,
             },
         );
         Ok(())
@@ -153,7 +149,7 @@ where
                 SegmentOpenParams {
                     directory,
                     identifier: segment.identifier,
-                    schema_metadata: segment.schema_metadata,
+                    schema: segment.schema,
                     open_ts_ns: max_ts_ns,
                 },
             )?;
@@ -201,6 +197,12 @@ where
             .cloned()
             .ok_or_else(|| anyhow!("segment batch metadata missing instrument_id or bar_type"))?;
 
+        let batches = self.catalog.data_to_record_batches(&batch)?;
+        let schema = batches
+            .first()
+            .map(|batch| batch.schema())
+            .expect("non-empty input produces at least one record batch");
+
         let directory = catalog_fs_directory(
             &self.local_root,
             &self.catalog,
@@ -216,7 +218,7 @@ where
                 SegmentOpenParams {
                     directory,
                     identifier: identifier.clone(),
-                    schema_metadata: schema_metadata.clone(),
+                    schema,
                     open_ts_ns: min_ts_ns,
                 },
             )?;
@@ -226,7 +228,6 @@ where
             .segments
             .get_mut(partition_key)
             .expect("segment opened above");
-        let batches = self.catalog.data_to_record_batches(&batch)?;
         for record_batch in &batches {
             segment.part.write_record_batch(record_batch)?;
         }

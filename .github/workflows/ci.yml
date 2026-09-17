@@ -14,8 +14,8 @@ env:
   # Keep in sync with rust-toolchain.toml / workspace.package.rust-version
   RUSTUP_TOOLCHAIN: 1.98.1
   # Pin sibling nautilus_trader revision (do not track develop tip).
-  # Local checkout used for current adapters: e96f180a5abe29a361c4c86f6a3fc2cf0b347c42
-  NAUTILUS_TRADER_REF: e96f180a5abe29a361c4c86f6a3fc2cf0b347c42
+  # Local checkout used for current adapters: 9e4018dfa74b1ac7f2b1ccb99624ad391f732bba
+  NAUTILUS_TRADER_REF: 9e4018dfa74b1ac7f2b1ccb99624ad391f732bba
 
 jobs:
   pre-commit:

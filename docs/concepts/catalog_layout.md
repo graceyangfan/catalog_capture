@@ -18,7 +18,8 @@ Aligned with Nautilus Trader Rust `ParquetDataCatalog` only — no alternate lay
 
 - `{start}_{end}` = Nautilus `timestamps_to_filename` (ISO-8601 filesystem-safe).
 - `{instrument_id}` = `urisafe_instrument_id` (e.g. `BTCUSDT-PERP.BINANCE`).
-- Type folder names come from `CatalogPathPrefix` on the model type
+- Type folder names come from the persistence `CatalogPathPrefix` contract implemented for each
+  catalog data type
   (`quotes`, `trades`, `order_book_deltas`, `mark_prices`, …).
 
 ## How this project writes
@@ -42,6 +43,21 @@ layout_compatibility = "rust_canonical_only"  # only accepted value
 
 Operator-only files (optional) under `{catalog_root}/metadata/` — lineage / run
 records. Backtest loaders use `ParquetDataCatalog` on `data/` only.
+
+## Upgrade Existing Catalogs
+
+Nautilus v0.65 uses the open Arrow/Parquet schema introduced by persistence refactor #4959.
+Catalogs written by older Nautilus revisions are not mixed-format compatible with ordinary
+queries. Migrate them to a separate empty destination before using them with the upgraded
+reader:
+
+```bash
+nautilus catalog migrate-parquet /path/to/catalog-old /path/to/catalog-v065
+```
+
+The source catalog is preserved. New captures written by this project use the current schema
+directly, including UTC nanosecond timestamps and open Arrow representations for prices,
+quantities, and order-book data.
 
 ## Verify
 

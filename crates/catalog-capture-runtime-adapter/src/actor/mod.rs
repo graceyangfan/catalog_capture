@@ -597,7 +597,7 @@ mod tests {
     use nautilus_common::{
         actor::{Component, DataActor},
         cache::Cache,
-        clock::TestClock,
+        clock::VirtualClock,
     };
     use nautilus_core::UnixNanos;
     use nautilus_model::{
@@ -674,7 +674,7 @@ mod tests {
                 universes: vec![],
             }));
 
-        let clock = Rc::new(RefCell::new(TestClock::new()));
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
         let cache = Rc::new(RefCell::new(Cache::new(None, None)));
         actor
             .register(TraderId::test_default(), clock, cache.clone())
@@ -754,7 +754,7 @@ mod tests {
         ))
         .expect("actor");
 
-        let clock = Rc::new(RefCell::new(TestClock::new()));
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
         let cache = Rc::new(RefCell::new(Cache::new(None, None)));
         actor
             .register(TraderId::test_default(), clock, cache.clone())
@@ -856,7 +856,7 @@ mod tests {
                 universes: vec![],
             }));
 
-        let clock = Rc::new(RefCell::new(TestClock::new()));
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
         let cache = Rc::new(RefCell::new(Cache::new(None, None)));
         actor
             .register(TraderId::test_default(), clock, cache.clone())
@@ -967,7 +967,7 @@ mod tests {
             },
         ));
 
-        let clock = Rc::new(RefCell::new(TestClock::new()));
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
         let cache = Rc::new(RefCell::new(Cache::new(None, None)));
         actor
             .register(TraderId::test_default(), clock, cache.clone())

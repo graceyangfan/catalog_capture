@@ -24,14 +24,14 @@ use anyhow::{Context, Result};
 use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{
-        close::InstrumentClose, Bar, CatalogPathPrefix, CustomData, FundingRateUpdate, HasTsInit,
-        IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta,
-        QuoteTick, TradeTick,
+        close::InstrumentClose, Bar, CustomData, FundingRateUpdate, HasTsInit, IndexPriceUpdate,
+        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, QuoteTick, TradeTick,
     },
     instruments::InstrumentAny,
 };
-use nautilus_persistence::backend::catalog::{
-    CatalogPathPrefix as PersistenceCatalogPathPrefix, ParquetDataCatalog,
+use nautilus_persistence::{
+    backend::catalog::ParquetDataCatalog, catalog::types::CatalogDataType,
+    common::paths::CatalogPathPrefix,
 };
 use nautilus_serialization::arrow::{ArrowSchemaProvider, EncodeToRecordBatch};
 use parquet::basic::Compression;
@@ -74,7 +74,7 @@ where
     T: HasTsInit
         + EncodeToRecordBatch
         + CatalogPathPrefix
-        + PersistenceCatalogPathPrefix
+        + CatalogDataType
         + ArrowSchemaProvider
         + Serialize
         + Clone,
@@ -100,7 +100,7 @@ where
     T: HasTsInit
         + EncodeToRecordBatch
         + CatalogPathPrefix
-        + PersistenceCatalogPathPrefix
+        + CatalogDataType
         + ArrowSchemaProvider
         + Serialize
         + Clone,
@@ -262,7 +262,7 @@ impl NautilusCatalogSink {
         T: HasTsInit
             + EncodeToRecordBatch
             + CatalogPathPrefix
-            + PersistenceCatalogPathPrefix
+            + CatalogDataType
             + Serialize
             + Clone,
     {
@@ -281,7 +281,7 @@ impl NautilusCatalogSink {
         T: HasTsInit
             + EncodeToRecordBatch
             + CatalogPathPrefix
-            + PersistenceCatalogPathPrefix
+            + CatalogDataType
             + Serialize
             + Clone,
     {

@@ -28,7 +28,7 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `e96f180a5abe29a361c4c86f6a3fc2cf0b347c42` |
+| 0.1.x / main | `9e4018dfa74b1ac7f2b1ccb99624ad391f732bba` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
 
