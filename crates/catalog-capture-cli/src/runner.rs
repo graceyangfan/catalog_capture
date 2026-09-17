@@ -58,9 +58,12 @@ use nautilus_model::identifiers::{ActorId, TraderId};
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
+#[cfg(feature = "venue-bybit")]
+use crate::credentials::bybit_credentials;
+#[cfg(feature = "venue-okx")]
+use crate::credentials::okx_credentials;
 use crate::credentials::{
-    api_key_secret_present, binance_credentials, bybit_credentials, deribit_credentials,
-    hyperliquid_private_key, okx_credentials,
+    api_key_secret_present, binance_credentials, deribit_credentials, hyperliquid_private_key,
 };
 use crate::custom_data::{
     register_request_types, register_subscribe_types, validate_request_data_type,

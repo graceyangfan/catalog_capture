@@ -27,6 +27,7 @@ pub struct ApiKeySecret {
     pub api_secret: Option<String>,
 }
 
+#[cfg(feature = "venue-okx")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct OkxCredentials {
     pub api_key: Option<String>,
@@ -83,10 +84,12 @@ pub fn deribit_credentials(venue_id: &str) -> ApiKeySecret {
     read_pair(venue_id, "DERIBIT")
 }
 
+#[cfg(feature = "venue-bybit")]
 pub fn bybit_credentials(venue_id: &str) -> ApiKeySecret {
     read_pair(venue_id, "BYBIT")
 }
 
+#[cfg(feature = "venue-okx")]
 pub fn okx_credentials(venue_id: &str) -> OkxCredentials {
     let key = env_nonempty(&scoped(venue_id, "API_KEY")).or_else(|| env_nonempty("OKX_API_KEY"));
     let secret =
