@@ -310,7 +310,7 @@ pub async fn run_capture_with_plan_and_reports(
                     id,
                 );
                 builder = builder.add_data_client(
-                    None,
+                    Some(id.clone()),
                     Box::new(LighterDataClientFactory::new()),
                     Box::new(LighterDataClientConfig {
                         environment: *environment,
