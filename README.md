@@ -91,12 +91,15 @@ Build size notes: [docs/how_to/build_size.md](docs/how_to/build_size.md).
 # Full runbook
 # docs/how_to/cloud_capture.md
 
-nohup ./scripts/run-mainnet-capture.sh \
-  examples/capture.multi-venue-mainnet.toml \
-  > logs/nohup.out 2>&1 &
+mkdir -p logs
+nohup env NAUTILUS_LOG='stdout=Info;is_colored=false' \
+  ./bin/catalog-capture-cli run \
+  --config examples/capture.multi-venue-mainnet.toml \
+  > logs/capture.log 2>&1 &
+echo $! > logs/capture.pid
 
 # Metrics (if enabled in TOML): http://127.0.0.1:9108/metrics
-# Stop: kill -TERM <pid>
+# Stop gracefully: kill -TERM "$(cat logs/capture.pid)"
 ```
 
 ## Documentation

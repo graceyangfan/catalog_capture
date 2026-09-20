@@ -89,16 +89,23 @@ du -sh data/*
 # Foreground (default config = multi-venue mainnet)
 ./scripts/run-mainnet-capture.sh
 
-# Background
+# Background: direct product binary, with an actual recorder PID
 mkdir -p logs
-nohup ./scripts/run-mainnet-capture.sh \
-  examples/capture.multi-venue-mainnet.toml \
-  > logs/nohup-multi-venue.out 2>&1 &
-echo $! > logs/capture.pid
+LOG_FILE="logs/multi-venue-$(date -u +%Y%m%dT%H%M%SZ).log"
+PID_FILE="logs/multi-venue.pid"
+nohup env NAUTILUS_LOG='stdout=Info;is_colored=false' \
+  ./bin/catalog-capture-cli run \
+  --config examples/capture.multi-venue-mainnet.toml \
+  > "$LOG_FILE" 2>&1 &
+echo $! > "$PID_FILE"
 
 # Stop (flush / seal)
-kill -TERM "$(cat logs/capture.pid)"
+kill -TERM "$(cat "$PID_FILE")"
 ```
+
+The CLI subcommand is `run`; Cargo options such as `--features` belong to the
+build command, not the runtime command. Wait for `Capture completed` in the log
+after sending `SIGTERM`. Never use `kill -9` for a live recorder.
 
 Generic service wrapper (supports `CAPTURE_FEATURES`):
 
@@ -119,7 +126,7 @@ Optional user unit (still this clone):
 ## 6) Monitor
 
 ```bash
-# multi-venue example: runtime.metrics on 127.0.0.1:9108
+# The config must contain [runtime.metrics] enabled = true.
 curl -s http://127.0.0.1:9108/metrics | egrep 'rss|dropped|active_partitions|flush'
 tail -f logs/*.log
 ```
