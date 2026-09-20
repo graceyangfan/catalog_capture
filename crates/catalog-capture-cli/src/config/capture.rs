@@ -72,7 +72,8 @@ pub struct BarSelector {
 pub struct BookDeltasSelector {
     pub instrument_id: String,
     pub book_type: String,
-    /// Optional book depth (e.g. Binance Futures partial snapshot levels: 20).
+    /// Optional venue book depth. Binance Futures uses 5/10/20 for 100ms partial
+    /// depth and 50/100/500/1000 for the unthrottled diff stream.
     #[serde(default)]
     pub depth: Option<usize>,
 }

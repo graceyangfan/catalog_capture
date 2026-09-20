@@ -45,8 +45,10 @@ pub struct BookDeltasCaptureSpec {
     pub instrument_id: InstrumentId,
     pub book_type: BookType,
     /// Venue book depth for snapshot / partial book (e.g. Binance Futures 5/10/20/…).
-    /// `None` = adapter default. Futures L2 streams use `@depth@0ms`; `depth` is
-    /// the snapshot level count (recommend 20 for USD-M research capture).
+    /// `None` = adapter default. For Binance Futures, 5/10/20 select the 100ms
+    /// partial-depth stream, while 50/100/500/1000 select the unthrottled `@depth@0ms`
+    /// diff stream. Use 50 for the lowest initial snapshot cost; this is not a
+    /// runtime cap on the depth of subsequent full-diff updates.
     pub depth: Option<usize>,
 }
 

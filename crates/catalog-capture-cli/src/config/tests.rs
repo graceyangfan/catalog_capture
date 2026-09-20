@@ -1153,6 +1153,24 @@ fn example_binance_perp_bars_config_loads_and_validates() {
     validate_runtime(&effective).expect("example should validate");
 }
 
+#[cfg(feature = "venue-binance")]
+#[test]
+fn example_binance_l2_profile_uses_unthrottled_depth() {
+    let path = repo_root().join("examples/capture.binance-lighter-btc-sol-perp-books.toml");
+    let loaded = load_config(&path).expect("example should load");
+    let effective = resolve_config(loaded).expect("example should resolve");
+    validate_runtime(&effective).expect("example should validate");
+
+    let binance_depths: Vec<_> = effective
+        .plan
+        .book_deltas
+        .iter()
+        .filter(|spec| spec.instrument_id.venue.to_string() == "BINANCE")
+        .map(|spec| spec.depth)
+        .collect();
+    assert_eq!(binance_depths, vec![Some(50), Some(50)]);
+}
+
 #[cfg(feature = "venue-hyperliquid")]
 #[test]
 fn example_hyperliquid_bars_config_loads_and_validates() {

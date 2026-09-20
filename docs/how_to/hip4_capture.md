@@ -20,21 +20,31 @@ by Nautilus and checkpointed hourly using `subscribe_book_at_interval`, with the
 | Hyperliquid | BBO (YES/NO) | `quotes` → QuoteTick |
 | Hyperliquid | Trade ticks (YES/NO) | `trades` → TradeTick |
 | Binance Futures | Trade ticks | `[[capture.trades]]` |
-| Binance Futures | L2 deltas | `[[capture.book_deltas]]` `L2_MBP` **`depth = 20`** |
+| Binance Futures | fastest L2 deltas | `[[capture.book_deltas]]` `L2_MBP` **`depth = 50`** |
 | Deribit | Book summary | `[[capture.custom_data_requests]]` `DeribitBookSummary` |
 
 ### Binance L2
 
-Nautilus Binance Futures L2 opens the unthrottled **`{symbol}@depth@0ms`** stream.
-`depth` is the **snapshot** level count (valid: 5, 10, 20, 50, 100, 500, 1000).
-If omitted, the adapter defaults to **1000**. Research capture should set:
+Nautilus Binance Futures maps the depth value to the venue stream, so it is not
+just a local snapshot-size hint. Values **5, 10, and 20** select Binance's
+partial-depth stream at **100ms**. Values **50, 100, 500, and 1000** select the
+unthrottled **`{symbol}@depth@0ms`** diff stream. If omitted, the current adapter
+defaults to **1000**. The production research capture uses 50, the smallest
+full-diff bootstrap depth:
 
 ```toml
 [[capture.book_deltas]]
 instrument_id = "BTCUSDT-PERP.BINANCE"
 book_type = "L2_MBP"
-depth = 20
+depth = 50
 ```
+
+Use `depth = 20` only for an intentionally lower-volume 100ms partial-depth
+profile; it must not be described as a 50ms or unthrottled feed.
+
+`depth = 50` reduces the initial REST snapshot and bootstrap memory, but it is
+not a hard runtime depth cap: the subsequent full-diff stream can contain
+updates outside the first 50 levels, and the managed Nautilus book may grow.
 
 ### HIP-4 style auto rotation
 

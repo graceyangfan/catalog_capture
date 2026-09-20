@@ -6,7 +6,7 @@
 #
 # Streams:
 #   Hyperliquid: instruments, quotes, trades (rolling HIP-4 universe)
-#   Binance USD-M: trades + L2 book_deltas depth=20 (@depth@0ms stream)
+#   Binance USD-M: trades + unthrottled L2 book_deltas depth=50 (@depth@0ms)
 #   Deribit: BookSummary request ~1 rps → segment .part (not 1 catalog file/sec); seal 06:00 UTC
 #   Selected books: Nautilus-managed hourly snapshots, aligned to UTC hour boundaries
 #
@@ -103,7 +103,8 @@ instrument_id = "BTCUSDT-PERP.BINANCE"
 [[capture.book_deltas]]
 instrument_id = "BTCUSDT-PERP.BINANCE"
 book_type = "L2_MBP"
-depth = 20
+# 50 is the smallest depth that selects Binance's unthrottled @depth@0ms diff stream.
+depth = 50
 
 [[capture.custom_data_requests]]
 type_name = "DeribitBookSummary"

@@ -68,7 +68,8 @@ instrument_id = "BTCUSDT-PERP.BINANCE"
 [[capture.book_deltas]]
 instrument_id = "BTCUSDT-PERP.BINANCE"
 book_type = "L2_MBP"
-depth = 20
+# Binance Futures: 50 is the smallest depth that selects @depth@0ms.
+depth = 50
 
 [[capture.instruments]]
 instrument_id = "SOLUSDT-PERP.BINANCE"
@@ -79,7 +80,8 @@ instrument_id = "SOLUSDT-PERP.BINANCE"
 [[capture.book_deltas]]
 instrument_id = "SOLUSDT-PERP.BINANCE"
 book_type = "L2_MBP"
-depth = 20
+# Binance Futures: 50 is the smallest depth that selects @depth@0ms.
+depth = 50
 
 [[capture.instruments]]
 instrument_id = "SOL-PERP.LIGHTER"
