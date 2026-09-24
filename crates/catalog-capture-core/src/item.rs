@@ -72,6 +72,12 @@ pub struct CaptureItem<T> {
     pub partition_key: PartitionKey,
     pub event_ts_ns: u64,
     pub init_ts_ns: Option<u64>,
+    /// Number of catalog rows represented by `payload`.
+    ///
+    /// Most payloads represent one row. Batched order-book deltas use one
+    /// capture item for an entire `OrderBookDeltas` message so snapshot
+    /// boundaries stay atomic in the ingress queue.
+    pub row_count: usize,
     pub estimated_bytes: usize,
     pub payload: T,
 }

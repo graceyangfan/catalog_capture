@@ -17,7 +17,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use anyhow::{anyhow, Result};
 use arrow::datatypes::Schema;
 use nautilus_model::data::HasTsInit;
-use nautilus_persistence::backend::catalog::ParquetDataCatalog;
+use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
 use nautilus_persistence::common::paths::CatalogPathPrefix;
 use nautilus_serialization::arrow::EncodeToRecordBatch;
 use parquet::basic::Compression;

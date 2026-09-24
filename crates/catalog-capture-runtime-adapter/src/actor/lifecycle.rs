@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{any::Any, collections::BTreeSet, num::NonZeroUsize};
+use std::{any::Any, collections::BTreeSet};
 
 use super::*;
 use crate::actor_runtime::{custom_data_client_id, optional_flush_all, optional_seal_all};
@@ -24,10 +24,6 @@ use catalog_capture_core::{
 use nautilus_common::{actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent};
 use nautilus_core::{DurationNanos, UnixNanos};
 use nautilus_model::instruments::Instrument;
-
-fn book_snapshot_identity(sequence: u64, snapshot_ts: UnixNanos) -> (u64, u64) {
-    (sequence, snapshot_ts.as_u64() / BOOK_SNAPSHOT_INTERVAL_NS)
-}
 
 impl CatalogCaptureActor {
     /// Bootstrap instrument metadata before market-data subscriptions.
@@ -155,15 +151,6 @@ impl CatalogCaptureActor {
             // Binance Futures: WS channel is `@depth@0ms` for L2_MBP; `depth` is
             // the snapshot size (e.g. 20). Other venues ignore unused depth.
             self.subscribe_book_deltas(spec.instrument_id, spec.book_type, depth, None, true, None);
-            self.subscribe_book_at_interval(
-                spec.instrument_id,
-                spec.book_type,
-                depth,
-                NonZeroUsize::new(BOOK_SNAPSHOT_INTERVAL_MS)
-                    .expect("hourly book snapshot interval must be non-zero"),
-                None,
-                None,
-            );
         }
         log::info!("catalog-capture: market-data subscribed for {instrument_id}");
     }
@@ -270,13 +257,6 @@ impl CatalogCaptureActor {
         }
         for spec in &plan.book_deltas {
             self.unsubscribe_book_deltas(spec.instrument_id, None, None);
-            self.unsubscribe_book_at_interval(
-                spec.instrument_id,
-                NonZeroUsize::new(BOOK_SNAPSHOT_INTERVAL_MS)
-                    .expect("hourly book snapshot interval must be non-zero"),
-                None,
-                None,
-            );
         }
     }
 
@@ -582,7 +562,6 @@ impl CatalogCaptureActor {
         optional_seal_all(&self.trade_runtime)?;
         optional_seal_all(&self.bar_runtime)?;
         optional_seal_all(&self.book_delta_runtime)?;
-        self.last_book_snapshot.clear();
         self.submit_book_boundary_snapshots()?;
         Ok(())
     }
@@ -609,11 +588,8 @@ impl CatalogCaptureActor {
             .collect();
 
         for book in books {
-            let sequence = book.sequence;
             let snapshot = book.to_deltas(book.ts_last, snapshot_ts);
-            let identity = book_snapshot_identity(sequence, snapshot_ts);
-            self.last_book_snapshot.insert(book.instrument_id, identity);
-            self.submit_book_deltas(&snapshot)?;
+            self.submit_book_delta_batch(snapshot)?;
         }
         Ok(())
     }
@@ -897,29 +873,5 @@ impl DataActor for CatalogCaptureActor {
 
     fn on_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
         self.submit_book_deltas(deltas)
-    }
-
-    fn on_book(&mut self, book: &OrderBook) -> Result<()> {
-        if book.update_count == 0 {
-            return Ok(());
-        }
-        let snapshot_ts = self.clock().timestamp_ns();
-        let identity = book_snapshot_identity(book.sequence, snapshot_ts);
-        if self
-            .last_book_snapshot
-            .get(&book.instrument_id)
-            .is_some_and(|last| *last == identity)
-        {
-            return Ok(());
-        }
-
-        let snapshot = book.to_deltas(book.ts_last, snapshot_ts);
-        self.last_book_snapshot.insert(book.instrument_id, identity);
-        self.submit_book_deltas(&snapshot)
-    }
-
-    fn on_reset(&mut self) -> Result<()> {
-        self.last_book_snapshot.clear();
-        Ok(())
     }
 }

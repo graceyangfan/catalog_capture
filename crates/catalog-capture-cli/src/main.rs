@@ -18,6 +18,7 @@ mod custom_data;
 mod hip4;
 mod metrics_server;
 mod option_universe;
+mod order_book;
 mod runner;
 mod universe_materialize;
 
@@ -52,6 +53,7 @@ use option_universe::{
     OptionUniverseResolutionReport, OptionUniverseValidationSuiteOptions, PostRunReportOptions,
     StrikeModeArg,
 };
+use order_book::{validate_order_books, OrderBookValidationFormat};
 use runner::{
     materialize_full_capture_plan, run_capture, run_capture_with_plan_and_reports, validate_runtime,
 };
@@ -291,6 +293,23 @@ enum Command {
         )]
         option_id: Vec<String>,
     },
+    ValidateOrderBook {
+        #[arg(long)]
+        catalog_uri: String,
+        #[arg(
+            long,
+            required = true,
+            help = "Instrument id to replay; repeat for multiple instruments"
+        )]
+        instrument_id: Vec<String>,
+        #[arg(long, value_enum, default_value_t = OrderBookValidationFormat::Text)]
+        format: OrderBookValidationFormat,
+        #[arg(
+            long,
+            help = "Skip the requirement that every parquet segment contains an F_SNAPSHOT reset"
+        )]
+        allow_missing_segment_snapshots: bool,
+    },
 }
 
 #[tokio::main]
@@ -515,6 +534,19 @@ async fn main() -> Result<()> {
                         Some(option_id)
                     },
                 },
+            )?;
+        }
+        Command::ValidateOrderBook {
+            catalog_uri,
+            instrument_id,
+            format,
+            allow_missing_segment_snapshots,
+        } => {
+            validate_order_books(
+                &catalog_uri,
+                instrument_id,
+                format,
+                allow_missing_segment_snapshots,
             )?;
         }
     }

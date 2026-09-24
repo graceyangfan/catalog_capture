@@ -3,6 +3,16 @@
 TOML configs for `catalog-capture-cli` only (not cargo examples).
 Run from the **repository root**. Catalog roots use `file://./data/…` (gitignored).
 
+## Rotation convention
+
+- General, option-universe, custom-data, and multi-venue profiles omit an explicit
+  seal override and use the production default: **daily at 06:00 UTC**.
+- The Binance/Lighter L2 profile is the deliberate exception: **hourly UTC
+  segments** with a managed snapshot at each boundary so each hour can be replayed
+  independently.
+- `*-smoke.toml`, `*-seal-quick.toml`, and `capture.low-threshold.toml` are test
+  profiles only and are not unattended production defaults.
+
 Layout is Nautilus Rust `ParquetDataCatalog` only — see
 [docs/concepts/catalog_layout.md](../docs/concepts/catalog_layout.md).
 
@@ -21,7 +31,7 @@ make build-release-capture
 | Config | Content |
 |--------|---------|
 | **`capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
-| **`capture.binance-lighter-btc-sol-perp-books.toml`** | Binance BTC/SOL USD-M + Lighter SOL perpetual L2 book and trades, with 06:00 UTC seal |
+| **`capture.binance-lighter-btc-sol-perp-books.toml`** | High-rate Binance/Lighter L2 books and trades, with self-contained hourly UTC segments |
 | **`capture.lighter-xemm-openai-anthropic.toml`** | Lighter + Robinhood Chain OPENAI/ANTHROPIC L2, trades, funding, mark and index prices |
 | `capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid universe only + 06:00 UTC seal |
 | `capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (`interval_secs = 1`) |

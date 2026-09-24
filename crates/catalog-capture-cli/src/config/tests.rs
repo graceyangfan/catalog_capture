@@ -1161,6 +1161,9 @@ fn example_binance_l2_profile_uses_unthrottled_depth() {
     let effective = resolve_config(loaded).expect("example should resolve");
     validate_runtime(&effective).expect("example should validate");
 
+    assert_eq!(effective.capture.lifecycle.seal.interval_secs, 3_600);
+    assert_eq!(effective.plan.book_deltas.len(), 3);
+
     let binance_depths: Vec<_> = effective
         .plan
         .book_deltas

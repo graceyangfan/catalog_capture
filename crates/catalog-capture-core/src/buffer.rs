@@ -36,8 +36,8 @@ impl<T> Default for PartitionBuffer<T> {
 }
 
 impl<T> PartitionBuffer<T> {
-    pub fn push(&mut self, item: T, event_ts_ns: u64, estimated_bytes: usize) {
-        self.pending_rows += 1;
+    pub fn push(&mut self, item: T, event_ts_ns: u64, estimated_bytes: usize, row_count: usize) {
+        self.pending_rows += row_count.max(1);
         self.pending_bytes += estimated_bytes;
         self.min_ts_ns = Some(
             self.min_ts_ns

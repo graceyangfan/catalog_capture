@@ -3326,9 +3326,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.27.9"
+version = "0.27.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ca68d021ef39cf6463ab54c1d0f5daf03377b70561305bb89a8f83aab66e0f"
+checksum = "dfa8e654703247911e29c23fbeaa261834bd9bb74efba2f9acddc37bfb127f53"
 dependencies = [
  "http",
  "hyper",
@@ -4061,7 +4061,7 @@ dependencies = [
  "indexmap 2.14.2",
  "jiff",
  "log",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rmp-serde",
  "rust_decimal",
  "serde",
@@ -4160,7 +4160,7 @@ dependencies = [
  "nautilus-common",
  "nautilus-core",
  "nautilus-model",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
@@ -4229,7 +4229,7 @@ dependencies = [
  "nautilus-model",
  "nautilus-network",
  "parking_lot",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rust_decimal",
  "serde",
  "serde_json",
@@ -4322,6 +4322,7 @@ version = "0.65.0"
 dependencies = [
  "ahash",
  "anyhow",
+ "aws-lc-rs",
  "base64 0.23.1",
  "bon",
  "bytes",
@@ -4339,7 +4340,7 @@ dependencies = [
  "nautilus-cryptography",
  "parking_lot",
  "percent-encoding",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rustls",
  "rustls-platform-verifier",
  "serde",
@@ -4406,6 +4407,7 @@ dependencies = [
  "async-trait",
  "blake3",
  "bon",
+ "bytes",
  "datafusion",
  "futures",
  "indexmap 2.14.2",
@@ -5047,9 +5049,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
+checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
 dependencies = [
  "chacha20",
  "getrandom 0.4.2",
@@ -5264,9 +5266,9 @@ dependencies = [
 
 [[package]]
 name = "ruint"
-version = "1.20.0"
+version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5e99bff0393163bb25029a6af25d3d8d202ba5b5438a74d1bd8789f5c822970"
+checksum = "2973657b5127d510e230f5c63d2d106af9c8f79393d8b9f4647323e8196bdde5"
 dependencies = [
  "alloy-rlp",
  "ark-ff 0.3.0",
@@ -5376,7 +5378,6 @@ dependencies = [
  "aws-lc-rs",
  "log",
  "once_cell",
- "ring",
  "rustls-pki-types",
  "rustls-webpki",
  "subtle",
@@ -5906,9 +5907,9 @@ dependencies = [
 
 [[package]]
 name = "sockudo-ws"
-version = "2.0.1"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d332a6a163a2386c9785dccb61e69c4addd69e591de1d7c8ad32680c96efd217"
+checksum = "e204e0c225008d46b707d6113dfadfefba400cef3636f6fd50ac6d263631f83f"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -6471,7 +6472,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rustls",
  "rustls-pki-types",
  "sha1 0.11.0",

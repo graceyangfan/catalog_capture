@@ -79,6 +79,7 @@ where
             partition_key,
             event_ts_ns,
             init_ts_ns,
+            row_count: 1,
             estimated_bytes: std::mem::size_of::<T>(),
             payload,
         },

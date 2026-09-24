@@ -572,6 +572,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "TEST"),
                 event_ts_ns: 1,
                 init_ts_ns: Some(1),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 42,
             })
@@ -609,6 +610,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("custom_data", "TEST"),
                 event_ts_ns: 1,
                 init_ts_ns: Some(1),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 99,
             })
@@ -675,6 +677,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "TEST"),
                 event_ts_ns: 1,
                 init_ts_ns: Some(1),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 7,
             })
@@ -716,6 +719,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "TEST"),
                 event_ts_ns: 1,
                 init_ts_ns: Some(1),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 1,
             })
@@ -725,6 +729,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "TEST"),
                 event_ts_ns: 2,
                 init_ts_ns: Some(2),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 2,
             })
@@ -734,6 +739,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "TEST"),
                 event_ts_ns: 3,
                 init_ts_ns: Some(3),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 3,
             })
@@ -791,6 +797,7 @@ mod tests {
                     partition_key: PartitionKey::market_data("quotes", "TEST"),
                     event_ts_ns: payload,
                     init_ts_ns: Some(payload),
+                    row_count: 1,
                     estimated_bytes: 8,
                     payload,
                 })
@@ -823,6 +830,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "TEST"),
                 event_ts_ns: 9,
                 init_ts_ns: Some(9),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 9,
             })
@@ -835,6 +843,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "TEST"),
                 event_ts_ns: 10,
                 init_ts_ns: Some(10),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 10,
             })

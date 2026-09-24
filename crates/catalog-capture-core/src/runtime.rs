@@ -68,7 +68,12 @@ where
             .batch_row_threshold(self.config.flush_rows);
         let flush_reason = {
             let partition = self.partitions.entry(key.clone()).or_default();
-            partition.push(item.payload, item.event_ts_ns, item.estimated_bytes);
+            partition.push(
+                item.payload,
+                item.event_ts_ns,
+                item.estimated_bytes,
+                item.row_count,
+            );
             partition.should_flush_reason(row_threshold, self.config.max_buffer_bytes)
         };
 
@@ -267,6 +272,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "A"),
                 event_ts_ns: 1,
                 init_ts_ns: Some(1),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 1,
             })
@@ -276,6 +282,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "B"),
                 event_ts_ns: 2,
                 init_ts_ns: Some(2),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 2,
             })
@@ -307,6 +314,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "A"),
                 event_ts_ns: 100,
                 init_ts_ns: Some(100),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 1,
             })
@@ -316,6 +324,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "B"),
                 event_ts_ns: 200,
                 init_ts_ns: Some(200),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 2,
             })
@@ -346,6 +355,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "A"),
                 event_ts_ns: 100,
                 init_ts_ns: Some(100),
+                row_count: 1,
                 estimated_bytes: 100,
                 payload: 1,
             })
@@ -355,6 +365,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "B"),
                 event_ts_ns: 200,
                 init_ts_ns: Some(200),
+                row_count: 1,
                 estimated_bytes: 100,
                 payload: 2,
             })
@@ -408,6 +419,7 @@ mod tests {
                 partition_key: PartitionKey::market_data("quotes", "A"),
                 event_ts_ns: 1,
                 init_ts_ns: Some(1),
+                row_count: 1,
                 estimated_bytes: 8,
                 payload: 1,
             })

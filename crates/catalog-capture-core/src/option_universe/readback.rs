@@ -23,7 +23,7 @@ use nautilus_model::{
     identifiers::InstrumentId,
     instruments::Instrument,
 };
-use nautilus_persistence::backend::catalog::ParquetDataCatalog;
+use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
 use serde::{Deserialize, Serialize};
 
 /// Default option sample size for `all` strike readback smoke validation.

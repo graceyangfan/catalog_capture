@@ -16,7 +16,7 @@ mod lifecycle;
 mod submit;
 
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     fmt::Debug,
     path::PathBuf,
     sync::{Arc, RwLock},
@@ -37,8 +37,8 @@ use catalog_capture_core::{
     },
     plan::CapturePlan,
     sink::{
-        chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config, CatalogSink,
-        ChunkedCatalogSink, CustomDataCatalogSink,
+        chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config,
+        BookDeltaCatalogSink, CatalogSink, ChunkedCatalogSink, CustomDataCatalogSink,
     },
 };
 use nautilus_common::{
@@ -74,10 +74,6 @@ const PENDING_MARKET_DATA_TIMER: &str = "PENDING_MARKET_DATA";
 const PENDING_MD_BACKOFF_START_SECS: u64 = 1;
 /// Cap on re-request poll interval only — total wait is unbounded until cache-ready or roll-clear.
 const PENDING_MD_BACKOFF_MAX_SECS: u64 = 60;
-/// Hourly checkpoints align with the UTC segment boundary (06:00 UTC).
-const BOOK_SNAPSHOT_INTERVAL_MS: usize = 60 * 60 * 1_000;
-const BOOK_SNAPSHOT_INTERVAL_NS: u64 = BOOK_SNAPSHOT_INTERVAL_MS as u64 * 1_000_000;
-
 #[derive(Debug, Clone)]
 pub struct CatalogCaptureActorConfig {
     pub actor_id: Option<ActorId>,
@@ -135,8 +131,7 @@ pub struct CatalogCaptureActor {
     quote_runtime: Option<BackgroundCaptureRuntime<QuoteTick, CatalogSink<QuoteTick>>>,
     trade_runtime: Option<BackgroundCaptureRuntime<TradeTick, CatalogSink<TradeTick>>>,
     bar_runtime: Option<BackgroundCaptureRuntime<Bar, CatalogSink<Bar>>>,
-    book_delta_runtime:
-        Option<BackgroundCaptureRuntime<OrderBookDelta, CatalogSink<OrderBookDelta>>>,
+    book_delta_runtime: Option<BackgroundCaptureRuntime<OrderBookDeltas, BookDeltaCatalogSink>>,
     online_option_metrics: Option<OnlineOptionMetricsObserver>,
     dynamic_option_universe: Option<DynamicOptionUniverseManager>,
     dynamic_hip4_universe: Option<DynamicHip4UniverseManager>,
@@ -147,9 +142,6 @@ pub struct CatalogCaptureActor {
     pending_market_data: BTreeSet<InstrumentId>,
     /// Instrument IDs that already received market-data subscribe commands.
     market_data_live: BTreeSet<InstrumentId>,
-    /// Last snapshot identity per instrument, preventing duplicate timer and
-    /// boundary snapshots without suppressing unchanged books in later hours.
-    last_book_snapshot: BTreeMap<InstrumentId, (u64, u64)>,
     /// Adaptive re-request backoff (seconds) while `pending_market_data` is non-empty.
     pending_market_data_backoff_secs: u64,
     metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
@@ -256,7 +248,7 @@ impl CatalogCaptureActor {
             flags.book_deltas,
             CaptureFlushFamily::BookDeltas,
             &capture,
-            CatalogSink::<OrderBookDelta>::from_config,
+            BookDeltaCatalogSink::from_config,
         )?;
         let catalog_root = catalog_root_from_uri(&config.capture.catalog_uri)?;
         let initial_materialized_plan = config.plan.clone();
@@ -302,7 +294,6 @@ impl CatalogCaptureActor {
             custom_data_request_jobs,
             pending_market_data: BTreeSet::new(),
             market_data_live: BTreeSet::new(),
-            last_book_snapshot: BTreeMap::new(),
             pending_market_data_backoff_secs: PENDING_MD_BACKOFF_START_SECS,
             metrics_snapshot: config.metrics_snapshot,
             metrics_refresh_interval_secs: config.metrics_refresh_interval_secs,

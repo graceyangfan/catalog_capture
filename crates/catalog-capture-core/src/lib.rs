@@ -30,6 +30,7 @@ pub mod lifecycle;
 pub mod metrics;
 pub mod metrics_export;
 pub mod option_universe;
+pub mod order_book_validation;
 pub mod plan;
 pub mod runtime;
 pub mod sink;
@@ -105,6 +106,7 @@ pub use option_universe::{
     ResolvedOptionUniverse, StrikeChangeSmoothingState, StrikeOpenInterestByStrike, StrikePolicy,
     StrikeSelectionProfile, ALL_STRIKES_MIN_SELECTED_STRIKES, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
 };
+pub use order_book_validation::{validate_order_book_replay, OrderBookReplayReport};
 pub use plan::{
     capture_plan_difference, instrument_id_difference, instrument_id_overlap_and_new,
     plan_instrument_ids, BarCaptureSpec, BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags,
@@ -117,6 +119,6 @@ pub use plan::{
 };
 pub use runtime::{CaptureRuntime, FlushResult};
 pub use sink::{
-    chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config, CaptureSink,
-    CatalogSink, ChunkedCatalogSink, CustomDataCatalogSink, NautilusCatalogSink,
+    chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config, BookDeltaCatalogSink,
+    CaptureSink, CatalogSink, ChunkedCatalogSink, CustomDataCatalogSink, NautilusCatalogSink,
 };

@@ -16,10 +16,12 @@ use super::*;
 use crate::actor_runtime::{
     optional_flush_all, optional_shutdown, optional_submit, submit_capture_item,
 };
+use catalog_capture_core::config::OverflowPolicy;
 use catalog_capture_core::{
     append_forward_price_records, forward_price_record_from_model, item::CaptureItem,
     runtime::FlushResult, ForwardPrice,
 };
+use nautilus_common::component::Component;
 
 impl CatalogCaptureActor {
     pub(super) fn submit_instrument(&mut self, instrument: InstrumentAny) -> Result<()> {
@@ -33,6 +35,7 @@ impl CatalogCaptureActor {
                 ),
                 event_ts_ns: ts_init,
                 init_ts_ns: Some(ts_init),
+                row_count: 1,
                 estimated_bytes: std::mem::size_of::<InstrumentAny>(),
                 payload: instrument,
             },
@@ -63,6 +66,7 @@ impl CatalogCaptureActor {
                 ),
                 event_ts_ns: event_ts,
                 init_ts_ns: Some(ts_init),
+                row_count: 1,
                 estimated_bytes: std::mem::size_of::<CustomData>(),
                 payload: data,
             },
@@ -157,17 +161,40 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
-        for delta in &deltas.deltas {
-            submit_capture_item(
-                &self.book_delta_runtime,
-                PartitionKey::catalog_data::<OrderBookDelta>(delta.instrument_id),
-                delta.ts_event.as_u64(),
-                Some(delta.ts_init.as_u64()),
-                *delta,
-            )?;
-        }
+        self.submit_book_delta_batch(deltas.clone())
+    }
 
-        Ok(())
+    pub(super) fn submit_book_delta_batch(&mut self, deltas: OrderBookDeltas) -> Result<()> {
+        let row_count = deltas.deltas.len();
+        if row_count == 0 {
+            return Ok(());
+        }
+        let estimated_bytes = std::mem::size_of::<OrderBookDeltas>()
+            .saturating_add(row_count.saturating_mul(std::mem::size_of::<OrderBookDelta>()));
+        let result = optional_submit(
+            &self.book_delta_runtime,
+            CaptureItem {
+                partition_key: PartitionKey::catalog_data::<OrderBookDelta>(deltas.instrument_id),
+                event_ts_ns: deltas.ts_event.as_u64(),
+                init_ts_ns: Some(deltas.ts_init.as_u64()),
+                row_count,
+                estimated_bytes,
+                payload: deltas,
+            },
+        );
+        if let Err(error) = &result {
+            if matches!(self.capture.overflow_policy, OverflowPolicy::FailFast) {
+                log::error!(
+                    "catalog-capture: stopping actor after book-delta submission failure: {error}"
+                );
+                if let Err(stop_error) = self.stop() {
+                    log::error!(
+                        "catalog-capture: failed to stop actor after book-delta submission failure: {stop_error}"
+                    );
+                }
+            }
+        }
+        result
     }
 
     pub fn flush_all(&mut self) -> Result<Vec<FlushResult>> {

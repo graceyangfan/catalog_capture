@@ -62,12 +62,6 @@ row_group_rows = 2000
 # Segment: fsync open *.part AND interval-flush memory → part (not a new catalog file).
 sync_interval_ms = 1000
 
-[output.lifecycle.seal]
-enabled = true
-schedule = "06:00"
-timezone = "UTC"
-interval_secs = 86400
-
 [[venues]]
 id = "hyperliquid_main"
 kind = "hyperliquid"

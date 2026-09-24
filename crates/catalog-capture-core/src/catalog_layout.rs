@@ -198,7 +198,7 @@ mod tests {
     /// Proves direct-record catalog is loadable without conversion for backtest.
     #[test]
     fn write_quotes_then_query_with_parquet_data_catalog() {
-        use nautilus_persistence::backend::catalog::ParquetDataCatalog;
+        use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
 
         let root = temp_catalog("quotes-roundtrip");
         let sink = NautilusCatalogSink::from_config(&capture_config(&root)).expect("sink");

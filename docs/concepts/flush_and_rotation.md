@@ -52,6 +52,24 @@ If an open part approaches **30 000** flushed row groups (soft cap =
 limit cannot abort the job. Derivation and cloud-rate checks live in
 `row_group_capacity` unit tests.
 
+## Rotation policy
+
+Use **daily UTC 06:00** sealing for general, option-universe, custom-data, and
+multi-venue strategy captures. It keeps file counts and boundary work small
+while the open segment remains durable through periodic flush and fsync.
+
+Use **hourly sealing only for high-rate L2 order-book profiles** when each hour
+must be independently replayable. Such a profile writes one managed snapshot at
+each hour boundary through the existing `book_deltas` stream. Do not make
+hourly rotation a global default: it adds 24 seal events and snapshot batches
+per instrument per day without improving sparse quotes, trades, Greeks, or
+custom-data capture.
+
+The reference profiles follow this split: `capture.multi-venue-mainnet.toml`
+and the option-universe/operator profiles use daily UTC 06:00 defaults, while
+`capture.binance-lighter-btc-sol-perp-books.toml` is the explicit hourly L2
+profile.
+
 ## Profiles (dominant-family TOML when not multi-stream)
 
 | Profile | Use | baseline rows | interval | max_buffer |
@@ -64,5 +82,13 @@ limit cannot abort the job. Derivation and cloud-rate checks live in
 
 Watch `/metrics`: `dropped_items`, `active_partitions`, `flush_reasons`,
 `catalog_capture_custom_data_request_*`.
+
+## Self-contained hourly book segments
+
+For a book file that can be replayed without the preceding hour, configure
+`seal.interval_secs = 3600`. The actor seals the old part before submitting one
+complete managed-book snapshot batch to the new part. The batch is expanded in
+bounded writer chunks, so the queue does not hold one item per snapshot delta
+and the Parquet schema remains the normal `order_book_deltas` stream.
 
 Segment seal details — [segment lifecycle](segment_lifecycle.md).

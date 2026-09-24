@@ -39,12 +39,6 @@ row_group_rows = 5000
 [output.lifecycle.durability]
 sync_interval_ms = 1000
 
-[output.lifecycle.seal]
-enabled = true
-schedule = "06:00"
-timezone = "UTC"
-interval_secs = 86400
-
 [[venues]]
 id = "hyperliquid_main"
 kind = "hyperliquid"

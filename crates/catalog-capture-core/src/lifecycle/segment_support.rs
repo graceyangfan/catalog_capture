@@ -26,7 +26,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use arrow::array::{Array, TimestampNanosecondArray};
 use arrow::record_batch::RecordBatch;
 use nautilus_core::UnixNanos;
-use nautilus_persistence::backend::catalog::{timestamps_to_filename, ParquetDataCatalog};
+use nautilus_persistence::backend::parquet::{
+    catalog::ParquetDataCatalog, paths::timestamps_to_filename,
+};
 use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties};
 
 use crate::{

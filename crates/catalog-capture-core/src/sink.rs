@@ -25,12 +25,13 @@ use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{
         close::InstrumentClose, Bar, CustomData, FundingRateUpdate, HasTsInit, IndexPriceUpdate,
-        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, QuoteTick, TradeTick,
+        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas,
+        QuoteTick, TradeTick,
     },
     instruments::InstrumentAny,
 };
 use nautilus_persistence::{
-    backend::catalog::ParquetDataCatalog, catalog::types::CatalogDataType,
+    backend::parquet::catalog::ParquetDataCatalog, catalog::types::HasCatalogDataType,
     common::paths::CatalogPathPrefix,
 };
 use nautilus_serialization::arrow::{ArrowSchemaProvider, EncodeToRecordBatch};
@@ -74,7 +75,7 @@ where
     T: HasTsInit
         + EncodeToRecordBatch
         + CatalogPathPrefix
-        + CatalogDataType
+        + HasCatalogDataType
         + ArrowSchemaProvider
         + Serialize
         + Clone,
@@ -100,7 +101,7 @@ where
     T: HasTsInit
         + EncodeToRecordBatch
         + CatalogPathPrefix
-        + CatalogDataType
+        + HasCatalogDataType
         + ArrowSchemaProvider
         + Serialize
         + Clone,
@@ -213,6 +214,101 @@ pub fn custom_data_catalog_sink_from_config(
     CustomDataCatalogSink::from_config(config)
 }
 
+/// Catalog sink for grouped order-book deltas.
+///
+/// The ingress queue carries one `OrderBookDeltas` item per venue message so a
+/// snapshot cannot be partially admitted. Segment mode expands each message in
+/// bounded chunks into the ordinary `order_book_deltas` parquet stream. The
+/// on-disk contract therefore remains unchanged while the queue avoids one
+/// allocation per delta.
+#[derive(Debug)]
+pub enum BookDeltaCatalogSink {
+    Chunked(NautilusCatalogSink),
+    Segment(SegmentCaptureSink<OrderBookDelta>),
+}
+
+const BOOK_DELTA_WRITE_CHUNK_ROWS: usize = 4_096;
+
+impl BookDeltaCatalogSink {
+    pub fn from_config(config: &CaptureConfig) -> Result<Self> {
+        if config.lifecycle.is_segment_mode() {
+            Ok(Self::Segment(SegmentCaptureSink::from_config(config)?))
+        } else {
+            Ok(Self::Chunked(NautilusCatalogSink::from_config(config)?))
+        }
+    }
+
+    #[must_use]
+    pub fn is_segment_mode(&self) -> bool {
+        matches!(self, Self::Segment(_))
+    }
+}
+
+impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
+    fn write_batch(
+        &mut self,
+        partition_key: &str,
+        batch: Vec<OrderBookDeltas>,
+    ) -> Result<Vec<PathBuf>> {
+        match self {
+            Self::Chunked(sink) => {
+                let mut deltas = Vec::new();
+                for grouped in batch {
+                    deltas.extend(grouped.deltas);
+                }
+                if deltas.is_empty() {
+                    Ok(Vec::new())
+                } else {
+                    sink.write_encoded_paths(deltas)
+                }
+            }
+            Self::Segment(sink) => {
+                let mut paths = Vec::new();
+                for grouped in batch {
+                    let mut chunk =
+                        Vec::with_capacity(BOOK_DELTA_WRITE_CHUNK_ROWS.min(grouped.deltas.len()));
+                    for delta in grouped.deltas {
+                        chunk.push(delta);
+                        if chunk.len() == BOOK_DELTA_WRITE_CHUNK_ROWS {
+                            paths.extend(sink.write_batch_mut(partition_key, chunk)?);
+                            chunk = Vec::with_capacity(BOOK_DELTA_WRITE_CHUNK_ROWS);
+                        }
+                    }
+                    if !chunk.is_empty() {
+                        paths.extend(sink.write_batch_mut(partition_key, chunk)?);
+                    }
+                }
+                Ok(paths)
+            }
+        }
+    }
+
+    fn on_tick(&mut self, now_ns: u64) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.on_tick(now_ns),
+        }
+    }
+
+    fn seal_all(&mut self) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.seal_all(),
+        }
+    }
+
+    fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.seal_all_for_shutdown(),
+        }
+    }
+
+    fn is_segment_mode(&self) -> bool {
+        Self::is_segment_mode(self)
+    }
+}
+
 #[derive(Debug)]
 pub struct NautilusCatalogSink {
     catalog: ParquetDataCatalog,
@@ -262,7 +358,7 @@ impl NautilusCatalogSink {
         T: HasTsInit
             + EncodeToRecordBatch
             + CatalogPathPrefix
-            + CatalogDataType
+            + HasCatalogDataType
             + Serialize
             + Clone,
     {
@@ -281,7 +377,7 @@ impl NautilusCatalogSink {
         T: HasTsInit
             + EncodeToRecordBatch
             + CatalogPathPrefix
-            + CatalogDataType
+            + HasCatalogDataType
             + Serialize
             + Clone,
     {
@@ -516,5 +612,83 @@ mod custom_interval_tests {
             NautilusCatalogSink::disjoint_file_interval(Some(100), 150, 180),
             (150, 180)
         );
+    }
+}
+
+#[cfg(test)]
+mod book_delta_batch_tests {
+    use std::{fs, path::PathBuf};
+
+    use nautilus_model::{
+        data::{stubs::stub_deltas, OrderBookDelta, OrderBookDeltas},
+        enums::{BookAction, RecordFlag},
+    };
+    use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+
+    use super::{BookDeltaCatalogSink, CaptureSink};
+    use crate::{
+        config::CaptureConfig,
+        item::PartitionKey,
+        lifecycle::{LifecycleConfig, LifecycleMode, SealConfigFile},
+    };
+
+    fn temp_catalog() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "book-delta-batch-sink-{}",
+            nautilus_core::UUID4::new()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("temp catalog");
+        dir
+    }
+
+    #[test]
+    fn grouped_snapshot_writes_canonical_rows_in_order() {
+        let root = temp_catalog();
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            lifecycle: LifecycleConfig {
+                mode: LifecycleMode::Segment,
+                seal: SealConfigFile {
+                    enabled: false,
+                    ..SealConfigFile::default()
+                },
+                ..LifecycleConfig::default()
+            },
+            ..CaptureConfig::default()
+        };
+        let mut grouped = stub_deltas();
+        grouped.deltas.last_mut().expect("stub snapshot rows").flags |= RecordFlag::F_LAST as u8;
+        let instrument_id = grouped.instrument_id;
+        let partition = PartitionKey::catalog_data::<OrderBookDelta>(instrument_id).stable_key();
+        let mut sink = BookDeltaCatalogSink::from_config(&config).expect("sink");
+
+        sink.write_batch(&partition, vec![grouped.clone()])
+            .expect("write grouped snapshot");
+        sink.seal_all_for_shutdown().expect("seal");
+
+        let mut catalog = ParquetDataCatalog::new(&root, None, None, None, None);
+        let rows = catalog
+            .order_book_deltas(Some(vec![instrument_id.to_string()]), None, None)
+            .expect("read grouped snapshot");
+        assert_eq!(rows.len(), grouped.deltas.len());
+        assert_eq!(rows[0].action, BookAction::Clear);
+        assert!(RecordFlag::F_SNAPSHOT.matches(rows[0].flags));
+        assert!(RecordFlag::F_LAST.matches(rows.last().expect("last row").flags));
+        assert!(rows
+            .windows(2)
+            .all(|pair| pair[0].ts_init <= pair[1].ts_init));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn grouped_batch_estimates_one_queue_payload_for_many_rows() {
+        let grouped = stub_deltas();
+        let row_count = grouped.deltas.len();
+        assert!(row_count > 1);
+        let estimated = std::mem::size_of::<OrderBookDeltas>()
+            + row_count * std::mem::size_of::<OrderBookDelta>();
+        assert!(estimated > std::mem::size_of::<OrderBookDelta>() * row_count);
     }
 }

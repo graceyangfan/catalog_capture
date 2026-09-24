@@ -23,7 +23,7 @@ use std::{collections::HashMap, path::PathBuf};
 use anyhow::{bail, Result};
 use arrow::datatypes::SchemaRef;
 use nautilus_model::data::CustomData;
-use nautilus_persistence::backend::catalog::ParquetDataCatalog;
+use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
 use nautilus_persistence::common::custom::prepare_custom_data_batch;
 use parquet::basic::Compression;
 

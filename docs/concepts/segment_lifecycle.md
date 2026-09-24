@@ -98,12 +98,34 @@ HIP-4: universe poll (which YES/NO) is separate from seal (file day). See
 
 ## Order book checkpoints
 
-When `book_deltas` is enabled, the capture actor uses Nautilus' managed
-`OrderBook` cache and subscribes to `subscribe_book_at_interval` at a one-hour
-interval. Nautilus aligns that timer to UTC hour boundaries; the actor converts
-each `OrderBook` to canonical `OrderBookDeltas` with `OrderBook::to_deltas`.
+When `book_deltas` is enabled, the capture actor writes the live canonical
+`OrderBookDeltas` stream and uses Nautilus' managed `OrderBook` cache to create
+one boundary checkpoint with `OrderBook::to_deltas`. There is no second periodic
+book-snapshot subscription. At each segment boundary the actor:
 
-At segment seal, the actor writes one cache checkpoint after sealing the old
-part, so the first book batch in the new segment is a snapshot. This is a
-capture-lifecycle checkpoint, not an extra exchange REST request. An empty or
+1. drains and seals the old segment;
+2. submits one complete snapshot batch to the book runtime;
+3. continues with live delta batches in FIFO order.
+
+The snapshot is the first book batch of the new segment, not an extra exchange
+REST request. The queue transports the snapshot as one `OrderBookDeltas` item;
+the segment sink expands it in bounded chunks into the standard
+`order_book_deltas` Parquet rows. This preserves `F_SNAPSHOT`/`F_LAST` while
+avoiding one queue item and one copy per snapshot delta. An empty or
 never-updated book is skipped because it cannot provide a valid state snapshot.
+ParquetCatalog readback is timestamp ordered; a delayed row with an earlier
+`ts_init` can therefore appear before the reset in a query, but applying the
+snapshot still clears and rebuilds the managed book before later deltas.
+
+Example for directly replayable hourly segments:
+
+```toml
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+```

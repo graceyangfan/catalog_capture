@@ -5,9 +5,12 @@
 # preserves CLEAR/F_SNAPSHOT/F_LAST/sequence fields in order_book_deltas and
 # writes an hourly checkpoint from Nautilus' managed OrderBook cache.
 #
-# Both venues use the same 06:00 UTC segment seal as the HIP-4 profiles. This
-# seals files only; it does not interrupt or rotate the live subscriptions.
-# The hourly snapshot timer and the 06:00 UTC boundary use the same UTC clock.
+# This is the explicit high-rate L2 profile: each sealed segment is one UTC
+# hour and starts with that boundary checkpoint. General profiles keep the
+# daily 06:00 UTC default.
+# The separate periodic book callback is disabled to avoid writing two full
+# snapshots at the same boundary; the checkpoint is created after the old
+# segment queue has drained and sealed.
 # Public market data does not require API credentials.
 #
 # Run:
@@ -26,10 +29,14 @@ compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 5000
 flush_interval_ms = 1000
-max_buffer_bytes = 134217728
-queue_capacity = 50000
-# L2 data must not be silently discarded. Let the service supervisor restart
-# and let Nautilus rebuild each book from a fresh exchange snapshot.
+# Keep transient recorder memory bounded on an 8 GiB host. The three active
+# partitions per family remain below the 128 MiB family cap.
+max_buffer_bytes = 33554432
+max_total_buffer_bytes = 134217728
+queue_capacity = 10000
+# L2 data must not be silently discarded. A book-queue overflow stops the actor;
+# run the binary under a service supervisor so Nautilus can rebuild each book
+# from a fresh exchange snapshot.
 overflow_policy = "fail_fast"
 
 [output.lifecycle]
@@ -43,9 +50,9 @@ sync_interval_ms = 1000
 
 [output.lifecycle.seal]
 enabled = true
-schedule = "06:00"
+schedule = "00:00"
 timezone = "UTC"
-interval_secs = 86400
+interval_secs = 3600
 
 [[venues]]
 id = "binance_futures_main"

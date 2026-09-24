@@ -9,8 +9,8 @@ It records Binance BTC/SOL USD-M and Lighter SOL perpetual `book_deltas`
 plus trade ticks and seals segments at 06:00 UTC. The Lighter adapter bootstraps
 its instrument registry and publishes the initial snapshot before incremental
 updates; no custom snapshot request is needed. Selected books are also maintained
-by Nautilus and checkpointed hourly using `subscribe_book_at_interval`, with the
-06:00 UTC segment boundary checkpointed into the new segment.
+by Nautilus and checkpointed at the segment boundary, with the checkpoint written
+into the new segment.
 
 ## Subscriptions (channel-level)
 

@@ -82,6 +82,7 @@ mod tests {
             partition_key: PartitionKey::market_data("quotes", instrument_label.as_str()),
             event_ts_ns: ts,
             init_ts_ns: Some(ts),
+            row_count: 1,
             estimated_bytes: 128,
             payload: quote(instrument_id, ts),
         }
