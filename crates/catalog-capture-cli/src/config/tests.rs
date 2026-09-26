@@ -17,6 +17,8 @@ use crate::runner::validate_runtime;
 use catalog_capture_core::{OptionUniverseFamily, StrikePolicy};
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "venue-extended")]
+use nautilus_extended::common::ExtendedEnvironment;
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 #[cfg(feature = "venue-lighter")]
@@ -24,6 +26,8 @@ use nautilus_lighter::common::enums::{LighterDeployment, LighterEnvironment};
 #[cfg(feature = "venue-okx")]
 use nautilus_okx::common::enums::OKXInstrumentType;
 
+#[cfg(feature = "venue-extended")]
+use super::venues::parse_extended_environment;
 #[cfg(feature = "venue-hyperliquid")]
 use super::venues::parse_hyperliquid_environment;
 #[cfg(feature = "venue-okx")]
@@ -38,6 +42,20 @@ fn repo_root() -> PathBuf {
         .nth(2)
         .expect("workspace root")
         .to_path_buf()
+}
+
+#[cfg(feature = "venue-extended")]
+#[test]
+fn extended_environment_aliases_are_explicit() {
+    assert_eq!(
+        parse_extended_environment("live").unwrap(),
+        ExtendedEnvironment::Mainnet,
+    );
+    assert_eq!(
+        parse_extended_environment("testnet").unwrap(),
+        ExtendedEnvironment::Testnet,
+    );
+    assert!(parse_extended_environment("demo").is_err());
 }
 
 #[cfg(feature = "venue-okx")]
@@ -1151,6 +1169,21 @@ fn example_binance_perp_bars_config_loads_and_validates() {
     let loaded = load_config(&path).expect("example should load");
     let effective = resolve_config(loaded).expect("example should resolve");
     validate_runtime(&effective).expect("example should validate");
+}
+
+#[cfg(feature = "venue-extended")]
+#[test]
+fn example_extended_btc_perp_config_loads_and_validates() {
+    let path = repo_root().join("examples/capture.extended-btc-perp.toml");
+    let loaded = load_config(&path).expect("example should load");
+    let effective = resolve_config(loaded).expect("example should resolve");
+    validate_runtime(&effective).expect("example should validate");
+    assert_eq!(effective.plan.book_deltas.len(), 1);
+    assert_eq!(effective.plan.trades.len(), 1);
+    assert_eq!(effective.plan.mark_prices.len(), 1);
+    assert_eq!(effective.plan.index_prices.len(), 1);
+    assert_eq!(effective.plan.funding_rates.len(), 1);
+    assert!(effective.plan.book_deltas[0].depth.is_none());
 }
 
 #[cfg(feature = "venue-binance")]

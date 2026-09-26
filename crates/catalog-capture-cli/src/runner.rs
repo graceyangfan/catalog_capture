@@ -26,9 +26,9 @@ use catalog_capture_core::{
     append_hip4_universe_resolution_records, append_option_universe_resolution_records,
     catalog_root_from_uri, derive_perp_instrument_id, estimate_peak_buffered_bytes,
     expand_option_universe, format_budget_warning, format_buffer_estimate, merge_capture_plans,
-    new_capture_run_record, write_capture_run_record, CaptureMetricsSnapshot, CapturePlan,
-    CaptureRunInput, CaptureRunVenueRecord, LayoutCompatibility, OptionUniverseVenueKind,
-    ResolvedHip4Universe, ResolvedOptionUniverse,
+    new_capture_run_record, plan_instrument_ids, write_capture_run_record, CaptureMetricsSnapshot,
+    CapturePlan, CaptureRunInput, CaptureRunVenueRecord, LayoutCompatibility,
+    OptionUniverseVenueKind, ResolvedHip4Universe, ResolvedOptionUniverse,
 };
 use catalog_capture_runtime_adapter::{
     plan_has_index_prices, plan_has_mark_prices, plan_has_quotes, CatalogCaptureActor,
@@ -44,6 +44,11 @@ use nautilus_common::{cache::CacheConfig, enums::Environment};
 use nautilus_core::string::secret::SecretString;
 #[cfg(feature = "venue-deribit")]
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
+#[cfg(feature = "venue-extended")]
+use nautilus_extended::{
+    config::{ExtendedDataClientConfig, ExtendedInstrumentProviderConfig},
+    factories::ExtendedDataClientFactory,
+};
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 #[cfg(feature = "venue-hyperliquid")]
@@ -322,6 +327,39 @@ pub async fn run_capture_with_plan_and_reports(
                     }),
                 )?;
             }
+            #[cfg(feature = "venue-extended")]
+            VenueRuntimeConfig::Extended { id, environment } => {
+                let load_ids = plan_instrument_ids(&plan)
+                    .into_iter()
+                    .filter(|instrument_id| instrument_id.venue.as_str() == "EXTENDED")
+                    .collect::<Vec<_>>();
+                log::info!(
+                    "Configuring venue {} ({environment:?}, public, load_ids={})",
+                    id,
+                    if load_ids.is_empty() {
+                        "all".to_string()
+                    } else {
+                        load_ids.len().to_string()
+                    },
+                );
+                let instrument_provider = if load_ids.is_empty() {
+                    ExtendedInstrumentProviderConfig::default()
+                } else {
+                    ExtendedInstrumentProviderConfig {
+                        load_all: false,
+                        load_ids: Some(load_ids),
+                    }
+                };
+                builder = builder.add_data_client(
+                    Some(id.clone()),
+                    Box::new(ExtendedDataClientFactory::new()),
+                    Box::new(ExtendedDataClientConfig {
+                        environment: *environment,
+                        instrument_provider,
+                        ..Default::default()
+                    }),
+                )?;
+            }
             #[cfg(feature = "venue-okx")]
             VenueRuntimeConfig::Okx {
                 id,
@@ -487,6 +525,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
         VenueRuntimeConfig::Hyperliquid { .. } => "hyperliquid",
         #[cfg(feature = "venue-lighter")]
         VenueRuntimeConfig::Lighter { .. } => "lighter",
+        #[cfg(feature = "venue-extended")]
+        VenueRuntimeConfig::Extended { .. } => "extended",
         #[cfg(feature = "venue-okx")]
         VenueRuntimeConfig::Okx { .. } => "okx",
     }
@@ -506,6 +546,8 @@ fn compiled_venue_features() -> Vec<String> {
         "venue-hyperliquid",
         #[cfg(feature = "venue-lighter")]
         "venue-lighter",
+        #[cfg(feature = "venue-extended")]
+        "venue-extended",
     ]
     .into_iter()
     .map(str::to_string)

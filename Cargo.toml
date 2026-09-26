@@ -4,6 +4,7 @@ members = [
   "crates/catalog-capture-core",
   "crates/catalog-capture-runtime-adapter",
   "crates/catalog-capture-cli",
+  "crates/nautilus-extended",
 ]
 resolver = "2"
 
@@ -24,10 +25,22 @@ cargo-deny = "0.19.9"
 [workspace.dependencies]
 ahash = "0.8"
 anyhow = "1"
+async-trait = "0.1"
+axum = { version = "0.8.9", default-features = false, features = [
+  "tokio",
+  "http1",
+  "ws",
+] }
+bon = "3"
 chrono = "0.4"
 chrono-tz = "0.10.4"
 clap = { version = "4", features = ["derive"] }
 dotenvy = "0.15"
+futures-util = { version = "0.3.34", default-features = false, features = [
+  "std",
+  "async-await",
+  "sink",
+] }
 log = "0.4"
 parquet = "59.3.0"
 rust_decimal = "1"
@@ -42,6 +55,7 @@ tokio = { version = "1", features = [
   "net",
   "io-util",
 ] }
+tokio-util = "0.7"
 toml = "0.8"
 ustr = "1.1.0"
 nautilus-binance = { path = "../nautilus_trader/crates/adapters/binance" }
@@ -61,10 +75,14 @@ nautilus-live = { path = "../nautilus_trader/crates/live", default-features = fa
   "node",
 ] }
 nautilus-model = { path = "../nautilus_trader/crates/model" }
+nautilus-network = { path = "../nautilus_trader/crates/network", features = [
+  "transport-sockudo",
+] }
 nautilus-persistence = { path = "../nautilus_trader/crates/persistence" }
 nautilus-serialization = { path = "../nautilus_trader/crates/serialization", features = [
   "arrow",
 ] }
+nautilus-extended = { path = "crates/nautilus-extended" }
 
 # -----------------------------------------------------------------------------
 # Profiles: lean artifacts (path-deps pull a large Nautilus graph into target/)

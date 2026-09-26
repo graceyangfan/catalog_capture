@@ -1,0 +1,11 @@
+{
+  "type": "FUNDING_RATES",
+  "data": {
+    "m": "BTC-USD",
+    "f": "0.000013",
+    "T": 1790426050286
+  },
+  "ts": 1790426050286,
+  "seq": 0,
+  "subscription": "funding-rates.BTC-USD"
+}

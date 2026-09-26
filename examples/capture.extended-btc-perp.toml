@@ -1,0 +1,67 @@
+# Long-running Extended BTC perpetual public market-data capture.
+#
+# Extended RPC v2 supplies the initial full L2 snapshot, incremental updates,
+# trades, mark/index prices, and hourly applied funding rates. No credentials
+# are required for these public streams.
+#
+# Build and run:
+#   cargo build --release -p catalog-capture-cli \
+#     --no-default-features --features venue-extended
+#   ./target/release/catalog-capture-cli run \
+#     --config examples/capture.extended-btc-perp.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-EXTENDED-BTC-PERP"
+
+[output]
+catalog_uri = "file://./data/extended-btc-perp"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+max_total_buffer_bytes = 134217728
+queue_capacity = 10000
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 20000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "extended_main"
+kind = "extended"
+environment = "mainnet"
+
+[[capture.instruments]]
+instrument_id = "BTC-USD-PERP.EXTENDED"
+
+[[capture.book_deltas]]
+instrument_id = "BTC-USD-PERP.EXTENDED"
+book_type = "L2_MBP"
+
+[[capture.trades]]
+instrument_id = "BTC-USD-PERP.EXTENDED"
+
+[[capture.mark_prices]]
+instrument_id = "BTC-USD-PERP.EXTENDED"
+
+[[capture.index_prices]]
+instrument_id = "BTC-USD-PERP.EXTENDED"
+
+[[capture.funding_rates]]
+instrument_id = "BTC-USD-PERP.EXTENDED"

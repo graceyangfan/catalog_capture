@@ -1,0 +1,11 @@
+{
+  "type": "PRICES.MP",
+  "data": {
+    "m": "BTC-USD",
+    "p": "84058.473541750005",
+    "ts": 0
+  },
+  "ts": 1790425443253,
+  "seq": 312,
+  "subscription": "prices.mark.BTC-USD"
+}

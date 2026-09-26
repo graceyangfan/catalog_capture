@@ -21,6 +21,8 @@ use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
 use nautilus_bybit::common::enums::{BybitEnvironment, BybitProductType};
 #[cfg(feature = "venue-deribit")]
 use nautilus_deribit::{common::enums::DeribitEnvironment, http::models::DeribitProductType};
+#[cfg(feature = "venue-extended")]
+use nautilus_extended::common::ExtendedEnvironment;
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 #[cfg(feature = "venue-lighter")]
@@ -81,6 +83,11 @@ pub enum VenueRuntimeConfig {
         environment: LighterEnvironment,
         deployment: LighterDeployment,
     },
+    #[cfg(feature = "venue-extended")]
+    Extended {
+        id: String,
+        environment: ExtendedEnvironment,
+    },
     #[cfg(feature = "venue-okx")]
     Okx {
         id: String,
@@ -103,6 +110,8 @@ impl VenueRuntimeConfig {
             Self::Hyperliquid { id, .. } => id,
             #[cfg(feature = "venue-lighter")]
             Self::Lighter { id, .. } => id,
+            #[cfg(feature = "venue-extended")]
+            Self::Extended { id, .. } => id,
             #[cfg(feature = "venue-okx")]
             Self::Okx { id, .. } => id,
         }
@@ -201,6 +210,19 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
                 venue_feature_required("lighter", "venue-lighter")
             }
         }
+        "extended" => {
+            #[cfg(feature = "venue-extended")]
+            {
+                Ok(VenueRuntimeConfig::Extended {
+                    id: venue.id,
+                    environment: parse_extended_environment(&venue.environment)?,
+                })
+            }
+            #[cfg(not(feature = "venue-extended"))]
+            {
+                venue_feature_required("extended", "venue-extended")
+            }
+        }
         "okx" => {
             #[cfg(feature = "venue-okx")]
             {
@@ -226,9 +248,18 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             }
         }
         other => bail!(
-            "unsupported venue kind {other}; known kinds: binance_futures, deribit, bybit, hyperliquid, lighter, okx \
+            "unsupported venue kind {other}; known kinds: binance_futures, deribit, bybit, hyperliquid, lighter, extended, okx \
              (enabled at build time via cargo features venue-* / all-venues)"
         ),
+    }
+}
+
+#[cfg(feature = "venue-extended")]
+pub(crate) fn parse_extended_environment(value: &str) -> Result<ExtendedEnvironment> {
+    match value.to_ascii_lowercase().as_str() {
+        "mainnet" | "live" => Ok(ExtendedEnvironment::Mainnet),
+        "testnet" => Ok(ExtendedEnvironment::Testnet),
+        other => bail!("unsupported Extended environment {other}; expected mainnet|testnet"),
     }
 }
 

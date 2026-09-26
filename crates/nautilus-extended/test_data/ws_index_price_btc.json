@@ -1,0 +1,11 @@
+{
+  "type": "PRICES.IP",
+  "data": {
+    "m": "BTC-USD",
+    "p": "84105.013533499994",
+    "ts": 1790425443000
+  },
+  "ts": 1790425443408,
+  "seq": 314,
+  "subscription": "prices.index.BTC-USD"
+}
