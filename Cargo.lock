@@ -4018,7 +4018,6 @@ dependencies = [
  "ahash",
  "anyhow",
  "arc-swap",
- "arrow",
  "async-stream",
  "async-trait",
  "aws-lc-rs",

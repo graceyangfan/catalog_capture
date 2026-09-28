@@ -1,0 +1,123 @@
+# Long-running Binance Futures + Lighter + Extended perpetual market-data capture.
+#
+# `book_deltas` is the Nautilus canonical L2 stream: the adapters publish the
+# initial order-book snapshot followed by incremental updates. The recorder
+# preserves CLEAR/F_SNAPSHOT/F_LAST/sequence fields in order_book_deltas and
+# writes an hourly checkpoint from Nautilus' managed OrderBook cache.
+#
+# This is the explicit high-rate L2 profile: each sealed segment is one UTC
+# hour and starts with that boundary checkpoint. The separate periodic book
+# callback is disabled to avoid writing two full snapshots at the same
+# boundary. Public market data does not require API credentials.
+#
+# Run:
+#   make build-release-capture
+#   ./bin/catalog-capture-cli run \
+#     --config examples/capture.binance-lighter-extended-btc-sol-perp-books.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BINANCE-LIGHTER-EXTENDED-BTC-SOL-PERP-BOOKS"
+
+[output]
+catalog_uri = "file://./data/binance-lighter-extended-btc-sol-perp-books"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+# Keep transient recorder memory bounded on an 8 GiB host. Four active L2 and
+# trade partitions fit within the 128 MiB family cap.
+max_buffer_bytes = 33554432
+max_total_buffer_bytes = 134217728
+queue_capacity = 10000
+# L2 data must not be silently discarded. A book-queue overflow stops the actor;
+# run the binary under a service supervisor so Nautilus can rebuild each book
+# from a fresh exchange snapshot.
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 20000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "binance_futures_main"
+kind = "binance_futures"
+environment = "live"
+product_type = "usd_m"
+
+[[venues]]
+id = "lighter_main"
+kind = "lighter"
+deployment = "lighter"
+environment = "mainnet"
+
+[[venues]]
+id = "extended_main"
+kind = "extended"
+environment = "mainnet"
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+# Binance Futures: 50 is the smallest depth that selects @depth@0ms.
+depth = 50
+
+[[capture.instruments]]
+instrument_id = "SOLUSDT-PERP.BINANCE"
+
+[[capture.trades]]
+instrument_id = "SOLUSDT-PERP.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "SOLUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+# Binance Futures: 50 is the smallest depth that selects @depth@0ms.
+depth = 50
+
+[[capture.instruments]]
+instrument_id = "SOL-PERP.LIGHTER"
+
+[[capture.trades]]
+instrument_id = "SOL-PERP.LIGHTER"
+
+[[capture.book_deltas]]
+instrument_id = "SOL-PERP.LIGHTER"
+book_type = "L2_MBP"
+
+[[capture.instruments]]
+instrument_id = "SOL-USD-PERP.EXTENDED"
+
+[[capture.trades]]
+instrument_id = "SOL-USD-PERP.EXTENDED"
+
+[[capture.book_deltas]]
+instrument_id = "SOL-USD-PERP.EXTENDED"
+book_type = "L2_MBP"
+
+[[capture.mark_prices]]
+instrument_id = "SOL-USD-PERP.EXTENDED"
+
+[[capture.index_prices]]
+instrument_id = "SOL-USD-PERP.EXTENDED"
+
+[[capture.funding_rates]]
+instrument_id = "SOL-USD-PERP.EXTENDED"

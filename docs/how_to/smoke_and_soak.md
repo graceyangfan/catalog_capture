@@ -48,14 +48,14 @@ After rebuild + restart of `catalog-capture-cli`:
 
 | Check | Expect |
 |-------|--------|
-| BookSummary disk | Growing `data/custom/DeribitBookSummary/**/*.parquet.part` — **not** a new sealed `.parquet` every second |
-| L2 / trades / quotes | Same: open `*.parquet.part` under `data/order_book_deltas|trades|quotes/…` |
+| BookSummary disk | One active `data/custom/DeribitBookSummary/**/*.parquet.part` — **not** a new sealed `.parquet` every second |
+| L2 / trades / quotes | Same: open `*.parquet.part` under `data/order_book_deltas|trades|quotes/…`; sparse parts may stay 0 bytes until their row group or segment is closed |
 | Metrics | family `accepted` ↑; `flushed` ↑ within seconds (interval + row profile); `dropped_items=0` |
 | 06:00 UTC / shutdown | Parts rename to `{start}_{end}.parquet`; new empty parts reopen when seal schedule is on |
 | Failures | No permanent `background capture worker is not running` for custom |
 
 ```bash
-# Example: watch BookSummary part growth
+# Example: confirm the active BookSummary part exists (size need not grow every poll)
 find ./data/multi-venue-mainnet/data/custom -name '*.parquet.part' -ls
 curl -s http://127.0.0.1:9108/metrics | grep catalog_capture
 ```

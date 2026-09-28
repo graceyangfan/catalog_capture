@@ -41,12 +41,18 @@ Smoke configs with `flush_rows` / `row_group_rows` **&lt; 200** are left unchang
 
 ## Segment interval
 
-With `mode = segment`, every `durability.sync_interval_ms` the worker:
+With `mode = segment`, every `durability.sync_interval_ms` the worker uses an
+absolute deadline (a continuously busy family queue cannot starve the timer) to:
 
-1. **Interval-flush** memory → append open `*.parquet.part`
-2. **Tick** fsync that part only (does **not** call `ArrowWriter::flush` / seal a row group)
+1. **Interval-flush** family buffers → the active Arrow parquet writer
+2. **Tick** fsync bytes the writer has already emitted (does **not** call
+   `ArrowWriter::flush` / seal a row group)
 
-Seal (e.g. 06:00 UTC) renames the part to a catalog parquet — it is not the first write.
+Arrow may retain an incomplete row group in memory, so a sparse stream's active
+`.parquet.part` can exist at 0 bytes even while rows are being accepted. The part is
+not catalog-queryable. A full row group writes earlier; seal (or graceful shutdown)
+closes the final row group and renames the part to a catalog parquet.
+
 If an open part approaches **30 000** flushed row groups (soft cap =
 `i16::MAX − 2767`), the sink seals and reopens mid-day so parquet’s **32 767** hard
 limit cannot abort the job. Derivation and cloud-rate checks live in
@@ -56,7 +62,8 @@ limit cannot abort the job. Derivation and cloud-rate checks live in
 
 Use **daily UTC 06:00** sealing for general, option-universe, custom-data, and
 multi-venue strategy captures. It keeps file counts and boundary work small
-while the open segment remains durable through periodic flush and fsync.
+while keeping active writer memory bounded. An abrupt process or host failure can
+lose the unfinished row group; use graceful shutdown and a service supervisor.
 
 Use **hourly sealing only for high-rate L2 order-book profiles** when each hour
 must be independently replayable. Such a profile writes one managed snapshot at

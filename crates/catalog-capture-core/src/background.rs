@@ -16,7 +16,7 @@ use std::{
     collections::VecDeque,
     sync::{mpsc, Arc, Condvar, Mutex, MutexGuard},
     thread::{self, JoinHandle},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -271,6 +271,7 @@ where
     let segment_mode = sink.is_segment_mode();
     let mut runtime = CaptureRuntime::new(config.clone(), sink);
     let flush_interval = worker_interval(&config, segment_mode);
+    let mut next_interval = Instant::now() + flush_interval;
 
     loop {
         let (
@@ -282,7 +283,7 @@ where
             flush_waiters,
             seal_waiters,
             shutdown_waiters,
-        ) = match collect_worker_batch(&state, flush_interval, segment_mode) {
+        ) = match collect_worker_batch(&state, flush_interval, segment_mode, &mut next_interval) {
             Ok(batch) => batch,
             Err(err) => {
                 log::error!("catalog-capture: background worker exiting: {err}");
@@ -343,6 +344,7 @@ fn collect_worker_batch<T>(
     state: &Arc<(Mutex<QueueState<T>>, Condvar)>,
     flush_interval: Duration,
     segment_mode: bool,
+    next_interval: &mut Instant,
 ) -> Result<WorkerBatch<T>> {
     let (lock, cvar) = &**state;
     let mut queue_state = lock_queue_state(lock)?;
@@ -353,20 +355,23 @@ fn collect_worker_batch<T>(
         && !queue_state.seal_requested
         && !queue_state.shutdown_requested
     {
+        let wait_for = next_interval.saturating_duration_since(Instant::now());
         let waited = cvar
-            .wait_timeout(queue_state, flush_interval)
+            .wait_timeout(queue_state, wait_for)
             .map_err(|_| anyhow!("background capture queue state poisoned"))?;
         queue_state = waited.0;
+    }
 
-        if waited.1.timed_out() {
-            // Chunked: new catalog parquet. Segment: append open *.part (not a new day file).
-            queue_state.flush_reason =
-                merge_flush_reason(queue_state.flush_reason, FlushReason::Interval);
-            if segment_mode {
-                // Durability fsync of open part writers (after the memory flush above).
-                queue_state.tick_requested = true;
-            }
+    let now = Instant::now();
+    if now >= *next_interval {
+        // Chunked: new catalog parquet. Segment: append open *.part (not a new day file).
+        queue_state.flush_reason =
+            merge_flush_reason(queue_state.flush_reason, FlushReason::Interval);
+        if segment_mode {
+            // Durability fsync of open part writers (after the memory flush above).
+            queue_state.tick_requested = true;
         }
+        *next_interval = now + flush_interval;
     }
 
     let batch: Vec<CaptureItem<T>> = queue_state.queue.drain(..).collect();
@@ -518,19 +523,20 @@ fn merge_flush_reason(current: Option<FlushReason>, next: FlushReason) -> Option
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
     use std::{
         path::PathBuf,
-        sync::{Arc, Mutex},
+        sync::{Arc, Condvar, Mutex},
     };
 
     use anyhow::Result;
 
-    use super::BackgroundCaptureRuntime;
+    use super::{collect_worker_batch, BackgroundCaptureRuntime, QueueState};
     use crate::{
         config::{CaptureConfig, OverflowPolicy},
         item::{CaptureItem, PartitionKey},
         lifecycle::{LifecycleConfig, LifecycleMode},
+        metrics::FlushReason,
         sink::CaptureSink,
     };
 
@@ -583,6 +589,34 @@ mod tests {
         let written = batches.lock().expect("batches poisoned").clone();
         assert_eq!(written, vec![vec![42]]);
         let _ = runtime.shutdown().expect("shutdown should succeed");
+    }
+
+    #[test]
+    fn interval_deadline_flushes_a_non_empty_queue() {
+        let state = Arc::new((Mutex::new(QueueState::default()), Condvar::new()));
+        state
+            .0
+            .lock()
+            .expect("queue state poisoned")
+            .queue
+            .push_back(CaptureItem {
+                partition_key: PartitionKey::market_data("trades", "TEST"),
+                event_ts_ns: 1,
+                init_ts_ns: Some(1),
+                row_count: 1,
+                estimated_bytes: 8,
+                payload: 42,
+            });
+
+        let interval = Duration::from_secs(1);
+        let mut next_interval = Instant::now() - interval;
+        let batch = collect_worker_batch(&state, interval, true, &mut next_interval)
+            .expect("worker batch collection should succeed");
+
+        assert_eq!(batch.0.len(), 1);
+        assert_eq!(batch.1, Some(FlushReason::Interval));
+        assert!(batch.2, "segment durability tick should also be scheduled");
+        assert!(next_interval > Instant::now());
     }
 
     #[test]

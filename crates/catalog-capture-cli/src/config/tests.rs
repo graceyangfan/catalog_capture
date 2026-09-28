@@ -1207,6 +1207,49 @@ fn example_binance_l2_profile_uses_unthrottled_depth() {
     assert_eq!(binance_depths, vec![Some(50), Some(50)]);
 }
 
+#[cfg(all(
+    feature = "venue-binance",
+    feature = "venue-lighter",
+    feature = "venue-extended"
+))]
+#[test]
+fn example_binance_lighter_extended_profile_loads_and_validates() {
+    let path =
+        repo_root().join("examples/capture.binance-lighter-extended-btc-sol-perp-books.toml");
+    let loaded = load_config(&path).expect("example should load");
+    let effective = resolve_config(loaded).expect("example should resolve");
+    validate_runtime(&effective).expect("example should validate");
+
+    assert_eq!(effective.capture.lifecycle.seal.interval_secs, 3_600);
+    assert_eq!(effective.plan.instruments.len(), 4);
+    assert_eq!(effective.plan.book_deltas.len(), 4);
+    assert_eq!(effective.plan.trades.len(), 4);
+    assert_eq!(effective.plan.mark_prices.len(), 1);
+    assert_eq!(effective.plan.index_prices.len(), 1);
+    assert_eq!(effective.plan.funding_rates.len(), 1);
+
+    let binance_depths = effective
+        .plan
+        .book_deltas
+        .iter()
+        .filter(|spec| spec.instrument_id.venue.as_str() == "BINANCE")
+        .map(|spec| spec.depth)
+        .collect::<Vec<_>>();
+    assert_eq!(binance_depths, vec![Some(50), Some(50)]);
+
+    let extended_book = effective
+        .plan
+        .book_deltas
+        .iter()
+        .find(|spec| spec.instrument_id.venue.as_str() == "EXTENDED")
+        .expect("Extended SOL book subscription");
+    assert_eq!(
+        extended_book.instrument_id.to_string(),
+        "SOL-USD-PERP.EXTENDED"
+    );
+    assert!(extended_book.depth.is_none());
+}
+
 #[cfg(feature = "venue-hyperliquid")]
 #[test]
 fn example_hyperliquid_bars_config_loads_and_validates() {
