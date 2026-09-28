@@ -2,48 +2,63 @@
 
 Run from the **repository root**. Prefer mainnet public configs under `examples/`.
 
-## Long-running process
+## Build the product binary
 
-Set `runtime.capture_seconds = 0` (until SIGTERM / Ctrl+C).
-
-```bash
-make build-release-capture
-
-./scripts/run-mainnet-capture.sh examples/capture.multi-venue-mainnet.toml
-
-# or
-./scripts/run-capture-service.sh \
-  --config examples/capture.multi-venue-mainnet.toml \
-  --release
-```
-
-For a single product binary, build only the venues used by the config:
+Set `runtime.capture_seconds = 0` so the recorder runs until `SIGTERM` or
+`Ctrl+C`. Build once, validate once, then run the binary directly.
 
 ```bash
-make build-release-capture \
-  CAPTURE_FEATURES=venue-binance,venue-lighter
+cargo build --release -p catalog-capture-cli \
+  --no-default-features \
+  --features venue-binance,venue-lighter,venue-extended
+
+mkdir -p bin
+install -m 755 target/release/catalog-capture-cli bin/catalog-capture-cli
+
+./bin/catalog-capture-cli validate \
+  --config examples/capture.binance-lighter-extended-btc-sol-perp-books.toml
 ```
 
-The feature list above is a **build-time** option. It must not be appended to
-`catalog-capture-cli run`.
+For another configuration, set the feature list to exactly the venues it uses.
+Cargo feature flags belong to the build command, never to
+`catalog-capture-cli run`. `make build-release-capture` is also valid for the
+standard profile; override `CAPTURE_FEATURES` when the profile includes
+Extended:
+
+```bash
+CAPTURE_FEATURES=venue-binance,venue-lighter,venue-extended \
+  make build-release-capture
+```
 
 ## Background with nohup
 
-Run from the repository root. The direct binary command makes the PID file
-refer to the actual recorder process, so `SIGTERM` reaches Nautilus directly.
+Run from the repository root. Start the product binary itself, not
+`run-capture-service.sh`: the wrapper is a foreground build/logging helper and
+its `tee` pipeline is not the recorder PID. `nohup`, detached stdin, and a
+direct log redirect keep the recorder alive after the SSH shell closes while
+leaving the PID file pointing at the actual Nautilus process.
 
 ```bash
 mkdir -p logs
 
-LOG_FILE="logs/binance-lighter-$(date -u +%Y%m%dT%H%M%SZ).log"
-PID_FILE="logs/binance-lighter.pid"
+CONFIG="examples/capture.binance-lighter-extended-btc-sol-perp-books.toml"
+NAME="binance-lighter-extended"
+LOG_FILE="logs/${NAME}-$(date -u +%Y%m%dT%H%M%SZ).log"
+PID_FILE="logs/${NAME}.pid"
+
+if [[ -s "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+  echo "Recorder already running with PID $(cat "$PID_FILE")" >&2
+  exit 1
+fi
+rm -f "$PID_FILE"
 
 nohup env NAUTILUS_LOG='stdout=Info;is_colored=false' \
   ./bin/catalog-capture-cli run \
-  --config examples/capture.binance-lighter-btc-sol-perp-books.toml \
-  > "$LOG_FILE" 2>&1 &
+  --config "$CONFIG" \
+  >"$LOG_FILE" 2>&1 </dev/null &
 
-echo $! > "$PID_FILE"
+PID=$!
+echo "$PID" > "$PID_FILE"
 echo "PID: $(cat "$PID_FILE")"
 echo "LOG: $LOG_FILE"
 ```
@@ -51,26 +66,44 @@ echo "LOG: $LOG_FILE"
 The current CLI uses `run`, not `capture`. It does not accept
 `--log-level`, `--metrics-port`, `--no-default-features`, or `--features` as
 runtime flags. Logging is configured with the `NAUTILUS_LOG` environment
-variable; the default level is already `Info`.
+variable; metrics are configured in TOML.
 
 Monitor the process and log:
 
 ```bash
-tail -f "$(ls -t logs/binance-lighter-*.log | head -1)"
-ps -p "$(cat logs/binance-lighter.pid)" -o pid=,etime=,command=
+PID_FILE="logs/binance-lighter-extended.pid"
+ps -p "$(cat "$PID_FILE")" -o pid=,ppid=,sid=,pgid=,etime=,stat=,command=
+tail -f "$(ls -t logs/binance-lighter-extended-*.log | head -1)"
 ```
 
 Stop it gracefully and flush/seal the active parquet parts:
 
 ```bash
-kill -TERM "$(cat logs/binance-lighter.pid)"
+PID_FILE="logs/binance-lighter-extended.pid"
+PID="$(cat "$PID_FILE")"
+kill -TERM "$PID"
+
+for _ in $(seq 1 60); do
+  kill -0 "$PID" 2>/dev/null || break
+  sleep 1
+done
+
+if kill -0 "$PID" 2>/dev/null; then
+  echo "Recorder did not stop within 60 seconds; keep $PID_FILE for diagnosis" >&2
+  exit 1
+fi
+
+rm -f "$PID_FILE"
 ```
 
-Wait for `Received SIGTERM` and `Capture completed` in the log. Do not use
-`kill -9`, which can leave `.parquet.part` files or lose buffered data.
+Confirm `Received SIGTERM` and `Capture completed` in the log. Do not use
+`kill -9` during normal operation: it can leave `.parquet.part` files or lose
+buffered data.
 
-For the generic wrapper, run it in the foreground or use systemd/launchd so
-the service manager owns signal delivery:
+This method protects against SSH disconnects, but it does not restart a process
+after OOM, machine reboot, or an external `SIGKILL`. Restart it manually if
+`ps` shows that the PID is gone. The generic wrapper remains useful as a
+foreground build/run helper:
 
 ```bash
 ./scripts/run-capture-service.sh \
@@ -112,12 +145,4 @@ Option-universe lineage check (configs that write option resolutions):
   --config examples/operator/capture.deribit-btc-universe-unattended.toml
 ```
 
-## Optional user service
-
-Still runs **this clone** (not `/opt`):
-
-```bash
-./scripts/optional-user-service.sh --help
-```
-
-See [cloud capture](cloud_capture.md).
+See [cloud capture](cloud_capture.md) for catalog inspection and cleanup.

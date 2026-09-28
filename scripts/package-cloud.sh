@@ -137,22 +137,17 @@ or the large `target/` build cache.
 ## Run
 
 ```bash
-./scripts/run-capture-service.sh \
+mkdir -p logs
+nohup env NAUTILUS_LOG='stdout=Info;is_colored=false' \
+  ./bin/catalog-capture-cli run \
   --config config/capture.toml \
-  --prebuilt
+  > logs/capture.log 2>&1 </dev/null &
+echo $! > logs/capture.pid
 ```
 
-The service writes logs to `./logs/` and catalog data according to
-`config/capture.toml`. Use `Ctrl+C` or `SIGTERM` for a clean Parquet flush.
-
-## Optional user service
-
-```bash
-./scripts/optional-user-service.sh \
-  --platform systemd \
-  --config config/capture.toml \
-  --prebuilt
-```
+The direct binary PID is stored in `logs/capture.pid`. Stop it with
+`kill -TERM "$(cat logs/capture.pid)"` and wait for `Capture completed`.
+The process is intentionally managed with `nohup`, not a system service.
 
 Credentials should be supplied through the environment or the deployment
 secret manager; do not commit secret values into the packaged TOML.

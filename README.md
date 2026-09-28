@@ -95,12 +95,17 @@ mkdir -p logs
 nohup env NAUTILUS_LOG='stdout=Info;is_colored=false' \
   ./bin/catalog-capture-cli run \
   --config examples/capture.multi-venue-mainnet.toml \
-  > logs/capture.log 2>&1 &
+  > logs/capture.log 2>&1 </dev/null &
 echo $! > logs/capture.pid
 
 # Metrics (if enabled in TOML): http://127.0.0.1:9108/metrics
 # Stop gracefully: kill -TERM "$(cat logs/capture.pid)"
 ```
+
+Start the binary directly so `logs/capture.pid` is the recorder PID. Do not
+background `scripts/run-capture-service.sh`; it is a foreground build/logging
+helper. See [docs/how_to/unattended_capture.md](docs/how_to/unattended_capture.md)
+for the stale-PID guard and shutdown wait.
 
 ## Documentation
 

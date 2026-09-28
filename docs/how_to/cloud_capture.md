@@ -83,45 +83,36 @@ find data -type f \( -name '*.parquet' -o -name '*.jsonl' -o -name '*.json' \) |
 du -sh data/*
 ```
 
-## 5) Unattended
+## 5) Unattended with nohup
 
 ```bash
-# Foreground (default config = multi-venue mainnet)
-./scripts/run-mainnet-capture.sh
-
-# Background: direct product binary, with an actual recorder PID
 mkdir -p logs
+CONFIG="examples/capture.multi-venue-mainnet.toml"
+NAME="multi-venue"
 LOG_FILE="logs/multi-venue-$(date -u +%Y%m%dT%H%M%SZ).log"
 PID_FILE="logs/multi-venue.pid"
+
 nohup env NAUTILUS_LOG='stdout=Info;is_colored=false' \
   ./bin/catalog-capture-cli run \
-  --config examples/capture.multi-venue-mainnet.toml \
-  > "$LOG_FILE" 2>&1 &
+  --config "$CONFIG" \
+  >"$LOG_FILE" 2>&1 </dev/null &
 echo $! > "$PID_FILE"
+
+# Check the actual recorder PID
+ps -p "$(cat "$PID_FILE")" -o pid=,ppid=,sid=,pgid=,etime=,stat=,command=
 
 # Stop (flush / seal)
 kill -TERM "$(cat "$PID_FILE")"
 ```
 
-The CLI subcommand is `run`; Cargo options such as `--features` belong to the
-build command, not the runtime command. Wait for `Capture completed` in the log
-after sending `SIGTERM`. Never use `kill -9` for a live recorder.
+Start the binary directly; do not background `scripts/run-capture-service.sh`.
+The wrapper is a foreground build/logging helper and its PID is not the
+recorder PID. The CLI subcommand is `run`; Cargo options such as `--features`
+belong to the build command, not the runtime command. Wait for `Capture
+completed` after sending `SIGTERM`. Never use `kill -9` for a live recorder.
 
-Generic service wrapper (supports `CAPTURE_FEATURES`):
-
-```bash
-CAPTURE_FEATURES=venue-binance,venue-deribit,venue-hyperliquid \
-  ./scripts/run-capture-service.sh \
-  --config examples/capture.multi-venue-mainnet.toml \
-  --release
-```
-
-Optional user unit (still this clone):
-
-```bash
-./scripts/optional-user-service.sh --platform systemd \
-  --config examples/capture.multi-venue-mainnet.toml
-```
+`nohup` protects against SSH disconnects. It does not restart after OOM,
+reboot, or external `SIGKILL`; restart the binary manually if its PID exits.
 
 ## 6) Monitor
 
