@@ -188,7 +188,7 @@ where
 
     fn ensure_worker_running(&self) -> Result<()> {
         let Some(worker) = &self.worker else {
-            return Ok(());
+            return Err(anyhow!("background capture worker is not running"));
         };
         if worker.is_finished() {
             return Err(anyhow!("background capture worker is not running"));
@@ -617,6 +617,20 @@ mod tests {
         assert_eq!(batch.1, Some(FlushReason::Interval));
         assert!(batch.2, "segment durability tick should also be scheduled");
         assert!(next_interval > Instant::now());
+    }
+
+    #[test]
+    fn flush_after_shutdown_returns_instead_of_waiting_for_a_missing_worker() {
+        let sink = TestSink::default();
+        let mut runtime = BackgroundCaptureRuntime::new(CaptureConfig::default(), sink)
+            .expect("runtime should start");
+
+        runtime.shutdown().expect("shutdown should succeed");
+        let error = runtime
+            .flush_all()
+            .expect_err("flush after shutdown should fail");
+
+        assert!(error.to_string().contains("not running"));
     }
 
     #[test]
