@@ -286,7 +286,7 @@ fn assert_mark_price_rows(
     min_rows: i64,
 ) -> Result<usize> {
     let rows = catalog
-        .query_typed_data::<MarkPriceUpdate>(
+        .query::<MarkPriceUpdate>(
             Some(vec![instrument_id.to_string()]),
             None,
             None,
@@ -314,7 +314,7 @@ fn assert_index_price_rows(
     min_rows: i64,
 ) -> Result<usize> {
     let rows = catalog
-        .query_typed_data::<IndexPriceUpdate>(
+        .query::<IndexPriceUpdate>(
             Some(vec![instrument_id.to_string()]),
             None,
             None,
@@ -457,7 +457,7 @@ fn probe_contract_state(
     require: bool,
 ) -> Result<(usize, usize)> {
     let statuses = catalog
-        .query_typed_data::<InstrumentStatus>(
+        .query::<InstrumentStatus>(
             Some(vec![instrument_id.to_string()]),
             None,
             None,

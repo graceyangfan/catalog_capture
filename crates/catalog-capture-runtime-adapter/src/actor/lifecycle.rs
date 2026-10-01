@@ -569,8 +569,8 @@ impl CatalogCaptureActor {
     /// Writes a checkpoint as the first batch of the newly opened book segment.
     ///
     /// The source is Nautilus' managed cache, not a second venue REST request. The
-    /// upstream hourly snapshot timer may fire at the same boundary; sequence-plus-hour
-    /// deduplication in `on_book` prevents that timer from writing the same checkpoint twice.
+    /// snapshot is submitted only after the previous segment has been sealed, so the
+    /// new segment starts from the actor's current managed-book state.
     fn submit_book_boundary_snapshots(&mut self) -> Result<()> {
         let snapshot_ts = self.clock().timestamp_ns();
         let instrument_ids: Vec<InstrumentId> = self

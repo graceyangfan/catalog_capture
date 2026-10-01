@@ -116,9 +116,19 @@ the segment sink expands it in bounded chunks into the standard
 `order_book_deltas` Parquet rows. This preserves `F_SNAPSHOT`/`F_LAST` while
 avoiding one queue item and one copy per snapshot delta. An empty or
 never-updated book is skipped because it cannot provide a valid state snapshot.
-ParquetCatalog readback is timestamp ordered; a delayed row with an earlier
-`ts_init` can therefore appear before the reset in a query, but applying the
-snapshot still clears and rebuilds the managed book before later deltas.
+The segment sink also records the snapshot source-sequence high-water per
+instrument. A later ordinary batch at or below that high-water is already
+represented by the snapshot and is discarded; an unsequenced batch (`sequence =
+0`) is retained. This mirrors Nautilus adapter recovery without reimplementing
+venue-specific REST recovery.
+
+The sink keeps each venue message atomic in time. If the local `ts_init` clock
+rolls back at the handoff, it advances only the persisted `ts_init` watermark;
+`ts_event`, source sequence, actions, and record flags are unchanged. This keeps
+ParquetCatalog's timestamp ordering consistent with the FIFO snapshot/delta
+order while preserving the source book semantics. Actual source sequence gaps
+remain the adapter's responsibility and must not be hidden by this timestamp
+normalization.
 
 Example for directly replayable hourly segments:
 

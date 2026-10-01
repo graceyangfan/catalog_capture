@@ -28,6 +28,7 @@ use nautilus_model::{
         InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas,
         QuoteTick, TradeTick,
     },
+    enums::RecordFlag,
     instruments::InstrumentAny,
 };
 use nautilus_persistence::{
@@ -220,19 +221,36 @@ pub fn custom_data_catalog_sink_from_config(
 /// snapshot cannot be partially admitted. Segment mode expands each message in
 /// bounded chunks into the ordinary `order_book_deltas` parquet stream. The
 /// on-disk contract therefore remains unchanged while the queue avoids one
-/// allocation per delta.
+/// allocation per delta. Segment mode also applies the snapshot handoff
+/// sequence gate and persists a monotonic local arrival timestamp per message.
 #[derive(Debug)]
 pub enum BookDeltaCatalogSink {
     Chunked(NautilusCatalogSink),
-    Segment(SegmentCaptureSink<OrderBookDelta>),
+    Segment {
+        sink: SegmentCaptureSink<OrderBookDelta>,
+        boundary: HashMap<String, BookDeltaBoundaryState>,
+    },
 }
 
 const BOOK_DELTA_WRITE_CHUNK_ROWS: usize = 4_096;
 
+/// Internal segment handoff state carried by [`BookDeltaCatalogSink`].
+#[doc(hidden)]
+#[derive(Debug, Default)]
+pub struct BookDeltaBoundaryState {
+    /// Highest source sequence represented by the most recent snapshot.
+    snapshot_sequence: Option<u64>,
+    /// Last timestamp emitted for this instrument's segment stream.
+    last_ts_init_ns: Option<u64>,
+}
+
 impl BookDeltaCatalogSink {
     pub fn from_config(config: &CaptureConfig) -> Result<Self> {
         if config.lifecycle.is_segment_mode() {
-            Ok(Self::Segment(SegmentCaptureSink::from_config(config)?))
+            Ok(Self::Segment {
+                sink: SegmentCaptureSink::from_config(config)?,
+                boundary: HashMap::new(),
+            })
         } else {
             Ok(Self::Chunked(NautilusCatalogSink::from_config(config)?))
         }
@@ -240,7 +258,84 @@ impl BookDeltaCatalogSink {
 
     #[must_use]
     pub fn is_segment_mode(&self) -> bool {
-        matches!(self, Self::Segment(_))
+        matches!(self, Self::Segment { .. })
+    }
+
+    fn prepare_segment_batch(
+        &mut self,
+        partition_key: &str,
+        grouped: OrderBookDeltas,
+    ) -> Option<Vec<OrderBookDelta>> {
+        let Self::Segment { boundary, .. } = self else {
+            unreachable!("segment batches are only prepared in segment mode")
+        };
+
+        let state = boundary.entry(partition_key.to_string()).or_default();
+        let is_snapshot = RecordFlag::F_SNAPSHOT.matches(grouped.flags);
+
+        // A boundary snapshot already contains every update through its high-water
+        // sequence. Drop only a later-arriving ordinary batch which it already covers.
+        // Sequence zero is deliberately not compared: not all venues provide a
+        // comparable source sequence.
+        if !is_snapshot
+            && grouped.sequence > 0
+            && state
+                .snapshot_sequence
+                .is_some_and(|snapshot| grouped.sequence <= snapshot)
+        {
+            log::debug!(
+                "catalog-capture: dropping stale order-book batch already covered by boundary snapshot (partition={partition_key}, sequence={}, snapshot_sequence={:?})",
+                grouped.sequence,
+                state.snapshot_sequence,
+            );
+            return None;
+        }
+
+        // Keep each venue message atomic in time. When the local arrival clock
+        // rolls back at a segment boundary, advance only the persisted ts_init;
+        // ts_event, source sequence, actions, and book flags remain untouched.
+        let raw_ts_init_ns = grouped.ts_init.as_u64();
+        let normalized_ts_init_ns = state
+            .last_ts_init_ns
+            .filter(|last| raw_ts_init_ns <= *last)
+            .map_or(raw_ts_init_ns, |last| last.saturating_add(1));
+        if normalized_ts_init_ns != raw_ts_init_ns {
+            log::debug!(
+                "catalog-capture: normalized order-book arrival timestamp at segment boundary (partition={partition_key}, raw_ts_init_ns={raw_ts_init_ns}, normalized_ts_init_ns={normalized_ts_init_ns})"
+            );
+        }
+
+        let mut rows = grouped.deltas;
+        if normalized_ts_init_ns != raw_ts_init_ns {
+            for row in &mut rows {
+                row.ts_init = normalized_ts_init_ns.into();
+            }
+        }
+        state.last_ts_init_ns = Some(normalized_ts_init_ns);
+
+        if is_snapshot {
+            state.snapshot_sequence = (grouped.sequence > 0).then_some(grouped.sequence);
+        } else if state
+            .snapshot_sequence
+            .is_some_and(|snapshot| grouped.sequence > snapshot)
+        {
+            // The first post-snapshot source batch has crossed the handoff. Do
+            // not retain a stale filter for the rest of the segment.
+            state.snapshot_sequence = None;
+        }
+
+        Some(rows)
+    }
+
+    fn finish_segment_seal(&mut self, result: Result<FlushResult>) -> Result<FlushResult> {
+        if result.is_ok() {
+            if let Self::Segment { boundary, .. } = self {
+                // Boundary state belongs to the active segment. The next segment
+                // starts with a fresh managed-book snapshot.
+                boundary.clear();
+            }
+        }
+        result
     }
 }
 
@@ -262,12 +357,17 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
                     sink.write_encoded_paths(deltas)
                 }
             }
-            Self::Segment(sink) => {
+            Self::Segment { .. } => {
                 let mut paths = Vec::new();
                 for grouped in batch {
-                    let mut chunk =
-                        Vec::with_capacity(BOOK_DELTA_WRITE_CHUNK_ROWS.min(grouped.deltas.len()));
-                    for delta in grouped.deltas {
+                    let Some(rows) = self.prepare_segment_batch(partition_key, grouped) else {
+                        continue;
+                    };
+                    let Self::Segment { sink, .. } = self else {
+                        unreachable!("segment batch preparation changed sink mode")
+                    };
+                    let mut chunk = Vec::with_capacity(BOOK_DELTA_WRITE_CHUNK_ROWS.min(rows.len()));
+                    for delta in rows {
                         chunk.push(delta);
                         if chunk.len() == BOOK_DELTA_WRITE_CHUNK_ROWS {
                             paths.extend(sink.write_batch_mut(partition_key, chunk)?);
@@ -286,22 +386,24 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
     fn on_tick(&mut self, now_ns: u64) -> Result<FlushResult> {
         match self {
             Self::Chunked(_) => Ok(FlushResult::default()),
-            Self::Segment(sink) => sink.on_tick(now_ns),
+            Self::Segment { sink, .. } => sink.on_tick(now_ns),
         }
     }
 
     fn seal_all(&mut self) -> Result<FlushResult> {
-        match self {
+        let result = match self {
             Self::Chunked(_) => Ok(FlushResult::default()),
-            Self::Segment(sink) => sink.seal_all(),
-        }
+            Self::Segment { sink, .. } => sink.seal_all(),
+        };
+        self.finish_segment_seal(result)
     }
 
     fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
-        match self {
+        let result = match self {
             Self::Chunked(_) => Ok(FlushResult::default()),
-            Self::Segment(sink) => sink.seal_all_for_shutdown(),
-        }
+            Self::Segment { sink, .. } => sink.seal_all_for_shutdown(),
+        };
+        self.finish_segment_seal(result)
     }
 
     fn is_segment_mode(&self) -> bool {
@@ -619,9 +721,12 @@ mod custom_interval_tests {
 mod book_delta_batch_tests {
     use std::{fs, path::PathBuf};
 
+    use nautilus_core::UnixNanos;
     use nautilus_model::{
-        data::{stubs::stub_deltas, OrderBookDelta, OrderBookDeltas},
-        enums::{BookAction, RecordFlag},
+        data::{stubs::stub_deltas, BookOrder, OrderBookDelta, OrderBookDeltas},
+        enums::{BookAction, BookType, OrderSide, RecordFlag},
+        orderbook::OrderBook,
+        types::{Price, Quantity},
     };
     use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
 
@@ -690,5 +795,258 @@ mod book_delta_batch_tests {
         let estimated = std::mem::size_of::<OrderBookDeltas>()
             + row_count * std::mem::size_of::<OrderBookDelta>();
         assert!(estimated > std::mem::size_of::<OrderBookDelta>() * row_count);
+    }
+
+    #[test]
+    fn boundary_preserves_book_state_when_arrival_clock_rolls_back() {
+        let root = temp_catalog();
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            lifecycle: LifecycleConfig {
+                mode: LifecycleMode::Segment,
+                seal: SealConfigFile {
+                    enabled: false,
+                    ..SealConfigFile::default()
+                },
+                ..LifecycleConfig::default()
+            },
+            ..CaptureConfig::default()
+        };
+        let instrument_id = "BTC-PERP.TEST".parse().expect("instrument");
+        let initial = OrderBookDeltas::new(
+            instrument_id,
+            vec![OrderBookDelta::new(
+                instrument_id,
+                BookAction::Add,
+                BookOrder::new(OrderSide::Buy, Price::from("100"), Quantity::from("2"), 1),
+                RecordFlag::F_LAST as u8,
+                2,
+                UnixNanos::from(2),
+                UnixNanos::from(100),
+            )],
+        );
+        let mut source_book = OrderBook::new(instrument_id, BookType::L2_MBP);
+        source_book
+            .apply_deltas(&initial)
+            .expect("initial source book");
+        let snapshot = source_book.to_deltas(UnixNanos::from(2), UnixNanos::from(200));
+
+        let stale = OrderBookDeltas::new(
+            instrument_id,
+            vec![OrderBookDelta::new(
+                instrument_id,
+                BookAction::Add,
+                BookOrder::new(OrderSide::Buy, Price::from("99"), Quantity::from("9"), 2),
+                RecordFlag::F_LAST as u8,
+                2,
+                UnixNanos::from(2),
+                UnixNanos::from(150),
+            )],
+        );
+        let continuation = OrderBookDeltas::new(
+            instrument_id,
+            vec![OrderBookDelta::new(
+                instrument_id,
+                BookAction::Add,
+                BookOrder::new(OrderSide::Sell, Price::from("101"), Quantity::from("3"), 3),
+                RecordFlag::F_LAST as u8,
+                3,
+                UnixNanos::from(3),
+                UnixNanos::from(150),
+            )],
+        );
+        let partition = PartitionKey::catalog_data::<OrderBookDelta>(instrument_id).stable_key();
+        let mut sink = BookDeltaCatalogSink::from_config(&config).expect("sink");
+        sink.write_batch(
+            &partition,
+            vec![snapshot.clone(), stale, continuation.clone()],
+        )
+        .expect("write boundary batches");
+        sink.seal_all_for_shutdown().expect("seal");
+
+        let mut catalog = ParquetDataCatalog::new(&root, None, None, None, None);
+        let rows = catalog
+            .order_book_deltas(Some(vec![instrument_id.to_string()]), None, None)
+            .expect("read boundary batches");
+        assert!(rows
+            .windows(2)
+            .all(|pair| pair[0].ts_init <= pair[1].ts_init));
+        assert!(RecordFlag::F_SNAPSHOT.matches(rows[0].flags));
+        assert_eq!(
+            rows.len(),
+            snapshot.deltas.len() + continuation.deltas.len()
+        );
+
+        let replay = OrderBookDeltas::new(instrument_id, rows);
+        let mut replay_book = OrderBook::new(instrument_id, BookType::L2_MBP);
+        replay_book
+            .apply_deltas(&replay)
+            .expect("replay normalized stream");
+
+        let mut expected_book = OrderBook::new(instrument_id, BookType::L2_MBP);
+        expected_book
+            .apply_deltas(&initial)
+            .expect("expected initial book");
+        expected_book
+            .apply_deltas(&continuation)
+            .expect("expected continuation");
+        assert_eq!(
+            replay_book.bids_as_map(None),
+            expected_book.bids_as_map(None)
+        );
+        assert_eq!(
+            replay_book.asks_as_map(None),
+            expected_book.asks_as_map(None)
+        );
+        assert_eq!(replay_book.sequence, expected_book.sequence);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn dual_writer_replay_matches_with_and_without_boundary_snapshot() {
+        let continuous_root = temp_catalog();
+        let segmented_root = temp_catalog();
+        let continuous_config = CaptureConfig {
+            catalog_uri: format!("file://{}", continuous_root.display()),
+            lifecycle: LifecycleConfig {
+                mode: LifecycleMode::Chunked,
+                ..LifecycleConfig::default()
+            },
+            ..CaptureConfig::default()
+        };
+        let segmented_config = CaptureConfig {
+            catalog_uri: format!("file://{}", segmented_root.display()),
+            lifecycle: LifecycleConfig {
+                mode: LifecycleMode::Segment,
+                seal: SealConfigFile {
+                    enabled: false,
+                    ..SealConfigFile::default()
+                },
+                ..LifecycleConfig::default()
+            },
+            ..CaptureConfig::default()
+        };
+        let instrument_id = "BTC-PERP.TEST".parse().expect("instrument");
+        let initial = OrderBookDeltas::new(
+            instrument_id,
+            vec![OrderBookDelta::new(
+                instrument_id,
+                BookAction::Add,
+                BookOrder::new(OrderSide::Buy, Price::from("100"), Quantity::from("2"), 1),
+                RecordFlag::F_LAST as u8,
+                2,
+                UnixNanos::from(2),
+                UnixNanos::from(100),
+            )],
+        );
+        let mut source_book = OrderBook::new(instrument_id, BookType::L2_MBP);
+        source_book
+            .apply_deltas(&initial)
+            .expect("initial source book");
+        let boundary_snapshot = source_book.to_deltas(UnixNanos::from(2), UnixNanos::from(200));
+        let late_duplicate = OrderBookDeltas::new(
+            instrument_id,
+            vec![OrderBookDelta::new(
+                instrument_id,
+                BookAction::Update,
+                BookOrder::new(OrderSide::Buy, Price::from("100"), Quantity::from("2"), 1),
+                RecordFlag::F_LAST as u8,
+                2,
+                UnixNanos::from(2),
+                UnixNanos::from(150),
+            )],
+        );
+        let continuation = OrderBookDeltas::new(
+            instrument_id,
+            vec![OrderBookDelta::new(
+                instrument_id,
+                BookAction::Add,
+                BookOrder::new(OrderSide::Sell, Price::from("101"), Quantity::from("3"), 2),
+                RecordFlag::F_LAST as u8,
+                3,
+                UnixNanos::from(3),
+                UnixNanos::from(150),
+            )],
+        );
+        let late_duplicate_rows = late_duplicate.deltas.len();
+
+        let partition = PartitionKey::catalog_data::<OrderBookDelta>(instrument_id).stable_key();
+        let mut continuous =
+            BookDeltaCatalogSink::from_config(&continuous_config).expect("continuous sink");
+        continuous
+            .write_batch(
+                &partition,
+                vec![
+                    initial.clone(),
+                    late_duplicate.clone(),
+                    continuation.clone(),
+                ],
+            )
+            .expect("write continuous stream");
+        continuous
+            .seal_all_for_shutdown()
+            .expect("seal continuous stream");
+
+        let mut segmented =
+            BookDeltaCatalogSink::from_config(&segmented_config).expect("segmented sink");
+        segmented
+            .write_batch(
+                &partition,
+                vec![
+                    initial,
+                    boundary_snapshot.clone(),
+                    late_duplicate,
+                    continuation,
+                ],
+            )
+            .expect("write segmented stream");
+        segmented
+            .seal_all_for_shutdown()
+            .expect("seal segmented stream");
+
+        let mut continuous_catalog =
+            ParquetDataCatalog::new(&continuous_root, None, None, None, None);
+        let continuous_rows = continuous_catalog
+            .order_book_deltas(Some(vec![instrument_id.to_string()]), None, None)
+            .expect("read continuous stream");
+        let mut segmented_catalog =
+            ParquetDataCatalog::new(&segmented_root, None, None, None, None);
+        let segmented_rows = segmented_catalog
+            .order_book_deltas(Some(vec![instrument_id.to_string()]), None, None)
+            .expect("read segmented stream");
+
+        assert!(segmented_rows
+            .windows(2)
+            .all(|pair| pair[0].ts_init <= pair[1].ts_init));
+        assert!(segmented_rows
+            .iter()
+            .any(|row| RecordFlag::F_SNAPSHOT.matches(row.flags)));
+        assert_eq!(
+            segmented_rows.len(),
+            continuous_rows.len() + boundary_snapshot.deltas.len() - late_duplicate_rows
+        );
+
+        let mut continuous_book = OrderBook::new(instrument_id, BookType::L2_MBP);
+        continuous_book
+            .apply_deltas(&OrderBookDeltas::new(instrument_id, continuous_rows))
+            .expect("replay continuous stream");
+        let mut segmented_book = OrderBook::new(instrument_id, BookType::L2_MBP);
+        segmented_book
+            .apply_deltas(&OrderBookDeltas::new(instrument_id, segmented_rows))
+            .expect("replay segmented stream");
+
+        assert_eq!(
+            continuous_book.bids_as_map(None),
+            segmented_book.bids_as_map(None)
+        );
+        assert_eq!(
+            continuous_book.asks_as_map(None),
+            segmented_book.asks_as_map(None)
+        );
+        assert_eq!(continuous_book.sequence, segmented_book.sequence);
+
+        let _ = fs::remove_dir_all(continuous_root);
+        let _ = fs::remove_dir_all(segmented_root);
     }
 }
