@@ -202,10 +202,10 @@ fn collect_matching_options(
                 return None;
             }
 
-            if let Some(expected_settlement) = settlement_currency {
-                if instrument.settlement_currency().code.as_str() != expected_settlement {
-                    return None;
-                }
+            if let Some(expected_settlement) = settlement_currency
+                && instrument.settlement_currency().code.as_str() != expected_settlement
+            {
+                return None;
             }
 
             let expiration_ns = instrument.expiration_ns()?;

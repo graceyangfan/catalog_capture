@@ -24,7 +24,7 @@ UPSTREAM_URL="${NAUTILUS_TRADER_URL:-https://github.com/nautechsystems/nautilus_
 CLONE_BRANCH="${NAUTILUS_TRADER_BRANCH:-develop}"
 
 # Keep default pin in sync with .github/workflows/ci.yml (NAUTILUS_TRADER_REF).
-CI_PIN_DEFAULT="9e4018dfa74b1ac7f2b1ccb99624ad391f732bba"
+CI_PIN_DEFAULT="c8b7dafef45dd04a705da0e005129a2fc350c8b9"
 NAUTILUS_TRADER_REF="${NAUTILUS_TRADER_REF:-${CI_PIN_DEFAULT}}"
 
 PIN_CI=0
@@ -185,7 +185,7 @@ verify_core() {
     return 0
   fi
   if ! command -v cargo > /dev/null 2>&1; then
-    warn "cargo not found; skip verify. Install Rust 1.98.1 then: cargo test -p catalog-capture-core --lib"
+    warn "cargo not found; skip verify. Install Rust 1.99.0 then: cargo test -p catalog-capture-core --lib"
     return 0
   fi
   log "verifying: cargo check -p catalog-capture-core --lib"

@@ -763,10 +763,10 @@ impl DataActor for CatalogCaptureActor {
             self.publish_metrics_snapshot();
             self.schedule_metrics_export()?;
         }
-        if event.name.starts_with(CUSTOM_DATA_REQUEST_TIMER_PREFIX) {
-            if let Some(index) = parse_request_timer_index(event.name.as_str()) {
-                self.fire_custom_data_request(index)?;
-            }
+        if event.name.starts_with(CUSTOM_DATA_REQUEST_TIMER_PREFIX)
+            && let Some(index) = parse_request_timer_index(event.name.as_str())
+        {
+            self.fire_custom_data_request(index)?;
         }
         Ok(())
     }
@@ -843,10 +843,10 @@ impl DataActor for CatalogCaptureActor {
             }
         }
         self.submit_option_greeks(*greeks)?;
-        if self.forward_price_targets.contains(&greeks.instrument_id) {
-            if let Some(forward_price) = forward_price_from_option_greeks(greeks) {
-                self.persist_forward_price(forward_price)?;
-            }
+        if self.forward_price_targets.contains(&greeks.instrument_id)
+            && let Some(forward_price) = forward_price_from_option_greeks(greeks)
+        {
+            self.persist_forward_price(forward_price)?;
         }
         Ok(())
     }

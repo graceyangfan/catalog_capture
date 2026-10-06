@@ -485,17 +485,17 @@ pub fn compute_refresh_rollover_reason(
         return None;
     }
 
-    if let Some(previous_expiry_ns) = previous_expiry_ns {
-        if previous_expiry_ns != resolved.selected_expiry_ns.as_u64() {
-            return Some("expiry_roll".to_string());
-        }
+    if let Some(previous_expiry_ns) = previous_expiry_ns
+        && previous_expiry_ns != resolved.selected_expiry_ns.as_u64()
+    {
+        return Some("expiry_roll".to_string());
     }
 
     let current_atm = resolved.atm_reference.to_string();
-    if let Some(previous_atm_reference) = previous_atm_reference {
-        if previous_atm_reference != current_atm.as_str() {
-            return Some("atm_drift".to_string());
-        }
+    if let Some(previous_atm_reference) = previous_atm_reference
+        && previous_atm_reference != current_atm.as_str()
+    {
+        return Some("atm_drift".to_string());
     }
 
     if strike_selection_mode == "oi_ranked" {

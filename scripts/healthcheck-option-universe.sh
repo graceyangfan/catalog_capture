@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG=""
 CATALOG_URI=""
 CARGO="${CARGO:-cargo}"
-TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.98.1}"
+TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.0}"
 
 usage() {
   cat << 'EOF'

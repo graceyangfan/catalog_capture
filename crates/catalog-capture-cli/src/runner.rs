@@ -1110,10 +1110,10 @@ fn instrument_id_strings_for_venue(plan: &CapturePlan, venue: &str) -> Vec<Strin
 fn log_capture_buffer_estimate(config: &EffectiveConfig, plan: &CapturePlan) {
     let estimate = estimate_peak_buffered_bytes(plan, &config.capture);
     log::info!("{}", format_buffer_estimate(&estimate));
-    if let Some(budget_bytes) = config.runtime.resource_budget_bytes {
-        if estimate.total_peak_buffered_bytes > budget_bytes {
-            log::warn!("{}", format_budget_warning(&estimate, budget_bytes));
-        }
+    if let Some(budget_bytes) = config.runtime.resource_budget_bytes
+        && estimate.total_peak_buffered_bytes > budget_bytes
+    {
+        log::warn!("{}", format_budget_warning(&estimate, budget_bytes));
     }
 }
 

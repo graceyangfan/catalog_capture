@@ -163,10 +163,10 @@ impl TradeReplayState {
             return;
         }
         self.order.push_back(id);
-        if self.order.len() > TRADE_IDS_RETAINED {
-            if let Some(oldest) = self.order.pop_front() {
-                self.ids.remove(&oldest);
-            }
+        if self.order.len() > TRADE_IDS_RETAINED
+            && let Some(oldest) = self.order.pop_front()
+        {
+            self.ids.remove(&oldest);
         }
     }
 }

@@ -139,8 +139,14 @@ mod tests {
             "CAPTURE_VENUE_DERIBIT_MAIN_API_KEY",
             "CAPTURE_VENUE_DERIBIT_MAIN_API_SECRET",
         ] {
-            env::remove_var(k);
+            // Tests serialize environment access with `ENV_LOCK`.
+            unsafe { env::remove_var(k) };
         }
+    }
+
+    fn set(key: &str, value: &str) {
+        // Tests serialize environment access with `ENV_LOCK`.
+        unsafe { env::set_var(key, value) };
     }
 
     #[test]
@@ -157,7 +163,7 @@ mod tests {
     fn only_key_is_public() {
         let _g = ENV_LOCK.lock().unwrap();
         clear();
-        env::set_var("DERIBIT_API_KEY", "only-key");
+        set("DERIBIT_API_KEY", "only-key");
         assert_eq!(deribit_credentials("deribit_main"), ApiKeySecret::default());
         clear();
     }
@@ -166,8 +172,8 @@ mod tests {
     fn both_key_and_secret_is_authenticated() {
         let _g = ENV_LOCK.lock().unwrap();
         clear();
-        env::set_var("DERIBIT_API_KEY", "k");
-        env::set_var("DERIBIT_API_SECRET", "s");
+        set("DERIBIT_API_KEY", "k");
+        set("DERIBIT_API_SECRET", "s");
         let c = deribit_credentials("deribit_main");
         assert_eq!(c.api_key.as_deref(), Some("k"));
         assert_eq!(c.api_secret.as_deref(), Some("s"));
@@ -179,10 +185,10 @@ mod tests {
     fn scoped_overrides_global() {
         let _g = ENV_LOCK.lock().unwrap();
         clear();
-        env::set_var("DERIBIT_API_KEY", "global-k");
-        env::set_var("DERIBIT_API_SECRET", "global-s");
-        env::set_var("CAPTURE_VENUE_DERIBIT_MAIN_API_KEY", "scoped-k");
-        env::set_var("CAPTURE_VENUE_DERIBIT_MAIN_API_SECRET", "scoped-s");
+        set("DERIBIT_API_KEY", "global-k");
+        set("DERIBIT_API_SECRET", "global-s");
+        set("CAPTURE_VENUE_DERIBIT_MAIN_API_KEY", "scoped-k");
+        set("CAPTURE_VENUE_DERIBIT_MAIN_API_SECRET", "scoped-s");
         let c = deribit_credentials("deribit_main");
         assert_eq!(c.api_key.as_deref(), Some("scoped-k"));
         assert_eq!(c.api_secret.as_deref(), Some("scoped-s"));

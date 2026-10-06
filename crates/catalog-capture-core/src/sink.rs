@@ -328,12 +328,12 @@ impl BookDeltaCatalogSink {
     }
 
     fn finish_segment_seal(&mut self, result: Result<FlushResult>) -> Result<FlushResult> {
-        if result.is_ok() {
-            if let Self::Segment { boundary, .. } = self {
-                // Boundary state belongs to the active segment. The next segment
-                // starts with a fresh managed-book snapshot.
-                boundary.clear();
-            }
+        if result.is_ok()
+            && let Self::Segment { boundary, .. } = self
+        {
+            // Boundary state belongs to the active segment. The next segment
+            // starts with a fresh managed-book snapshot.
+            boundary.clear();
         }
         result
     }
@@ -551,10 +551,10 @@ impl NautilusCatalogSink {
                 .custom_last_end_ns
                 .lock()
                 .map_err(|_| anyhow::anyhow!("custom_last_end_ns mutex poisoned"))?;
-            if !last_ends.contains_key(&key) {
-                if let Some(seed) = self.seed_custom_last_end(&type_name, identifier.as_deref()) {
-                    last_ends.insert(key.clone(), seed);
-                }
+            if !last_ends.contains_key(&key)
+                && let Some(seed) = self.seed_custom_last_end(&type_name, identifier.as_deref())
+            {
+                last_ends.insert(key.clone(), seed);
             }
             let last_end = last_ends.get(&key).copied();
             Self::disjoint_file_interval(last_end, data_start, data_end)

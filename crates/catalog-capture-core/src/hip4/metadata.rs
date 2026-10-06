@@ -147,16 +147,16 @@ pub fn compute_hip4_refresh_rollover_reason(
         return None;
     }
 
-    if let Some(previous_question_id) = previous_question_id {
-        if previous_question_id != resolved.market.question_id {
-            return Some("question_roll".to_string());
-        }
+    if let Some(previous_question_id) = previous_question_id
+        && previous_question_id != resolved.market.question_id
+    {
+        return Some("question_roll".to_string());
     }
 
-    if let Some(previous_expiration_ns) = previous_expiration_ns {
-        if previous_expiration_ns != resolved.market.expiration_ns {
-            return Some("expiry_roll".to_string());
-        }
+    if let Some(previous_expiration_ns) = previous_expiration_ns
+        && previous_expiration_ns != resolved.market.expiration_ns
+    {
+        return Some("expiry_roll".to_string());
     }
 
     None

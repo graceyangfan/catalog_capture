@@ -270,10 +270,10 @@ fn readback_options_for_suite(
     if let Some(perp_id) = &options.readback_perp_id {
         readback_options.perp_instrument_id = perp_id.clone();
     }
-    if let Some(option_ids) = &options.readback_option_ids {
-        if !option_ids.is_empty() {
-            readback_options.option_instrument_ids = option_ids.clone();
-        }
+    if let Some(option_ids) = &options.readback_option_ids
+        && !option_ids.is_empty()
+    {
+        readback_options.option_instrument_ids = option_ids.clone();
     }
     Ok(readback_options)
 }

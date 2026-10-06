@@ -3413,16 +3413,17 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.20"
+version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96547c2556ec9d12fb1578c4eaf448b04993e7fb79cbaad930a656880a6bdfa0"
+checksum = "ddc03d96684f9226b8a787cdb71488417b53ab5ea8fdb1dac946cb9431cc8bff"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
  "futures-channel",
  "futures-util",
  "http",
  "http-body",
+ "httparse",
  "hyper",
  "ipnet",
  "libc",
@@ -4015,7 +4016,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-analysis"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4028,7 +4029,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-binance"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4066,7 +4067,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-bybit"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4103,7 +4104,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-common"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4135,7 +4136,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-core"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4158,7 +4159,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-cryptography"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "anyhow",
  "aws-lc-rs",
@@ -4173,7 +4174,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-data"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4194,7 +4195,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-deribit"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4230,7 +4231,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-execution"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4278,7 +4279,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-hyperliquid"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "alloy",
@@ -4317,7 +4318,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-lighter"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4353,7 +4354,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-live"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4385,7 +4386,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-macros"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4394,7 +4395,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-model"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4425,7 +4426,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-network"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4469,7 +4470,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-okx"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4506,7 +4507,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-persistence"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4535,7 +4536,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-portfolio"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4553,7 +4554,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-risk"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "bon",
@@ -4572,7 +4573,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-serialization"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -4591,7 +4592,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-system"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4616,7 +4617,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-trading"
-version = "0.65.0"
+version = "0.66.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -6349,9 +6350,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.26.5"
+version = "0.26.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0c85f2c3ef0b1cd58b36682f4b17aaa995f0e5db534d85692b4903abce21f67"
+checksum = "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db"
 dependencies = [
  "rustls",
  "tokio",

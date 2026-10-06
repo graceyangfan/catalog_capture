@@ -212,12 +212,12 @@ impl SegmentCustomDataSink {
                     open_ts_ns: min_ts_ns,
                 },
             )?;
-        } else if let Some(segment) = self.segments.get(partition_key) {
-            if segment.schema.as_ref() != schema.as_ref() {
-                bail!(
-                    "custom segment schema mismatch for partition {partition_key} type {type_name}"
-                );
-            }
+        } else if let Some(segment) = self.segments.get(partition_key)
+            && segment.schema.as_ref() != schema.as_ref()
+        {
+            bail!(
+                "custom segment schema mismatch for partition {partition_key} type {type_name}"
+            );
         }
 
         let segment = self

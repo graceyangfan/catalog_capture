@@ -174,10 +174,10 @@ pub(crate) fn parse_book_delta_specs(
         .map(|item| {
             let book_type = BookType::from_str(&item.book_type)
                 .with_context(|| format!("invalid book_type {}", item.book_type))?;
-            if let Some(depth) = item.depth {
-                if depth == 0 {
-                    bail!("capture.book_deltas.depth must be > 0 when set");
-                }
+            if let Some(depth) = item.depth
+                && depth == 0
+            {
+                bail!("capture.book_deltas.depth must be > 0 when set");
             }
             Ok(BookDeltasCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,

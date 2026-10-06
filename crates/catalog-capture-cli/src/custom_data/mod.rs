@@ -218,12 +218,12 @@ pub(crate) fn ensure_identifier_matches(
     expected: &str,
     type_name: &str,
 ) -> Result<()> {
-    if let Some(identifier) = identifier {
-        if identifier != expected {
-            bail!(
-                "custom_data {type_name} identifier `{identifier}` must match metadata.instrument_id `{expected}`"
-            );
-        }
+    if let Some(identifier) = identifier
+        && identifier != expected
+    {
+        bail!(
+            "custom_data {type_name} identifier `{identifier}` must match metadata.instrument_id `{expected}`"
+        );
     }
     Ok(())
 }

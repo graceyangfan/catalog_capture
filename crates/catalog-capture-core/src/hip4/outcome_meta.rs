@@ -143,10 +143,10 @@ fn resolve_question_candidates(
         }
 
         let mut outcome_ids = named_outcomes;
-        if include_fallback {
-            if let Some(fallback) = raw.get("fallbackOutcome").and_then(Value::as_u64) {
-                outcome_ids.push(fallback as u32);
-            }
+        if include_fallback
+            && let Some(fallback) = raw.get("fallbackOutcome").and_then(Value::as_u64)
+        {
+            outcome_ids.push(fallback as u32);
         }
 
         candidates.push(build_resolved_hip4_market(
@@ -297,10 +297,10 @@ const DESCRIPTION_PRICE_KEYS: [&str; 5] = [
 
 fn resolve_start_price(fields: &BTreeMap<String, String>) -> Option<Decimal> {
     for key in DESCRIPTION_PRICE_KEYS {
-        if let Some(value) = fields.get(key) {
-            if let Ok(decimal) = Decimal::from_str_exact(value) {
-                return Some(decimal);
-            }
+        if let Some(value) = fields.get(key)
+            && let Ok(decimal) = Decimal::from_str_exact(value)
+        {
+            return Some(decimal);
         }
     }
     None

@@ -46,7 +46,8 @@ records. Backtest loaders use `ParquetDataCatalog` on `data/` only.
 
 ## Upgrade Existing Catalogs
 
-Nautilus v0.65 uses the open Arrow/Parquet schema introduced by persistence refactor #4959.
+Nautilus v0.66 continues the open Arrow/Parquet schema introduced by persistence refactor #4959
+in v0.65.
 Catalogs written by older Nautilus revisions are not mixed-format compatible with ordinary
 queries. Migrate them to a separate empty destination before using them with the upgraded
 reader:

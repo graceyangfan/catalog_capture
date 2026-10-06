@@ -8,7 +8,7 @@ No conversion step. Same layout Nautilus Trader Rust loaders expect.
 
 For catalogs written before the Nautilus v0.65 persistence refactor, run
 `nautilus catalog migrate-parquet` into a separate empty destination first. Do not point a
-v0.65 reader at a mixed old/new catalog.
+v0.66 reader at a mixed old/new catalog.
 
 ## Capture
 

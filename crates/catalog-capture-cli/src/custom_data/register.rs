@@ -25,20 +25,20 @@ use nautilus_hyperliquid::data_types::register_hyperliquid_custom_data;
 
 pub fn register_subscribe_types(custom_data: &[CustomDataCaptureSpec]) {
     for spec in custom_data {
-        if let Some(entry) = KnownCustomDataType::from_type_name(spec.data_type.type_name()) {
-            if entry.is_subscribe() {
-                entry.register();
-            }
+        if let Some(entry) = KnownCustomDataType::from_type_name(spec.data_type.type_name())
+            && entry.is_subscribe()
+        {
+            entry.register();
         }
     }
 }
 
 pub fn register_request_types(requests: &[CustomDataRequestCaptureSpec]) {
     for spec in requests {
-        if let Some(entry) = KnownCustomDataType::from_type_name(spec.data_type.type_name()) {
-            if entry.is_request() {
-                entry.register();
-            }
+        if let Some(entry) = KnownCustomDataType::from_type_name(spec.data_type.type_name())
+            && entry.is_request()
+        {
+            entry.register();
         }
     }
 }

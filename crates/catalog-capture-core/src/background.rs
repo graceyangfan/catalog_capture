@@ -548,10 +548,10 @@ mod tests {
 
     impl CaptureSink<u64> for TestSink {
         fn write_batch(&mut self, _partition_key: &str, batch: Vec<u64>) -> Result<Vec<PathBuf>> {
-            if let Some(payload) = self.fail_on_payload {
-                if batch.contains(&payload) {
-                    anyhow::bail!("simulated write failure for payload {payload}");
-                }
+            if let Some(payload) = self.fail_on_payload
+                && batch.contains(&payload)
+            {
+                anyhow::bail!("simulated write failure for payload {payload}");
             }
             self.batches.lock().expect("batches poisoned").push(batch);
             Ok(Vec::new())

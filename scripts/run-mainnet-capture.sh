@@ -12,7 +12,7 @@ cd "$ROOT"
 CONFIG="${1:-examples/capture.multi-venue-mainnet.toml}"
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
 BIN_DIR="${CATALOG_CAPTURE_BIN_DIR:-$ROOT/bin}"
-RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.98.1}"
+RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.0}"
 export RUSTUP_TOOLCHAIN
 
 if [[ ! -f "$CONFIG" ]]; then

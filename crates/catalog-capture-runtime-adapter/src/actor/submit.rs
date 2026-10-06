@@ -182,16 +182,16 @@ impl CatalogCaptureActor {
                 payload: deltas,
             },
         );
-        if let Err(error) = &result {
-            if matches!(self.capture.overflow_policy, OverflowPolicy::FailFast) {
+        if let Err(error) = &result
+            && matches!(self.capture.overflow_policy, OverflowPolicy::FailFast)
+        {
+            log::error!(
+                "catalog-capture: stopping actor after book-delta submission failure: {error}"
+            );
+            if let Err(stop_error) = self.stop() {
                 log::error!(
-                    "catalog-capture: stopping actor after book-delta submission failure: {error}"
+                    "catalog-capture: failed to stop actor after book-delta submission failure: {stop_error}"
                 );
-                if let Err(stop_error) = self.stop() {
-                    log::error!(
-                        "catalog-capture: failed to stop actor after book-delta submission failure: {stop_error}"
-                    );
-                }
             }
         }
         result

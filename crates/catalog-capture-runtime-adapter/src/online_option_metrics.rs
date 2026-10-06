@@ -218,24 +218,24 @@ impl OnlineOptionMetricsObserver {
 
         let universe = &mut self.universes[universe_index];
         universe.expiry_iso8601 = change.selected_expiry_iso8601.clone();
-        if let Some(perp_instrument_id) = change.perp_instrument_id {
-            if universe.perp_instrument_id != perp_instrument_id {
-                if let Some(indexes) = self
-                    .instrument_to_universes
-                    .get_mut(&universe.perp_instrument_id)
-                {
-                    indexes.retain(|index| *index != universe_index);
-                    if indexes.is_empty() {
-                        self.instrument_to_universes
-                            .remove(&universe.perp_instrument_id);
-                    }
+        if let Some(perp_instrument_id) = change.perp_instrument_id
+            && universe.perp_instrument_id != perp_instrument_id
+        {
+            if let Some(indexes) = self
+                .instrument_to_universes
+                .get_mut(&universe.perp_instrument_id)
+            {
+                indexes.retain(|index| *index != universe_index);
+                if indexes.is_empty() {
+                    self.instrument_to_universes
+                        .remove(&universe.perp_instrument_id);
                 }
-                self.instrument_to_universes
-                    .entry(perp_instrument_id)
-                    .or_default()
-                    .push(universe_index);
-                universe.perp_instrument_id = perp_instrument_id;
             }
+            self.instrument_to_universes
+                .entry(perp_instrument_id)
+                .or_default()
+                .push(universe_index);
+            universe.perp_instrument_id = perp_instrument_id;
         }
 
         universe.options.clear();
