@@ -44,6 +44,98 @@ fn repo_root() -> PathBuf {
         .to_path_buf()
 }
 
+#[cfg(feature = "venue-predict")]
+#[test]
+fn validate_runtime_accepts_market_scoped_predict_orderbook_snapshot() {
+    let effective = resolve_config(CliConfigFile {
+        capture: CaptureConfigFile {
+            custom_data: vec![CustomDataSelector {
+                type_name: "PredictOrderbookSnapshot".to_string(),
+                identifier: Some("2859346".to_string()),
+                metadata: Default::default(),
+            }],
+            ..Default::default()
+        },
+        venues: vec![VenueConfig {
+            id: "predict_main".to_string(),
+            kind: "predict".to_string(),
+            environment: "live".to_string(),
+            deployment: "lighter".to_string(),
+            product_type: default_binance_product_type(),
+            product_types: Vec::new(),
+            instrument_types: Vec::new(),
+            instrument_families: Vec::new(),
+        }],
+        ..Default::default()
+    })
+    .expect("Predict config should resolve");
+
+    validate_runtime(&effective).expect("valid Predict snapshot config should pass");
+}
+
+#[cfg(feature = "venue-predict")]
+#[test]
+fn validate_runtime_rejects_noncanonical_predict_orderbook_identifier() {
+    let effective = resolve_config(CliConfigFile {
+        capture: CaptureConfigFile {
+            custom_data: vec![CustomDataSelector {
+                type_name: "PredictOrderbookSnapshot".to_string(),
+                identifier: Some("02859346".to_string()),
+                metadata: Default::default(),
+            }],
+            ..Default::default()
+        },
+        venues: vec![VenueConfig {
+            id: "predict_main".to_string(),
+            kind: "predict".to_string(),
+            environment: "live".to_string(),
+            deployment: "lighter".to_string(),
+            product_type: default_binance_product_type(),
+            product_types: Vec::new(),
+            instrument_types: Vec::new(),
+            instrument_families: Vec::new(),
+        }],
+        ..Default::default()
+    })
+    .expect("Predict config should resolve before runtime validation");
+
+    let error = validate_runtime(&effective).expect_err("noncanonical ID must fail");
+    assert!(error.to_string().contains("canonical decimal market ID"));
+}
+
+#[cfg(feature = "venue-predict")]
+#[test]
+fn validate_runtime_accepts_predict_crypto_up_down_without_market_id() {
+    let mut metadata = std::collections::BTreeMap::new();
+    metadata.insert("price_feed_symbol".to_string(), "BTC/USDT".to_string());
+    metadata.insert("title_asset".to_string(), "Bitcoin".to_string());
+    metadata.insert("interval_secs".to_string(), "300".to_string());
+    let effective = resolve_config(CliConfigFile {
+        capture: CaptureConfigFile {
+            custom_data: vec![CustomDataSelector {
+                type_name: "PredictCryptoUpDown".to_string(),
+                identifier: None,
+                metadata,
+            }],
+            ..Default::default()
+        },
+        venues: vec![VenueConfig {
+            id: "predict_main".to_string(),
+            kind: "predict".to_string(),
+            environment: "live".to_string(),
+            deployment: "lighter".to_string(),
+            product_type: default_binance_product_type(),
+            product_types: Vec::new(),
+            instrument_types: Vec::new(),
+            instrument_families: Vec::new(),
+        }],
+        ..Default::default()
+    })
+    .expect("dynamic Predict config should resolve");
+
+    validate_runtime(&effective).expect("dynamic Predict selector should validate");
+}
+
 #[cfg(feature = "venue-extended")]
 #[test]
 fn extended_environment_aliases_are_explicit() {
@@ -199,6 +291,86 @@ fn validate_runtime_accepts_binance_perp_trades_profile() {
         effective.plan.trades[0].instrument_id.to_string(),
         "ETHUSDT-PERP.BINANCE"
     );
+}
+
+#[cfg(feature = "venue-binance")]
+#[test]
+fn validate_runtime_accepts_binance_spot_sbe_l2_and_trades_profile() {
+    let effective = resolve_config(CliConfigFile {
+        capture: CaptureConfigFile {
+            instruments: vec![InstrumentSelector {
+                instrument_id: "BTCUSDT.BINANCE".to_string(),
+            }],
+            trades: vec![InstrumentSelector {
+                instrument_id: "BTCUSDT.BINANCE".to_string(),
+            }],
+            book_deltas: vec![super::capture::BookDeltasSelector {
+                instrument_id: "BTCUSDT.BINANCE".to_string(),
+                book_type: "L2_MBP".to_string(),
+                depth: None,
+            }],
+            ..Default::default()
+        },
+        venues: vec![VenueConfig {
+            id: "binance_spot_sbe".to_string(),
+            kind: "binance_spot".to_string(),
+            environment: "live".to_string(),
+            deployment: "lighter".to_string(),
+            product_type: default_binance_product_type(),
+            product_types: Vec::new(),
+            instrument_types: Vec::new(),
+            instrument_families: Vec::new(),
+        }],
+        ..Default::default()
+    })
+    .expect("config should resolve");
+
+    validate_runtime(&effective).expect("binance spot SBE config should pass");
+    assert!(matches!(
+        effective.venues.as_slice(),
+        [VenueRuntimeConfig::BinanceSpot { .. }]
+    ));
+    assert_eq!(effective.plan.book_deltas.len(), 1);
+    assert_eq!(effective.plan.trades.len(), 1);
+}
+
+#[cfg(feature = "venue-binance")]
+#[test]
+fn resolve_config_accepts_spot_and_futures_binance_clients_together() {
+    let config = CliConfigFile {
+        capture: CaptureConfigFile {
+            trades: vec![InstrumentSelector {
+                instrument_id: "BTCUSDT.BINANCE".to_string(),
+            }],
+            ..Default::default()
+        },
+        venues: vec![
+            VenueConfig {
+                id: "binance_spot_sbe".to_string(),
+                kind: "binance_spot".to_string(),
+                environment: "live".to_string(),
+                deployment: "lighter".to_string(),
+                product_type: default_binance_product_type(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            },
+            VenueConfig {
+                id: "binance_futures_main".to_string(),
+                kind: "binance_futures".to_string(),
+                environment: "live".to_string(),
+                deployment: "lighter".to_string(),
+                product_type: "usd_m".to_string(),
+                product_types: Vec::new(),
+                instrument_types: Vec::new(),
+                instrument_families: Vec::new(),
+            },
+        ],
+        ..Default::default()
+    };
+
+    let effective = resolve_config(config).expect("two routed Binance data clients should resolve");
+    assert_eq!(effective.venues.len(), 2);
 }
 
 #[cfg(feature = "venue-binance")]
@@ -1160,6 +1332,31 @@ fn example_binance_futures_ticker_config_loads_and_validates() {
     let loaded = load_config(&path).expect("example should load");
     let effective = resolve_config(loaded).expect("example should resolve");
     validate_runtime(&effective).expect("example should validate");
+}
+
+#[cfg(feature = "venue-binance")]
+#[test]
+fn example_binance_spot_sbe_btc_config_loads_and_validates() {
+    let path = repo_root().join("examples/capture.binance-spot-sbe-btc.toml");
+    let loaded = load_config(&path).expect("example should load");
+    let effective = resolve_config(loaded).expect("example should resolve");
+    validate_runtime(&effective).expect("example should validate");
+    assert!(matches!(
+        effective.venues.as_slice(),
+        [VenueRuntimeConfig::BinanceSpot { .. }]
+    ));
+}
+
+#[cfg(all(feature = "venue-binance", feature = "venue-predict"))]
+#[test]
+fn example_predict_binance_spot_btc_updown_config_loads_and_validates() {
+    let path = repo_root().join("examples/capture.predict-binance-spot-sbe-btc-updown.toml");
+    let loaded = load_config(&path).expect("example should load");
+    let effective = resolve_config(loaded).expect("example should resolve");
+    validate_runtime(&effective).expect("example should validate");
+    assert_eq!(effective.plan.custom_data.len(), 2);
+    assert_eq!(effective.plan.book_deltas.len(), 1);
+    assert_eq!(effective.plan.trades.len(), 1);
 }
 
 #[cfg(feature = "venue-binance")]

@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "data": {
+    "id": 2859346,
+    "title": "Bitcoin Up or Down - October 3, 6PM-6:05PM ET",
+    "tradingStatus": "CLOSED",
+    "status": "RESOLVED",
+    "createdAt": "2026-10-03T22:00:00.000Z",
+    "decimalPrecision": 2,
+    "variantData": {
+      "type": "CRYPTO_UP_DOWN",
+      "priceFeedSymbol": "BTCUSDT"
+    },
+    "outcomes": [
+      {"name": "Up", "indexSet": 1, "onChainId": "103302906898813033597528165731845005208925607876703399883824219658099824024311", "status": "WON"},
+      {"name": "Down", "indexSet": 2, "onChainId": "49066804826210479551383386510124504616914312407017443000098283785415820431836", "status": "LOST"}
+    ]
+  }
+}

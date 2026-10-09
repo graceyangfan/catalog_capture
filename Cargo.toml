@@ -5,6 +5,7 @@ members = [
   "crates/catalog-capture-runtime-adapter",
   "crates/catalog-capture-cli",
   "crates/nautilus-extended",
+  "crates/nautilus-predict",
 ]
 resolver = "2"
 
@@ -83,6 +84,7 @@ nautilus-serialization = { path = "../nautilus_trader/crates/serialization", fea
   "arrow",
 ] }
 nautilus-extended = { path = "crates/nautilus-extended" }
+nautilus-predict = { path = "crates/nautilus-predict" }
 
 # -----------------------------------------------------------------------------
 # Profiles: lean artifacts (path-deps pull a large Nautilus graph into target/)

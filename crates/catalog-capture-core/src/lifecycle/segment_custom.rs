@@ -20,7 +20,7 @@
 
 use std::{collections::HashMap, path::PathBuf};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use arrow::datatypes::SchemaRef;
 use nautilus_model::data::CustomData;
 use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
@@ -30,8 +30,8 @@ use parquet::basic::Compression;
 use crate::{
     config::CaptureConfig,
     lifecycle::segment_support::{
-        catalog_fs_custom_directory, merge_flush, recover_orphans_under, segment_runtime_parts,
-        tick_parts_map, ts_init_range_from_batch, ActivePart,
+        ActivePart, catalog_fs_custom_directory, merge_flush, recover_orphans_under,
+        segment_runtime_parts, tick_parts_map, ts_init_range_from_batch,
     },
     runtime::FlushResult,
 };
@@ -119,7 +119,7 @@ impl SegmentCustomDataSink {
     }
 
     pub fn seal_all(&mut self) -> Result<FlushResult> {
-        self.seal_all_internal(true)
+        self.seal_all_internal(false)
     }
 
     pub fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
@@ -215,9 +215,7 @@ impl SegmentCustomDataSink {
         } else if let Some(segment) = self.segments.get(partition_key)
             && segment.schema.as_ref() != schema.as_ref()
         {
-            bail!(
-                "custom segment schema mismatch for partition {partition_key} type {type_name}"
-            );
+            bail!("custom segment schema mismatch for partition {partition_key} type {type_name}");
         }
 
         let segment = self
@@ -247,7 +245,7 @@ mod tests {
     use super::*;
     use crate::{
         config::CaptureConfig,
-        lifecycle::{segment_support::PART_SUFFIX, LifecycleConfig, LifecycleMode, SealConfigFile},
+        lifecycle::{LifecycleConfig, LifecycleMode, SealConfigFile, segment_support::PART_SUFFIX},
     };
 
     fn temp_dir(prefix: &str) -> PathBuf {
@@ -353,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn custom_segment_seal_reopens_when_schedule_enabled() {
+    fn custom_segment_seal_closes_then_lazily_reopens_on_next_payload() {
         ensure_custom_data_registered::<RustTestCustomData>();
         let dir = temp_dir("reopen");
         let config = segment_config(&dir);
@@ -365,9 +363,13 @@ mod tests {
         let sealed = sink.seal_all().expect("scheduled seal");
         assert_eq!(sealed.files.len(), 1);
         assert!(
-            sink.segments.contains_key(partition),
-            "scheduled seal should reopen active custom segment"
+            !sink.segments.contains_key(partition),
+            "scheduled seal must not create an empty replacement part"
         );
+
+        sink.write_batch_mut(partition, vec![custom_row(20_000, 2.0)])
+            .expect("lazy next part");
+        assert!(sink.segments.contains_key(partition));
 
         let _ = fs::remove_dir_all(&dir);
     }

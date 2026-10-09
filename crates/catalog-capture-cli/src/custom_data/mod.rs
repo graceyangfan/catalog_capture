@@ -34,6 +34,7 @@ pub use validate::{validate_request_data_type, validate_subscribe_data_type};
 
 /// Capture path: stream subscribe vs HTTP/request poll.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum CustomDataChannel {
     /// `subscribe_data` → live `on_data`.
     Subscribe,
@@ -50,6 +51,8 @@ pub enum CustomDataVenue {
     Deribit,
     #[cfg(feature = "venue-hyperliquid")]
     Hyperliquid,
+    #[cfg(feature = "venue-predict")]
+    Predict,
 }
 
 /// One known custom-data type compiled into this binary (feature-gated).
@@ -68,6 +71,10 @@ pub enum KnownCustomDataType {
     HyperliquidOpenInterest,
     #[cfg(feature = "venue-deribit")]
     DeribitBookSummary,
+    #[cfg(feature = "venue-predict")]
+    PredictOrderbookSnapshot,
+    #[cfg(feature = "venue-predict")]
+    PredictCryptoUpDown,
 }
 
 impl KnownCustomDataType {
@@ -83,6 +90,10 @@ impl KnownCustomDataType {
             Self::HyperliquidOpenInterest => "HyperliquidOpenInterest",
             #[cfg(feature = "venue-deribit")]
             Self::DeribitBookSummary => "DeribitBookSummary",
+            #[cfg(feature = "venue-predict")]
+            Self::PredictOrderbookSnapshot => "PredictOrderbookSnapshot",
+            #[cfg(feature = "venue-predict")]
+            Self::PredictCryptoUpDown => "PredictCryptoUpDown",
         }
     }
 
@@ -98,6 +109,10 @@ impl KnownCustomDataType {
             Self::HyperliquidOpenInterest => CustomDataChannel::Subscribe,
             #[cfg(feature = "venue-deribit")]
             Self::DeribitBookSummary => CustomDataChannel::Request,
+            #[cfg(feature = "venue-predict")]
+            Self::PredictOrderbookSnapshot => CustomDataChannel::Subscribe,
+            #[cfg(feature = "venue-predict")]
+            Self::PredictCryptoUpDown => CustomDataChannel::Subscribe,
         }
     }
 
@@ -111,6 +126,8 @@ impl KnownCustomDataType {
             Self::DeribitVolatilityIndex | Self::DeribitBookSummary => CustomDataVenue::Deribit,
             #[cfg(feature = "venue-hyperliquid")]
             Self::HyperliquidOpenInterest => CustomDataVenue::Hyperliquid,
+            #[cfg(feature = "venue-predict")]
+            Self::PredictOrderbookSnapshot | Self::PredictCryptoUpDown => CustomDataVenue::Predict,
         }
     }
 
@@ -141,6 +158,10 @@ pub const ALL: &[KnownCustomDataType] = &[
     KnownCustomDataType::HyperliquidOpenInterest,
     #[cfg(feature = "venue-deribit")]
     KnownCustomDataType::DeribitBookSummary,
+    #[cfg(feature = "venue-predict")]
+    KnownCustomDataType::PredictOrderbookSnapshot,
+    #[cfg(feature = "venue-predict")]
+    KnownCustomDataType::PredictCryptoUpDown,
 ];
 
 pub fn subscribe_types() -> impl Iterator<Item = KnownCustomDataType> {
@@ -189,6 +210,8 @@ fn venue_matches(venue: &VenueRuntimeConfig, requirement: CustomDataVenue) -> bo
         (CustomDataVenue::Deribit, VenueRuntimeConfig::Deribit { .. }) => true,
         #[cfg(feature = "venue-hyperliquid")]
         (CustomDataVenue::Hyperliquid, VenueRuntimeConfig::Hyperliquid { .. }) => true,
+        #[cfg(feature = "venue-predict")]
+        (CustomDataVenue::Predict, VenueRuntimeConfig::Predict { .. }) => true,
         #[allow(unreachable_patterns)]
         _ => false,
     }

@@ -16,18 +16,18 @@ use std::{sync::mpsc, thread};
 
 use anyhow::{Context, Result};
 use catalog_capture_core::{
-    build_resolved_hip4_universe, compute_hip4_refresh_rollover_reason, expand_hip4_universe,
-    hip4_refresh_resolution_record, instrument_id_difference, merge_capture_plans,
-    next_rotation_delay_secs, plan_instrument_ids, resolve_hip4_market,
-    validate_hip4_refresh_resolution_record, CapturePlan, Hip4UniverseResolutionRecord,
-    Hip4UniverseSpec, ResolveHip4MarketOptions, ResolvedHip4Universe,
+    CapturePlan, Hip4UniverseResolutionRecord, Hip4UniverseSpec, ResolveHip4MarketOptions,
+    ResolvedHip4Universe, build_resolved_hip4_universe, compute_hip4_refresh_rollover_reason,
+    expand_hip4_universe, hip4_refresh_resolution_record, instrument_id_difference,
+    merge_capture_plans, next_rotation_delay_secs, plan_instrument_ids, resolve_hip4_market,
+    validate_hip4_refresh_resolution_record,
 };
 use nautilus_core::UnixNanos;
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 use nautilus_hyperliquid::http::{client::HyperliquidRawHttpClient, models::OutcomeMeta};
 use nautilus_model::identifiers::InstrumentId;
 
-use crate::dynamic_plan::{build_dynamic_plan_delta, DynamicPlanDelta};
+use crate::dynamic_plan::{DynamicPlanDelta, build_dynamic_plan_delta};
 
 #[derive(Debug, Clone)]
 pub struct DynamicHip4UniverseConfig {
@@ -316,15 +316,15 @@ mod tests {
     use std::collections::BTreeSet;
 
     use catalog_capture_core::{
+        CapturePlan, Hip4UniverseFamily, Hip4UniverseSpec, ResolvedHip4Market,
         build_resolved_hip4_universe, capture_plan_difference,
         compute_hip4_refresh_rollover_reason, expand_hip4_universe, hip4_refresh_resolution_record,
-        plan_instrument_ids, validate_hip4_refresh_resolution_record, CapturePlan,
-        Hip4UniverseFamily, Hip4UniverseSpec, ResolvedHip4Market,
+        plan_instrument_ids, validate_hip4_refresh_resolution_record,
     };
 
     use super::{
-        apply_resolved_state_transition, DynamicHip4UniverseConfig, DynamicHip4UniverseEntryConfig,
-        DynamicHip4UniverseManager, DynamicHip4UniverseState,
+        DynamicHip4UniverseConfig, DynamicHip4UniverseEntryConfig, DynamicHip4UniverseManager,
+        DynamicHip4UniverseState, apply_resolved_state_transition,
     };
     use nautilus_model::identifiers::InstrumentId;
 

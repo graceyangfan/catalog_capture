@@ -84,9 +84,10 @@ rows are still inside ArrowWriter. **Sizing is model-driven** (see
 Durability tick only **fsyncs** bytes already emitted to disk; it cannot make an
 unfinished in-memory row group crash-durable. It must **not** finalize a row group each
 second (that was the cloud 1 RG/s path: hard fail in ~9.1 h). Wall-clock seal
-(e.g. 06:00 UTC) closes the day file and opens the next part. Soft capacity roll seals
-and reopens near 30 k RGs if misconfig/rate ever approaches the hard cap (same seal path
-as day roll; same UTC day may contain multiple catalog parquets).
+(e.g. 06:00 UTC) closes the day file; the next event opens the next part lazily. This
+prevents retired or sparse partitions from accumulating empty `.part` files. Soft capacity
+roll seals and reopens near 30 k RGs if misconfig/rate ever approaches the hard cap (same
+UTC day may contain multiple catalog parquets).
 
 Keep a single stable `catalog_uri` for the job. Examples:
 

@@ -60,6 +60,12 @@ pub enum VenueRuntimeConfig {
         environment: BinanceEnvironment,
         product_type: BinanceProductType,
     },
+    #[cfg(feature = "venue-binance")]
+    /// Binance Spot public market data via authenticated SBE streams.
+    BinanceSpot {
+        id: String,
+        environment: BinanceEnvironment,
+    },
     #[cfg(feature = "venue-deribit")]
     Deribit {
         id: String,
@@ -95,6 +101,8 @@ pub enum VenueRuntimeConfig {
         instrument_types: Vec<OKXInstrumentType>,
         instrument_families: Option<Vec<String>>,
     },
+    #[cfg(feature = "venue-predict")]
+    Predict { id: String },
 }
 
 impl VenueRuntimeConfig {
@@ -102,6 +110,8 @@ impl VenueRuntimeConfig {
         match self {
             #[cfg(feature = "venue-binance")]
             Self::BinanceFutures { id, .. } => id,
+            #[cfg(feature = "venue-binance")]
+            Self::BinanceSpot { id, .. } => id,
             #[cfg(feature = "venue-deribit")]
             Self::Deribit { id, .. } => id,
             #[cfg(feature = "venue-bybit")]
@@ -114,6 +124,8 @@ impl VenueRuntimeConfig {
             Self::Extended { id, .. } => id,
             #[cfg(feature = "venue-okx")]
             Self::Okx { id, .. } => id,
+            #[cfg(feature = "venue-predict")]
+            Self::Predict { id } => id,
         }
     }
 }
@@ -153,6 +165,19 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             #[cfg(not(feature = "venue-binance"))]
             {
                 venue_feature_required("binance_futures", "venue-binance")
+            }
+        }
+        "binance_spot" => {
+            #[cfg(feature = "venue-binance")]
+            {
+                Ok(VenueRuntimeConfig::BinanceSpot {
+                    id: venue.id,
+                    environment: parse_binance_environment(&venue.environment)?,
+                })
+            }
+            #[cfg(not(feature = "venue-binance"))]
+            {
+                venue_feature_required("binance_spot", "venue-binance")
             }
         }
         "deribit" => {
@@ -247,8 +272,18 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
                 venue_feature_required("okx", "venue-okx")
             }
         }
+        "predict" => {
+            #[cfg(feature = "venue-predict")]
+            {
+                Ok(VenueRuntimeConfig::Predict { id: venue.id })
+            }
+            #[cfg(not(feature = "venue-predict"))]
+            {
+                venue_feature_required("predict", "venue-predict")
+            }
+        }
         other => bail!(
-            "unsupported venue kind {other}; known kinds: binance_futures, deribit, bybit, hyperliquid, lighter, extended, okx \
+            "unsupported venue kind {other}; known kinds: binance_futures, binance_spot, deribit, bybit, hyperliquid, lighter, extended, okx, predict \
              (enabled at build time via cargo features venue-* / all-venues)"
         ),
     }
@@ -273,6 +308,25 @@ pub(crate) fn validate_unique_venue_ids(venues: &[VenueRuntimeConfig]) -> Result
                 venue.id()
             );
         }
+    }
+    #[cfg(feature = "venue-binance")]
+    {
+        let binance_spot_count = venues
+            .iter()
+            .filter(|venue| matches!(venue, VenueRuntimeConfig::BinanceSpot { .. }))
+            .count();
+        anyhow::ensure!(
+            binance_spot_count <= 1,
+            "only one binance_spot data client is supported per capture"
+        );
+        let binance_futures_count = venues
+            .iter()
+            .filter(|venue| matches!(venue, VenueRuntimeConfig::BinanceFutures { .. }))
+            .count();
+        anyhow::ensure!(
+            binance_futures_count <= 1,
+            "only one binance_futures data client is supported per capture"
+        );
     }
     Ok(())
 }

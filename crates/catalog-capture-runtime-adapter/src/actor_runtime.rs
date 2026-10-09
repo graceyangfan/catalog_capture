@@ -112,6 +112,14 @@ where
     }
 }
 
+pub fn seal_runtime<T, S>(runtime: &BackgroundCaptureRuntime<T, S>) -> Result<FlushResult>
+where
+    T: Send + 'static,
+    S: CaptureSink<T> + Send + 'static,
+{
+    runtime.seal_all()
+}
+
 pub fn optional_shutdown<T, S>(
     runtime: &mut Option<BackgroundCaptureRuntime<T, S>>,
 ) -> Result<FlushResult>
@@ -154,6 +162,7 @@ pub fn custom_data_client_id(data_type: &DataType) -> Option<&'static str> {
         "BinanceFuturesLiquidation" | "BinanceFuturesTicker" => Some("BINANCE"),
         "DeribitVolatilityIndex" => Some("DERIBIT"),
         "HyperliquidOpenInterest" => Some("HYPERLIQUID"),
+        "PredictOrderbookSnapshot" | "PredictCryptoUpDown" => Some("PREDICT"),
         _ => None,
     }
 }

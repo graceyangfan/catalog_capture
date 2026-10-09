@@ -13,7 +13,13 @@
 // -------------------------------------------------------------------------------------------------
 
 use anyhow::{bail, Context, Result};
-use catalog_capture_core::{OptionUniverseFamily, OptionUniverseSpec, StrikePolicy};
+use catalog_capture_core::OptionUniverseSpec;
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
+use catalog_capture_core::{OptionUniverseFamily, StrikePolicy};
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::common::enums::BybitProductType;
 #[cfg(feature = "venue-deribit")]
@@ -69,6 +75,7 @@ fn validate_option_universe(
                     spec.venue_id
                 );
             }
+            validate_option_universe_families(spec)
         }
         #[cfg(feature = "venue-bybit")]
         VenueRuntimeConfig::Bybit { product_types, .. } => {
@@ -90,6 +97,7 @@ fn validate_option_universe(
                     spec.venue_id
                 );
             }
+            validate_option_universe_families(spec)
         }
         #[cfg(feature = "venue-okx")]
         VenueRuntimeConfig::Okx {
@@ -125,6 +133,7 @@ fn validate_option_universe(
                     spec.venue_id
                 );
             }
+            validate_option_universe_families(spec)
         }
         #[allow(unreachable_patterns)]
         _ => bail!(
@@ -132,6 +141,14 @@ fn validate_option_universe(
         ),
     }
 
+}
+
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
+fn validate_option_universe_families(spec: &OptionUniverseSpec) -> Result<()> {
     let needs_perp = spec.families.iter().any(|family| {
         matches!(
             family,

@@ -32,6 +32,8 @@ make build-release-capture
 |--------|---------|
 | **`capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
 | **`capture.binance-lighter-btc-sol-perp-books.toml`** | High-rate Binance/Lighter L2 books and trades, with self-contained hourly UTC segments |
+| **`capture.binance-spot-sbe-btc.toml`** | Binance Spot SBE BTC/USDT full L2 + trades, with independently replayable hourly UTC segments |
+| **`capture.predict-binance-spot-sbe-btc-updown.toml`** | Canonical Predict BTC 5m/15m Up/Down YES snapshots with own interval seals plus Binance Spot SBE L2/trades hourly |
 | **`capture.binance-lighter-extended-btc-sol-perp-books.toml`** | Binance/Lighter BTC/SOL L2 and trades plus Extended SOL L2, trades, funding and mark/index prices |
 | **`capture.lighter-xemm-openai-anthropic.toml`** | Lighter + Robinhood Chain OPENAI/ANTHROPIC L2, trades, funding, mark and index prices |
 | **`capture.extended-btc-perp.toml`** | Extended public RPC v2 full L2, trades, mark/index prices and applied funding |

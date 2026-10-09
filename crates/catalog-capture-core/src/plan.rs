@@ -257,8 +257,15 @@ impl CapturePlan {
     /// differ). The CustomData parquet writer is enabled if either flag is set.
     #[must_use]
     pub fn family_runtime_flags(&self) -> CaptureFamilyRuntimeFlags {
+        // A rolling Predict selector has no static InstrumentId in the plan, but discovery
+        // publishes the two BinaryOption definitions before its first snapshot. Keep the
+        // instrument writer and capacity estimate aligned with that runtime behavior.
+        let dynamic_predict_instruments = self
+            .custom_data
+            .iter()
+            .any(|spec| spec.data_type.type_name() == "PredictCryptoUpDown");
         CaptureFamilyRuntimeFlags {
-            instruments: !self.planned_instrument_ids().is_empty(),
+            instruments: !self.planned_instrument_ids().is_empty() || dynamic_predict_instruments,
             custom_data: !self.custom_data.is_empty(),
             custom_data_requests: !self.custom_data_requests.is_empty(),
             quotes: !self.quotes.is_empty(),
@@ -407,6 +414,21 @@ mod tests {
         assert!(!flags.instruments);
         assert!(flags.custom_data);
         assert_eq!(plan.enabled_background_worker_count(), 1);
+    }
+
+    #[test]
+    fn rolling_predict_selector_enables_definition_and_snapshot_writers() {
+        let plan = CapturePlan {
+            custom_data: vec![CustomDataCaptureSpec {
+                data_type: DataType::new("PredictCryptoUpDown", None, None),
+            }],
+            ..CapturePlan::default()
+        };
+
+        let flags = plan.family_runtime_flags();
+        assert!(flags.instruments);
+        assert!(flags.custom_data);
+        assert_eq!(plan.enabled_background_worker_count(), 2);
     }
 
     #[test]

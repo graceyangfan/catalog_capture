@@ -1,0 +1,76 @@
+# Predict BTC Up/Down native YES orderbooks plus Binance Spot SBE BTC/USDT L2 and trades.
+#
+# Predict detects each rolling market ID from the typed selectors below. Its 5m and 15m
+# snapshots go to separate custom-data writers and seal on their own UTC boundaries. Binance
+# L2/trades retain the hourly segment schedule configured under [output.lifecycle.seal].
+#
+# Required local credentials (never put either value in this file):
+#   env/predictfun.toml (0600): api_key = "..."
+#   env/binance-spot-sbe.toml (0600): api_key + Ed25519 private_key.
+# See docs/how_to/credentials.md for container environment-variable alternatives.
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-PREDICT-BINANCE-SPOT-BTC-UPDOWN"
+
+[output]
+catalog_uri = "file://./data/predict-binance-spot-btc-updown"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+max_total_buffer_bytes = 134217728
+queue_capacity = 10000
+overflow_policy = "fail_fast"
+
+# This global schedule applies to native market-data families, including Binance L2 and trades.
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 20000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "predict_main"
+kind = "predict"
+
+[[venues]]
+id = "binance_spot_sbe"
+kind = "binance_spot"
+environment = "live"
+
+[[capture.custom_data]]
+type_name = "PredictCryptoUpDown"
+[capture.custom_data.metadata]
+price_feed_symbol = "BTC/USDT"
+title_asset = "Bitcoin"
+interval_secs = "300"
+
+[[capture.custom_data]]
+type_name = "PredictCryptoUpDown"
+[capture.custom_data.metadata]
+price_feed_symbol = "BTC/USDT"
+title_asset = "Bitcoin"
+interval_secs = "900"
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT.BINANCE"
+book_type = "L2_MBP"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT.BINANCE"

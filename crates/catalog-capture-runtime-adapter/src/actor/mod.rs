@@ -16,7 +16,7 @@ mod lifecycle;
 mod submit;
 
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fmt::Debug,
     path::PathBuf,
     sync::{Arc, RwLock},
@@ -26,6 +26,8 @@ use anyhow::Result;
 
 use crate::actor_runtime::maybe_family_runtime;
 use catalog_capture_core::{
+    CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
+    PREDICT_SELECTOR_TITLE_ASSET,
     background::BackgroundCaptureRuntime,
     catalog_root_from_uri,
     config::CaptureConfig,
@@ -33,12 +35,13 @@ use catalog_capture_core::{
     item::PartitionKey,
     metrics::CaptureMetrics,
     metrics_export::{
-        process_rss_bytes, unix_time_ms, CaptureMetricsSnapshot, CustomDataRequestJobMetrics,
+        CaptureMetricsSnapshot, CustomDataRequestJobMetrics, FamilyCaptureMetrics,
+        process_rss_bytes, unix_time_ms,
     },
     plan::CapturePlan,
     sink::{
-        chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config,
         BookDeltaCatalogSink, CatalogSink, ChunkedCatalogSink, CustomDataCatalogSink,
+        chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config,
     },
 };
 use nautilus_common::{
@@ -47,9 +50,9 @@ use nautilus_common::{
 };
 use nautilus_model::{
     data::{
-        close::InstrumentClose, Bar, CustomData, FundingRateUpdate, IndexPriceUpdate,
-        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas,
-        QuoteTick, TradeTick,
+        Bar, CustomData, DataType, FundingRateUpdate, IndexPriceUpdate, InstrumentStatus,
+        MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas, QuoteTick, TradeTick,
+        close::InstrumentClose,
     },
     identifiers::{ActorId, ClientId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
@@ -82,6 +85,14 @@ pub struct CatalogCaptureActorConfig {
     pub online_option_metrics: Option<OnlineOptionMetricsConfig>,
     pub dynamic_option_universe: Option<DynamicOptionUniverseConfig>,
     pub dynamic_hip4_universe: Option<DynamicHip4UniverseConfig>,
+    /// Explicit routes needed when Binance products share venue `BINANCE`.
+    ///
+    /// The config resolver owns this map: the actor must never infer product
+    /// type from a symbol spelling at subscription time.
+    pub binance_client_routes: BTreeMap<InstrumentId, ClientId>,
+    /// Futures custom-data types have no `InstrumentId`, but still need the
+    /// configured client when Spot and Futures share the `BINANCE` venue.
+    pub binance_futures_client_id: Option<ClientId>,
     pub metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
     pub metrics_refresh_interval_secs: Option<u64>,
 }
@@ -96,6 +107,8 @@ impl CatalogCaptureActorConfig {
             online_option_metrics: None,
             dynamic_option_universe: None,
             dynamic_hip4_universe: None,
+            binance_client_routes: BTreeMap::new(),
+            binance_futures_client_id: None,
             metrics_snapshot: None,
             metrics_refresh_interval_secs: None,
         }
@@ -115,6 +128,14 @@ pub struct CatalogCaptureActor {
     /// `*.parquet.part` + wall-clock seal (same as market data); chunked mode keeps
     /// immediate catalog parquet files.
     custom_data_runtime: Option<BackgroundCaptureRuntime<CustomData, CustomDataCatalogSink>>,
+    /// Predict rolling selectors own independent segment writers, keyed by full product identity.
+    predict_custom_data_runtimes: BTreeMap<
+        CryptoUpDownSelectorKey,
+        BackgroundCaptureRuntime<CustomData, CustomDataCatalogSink>,
+    >,
+    /// Last accepted market for each Predict rolling selector. A successor's first accepted
+    /// snapshot is the authoritative rotation boundary for its writer.
+    active_predict_market_ids: BTreeMap<CryptoUpDownSelectorKey, u64>,
     mark_price_runtime:
         Option<BackgroundCaptureRuntime<MarkPriceUpdate, CatalogSink<MarkPriceUpdate>>>,
     index_price_runtime:
@@ -132,6 +153,8 @@ pub struct CatalogCaptureActor {
     trade_runtime: Option<BackgroundCaptureRuntime<TradeTick, CatalogSink<TradeTick>>>,
     bar_runtime: Option<BackgroundCaptureRuntime<Bar, CatalogSink<Bar>>>,
     book_delta_runtime: Option<BackgroundCaptureRuntime<OrderBookDeltas, BookDeltaCatalogSink>>,
+    binance_client_routes: BTreeMap<InstrumentId, ClientId>,
+    binance_futures_client_id: Option<ClientId>,
     online_option_metrics: Option<OnlineOptionMetricsObserver>,
     dynamic_option_universe: Option<DynamicOptionUniverseManager>,
     dynamic_hip4_universe: Option<DynamicHip4UniverseManager>,
@@ -162,7 +185,13 @@ impl CatalogCaptureActor {
         };
 
         let flags = config.plan.family_runtime_flags();
-        let worker_count = config.plan.enabled_background_worker_count();
+        let predict_selectors = predict_selector_keys(&config.plan)?;
+        // A rolling Predict selector discovers both BinaryOption definitions at runtime.
+        // Its plan therefore has no static InstrumentId, but definitions are still required
+        // for replay before the first orderbook snapshot is written.
+        let captures_dynamic_predict_instruments = !predict_selectors.is_empty();
+        let worker_count = config.plan.enabled_background_worker_count()
+            + usize::from(captures_dynamic_predict_instruments && !flags.instruments);
         log::info!("Capture background workers: {worker_count} enabled for plan");
 
         // Instruments: always chunked. Custom: segment when mode=segment (shared for
@@ -170,17 +199,30 @@ impl CatalogCaptureActor {
         let capture = config.capture.clone();
 
         let instrument_runtime = maybe_family_runtime(
-            flags.instruments,
+            flags.instruments || captures_dynamic_predict_instruments,
             CaptureFlushFamily::Instruments,
             &capture,
             chunked_catalog_sink_from_config,
         )?;
         let custom_data_runtime = maybe_family_runtime(
-            flags.needs_custom_data_writer(),
+            needs_generic_custom_data_writer(&config.plan),
             CaptureFlushFamily::CustomData,
             &capture,
             custom_data_catalog_sink_from_config,
         )?;
+        let predict_custom_data_runtimes = predict_selectors
+            .into_iter()
+            .map(|selector_key| {
+                let runtime = maybe_family_runtime(
+                    true,
+                    CaptureFlushFamily::CustomData,
+                    &capture,
+                    custom_data_catalog_sink_from_config,
+                )?
+                .expect("enabled Predict custom writer must be created");
+                Ok((selector_key, runtime))
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
         let custom_data_request_jobs = config
             .plan
             .custom_data_requests
@@ -271,6 +313,8 @@ impl CatalogCaptureActor {
             plan: config.plan,
             instrument_runtime,
             custom_data_runtime,
+            predict_custom_data_runtimes,
+            active_predict_market_ids: BTreeMap::new(),
             mark_price_runtime,
             index_price_runtime,
             funding_rate_runtime,
@@ -282,6 +326,8 @@ impl CatalogCaptureActor {
             trade_runtime,
             bar_runtime,
             book_delta_runtime,
+            binance_client_routes: config.binance_client_routes,
+            binance_futures_client_id: config.binance_futures_client_id,
             online_option_metrics: config
                 .online_option_metrics
                 .map(OnlineOptionMetricsObserver::new),
@@ -317,7 +363,7 @@ impl CatalogCaptureActor {
             self.trade_runtime.is_some(),
             self.bar_runtime.is_some(),
             self.book_delta_runtime.is_some(),
-        ])
+        ]) + self.predict_custom_data_runtimes.len()
     }
 
     fn capture_metrics(&self) -> CaptureMetrics {
@@ -340,6 +386,14 @@ impl CatalogCaptureActor {
             &mut families,
             &mut aggregated,
         );
+        for (selector_key, runtime) in &self.predict_custom_data_runtimes {
+            let metrics = runtime.metrics();
+            aggregated.merge(&metrics);
+            families.push(FamilyCaptureMetrics {
+                family: format!("predict_custom_data_{selector_key}"),
+                metrics,
+            });
+        }
         collect_family_metrics(
             "mark_prices",
             &self.mark_price_runtime,
@@ -463,6 +517,86 @@ impl CatalogCaptureActor {
     }
 }
 
+fn predict_selector_keys(plan: &CapturePlan) -> Result<BTreeSet<CryptoUpDownSelectorKey>> {
+    plan.custom_data
+        .iter()
+        .filter(|spec| spec.data_type.type_name() == "PredictCryptoUpDown")
+        .map(|spec| {
+            let metadata = spec
+                .data_type
+                .metadata()
+                .ok_or_else(|| anyhow::anyhow!("PredictCryptoUpDown is missing metadata"))?;
+            let string = |key: &str| -> Result<&str> {
+                metadata
+                    .get(key)
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| anyhow::anyhow!("PredictCryptoUpDown is missing {key}"))
+            };
+            let interval_secs = string("interval_secs")?.parse::<u64>().map_err(|_| {
+                anyhow::anyhow!("PredictCryptoUpDown interval_secs must be an integer")
+            })?;
+            CryptoUpDownSelectorKey::new(
+                string("price_feed_symbol")?,
+                string("title_asset")?,
+                interval_secs,
+            )
+        })
+        .collect()
+}
+
+/// Returns the complete rolling-selector provenance carried by an emitted Predict snapshot.
+///
+/// Static snapshots deliberately return `None`; partial dynamic provenance is rejected instead
+/// of being silently routed through the generic custom-data writer.
+pub(super) fn predict_output_selector_key(
+    data_type: &DataType,
+) -> Result<Option<CryptoUpDownSelectorKey>> {
+    if data_type.type_name() != "PredictOrderbookSnapshot" {
+        return Ok(None);
+    }
+    let Some(metadata) = data_type.metadata() else {
+        return Ok(None);
+    };
+    let has_selector_provenance = [
+        PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
+        PREDICT_SELECTOR_TITLE_ASSET,
+        PREDICT_SELECTOR_INTERVAL_SECS,
+    ]
+    .into_iter()
+    .any(|key| metadata.contains_key(key));
+    if !has_selector_provenance {
+        return Ok(None);
+    }
+    let string = |key: &str| -> Result<&str> {
+        metadata
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("Predict snapshot is missing {key}"))
+    };
+    let interval_secs = string(PREDICT_SELECTOR_INTERVAL_SECS)?
+        .parse::<u64>()
+        .map_err(|_| anyhow::anyhow!("invalid Predict snapshot interval seconds"))?;
+    Ok(Some(CryptoUpDownSelectorKey::new(
+        string(PREDICT_SELECTOR_PRICE_FEED_SYMBOL)?,
+        string(PREDICT_SELECTOR_TITLE_ASSET)?,
+        interval_secs,
+    )?))
+}
+
+/// Dynamic Predict selectors own selector-scoped writers. Every other custom
+/// subscription or request continues through the ordinary shared writer.
+fn needs_generic_custom_data_writer(plan: &CapturePlan) -> bool {
+    !plan.custom_data_requests.is_empty()
+        || plan
+            .custom_data
+            .iter()
+            .any(|spec| spec.data_type.type_name() != "PredictCryptoUpDown")
+}
+
 nautilus_actor!(CatalogCaptureActor);
 
 impl Debug for CatalogCaptureActor {
@@ -582,22 +716,24 @@ mod tests {
     use std::{cell::RefCell, fs, rc::Rc};
 
     use catalog_capture_core::{
-        plan::{CapturePlan, QuoteCaptureSpec},
         CaptureConfig,
+        plan::{CapturePlan, CustomDataCaptureSpec, QuoteCaptureSpec},
     };
     use nautilus_common::{
         actor::{Component, DataActor},
         cache::Cache,
         clock::VirtualClock,
     };
-    use nautilus_core::UnixNanos;
+    use nautilus_core::{Params, UnixNanos};
     use nautilus_model::{
-        data::QuoteTick,
-        identifiers::{InstrumentId, TraderId},
-        instruments::{stubs::audusd_sim, InstrumentAny},
+        data::{DataType, QuoteTick},
+        enums::AssetClass,
+        identifiers::{ClientId, InstrumentId, Symbol, TraderId},
+        instruments::{BinaryOption, InstrumentAny, stubs::audusd_sim},
         stubs::TestDefault,
-        types::{Price, Quantity},
+        types::{Currency, Price, Quantity},
     };
+    use ustr::Ustr;
 
     use super::*;
     use crate::DynamicHip4UniverseChange;
@@ -611,6 +747,34 @@ mod tests {
             Quantity::from("1"),
             UnixNanos::default(),
             UnixNanos::default(),
+        )
+    }
+
+    fn test_predict_outcome(market_id: u64, outcome_index: u8) -> InstrumentAny {
+        let instrument_id =
+            catalog_capture_core::predict_outcome_instrument_id(market_id, outcome_index)
+                .expect("valid test Predict id");
+        let outcome = if outcome_index == 1 { "YES" } else { "NO" };
+        InstrumentAny::BinaryOption(
+            BinaryOption::builder()
+                .instrument_id(instrument_id)
+                .raw_symbol(Symbol::new(format!("{market_id}-{outcome}")))
+                .asset_class(AssetClass::Alternative)
+                .currency(Currency::get_or_create_crypto("USDT"))
+                .activation_ns(UnixNanos::default())
+                .expiration_ns(UnixNanos::from(i64::MAX as u64))
+                .price_precision(2)
+                .size_precision(3)
+                .price_increment(Price::from("0.01"))
+                .size_increment(Quantity::from("0.001"))
+                .min_price(Price::zero(2))
+                .max_price(Price::from("1.00"))
+                .outcome(Ustr::from(outcome))
+                .description(Ustr::from("test Predict market"))
+                .ts_event(UnixNanos::default())
+                .ts_init(UnixNanos::default())
+                .build()
+                .expect("valid test BinaryOption"),
         )
     }
 
@@ -639,6 +803,135 @@ mod tests {
         assert!(actor.trade_runtime.is_none());
         assert!(actor.book_delta_runtime.is_none());
         let _ = actor.shutdown_all().expect("shutdown should succeed");
+    }
+
+    #[test]
+    fn dynamic_predict_selector_uses_only_its_interval_writer() {
+        let catalog_dir = std::env::temp_dir().join(format!(
+            "catalog-capture-actor-predict-runtime-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&catalog_dir);
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
+        let mut metadata = Params::new();
+        metadata.insert("price_feed_symbol".to_string(), "BTC/USDT".into());
+        metadata.insert("title_asset".to_string(), "Bitcoin".into());
+        metadata.insert("interval_secs".to_string(), "300".into());
+        let plan = CapturePlan {
+            custom_data: vec![CustomDataCaptureSpec {
+                data_type: DataType::new("PredictCryptoUpDown", Some(metadata), None),
+            }],
+            ..CapturePlan::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            plan,
+        ))
+        .expect("actor");
+
+        let selector_key = CryptoUpDownSelectorKey::new("BTC/USDT", "Bitcoin", 300).unwrap();
+        assert!(actor.custom_data_runtime.is_none());
+        assert!(actor.instrument_runtime.is_some());
+        assert!(
+            actor
+                .predict_custom_data_runtimes
+                .contains_key(&selector_key)
+        );
+        assert_eq!(actor.enabled_background_worker_count(), 2);
+        let _ = actor.shutdown_all().expect("shutdown");
+        let _ = fs::remove_dir_all(&catalog_dir);
+    }
+
+    #[test]
+    fn dynamic_predict_same_interval_selectors_get_independent_writers() {
+        let catalog_dir = std::env::temp_dir().join(format!(
+            "catalog-capture-actor-predict-same-interval-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&catalog_dir);
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
+        let selector = |price_feed_symbol: &str, title_asset: &str| {
+            let mut metadata = Params::new();
+            metadata.insert("price_feed_symbol".to_string(), price_feed_symbol.into());
+            metadata.insert("title_asset".to_string(), title_asset.into());
+            metadata.insert("interval_secs".to_string(), "300".into());
+            CustomDataCaptureSpec {
+                data_type: DataType::new("PredictCryptoUpDown", Some(metadata), None),
+            }
+        };
+        let plan = CapturePlan {
+            custom_data: vec![
+                selector("BTC/USDT", "Bitcoin"),
+                selector("ETH/USDT", "Ethereum"),
+            ],
+            ..CapturePlan::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            plan,
+        ))
+        .expect("actor");
+
+        assert_eq!(actor.predict_custom_data_runtimes.len(), 2);
+        assert!(
+            actor
+                .predict_custom_data_runtimes
+                .contains_key(&CryptoUpDownSelectorKey::new("BTCUSDT", "bitcoin", 300).unwrap())
+        );
+        assert!(
+            actor
+                .predict_custom_data_runtimes
+                .contains_key(&CryptoUpDownSelectorKey::new("ETHUSDT", "ethereum", 300).unwrap())
+        );
+        assert!(actor.instrument_runtime.is_some());
+        assert_eq!(actor.enabled_background_worker_count(), 3);
+        let metrics = actor.metrics_snapshot_data();
+        assert!(
+            metrics
+                .families
+                .iter()
+                .any(|family| family.family == "predict_custom_data_BTCUSDT|bitcoin|300s")
+        );
+        assert!(
+            metrics
+                .families
+                .iter()
+                .any(|family| family.family == "predict_custom_data_ETHUSDT|ethereum|300s")
+        );
+        let _ = actor.shutdown_all().expect("shutdown");
+        let _ = fs::remove_dir_all(&catalog_dir);
+    }
+
+    #[test]
+    fn binance_futures_custom_data_uses_the_configured_client() {
+        let catalog_dir = std::env::temp_dir().join(format!(
+            "catalog-capture-actor-binance-custom-client-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
+        let mut config = CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            CapturePlan::default(),
+        );
+        config.binance_futures_client_id = Some(ClientId::from("binance_usdm"));
+        let mut actor = CatalogCaptureActor::new(config).expect("actor");
+
+        let data_type = DataType::new("BinanceFuturesTicker", None, None);
+        assert_eq!(
+            actor.custom_data_client_id(&data_type),
+            Some(ClientId::from("binance_usdm"))
+        );
+        let _ = actor.shutdown_all().expect("shutdown");
+        let _ = fs::remove_dir_all(&catalog_dir);
     }
 
     #[test]
@@ -712,6 +1005,121 @@ mod tests {
         assert!(!actor.market_data_live.contains(&instrument_id));
 
         let _ = actor.shutdown_all().expect("shutdown should succeed");
+    }
+
+    #[test]
+    fn predict_roll_purges_unreferenced_retired_outcomes_but_keeps_static_capture() {
+        let catalog_dir = std::env::temp_dir().join(format!(
+            "catalog-capture-actor-predict-purge-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&catalog_dir);
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
+        let retired_market_id = 3_063_835;
+        let retired_yes = catalog_capture_core::predict_outcome_instrument_id(retired_market_id, 1)
+            .expect("valid test id");
+        let retired_no = catalog_capture_core::predict_outcome_instrument_id(retired_market_id, 2)
+            .expect("valid test id");
+        // Explicit user capture always wins over automatic rolling-market cleanup.
+        let plan = CapturePlan {
+            quotes: vec![QuoteCaptureSpec {
+                instrument_id: retired_yes,
+            }],
+            ..CapturePlan::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            plan,
+        ))
+        .expect("actor");
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        actor
+            .register(TraderId::test_default(), clock, cache.clone())
+            .expect("register");
+        {
+            let mut cache = cache.borrow_mut();
+            cache
+                .add_instrument(test_predict_outcome(retired_market_id, 1))
+                .expect("cache retired yes");
+            cache
+                .add_instrument(test_predict_outcome(retired_market_id, 2))
+                .expect("cache retired no");
+        }
+
+        actor.active_predict_market_ids.insert(
+            CryptoUpDownSelectorKey::new("BTCUSDT", "Bitcoin", 300).unwrap(),
+            3_063_863,
+        );
+        actor
+            .purge_retired_predict_market_from_cache(retired_market_id)
+            .expect("purge retired market");
+
+        assert!(
+            cache.borrow().instrument(&retired_yes).is_some(),
+            "explicit static capture must retain its definition"
+        );
+        assert!(
+            cache.borrow().instrument(&retired_no).is_none(),
+            "unreferenced retired outcome must not accumulate in cache"
+        );
+
+        let _ = actor.shutdown_all().expect("shutdown");
+        let _ = fs::remove_dir_all(&catalog_dir);
+    }
+
+    #[test]
+    fn predict_roll_keeps_a_market_still_owned_by_another_selector() {
+        let catalog_dir = std::env::temp_dir().join(format!(
+            "catalog-capture-actor-predict-shared-market-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&catalog_dir);
+        fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
+        let market_id = 3_063_835;
+        let yes_id = catalog_capture_core::predict_outcome_instrument_id(market_id, 1)
+            .expect("valid test id");
+        let no_id = catalog_capture_core::predict_outcome_instrument_id(market_id, 2)
+            .expect("valid test id");
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", catalog_dir.display()),
+                ..CaptureConfig::default()
+            },
+            CapturePlan::default(),
+        ))
+        .expect("actor");
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        actor
+            .register(TraderId::test_default(), clock, cache.clone())
+            .expect("register");
+        {
+            let mut cache = cache.borrow_mut();
+            cache
+                .add_instrument(test_predict_outcome(market_id, 1))
+                .expect("cache yes");
+            cache
+                .add_instrument(test_predict_outcome(market_id, 2))
+                .expect("cache no");
+        }
+        actor.active_predict_market_ids.insert(
+            CryptoUpDownSelectorKey::new("ETHUSDT", "Ethereum", 300).unwrap(),
+            market_id,
+        );
+
+        actor
+            .purge_retired_predict_market_from_cache(market_id)
+            .expect("shared market retained");
+
+        assert!(cache.borrow().instrument(&yes_id).is_some());
+        assert!(cache.borrow().instrument(&no_id).is_some());
+
+        let _ = actor.shutdown_all().expect("shutdown");
+        let _ = fs::remove_dir_all(&catalog_dir);
     }
 
     #[test]

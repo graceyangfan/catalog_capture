@@ -13,31 +13,39 @@
 // -------------------------------------------------------------------------------------------------
 
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
     time::Duration,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 #[cfg(feature = "venue-hyperliquid")]
 use catalog_capture_core::expand_hip4_universe;
 use catalog_capture_core::{
+    CaptureMetricsSnapshot, CapturePlan, CaptureRunInput, CaptureRunVenueRecord,
+    LayoutCompatibility, OptionUniverseVenueKind, ResolvedHip4Universe, ResolvedOptionUniverse,
     append_hip4_universe_resolution_records, append_option_universe_resolution_records,
     catalog_root_from_uri, derive_perp_instrument_id, estimate_peak_buffered_bytes,
     expand_option_universe, format_budget_warning, format_buffer_estimate, merge_capture_plans,
-    new_capture_run_record, plan_instrument_ids, write_capture_run_record, CaptureMetricsSnapshot,
-    CapturePlan, CaptureRunInput, CaptureRunVenueRecord, LayoutCompatibility,
-    OptionUniverseVenueKind, ResolvedHip4Universe, ResolvedOptionUniverse,
+    new_capture_run_record, plan_instrument_ids, write_capture_run_record,
 };
 use catalog_capture_runtime_adapter::{
-    plan_has_index_prices, plan_has_mark_prices, plan_has_quotes, CatalogCaptureActor,
-    CatalogCaptureActorConfig, DynamicHip4UniverseConfig, DynamicHip4UniverseEntryConfig,
-    DynamicOptionUniverseConfig, DynamicOptionUniverseEntryConfig, OnlineOptionMetricsConfig,
-    OnlineOptionMetricsUniverseConfig,
+    CatalogCaptureActor, CatalogCaptureActorConfig, DynamicHip4UniverseConfig,
+    DynamicHip4UniverseEntryConfig, DynamicOptionUniverseConfig, DynamicOptionUniverseEntryConfig,
+    OnlineOptionMetricsConfig, OnlineOptionMetricsUniverseConfig, plan_has_index_prices,
+    plan_has_mark_prices, plan_has_quotes,
 };
 #[cfg(feature = "venue-binance")]
-use nautilus_binance::{config::BinanceDataClientConfig, factories::BinanceDataClientFactory};
+use nautilus_binance::{
+    common::{
+        enums::BinanceProductType,
+        symbol::{format_binance_symbol, format_instrument_id},
+    },
+    config::BinanceDataClientConfig,
+    factories::BinanceDataClientFactory,
+};
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::{cache::CacheConfig, enums::Environment};
@@ -58,31 +66,45 @@ use nautilus_hyperliquid::{
 #[cfg(feature = "venue-lighter")]
 use nautilus_lighter::{config::LighterDataClientConfig, factories::LighterDataClientFactory};
 use nautilus_live::node::LiveNode;
-use nautilus_model::identifiers::{ActorId, TraderId};
+#[cfg(feature = "venue-binance")]
+use nautilus_model::identifiers::InstrumentId;
+use nautilus_model::identifiers::{ActorId, ClientId, TraderId};
 #[cfg(feature = "venue-okx")]
 use nautilus_okx::{config::OKXDataClientConfig, factories::OKXDataClientFactory};
+#[cfg(feature = "venue-predict")]
+use nautilus_predict::{
+    PredictDataClientConfig, PredictDataClientFactory, predict_orderbook_data_type,
+};
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
+#[cfg(feature = "venue-binance")]
+use crate::credentials::binance_spot_sbe_credentials;
 #[cfg(feature = "venue-bybit")]
 use crate::credentials::bybit_credentials;
 #[cfg(feature = "venue-okx")]
 use crate::credentials::okx_credentials;
-use crate::credentials::{
-    api_key_secret_present, binance_credentials, deribit_credentials, hyperliquid_private_key,
-};
+#[cfg(feature = "venue-predict")]
+use crate::credentials::predict_api_key;
+use crate::credentials::api_key_secret_present;
+#[cfg(feature = "venue-binance")]
+use crate::credentials::binance_credentials;
+#[cfg(feature = "venue-deribit")]
+use crate::credentials::deribit_credentials;
+#[cfg(feature = "venue-hyperliquid")]
+use crate::credentials::hyperliquid_private_key;
 use crate::custom_data::{
     register_request_types, register_subscribe_types, validate_request_data_type,
     validate_subscribe_data_type,
 };
 use crate::hip4::{
-    materialize_hip4_capture_plan, startup_resolution_record_from_report as hip4_startup_record,
-    validate_hip4_universes, Hip4UniverseResolutionReport,
+    Hip4UniverseResolutionReport, materialize_hip4_capture_plan,
+    startup_resolution_record_from_report as hip4_startup_record, validate_hip4_universes,
 };
 use crate::metrics_server::spawn_metrics_server;
 use crate::option_universe::{
-    materialize_capture_plan_with_reports, run_option_universe_post_run_report,
-    startup_resolution_record_from_report, validate_option_universes,
-    OptionUniverseResolutionReport, PostRunReportOptions,
+    OptionUniverseResolutionReport, PostRunReportOptions, materialize_capture_plan_with_reports,
+    run_option_universe_post_run_report, startup_resolution_record_from_report,
+    validate_option_universes,
 };
 
 pub async fn run_capture(config: EffectiveConfig, post_run: PostRunReportOptions) -> Result<()> {
@@ -138,7 +160,6 @@ pub async fn run_capture_with_plan_and_reports(
         hip4_reports,
         hip4_resolved,
     )?;
-    persist_capture_run_metadata(&catalog_dir, &config, &plan)?;
 
     if plan.is_empty() {
         bail!("capture plan is empty after universe expansion");
@@ -185,7 +206,7 @@ pub async fn run_capture_with_plan_and_reports(
                 product_type,
             } => {
                 let creds = binance_credentials(id);
-                let load_ids = instrument_id_strings_for_venue(&plan, "BINANCE");
+                let load_ids = binance_instrument_id_strings(&plan, *product_type);
                 log::info!(
                     "Configuring venue {} ({product_type:?}, {environment:?}, credentials={}, load_ids={})",
                     id,
@@ -210,13 +231,59 @@ pub async fn run_capture_with_plan_and_reports(
                     }
                 };
                 builder = builder.add_data_client(
-                    None,
+                    Some(id.clone()),
                     Box::new(BinanceDataClientFactory::new()),
                     Box::new(BinanceDataClientConfig {
                         product_type: *product_type,
                         environment: *environment,
                         api_key: creds.api_key.map(SecretString::from),
                         api_secret: creds.api_secret.map(SecretString::from),
+                        instrument_provider,
+                        ..Default::default()
+                    }),
+                )?;
+            }
+            #[cfg(feature = "venue-binance")]
+            VenueRuntimeConfig::BinanceSpot { id, environment } => {
+                let creds = binance_spot_sbe_credentials(id)?;
+                anyhow::ensure!(
+                    api_key_secret_present(&creds),
+                    "Binance Spot SBE venue `{id}` requires an Ed25519 API key and private key; \
+                     set the matching CAPTURE_VENUE_<ID>_API_KEY/PRIVATE_KEY or \
+                     BINANCE_API_KEY/BINANCE_PRIVATE_KEY pair"
+                );
+                let load_ids = binance_instrument_id_strings(
+                    &plan,
+                    nautilus_binance::common::enums::BinanceProductType::Spot,
+                );
+                log::info!(
+                    "Configuring venue {} (Spot SBE, {environment:?}, credentials=from_env, load_ids={})",
+                    id,
+                    if load_ids.is_empty() {
+                        "all".to_string()
+                    } else {
+                        load_ids.len().to_string()
+                    }
+                );
+                let instrument_provider = if load_ids.is_empty() {
+                    nautilus_binance::config::BinanceInstrumentProviderConfig::default()
+                } else {
+                    nautilus_binance::config::BinanceInstrumentProviderConfig {
+                        load_all: false,
+                        load_ids: Some(load_ids),
+                        ..Default::default()
+                    }
+                };
+                builder = builder.add_data_client(
+                    Some(id.clone()),
+                    Box::new(BinanceDataClientFactory::new()),
+                    Box::new(BinanceDataClientConfig {
+                        product_type: nautilus_binance::common::enums::BinanceProductType::Spot,
+                        environment: *environment,
+                        api_key: creds.api_key.map(SecretString::from),
+                        api_secret: creds.api_secret.map(SecretString::from),
+                        spot_market_data_mode:
+                            nautilus_binance::config::BinanceSpotMarketDataMode::Sbe,
                         instrument_provider,
                         ..Default::default()
                     }),
@@ -371,7 +438,10 @@ pub async fn run_capture_with_plan_and_reports(
                 log::info!(
                     "Configuring venue {} (instrument_types={instrument_types:?}, families={instrument_families:?}, {environment:?}, credentials={})",
                     id,
-                    if creds.api_key.is_some() || creds.api_secret.is_some() || creds.api_passphrase.is_some() {
+                    if creds.api_key.is_some()
+                        || creds.api_secret.is_some()
+                        || creds.api_passphrase.is_some()
+                    {
                         "from_env"
                     } else {
                         "public"
@@ -391,11 +461,46 @@ pub async fn run_capture_with_plan_and_reports(
                     }),
                 )?;
             }
+            #[cfg(feature = "venue-predict")]
+            VenueRuntimeConfig::Predict { id } => {
+                let api_key = predict_api_key(id).with_context(|| {
+                    format!(
+                        "Predict venue `{id}` requires its scoped CAPTURE_VENUE_*_API_KEY or PREDICT_API_KEY"
+                    )
+                })?;
+                let market_ids = predict_market_ids_for_plan(&plan)?;
+                log::info!(
+                    "Configuring venue {} (public orderbook snapshots, markets={})",
+                    id,
+                    market_ids.len()
+                );
+                builder = builder.add_data_client(
+                    None,
+                    Box::new(PredictDataClientFactory::new()),
+                    Box::new(PredictDataClientConfig {
+                        api_key: SecretString::from(api_key),
+                        market_ids,
+                        base_url_http: None,
+                        base_url_ws: None,
+                        http_timeout_secs: 10,
+                        ws_timeout_secs: 10,
+                        // The session consults REST at the selected market window boundary;
+                        // this is only the bounded retry cadence for a pending successor.
+                        dynamic_refresh_secs: 1,
+                        transport_backend: Default::default(),
+                    }),
+                )?;
+            }
         }
     }
 
     let mut node = builder.build()?;
     node.add_actor(capture_actor)?;
+
+    // Record a run only after all configured clients and the capture actor have
+    // been constructed successfully. A credential or client-construction
+    // failure must not leave metadata that looks like a started capture.
+    persist_capture_run_metadata(&catalog_dir, &config, &plan)?;
 
     log::info!("Starting catalog capture");
     log::info!("Catalog dir: {}", catalog_dir.display());
@@ -517,6 +622,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
     match venue {
         #[cfg(feature = "venue-binance")]
         VenueRuntimeConfig::BinanceFutures { .. } => "binance_futures",
+        #[cfg(feature = "venue-binance")]
+        VenueRuntimeConfig::BinanceSpot { .. } => "binance_spot",
         #[cfg(feature = "venue-deribit")]
         VenueRuntimeConfig::Deribit { .. } => "deribit",
         #[cfg(feature = "venue-bybit")]
@@ -529,6 +636,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
         VenueRuntimeConfig::Extended { .. } => "extended",
         #[cfg(feature = "venue-okx")]
         VenueRuntimeConfig::Okx { .. } => "okx",
+        #[cfg(feature = "venue-predict")]
+        VenueRuntimeConfig::Predict { .. } => "predict",
     }
 }
 
@@ -548,10 +657,39 @@ fn compiled_venue_features() -> Vec<String> {
         "venue-lighter",
         #[cfg(feature = "venue-extended")]
         "venue-extended",
+        #[cfg(feature = "venue-predict")]
+        "venue-predict",
     ]
     .into_iter()
     .map(str::to_string)
     .collect()
+}
+
+#[cfg(feature = "venue-predict")]
+fn predict_market_ids_for_plan(plan: &CapturePlan) -> Result<Vec<u64>> {
+    let mut market_ids = plan
+        .custom_data
+        .iter()
+        .filter(|spec| spec.data_type.type_name() == "PredictOrderbookSnapshot")
+        .map(|spec| {
+            let identifier = spec
+                .data_type
+                .identifier()
+                .context("PredictOrderbookSnapshot requires a decimal market ID identifier")?;
+            let market_id = identifier.parse::<u64>().with_context(|| {
+                format!("invalid PredictOrderbookSnapshot market identifier `{identifier}`")
+            })?;
+            anyhow::ensure!(
+                market_id != 0
+                    && predict_orderbook_data_type(market_id).identifier() == Some(identifier),
+                "invalid PredictOrderbookSnapshot market identifier `{identifier}`"
+            );
+            Ok(market_id)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    market_ids.sort_unstable();
+    market_ids.dedup();
+    Ok(market_ids)
 }
 
 fn build_metrics_runtime_state(
@@ -576,6 +714,17 @@ fn build_capture_actor_config(
     metrics_snapshot: Option<Arc<RwLock<CaptureMetricsSnapshot>>>,
     metrics_refresh_interval_secs: Option<u64>,
 ) -> Result<CatalogCaptureActorConfig> {
+    #[cfg(feature = "venue-binance")]
+    let binance_client_routes = build_binance_client_routes(config, plan)?;
+    #[cfg(feature = "venue-binance")]
+    let binance_futures_client_id = config.venues.iter().find_map(|venue| match venue {
+        VenueRuntimeConfig::BinanceFutures { id, .. } => Some(ClientId::from(id.as_str())),
+        _ => None,
+    });
+    #[cfg(not(feature = "venue-binance"))]
+    let binance_client_routes = BTreeMap::new();
+    #[cfg(not(feature = "venue-binance"))]
+    let binance_futures_client_id = None;
     Ok(CatalogCaptureActorConfig {
         actor_id: Some(ActorId::from("CATALOG_CAPTURE-CLI")),
         capture: config.capture.clone(),
@@ -592,6 +741,8 @@ fn build_capture_actor_config(
             hip4_reports,
             hip4_resolved,
         )?,
+        binance_client_routes,
+        binance_futures_client_id,
         metrics_snapshot,
         metrics_refresh_interval_secs,
     })
@@ -1107,6 +1258,78 @@ fn instrument_id_strings_for_venue(plan: &CapturePlan, venue: &str) -> Vec<Strin
     ids.into_iter().collect()
 }
 
+/// Returns the configured Binance product's canonical Nautilus instrument IDs.
+///
+/// Product identity is checked with the upstream formatter rather than by
+/// punctuation heuristics, because Spot and Futures share the `BINANCE` venue.
+#[cfg(feature = "venue-binance")]
+fn binance_instrument_id_strings(
+    plan: &CapturePlan,
+    product_type: BinanceProductType,
+) -> Vec<String> {
+    instrument_id_strings_for_venue(plan, "BINANCE")
+        .into_iter()
+        .filter(|instrument_id| {
+            instrument_id
+                .parse::<InstrumentId>()
+                .is_ok_and(|instrument_id| matches_binance_product(instrument_id, product_type))
+        })
+        .collect()
+}
+
+#[cfg(feature = "venue-binance")]
+fn build_binance_client_routes(
+    config: &EffectiveConfig,
+    plan: &CapturePlan,
+) -> Result<BTreeMap<InstrumentId, ClientId>> {
+    let mut routes = BTreeMap::new();
+    for instrument_id in plan_instrument_ids(plan)
+        .into_iter()
+        .filter(|instrument_id| instrument_id.venue.as_str() == "BINANCE")
+    {
+        let matching_clients = config
+            .venues
+            .iter()
+            .filter_map(|venue| match venue {
+                VenueRuntimeConfig::BinanceSpot { id, .. }
+                    if matches_binance_product(instrument_id, BinanceProductType::Spot) =>
+                {
+                    Some(ClientId::from(id.as_str()))
+                }
+                VenueRuntimeConfig::BinanceFutures {
+                    id, product_type, ..
+                } if matches_binance_product(instrument_id, *product_type) => {
+                    Some(ClientId::from(id.as_str()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        match matching_clients.as_slice() {
+            [] => bail!(
+                "Binance instrument {instrument_id} does not match any configured Binance product client"
+            ),
+            [client_id] => {
+                routes.insert(instrument_id, *client_id);
+            }
+            clients => bail!(
+                "Binance instrument {instrument_id} matches multiple configured clients: {}",
+                clients
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
+    }
+    Ok(routes)
+}
+
+#[cfg(feature = "venue-binance")]
+fn matches_binance_product(instrument_id: InstrumentId, product_type: BinanceProductType) -> bool {
+    let raw_symbol = format_binance_symbol(&instrument_id);
+    format_instrument_id(&ustr::Ustr::from(raw_symbol.as_str()), product_type) == instrument_id
+}
+
 fn log_capture_buffer_estimate(config: &EffectiveConfig, plan: &CapturePlan) {
     let estimate = estimate_peak_buffered_bytes(plan, &config.capture);
     log::info!("{}", format_buffer_estimate(&estimate));
@@ -1123,4 +1346,101 @@ fn resolve_catalog_dir(catalog_uri: &str) -> Result<PathBuf> {
         bail!("output.catalog_uri cannot be empty");
     }
     Ok(PathBuf::from(path))
+}
+
+#[cfg(all(test, feature = "venue-binance"))]
+mod tests {
+    use super::{
+        binance_instrument_id_strings, build_binance_client_routes, matches_binance_product,
+    };
+    use crate::config::{EffectiveConfig, RuntimeConfig, VenueRuntimeConfig};
+    use catalog_capture_core::{CapturePlan, plan::QuoteCaptureSpec};
+    use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
+    use nautilus_model::identifiers::{ClientId, InstrumentId};
+
+    #[test]
+    fn binance_product_matching_uses_upstream_canonical_symbology() {
+        assert!(matches_binance_product(
+            InstrumentId::from("BTCUSDT.BINANCE"),
+            BinanceProductType::Spot
+        ));
+        assert!(!matches_binance_product(
+            InstrumentId::from("BTCUSDT.BINANCE"),
+            BinanceProductType::UsdM
+        ));
+        assert!(matches_binance_product(
+            InstrumentId::from("BTCUSDT-PERP.BINANCE"),
+            BinanceProductType::UsdM
+        ));
+        assert!(matches_binance_product(
+            InstrumentId::from("BTCUSD_PERP.BINANCE"),
+            BinanceProductType::CoinM
+        ));
+    }
+
+    #[test]
+    fn product_loader_filters_from_canonical_product_identity() {
+        let plan = CapturePlan {
+            quotes: vec![
+                QuoteCaptureSpec {
+                    instrument_id: InstrumentId::from("BTCUSDT.BINANCE"),
+                },
+                QuoteCaptureSpec {
+                    instrument_id: InstrumentId::from("BTCUSDT-PERP.BINANCE"),
+                },
+            ],
+            ..CapturePlan::default()
+        };
+        assert_eq!(
+            binance_instrument_id_strings(&plan, BinanceProductType::Spot),
+            vec!["BTCUSDT.BINANCE"]
+        );
+        assert_eq!(
+            binance_instrument_id_strings(&plan, BinanceProductType::UsdM),
+            vec!["BTCUSDT-PERP.BINANCE"]
+        );
+    }
+
+    #[test]
+    fn actor_routes_each_binance_instrument_to_its_configured_product_client() {
+        let plan = CapturePlan {
+            quotes: vec![
+                QuoteCaptureSpec {
+                    instrument_id: InstrumentId::from("BTCUSDT.BINANCE"),
+                },
+                QuoteCaptureSpec {
+                    instrument_id: InstrumentId::from("BTCUSDT-PERP.BINANCE"),
+                },
+            ],
+            ..CapturePlan::default()
+        };
+        let config = EffectiveConfig {
+            runtime: RuntimeConfig::default(),
+            capture: Default::default(),
+            plan: plan.clone(),
+            option_universes: Vec::new(),
+            hip4_universes: Vec::new(),
+            venues: vec![
+                VenueRuntimeConfig::BinanceSpot {
+                    id: "binance_spot".to_string(),
+                    environment: BinanceEnvironment::Live,
+                },
+                VenueRuntimeConfig::BinanceFutures {
+                    id: "binance_usdm".to_string(),
+                    environment: BinanceEnvironment::Live,
+                    product_type: BinanceProductType::UsdM,
+                },
+            ],
+        };
+
+        let routes = build_binance_client_routes(&config, &plan).expect("routes");
+        assert_eq!(
+            routes.get(&InstrumentId::from("BTCUSDT.BINANCE")),
+            Some(&ClientId::from("binance_spot"))
+        );
+        assert_eq!(
+            routes.get(&InstrumentId::from("BTCUSDT-PERP.BINANCE")),
+            Some(&ClientId::from("binance_usdm"))
+        );
+    }
 }

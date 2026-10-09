@@ -1,0 +1,70 @@
+# Long-running Binance Spot SBE BTC/USDT L2 + trade capture.
+#
+# Binance Spot SBE needs an Ed25519 API key and its matching private key. Keep
+# them out of this file. The canonical operator setup is the ignored, mode-0600
+# TOML file `env/binance-spot-sbe.toml`; see docs/how_to/credentials.md.
+# Container deployments may instead set the scoped environment variables:
+#
+#   export CAPTURE_VENUE_BINANCE_SPOT_SBE_API_KEY='...'
+#   export CAPTURE_VENUE_BINANCE_SPOT_SBE_PRIVATE_KEY='...'
+#
+# `depth` is deliberately omitted: this selects Binance's full diff-depth
+# stream. Nautilus performs the REST snapshot + sequence handoff and emits
+# canonical OrderBookDeltas. The capture actor writes an initial/recovery
+# snapshot and every hour writes a managed-book boundary snapshot, so each
+# sealed hour is independently replayable.
+#
+# Run:
+#   cargo build --release -p catalog-capture-cli \
+#     --no-default-features --features venue-binance
+#   ./target/release/catalog-capture-cli run \
+#     --config examples/capture.binance-spot-sbe-btc.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BINANCE-SPOT-SBE-BTC"
+
+[output]
+catalog_uri = "file://./data/binance-spot-sbe-btc"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+max_total_buffer_bytes = 134217728
+queue_capacity = 10000
+# Do not silently lose high-rate L2 messages. Restart lets the adapter rebuild
+# the book from a fresh exchange snapshot.
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 20000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "binance_spot_sbe"
+kind = "binance_spot"
+environment = "live"
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT.BINANCE"
+book_type = "L2_MBP"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT.BINANCE"

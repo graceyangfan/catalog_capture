@@ -14,9 +14,13 @@
 
 //! Build `DataType` values for request-style custom data from TOML metadata.
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
+#[cfg(feature = "venue-deribit")]
+use anyhow::anyhow;
+#[cfg(feature = "venue-deribit")]
 use nautilus_core::Params;
 use nautilus_model::data::DataType;
+#[cfg(feature = "venue-deribit")]
 use serde_json::Value as JsonValue;
 
 use super::{supported_request_csv, KnownCustomDataType};
@@ -26,8 +30,8 @@ use super::{supported_request_csv, KnownCustomDataType};
 /// Returns an error if `type_name` is subscribe-only or unknown.
 pub fn build_request_data_type(
     type_name: &str,
-    metadata: &std::collections::BTreeMap<String, String>,
-    identifier: Option<&str>,
+    _metadata: &std::collections::BTreeMap<String, String>,
+    _identifier: Option<&str>,
 ) -> Result<(DataType, Option<String>)> {
     let Some(entry) = KnownCustomDataType::from_type_name(type_name) else {
         bail!(
@@ -45,7 +49,9 @@ pub fn build_request_data_type(
 
     match entry {
         #[cfg(feature = "venue-deribit")]
-        KnownCustomDataType::DeribitBookSummary => build_deribit_book_summary(metadata, identifier),
+        KnownCustomDataType::DeribitBookSummary => {
+            build_deribit_book_summary(_metadata, _identifier)
+        }
         #[allow(unreachable_patterns)]
         other => bail!(
             "internal error: {} marked request but has no request builder",

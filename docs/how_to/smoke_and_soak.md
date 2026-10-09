@@ -51,7 +51,7 @@ After rebuild + restart of `catalog-capture-cli`:
 | BookSummary disk | One active `data/custom/DeribitBookSummary/**/*.parquet.part` — **not** a new sealed `.parquet` every second |
 | L2 / trades / quotes | Same: open `*.parquet.part` under `data/order_book_deltas|trades|quotes/…`; sparse parts may stay 0 bytes until their row group or segment is closed |
 | Metrics | family `accepted` ↑; `flushed` ↑ within seconds (interval + row profile); `dropped_items=0` |
-| 06:00 UTC / shutdown | Parts rename to `{start}_{end}.parquet`; new empty parts reopen when seal schedule is on |
+| 06:00 UTC / shutdown | Parts rename to `{start}_{end}.parquet`; the next event lazily opens a new part, so retired/sparse partitions leave no empty files |
 | Failures | No permanent `background capture worker is not running` for custom |
 
 ```bash

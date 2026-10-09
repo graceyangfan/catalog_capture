@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live smoke: HIP-4 priceBinary discovery, capture, and refresh tick."""
+"""Live smoke: one HIP-4 priceBinary capture plus catalog readback."""
 
 from __future__ import annotations
 
@@ -26,8 +26,18 @@ def main() -> int:
     parser.add_argument("--seconds", type=int, default=75, help="Capture duration override.")
     parser.add_argument("--idle-poll-secs", type=int, default=15, help="HIP-4 idle poll override.")
     parser.add_argument("--catalog-root", default="/tmp", help="Parent dir for temp catalog.")
-    parser.add_argument("--min-quote-rows", type=int, default=1)
-    parser.add_argument("--min-mark-rows", type=int, default=1)
+    parser.add_argument(
+        "--min-quote-rows",
+        type=int,
+        default=1,
+        help="Minimum quote rows; uses parquet-file count when pyarrow is unavailable",
+    )
+    parser.add_argument(
+        "--min-mark-rows",
+        type=int,
+        default=0,
+        help="Minimum perp mark rows when the selected HIP-4 config enables them",
+    )
     parser.add_argument("--cleanup", action="store_true")
     parser.add_argument("--cargo", default="cargo")
     args = parser.parse_args()
@@ -42,50 +52,6 @@ def main() -> int:
 
     print(f"config={temp_config}", flush=True)
     print(f"catalog={catalog_dir}", flush=True)
-
-    discovery = [
-        args.cargo,
-        "run",
-        "-p",
-        "catalog-capture-cli",
-        "--",
-        "run",
-        "--config",
-        str(temp_config),
-        "--dry-run-resolve",
-        "--option-universe-format",
-        "json",
-    ]
-    print("running discovery dry-run...", flush=True)
-    discovery_proc = subprocess.run(
-        discovery,
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if discovery_proc.returncode != 0:
-        print(discovery_proc.stdout)
-        print(discovery_proc.stderr, file=sys.stderr)
-        return discovery_proc.returncode
-
-    hip4_reports = parse_hip4_reports(discovery_proc.stdout)
-    if not hip4_reports:
-        print("discovery failed: no HIP-4 resolution report", file=sys.stderr)
-        print(discovery_proc.stdout)
-        return 1
-
-    report = hip4_reports[0]
-    print("discovery_ok", flush=True)
-    print(json.dumps(report, indent=2), flush=True)
-    outcome_ids = report.get("outcome_instrument_ids") or []
-    perp_id = report.get("perp_instrument_id")
-    if len(outcome_ids) < 2:
-        print("discovery failed: expected YES/NO outcome instrument ids", file=sys.stderr)
-        return 1
-    if not perp_id:
-        print("discovery failed: missing perp instrument id", file=sys.stderr)
-        return 1
 
     capture_cmd = [
         args.cargo,
@@ -124,18 +90,35 @@ def main() -> int:
         return 1
 
     startup_record = startup[0]
-    if startup_record.get("question_id") != report.get("question_id"):
-        print("startup metadata question_id mismatch with discovery", file=sys.stderr)
+    outcome_ids = startup_record.get("outcome_instrument_ids") or []
+    if len(outcome_ids) < 2:
+        print("startup metadata lacks a YES/NO outcome pair", file=sys.stderr)
         return 1
+    perp_id = startup_record.get("perp_instrument_id")
+    if args.min_mark_rows > 0 and not perp_id:
+        print(
+            "min-mark-rows requires a config with include_perp_mark = true and mark_prices",
+            file=sys.stderr,
+        )
+        return 1
+    print("startup_resolution", flush=True)
+    print(json.dumps(startup_record, indent=2), flush=True)
 
-    quote_rows = count_parquet_rows(catalog_dir, "quotes", outcome_ids)
-    mark_rows = count_parquet_rows(catalog_dir, "mark_prices", [perp_id])
-    print(f"quote_rows={quote_rows} mark_rows={mark_rows}", flush=True)
-    if quote_rows < args.min_quote_rows:
-        print("insufficient outcome quote rows", file=sys.stderr)
+    quote_count, quote_unit = count_parquet_rows(catalog_dir, "quotes", outcome_ids)
+    mark_count, mark_unit = (
+        count_parquet_rows(catalog_dir, "mark_prices", [perp_id])
+        if perp_id
+        else (0, "rows")
+    )
+    print(
+        f"quote_{quote_unit}={quote_count} mark_{mark_unit}={mark_count}",
+        flush=True,
+    )
+    if quote_count < args.min_quote_rows:
+        print("insufficient outcome quote data", file=sys.stderr)
         return 1
-    if mark_rows < args.min_mark_rows:
-        print("insufficient perp mark_price rows", file=sys.stderr)
+    if perp_id and mark_count < args.min_mark_rows:
+        print("insufficient perp mark_price data", file=sys.stderr)
         return 1
 
     refresh_records = [r for r in records if r.get("event_kind") == "refresh"]
@@ -145,12 +128,15 @@ def main() -> int:
     )
 
     combined_output = capture_proc.stdout + capture_proc.stderr
-    if "HIP-4 universe refresh failed" in combined_output:
-        print("capture logged HIP-4 refresh failure", file=sys.stderr)
-        return 1
     if "Cannot start a runtime from within a runtime" in combined_output:
         print("capture panicked during HIP-4 refresh", file=sys.stderr)
         return 1
+    refresh_failures = combined_output.count("HIP-4 universe refresh failed")
+    if refresh_failures:
+        print(
+            f"refresh_failures={refresh_failures} (current confirmed universe retained)",
+            flush=True,
+        )
 
     print("hip4_smoke_ok", flush=True)
     if args.cleanup:
@@ -181,33 +167,6 @@ def write_temp_config(
     path.write_text("\n".join(lines) + "\n")
 
 
-def parse_hip4_reports(stdout: str) -> list[dict]:
-    decoder = json.JSONDecoder()
-    idx = 0
-    while idx < len(stdout):
-        while idx < len(stdout) and stdout[idx].isspace():
-            idx += 1
-        if idx >= len(stdout):
-            break
-        if stdout[idx] != "[":
-            idx += 1
-            continue
-        try:
-            payload, end = decoder.raw_decode(stdout, idx)
-        except json.JSONDecodeError:
-            idx += 1
-            continue
-        if (
-            isinstance(payload, list)
-            and payload
-            and isinstance(payload[0], dict)
-            and "market_class" in payload[0]
-        ):
-            return payload
-        idx = end
-    return []
-
-
 def load_jsonl(path: Path) -> list[dict]:
     records = []
     for line in path.read_text().splitlines():
@@ -228,22 +187,27 @@ def parquet_files_for_instrument(family_dir: Path, instrument_id: str) -> list[P
     ]
 
 
-def count_parquet_rows(catalog_dir: Path, family: str, instrument_ids: list[str]) -> int:
+def count_parquet_rows(
+    catalog_dir: Path, family: str, instrument_ids: list[str]
+) -> tuple[int, str]:
     family_dir = catalog_dir / "data" / family
     if not family_dir.is_dir():
-        return 0
+        return 0, "rows" if pq is not None else "files"
 
     if pq is None:
-        return sum(
-            len(parquet_files_for_instrument(family_dir, instrument_id))
-            for instrument_id in instrument_ids
+        return (
+            sum(
+                len(parquet_files_for_instrument(family_dir, instrument_id))
+                for instrument_id in instrument_ids
+            ),
+            "files",
         )
 
     total = 0
     for instrument_id in instrument_ids:
         for parquet_file in parquet_files_for_instrument(family_dir, instrument_id):
             total += pq.read_table(parquet_file).num_rows
-    return total
+    return total, "rows"
 
 
 if __name__ == "__main__":

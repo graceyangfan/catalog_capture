@@ -22,6 +22,8 @@ use super::KnownCustomDataType;
 use nautilus_binance::data_types::register_binance_custom_data;
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::data_types::register_hyperliquid_custom_data;
+#[cfg(feature = "venue-predict")]
+use nautilus_predict::register_predict_custom_data;
 
 pub fn register_subscribe_types(custom_data: &[CustomDataCaptureSpec]) {
     for spec in custom_data {
@@ -57,6 +59,10 @@ impl KnownCustomDataType {
             #[cfg(feature = "venue-hyperliquid")]
             Self::HyperliquidOpenInterest => {
                 register_hyperliquid_custom_data();
+            }
+            #[cfg(feature = "venue-predict")]
+            Self::PredictOrderbookSnapshot | Self::PredictCryptoUpDown => {
+                register_predict_custom_data()
             }
         }
     }

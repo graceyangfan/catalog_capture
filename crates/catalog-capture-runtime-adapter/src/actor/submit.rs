@@ -14,12 +14,12 @@
 
 use super::*;
 use crate::actor_runtime::{
-    optional_flush_all, optional_shutdown, optional_submit, submit_capture_item,
+    optional_flush_all, optional_shutdown, optional_submit, seal_runtime, submit_capture_item,
 };
 use catalog_capture_core::config::OverflowPolicy;
 use catalog_capture_core::{
-    append_forward_price_records, forward_price_record_from_model, item::CaptureItem,
-    runtime::FlushResult, ForwardPrice,
+    ForwardPrice, append_forward_price_records, forward_price_record_from_model, item::CaptureItem,
+    runtime::FlushResult,
 };
 use nautilus_common::component::Component;
 
@@ -56,21 +56,75 @@ impl CatalogCaptureActor {
         let data_type = data.data_type.clone();
         let ts_init = data.data.ts_init().as_u64();
         let event_ts = data.data.ts_event().as_u64();
-        optional_submit(
-            &self.custom_data_runtime,
-            CaptureItem {
-                partition_key: PartitionKey::custom_data(
-                    data_type.type_name(),
-                    data_type.identifier().map(str::to_string),
-                    data_type.topic(),
-                ),
-                event_ts_ns: event_ts,
-                init_ts_ns: Some(ts_init),
-                row_count: 1,
-                estimated_bytes: std::mem::size_of::<CustomData>(),
-                payload: data,
-            },
-        )
+        let mut retired_predict_market_id = None;
+        let runtime = match predict_output_selector_key(&data_type)? {
+            Some(selector_key) => {
+                let market_id = data_type
+                    .identifier()
+                    .ok_or_else(|| anyhow::anyhow!("Predict snapshot is missing market ID"))?
+                    .parse::<u64>()
+                    .map_err(|_| anyhow::anyhow!("invalid Predict snapshot market ID"))?;
+                // A rolling product's successor is confirmed only by its first valid snapshot.
+                // Seal at that event—not at a speculative wall-clock boundary—so late valid
+                // updates from the retiring market remain in its final segment and the new
+                // market begins one clean part without reopening the old identity.
+                if let Some(previous_market_id) = self
+                    .active_predict_market_ids
+                    .get(&selector_key)
+                    .copied()
+                    .filter(|active_market_id| *active_market_id != market_id)
+                {
+                    log::info!(
+                        "catalog-capture: confirmed Predict rollover interval={}s market {} -> {}; sealing retired segment",
+                        selector_key.interval_secs(),
+                        previous_market_id,
+                        market_id
+                    );
+                    let runtime = self
+                        .predict_custom_data_runtimes
+                        .get(&selector_key)
+                        .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "no Predict segment writer configured for selector {selector_key}"
+                            )
+                        })?;
+                    seal_runtime(runtime)?;
+                    retired_predict_market_id = Some(previous_market_id);
+                }
+                self.active_predict_market_ids
+                    .insert(selector_key.clone(), market_id);
+                self.predict_custom_data_runtimes
+                    .get(&selector_key)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "no Predict segment writer configured for selector {selector_key}"
+                        )
+                    })?
+            }
+            _ => self.custom_data_runtime.as_ref().ok_or_else(|| {
+                anyhow::anyhow!("custom-data callback received data without a generic writer")
+            })?,
+        };
+        runtime.submit(CaptureItem {
+            partition_key: PartitionKey::custom_data(
+                data_type.type_name(),
+                data_type.identifier().map(str::to_string),
+                data_type.topic(),
+            ),
+            event_ts_ns: event_ts,
+            init_ts_ns: Some(ts_init),
+            row_count: 1,
+            estimated_bytes: std::mem::size_of::<CustomData>(),
+            payload: data,
+        })?;
+
+        // The successor snapshot is now owned by its writer. Only then may the retired
+        // market's two definitions leave the Nautilus cache. Disk history is unaffected:
+        // its instrument parquet and sealed custom-data segment already remain in the catalog.
+        if let Some(market_id) = retired_predict_market_id {
+            self.purge_retired_predict_market_from_cache(market_id)?;
+        }
+        Ok(())
     }
 
     pub(super) fn submit_mark_price(&mut self, data: MarkPriceUpdate) -> Result<()> {
@@ -201,6 +255,16 @@ impl CatalogCaptureActor {
         Ok(vec![
             optional_flush_all(&self.instrument_runtime)?,
             optional_flush_all(&self.custom_data_runtime)?,
+            self.predict_custom_data_runtimes.values().try_fold(
+                FlushResult::default(),
+                |mut total, runtime| {
+                    let result = runtime.flush_all()?;
+                    total.rows += result.rows;
+                    total.bytes += result.bytes;
+                    total.files.extend(result.files);
+                    Ok::<_, anyhow::Error>(total)
+                },
+            )?,
             optional_flush_all(&self.mark_price_runtime)?,
             optional_flush_all(&self.index_price_runtime)?,
             optional_flush_all(&self.funding_rate_runtime)?,
@@ -222,6 +286,15 @@ impl CatalogCaptureActor {
         let results = vec![
             optional_shutdown(&mut self.instrument_runtime)?,
             optional_shutdown(&mut self.custom_data_runtime)?,
+            std::mem::take(&mut self.predict_custom_data_runtimes)
+                .into_values()
+                .try_fold(FlushResult::default(), |mut total, mut runtime| {
+                    let result = runtime.shutdown()?;
+                    total.rows += result.rows;
+                    total.bytes += result.bytes;
+                    total.files.extend(result.files);
+                    Ok::<_, anyhow::Error>(total)
+                })?,
             optional_shutdown(&mut self.mark_price_runtime)?,
             optional_shutdown(&mut self.index_price_runtime)?,
             optional_shutdown(&mut self.funding_rate_runtime)?,

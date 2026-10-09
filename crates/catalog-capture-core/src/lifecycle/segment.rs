@@ -14,7 +14,7 @@
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use arrow::datatypes::Schema;
 use nautilus_model::data::HasTsInit;
 use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
@@ -26,8 +26,8 @@ use serde::Serialize;
 use crate::{
     config::CaptureConfig,
     lifecycle::segment_support::{
-        catalog_fs_directory, merge_flush, recover_orphans_under, segment_runtime_parts,
-        tick_parts_map, ActivePart,
+        ActivePart, catalog_fs_directory, merge_flush, recover_orphans_under,
+        segment_runtime_parts, tick_parts_map,
     },
     runtime::FlushResult,
 };
@@ -116,7 +116,7 @@ where
     }
 
     pub fn seal_all(&mut self) -> Result<FlushResult> {
-        self.seal_all_internal(true)
+        self.seal_all_internal(false)
     }
 
     pub fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
@@ -374,9 +374,13 @@ mod tests {
         assert_eq!(sealed.files.len(), 1);
         assert!(!sealed.files[0].to_string_lossy().contains(".part"));
         assert!(
-            sink.segments.contains_key(partition_key),
-            "scheduled seal should reopen the segment"
+            !sink.segments.contains_key(partition_key),
+            "scheduled seal must not create an empty replacement part"
         );
+
+        sink.write_batch_mut(partition_key, vec![quote(instrument_id, base_ts + 2_000)])
+            .expect("lazy next part");
+        assert!(sink.segments.contains_key(partition_key));
 
         let _ = fs::remove_dir_all(&dir);
     }

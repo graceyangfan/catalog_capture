@@ -1,0 +1,44 @@
+# Rolling Predict BTC crypto-up/down native YES-orderbook snapshot capture.
+#
+# Market IDs are deliberately absent. The client discovers the active BTC 5m
+# product, writes both outcome BinaryOption definitions, records its one native
+# YES orderbook, and hands off only after the next market has a first snapshot.
+#
+# Keep the API key outside this capture TOML:
+#   cp examples/predictfun.credentials.toml.example env/predictfun.toml
+#   chmod 600 env/predictfun.toml
+#
+# Build/run:
+#   cargo run -p catalog-capture-cli --no-default-features --features venue-predict -- \
+#     run --config examples/capture.predict-orderbook.toml
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-PREDICT"
+
+[output]
+catalog_uri = "file://./data/predict"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 1000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+max_total_buffer_bytes = 134217728
+queue_capacity = 10000
+overflow_policy = "fail_fast"
+
+[[venues]]
+id = "predict_main"
+kind = "predict"
+
+[[capture.custom_data]]
+type_name = "PredictCryptoUpDown"
+
+[capture.custom_data.metadata]
+# Exact official variantData.priceFeedSymbol; change only after observing it
+# in the official market response for the desired product.
+price_feed_symbol = "BTC/USDT"
+title_asset = "Bitcoin"
+interval_secs = "300"

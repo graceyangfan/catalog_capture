@@ -181,6 +181,68 @@ impl KnownCustomDataType {
                     "custom_data_requests DeribitBookSummary metadata.currency must be non-empty",
                 )
             }
+            #[cfg(feature = "venue-predict")]
+            Self::PredictOrderbookSnapshot => {
+                require_venue(
+                    venues,
+                    self.venue(),
+                    "custom_data PredictOrderbookSnapshot requires at least one [[venues]] entry with kind = \"predict\"",
+                )?;
+                anyhow::ensure!(
+                    data_type.metadata().is_none(),
+                    "custom_data PredictOrderbookSnapshot does not accept metadata; use the decimal market ID as identifier"
+                );
+                let identifier = data_type.identifier().ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "custom_data PredictOrderbookSnapshot requires a decimal market ID identifier"
+                    )
+                })?;
+                let market_id = identifier.parse::<u64>().map_err(|_| {
+                    anyhow::anyhow!(
+                        "custom_data PredictOrderbookSnapshot identifier `{identifier}` must be a non-zero decimal market ID"
+                    )
+                })?;
+                anyhow::ensure!(
+                    market_id != 0 && market_id.to_string() == identifier,
+                    "custom_data PredictOrderbookSnapshot identifier `{identifier}` must be a non-zero canonical decimal market ID"
+                );
+                Ok(())
+            }
+            #[cfg(feature = "venue-predict")]
+            Self::PredictCryptoUpDown => {
+                require_venue(
+                    venues,
+                    self.venue(),
+                    "custom_data PredictCryptoUpDown requires at least one [[venues]] entry with kind = \"predict\"",
+                )?;
+                anyhow::ensure!(
+                    data_type.identifier().is_none(),
+                    "custom_data PredictCryptoUpDown must omit identifier; it discovers the market ID at runtime"
+                );
+                let Some(metadata) = data_type.metadata() else {
+                    anyhow::bail!(
+                        "custom_data PredictCryptoUpDown requires metadata.price_feed_symbol, metadata.title_asset, and metadata.interval_secs"
+                    );
+                };
+                for key in ["price_feed_symbol", "title_asset", "interval_secs"] {
+                    let value = metadata.get(key).and_then(serde_json::Value::as_str);
+                    ensure_non_empty(
+                        value.unwrap_or_default(),
+                        &format!("custom_data PredictCryptoUpDown requires non-empty metadata.{key}"),
+                    )?;
+                }
+                let interval_secs = metadata
+                    .get("interval_secs")
+                    .and_then(serde_json::Value::as_str)
+                    .expect("checked non-empty interval_secs")
+                    .parse::<u64>()
+                    .map_err(|_| anyhow::anyhow!("custom_data PredictCryptoUpDown metadata.interval_secs must be a positive integer"))?;
+                anyhow::ensure!(
+                    interval_secs > 0,
+                    "custom_data PredictCryptoUpDown metadata.interval_secs must be positive"
+                );
+                Ok(())
+            }
         }
     }
 }

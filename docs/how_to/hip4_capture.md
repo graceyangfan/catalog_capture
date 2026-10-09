@@ -64,6 +64,25 @@ When `[runtime.hip4_universe_refresh]` is enabled:
    quotes/trades/books/marks/… so RSS does not grow across daily rolls. Perp reference
    is kept.
 
+### Inspect the live binary-option universe before capture
+
+Do not put a HIP-4 question or outcome ID in the configuration. They are intentionally
+short-lived. The preflight below calls Hyperliquid `outcomeMeta`, resolves the configured
+`underlying` / `period` / `market_class`, and prints the currently selected YES/NO Nautilus
+instrument IDs without opening a recorder or requiring credentials:
+
+```bash
+cargo run -p catalog-capture-cli --features venue-hyperliquid -- run \
+  --config examples/capture.hyperliquid-hip4-btc-daily.toml \
+  --dry-run-resolve --print-option-universe
+```
+
+The result is a point-in-time observation only. At the next market roll, the runtime repeats
+the same resolution, waits until the new definitions have reached the Nautilus cache, then
+subscribes the new outcomes and retires the old pair. Keep `market_class = "priceBinary"` and
+the semantic selector (`BTC`, `1d`) unless the live preflight reports that Hyperliquid has
+changed its published metadata fields.
+
 ### Option universe (Deribit / Bybit / OKX)
 
 Same memory policy as HIP-4 after expiry / ATM / OI rolls:

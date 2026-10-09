@@ -16,16 +16,32 @@ use std::{any::Any, collections::BTreeSet};
 
 use super::*;
 use crate::actor_runtime::{custom_data_client_id, optional_flush_all, optional_seal_all};
-use crate::custom_data_requests::{parse_request_timer_index, CUSTOM_DATA_REQUEST_TIMER_PREFIX};
+use crate::custom_data_requests::{CUSTOM_DATA_REQUEST_TIMER_PREFIX, parse_request_timer_index};
 use catalog_capture_core::{
-    append_hip4_universe_resolution_records, append_option_universe_resolution_records,
-    forward_price_from_option_greeks, next_seal_boundary_ns,
+    CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
+    PREDICT_SELECTOR_TITLE_ASSET, append_hip4_universe_resolution_records,
+    append_option_universe_resolution_records, forward_price_from_option_greeks,
+    next_seal_boundary_ns, predict_outcome_instrument_id,
 };
 use nautilus_common::{actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent};
-use nautilus_core::{DurationNanos, UnixNanos};
-use nautilus_model::instruments::Instrument;
+use nautilus_core::{DurationNanos, Params, UnixNanos};
+use nautilus_model::{data::DataType, identifiers::Venue, instruments::Instrument};
 
 impl CatalogCaptureActor {
+    fn market_data_client_id(&self, instrument_id: InstrumentId) -> Option<ClientId> {
+        self.binance_client_routes.get(&instrument_id).copied()
+    }
+
+    pub(super) fn custom_data_client_id(
+        &self,
+        data_type: &nautilus_model::data::DataType,
+    ) -> Option<ClientId> {
+        match data_type.type_name() {
+            "BinanceFuturesLiquidation" | "BinanceFuturesTicker" => self.binance_futures_client_id,
+            _ => custom_data_client_id(data_type).map(ClientId::from),
+        }
+    }
+
     /// Bootstrap instrument metadata before market-data subscriptions.
     ///
     /// Adapters load definitions into cache during `connect` (HTTP bulk on Binance,
@@ -49,8 +65,9 @@ impl CatalogCaptureActor {
             self.submit_instrument(instrument)?;
             Ok(())
         } else {
-            self.request_instrument(instrument_id, None, None, None, None)?;
-            self.subscribe_instrument(instrument_id, None, None);
+            let client_id = self.market_data_client_id(instrument_id);
+            self.request_instrument(instrument_id, None, None, client_id, None)?;
+            self.subscribe_instrument(instrument_id, client_id, None);
             Ok(())
         }
     }
@@ -62,11 +79,33 @@ impl CatalogCaptureActor {
     /// `pending_market_data` and are completed on `on_instrument` (or by a backup
     /// re-request loop that runs **only while pending is non-empty** — not all day).
     /// Request-style jobs (`custom_data_requests`) must NOT be subscribed here.
-    fn subscribe_plan(&mut self, plan: &CapturePlan) {
+    fn subscribe_plan(&mut self, plan: &CapturePlan) -> Result<()> {
         for spec in &plan.custom_data {
             self.subscribe_data(
                 spec.data_type.clone(),
-                custom_data_client_id(&spec.data_type).map(ClientId::from),
+                self.custom_data_client_id(&spec.data_type),
+                None,
+            );
+        }
+
+        // `PredictCryptoUpDown` is a control subscription: the adapter discovers a
+        // concrete market at runtime and publishes `PredictOrderbookSnapshot` with
+        // interval provenance plus the discovered market ID. Nautilus routes custom
+        // data by its complete `DataType` topic, so the control subscription does
+        // not match that output. Register an actor-local wildcard for each configured
+        // selector without a client ID: this receives all rolled market snapshots
+        // while deliberately avoiding a second adapter subscription for an unknown ID.
+        let predict_selectors = predict_selector_keys(plan)?;
+        for selector_key in &predict_selectors {
+            self.subscribe_data(predict_dynamic_output_data_type(selector_key), None, None);
+        }
+        if !predict_selectors.is_empty() {
+            // Dynamic markets do not have an instrument ID at configuration time. Subscribe to
+            // the venue-level instrument stream so the two outcome definitions emitted during
+            // discovery reach `on_instrument` and are persisted before their snapshots.
+            self.subscribe_instruments(
+                Venue::from("PREDICT"),
+                Some(ClientId::from("PREDICT")),
                 None,
             );
         }
@@ -88,6 +127,8 @@ impl CatalogCaptureActor {
             self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
             self.schedule_pending_market_data_retry();
         }
+
+        Ok(())
     }
 
     /// Subscribe quotes/trades/… for one instrument (idempotent).
@@ -98,49 +139,50 @@ impl CatalogCaptureActor {
         self.pending_market_data.remove(&instrument_id);
 
         let plan = self.plan.clone();
+        let client_id = self.market_data_client_id(instrument_id);
         for spec in &plan.mark_prices {
             if spec.instrument_id == instrument_id {
-                self.subscribe_mark_prices(spec.instrument_id, None, None);
+                self.subscribe_mark_prices(spec.instrument_id, client_id, None);
             }
         }
         for spec in &plan.index_prices {
             if spec.instrument_id == instrument_id {
-                self.subscribe_index_prices(spec.instrument_id, None, None);
+                self.subscribe_index_prices(spec.instrument_id, client_id, None);
             }
         }
         for spec in &plan.funding_rates {
             if spec.instrument_id == instrument_id {
-                self.subscribe_funding_rates(spec.instrument_id, None, None);
+                self.subscribe_funding_rates(spec.instrument_id, client_id, None);
             }
         }
         for spec in &plan.instrument_statuses {
             if spec.instrument_id == instrument_id {
-                self.subscribe_instrument_status(spec.instrument_id, None, None);
+                self.subscribe_instrument_status(spec.instrument_id, client_id, None);
             }
         }
         for spec in &plan.instrument_closes {
             if spec.instrument_id == instrument_id {
-                self.subscribe_instrument_close(spec.instrument_id, None, None);
+                self.subscribe_instrument_close(spec.instrument_id, client_id, None);
             }
         }
         for spec in &plan.option_greeks {
             if spec.instrument_id == instrument_id {
-                self.subscribe_option_greeks(spec.instrument_id, None, None);
+                self.subscribe_option_greeks(spec.instrument_id, client_id, None);
             }
         }
         for spec in &plan.quotes {
             if spec.instrument_id == instrument_id {
-                self.subscribe_quotes(spec.instrument_id, None, None);
+                self.subscribe_quotes(spec.instrument_id, client_id, None);
             }
         }
         for spec in &plan.trades {
             if spec.instrument_id == instrument_id {
-                self.subscribe_trades(spec.instrument_id, None, None);
+                self.subscribe_trades(spec.instrument_id, client_id, None);
             }
         }
         for spec in &plan.bars {
             if spec.bar_type.instrument_id() == instrument_id {
-                self.subscribe_bars(spec.bar_type, None, None);
+                self.subscribe_bars(spec.bar_type, client_id, None);
             }
         }
         for spec in &plan.book_deltas {
@@ -150,7 +192,14 @@ impl CatalogCaptureActor {
             let depth = spec.depth.and_then(std::num::NonZeroUsize::new);
             // Binance Futures: WS channel is `@depth@0ms` for L2_MBP; `depth` is
             // the snapshot size (e.g. 20). Other venues ignore unused depth.
-            self.subscribe_book_deltas(spec.instrument_id, spec.book_type, depth, None, true, None);
+            self.subscribe_book_deltas(
+                spec.instrument_id,
+                spec.book_type,
+                depth,
+                client_id,
+                true,
+                None,
+            );
         }
         log::info!("catalog-capture: market-data subscribed for {instrument_id}");
     }
@@ -199,8 +248,9 @@ impl CatalogCaptureActor {
                 log::info!(
                     "catalog-capture: instrument {instrument_id} not in cache yet; re-requesting (unbounded wait until ready or next roll)"
                 );
-                let _ = self.request_instrument(instrument_id, None, None, None, None);
-                self.subscribe_instrument(instrument_id, None, None);
+                let client_id = self.market_data_client_id(instrument_id);
+                let _ = self.request_instrument(instrument_id, None, None, client_id, None);
+                self.subscribe_instrument(instrument_id, client_id, None);
             }
         }
 
@@ -228,35 +278,90 @@ impl CatalogCaptureActor {
             );
         }
 
+        // Counterpart to the local dynamic-Predict output subscriptions above.
+        // No client ID means this only removes the message-bus handler and sends no
+        // adapter command.
+        let predict_selectors = predict_selector_keys(plan).unwrap_or_default();
+        for selector_key in &predict_selectors {
+            self.unsubscribe_data(predict_dynamic_output_data_type(selector_key), None, None);
+        }
+        if !predict_selectors.is_empty() {
+            self.unsubscribe_instruments(
+                Venue::from("PREDICT"),
+                Some(ClientId::from("PREDICT")),
+                None,
+            );
+        }
+
         for spec in &plan.mark_prices {
-            self.unsubscribe_mark_prices(spec.instrument_id, None, None);
+            self.unsubscribe_mark_prices(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
         for spec in &plan.index_prices {
-            self.unsubscribe_index_prices(spec.instrument_id, None, None);
+            self.unsubscribe_index_prices(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
         for spec in &plan.funding_rates {
-            self.unsubscribe_funding_rates(spec.instrument_id, None, None);
+            self.unsubscribe_funding_rates(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
         for spec in &plan.instrument_statuses {
-            self.unsubscribe_instrument_status(spec.instrument_id, None, None);
+            self.unsubscribe_instrument_status(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
         for spec in &plan.instrument_closes {
-            self.unsubscribe_instrument_close(spec.instrument_id, None, None);
+            self.unsubscribe_instrument_close(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
         for spec in &plan.option_greeks {
-            self.unsubscribe_option_greeks(spec.instrument_id, None, None);
+            self.unsubscribe_option_greeks(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
         for spec in &plan.quotes {
-            self.unsubscribe_quotes(spec.instrument_id, None, None);
+            self.unsubscribe_quotes(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
         for spec in &plan.trades {
-            self.unsubscribe_trades(spec.instrument_id, None, None);
+            self.unsubscribe_trades(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
         for spec in &plan.bars {
-            self.unsubscribe_bars(spec.bar_type, None, None);
+            self.unsubscribe_bars(
+                spec.bar_type,
+                self.market_data_client_id(spec.bar_type.instrument_id()),
+                None,
+            );
         }
         for spec in &plan.book_deltas {
-            self.unsubscribe_book_deltas(spec.instrument_id, None, None);
+            self.unsubscribe_book_deltas(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
         }
     }
 
@@ -278,7 +383,7 @@ impl CatalogCaptureActor {
         }
         // Plan must reflect the post-roll universe before market-data subscribe / on_instrument.
         self.sync_plan_state();
-        self.subscribe_plan(add);
+        self.subscribe_plan(add)?;
         Ok(())
     }
 
@@ -306,6 +411,40 @@ impl CatalogCaptureActor {
         log::info!(
             "catalog-capture: purged expired instrument {instrument_id} from cache (definition + market-data maps)"
         );
+    }
+
+    /// Purges both outcome definitions for a retired dynamic Predict market when no capture
+    /// owner still references that market.
+    ///
+    /// Predict's rolling selector has no static `InstrumentId` in its plan, so merely sealing
+    /// its snapshot writer would otherwise retain two new cache entries per market forever.
+    /// A market may still be owned by another selector or an explicit static capture; in that
+    /// case it remains untouched.
+    pub(crate) fn purge_retired_predict_market_from_cache(&mut self, market_id: u64) -> Result<()> {
+        if self
+            .active_predict_market_ids
+            .values()
+            .any(|active_market_id| *active_market_id == market_id)
+        {
+            log::debug!(
+                "catalog-capture: retain retired Predict market {market_id}; another selector still owns it"
+            );
+            return Ok(());
+        }
+
+        let still_active: BTreeSet<InstrumentId> =
+            self.plan.planned_instrument_ids().into_iter().collect();
+        for outcome_index in [1, 2] {
+            let instrument_id = predict_outcome_instrument_id(market_id, outcome_index)?;
+            if still_active.contains(&instrument_id) {
+                log::debug!(
+                    "catalog-capture: retain retired Predict instrument {instrument_id}; it remains in the active capture plan"
+                );
+                continue;
+            }
+            self.purge_instrument_from_cache(instrument_id);
+        }
+        Ok(())
     }
 
     fn log_option_universe_refresh(&self, change: &crate::DynamicOptionUniverseChange) {
@@ -704,13 +843,85 @@ impl CatalogCaptureActor {
     }
 }
 
+/// Returns the local wildcard topic for concrete snapshots emitted by one dynamic Predict selector.
+///
+/// Its missing identifier is intentional: Nautilus expands it to a wildcard covering the market
+/// ID that the adapter discovers at runtime. This is a message-bus subscription only, never an
+/// adapter command.
+fn predict_dynamic_output_data_type(selector_key: &CryptoUpDownSelectorKey) -> DataType {
+    let mut metadata = Params::new();
+    metadata.insert(
+        PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
+        selector_key.price_feed_symbol().to_string().into(),
+    );
+    metadata.insert(
+        PREDICT_SELECTOR_TITLE_ASSET.to_string(),
+        selector_key.title_asset().to_string().into(),
+    );
+    metadata.insert(
+        PREDICT_SELECTOR_INTERVAL_SECS.to_string(),
+        selector_key.interval_secs().to_string().into(),
+    );
+    DataType::new("PredictOrderbookSnapshot", Some(metadata), None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::predict_dynamic_output_data_type;
+    use catalog_capture_core::{
+        CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS,
+        PREDICT_SELECTOR_PRICE_FEED_SYMBOL, PREDICT_SELECTOR_TITLE_ASSET,
+    };
+    use nautilus_core::Params;
+    use nautilus_model::data::DataType;
+
+    #[test]
+    fn dynamic_predict_output_type_wildcards_only_its_selector_market_ids() {
+        let selector = CryptoUpDownSelectorKey::new("BTC/USDT", "Bitcoin", 300).unwrap();
+        let output = predict_dynamic_output_data_type(&selector);
+        assert_eq!(output.type_name(), "PredictOrderbookSnapshot");
+        assert_eq!(output.identifier(), None);
+
+        let mut metadata = Params::new();
+        metadata.insert(
+            PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
+            "BTCUSDT".into(),
+        );
+        metadata.insert(PREDICT_SELECTOR_TITLE_ASSET.to_string(), "bitcoin".into());
+        metadata.insert(PREDICT_SELECTOR_INTERVAL_SECS.to_string(), "300".into());
+        let concrete = DataType::new(
+            "PredictOrderbookSnapshot",
+            Some(metadata),
+            Some("3044459".to_string()),
+        );
+        assert_eq!(
+            concrete.topic().strip_prefix(output.topic()),
+            Some(".identifier=3044459")
+        );
+    }
+
+    #[test]
+    fn same_interval_selector_wildcards_do_not_overlap() {
+        let btc = predict_dynamic_output_data_type(
+            &CryptoUpDownSelectorKey::new("BTC/USDT", "Bitcoin", 300).unwrap(),
+        );
+        let eth = predict_dynamic_output_data_type(
+            &CryptoUpDownSelectorKey::new("ETH/USDT", "Ethereum", 300).unwrap(),
+        );
+
+        assert_ne!(btc.topic(), eth.topic());
+        assert_eq!(btc.identifier(), None);
+        assert_eq!(eth.identifier(), None);
+    }
+}
+
 impl DataActor for CatalogCaptureActor {
     fn on_start(&mut self) -> Result<()> {
         self.bootstrap_instruments()?;
         self.sync_plan_state();
         let plan = self.plan.clone();
         // 1) Subscribe streams (custom immediate; market-data waits for instrument cache).
-        self.subscribe_plan(&plan);
+        self.subscribe_plan(&plan)?;
         // 2) Request polls (custom_data_requests only) — separate Nautilus path.
         self.start_custom_data_request_jobs()?;
 

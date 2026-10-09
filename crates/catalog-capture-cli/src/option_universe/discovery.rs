@@ -15,7 +15,13 @@
 #[cfg(feature = "venue-deribit")]
 use std::str::FromStr;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
+use anyhow::Context;
 #[cfg(feature = "venue-okx")]
 use catalog_capture_core::okx_instrument_family;
 #[cfg(any(feature = "venue-deribit", feature = "venue-bybit"))]
@@ -24,9 +30,15 @@ use catalog_capture_core::select_strike_reference_from_decimal_string;
 use catalog_capture_core::{
     aggregate_open_interest_by_strike, option_instrument_ids_at_selected_expiry,
 };
+use catalog_capture_core::{OptionUniverseSpec, ResolvedOptionUniverse};
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
 use catalog_capture_core::{
-    derive_perp_instrument_id, resolve_option_universe, OptionUniverseSpec,
-    OptionUniverseVenueKind, ResolvedOptionUniverse, StrikeOpenInterestByStrike,
+    derive_perp_instrument_id, resolve_option_universe, OptionUniverseVenueKind,
+    StrikeOpenInterestByStrike,
 };
 #[cfg(any(
     feature = "venue-deribit",
@@ -46,7 +58,17 @@ use nautilus_deribit::{
     common::enums::{DeribitCurrency, DeribitEnvironment},
     http::{client::DeribitHttpClient, models::DeribitProductType},
 };
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
 use nautilus_model::instruments::{Instrument, InstrumentAny};
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
 use nautilus_model::{identifiers::InstrumentId, types::Price};
 #[cfg(feature = "venue-okx")]
 use nautilus_okx::{
@@ -95,6 +117,11 @@ async fn dispatch_option_universe_resolution(
     }
 }
 
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
 struct ResolvedVenueInputs {
     resolved_at_ns: nautilus_core::UnixNanos,
     spec_for_resolution: OptionUniverseSpec,
@@ -105,6 +132,11 @@ struct ResolvedVenueInputs {
     open_interest_by_strike: Option<StrikeOpenInterestByStrike>,
 }
 
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
 fn finalize_option_universe_resolution(
     inputs: ResolvedVenueInputs,
 ) -> Result<ResolvedOptionUniverse> {
@@ -135,6 +167,11 @@ fn finalize_option_universe_resolution(
     Ok(resolved)
 }
 
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
 fn normalized_resolution_spec(
     spec: &OptionUniverseSpec,
     clear_settlement_currency: bool,
