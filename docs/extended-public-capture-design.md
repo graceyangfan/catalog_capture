@@ -1,8 +1,9 @@
 # Extended Public Capture Design
 
-Status: design baseline for a public-data-only integration.
+Status: implemented public-data adapter; this document records its protocol
+evidence, invariants, and acceptance boundary.
 
-This integration will be implemented inside this repository. The legacy
+This integration is implemented inside this repository. The legacy
 `extened_exchange` workspace is protocol reference material only; this project
 will not depend on that workspace or link its crate.
 
@@ -526,9 +527,9 @@ surface used by the runner. Venue protocol code never depends on
 `catalog-capture-*`; the recorder is only one consumer of the adapter.
 
 There is intentionally no execution, signing, account, candles, BBO, or
-Python binding surface in the first adapter slice. The CLI links the crate
-behind `venue-extended`; the default all-venues build can include it only
-after the public path is live-tested. A lean production build may use:
+Python binding surface in the current adapter. The CLI links the crate behind
+`venue-extended`; `all-venues` includes it, while a lean production build may
+select it explicitly:
 
 ```bash
 cargo build --release -p catalog-capture-cli \
@@ -628,9 +629,9 @@ soak with forced transport reconnects, successful automatic reconciliation,
 fresh snapshots for every book, at least one real funding event, zero
 unreported sequence gaps and Parquet readback.
 
-## Tests Before Live Capture
+## Verification Contract
 
-The crate must have fixture tests for:
+The regression and live-validation contract remains:
 
 - market-to-instrument identity and precision;
 - exact RPC selectors, canonical topic IDs and ACK/error correlation;
@@ -684,23 +685,14 @@ The funding path additionally needs a run long enough to observe at least one
 real hourly event. Only after these probes are stable should we add more markets
 or an all-market subscription mode.
 
-## Implementation Order
+## Implementation Status
 
-1. Pin and compile against the repository's current official Nautilus
-   `origin/develop` revision before adding the adapter; do not introduce a
-   compatibility layer for older Nautilus APIs.
-2. Add `nautilus-extended`, configuration, provider, exact market models and
-   instrument parser tests.
-3. Implement RPC envelopes, typed topics, epoch-bound request correlation,
-   `SubscriptionState` reconciliation and global sequence tests.
-4. Implement full-L2 parsing/gates, trade replay dedupe, mark/index fallback
-   timestamps and funding mapping from captured fixtures.
-5. Implement `ExtendedDataClient` subscriptions, connection recovery,
-   factories and teardown tests.
-6. Wire `venue-extended` into the capture CLI and add one BTC-USD profile.
-7. Run short mainnet capture/readback, forced reconnect reconciliation, natural
-   periodic snapshot validation and a funding observation run of at least one
-   hour.
+The adapter crate, exact models, RPC lifecycle, public data families, CLI
+feature, and BTC profile described above are implemented. The remaining
+release evidence is operational rather than architectural: periodic mainnet
+soaks should continue to cover forced reconnect reconciliation, natural
+snapshot replacement, catalog readback, and a funding window long enough to
+observe at least one real event.
 
 The first production slice is the public-data side of a long-lived Nautilus
 adapter. Execution and private account support can be added later in the same

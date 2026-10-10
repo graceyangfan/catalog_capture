@@ -1,4 +1,4 @@
-# Step 6d profile: selective BTC option book_deltas (ATM ±2, L2_MBP).
+# Selective BTC option book-delta profile (ATM ±2, L2_MBP).
 # Separate from research/trades profiles; tuned for higher book-delta throughput.
 # 25d put/call selection is deferred to research-layer strike policies.
 #

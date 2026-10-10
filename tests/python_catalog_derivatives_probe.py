@@ -1,4 +1,4 @@
-"""Probe a live or fixture catalog for Binance perp WS families (Step 1–2, Step 6a trades)."""
+"""Probe a live or fixture catalog for Binance perpetual WebSocket families."""
 
 from __future__ import annotations
 
@@ -169,14 +169,14 @@ def main() -> int:
             assert_monotonic_ts_init(bars, f"bars[{bar_type}]")
             bar_counts.append((bar_type, len(bars)))
 
-    step_label = "Step 1–2"
+    captured_families = "base market data"
     if args.min_trade_rows > 0:
-        step_label = "Step 1–2 + Step 6a trades"
+        captured_families = "base market data + trades"
     if args.bar_type:
-        step_label = f"{step_label} + Step 6c bars"
+        captured_families = f"{captured_families} + bars"
 
     print_probe_header(
-        f"Python derivatives catalog probe succeeded ({step_label})",
+        f"Python derivatives catalog probe succeeded ({captured_families})",
         args.catalog_dir,
         [("Instrument id", instrument_id)],
     )

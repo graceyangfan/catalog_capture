@@ -37,10 +37,13 @@ Data under `./data/` (gitignored). Layout:
 | Goal | Config |
 |------|--------|
 | Multi-venue mainnet | `examples/capture.multi-venue-mainnet.toml` |
+| Predict BTC 5m Up/Down | `examples/capture.predict-orderbook.toml` (API key required) |
 | HL universe only | `examples/capture.hyperliquid-hip4-btc-daily.toml` |
 | Deribit BookSummary | `examples/capture.deribit-btc-book-summary.toml` |
 
 See [examples/README.md](../../examples/README.md).
+Profiles outside the standard four-venue build require their documented Cargo
+feature set; the examples index lists the exact features beside each profile.
 
 ## Next
 

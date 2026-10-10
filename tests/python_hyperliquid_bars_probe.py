@@ -89,7 +89,7 @@ def main() -> int:
         f"expected bar parquet under data/bar or data/bars for {args.bar_type}"
     )
 
-    print("Python Hyperliquid bars catalog probe succeeded (Step 6c)")
+    print("Python Hyperliquid bars catalog probe succeeded")
     print(f"Catalog dir: {args.catalog_dir}")
     print(f"Instrument id: {args.instrument_id}")
     print(f"Bar type: {args.bar_type}")

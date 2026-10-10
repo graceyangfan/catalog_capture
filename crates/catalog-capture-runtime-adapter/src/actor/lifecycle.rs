@@ -866,6 +866,7 @@ fn predict_dynamic_output_data_type(selector_key: &CryptoUpDownSelectorKey) -> D
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)] // Keeps the focused helper tests beside their helper.
 mod tests {
     use super::predict_dynamic_output_data_type;
     use catalog_capture_core::{

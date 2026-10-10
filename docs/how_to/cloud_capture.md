@@ -15,8 +15,10 @@ rustup toolchain install 1.99.0
 rustup default 1.99.0
 ```
 
-Outbound mainnet access to the configured venues (HTTPS/WSS).
-Public capture needs **no API keys**.
+Outbound mainnet access to the configured venues (HTTPS/WSS). The default
+multi-venue profile uses public data and needs no API keys; Predict and Binance
+Spot SBE profiles additionally need mounted credentials described in
+[credentials](credentials.md).
 
 ## 1) Clone and bootstrap
 
@@ -51,6 +53,16 @@ helpers, then writes a small package without `target/` or source code:
 ```bash
 ./scripts/package-cloud.sh \
   --config examples/capture.multi-venue-mainnet.toml
+```
+
+For another profile, pass the matching feature set as well as its config; the
+packager validates the config against the resulting binary before creating an
+archive:
+
+```bash
+./scripts/package-cloud.sh \
+  --config examples/capture.predict-orderbook.toml \
+  --features venue-predict
 ```
 
 Transfer the generated `dist/catalog-capture-cloud-*.tar.gz` and its `.sha256`

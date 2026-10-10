@@ -53,6 +53,8 @@ point conversion:
 | `market_id` | Native decimal market ID and custom-data partition identity |
 | `bids`, `asks` | Complete native YES levels at declared price/size precision |
 | `order_count` | Venue-wide displayed order count; never allocated to a level |
+| `last_order_settled` | Optional most recently completed settlement: order ID, exact price, strategy kind, market ID, side, and outcome |
+| `settlements_pending` | Optional native ask/bid `[price, value]` levels whose settlement remains in flight |
 | `ts_event` | `updateTimestampMs`, converted directly to `UnixNanos` |
 | `ts_init` | Local receive timestamp |
 
@@ -162,7 +164,13 @@ use nautilus_predict::register_predict_custom_data;
 use std::path::Path;
 
 register_predict_custom_data();
-let mut catalog = ParquetDataCatalog::new(Path::new("./data/predict"), None, None, None, None);
+let mut catalog = ParquetDataCatalog::new(
+    Path::new("./data/predict-orderbook"),
+    None,
+    None,
+    None,
+    None,
+);
 let rows = catalog.query_custom_data_dynamic(
     "PredictOrderbookSnapshot",
     Some(&vec!["2859346".to_string()]),
@@ -176,7 +184,18 @@ Read the matching outcome definitions by `{market_id}-1.PREDICT` and
 The stored snapshot supports spread, mid, microprice, L1/L5/full-depth
 imbalance, shape, displayed-liquidity, and snapshot-to-snapshot replenishment
 research. `order_count` supports aggregate fragmentation analysis, but does not
-describe individual levels.
+describe individual levels. Settlement fields support latency and temporarily
+unsettled-liquidity features; they remain venue state and are not promoted to
+synthetic `TradeTick` events.
+
+## Live evidence
+
+A bounded mainnet probe on 2026-10-11 discovered the active BTC 5m market,
+recorded 143 snapshots in 30 seconds, shut down cleanly with no remaining
+`.parquet.part`, and read every row back through Rust `ParquetDataCatalog`.
+All 143 rows preserved both optional settlement objects; 140 contained at
+least one pending ask or bid. This proves the current venue-to-catalog path,
+not that every future market will populate those optional fields.
 
 ## Non-goals
 

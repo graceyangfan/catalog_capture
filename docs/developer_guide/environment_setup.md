@@ -12,7 +12,8 @@
 make bootstrap-deps
 make install-tools
 pip install pre-commit && pre-commit install
-make build-release-capture   # or: make build (all-venues debug)
+make build-release-capture   # standard four-venue profile
+# or: make build (all-venues debug)
 ```
 
 ## Daily

@@ -1,4 +1,4 @@
-# Step 1–2 profile: Binance Futures perpetual built-in WS (A1–A6).
+# Focused Binance Futures perpetual WebSocket profile.
 # Captures quotes, mark/index/funding, instrument metadata, and contract state subscriptions.
 # Note: Binance instrument_status polling is ~3600s; short runs may only validate instruments.
 

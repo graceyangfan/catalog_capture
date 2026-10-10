@@ -42,7 +42,7 @@ BOOK_DELTA_FAMILY_NAMES = ("order_book_deltas", "order_book_delta")
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Run live option-universe book_deltas capture smokes (Step 6d, default 3 minutes)."
+            "Run live option-universe book-delta capture smokes (default 3 minutes)."
         ),
     )
     parser.add_argument(

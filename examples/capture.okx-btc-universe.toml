@@ -1,4 +1,4 @@
-# Step 9a-lite profile: OKX BTC option universe resolved at startup.
+# OKX BTC option universe resolved at startup.
 
 [runtime]
 capture_seconds = 60

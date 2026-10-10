@@ -33,8 +33,9 @@ pub use common::{
 };
 pub use config::PredictDataClientConfig;
 pub use data::{
-    PredictOrderbookLevel, PredictOrderbookSnapshot, PredictOrderbookWire,
-    register_predict_custom_data,
+    PredictLastOrderSettled, PredictLastOrderSettledWire, PredictOrderbookLevel,
+    PredictOrderbookSnapshot, PredictOrderbookWire, PredictSettlementPendingLevel,
+    PredictSettlementsPending, PredictSettlementsPendingWire, register_predict_custom_data,
 };
 pub use data_client::PredictDataClient;
 pub use factories::PredictDataClientFactory;

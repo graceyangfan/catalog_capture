@@ -83,7 +83,7 @@ def main() -> int:
 
     assert_monotonic_ts_init(custom, f"HyperliquidOpenInterest[{args.instrument_id}]")
 
-    print("Python Hyperliquid open-interest catalog probe succeeded (Step 5)")
+    print("Python Hyperliquid open-interest catalog probe succeeded")
     print(f"Catalog dir: {args.catalog_dir}")
     print(f"Instrument id: {args.instrument_id}")
     print(f"Data types: {data_types}")

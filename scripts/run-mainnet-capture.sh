@@ -2,7 +2,8 @@
 # Run a long-lived mainnet capture from the repo root (cloud / bare metal).
 # Usage:
 #   ./scripts/run-mainnet-capture.sh
-#   ./scripts/run-mainnet-capture.sh examples/capture.hyperliquid-hip4-btc-daily.toml
+#   CAPTURE_FEATURES=venue-hyperliquid \
+#     ./scripts/run-mainnet-capture.sh examples/capture.hyperliquid-hip4-btc-daily.toml
 #   CAPTURE_SECONDS=120 ./scripts/run-mainnet-capture.sh   # short verify run via temp config
 set -euo pipefail
 
@@ -27,7 +28,8 @@ if [[ ! -d ../nautilus_trader ]]; then
   make bootstrap-deps
 fi
 
-# Only venues used by multi-venue mainnet (smaller link graph than all-venues).
+# Defaults to the adapters used by capture.multi-venue-mainnet.toml. A custom
+# config must override CAPTURE_FEATURES with every venue it references.
 CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid,venue-lighter}"
 echo "building release catalog-capture-cli (features=${CAPTURE_FEATURES})..."
 cargo build --release -p catalog-capture-cli \

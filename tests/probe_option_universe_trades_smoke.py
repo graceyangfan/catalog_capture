@@ -42,7 +42,7 @@ trade_family_stats = _smoke_mod.trade_family_stats
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Run live option-universe trade capture smokes (Step 6b, default 3 minutes)."
+            "Run live option-universe trade capture smokes (default 3 minutes)."
         ),
     )
     parser.add_argument(

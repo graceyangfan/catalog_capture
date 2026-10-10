@@ -86,7 +86,7 @@ def main() -> int:
         assert_monotonic_ts_init(custom, f"{args.type_name}[{label}]")
 
     print_probe_header(
-        "Python Binance custom-data catalog probe succeeded (Step 5)",
+        "Python Binance custom-data catalog probe succeeded",
         args.catalog_dir,
         [
             ("Type name", args.type_name),

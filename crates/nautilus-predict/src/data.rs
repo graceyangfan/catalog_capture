@@ -36,6 +36,48 @@ pub struct PredictOrderbookLevel {
     pub quantity: Quantity,
 }
 
+/// The most recent order whose settlement completed for this market.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PredictLastOrderSettled {
+    pub id: String,
+    pub price: Price,
+    pub kind: String,
+    pub market_id: u64,
+    pub side: String,
+    pub outcome: String,
+}
+
+/// One venue-provided `[price, value]` level whose settlement is in flight.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PredictSettlementPendingLevel {
+    pub price: Price,
+    pub value: Quantity,
+}
+
+/// Pending settlement levels separated by the native YES-book side.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PredictSettlementsPending {
+    pub asks: Vec<PredictSettlementPendingLevel>,
+    pub bids: Vec<PredictSettlementPendingLevel>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PredictLastOrderSettledWire {
+    pub id: String,
+    pub price: Decimal,
+    pub kind: String,
+    pub market_id: u64,
+    pub side: String,
+    pub outcome: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PredictSettlementsPendingWire {
+    pub asks: Vec<(Decimal, Decimal)>,
+    pub bids: Vec<(Decimal, Decimal)>,
+}
+
 /// Predict's public `predictOrderbook/{marketId}` payload.
 ///
 /// Decimal tokens are intentionally decoded directly to `Decimal`; no float is used.
@@ -47,6 +89,10 @@ pub struct PredictOrderbookWire {
     pub order_count: u64,
     pub asks: Vec<(Decimal, Decimal)>,
     pub bids: Vec<(Decimal, Decimal)>,
+    #[serde(default)]
+    pub last_order_settled: Option<PredictLastOrderSettledWire>,
+    #[serde(default)]
+    pub settlements_pending: Option<PredictSettlementsPendingWire>,
 }
 
 /// One accepted complete native YES orderbook snapshot.
@@ -63,6 +109,10 @@ pub struct PredictOrderbookSnapshot {
     pub bids: Vec<PredictOrderbookLevel>,
     #[custom_data_field(serde)]
     pub asks: Vec<PredictOrderbookLevel>,
+    #[custom_data_field(serde)]
+    pub last_order_settled: Option<PredictLastOrderSettled>,
+    #[custom_data_field(serde)]
+    pub settlements_pending: Option<PredictSettlementsPending>,
     pub ts_event: UnixNanos,
     pub ts_init: UnixNanos,
 }
@@ -82,6 +132,14 @@ impl PredictOrderbookSnapshot {
         );
         let bids = normalize_levels(wire.bids, context)?;
         let asks = normalize_levels(wire.asks, context)?;
+        let last_order_settled = wire
+            .last_order_settled
+            .map(|order| normalize_last_order_settled(order, context))
+            .transpose()?;
+        let settlements_pending = wire
+            .settlements_pending
+            .map(|pending| normalize_settlements_pending(pending, context))
+            .transpose()?;
         let ts_event = UnixNanos::from_millis(wire.update_timestamp_ms);
 
         Ok(Self {
@@ -90,6 +148,8 @@ impl PredictOrderbookSnapshot {
             order_count: wire.order_count,
             bids,
             asks,
+            last_order_settled,
+            settlements_pending,
             ts_event,
             ts_init,
         })
@@ -114,6 +174,76 @@ impl PredictOrderbookSnapshot {
     }
 }
 
+fn normalize_last_order_settled(
+    order: PredictLastOrderSettledWire,
+    context: &PredictMarketContext,
+) -> anyhow::Result<PredictLastOrderSettled> {
+    anyhow::ensure!(
+        order.market_id == context.market_id,
+        "Predict lastOrderSettled marketId {} does not match context {}",
+        order.market_id,
+        context.market_id
+    );
+    let price = normalize_price(order.price, context, "lastOrderSettled price")?;
+    Ok(PredictLastOrderSettled {
+        id: order.id,
+        price,
+        kind: order.kind,
+        market_id: order.market_id,
+        side: order.side,
+        outcome: order.outcome,
+    })
+}
+
+fn normalize_settlements_pending(
+    pending: PredictSettlementsPendingWire,
+    context: &PredictMarketContext,
+) -> anyhow::Result<PredictSettlementsPending> {
+    Ok(PredictSettlementsPending {
+        asks: normalize_pending_levels(pending.asks, context)?,
+        bids: normalize_pending_levels(pending.bids, context)?,
+    })
+}
+
+fn normalize_pending_levels(
+    levels: Vec<(Decimal, Decimal)>,
+    context: &PredictMarketContext,
+) -> anyhow::Result<Vec<PredictSettlementPendingLevel>> {
+    levels
+        .into_iter()
+        .map(|(price, value)| {
+            let price = normalize_price(price, context, "settlementsPending price")?;
+            anyhow::ensure!(
+                value >= Decimal::ZERO,
+                "Predict settlementsPending value {value} is negative"
+            );
+            let value = normalize_level_value(
+                value,
+                context.size_precision,
+                "settlementsPending value",
+                true,
+            )?;
+            Ok(PredictSettlementPendingLevel {
+                price,
+                value: Quantity::from_decimal_dp(value, context.size_precision)?,
+            })
+        })
+        .collect()
+}
+
+fn normalize_price(
+    price: Decimal,
+    context: &PredictMarketContext,
+    field: &str,
+) -> anyhow::Result<Price> {
+    anyhow::ensure!(
+        price >= Decimal::ZERO && price <= Decimal::ONE,
+        "Predict {field} {price} is outside [0, 1]"
+    );
+    let price = normalize_level_value(price, context.price_precision, field, false)?;
+    Ok(Price::from_decimal_dp(price, context.price_precision)?)
+}
+
 /// Registers the Arrow and JSON decoders required before writing or querying this custom type.
 ///
 /// Registration is idempotent.
@@ -129,22 +259,14 @@ fn normalize_levels(
         .into_iter()
         .map(|(price, quantity)| {
             anyhow::ensure!(
-                price >= Decimal::ZERO && price <= Decimal::ONE,
-                "Predict orderbook price {price} is outside [0, 1]"
-            );
-            anyhow::ensure!(
                 quantity >= Decimal::ZERO,
                 "Predict orderbook quantity {quantity} is negative"
             );
-            let price = normalize_level_value(price, context.price_precision, "price", false)?;
-            let quantity = normalize_level_value(
-                quantity,
-                context.size_precision,
-                "quantity",
-                true,
-            )?;
+            let price = normalize_price(price, context, "orderbook price")?;
+            let quantity =
+                normalize_level_value(quantity, context.size_precision, "quantity", true)?;
             Ok(PredictOrderbookLevel {
-                price: Price::from_decimal_dp(price, context.price_precision)?,
+                price,
                 quantity: Quantity::from_decimal_dp(quantity, context.size_precision)?,
             })
         })

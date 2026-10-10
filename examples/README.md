@@ -3,20 +3,31 @@
 TOML configs for `catalog-capture-cli` only (not cargo examples).
 Run from the **repository root**. Catalog roots use `file://./data/…` (gitignored).
 
+The directory contains three deliberate classes:
+
+- long-running operator profiles (`capture.*` rows marked production below);
+- focused protocol/reference profiles used by one adapter or data family;
+- finite smoke fixtures referenced by `tests/probe_*.py`.
+
+Do not copy a finite smoke duration or a hard-coded instrument into an
+unattended deployment. Use dynamic universe profiles for expiring options.
+
 ## Rotation convention
 
 - General, option-universe, custom-data, and multi-venue profiles omit an explicit
   seal override and use the production default: **daily at 06:00 UTC**.
-- The Binance/Lighter L2 profile is the deliberate exception: **hourly UTC
-  segments** with a managed snapshot at each boundary so each hour can be replayed
-  independently.
-- `*-smoke.toml`, `*-seal-quick.toml`, and `capture.low-threshold.toml` are test
-  profiles only and are not unattended production defaults.
+- High-rate native L2 profiles use **hourly UTC segments** with a managed
+  snapshot at each boundary so each hour can be replayed independently.
+- Predict rolling products seal each selector on its own interval boundary;
+  a combined Predict/Binance profile therefore has independent 5m/15m custom
+  segments and hourly Binance segments.
+- `*-smoke.toml` and finite `capture_seconds` profiles are validation assets,
+  not unattended production defaults.
 
 Layout is Nautilus Rust `ParquetDataCatalog` only — see
 [docs/concepts/catalog_layout.md](../docs/concepts/catalog_layout.md).
 
-## Recommended (mainnet)
+## Recommended production profiles
 
 ```bash
 make build-release-capture
@@ -25,22 +36,28 @@ make build-release-capture
   --config examples/capture.multi-venue-mainnet.toml
 
 ./scripts/run-mainnet-capture.sh
-# or: ./scripts/run-mainnet-capture.sh examples/capture.multi-venue-mainnet.toml
 ```
 
-| Config | Content |
-|--------|---------|
-| **`capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
-| **`capture.binance-lighter-btc-sol-perp-books.toml`** | High-rate Binance/Lighter L2 books and trades, with self-contained hourly UTC segments |
-| **`capture.binance-spot-sbe-btc.toml`** | Binance Spot SBE BTC/USDT full L2 + trades, with independently replayable hourly UTC segments |
-| **`capture.predict-binance-spot-sbe-btc-updown.toml`** | Canonical Predict BTC 5m/15m Up/Down YES snapshots with own interval seals plus Binance Spot SBE L2/trades hourly |
-| **`capture.binance-lighter-extended-btc-sol-perp-books.toml`** | Binance/Lighter BTC/SOL L2 and trades plus Extended SOL L2, trades, funding and mark/index prices |
-| **`capture.lighter-xemm-openai-anthropic.toml`** | Lighter + Robinhood Chain OPENAI/ANTHROPIC L2, trades, funding, mark and index prices |
-| **`capture.extended-btc-perp.toml`** | Extended public RPC v2 full L2, trades, mark/index prices and applied funding |
-| `capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid universe only + 06:00 UTC seal |
-| `capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (`interval_secs = 1`) |
+| Config | Required features | Content |
+|--------|-------------------|---------|
+| **`capture.multi-venue-mainnet.toml`** | standard `make build-release-capture` set | Public multi-venue instruments, quotes, trades, L2 and BookSummary |
+| **`capture.binance-lighter-btc-sol-perp-books.toml`** | `venue-binance,venue-lighter` | High-rate BTC/SOL L2 and trades; replayable hourly segments |
+| **`capture.binance-spot-sbe-btc.toml`** | `venue-binance` | Binance Spot SBE BTC/USDT full L2 + trades; credentials required |
+| **`capture.predict-orderbook.toml`** | `venue-predict` | Predict BTC 5m Up/Down native YES snapshots; credentials required |
+| **`capture.predict-binance-spot-sbe-btc-updown.toml`** | `venue-binance,venue-predict` | Predict BTC 5m/15m plus Binance Spot SBE L2/trades |
+| **`capture.binance-lighter-extended-btc-sol-perp-books.toml`** | `venue-binance,venue-lighter,venue-extended` | Binance/Lighter/Extended L2, trades and price/funding data |
+| **`capture.lighter-xemm-openai-anthropic.toml`** | `venue-lighter` | Lighter + Robinhood Chain XEMM research feeds |
+| **`capture.extended-btc-perp.toml`** | `venue-extended` | Extended RPC v2 BTC perpetual public data |
+| `capture.hyperliquid-hip4-btc-daily.toml` | `venue-hyperliquid` | Hyperliquid rolling daily binary universe |
+| `capture.deribit-btc-book-summary.toml` | `venue-deribit` | Deribit BookSummary request stream |
 
-## Other starters
+For a nonstandard profile, build the same binary with an explicit feature set:
+
+```bash
+CAPTURE_FEATURES=venue-binance,venue-predict make build-release-capture
+```
+
+## Focused reference profiles
 
 | Intent | Config |
 |--------|--------|
@@ -49,6 +66,10 @@ make build-release-capture
 | Binance perp WS | `capture.binance-perp.ws.toml` |
 | Hyperliquid OI | `capture.hyperliquid-open-interest.toml` |
 | Operator / unattended option universe | `operator/*.toml` |
+
+Finite Binance/Hyperliquid bar, trade, custom-data, and HIP-4 smoke profiles
+remain at the top level because the corresponding `tests/probe_*.py` programs
+load them directly. They are regression assets, not additional product entrypoints.
 
 ## Option universe (Deribit / Bybit / OKX)
 

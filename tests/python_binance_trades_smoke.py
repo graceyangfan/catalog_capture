@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fixture-based smoke for Binance perp trade tick capture (Step 6a)."""
+"""Fixture-based smoke for Binance perpetual trade-tick capture."""
 
 from __future__ import annotations
 

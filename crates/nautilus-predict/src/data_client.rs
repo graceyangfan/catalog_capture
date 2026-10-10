@@ -388,21 +388,22 @@ impl DataClient for PredictDataClient {
             .begin_generation();
         let (command_tx, session) = PredictWebSocketSession::connect(
             &self.config,
-            self.contexts.clone(),
-            Arc::clone(&self.dynamic_registry),
-            dynamic_generation,
-            self.data_sender.clone(),
-            self.clock,
-            self.cancellation.clone(),
-            Arc::clone(&self.connected),
+            PredictSessionInputs {
+                contexts: self.contexts.clone(),
+                dynamic_registry: Arc::clone(&self.dynamic_registry),
+                dynamic_generation,
+                data_sender: self.data_sender.clone(),
+                clock: self.clock,
+                cancellation: self.cancellation.clone(),
+                connected: Arc::clone(&self.connected),
+            },
         )
         .await?;
         self.connected.store(true, Ordering::Release);
         self.tasks
             .spawn(session.run())
-            .map_err(|error| {
+            .inspect_err(|_| {
                 self.connected.store(false, Ordering::Release);
-                error
             })
             .context("failed to spawn Predict WebSocket session")?;
         self.command_tx = Some(command_tx);
@@ -537,25 +538,38 @@ struct DynamicSubscription {
     next_refresh_ns: u64,
 }
 
+struct PredictSessionInputs {
+    contexts: AHashMap<u64, PredictMarketContext>,
+    dynamic_registry: Arc<RwLock<PredictDynamicMarketRegistry>>,
+    dynamic_generation: u64,
+    data_sender: EventSender<DataEvent>,
+    clock: &'static AtomicTime,
+    cancellation: CancellationToken,
+    connected: Arc<AtomicBool>,
+}
+
 impl PredictWebSocketSession {
     async fn connect(
         config: &PredictDataClientConfig,
-        contexts: AHashMap<u64, PredictMarketContext>,
-        dynamic_registry: Arc<RwLock<PredictDynamicMarketRegistry>>,
-        dynamic_generation: u64,
-        data_sender: EventSender<DataEvent>,
-        clock: &'static AtomicTime,
-        cancellation: CancellationToken,
-        connected: Arc<AtomicBool>,
+        inputs: PredictSessionInputs,
     ) -> anyhow::Result<(mpsc::Sender<PredictCommand>, Self)> {
+        let PredictSessionInputs {
+            contexts,
+            dynamic_registry,
+            dynamic_generation,
+            data_sender,
+            clock,
+            cancellation,
+            connected,
+        } = inputs;
         let (raw_tx, raw_rx) = mpsc::channel(RAW_QUEUE_CAPACITY);
         let overflowed = std::sync::Arc::new(AtomicBool::new(false));
         let overflowed_handler = std::sync::Arc::clone(&overflowed);
         let epoch_handler: EpochMessageHandler = std::sync::Arc::new(move |epoch, message| {
-            if let Err(error) = raw_tx.try_send((epoch, message)) {
-                if matches!(error, mpsc::error::TrySendError::Full(_)) {
-                    overflowed_handler.store(true, Ordering::Release);
-                }
+            if let Err(error) = raw_tx.try_send((epoch, message))
+                && matches!(error, mpsc::error::TrySendError::Full(_))
+            {
+                overflowed_handler.store(true, Ordering::Release);
             }
         });
         let mut headers = create_standard_nautilus_headers();

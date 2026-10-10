@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run 3-minute live bar capture smokes across all supported venues (Step 6c)."""
+"""Run live bar-capture smokes across all supported venues."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Run live perp 1m bar capture smokes for all supported venues "
-            "(Step 6c, default 3 minutes)."
+            "(default 3 minutes)."
         ),
     )
     parser.add_argument(

@@ -1,4 +1,4 @@
-# Step 9a-lite profile: OKX BTC near-month full-chain option universe resolved at startup.
+# OKX BTC near-month full-chain option universe resolved at startup.
 
 [runtime]
 capture_seconds = 60

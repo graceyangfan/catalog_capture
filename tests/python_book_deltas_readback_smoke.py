@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fixture-based smoke for selective option book_deltas readback (Step 6d)."""
+"""Fixture-based smoke for selective option book-delta readback."""
 
 from __future__ import annotations
 

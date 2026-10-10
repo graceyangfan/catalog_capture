@@ -4,8 +4,8 @@
 # Production (daily 06:00 UTC seal):
 #   cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-perp-daily.toml
 #
-# Quick local seal check (set schedule to UTC now+1min in TOML only):
-#   examples/capture.hyperliquid-perp-seal-quick.toml
+# For a bounded seal/readback probe, use tests/probe_segment_seal_readback.py;
+# do not commit wall-clock schedules that become stale immediately.
 
 [runtime]
 capture_seconds = 0

@@ -27,12 +27,14 @@ venues → catalog-capture-cli + TOML
 
 - **One product binary** — `catalog-capture-cli` (TOML configs only)
 - **Rust catalog layout only** — `rust_canonical_only` (Nautilus `ParquetDataCatalog`)
-- **Venues** — Binance Futures, Deribit, Bybit, OKX, Hyperliquid (`venue-*` features)
-- **Subscription lifecycle** — optional universe refresh with old subscriptions
-  removed and new subscriptions added
+- **Venue adapters** — Binance Futures/Spot SBE, Bybit, Deribit, OKX,
+  Hyperliquid, Lighter/Robinhood Chain, Extended, and Predict (`venue-*` features)
+- **Dynamic products** — option universes, Hyperliquid HIP-4, and Predict
+  crypto Up/Down selectors discover and rotate instruments without restarting
 - **Order book checkpoints** — managed Nautilus books checkpointed hourly and at
   segment boundaries
-- **Segment lifecycle** — append `*.parquet.part`, seal on schedule (default 06:00 UTC)
+- **Segment lifecycle** — append `*.parquet.part`, then seal on the configured
+  schedule; rolling Predict products seal on their own interval boundaries
 - **Mainnet-oriented examples** — public data by default (no keys in TOML)
 
 ## Quick start
@@ -43,9 +45,9 @@ Requires Rust **1.99.0** and sibling `../nautilus_trader`. Run from the **repo r
 # Clone + checkout the Nautilus revision pinned by CI (recommended)
 make bootstrap-deps
 
-# Cloud / multi-venue capture: only link venues you need (smaller, faster)
+# Standard public multi-venue profile: link only the adapters it uses
 make build-release-capture
-# features: venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
+# default CAPTURE_FEATURES: venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
 
 ./bin/catalog-capture-cli validate \
   --config examples/capture.multi-venue-mainnet.toml
@@ -68,6 +70,9 @@ Data: `./data/…` (gitignored). Catalog layout: [docs/concepts/catalog_layout.m
 | Config | Use |
 |--------|-----|
 | **`examples/capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
+| `examples/capture.predict-orderbook.toml` | Predict BTC 5m Up/Down native YES snapshots |
+| `examples/capture.predict-binance-spot-sbe-btc-updown.toml` | Predict 5m/15m plus Binance Spot SBE L2/trades |
+| `examples/capture.extended-btc-perp.toml` | Extended BTC perpetual public market data |
 | `examples/capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid rolling-universe example |
 | `examples/capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (1s poll) |
 
@@ -77,7 +82,7 @@ More: [examples/README.md](examples/README.md).
 
 | Command | When |
 |---------|------|
-| `make build-release-capture` | **Preferred** for multi-venue mainnet capture |
+| `make build-release-capture` | Standard mainnet feature set; override `CAPTURE_FEATURES` for another profile |
 | `make build-release` | All venues (`all-venues`) |
 | `make build-slim FEATURES=venue-deribit` | Single-venue debug |
 | `make build-release-small` | Smaller binary, slower compile |
@@ -121,8 +126,9 @@ for the stale-PID guard and shutdown wait.
 
 ## Credentials
 
-Public capture by default (unset API env vars). Optional key+secret in env only —
-see [credentials](docs/how_to/credentials.md).
+Most venue profiles use public market data. Predict and Binance Spot SBE require
+dedicated local credentials; secrets never belong in capture TOML. See
+[credentials](docs/how_to/credentials.md).
 
 ## Development
 

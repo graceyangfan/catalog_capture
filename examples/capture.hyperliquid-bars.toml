@@ -1,4 +1,4 @@
-# Step 6c profile: Hyperliquid perp quotes + 1m bars (A9).
+# Focused Hyperliquid perpetual quote + one-minute bar profile.
 # Verify with:
 #   python3 tests/python_hyperliquid_bars_probe.py <catalog_dir>
 # Live smoke:

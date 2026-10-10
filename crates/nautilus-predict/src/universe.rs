@@ -130,9 +130,9 @@ fn interval_slug(interval_secs: u64) -> Option<String> {
     if interval_secs == 0 {
         return None;
     }
-    if interval_secs % 3600 == 0 {
+    if interval_secs.is_multiple_of(3600) {
         Some(format!("{}h", interval_secs / 3600))
-    } else if interval_secs % 60 == 0 {
+    } else if interval_secs.is_multiple_of(60) {
         Some(format!("{}m", interval_secs / 60))
     } else {
         Some(format!("{interval_secs}s"))

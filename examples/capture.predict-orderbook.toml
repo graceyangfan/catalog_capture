@@ -19,7 +19,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-PREDICT"
 
 [output]
-catalog_uri = "file://./data/predict"
+catalog_uri = "file://./data/predict-orderbook"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000

@@ -1,5 +1,4 @@
-# Step 6a profile: Binance Futures perpetual built-in WS + trade ticks (A8).
-# Extends Step 1–2 with `trades` on the same hedge leg.
+# Focused Binance Futures perpetual WebSocket + trade-tick profile.
 # Verify with:
 #   python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1 --min-trade-rows 1
 # Live smoke:

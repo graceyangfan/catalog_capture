@@ -1,14 +1,15 @@
 # Venue credentials
 
-Two modes only:
+General venue adapters use two modes:
 
 | Mode | When | Data client |
 |------|------|-------------|
 | **Public** (default) | No env keys, or incomplete pair | `api_key` / `api_secret` = `None` |
 | **Authenticated** | Full pair in environment | key + secret injected |
 
-General venue configuration never contains secrets. The Binance Spot SBE and
-Predict exceptions below use dedicated ignored, permission-checked TOML files.
+General venue configuration never contains secrets. Binance Spot SBE and
+Predict are credential-required data feeds; they use dedicated ignored,
+permission-checked TOML files described below.
 
 ## Public (usual case)
 

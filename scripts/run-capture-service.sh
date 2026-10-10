@@ -6,7 +6,8 @@
 #
 # Env:
 #   CAPTURE_FEATURES  --no-default-features --features … (release only)
-#                     default when --release: venue-binance,venue-deribit,venue-hyperliquid
+#                     default when --release:
+#                     venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
 #   RUSTUP_TOOLCHAIN  default 1.99.0
 #   CATALOG_CAPTURE_LOG_DIR  default <repo>/logs
 #   CATALOG_CAPTURE_BIN_DIR  default <repo>/bin

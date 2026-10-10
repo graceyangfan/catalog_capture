@@ -1,4 +1,4 @@
-# Step 6c profile: Binance Futures perpetual built-in WS + 1m bars (A9).
+# Focused Binance Futures perpetual WebSocket + one-minute bar profile.
 # Verify with:
 #   python3 tests/python_catalog_derivatives_probe.py <catalog_dir> ETHUSDT-PERP.BINANCE 1 --bar-type ETHUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL
 # Live smoke:

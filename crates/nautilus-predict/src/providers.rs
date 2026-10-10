@@ -321,10 +321,33 @@ mod tests {
             snapshot.bids[0].quantity,
             Quantity::from_decimal_dp(Decimal::new(150_025, 2), context.size_precision).unwrap()
         );
+        let last_order = snapshot
+            .last_order_settled
+            .as_ref()
+            .expect("fixture carries the most recent settled order");
+        assert_eq!(last_order.id, "987654321");
+        assert_eq!(last_order.market_id, context.market_id);
+        assert_eq!(last_order.price.to_string(), "0.62");
+        assert_eq!(last_order.kind, "LIMIT");
+        assert_eq!(last_order.side, "Ask");
+        assert_eq!(last_order.outcome, "Yes");
+        let pending = snapshot
+            .settlements_pending
+            .as_ref()
+            .expect("fixture carries pending settlement depth");
+        assert_eq!(pending.asks.len(), 1);
+        assert!(pending.bids.is_empty());
+        assert_eq!(pending.asks[0].price.to_string(), "0.63");
+        assert_eq!(
+            pending.asks[0].value,
+            Quantity::from_decimal_dp(Decimal::new(105, 1), context.size_precision).unwrap()
+        );
 
         let root = unique_temp_catalog("predict-market-instrument-roundtrip");
-        let mut config = CaptureConfig::default();
-        config.catalog_uri = format!("file://{}", root.display());
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..CaptureConfig::default()
+        };
         let sink = NautilusCatalogSink::from_config(&config).unwrap();
         sink.write_instruments(instruments).unwrap();
         sink.write_custom_data_batch(vec![snapshot.into_custom_data_with_type(data_type)])
@@ -392,6 +415,27 @@ mod tests {
         assert_eq!(restored_snapshot.instrument_id, context.yes_instrument_id);
         assert_eq!(restored_snapshot.bids.len(), 2);
         assert_eq!(restored_snapshot.asks.len(), 2);
+        let restored_last_order = restored_snapshot
+            .last_order_settled
+            .as_ref()
+            .expect("settled order survives parquet");
+        assert_eq!(restored_last_order.id, "987654321");
+        assert_eq!(restored_last_order.price.to_string(), "0.62");
+        assert_eq!(restored_last_order.kind, "LIMIT");
+        assert_eq!(restored_last_order.market_id, context.market_id);
+        assert_eq!(restored_last_order.side, "Ask");
+        assert_eq!(restored_last_order.outcome, "Yes");
+        let restored_pending = restored_snapshot
+            .settlements_pending
+            .as_ref()
+            .expect("pending settlements survive parquet");
+        assert_eq!(restored_pending.asks.len(), 1);
+        assert!(restored_pending.bids.is_empty());
+        assert_eq!(restored_pending.asks[0].price.to_string(), "0.63");
+        assert_eq!(
+            restored_pending.asks[0].value,
+            Quantity::from_decimal_dp(Decimal::new(105, 1), context.size_precision).unwrap()
+        );
 
         let _ = fs::remove_dir_all(root);
     }
@@ -417,6 +461,72 @@ mod tests {
             PredictOrderbookSnapshot::from_wire(&context, excess_precision, UnixNanos::from(2_000))
                 .unwrap_err();
         assert!(error.to_string().contains("exceeds declared precision 2"));
+
+        let mut wrong_settlement_market: PredictOrderbookWire =
+            serde_json::from_str(include_str!("../test_data/orderbook_2859346.json")).unwrap();
+        wrong_settlement_market
+            .last_order_settled
+            .as_mut()
+            .expect("fixture settled order")
+            .market_id += 1;
+        let error = PredictOrderbookSnapshot::from_wire(
+            &context,
+            wrong_settlement_market,
+            UnixNanos::from(2_000),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("lastOrderSettled marketId"));
+
+        let mut negative_pending_value: PredictOrderbookWire =
+            serde_json::from_str(include_str!("../test_data/orderbook_2859346.json")).unwrap();
+        negative_pending_value
+            .settlements_pending
+            .as_mut()
+            .expect("fixture pending settlements")
+            .asks[0]
+            .1 = Decimal::NEGATIVE_ONE;
+        let error = PredictOrderbookSnapshot::from_wire(
+            &context,
+            negative_pending_value,
+            UnixNanos::from(2_000),
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("settlementsPending value -1 is negative")
+        );
+    }
+
+    #[test]
+    fn snapshot_preserves_absent_settlement_state() {
+        let response: PredictResponse<PredictMarket> =
+            serde_json::from_str(include_str!("../test_data/market_2859346.json")).unwrap();
+        let (context, _) = instruments_from_market(&response.data, UnixNanos::from(1_000)).unwrap();
+        let mut value: serde_json::Value =
+            serde_json::from_str(include_str!("../test_data/orderbook_2859346.json")).unwrap();
+        value["lastOrderSettled"] = serde_json::Value::Null;
+        value
+            .as_object_mut()
+            .expect("object fixture")
+            .remove("settlementsPending");
+        let wire: PredictOrderbookWire = serde_json::from_value(value).unwrap();
+        let snapshot =
+            PredictOrderbookSnapshot::from_wire(&context, wire, UnixNanos::from(2_000)).unwrap();
+        assert!(snapshot.last_order_settled.is_none());
+        assert!(snapshot.settlements_pending.is_none());
+
+        let mut value: serde_json::Value =
+            serde_json::from_str(include_str!("../test_data/orderbook_2859346.json")).unwrap();
+        value["settlementsPending"] = serde_json::json!({ "asks": [], "bids": [] });
+        let wire: PredictOrderbookWire = serde_json::from_value(value).unwrap();
+        let snapshot =
+            PredictOrderbookSnapshot::from_wire(&context, wire, UnixNanos::from(2_000)).unwrap();
+        let pending = snapshot
+            .settlements_pending
+            .expect("present empty settlement state remains present");
+        assert!(pending.asks.is_empty());
+        assert!(pending.bids.is_empty());
     }
 
     #[test]

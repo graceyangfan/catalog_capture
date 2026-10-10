@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fixture-based smoke for perp 1m bar capture readback (Step 6c)."""
+"""Fixture-based smoke for perpetual one-minute bar capture readback."""
 
 from __future__ import annotations
 

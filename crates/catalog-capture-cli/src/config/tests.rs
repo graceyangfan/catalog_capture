@@ -1347,6 +1347,20 @@ fn example_binance_spot_sbe_btc_config_loads_and_validates() {
     ));
 }
 
+#[cfg(feature = "venue-predict")]
+#[test]
+fn example_predict_orderbook_config_loads_and_validates() {
+    let path = repo_root().join("examples/capture.predict-orderbook.toml");
+    let loaded = load_config(&path).expect("example should load");
+    let effective = resolve_config(loaded).expect("example should resolve");
+    validate_runtime(&effective).expect("example should validate");
+    assert!(matches!(
+        effective.venues.as_slice(),
+        [VenueRuntimeConfig::Predict { .. }]
+    ));
+    assert_eq!(effective.plan.custom_data.len(), 1);
+}
+
 #[cfg(all(feature = "venue-binance", feature = "venue-predict"))]
 #[test]
 fn example_predict_binance_spot_btc_updown_config_loads_and_validates() {

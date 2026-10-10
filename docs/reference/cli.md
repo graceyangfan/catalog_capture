@@ -8,6 +8,14 @@ Binary: `catalog-capture-cli`.
 cargo run -p catalog-capture-cli -- run --config <path.toml>
 ```
 
+Useful preflight flags:
+
+| Flag | Purpose |
+|------|---------|
+| `--dry-run-resolve` | Resolve dynamic option/HIP-4 universes, print the report, then exit |
+| `--print-option-universe` | Print resolved universe reports before continuing capture |
+| `--skip-post-run-report` | Skip automatic option-universe inspection after a bounded run |
+
 ## Config
 
 ```bash
@@ -19,6 +27,7 @@ cargo run -p catalog-capture-cli -- print-effective-config --config <path.toml>
 
 | Subcommand | Purpose |
 |------------|---------|
+| `resolve-option-universe` | Resolve live venue metadata without starting capture |
 | `inspect-option-universe` | Summarize resolution lineage |
 | `validate-option-universe-metadata` | Check resolution metadata |
 | `validate-option-universe-readback` | Catalog readback |
@@ -27,6 +36,7 @@ cargo run -p catalog-capture-cli -- print-effective-config --config <path.toml>
 
 ```bash
 cargo run -p catalog-capture-cli -- validate-option-universe \
+  --catalog-uri file://./data/deribit-btc-universe-autorefresh \
   --config examples/capture.deribit-btc-universe-autorefresh.toml \
   --option-universe-format text
 ```

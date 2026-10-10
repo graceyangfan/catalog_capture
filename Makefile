@@ -23,7 +23,7 @@ help:
 	@echo "  product binary: $(PRODUCT_BIN) (target/ is disposable build cache)"
 	@echo ""
 	@echo "Build (smaller / faster):"
-	@echo "  build-release-capture  release + only venues needed for multi-venue mainnet"
+	@echo "  build-release-capture  release + venues used by the standard mainnet profile"
 	@echo "                         (FEATURES=$(CAPTURE_FEATURES))"
 	@echo "  build-release          release, all venues (largest graph)"
 	@echo "  build-release-small    --profile release-small (slower, smaller binary)"

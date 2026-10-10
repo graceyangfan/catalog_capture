@@ -42,7 +42,7 @@ ALL_STRIKES_VENUES = _smoke_mod.ALL_STRIKES_VENUES
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Run live option-universe bar capture smokes (Step 6c, default 3 minutes)."
+            "Run live option-universe bar capture smokes (default 3 minutes)."
         ),
     )
     parser.add_argument(

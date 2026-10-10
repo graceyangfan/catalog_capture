@@ -56,7 +56,7 @@ def main() -> int:
 
     assert_monotonic_ts_init(custom, f"DeribitVolatilityIndex[{args.index_name}]")
 
-    print("Python Deribit DVOL catalog probe succeeded (Step 5)")
+    print("Python Deribit DVOL catalog probe succeeded")
     print(f"Catalog dir: {args.catalog_dir}")
     print(f"Data types: {data_types}")
     print(f"Index name: {args.index_name}")

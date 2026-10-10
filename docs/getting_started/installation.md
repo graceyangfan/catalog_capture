@@ -44,7 +44,7 @@ rustup component add rustfmt clippy --toolchain 1.99.0
 ## Build
 
 ```bash
-# Recommended for multi-venue mainnet capture (Binance + Deribit + Hyperliquid + Lighter)
+# Standard public profile (Binance + Deribit + Hyperliquid + Lighter)
 make build-release-capture
 # Deployable binary: ./bin/catalog-capture-cli (target/ is only build cache)
 
@@ -62,7 +62,12 @@ make build-release-small
 ```
 
 Venue features: `venue-binance`, `venue-bybit`, `venue-deribit`, `venue-okx`,
-`venue-hyperliquid`, `venue-lighter`, or `all-venues`.
+`venue-hyperliquid`, `venue-lighter`, `venue-extended`, `venue-predict`, or
+`all-venues`. A slim binary must include every venue referenced by its TOML:
+
+```bash
+CAPTURE_FEATURES=venue-binance,venue-predict make build-release-capture
+```
 
 `examples/*.toml` are CLI configs, not cargo examples.
 

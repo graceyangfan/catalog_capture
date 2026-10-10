@@ -1,4 +1,4 @@
-# Step 9a-lite profile: Bybit BTC near-month full-chain option universe resolved at startup.
+# Bybit BTC near-month full-chain option universe resolved at startup.
 
 [runtime]
 capture_seconds = 60

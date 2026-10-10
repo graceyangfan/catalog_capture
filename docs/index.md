@@ -1,7 +1,8 @@
 # Documentation
 
 Catalog Capture writes **Nautilus Trader Rust `ParquetDataCatalog`** layouts.
-Docs follow the Divio split (getting started / concepts / how-to / reference).
+Operator documentation follows the Divio split (getting started / concepts /
+how-to / reference); protocol design records are listed separately.
 
 ## Getting started
 
@@ -34,6 +35,16 @@ Docs follow the Divio split (getting started / concepts / how-to / reference).
 | [Custom data](concepts/custom_data.md) | Subscribe vs request |
 | [Flush and rotation](concepts/flush_and_rotation.md) | Buffer / flush profiles |
 | [Segment lifecycle](concepts/segment_lifecycle.md) | Seal at wall-clock boundary |
+
+## Design records
+
+These documents capture protocol evidence, invariants, and implementation
+boundaries. They are not operator runbooks.
+
+| Doc | Scope |
+|-----|-------|
+| [Extended public adapter](extended-public-capture-design.md) | RPC v2 protocol and realtime lifecycle |
+| [Predict execution adapter](predict-execution-adapter-design.md) | Orders, wallet events, reconciliation, and execution lifecycle |
 
 ## Developer guide
 
