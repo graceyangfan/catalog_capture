@@ -26,7 +26,13 @@ fn six_selectors_roll_and_read_back() {
     let root = std::env::var("PREDICT_PROBE_CATALOG").expect("set PREDICT_PROBE_CATALOG");
     register_predict_custom_data();
     let mut catalog = ParquetDataCatalog::new(Path::new(&root), None, None, None, None);
-    let instruments = catalog.instruments(None, None, None).unwrap();
+    // The profile also records Spot SBE definitions in the same catalog.
+    let instruments = catalog
+        .instruments(None, None, None)
+        .unwrap()
+        .into_iter()
+        .filter(|instrument| instrument.id().venue.as_str() == "PREDICT")
+        .collect::<Vec<_>>();
     let rows = catalog
         .query_custom_data_dynamic(
             "PredictOrderbookSnapshot",

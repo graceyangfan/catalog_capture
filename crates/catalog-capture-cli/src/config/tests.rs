@@ -136,13 +136,13 @@ fn validate_runtime_accepts_predict_crypto_up_down_without_market_id() {
     validate_runtime(&effective).expect("dynamic Predict selector should validate");
 }
 
-#[cfg(feature = "venue-predict")]
+#[cfg(all(feature = "venue-predict", feature = "venue-binance"))]
 #[test]
 fn example_predict_six_selector_cloud_config_loads_and_validates() {
     let path = repo_root().join("examples/capture.predict-crypto-updown.toml");
-    let loaded = load_config(&path).expect("Predict-only cloud profile should load");
-    let effective = resolve_config(loaded).expect("Predict-only cloud profile should resolve");
-    validate_runtime(&effective).expect("Predict-only cloud profile should validate");
+    let loaded = load_config(&path).expect("Predict/Spot SBE cloud profile should load");
+    let effective = resolve_config(loaded).expect("Predict/Spot SBE cloud profile should resolve");
+    validate_runtime(&effective).expect("Predict/Spot SBE cloud profile should validate");
     assert_eq!(effective.plan.custom_data.len(), 6);
     let mut selectors = std::collections::BTreeSet::new();
     for spec in &effective.plan.custom_data {
@@ -174,11 +174,47 @@ fn example_predict_six_selector_cloud_config_loads_and_validates() {
     }
     assert_eq!(selectors.len(), 6);
     assert!(effective.hip4_universes.is_empty());
-    assert!(!effective.capture.lifecycle.seal.enabled);
+    assert!(effective.capture.lifecycle.seal.enabled);
+    assert_eq!(effective.capture.lifecycle.seal.interval_secs, 3600);
+    assert_eq!(effective.capture.lifecycle.seal.schedule, "00:00");
+    assert_eq!(effective.capture.lifecycle.seal.timezone, "UTC");
     assert!(matches!(
         effective.venues.as_slice(),
-        [VenueRuntimeConfig::Predict { .. }]
+        [
+            VenueRuntimeConfig::Predict { .. },
+            VenueRuntimeConfig::BinanceSpot { .. }
+        ]
     ));
+    assert_eq!(effective.plan.instruments.len(), 3);
+    assert_eq!(effective.plan.trades.len(), 3);
+    assert_eq!(effective.plan.book_deltas.len(), 3);
+    for symbol in ["BTCUSDT.BINANCE", "ETHUSDT.BINANCE", "BNBUSDT.BINANCE"] {
+        assert!(
+            effective
+                .plan
+                .instruments
+                .iter()
+                .any(|spec| spec.instrument_id.to_string() == symbol)
+        );
+        assert!(
+            effective
+                .plan
+                .trades
+                .iter()
+                .any(|spec| spec.instrument_id.to_string() == symbol)
+        );
+        let book = effective
+            .plan
+            .book_deltas
+            .iter()
+            .find(|spec| spec.instrument_id.to_string() == symbol)
+            .unwrap();
+        assert!(
+            book.depth.is_none(),
+            "Spot SBE must use its native full-depth feed"
+        );
+        assert_eq!(book.book_type, nautilus_model::enums::BookType::L2_MBP);
+    }
     assert_eq!(
         effective.capture.catalog_uri,
         "file://./data/predict-crypto-updown"
@@ -1522,7 +1558,7 @@ fn example_hyperliquid_bars_config_loads_and_validates() {
     validate_runtime(&effective).expect("example should validate");
 }
 
-#[cfg(feature = "venue-hyperliquid")]
+#[cfg(all(feature = "venue-hyperliquid", feature = "venue-binance"))]
 #[test]
 fn example_hyperliquid_hip4_btc_daily_config_loads_and_validates() {
     let path = repo_root().join("examples/capture.hyperliquid-hip4-btc-daily.toml");
@@ -1532,6 +1568,34 @@ fn example_hyperliquid_hip4_btc_daily_config_loads_and_validates() {
     assert_eq!(effective.capture.lifecycle.seal.interval_secs, 3600);
     assert_eq!(effective.capture.lifecycle.seal.schedule, "00:00");
     assert_eq!(effective.capture.lifecycle.seal.timezone, "UTC");
+    assert!(matches!(
+        effective.venues.as_slice(),
+        [
+            VenueRuntimeConfig::Hyperliquid { .. },
+            VenueRuntimeConfig::BinanceFutures { .. }
+        ]
+    ));
+    assert!(effective.plan.custom_data.is_empty());
+    assert_eq!(effective.plan.instruments.len(), 1);
+    assert_eq!(effective.plan.trades.len(), 1);
+    assert_eq!(effective.plan.book_deltas.len(), 1);
+    assert_eq!(
+        effective.plan.instruments[0].instrument_id.to_string(),
+        "BTCUSDT-PERP.BINANCE"
+    );
+    assert_eq!(
+        effective.plan.trades[0].instrument_id.to_string(),
+        "BTCUSDT-PERP.BINANCE"
+    );
+    assert_eq!(
+        effective.plan.book_deltas[0].instrument_id.to_string(),
+        "BTCUSDT-PERP.BINANCE"
+    );
+    assert_eq!(effective.plan.book_deltas[0].depth, Some(50));
+    assert_eq!(
+        effective.plan.book_deltas[0].book_type,
+        nautilus_model::enums::BookType::L2_MBP
+    );
     assert_eq!(effective.hip4_universes.len(), 1);
     assert_eq!(effective.hip4_universes[0].market_class, "priceBinary");
     assert!(effective.runtime.hip4_universe_refresh.enabled);

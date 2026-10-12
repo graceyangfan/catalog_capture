@@ -89,16 +89,21 @@ cross-compilation is intentionally not attempted.
 
 Run two separate processes with separate catalogs under the project's ignored
 `data/` directory. HIP4 discovers BTC daily YES/NO instruments and records
-quotes/trades in hourly UTC files under `data/hyperliquid-hip4-btc-daily/`.
+quotes/trades together with Binance BTC USD-M perpetual L2/trades in hourly UTC
+files under `data/hyperliquid-hip4-btc-daily/`. The perpetual subscription uses
+`depth = 50`, selecting `btcusdt@depth@0ms`, not a partial snapshot stream.
 Predict discovers BTC, ETH and BNB, each at 5m and 15m, and independently seals
-one YES snapshot file per market under `data/predict-crypto-updown/`.
+one YES snapshot file per market under `data/predict-crypto-updown/`. Its matching
+BTC/ETH/BNB Binance Spot SBE L2/trades seal hourly; that timer does not seal Predict
+custom snapshots. Predict has no Futures feed; HIP4 has no Spot SBE feed.
 
-Configure only the local Predict API key as described in
-[credentials](credentials.md); HIP4 public recording needs no key. Never add
+Configure the local Predict API key and Binance Spot SBE Ed25519 credentials as
+described in [credentials](credentials.md); HIP4 and Binance Futures public
+recording need no key. Never add
 credentials to the capture profile or deployment archive.
 
 ```bash
-CAPTURE_FEATURES=venue-hyperliquid,venue-predict make build-release-capture
+CAPTURE_FEATURES=venue-binance,venue-hyperliquid,venue-predict make build-release-capture
 ./bin/catalog-capture-cli validate \
   --config examples/capture.hyperliquid-hip4-btc-daily.toml
 ./bin/catalog-capture-cli validate \
@@ -114,7 +119,8 @@ CAPTURE_FEATURES=venue-hyperliquid,venue-predict make build-release-capture
 Each process runs until stopped. Use Ctrl+C or `kill -TERM <pid>` and wait for
 `Capture completed` so every active file is sealed. Run one writer process per
 catalog directory. For packaging, package each profile separately with its
-matching feature (`venue-hyperliquid` or `venue-predict`).
+matching features (`venue-hyperliquid,venue-binance` for HIP4 or
+`venue-predict,venue-binance` for Predict).
 
 ## 4) Short smoke
 

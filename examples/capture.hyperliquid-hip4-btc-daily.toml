@@ -1,4 +1,5 @@
-# Hyperliquid HIP-4 style daily universe (mainnet).
+# Hyperliquid HIP-4 daily universe + Binance BTC USD-M perpetual alpha feed.
+# Required features: venue-hyperliquid,venue-binance. No API credentials required.
 # Auto-discovers outcomes via outcomeMeta; on roll: unsubscribe old, subscribe new.
 # Hourly UTC files; daily instrument rotation follows outcomeMeta expiration.
 #
@@ -27,7 +28,8 @@ flush_rows = 1000
 flush_interval_ms = 1000
 max_buffer_bytes = 33554432
 queue_capacity = 10000
-overflow_policy = "drop_oldest"
+# Never silently lose Binance L2 deltas.
+overflow_policy = "fail_fast"
 
 # Hour-aligned sealed parquet (HIP-4 instruments expire daily around 06:00 UTC).
 [output.lifecycle]
@@ -50,6 +52,12 @@ id = "hyperliquid_main"
 kind = "hyperliquid"
 environment = "mainnet"
 
+[[venues]]
+id = "binance_futures_main"
+kind = "binance_futures"
+environment = "live"
+product_type = "usd_m"
+
 [[capture.hip4_universe]]
 venue_id = "hyperliquid_main"
 underlying = "BTC"
@@ -58,3 +66,15 @@ market_class = "priceBinary"
 include_fallback = false
 include_perp_mark = false
 families = ["instruments", "quotes", "trades"]
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+# Selects btcusdt@depth@0ms; not a fixed-depth partial snapshot channel.
+depth = 50

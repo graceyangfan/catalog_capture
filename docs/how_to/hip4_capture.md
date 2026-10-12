@@ -78,8 +78,11 @@ When `[runtime.hip4_universe_refresh]` is enabled:
 
 ### Inspect the live binary-option universe before capture
 
-The HIP4-only profile is `examples/capture.hyperliquid-hip4-btc-daily.toml`;
-it writes to `./data/hyperliquid-hip4-btc-daily/`. Run Predict in a separate
+The HIP4 profile is `examples/capture.hyperliquid-hip4-btc-daily.toml`;
+it writes HIP4 quotes/trades and Binance BTC USD-M perpetual L2/trades to
+`./data/hyperliquid-hip4-btc-daily/`, with hourly UTC sealing. The perpetual
+`depth = 50` selects the `@depth@0ms` diff stream, not fixed-depth snapshots.
+This profile does not use Spot SBE. Run Predict in a separate
 process and catalog using `examples/capture.predict-crypto-updown.toml`.
 See [cloud capture](cloud_capture.md#independent-hip4-and-predict-recorders).
 

@@ -159,9 +159,11 @@ Use [capture.predict-orderbook.toml](../examples/capture.predict-orderbook.toml)
 for that standalone profile. Use
 [capture.predict-binance-spot-sbe-btc-updown.toml](../examples/capture.predict-binance-spot-sbe-btc-updown.toml)
 for BTC 5m and 15m snapshots plus hourly Binance Spot SBE L2/trades.
-For all six BTC/ETH/BNB 5m/15m products, use the Predict-only
+For all six BTC/ETH/BNB 5m/15m products with matching Binance Spot SBE L2/trades, use
 [capture.predict-crypto-updown.toml](../examples/capture.predict-crypto-updown.toml).
-It writes to `./data/predict-crypto-updown/`, independently of HIP4; see
+Spot data seal hourly; Predict snapshots seal independently per event interval.
+This profile includes no Binance Futures feed. It writes to
+`./data/predict-crypto-updown/`, independently of HIP4; see
 [cloud recording](how_to/cloud_capture.md#independent-hip4-and-predict-recorders).
 
 The Predict API key is not capture TOML. Copy

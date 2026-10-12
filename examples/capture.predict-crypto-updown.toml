@@ -1,7 +1,8 @@
-# Predict-only cloud recorder: BTC/ETH/BNB 5m and 15m.
+# Predict BTC/ETH/BNB 5m and 15m + matching Binance Spot SBE L2/trades.
 # Run from the repository root. No market IDs or credentials belong in this file.
-# Required feature: venue-predict.
+# Required features: venue-predict,venue-binance. No Futures or HIP4 in this profile.
 # Predict key: ignored env/predictfun.toml, or PREDICT_CREDENTIALS_FILE.
+# Spot SBE credentials: ignored env/binance-spot-sbe.toml (api_key + private_key).
 
 [runtime]
 capture_seconds = 0
@@ -30,14 +31,22 @@ row_group_rows = 5000
 sync_interval_ms = 1000
 
 # Each selector seals independently when its successor's first snapshot is accepted.
-# No hourly timer cuts Predict 5m/15m market files.
+# The hourly timer seals only native Spot L2/trades, not Predict custom writers.
 [output.lifecycle.seal]
-enabled = false
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
 
 [[venues]]
 id = "predict_main"
 kind = "predict"
 
+[[venues]]
+id = "binance_spot_sbe"
+kind = "binance_spot"
+environment = "live"
+
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
@@ -79,3 +88,33 @@ type_name = "PredictCryptoUpDown"
 price_feed_symbol = "BNB/USDT"
 title_asset = "BNB"
 interval_secs = "900"
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT.BINANCE"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT.BINANCE"
+book_type = "L2_MBP"
+
+[[capture.instruments]]
+instrument_id = "ETHUSDT.BINANCE"
+
+[[capture.trades]]
+instrument_id = "ETHUSDT.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "ETHUSDT.BINANCE"
+book_type = "L2_MBP"
+
+[[capture.instruments]]
+instrument_id = "BNBUSDT.BINANCE"
+
+[[capture.trades]]
+instrument_id = "BNBUSDT.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BNBUSDT.BINANCE"
+book_type = "L2_MBP"

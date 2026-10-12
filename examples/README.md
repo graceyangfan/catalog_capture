@@ -44,14 +44,14 @@ make build-release-capture
 | Config | Required features | Content |
 |--------|-------------------|---------|
 | **`capture.multi-venue-mainnet.toml`** | standard `make build-release-capture` set | Public multi-venue instruments, quotes, trades, L2 and BookSummary |
-| **`capture.predict-crypto-updown.toml`** | `venue-predict` | Predict-only BTC/ETH/BNB 5m/15m YES snapshots; independent process/catalog from HIP4 |
+| **`capture.predict-crypto-updown.toml`** | `venue-binance,venue-predict` | BTC/ETH/BNB 5m/15m Predict YES snapshots plus matching hourly Spot SBE L2/trades; separate from HIP4, no Futures |
 | **`capture.binance-lighter-btc-sol-perp-books.toml`** | `venue-binance,venue-lighter` | High-rate BTC/SOL L2 and trades; replayable hourly segments |
 | **`capture.binance-spot-sbe-btc.toml`** | `venue-binance` | Binance Spot SBE BTC/USDT full L2 + trades; credentials required |
 | **`capture.predict-binance-spot-sbe-btc-updown.toml`** | `venue-binance,venue-predict` | Predict BTC 5m/15m plus Binance Spot SBE L2/trades |
 | **`capture.binance-lighter-extended-btc-sol-perp-books.toml`** | `venue-binance,venue-lighter,venue-extended` | Binance/Lighter/Extended L2, trades and price/funding data |
 | **`capture.lighter-xemm-openai-anthropic.toml`** | `venue-lighter` | Lighter + Robinhood Chain XEMM research feeds |
 | **`capture.extended-btc-perp.toml`** | `venue-extended` | Extended RPC v2 BTC perpetual public data |
-| `capture.hyperliquid-hip4-btc-daily.toml` | `venue-hyperliquid` | Hyperliquid rolling daily binary universe |
+| `capture.hyperliquid-hip4-btc-daily.toml` | `venue-binance,venue-hyperliquid` | BTC rolling daily binary universe plus hourly BTC USD-M perpetual L2 (`depth=50`, `@depth@0ms`)/trades; no Spot SBE |
 | `capture.deribit-btc-book-summary.toml` | `venue-deribit` | Deribit BookSummary request stream |
 
 For a nonstandard profile, build the same binary with an explicit feature set:
