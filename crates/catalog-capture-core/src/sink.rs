@@ -24,9 +24,9 @@ use anyhow::{Context, Result};
 use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{
-        close::InstrumentClose, Bar, CustomData, FundingRateUpdate, HasTsInit, IndexPriceUpdate,
-        InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas,
-        QuoteTick, TradeTick,
+        Bar, CustomData, FundingRateUpdate, HasTsInit, IndexPriceUpdate, InstrumentStatus,
+        MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas, QuoteTick, TradeTick,
+        close::InstrumentClose,
     },
     enums::RecordFlag,
     instruments::InstrumentAny,
@@ -53,6 +53,10 @@ pub trait CaptureSink<T> {
     }
 
     fn seal_all(&mut self) -> Result<FlushResult> {
+        Ok(FlushResult::default())
+    }
+
+    fn seal_partition(&mut self, _key: &str) -> Result<FlushResult> {
         Ok(FlushResult::default())
     }
 
@@ -128,6 +132,13 @@ where
         }
     }
 
+    fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.seal_partition(key),
+        }
+    }
+
     fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
         match self {
             Self::Chunked(_) => Ok(FlushResult::default()),
@@ -194,6 +205,13 @@ impl CaptureSink<CustomData> for CustomDataCatalogSink {
         match self {
             Self::Chunked(_) => Ok(FlushResult::default()),
             Self::Segment(sink) => sink.seal_all(),
+        }
+    }
+
+    fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.seal_partition(key),
         }
     }
 
@@ -396,6 +414,17 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
             Self::Segment { sink, .. } => sink.seal_all(),
         };
         self.finish_segment_seal(result)
+    }
+
+    fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment { sink, boundary } => {
+                let result = sink.seal_partition(key)?;
+                boundary.remove(key);
+                Ok(result)
+            }
+        }
     }
 
     fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
@@ -723,7 +752,7 @@ mod book_delta_batch_tests {
 
     use nautilus_core::UnixNanos;
     use nautilus_model::{
-        data::{stubs::stub_deltas, BookOrder, OrderBookDelta, OrderBookDeltas},
+        data::{BookOrder, OrderBookDelta, OrderBookDeltas, stubs::stub_deltas},
         enums::{BookAction, BookType, OrderSide, RecordFlag},
         orderbook::OrderBook,
         types::{Price, Quantity},
@@ -780,9 +809,10 @@ mod book_delta_batch_tests {
         assert_eq!(rows[0].action, BookAction::Clear);
         assert!(RecordFlag::F_SNAPSHOT.matches(rows[0].flags));
         assert!(RecordFlag::F_LAST.matches(rows.last().expect("last row").flags));
-        assert!(rows
-            .windows(2)
-            .all(|pair| pair[0].ts_init <= pair[1].ts_init));
+        assert!(
+            rows.windows(2)
+                .all(|pair| pair[0].ts_init <= pair[1].ts_init)
+        );
 
         let _ = fs::remove_dir_all(root);
     }
@@ -868,9 +898,10 @@ mod book_delta_batch_tests {
         let rows = catalog
             .order_book_deltas(Some(vec![instrument_id.to_string()]), None, None)
             .expect("read boundary batches");
-        assert!(rows
-            .windows(2)
-            .all(|pair| pair[0].ts_init <= pair[1].ts_init));
+        assert!(
+            rows.windows(2)
+                .all(|pair| pair[0].ts_init <= pair[1].ts_init)
+        );
         assert!(RecordFlag::F_SNAPSHOT.matches(rows[0].flags));
         assert_eq!(
             rows.len(),
@@ -1016,12 +1047,16 @@ mod book_delta_batch_tests {
             .order_book_deltas(Some(vec![instrument_id.to_string()]), None, None)
             .expect("read segmented stream");
 
-        assert!(segmented_rows
-            .windows(2)
-            .all(|pair| pair[0].ts_init <= pair[1].ts_init));
-        assert!(segmented_rows
-            .iter()
-            .any(|row| RecordFlag::F_SNAPSHOT.matches(row.flags)));
+        assert!(
+            segmented_rows
+                .windows(2)
+                .all(|pair| pair[0].ts_init <= pair[1].ts_init)
+        );
+        assert!(
+            segmented_rows
+                .iter()
+                .any(|row| RecordFlag::F_SNAPSHOT.matches(row.flags))
+        );
         assert_eq!(
             segmented_rows.len(),
             continuous_rows.len() + boundary_snapshot.deltas.len() - late_duplicate_rows

@@ -90,6 +90,20 @@ For simultaneous products, the complete selector key—not interval alone—owns
 the subscription, writer, and rollover state. BTC 5m and ETH 5m therefore have
 independent writers even though their intervals are equal.
 
+REST discovery runs in generation-owned Nautilus `TaskGroup` tasks, not in the
+WebSocket receive loop. Each selector admits at most one discovery pass; up to
+four passes run concurrently, ordered by the earliest due deadline. A pass has
+a bounded overall timeout. Completion is applied only by the session, and only
+if the selector's subscription version is still current. Unsubscribe cancels
+its pass; disconnect/reset cancels and drains the task generation.
+
+Discovery runs immediately on subscribe and at the known market's window end.
+An unavailable market is checked again at the short cadence measured from the
+failed pass's completion, without accumulating timer ticks. Awaiting a cached
+initial snapshot does not repeatedly issue REST requests or duplicate socket
+subscriptions. Network reconnect remains owned by Nautilus network. Results
+whose window has expired are discarded; a future window cannot activate early.
+
 At a verified window boundary the client follows a safe handover:
 
 ```text
@@ -110,6 +124,19 @@ purge.
 
 Normal shutdown seals all active selector writers, including a partially filled
 interval, so there are no live `.part` files after a graceful stop.
+
+For six-product validation, configure BTC/USDT (`Bitcoin`), ETH/USDT (`Ethereum`)
+and BNB/USDT (`BNB`), each with `300` and `900` seconds. A completed recording
+across one common 15-minute boundary can be checked with the native catalog:
+
+```bash
+PREDICT_PROBE_CATALOG=/absolute/path/to/catalog \
+  cargo test -p nautilus-predict --test catalog_readback -- --ignored --nocapture
+```
+
+This opt-in test expects exactly two market windows for each selector, both
+outcome definitions, and one sealed snapshot file per market. It reads every
+snapshot through `ParquetDataCatalog`, not merely parquet file counts.
 
 ## Recorder configuration
 
@@ -132,6 +159,10 @@ Use [capture.predict-orderbook.toml](../examples/capture.predict-orderbook.toml)
 for that standalone profile. Use
 [capture.predict-binance-spot-sbe-btc-updown.toml](../examples/capture.predict-binance-spot-sbe-btc-updown.toml)
 for BTC 5m and 15m snapshots plus hourly Binance Spot SBE L2/trades.
+For all six BTC/ETH/BNB 5m/15m products, use the Predict-only
+[capture.predict-crypto-updown.toml](../examples/capture.predict-crypto-updown.toml).
+It writes to `./data/predict-crypto-updown/`, independently of HIP4; see
+[cloud recording](how_to/cloud_capture.md#independent-hip4-and-predict-recorders).
 
 The Predict API key is not capture TOML. Copy
 `examples/predictfun.credentials.toml.example` to ignored

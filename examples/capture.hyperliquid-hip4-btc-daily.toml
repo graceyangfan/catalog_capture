@@ -1,6 +1,6 @@
 # Hyperliquid HIP-4 style daily universe (mainnet).
 # Auto-discovers outcomes via outcomeMeta; on roll: unsubscribe old, subscribe new.
-# File seal at 06:00 UTC (segment lifecycle).
+# Hourly UTC files; daily instrument rotation follows outcomeMeta expiration.
 #
 #   cargo run -p catalog-capture-cli -- run --config examples/capture.hyperliquid-hip4-btc-daily.toml
 
@@ -29,7 +29,7 @@ max_buffer_bytes = 33554432
 queue_capacity = 10000
 overflow_policy = "drop_oldest"
 
-# Day-aligned sealed parquet (HIP-4 daily expires ~06:00 UTC).
+# Hour-aligned sealed parquet (HIP-4 instruments expire daily around 06:00 UTC).
 [output.lifecycle]
 mode = "segment"
 
@@ -38,6 +38,12 @@ row_group_rows = 5000
 
 [output.lifecycle.durability]
 sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
 
 [[venues]]
 id = "hyperliquid_main"

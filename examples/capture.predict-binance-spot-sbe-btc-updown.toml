@@ -1,7 +1,8 @@
 # Predict BTC Up/Down native YES orderbooks plus Binance Spot SBE BTC/USDT L2 and trades.
 #
 # Predict detects each rolling market ID from the typed selectors below. Its 5m and 15m
-# snapshots go to separate custom-data writers and seal on their own UTC boundaries. Binance
+# snapshots go to separate writers and seal when each successor's first snapshot confirms
+# the handover at/after its UTC window boundary. Binance
 # L2/trades retain the hourly segment schedule configured under [output.lifecycle.seal].
 #
 # Required local credentials (never put either value in this file):

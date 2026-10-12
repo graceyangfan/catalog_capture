@@ -14,12 +14,12 @@
 
 use std::{
     collections::VecDeque,
-    sync::{mpsc, Arc, Condvar, Mutex, MutexGuard},
+    sync::{Arc, Condvar, Mutex, MutexGuard, mpsc},
     thread::{self, JoinHandle},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 
 use crate::{
     config::{CaptureConfig, OverflowPolicy},
@@ -31,11 +31,19 @@ use crate::{
 
 type WorkerReply = std::result::Result<FlushResult, String>;
 
+#[derive(Debug, Default)]
+enum SealRequest {
+    #[default]
+    None,
+    All,
+    Partitions(std::collections::BTreeSet<String>),
+}
+
 type WorkerBatch<T> = (
     Vec<CaptureItem<T>>,
     Option<FlushReason>,
     bool,
-    bool,
+    SealRequest,
     bool,
     Vec<mpsc::Sender<WorkerReply>>,
     Vec<mpsc::Sender<WorkerReply>>,
@@ -48,7 +56,7 @@ struct QueueState<T> {
     metrics: CaptureMetrics,
     flush_reason: Option<FlushReason>,
     tick_requested: bool,
-    seal_requested: bool,
+    seal_requested: SealRequest,
     shutdown_requested: bool,
     flush_waiters: Vec<mpsc::Sender<WorkerReply>>,
     seal_waiters: Vec<mpsc::Sender<WorkerReply>>,
@@ -62,7 +70,7 @@ impl<T> Default for QueueState<T> {
             metrics: CaptureMetrics::default(),
             flush_reason: None,
             tick_requested: false,
-            seal_requested: false,
+            seal_requested: SealRequest::None,
             shutdown_requested: false,
             flush_waiters: Vec::new(),
             seal_waiters: Vec::new(),
@@ -151,20 +159,25 @@ where
     }
 
     pub fn seal_all(&self) -> Result<FlushResult> {
-        self.request_seal()
+        self.request_seal(None)
+    }
+
+    /// Drains accepted data and seals only the retiring partition.
+    pub fn seal_partition(&self, key: &str) -> Result<FlushResult> {
+        self.request_seal(Some(key))
     }
 
     pub fn shutdown(&mut self) -> Result<FlushResult> {
         if self.worker.is_none() {
             return Ok(FlushResult::default());
         }
-        let result = self.request_flush(true)?;
+        let result = self.request_flush(true);
         if let Some(worker) = self.worker.take() {
             worker
                 .join()
                 .map_err(|_| anyhow!("background capture worker thread panicked"))?;
         }
-        Ok(result)
+        result
     }
 
     pub fn metrics(&self) -> CaptureMetrics {
@@ -222,13 +235,24 @@ where
         }
     }
 
-    fn request_seal(&self) -> Result<FlushResult> {
+    fn request_seal(&self, partition: Option<&str>) -> Result<FlushResult> {
         self.ensure_worker_running()?;
         let (tx, rx) = mpsc::channel();
         let (lock, cvar) = &*self.state;
         {
             let mut state = lock_queue_state(lock)?;
-            state.seal_requested = true;
+            match partition {
+                None => state.seal_requested = SealRequest::All,
+                Some(key) => match &mut state.seal_requested {
+                    SealRequest::All => {}
+                    SealRequest::Partitions(keys) => {
+                        keys.insert(key.to_string());
+                    }
+                    SealRequest::None => {
+                        state.seal_requested = SealRequest::Partitions([key.to_string()].into());
+                    }
+                },
+            }
             state.seal_waiters.push(tx);
         }
         cvar.notify_one();
@@ -272,6 +296,7 @@ where
     let mut runtime = CaptureRuntime::new(config.clone(), sink);
     let flush_interval = worker_interval(&config, segment_mode);
     let mut next_interval = Instant::now() + flush_interval;
+    let mut write_failure: Option<String> = None;
 
     loop {
         let (
@@ -291,7 +316,7 @@ where
             }
         };
 
-        let flush_result = process_batch(
+        let mut flush_result = process_batch(
             &mut runtime,
             batch,
             flush_reason,
@@ -299,6 +324,14 @@ where
             seal_requested,
             should_shutdown,
         );
+        if let Err(error) = &flush_result {
+            write_failure.get_or_insert_with(|| error.to_string());
+        }
+        // Keep receiving data, but never report a clean final recording after
+        // a prior write failure. Retrying consumed batches could duplicate rows.
+        if should_shutdown && let Some(error) = &write_failure {
+            flush_result = Err(anyhow!("capture had a write failure: {error}"));
+        }
         let metrics_snapshot = runtime.metrics.clone();
 
         if let Ok(mut queue_state) = lock_queue_state(&state.0) {
@@ -352,7 +385,7 @@ fn collect_worker_batch<T>(
     if queue_state.queue.is_empty()
         && queue_state.flush_reason.is_none()
         && !queue_state.tick_requested
-        && !queue_state.seal_requested
+        && matches!(queue_state.seal_requested, SealRequest::None)
         && !queue_state.shutdown_requested
     {
         let wait_for = next_interval.saturating_duration_since(Instant::now());
@@ -381,10 +414,9 @@ fn collect_worker_batch<T>(
         queue_state.flush_reason
     };
     let tick_requested = queue_state.tick_requested;
-    let seal_requested = queue_state.seal_requested;
+    let seal_requested = std::mem::take(&mut queue_state.seal_requested);
     queue_state.flush_reason = None;
     queue_state.tick_requested = false;
-    queue_state.seal_requested = false;
     let flush_waiters = std::mem::take(&mut queue_state.flush_waiters);
     let seal_waiters = std::mem::take(&mut queue_state.seal_waiters);
     let shutdown_waiters = std::mem::take(&mut queue_state.shutdown_waiters);
@@ -422,7 +454,7 @@ fn process_batch<T, S>(
     batch: Vec<CaptureItem<T>>,
     flush_reason: Option<FlushReason>,
     tick_requested: bool,
-    seal_requested: bool,
+    seal_requested: SealRequest,
     should_shutdown: bool,
 ) -> Result<FlushResult>
 where
@@ -445,36 +477,54 @@ where
         }
     }
 
-    if tick_requested {
+    // Seal includes the memory flush. A coincident interval flush must never
+    // consume a seal request and report an unclosed file as successfully sealed.
+    if should_shutdown && runtime.sink.is_segment_mode() {
         merge_runtime_step(
             runtime,
             &mut aggregated,
             &mut last_error,
-            "durability tick",
-            |runtime| runtime.on_tick(now_ns()),
+            "shutdown seal",
+            |runtime| runtime.seal_all_for_shutdown(),
         );
-    }
-
-    if let Some(reason) = flush_reason {
-        let step = if should_shutdown && runtime.sink.is_segment_mode() {
-            "shutdown seal"
-        } else {
-            "flush"
-        };
-        merge_runtime_step(runtime, &mut aggregated, &mut last_error, step, |runtime| {
-            if should_shutdown && runtime.sink.is_segment_mode() {
-                runtime.seal_all_for_shutdown()
-            } else {
-                runtime.flush_all_with_reason(reason)
-            }
-        });
-    } else if seal_requested {
+    } else if matches!(seal_requested, SealRequest::All) {
         merge_runtime_step(
             runtime,
             &mut aggregated,
             &mut last_error,
             "seal",
             |runtime| runtime.seal_all(),
+        );
+    } else {
+        if let SealRequest::Partitions(keys) = seal_requested {
+            for key in keys {
+                merge_runtime_step(
+                    runtime,
+                    &mut aggregated,
+                    &mut last_error,
+                    "partition seal",
+                    |runtime| runtime.seal_partition(&key),
+                );
+            }
+        }
+        if let Some(reason) = flush_reason {
+            merge_runtime_step(
+                runtime,
+                &mut aggregated,
+                &mut last_error,
+                "flush",
+                |runtime| runtime.flush_all_with_reason(reason),
+            );
+        }
+    }
+
+    if tick_requested && !should_shutdown {
+        merge_runtime_step(
+            runtime,
+            &mut aggregated,
+            &mut last_error,
+            "durability tick",
+            |runtime| runtime.on_tick(now_ns()),
         );
     }
 
@@ -531,7 +581,10 @@ mod tests {
 
     use anyhow::Result;
 
-    use super::{collect_worker_batch, BackgroundCaptureRuntime, QueueState};
+    use super::{
+        BackgroundCaptureRuntime, QueueState, SealRequest, collect_worker_batch, process_batch,
+    };
+    use crate::runtime::{CaptureRuntime, FlushResult};
     use crate::{
         config::{CaptureConfig, OverflowPolicy},
         item::{CaptureItem, PartitionKey},
@@ -556,6 +609,89 @@ mod tests {
             self.batches.lock().expect("batches poisoned").push(batch);
             Ok(Vec::new())
         }
+    }
+
+    #[derive(Default)]
+    struct OrderedSink {
+        steps: Vec<&'static str>,
+        rows: Vec<u64>,
+    }
+
+    impl CaptureSink<u64> for OrderedSink {
+        fn write_batch(&mut self, _: &str, batch: Vec<u64>) -> Result<Vec<PathBuf>> {
+            self.steps.push("write");
+            self.rows.extend(batch);
+            Ok(Vec::new())
+        }
+        fn seal_all(&mut self) -> Result<FlushResult> {
+            self.steps.push("seal");
+            Ok(FlushResult {
+                files: vec!["sealed.parquet".into()],
+                ..FlushResult::default()
+            })
+        }
+        fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
+            self.steps.push("shutdown");
+            Ok(FlushResult::default())
+        }
+        fn on_tick(&mut self, _: u64) -> Result<FlushResult> {
+            self.steps.push("sync");
+            Ok(FlushResult::default())
+        }
+        fn is_segment_mode(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn coincident_flush_seal_and_tick_closes_file_after_writing() {
+        let mut runtime = CaptureRuntime::new(CaptureConfig::default(), OrderedSink::default());
+        let item = CaptureItem {
+            partition_key: PartitionKey::market_data("quotes", "TEST"),
+            event_ts_ns: 1,
+            init_ts_ns: Some(1),
+            row_count: 1,
+            estimated_bytes: 8,
+            payload: 42,
+        };
+        let result = process_batch(
+            &mut runtime,
+            vec![item],
+            Some(FlushReason::Interval),
+            true,
+            SealRequest::All,
+            false,
+        )
+        .unwrap();
+        assert_eq!(runtime.sink.rows, vec![42]);
+        assert_eq!(runtime.sink.steps, vec!["write", "seal", "sync"]);
+        assert_eq!(result.files, vec![PathBuf::from("sealed.parquet")]);
+    }
+
+    #[test]
+    fn shutdown_supersedes_seal_and_does_not_tick_closed_writers() {
+        let mut runtime = CaptureRuntime::new(CaptureConfig::default(), OrderedSink::default());
+        runtime
+            .submit(CaptureItem {
+                partition_key: PartitionKey::market_data("quotes", "TEST"),
+                event_ts_ns: 1,
+                init_ts_ns: Some(1),
+                row_count: 1,
+                estimated_bytes: 8,
+                payload: 42,
+            })
+            .unwrap();
+        process_batch(
+            &mut runtime,
+            vec![],
+            Some(FlushReason::Shutdown),
+            true,
+            SealRequest::All,
+            true,
+        )
+        .unwrap();
+        assert_eq!(runtime.sink.rows, vec![42]);
+        assert_eq!(runtime.sink.steps, vec!["write", "shutdown"]);
     }
 
     #[test]
@@ -855,7 +991,13 @@ mod tests {
         wait_queue_empty(&runtime);
 
         // Worker stays up after a single write failure so later items still land.
-        let _ = runtime.shutdown().expect("shutdown should succeed");
+        assert!(
+            runtime
+                .shutdown()
+                .expect_err("prior write failure must be reported")
+                .to_string()
+                .contains("payload 2")
+        );
         let written = batches.lock().expect("batches poisoned").clone();
         let flattened: Vec<u64> = written.into_iter().flatten().collect();
         assert!(flattened.contains(&1));
@@ -898,7 +1040,13 @@ mod tests {
             .expect("submit should still succeed after prior write failure");
 
         wait_queue_empty(&runtime);
-        let _ = runtime.shutdown().expect("shutdown should succeed");
+        assert!(
+            runtime
+                .shutdown()
+                .expect_err("prior write failure must be reported")
+                .to_string()
+                .contains("payload 9")
+        );
         let written = batches.lock().expect("batches poisoned").clone();
         let flattened: Vec<u64> = written.into_iter().flatten().collect();
         assert!(

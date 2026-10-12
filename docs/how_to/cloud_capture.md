@@ -85,6 +85,37 @@ cross-compilation is intentionally not attempted.
   --config examples/capture.multi-venue-mainnet.toml
 ```
 
+### Independent HIP4 and Predict recorders
+
+Run two separate processes with separate catalogs under the project's ignored
+`data/` directory. HIP4 discovers BTC daily YES/NO instruments and records
+quotes/trades in hourly UTC files under `data/hyperliquid-hip4-btc-daily/`.
+Predict discovers BTC, ETH and BNB, each at 5m and 15m, and independently seals
+one YES snapshot file per market under `data/predict-crypto-updown/`.
+
+Configure only the local Predict API key as described in
+[credentials](credentials.md); HIP4 public recording needs no key. Never add
+credentials to the capture profile or deployment archive.
+
+```bash
+CAPTURE_FEATURES=venue-hyperliquid,venue-predict make build-release-capture
+./bin/catalog-capture-cli validate \
+  --config examples/capture.hyperliquid-hip4-btc-daily.toml
+./bin/catalog-capture-cli validate \
+  --config examples/capture.predict-crypto-updown.toml
+# Terminal/service 1:
+./bin/catalog-capture-cli run \
+  --config examples/capture.hyperliquid-hip4-btc-daily.toml
+# Terminal/service 2:
+./bin/catalog-capture-cli run \
+  --config examples/capture.predict-crypto-updown.toml
+```
+
+Each process runs until stopped. Use Ctrl+C or `kill -TERM <pid>` and wait for
+`Capture completed` so every active file is sealed. Run one writer process per
+catalog directory. For packaging, package each profile separately with its
+matching feature (`venue-hyperliquid` or `venue-predict`).
+
 ## 4) Short smoke
 
 ```bash
@@ -147,7 +178,7 @@ Optional `metadata/` is operator lineage only. See
 | Clock | Behavior |
 |-------|----------|
 | Dynamic universe refresh | Unsub old / sub new when enabled by the config |
-| Segment seal | Configured rotation boundary (the example uses **06:00 UTC**) |
+| Segment seal | Configured rotation boundary (`capture.multi-venue-mainnet.toml` uses each UTC hour) |
 
 ## 8) Cleanup
 

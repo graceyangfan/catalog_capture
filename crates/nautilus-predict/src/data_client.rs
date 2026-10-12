@@ -42,7 +42,7 @@ use nautilus_common::{
     },
 };
 use nautilus_core::time::{AtomicTime, get_atomic_clock_realtime};
-use nautilus_live::task::TaskGroup;
+use nautilus_live::task::{TaskGroup, TaskSpawner};
 use nautilus_model::{
     data::{Data, DataType},
     identifiers::{ClientId, InstrumentId, Venue},
@@ -65,8 +65,8 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     PREDICT_VENUE, PredictCryptoUpDownSelector, PredictDataClientConfig, PredictHttpClient,
     PredictInstrumentProvider, PredictMarketContext, PredictOrderbookSnapshot,
-    PredictOrderbookWire, discover_crypto_up_down_market,
-    predict_crypto_up_down_orderbook_data_type, predict_orderbook_data_type,
+    PredictOrderbookWire, SelectedCryptoUpDownMarket, discover_crypto_up_down_market,
+    models::PredictMarket, predict_crypto_up_down_orderbook_data_type, predict_orderbook_data_type,
     providers::instruments_from_market,
 };
 
@@ -74,6 +74,7 @@ const RAW_QUEUE_CAPACITY: usize = 1_024;
 const COMMAND_QUEUE_CAPACITY: usize = 128;
 const MAX_MESSAGE_SIZE_BYTES: usize = 2 * 1024 * 1024;
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(2);
+const MAX_DISCOVERY_REQUESTS: usize = 4;
 
 #[derive(Debug)]
 enum PredictCommand {
@@ -396,6 +397,7 @@ impl DataClient for PredictDataClient {
                 clock: self.clock,
                 cancellation: self.cancellation.clone(),
                 connected: Arc::clone(&self.connected),
+                task_spawner: self.tasks.spawner()?,
             },
         )
         .await?;
@@ -522,19 +524,84 @@ struct PredictWebSocketSession {
     failed_epoch: Option<u64>,
     next_request_id: u64,
     dynamic_refresh_secs: u64,
+    discovery: DiscoveryScheduler,
+    discovery_tx: mpsc::Sender<DiscoveryResult>,
+    discovery_rx: mpsc::Receiver<DiscoveryResult>,
+    task_spawner: TaskSpawner,
+    discovery_timeout: Duration,
+}
+
+#[derive(Debug, Default)]
+struct DiscoveryScheduler {
+    next_version: u64,
+    inflight: AHashMap<CryptoUpDownSelectorKey, (u64, CancellationToken)>,
+}
+
+impl DiscoveryScheduler {
+    fn due_keys(
+        &self,
+        subscriptions: &AHashMap<CryptoUpDownSelectorKey, DynamicSubscription>,
+        now_ns: u64,
+    ) -> Vec<CryptoUpDownSelectorKey> {
+        let mut due = subscriptions
+            .iter()
+            .filter(|(key, state)| {
+                state.next_refresh_ns <= now_ns && !self.inflight.contains_key(*key)
+            })
+            .map(|(key, state)| (state.next_refresh_ns, key.clone()))
+            .collect::<Vec<_>>();
+        due.sort();
+        due.into_iter()
+            .take(MAX_DISCOVERY_REQUESTS.saturating_sub(self.inflight.len()))
+            .map(|(_, key)| key)
+            .collect()
+    }
+
+    fn version(&mut self) -> anyhow::Result<u64> {
+        self.next_version = self
+            .next_version
+            .checked_add(1)
+            .context("Predict selector version overflow")?;
+        Ok(self.next_version)
+    }
+
+    fn cancel(&mut self, key: &CryptoUpDownSelectorKey) {
+        if let Some((_, cancellation)) = self.inflight.remove(key) {
+            cancellation.cancel();
+        }
+    }
+
+    fn complete(&mut self, key: &CryptoUpDownSelectorKey, version: u64) -> bool {
+        if self
+            .inflight
+            .get(key)
+            .is_some_and(|(active, _)| *active == version)
+        {
+            self.inflight.remove(key);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Debug)]
+struct DiscoveryResult {
+    key: CryptoUpDownSelectorKey,
+    version: u64,
+    result: anyhow::Result<(SelectedCryptoUpDownMarket, Option<PredictMarket>)>,
 }
 
 #[derive(Debug, Clone)]
 struct DynamicSubscription {
     selector: PredictCryptoUpDownSelector,
+    version: u64,
     current_market_id: Option<u64>,
     pending_market_id: Option<u64>,
     /// Earliest UTC instant at which discovery must run again.
     ///
-    /// A selected market window is authoritative for the normal rollover
-    /// deadline. While a successor is awaiting its first snapshot we retry at
-    /// the short configured cadence instead, retaining the last confirmed
-    /// market until the successor has proved live.
+    /// A selected market window is authoritative for the normal rollover deadline.
+    /// Only failed discovery uses the short cadence, measured from completion.
     next_refresh_ns: u64,
 }
 
@@ -546,6 +613,7 @@ struct PredictSessionInputs {
     clock: &'static AtomicTime,
     cancellation: CancellationToken,
     connected: Arc<AtomicBool>,
+    task_spawner: TaskSpawner,
 }
 
 impl PredictWebSocketSession {
@@ -561,6 +629,7 @@ impl PredictWebSocketSession {
             clock,
             cancellation,
             connected,
+            task_spawner,
         } = inputs;
         let (raw_tx, raw_rx) = mpsc::channel(RAW_QUEUE_CAPACITY);
         let overflowed = std::sync::Arc::new(AtomicBool::new(false));
@@ -617,6 +686,7 @@ impl PredictWebSocketSession {
             config.http_timeout_secs,
         )?;
         let (command_tx, command_rx) = mpsc::channel(COMMAND_QUEUE_CAPACITY);
+        let (discovery_tx, discovery_rx) = mpsc::channel(MAX_DISCOVERY_REQUESTS);
         let session = Self {
             current_epoch: client.connection_epoch(),
             reconnect: client.reconnect_handle(),
@@ -637,22 +707,43 @@ impl PredictWebSocketSession {
             failed_epoch: None,
             next_request_id: 1,
             dynamic_refresh_secs: config.dynamic_refresh_secs.max(1),
+            discovery: DiscoveryScheduler::default(),
+            discovery_tx,
+            discovery_rx,
+            task_spawner,
+            discovery_timeout: Duration::from_secs(config.http_timeout_secs.max(1)),
         };
         Ok((command_tx, session))
     }
 
     async fn run(mut self) {
         let mut health_tick = tokio::time::interval(Duration::from_secs(1));
-        let mut dynamic_tick =
-            tokio::time::interval(Duration::from_secs(self.dynamic_refresh_secs));
         loop {
+            let deadline = self
+                .dynamic_subscriptions
+                .iter()
+                .filter(|(key, _)| !self.discovery.inflight.contains_key(*key))
+                .map(|(_, state)| state.next_refresh_ns)
+                .min();
+            let can_discover =
+                deadline.is_some() && self.discovery.inflight.len() < MAX_DISCOVERY_REQUESTS;
+            let delay = Duration::from_nanos(
+                deadline
+                    .unwrap_or(u64::MAX)
+                    .saturating_sub(self.clock.get_time_ns().as_u64()),
+            );
             tokio::select! {
-                biased;
                 () = self.cancellation.cancelled() => break,
                 _ = health_tick.tick() => self.check_health(),
-                _ = dynamic_tick.tick(), if !self.dynamic_subscriptions.is_empty() => {
-                    if let Err(error) = self.refresh_dynamic_subscriptions().await {
-                        log::warn!("Predict crypto up/down discovery refresh failed: {error:#}");
+                _ = tokio::time::sleep(delay), if can_discover => {
+                    if let Err(error) = self.schedule_discovery() {
+                        log::warn!("Predict discovery admission failed: {error:#}");
+                        break;
+                    }
+                }
+                Some(result) = self.discovery_rx.recv() => {
+                    if let Err(error) = self.apply_discovery_result(result).await {
+                        log::warn!("Predict discovery apply failed: {error:#}");
                     }
                 }
                 command = self.command_rx.recv() => {
@@ -668,6 +759,9 @@ impl PredictWebSocketSession {
                     }
                 }
             }
+        }
+        for (_, cancellation) in self.discovery.inflight.values() {
+            cancellation.cancel();
         }
         self.client.disconnect().await;
         self.connected.store(false, Ordering::Release);
@@ -686,13 +780,13 @@ impl PredictWebSocketSession {
                     key.clone(),
                     DynamicSubscription {
                         selector,
+                        version: self.discovery.version()?,
                         current_market_id: None,
                         pending_market_id: None,
                         next_refresh_ns: 0,
                     },
                 );
-                self.refresh_dynamic_subscription(&key, self.clock.get_time_ns().as_u64())
-                    .await?;
+                self.schedule_discovery()?;
             }
             PredictCommand::StopDynamic(key) => self.stop_dynamic_subscription(&key).await?,
         }
@@ -700,11 +794,10 @@ impl PredictWebSocketSession {
     }
 
     async fn subscribe_market(&mut self, market_id: u64) -> anyhow::Result<()> {
-        let count = self.subscriptions.entry(market_id).or_default();
-        *count += 1;
-        if *count == 1 {
+        if !self.subscriptions.contains_key(&market_id) {
             self.send_subscription("subscribe", market_id).await?;
         }
+        *self.subscriptions.entry(market_id).or_default() += 1;
         Ok(())
     }
 
@@ -720,36 +813,73 @@ impl PredictWebSocketSession {
         Ok(())
     }
 
-    async fn refresh_dynamic_subscriptions(&mut self) -> anyhow::Result<()> {
+    fn schedule_discovery(&mut self) -> anyhow::Result<()> {
         let now_ns = self.clock.get_time_ns().as_u64();
-        let keys = self
-            .dynamic_subscriptions
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>();
-        for key in keys {
-            let due = self
-                .dynamic_subscriptions
-                .get(&key)
-                .is_some_and(|state| state.next_refresh_ns <= now_ns);
-            if due {
-                self.refresh_dynamic_subscription(&key, now_ns).await?;
-            }
+        for key in self.discovery.due_keys(&self.dynamic_subscriptions, now_ns) {
+            let state = &self.dynamic_subscriptions[&key];
+            let selector = state.selector.clone();
+            let version = state.version;
+            let known = [state.current_market_id, state.pending_market_id];
+            let http = self.http_client.clone();
+            let sender = self.discovery_tx.clone();
+            let cancellation = self.cancellation.child_token();
+            let task_cancel = cancellation.clone();
+            let timeout = self.discovery_timeout;
+            let request = async move {
+                let selected = discover_crypto_up_down_market(&http, &selector, now_ns).await?;
+                let market = if known.contains(&Some(selected.market_id)) {
+                    None
+                } else {
+                    Some(http.request_market(selected.market_id).await?)
+                };
+                Ok((selected, market))
+            };
+            self.task_spawner.spawn(run_discovery_request(
+                key.clone(),
+                version,
+                task_cancel,
+                sender,
+                timeout,
+                request,
+            ))?;
+            self.discovery.inflight.insert(key, (version, cancellation));
         }
         Ok(())
     }
 
-    async fn refresh_dynamic_subscription(
-        &mut self,
-        key: &CryptoUpDownSelectorKey,
-        now_ns: u64,
-    ) -> anyhow::Result<()> {
-        let selector = self
-            .dynamic_subscriptions
-            .get(key)
-            .map(|state| state.selector.clone())
-            .with_context(|| format!("missing Predict dynamic selector {key}"))?;
-        let selected = discover_crypto_up_down_market(&self.http_client, &selector, now_ns).await?;
+    async fn apply_discovery_result(&mut self, result: DiscoveryResult) -> anyhow::Result<()> {
+        let key = &result.key;
+        if !self.discovery.complete(key, result.version)
+            || !self
+                .dynamic_subscriptions
+                .get(key)
+                .is_some_and(|state| state.version == result.version)
+            || self.cancellation.is_cancelled()
+        {
+            return Ok(());
+        }
+        let now_ns = self.clock.get_time_ns().as_u64();
+        // Every completion, including errors, gets a future deadline. Never catch up old ticks.
+        self.dynamic_subscriptions
+            .get_mut(key)
+            .expect("validated selector")
+            .next_refresh_ns =
+            now_ns.saturating_add(self.dynamic_refresh_secs.saturating_mul(1_000_000_000));
+        let (selected, market) = result
+            .result
+            .with_context(|| format!("Predict discovery failed for {key}"))?;
+        if let Some(deadline) = inactive_window_deadline(
+            selected.window.start_ns,
+            selected.window.end_ns,
+            now_ns,
+            self.dynamic_refresh_secs,
+        ) {
+            self.dynamic_subscriptions
+                .get_mut(key)
+                .expect("validated selector")
+                .next_refresh_ns = deadline;
+            return Ok(()); // Neither stale nor future windows may activate.
+        }
         let (current_market_id, pending_market_id) = self
             .dynamic_subscriptions
             .get(key)
@@ -774,16 +904,16 @@ impl PredictWebSocketSession {
             return Ok(());
         }
         if pending_market_id == Some(selected.market_id) {
-            // Keep discovery cheap in the steady state, but retry promptly while
-            // the successor has not emitted a valid snapshot. A failed or lost
-            // subscription must not strand the selector until the next window.
-            self.set_dynamic_refresh_deadline(key, selected.window.end_ns, now_ns, true)?;
+            // A cached initial snapshot is best-effort. Repeated REST queries cannot make
+            // it appear; retain the subscription and let network reconnect replay it.
+            self.set_dynamic_refresh_deadline(key, selected.window.end_ns, now_ns, false)?;
             return Ok(());
         }
         if let Some(stale_pending) = pending_market_id {
             self.unsubscribe_market(stale_pending).await?;
         }
-        let market = self.http_client.request_market(selected.market_id).await?;
+        let market =
+            market.context("Predict discovery result is missing new market definitions")?;
         let (context, instruments) = instruments_from_market(&market, self.clock.get_time_ns())?;
         let registered = self
             .dynamic_registry
@@ -804,8 +934,7 @@ impl PredictWebSocketSession {
             .get_mut(key)
             .context("Predict dynamic selector disappeared before activation")?;
         state.pending_market_id = Some(selected.market_id);
-        state.next_refresh_ns =
-            now_ns.saturating_add(self.dynamic_refresh_secs.saturating_mul(1_000_000_000));
+        state.next_refresh_ns = selected.window.end_ns;
         if let Some(stale_pending) = pending_market_id {
             self.remove_dynamic_market_if_unused(stale_pending);
         }
@@ -836,6 +965,7 @@ impl PredictWebSocketSession {
         &mut self,
         key: &CryptoUpDownSelectorKey,
     ) -> anyhow::Result<()> {
+        self.discovery.cancel(key);
         let Some(state) = self.dynamic_subscriptions.remove(key) else {
             return Ok(());
         };
@@ -1023,6 +1153,27 @@ impl PredictWebSocketSession {
     }
 }
 
+async fn run_discovery_request(
+    key: CryptoUpDownSelectorKey,
+    version: u64,
+    cancellation: CancellationToken,
+    sender: mpsc::Sender<DiscoveryResult>,
+    timeout: Duration,
+    request: impl std::future::Future<
+        Output = anyhow::Result<(SelectedCryptoUpDownMarket, Option<PredictMarket>)>,
+    >,
+) {
+    let result = tokio::select! {
+        () = cancellation.cancelled() => return,
+        result = tokio::time::timeout(timeout, request) => result
+            .unwrap_or_else(|_| Err(anyhow::anyhow!("Predict discovery deadline exceeded"))),
+    };
+    tokio::select! {
+        () = cancellation.cancelled() => {},
+        _ = sender.send(DiscoveryResult { key, version, result }) => {},
+    }
+}
+
 fn dynamic_selector_key(
     selector: &PredictCryptoUpDownSelector,
 ) -> anyhow::Result<CryptoUpDownSelectorKey> {
@@ -1037,12 +1188,27 @@ fn next_dynamic_refresh_ns(
     window_end_ns: u64,
     now_ns: u64,
     retry_secs: u64,
-    retry_pending: bool,
+    retry_failed: bool,
 ) -> u64 {
-    if retry_pending {
+    if retry_failed {
         now_ns.saturating_add(retry_secs.saturating_mul(1_000_000_000))
     } else {
         window_end_ns.max(now_ns)
+    }
+}
+
+fn inactive_window_deadline(
+    start_ns: u64,
+    end_ns: u64,
+    now_ns: u64,
+    retry_secs: u64,
+) -> Option<u64> {
+    if end_ns <= now_ns {
+        Some(next_dynamic_refresh_ns(0, now_ns, retry_secs, true))
+    } else if start_ns > now_ns {
+        Some(start_ns)
+    } else {
+        None
     }
 }
 
@@ -1061,11 +1227,196 @@ fn parse_topic_market_id(topic: &str) -> anyhow::Result<u64> {
 
 #[cfg(test)]
 mod tests {
+    use ahash::AHashMap;
+    use nautilus_live::task::TaskGroup;
+    use std::time::Duration;
+    use tokio::sync::{mpsc, oneshot};
+    use tokio_util::sync::CancellationToken;
+
     use super::{
+        DiscoveryScheduler, DynamicSubscription, MAX_DISCOVERY_REQUESTS,
         PredictDynamicMarketRegistry, dynamic_selector_key, ensure_open_task_generation,
-        next_dynamic_refresh_ns, parse_topic_market_id,
+        inactive_window_deadline, next_dynamic_refresh_ns, parse_topic_market_id,
+        run_discovery_request,
     };
     use crate::{PredictCryptoUpDownSelector, PredictMarketContext, instrument_id_from_outcome};
+
+    fn subscriptions()
+    -> AHashMap<catalog_capture_core::CryptoUpDownSelectorKey, DynamicSubscription> {
+        let mut states = AHashMap::new();
+        for (symbol, asset) in [
+            ("BTC/USDT", "Bitcoin"),
+            ("ETH/USDT", "Ethereum"),
+            ("BNB/USDT", "BNB"),
+        ] {
+            for interval_secs in [300, 900] {
+                let selector = PredictCryptoUpDownSelector {
+                    price_feed_symbol: symbol.into(),
+                    title_asset: asset.into(),
+                    interval_secs,
+                };
+                let key = dynamic_selector_key(&selector).unwrap();
+                states.insert(
+                    key,
+                    DynamicSubscription {
+                        selector,
+                        version: 1,
+                        current_market_id: None,
+                        pending_market_id: None,
+                        next_refresh_ns: 100,
+                    },
+                );
+            }
+        }
+        states
+    }
+
+    #[test]
+    fn six_selectors_are_bounded_deduplicated_and_fair_after_failure() {
+        let mut scheduler = DiscoveryScheduler::default();
+        let mut states = subscriptions();
+        assert!(scheduler.due_keys(&states, 99).is_empty());
+        let first = scheduler.due_keys(&states, 100);
+        assert_eq!(first.len(), MAX_DISCOVERY_REQUESTS);
+        for key in &first {
+            scheduler
+                .inflight
+                .insert(key.clone(), (1, CancellationToken::new()));
+        }
+        assert!(scheduler.due_keys(&states, 100).is_empty());
+        // Even an unsuccessful pass releases its slot, and waits from completion rather
+        // than immediately replaying deadlines missed during slow REST work.
+        for key in &first {
+            assert!(scheduler.complete(key, 1));
+            states.get_mut(key).unwrap().next_refresh_ns = next_dynamic_refresh_ns(0, 500, 1, true);
+        }
+        let remaining = scheduler.due_keys(&states, 500);
+        assert_eq!(remaining.len(), 2);
+        assert!(remaining.iter().all(|key| !first.contains(key)));
+        assert_eq!(scheduler.due_keys(&states, 1_000_000_500).len(), 4);
+    }
+
+    #[test]
+    fn cancelled_selector_result_cannot_complete_its_replacement() {
+        let mut scheduler = DiscoveryScheduler::default();
+        let key = subscriptions().into_keys().next().unwrap();
+        let first = scheduler.version().unwrap();
+        let cancelled = CancellationToken::new();
+        scheduler
+            .inflight
+            .insert(key.clone(), (first, cancelled.clone()));
+        scheduler.cancel(&key);
+        assert!(cancelled.is_cancelled());
+        let second = scheduler.version().unwrap();
+        scheduler
+            .inflight
+            .insert(key.clone(), (second, CancellationToken::new()));
+        assert!(!scheduler.complete(&key, first));
+        assert_eq!(scheduler.inflight[&key].0, second);
+        assert!(scheduler.complete(&key, second));
+        assert!(!scheduler.complete(&key, second));
+    }
+
+    #[test]
+    fn completed_rest_cannot_activate_future_or_expired_window() {
+        assert_eq!(inactive_window_deadline(100, 200, 99, 1), Some(100));
+        assert_eq!(inactive_window_deadline(100, 200, 100, 1), None);
+        assert_eq!(inactive_window_deadline(100, 200, 199, 1), None);
+        assert_eq!(
+            inactive_window_deadline(100, 200, 200, 1),
+            Some(1_000_000_200)
+        );
+        assert_eq!(
+            inactive_window_deadline(100, 200, 500, 1),
+            Some(1_000_000_500)
+        );
+    }
+
+    #[tokio::test]
+    async fn stalled_discovery_has_a_bounded_overall_deadline() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let key = subscriptions().into_keys().next().unwrap();
+        run_discovery_request(
+            key,
+            1,
+            CancellationToken::new(),
+            tx,
+            Duration::ZERO,
+            std::future::pending(),
+        )
+        .await;
+        let result = rx.recv().await.unwrap();
+        assert_eq!(
+            result.result.unwrap_err().to_string(),
+            "Predict discovery deadline exceeded"
+        );
+    }
+
+    #[tokio::test]
+    async fn blocked_discovery_yields_to_events_and_cancels_with_its_generation() {
+        let tasks = TaskGroup::new();
+        let (result_tx, mut result_rx) = mpsc::channel(4);
+        let (started_tx, started_rx) = oneshot::channel();
+        let key = subscriptions().into_keys().next().unwrap();
+        tasks
+            .spawner()
+            .unwrap()
+            .spawn(run_discovery_request(
+                key,
+                1,
+                tasks.cancellation_token(),
+                result_tx,
+                Duration::from_secs(10),
+                async move {
+                    started_tx.send(()).unwrap();
+                    std::future::pending().await
+                },
+            ))
+            .unwrap();
+        started_rx.await.unwrap();
+        let (event_tx, mut event_rx) = mpsc::channel(3);
+        for event in ["snapshot", "heartbeat", "unsubscribe"] {
+            event_tx.send(event).await.unwrap();
+        }
+        // REST remains blocked while the receiver can observe all three non-empty events.
+        for expected in ["snapshot", "heartbeat", "unsubscribe"] {
+            assert_eq!(event_rx.recv().await, Some(expected));
+        }
+        tasks.begin_shutdown();
+        tasks
+            .finish_shutdown(Duration::from_secs(1), Duration::from_secs(1))
+            .await
+            .unwrap();
+        assert!(result_rx.recv().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn discovery_errors_are_delivered_without_failing_the_task_generation() {
+        let tasks = TaskGroup::new();
+        let (tx, mut rx) = mpsc::channel(1);
+        let key = subscriptions().into_keys().next().unwrap();
+        tasks
+            .spawner()
+            .unwrap()
+            .spawn(run_discovery_request(
+                key.clone(),
+                7,
+                tasks.cancellation_token(),
+                tx,
+                Duration::from_secs(1),
+                async { Err(anyhow::anyhow!("venue unavailable")) },
+            ))
+            .unwrap();
+        let result = rx.recv().await.unwrap();
+        assert_eq!(result.key, key);
+        assert_eq!(result.version, 7);
+        assert_eq!(result.result.unwrap_err().to_string(), "venue unavailable");
+        tasks.begin_shutdown();
+        tasks
+            .finish_shutdown(Duration::from_secs(1), Duration::from_secs(1))
+            .await
+            .unwrap();
+    }
 
     fn context(market_id: u64) -> PredictMarketContext {
         PredictMarketContext {
@@ -1078,7 +1429,7 @@ mod tests {
     }
 
     #[test]
-    fn refreshes_at_window_boundary_and_retries_pending_successor() {
+    fn refreshes_at_window_boundary_and_retries_failed_discovery() {
         let now_ns = 100 * 1_000_000_000;
         let end_ns = 300 * 1_000_000_000;
         assert_eq!(next_dynamic_refresh_ns(end_ns, now_ns, 1, false), end_ns);

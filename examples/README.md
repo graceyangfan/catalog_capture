@@ -14,11 +14,14 @@ unattended deployment. Use dynamic universe profiles for expiring options.
 
 ## Rotation convention
 
-- General, option-universe, custom-data, and multi-venue profiles omit an explicit
-  seal override and use the production default: **daily at 06:00 UTC**.
+- Profiles without an explicit seal override use the production default:
+  **daily at 06:00 UTC**.
 - High-rate native L2 profiles use **hourly UTC segments** with a managed
   snapshot at each boundary so each hour can be replayed independently.
-- Predict rolling products seal each selector on its own interval boundary;
+- `capture.multi-venue-mainnet.toml` explicitly uses hourly UTC segments for
+  HIP-4, Binance, and Deribit; daily HIP-4 instrument rotation remains independent.
+- Predict rolling products seal each selector when its successor's first valid
+  snapshot confirms the handover at/after the window boundary;
   a combined Predict/Binance profile therefore has independent 5m/15m custom
   segments and hourly Binance segments.
 - `*-smoke.toml` and finite `capture_seconds` profiles are validation assets,
@@ -41,9 +44,9 @@ make build-release-capture
 | Config | Required features | Content |
 |--------|-------------------|---------|
 | **`capture.multi-venue-mainnet.toml`** | standard `make build-release-capture` set | Public multi-venue instruments, quotes, trades, L2 and BookSummary |
+| **`capture.predict-crypto-updown.toml`** | `venue-predict` | Predict-only BTC/ETH/BNB 5m/15m YES snapshots; independent process/catalog from HIP4 |
 | **`capture.binance-lighter-btc-sol-perp-books.toml`** | `venue-binance,venue-lighter` | High-rate BTC/SOL L2 and trades; replayable hourly segments |
 | **`capture.binance-spot-sbe-btc.toml`** | `venue-binance` | Binance Spot SBE BTC/USDT full L2 + trades; credentials required |
-| **`capture.predict-orderbook.toml`** | `venue-predict` | Predict BTC 5m Up/Down native YES snapshots; credentials required |
 | **`capture.predict-binance-spot-sbe-btc-updown.toml`** | `venue-binance,venue-predict` | Predict BTC 5m/15m plus Binance Spot SBE L2/trades |
 | **`capture.binance-lighter-extended-btc-sol-perp-books.toml`** | `venue-binance,venue-lighter,venue-extended` | Binance/Lighter/Extended L2, trades and price/funding data |
 | **`capture.lighter-xemm-openai-anthropic.toml`** | `venue-lighter` | Lighter + Robinhood Chain XEMM research feeds |
@@ -65,6 +68,7 @@ CAPTURE_FEATURES=venue-binance,venue-predict make build-release-capture
 | Deribit DVOL (subscribe custom) | `capture.deribit-dvol.toml` |
 | Binance perp WS | `capture.binance-perp.ws.toml` |
 | Hyperliquid OI | `capture.hyperliquid-open-interest.toml` |
+| Minimal Predict BTC 5m selector | `capture.predict-orderbook.toml` |
 | Operator / unattended option universe | `operator/*.toml` |
 
 Finite Binance/Hyperliquid bar, trade, custom-data, and HIP-4 smoke profiles

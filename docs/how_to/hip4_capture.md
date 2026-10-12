@@ -3,10 +3,22 @@
 Public **mainnet** market-data recording. One process can combine Hyperliquid
 outcome rotation, Binance USD-M L2, and Deribit book-summary polls.
 
-For a fixed-perpetual book capture using the same daily file boundary, use
+`capture.multi-venue-mainnet.toml` and the HIP-4 daily profile seal ordinary data families on each UTC
+hour. HIP-4 instruments rotate independently at the expiration reported by
+`outcomeMeta` (currently 06:00 UTC for the daily product). At a confirmed roll,
+only removed outcome partitions are drained and sealed; Binance and shared
+perpetual partitions retain their hourly files. Late retired-outcome data is
+ignored. New outcomes subscribe only after their definitions reach the cache.
+
+File boundaries follow actor processing order, not exchange-event-time buckets;
+late venue events retain their original `ts_event`. A seal reply confirms that
+queued data was flushed and the Parquet writer closed. Coincident interval
+flushes cannot replace that operation. New parts open lazily on the next event.
+
+For a fixed-perpetual book capture using the same hourly file boundary, use
 [`capture.binance-lighter-btc-sol-perp-books.toml`](../../examples/capture.binance-lighter-btc-sol-perp-books.toml).
 It records Binance BTC/SOL USD-M and Lighter SOL perpetual `book_deltas`
-plus trade ticks and seals segments at 06:00 UTC. The Lighter adapter bootstraps
+plus trade ticks and seals segments each UTC hour. The Lighter adapter bootstraps
 its instrument registry and publishes the initial snapshot before incremental
 updates; no custom snapshot request is needed. Selected books are also maintained
 by Nautilus and checkpointed at the segment boundary, with the checkpoint written
@@ -66,6 +78,11 @@ When `[runtime.hip4_universe_refresh]` is enabled:
 
 ### Inspect the live binary-option universe before capture
 
+The HIP4-only profile is `examples/capture.hyperliquid-hip4-btc-daily.toml`;
+it writes to `./data/hyperliquid-hip4-btc-daily/`. Run Predict in a separate
+process and catalog using `examples/capture.predict-crypto-updown.toml`.
+See [cloud capture](cloud_capture.md#independent-hip4-and-predict-recorders).
+
 Do not put a HIP-4 question or outcome ID in the configuration. They are intentionally
 short-lived. The preflight below calls Hyperliquid `outcomeMeta`, resolves the configured
 `underlying` / `period` / `market_class`, and prints the currently selected YES/NO Nautilus
@@ -118,7 +135,7 @@ BookSummary is **custom data** but uses the **same segment lifecycle** as market
 
 - Poll ~1 Hz → rows append into `data/custom/DeribitBookSummary/…/{open_ts}.parquet.part`
 - **Not** one catalog parquet per second
-- Seal at **06:00 UTC** (or shutdown) → official `{start}_{end}.parquet`
+- Seal at **each UTC hour** in the mixed profile (or shutdown) → official `{start}_{end}.parquet`
 
 Default lifecycle is **`segment`** (`.part` + seal). Explicit `mode = "chunked"` is
 **smoke only** — `validate` / `run` print a WARNING when custom data is also configured.
@@ -128,11 +145,12 @@ See [segment lifecycle](../concepts/segment_lifecycle.md).
 
 | Clock | What it does | When |
 |-------|----------------|------|
-| **HIP-4 universe refresh** | HTTP outcomeMeta → new YES/NO set → **unsubscribe old / subscribe new** | Adaptive: idle ~1800s, near expiry ~10s |
-| **Segment seal** | Seal active segments to Nautilus `{start}_{end}.parquet` names | Wall clock **06:00 UTC** only |
+| **HIP-4 universe refresh** | HTTP outcomeMeta → new YES/NO set → **unsubscribe old / subscribe new** | Adaptive: idle ~1800s, near expiry ~10s, aligned to expiration |
+| **Segment seal** | Seal active segments to Nautilus `{start}_{end}.parquet` names | Every UTC hour in these production profiles |
 
-**Not** all streams “rotate content” at 06:00. Only **file segments** seal at 06:00.
-Outcome **subscriptions** roll when the next daily market appears (often near that boundary).
+At 06:00 UTC the hourly file boundary and daily outcome expiration coincide.
+Outcome subscriptions switch only after discovery confirms the successor and
+its definitions are ready. File sealing runs independently.
 
 ## Lightweight runtime (memory / CPU)
 

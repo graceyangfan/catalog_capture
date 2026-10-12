@@ -158,6 +158,20 @@ impl DynamicHip4UniverseManager {
         )
     }
 
+    /// Align the one-shot actor timer to expiration, including fractional seconds.
+    #[must_use]
+    pub fn next_rotation_check_ns(&self, now_ns: u64) -> u64 {
+        let scheduled = now_ns.saturating_add(
+            self.next_rotation_check_delay_secs(now_ns)
+                .saturating_mul(1_000_000_000),
+        );
+        self.universes
+            .iter()
+            .map(|state| state.applied_resolved.market.expiration_ns)
+            .filter(|expiration| *expiration > now_ns)
+            .fold(scheduled, u64::min)
+    }
+
     pub fn refresh(&mut self, now_ns: u64) -> Result<DynamicHip4UniverseDelta> {
         let previous_dynamic_plan = self.current_dynamic_plan.clone();
         let mut next_dynamic_plan = CapturePlan::default();
@@ -454,6 +468,15 @@ mod tests {
             "failed refresh should schedule with expiration_ns=None -> active poll"
         );
         manager.last_refresh_failed = false;
+        let expiration = manager.universes[0].applied_resolved.market.expiration_ns;
+        assert_eq!(
+            manager.next_rotation_check_ns(expiration - 500_000_000),
+            expiration
+        );
+        assert_eq!(
+            manager.next_rotation_check_ns(expiration),
+            expiration + 10_000_000_000
+        );
         assert_eq!(
             manager.next_rotation_check_delay_secs(0),
             1800,

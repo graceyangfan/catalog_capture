@@ -63,6 +63,9 @@ impl CatalogCaptureActor {
             // Capture instrument snapshot only; market-data is gated separately so HIP-4
             // rolls do not race SubscribeQuotes/Trades against a cold adapter cache.
             self.submit_instrument(instrument)?;
+            if is_hip4_outcome(instrument_id) {
+                optional_flush_all(&self.instrument_runtime)?;
+            }
             Ok(())
         } else {
             let client_id = self.market_data_client_id(instrument_id);
@@ -373,10 +376,23 @@ impl CatalogCaptureActor {
         // Drop stale streams first (HIP-4 / option universe day-roll), then
         // bootstrap and attach the new plan. Keeps one coherent subscription set.
         self.unsubscribe_plan(remove);
+        self.seal_removed_hip4_partitions(remove)?;
+        let next_plan =
+            if self.dynamic_hip4_universe.is_some() || self.dynamic_option_universe.is_some() {
+                self.effective_capture_plan()
+            } else {
+                catalog_capture_core::merge_capture_plans(
+                    &catalog_capture_core::capture_plan_difference(&self.plan, remove),
+                    add,
+                )
+            };
+        let still_active = next_plan.planned_instrument_ids();
         for instrument_id in remove.planned_instrument_ids() {
             // Always drop local subscribe bookkeeping so expired ids cannot keep
             // pending timers / live flags alive across rolls.
-            self.forget_instrument_runtime_state(instrument_id);
+            if !still_active.contains(&instrument_id) {
+                self.forget_instrument_runtime_state(instrument_id);
+            }
         }
         for instrument_id in add.planned_instrument_ids() {
             self.bootstrap_instrument(instrument_id)?;
@@ -385,6 +401,59 @@ impl CatalogCaptureActor {
         self.sync_plan_state();
         self.subscribe_plan(add)?;
         Ok(())
+    }
+
+    /// Retire only removed outcome partitions; shared Binance/perp files keep their hour.
+    pub(crate) fn seal_removed_hip4_partitions(&self, remove: &CapturePlan) -> Result<()> {
+        if self.dynamic_hip4_universe.is_none() {
+            return Ok(());
+        }
+        macro_rules! seal_removed {
+            ($field:ident, $runtime:ident, $ty:ty) => {
+                if let Some(runtime) = &self.$runtime {
+                    for spec in &remove.$field {
+                        if is_hip4_outcome(spec.instrument_id) {
+                            runtime.seal_partition(
+                                &PartitionKey::catalog_data::<$ty>(spec.instrument_id).stable_key(),
+                            )?;
+                        }
+                    }
+                }
+            };
+        }
+        seal_removed!(quotes, quote_runtime, QuoteTick);
+        seal_removed!(trades, trade_runtime, TradeTick);
+        seal_removed!(book_deltas, book_delta_runtime, OrderBookDelta);
+        seal_removed!(mark_prices, mark_price_runtime, MarkPriceUpdate);
+        seal_removed!(index_prices, index_price_runtime, IndexPriceUpdate);
+        seal_removed!(funding_rates, funding_rate_runtime, FundingRateUpdate);
+        seal_removed!(
+            instrument_statuses,
+            instrument_status_runtime,
+            InstrumentStatus
+        );
+        seal_removed!(instrument_closes, instrument_close_runtime, InstrumentClose);
+        seal_removed!(option_greeks, option_greeks_runtime, OptionGreeks);
+        if let Some(runtime) = &self.bar_runtime {
+            for spec in &remove.bars {
+                if is_hip4_outcome(spec.bar_type.instrument_id()) {
+                    runtime.seal_partition(
+                        &PartitionKey::catalog_data::<Bar>(spec.bar_type).stable_key(),
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn accepts_market_data(
+        &self,
+        instrument_id: InstrumentId,
+        configured: impl FnOnce() -> bool,
+    ) -> bool {
+        self.dynamic_hip4_universe.is_none()
+            || !is_hip4_outcome(instrument_id)
+            || (self.market_data_live.contains(&instrument_id) && configured())
     }
 
     /// Drop actor-side market-data bookkeeping for an instrument (pending + live + timer).
@@ -532,6 +601,7 @@ impl CatalogCaptureActor {
             return Ok(());
         }
 
+        let previous_plan = self.plan.clone();
         let now = self.clock().timestamp_ns();
         let delta = self
             .dynamic_hip4_universe
@@ -548,7 +618,12 @@ impl CatalogCaptureActor {
                     &delta.resolution_records,
                 )?;
             }
-            self.apply_subscription_delta(&delta.add, &delta.remove)?;
+            // Diff the complete capture intent so a static or other-universe
+            // owner can keep the same outcome stream and partition alive.
+            let next_plan = self.effective_capture_plan();
+            let add = catalog_capture_core::capture_plan_difference(&next_plan, &previous_plan);
+            let remove = catalog_capture_core::capture_plan_difference(&previous_plan, &next_plan);
+            self.apply_subscription_delta(&add, &remove)?;
             self.purge_removed_hip4_instruments(&delta.changes);
         }
         self.schedule_hip4_universe_refresh()?;
@@ -635,8 +710,7 @@ impl CatalogCaptureActor {
         };
 
         let now = self.clock().timestamp_ns();
-        let delay_secs = manager.next_rotation_check_delay_secs(now.as_u64());
-        let alert_time = now + DurationNanos::new(delay_secs.saturating_mul(1_000_000_000));
+        let alert_time = UnixNanos::from(manager.next_rotation_check_ns(now.as_u64()));
         self.clock().cancel_timer(HIP4_UNIVERSE_REFRESH_TIMER);
         self.clock()
             .set_time_alert_ns(HIP4_UNIVERSE_REFRESH_TIMER, alert_time, None, None)?;
@@ -865,6 +939,11 @@ fn predict_dynamic_output_data_type(selector_key: &CryptoUpDownSelectorKey) -> D
     DataType::new("PredictOrderbookSnapshot", Some(metadata), None)
 }
 
+fn is_hip4_outcome(instrument_id: InstrumentId) -> bool {
+    instrument_id.venue.as_str() == "HYPERLIQUID"
+        && instrument_id.symbol.as_str().ends_with("-OUTCOME")
+}
+
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)] // Keeps the focused helper tests beside their helper.
 mod tests {
@@ -991,6 +1070,9 @@ impl DataActor for CatalogCaptureActor {
             || (self.plan.planned_instrument_ids().contains(&instrument_id)
                 && !self.market_data_live.contains(&instrument_id));
         if needs_md {
+            if is_hip4_outcome(instrument_id) {
+                optional_flush_all(&self.instrument_runtime)?;
+            }
             self.subscribe_market_data_for_instrument(instrument_id);
             if self.pending_market_data.is_empty() {
                 self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;

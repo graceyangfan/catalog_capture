@@ -43,6 +43,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_quote(&mut self, quote: QuoteTick) -> Result<()> {
+        if !self.accepts_market_data(quote.instrument_id, || {
+            self.plan
+                .quotes
+                .iter()
+                .any(|spec| spec.instrument_id == quote.instrument_id)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.quote_runtime,
             PartitionKey::catalog_data::<QuoteTick>(quote.instrument_id),
@@ -128,6 +136,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_mark_price(&mut self, data: MarkPriceUpdate) -> Result<()> {
+        if !self.accepts_market_data(data.instrument_id, || {
+            self.plan
+                .mark_prices
+                .iter()
+                .any(|spec| spec.instrument_id == data.instrument_id)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.mark_price_runtime,
             PartitionKey::catalog_data::<MarkPriceUpdate>(data.instrument_id),
@@ -138,6 +154,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_index_price(&mut self, data: IndexPriceUpdate) -> Result<()> {
+        if !self.accepts_market_data(data.instrument_id, || {
+            self.plan
+                .index_prices
+                .iter()
+                .any(|spec| spec.instrument_id == data.instrument_id)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.index_price_runtime,
             PartitionKey::catalog_data::<IndexPriceUpdate>(data.instrument_id),
@@ -148,6 +172,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_funding_rate(&mut self, data: FundingRateUpdate) -> Result<()> {
+        if !self.accepts_market_data(data.instrument_id, || {
+            self.plan
+                .funding_rates
+                .iter()
+                .any(|spec| spec.instrument_id == data.instrument_id)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.funding_rate_runtime,
             PartitionKey::catalog_data::<FundingRateUpdate>(data.instrument_id),
@@ -158,6 +190,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_instrument_status(&mut self, data: InstrumentStatus) -> Result<()> {
+        if !self.accepts_market_data(data.instrument_id, || {
+            self.plan
+                .instrument_statuses
+                .iter()
+                .any(|spec| spec.instrument_id == data.instrument_id)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.instrument_status_runtime,
             PartitionKey::catalog_data::<InstrumentStatus>(data.instrument_id),
@@ -168,6 +208,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_instrument_close(&mut self, data: InstrumentClose) -> Result<()> {
+        if !self.accepts_market_data(data.instrument_id, || {
+            self.plan
+                .instrument_closes
+                .iter()
+                .any(|spec| spec.instrument_id == data.instrument_id)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.instrument_close_runtime,
             PartitionKey::catalog_data::<InstrumentClose>(data.instrument_id),
@@ -178,6 +226,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_option_greeks(&mut self, data: OptionGreeks) -> Result<()> {
+        if !self.accepts_market_data(data.instrument_id, || {
+            self.plan
+                .option_greeks
+                .iter()
+                .any(|spec| spec.instrument_id == data.instrument_id)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.option_greeks_runtime,
             PartitionKey::catalog_data::<OptionGreeks>(data.instrument_id),
@@ -195,6 +251,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_trade(&mut self, trade: TradeTick) -> Result<()> {
+        if !self.accepts_market_data(trade.instrument_id, || {
+            self.plan
+                .trades
+                .iter()
+                .any(|spec| spec.instrument_id == trade.instrument_id)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.trade_runtime,
             PartitionKey::catalog_data::<TradeTick>(trade.instrument_id),
@@ -205,6 +269,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_bar(&mut self, bar: Bar) -> Result<()> {
+        if !self.accepts_market_data(bar.bar_type.instrument_id(), || {
+            self.plan
+                .bars
+                .iter()
+                .any(|spec| spec.bar_type == bar.bar_type)
+        }) {
+            return Ok(());
+        }
         submit_capture_item(
             &self.bar_runtime,
             PartitionKey::catalog_data::<Bar>(bar.bar_type),
@@ -219,6 +291,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_book_delta_batch(&mut self, deltas: OrderBookDeltas) -> Result<()> {
+        if !self.accepts_market_data(deltas.instrument_id, || {
+            self.plan
+                .book_deltas
+                .iter()
+                .any(|spec| spec.instrument_id == deltas.instrument_id)
+        }) {
+            return Ok(());
+        }
         let row_count = deltas.deltas.len();
         if row_count == 0 {
             return Ok(());
@@ -283,30 +363,25 @@ impl CatalogCaptureActor {
             return Ok(Vec::new());
         }
 
-        let results = vec![
-            optional_shutdown(&mut self.instrument_runtime)?,
-            optional_shutdown(&mut self.custom_data_runtime)?,
-            std::mem::take(&mut self.predict_custom_data_runtimes)
-                .into_values()
-                .try_fold(FlushResult::default(), |mut total, mut runtime| {
-                    let result = runtime.shutdown()?;
-                    total.rows += result.rows;
-                    total.bytes += result.bytes;
-                    total.files.extend(result.files);
-                    Ok::<_, anyhow::Error>(total)
-                })?,
-            optional_shutdown(&mut self.mark_price_runtime)?,
-            optional_shutdown(&mut self.index_price_runtime)?,
-            optional_shutdown(&mut self.funding_rate_runtime)?,
-            optional_shutdown(&mut self.instrument_status_runtime)?,
-            optional_shutdown(&mut self.instrument_close_runtime)?,
-            optional_shutdown(&mut self.option_greeks_runtime)?,
-            optional_shutdown(&mut self.quote_runtime)?,
-            optional_shutdown(&mut self.trade_runtime)?,
-            optional_shutdown(&mut self.bar_runtime)?,
-            optional_shutdown(&mut self.book_delta_runtime)?,
+        // Every family must drain even if another writer reports a failure.
+        let mut results = vec![
+            optional_shutdown(&mut self.instrument_runtime),
+            optional_shutdown(&mut self.custom_data_runtime),
+            optional_shutdown(&mut self.mark_price_runtime),
+            optional_shutdown(&mut self.index_price_runtime),
+            optional_shutdown(&mut self.funding_rate_runtime),
+            optional_shutdown(&mut self.instrument_status_runtime),
+            optional_shutdown(&mut self.instrument_close_runtime),
+            optional_shutdown(&mut self.option_greeks_runtime),
+            optional_shutdown(&mut self.quote_runtime),
+            optional_shutdown(&mut self.trade_runtime),
+            optional_shutdown(&mut self.bar_runtime),
+            optional_shutdown(&mut self.book_delta_runtime),
         ];
+        for mut runtime in std::mem::take(&mut self.predict_custom_data_runtimes).into_values() {
+            results.push(runtime.shutdown());
+        }
         self.shutdown_completed = true;
-        Ok(results)
+        results.into_iter().collect()
     }
 }

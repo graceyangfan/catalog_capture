@@ -37,17 +37,34 @@ pub fn next_rotation_delay_secs(
         return idle_secs.min(secs_until_fast_window);
     }
 
-    active_secs
+    if now_ns < expiration_ns {
+        let until_expiry = (expiration_ns - now_ns).div_ceil(ONE_BILLION);
+        active_secs.min(until_expiry)
+    } else {
+        active_secs
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{next_rotation_delay_secs, ONE_BILLION};
+    use super::{ONE_BILLION, next_rotation_delay_secs};
 
     #[test]
     fn uses_idle_poll_when_far_from_expiry() {
         let delay = next_rotation_delay_secs(0, Some(7_200 * ONE_BILLION), 1800, 10, 900);
         assert_eq!(delay, 1800);
+    }
+
+    #[test]
+    fn active_poll_stops_at_expiration_boundary() {
+        assert_eq!(
+            next_rotation_delay_secs(1497 * ONE_BILLION, Some(1500 * ONE_BILLION), 1800, 10, 900),
+            3
+        );
+        assert_eq!(
+            next_rotation_delay_secs(1500 * ONE_BILLION, Some(1500 * ONE_BILLION), 1800, 10, 900),
+            10
+        );
     }
 
     #[test]

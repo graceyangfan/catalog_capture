@@ -1008,6 +1008,89 @@ mod tests {
     }
 
     #[test]
+    fn hip4_retirement_seals_only_old_partition_and_rejects_late_quotes() {
+        use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+        let dir = std::env::temp_dir().join(format!("hip4-retire-{}", nautilus_core::UUID4::new()));
+        fs::create_dir_all(&dir).unwrap();
+        let old = InstrumentId::from("1001-YES-OUTCOME.HYPERLIQUID");
+        let new = InstrumentId::from("1009-YES-OUTCOME.HYPERLIQUID");
+        let binance = InstrumentId::from("BTCUSDT-PERP.BINANCE");
+        let plan = CapturePlan {
+            quotes: [old, new, binance]
+                .into_iter()
+                .map(|instrument_id| QuoteCaptureSpec { instrument_id })
+                .collect(),
+            ..CapturePlan::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", dir.display()),
+                ..CaptureConfig::default()
+            },
+            plan,
+        ))
+        .unwrap();
+        actor.dynamic_hip4_universe =
+            Some(DynamicHip4UniverseManager::new(DynamicHip4UniverseConfig {
+                idle_poll_secs: 1800,
+                active_poll_secs: 10,
+                pre_expiry_window_secs: 900,
+                http_timeout_secs: 10,
+                purge_removed_instruments: true,
+                static_plan: CapturePlan::default(),
+                initial_dynamic_plan: CapturePlan::default(),
+                universes: vec![],
+            }));
+        actor.market_data_live.extend([old, new, binance]);
+        actor.submit_quote(test_quote(old)).unwrap();
+        actor.submit_quote(test_quote(binance)).unwrap();
+        actor.flush_all().unwrap();
+        let remove = CapturePlan {
+            quotes: vec![QuoteCaptureSpec { instrument_id: old }],
+            ..CapturePlan::default()
+        };
+        actor.seal_removed_hip4_partitions(&remove).unwrap();
+        let old_dir = dir.join("data/quotes").join(old.to_string());
+        assert_eq!(fs::read_dir(&old_dir).unwrap().count(), 1);
+        assert!(
+            fs::read_dir(&old_dir)
+                .unwrap()
+                .all(|entry| entry.unwrap().path().extension().unwrap() == "parquet")
+        );
+        let binance_dir = dir.join("data/quotes").join(binance.to_string());
+        assert_eq!(fs::read_dir(&binance_dir).unwrap().count(), 1);
+        assert!(
+            fs::read_dir(&binance_dir).unwrap().all(|entry| entry
+                .unwrap()
+                .path()
+                .extension()
+                .unwrap()
+                == "part")
+        );
+        // A different channel may still own this instrument. A removed quote
+        // subscription must reject late data even while the instrument stays live.
+        actor.plan.quotes.retain(|spec| spec.instrument_id != old);
+        actor.submit_quote(test_quote(old)).unwrap();
+        actor.market_data_live.remove(&old);
+        actor.submit_quote(test_quote(old)).unwrap();
+        actor.submit_quote(test_quote(new)).unwrap();
+        actor.shutdown_all().unwrap();
+        let mut catalog = ParquetDataCatalog::new(&dir, None, None, None, None);
+        for id in [old, new, binance] {
+            let rows = catalog
+                .quote_ticks(Some(vec![id.to_string()]), None, None)
+                .unwrap();
+            assert_eq!(rows.len(), 1, "exactly one accepted quote for {id}");
+        }
+        assert_eq!(
+            fs::read_dir(&old_dir).unwrap().count(),
+            1,
+            "late quote must not reopen old file"
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn predict_roll_purges_unreferenced_retired_outcomes_but_keeps_static_capture() {
         let catalog_dir = std::env::temp_dir().join(format!(
             "catalog-capture-actor-predict-purge-test-{}",

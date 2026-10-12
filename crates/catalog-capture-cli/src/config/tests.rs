@@ -136,6 +136,55 @@ fn validate_runtime_accepts_predict_crypto_up_down_without_market_id() {
     validate_runtime(&effective).expect("dynamic Predict selector should validate");
 }
 
+#[cfg(feature = "venue-predict")]
+#[test]
+fn example_predict_six_selector_cloud_config_loads_and_validates() {
+    let path = repo_root().join("examples/capture.predict-crypto-updown.toml");
+    let loaded = load_config(&path).expect("Predict-only cloud profile should load");
+    let effective = resolve_config(loaded).expect("Predict-only cloud profile should resolve");
+    validate_runtime(&effective).expect("Predict-only cloud profile should validate");
+    assert_eq!(effective.plan.custom_data.len(), 6);
+    let mut selectors = std::collections::BTreeSet::new();
+    for spec in &effective.plan.custom_data {
+        assert_eq!(spec.data_type.type_name(), "PredictCryptoUpDown");
+        assert!(
+            spec.data_type.identifier().is_none(),
+            "market IDs must be discovered"
+        );
+        let metadata = spec.data_type.metadata().unwrap();
+        selectors.insert((
+            metadata
+                .get("price_feed_symbol")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            metadata
+                .get("interval_secs")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+        ));
+    }
+    for symbol in ["BTC/USDT", "ETH/USDT", "BNB/USDT"] {
+        for interval in ["300", "900"] {
+            assert!(selectors.contains(&(symbol.into(), interval.into())));
+        }
+    }
+    assert_eq!(selectors.len(), 6);
+    assert!(effective.hip4_universes.is_empty());
+    assert!(!effective.capture.lifecycle.seal.enabled);
+    assert!(matches!(
+        effective.venues.as_slice(),
+        [VenueRuntimeConfig::Predict { .. }]
+    ));
+    assert_eq!(
+        effective.capture.catalog_uri,
+        "file://./data/predict-crypto-updown"
+    );
+}
+
 #[cfg(feature = "venue-extended")]
 #[test]
 fn extended_environment_aliases_are_explicit() {
@@ -464,9 +513,10 @@ fn validate_runtime_rejects_binance_liquidation_identifier_without_metadata() {
     .expect("config should resolve");
 
     let err = validate_runtime(&effective).expect_err("identifier-only liquidation should fail");
-    assert!(err
-        .to_string()
-        .contains("identifier requires metadata.instrument_id"));
+    assert!(
+        err.to_string()
+            .contains("identifier requires metadata.instrument_id")
+    );
 }
 
 #[cfg(feature = "venue-binance")]
@@ -828,9 +878,10 @@ fn validate_runtime_rejects_hyperliquid_identifier_mismatch() {
     .expect("config should resolve");
 
     let err = validate_runtime(&effective).expect_err("identifier mismatch should fail");
-    assert!(err
-        .to_string()
-        .contains("must match metadata.instrument_id"));
+    assert!(
+        err.to_string()
+            .contains("must match metadata.instrument_id")
+    );
 }
 
 #[cfg(feature = "venue-deribit")]
@@ -920,9 +971,10 @@ fn resolve_config_rejects_unknown_option_universe_family() {
     })
     .expect_err("unknown family should fail");
 
-    assert!(err
-        .to_string()
-        .contains("unsupported capture.option_universe family"));
+    assert!(
+        err.to_string()
+            .contains("unsupported capture.option_universe family")
+    );
 }
 
 #[cfg(feature = "venue-deribit")]
@@ -1477,6 +1529,9 @@ fn example_hyperliquid_hip4_btc_daily_config_loads_and_validates() {
     let loaded = load_config(&path).expect("example should load");
     let effective = resolve_config(loaded).expect("example should resolve");
     validate_runtime(&effective).expect("example should validate");
+    assert_eq!(effective.capture.lifecycle.seal.interval_secs, 3600);
+    assert_eq!(effective.capture.lifecycle.seal.schedule, "00:00");
+    assert_eq!(effective.capture.lifecycle.seal.timezone, "UTC");
     assert_eq!(effective.hip4_universes.len(), 1);
     assert_eq!(effective.hip4_universes[0].market_class, "priceBinary");
     assert!(effective.runtime.hip4_universe_refresh.enabled);
@@ -1495,10 +1550,12 @@ fn example_deribit_option_universe_book_deltas_config_loads_and_validates() {
     let loaded = load_config(&path).expect("example should load");
     let effective = resolve_config(loaded).expect("example should resolve");
     validate_runtime(&effective).expect("example should validate");
-    assert!(effective
-        .option_universes
-        .iter()
-        .any(|spec| spec.families.contains(&OptionUniverseFamily::BookDeltas)));
+    assert!(
+        effective
+            .option_universes
+            .iter()
+            .any(|spec| spec.families.contains(&OptionUniverseFamily::BookDeltas))
+    );
 }
 
 #[cfg(feature = "venue-deribit")]

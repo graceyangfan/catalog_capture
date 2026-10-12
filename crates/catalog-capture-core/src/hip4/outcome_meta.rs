@@ -14,7 +14,7 @@
 
 use std::collections::BTreeMap;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use rust_decimal::Decimal;
 use serde_json::Value;
 
@@ -77,7 +77,7 @@ pub fn resolve_hip4_market(
     let now_ns = options.now_ns;
     let future: Vec<_> = candidates
         .iter()
-        .filter(|item| item.expiration_ns > 0 && item.expiration_ns >= now_ns)
+        .filter(|item| item.expiration_ns > now_ns)
         .cloned()
         .collect();
     if !future.is_empty() {
@@ -338,8 +338,8 @@ pub fn parse_expiry_to_ns(value: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::{
-        instrument_ids_from_outcomes, parse_expiry_to_ns, resolve_hip4_market,
-        ResolveHip4MarketOptions,
+        ResolveHip4MarketOptions, instrument_ids_from_outcomes, parse_expiry_to_ns,
+        resolve_hip4_market,
     };
 
     #[test]
@@ -386,7 +386,7 @@ mod tests {
                 period: "1d",
                 market_class: "priceBinary",
                 include_fallback: false,
-                now_ns: parse_expiry_to_ns("20260614-0600").unwrap_or(0) + 5_000_000_000,
+                now_ns: parse_expiry_to_ns("20260614-0600").expect("expiry"),
             },
         )
         .expect("market should resolve");

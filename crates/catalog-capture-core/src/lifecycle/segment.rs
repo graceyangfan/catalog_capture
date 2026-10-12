@@ -119,6 +119,10 @@ where
         self.seal_all_internal(false)
     }
 
+    pub fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
+        self.seal_segment(key, false)
+    }
+
     pub fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
         self.seal_all_internal(false)
     }

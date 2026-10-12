@@ -202,6 +202,19 @@ where
         self.seal_all_internal(FlushReason::Seal, |sink| sink.seal_all())
     }
 
+    pub fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
+        let flushed = self.flush_partition_with_reason(key, FlushReason::Seal)?;
+        let sealed = self.sink.seal_partition(key)?;
+        if !sealed.files.is_empty() {
+            self.metrics.flushed_batches += 1;
+            self.metrics.flushed_rows += sealed.rows as u64;
+            self.metrics.completed_files += sealed.files.len() as u64;
+            self.metrics.completed_file_bytes += sealed.bytes;
+            self.metrics.flush_reasons.record(FlushReason::Seal);
+        }
+        Ok(merge_flush_results(flushed, sealed))
+    }
+
     pub fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
         self.seal_all_internal(FlushReason::Shutdown, |sink| sink.seal_all_for_shutdown())
     }
@@ -332,9 +345,11 @@ mod tests {
 
         assert_eq!(runtime.metrics.flush_reasons.budget, 1);
         assert_eq!(runtime.metrics.active_partitions, 1);
-        assert!(runtime
-            .partitions
-            .contains_key(&PartitionKey::market_data("quotes", "B").stable_key()));
+        assert!(
+            runtime
+                .partitions
+                .contains_key(&PartitionKey::market_data("quotes", "B").stable_key())
+        );
     }
 
     #[test]
