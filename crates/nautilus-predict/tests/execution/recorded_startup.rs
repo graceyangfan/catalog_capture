@@ -617,6 +617,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
                 .push(match_receipt(original, &buy, &buy_event));
         }
         barrier("net position then actual-size maker TP", || {
+            super::exit_orders::assert_no_submission_failure(&journal);
             private.state.creations.lock().unwrap().len() == 2
         })
         .await;

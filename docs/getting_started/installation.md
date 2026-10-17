@@ -31,13 +31,9 @@ when you intentionally develop against a different Nautilus checkout.
 | 0.1.x / main | `587e1065efde08db19016a8eab921c1605d5d2a4` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
-The 2026-10-17 execution baseline pins the project fork at the revision used for the
-actual Rust Strategy + LiveNode exit test. `native-quantity-commission` enables its
-experimental inventory-fee mapping; this is not an unmodified upstream develop build.
-The October 2026 Predict migration uses the published project fork so the pin and
-`Cargo.lock` match the existing execution-action dependency graph. The imported
-archive used official upstream `fb53ee6a420570a76af04fc4835f2122c3c6d6fb`;
-its source provenance is retained under `docs/reference/predict-dev-handoff-20261014/`.
+The workspace uses a pinned project fork. `native-quantity-commission` enables
+its experimental inventory-fee mapping; this is not an unmodified upstream
+develop build.
 
 ## Toolchain
 

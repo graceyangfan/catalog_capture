@@ -9,7 +9,7 @@ Explicit network probes and capture exporters are ignored by default.
 | Location | Boundary |
 | --- | --- |
 | `unit/` | Private parsing, precision, resource and lifecycle helpers, included with `cfg(test)` |
-| `private_http/`, `private_ws.rs`, `blockchain.rs` | Wire formats, authentication, pagination and chain reads |
+| `http_security.rs`, `private_http/`, `private_ws.rs`, `blockchain.rs` | Wire formats, authentication, pagination and chain reads |
 | `execution/mock_venue.rs` | Shared private venue routes, configurable responses and request observations |
 | `execution.rs`, `execution/` | Adapter commands/reports through Native ExecutionEngine and Portfolio |
 | `execution/node_host.rs`, `execution/snapshot_multi.rs` | Product factories, Rust strategies, custom snapshots, RiskEngine and LiveNode |
@@ -35,9 +35,6 @@ CARGO_INCREMENTAL=0 cargo clippy -p nautilus-predict --features native-quantity-
 The quantity-commission feature requires the pinned Nautilus fork configured in
 the workspace. Ordinary execution uses a different position-reconciliation
 mapping; its PnL results must not be presented as the same accounting path.
-A default-parallel recorded-startup timeout remains under investigation; see the
-[work plan](../../../docs/predict-execution-work-plan.md).
-
 Focused examples:
 
 ```bash
@@ -45,6 +42,27 @@ cargo test -p nautilus-predict --features execution --locked --test execution mu
 cargo test -p nautilus-predict --features execution --locked --test execution multiple_active_orders_replace
 cargo test -p nautilus-predict --features native-quantity-commission --locked --lib execution::resources::
 ```
+
+## Cancellation coverage
+
+`execution/node_cancellations.rs` reuses the product host, shared batch strategy
+and configurable loopback venue. Each test owns a distinct protocol or lifecycle
+boundary:
+
+| Boundary | Assertions |
+| --- | --- |
+| Removal result partitions | Per-ID removed/noop/rejected handling, including mixed batches and preflight failures |
+| Wallet gaps | Definitive single/batch rejection reaches the strategy; explicit later cancellation succeeds |
+| Native recovery | QueryOrder and periodic reports resolve missing wallet feedback without repeating writes |
+| HTTP deadlines | Actual client timeouts preserve pending orders; single and multi-ID terminal recovery retains correct reservations |
+| Duplicate reports | REST and repeated wallet reports produce one terminal strategy callback per order |
+| Native exhaustion | OPEN or failed queries can lead to a local Canceled while the venue order remains OPEN; characterize the dependency limit |
+
+The [adapter contract](../../../docs/predict-execution-adapter-design.md#native-cancellation-recovery-limit)
+describes the exhaustion limitation. Synthetic scenarios do not establish live
+outage or removal-lock behavior. Private HTTP tests separately replay unchanged
+real single/batch removal receipts and check their numeric IDs. MARKET signing
+vectors and REST envelope tests remain separate from lifecycle coverage.
 
 ## Add a scenario
 
@@ -88,10 +106,17 @@ Do not update expected values merely to make tests pass. Generated transcripts
 are not proof that a venue accepts a request, and historical responses combined
 with derived local state are not newly observed order activity.
 
-Existing one-time exporters use `create_new` to protect retained outputs. Run
-only a named exporter when a new artifact is needed; never run all ignored tests.
-A retained transcript does not require a second exporter that repeats its
-component scenarios.
+Cancellation exporters write run-specific JSON under the Git-ignored
+`data/predict-validation/<run-id>/` directory. These are diagnostic outputs, not
+regression inputs. Run only a named exporter; never run all ignored tests:
+
+```bash
+CARGO_INCREMENTAL=0 cargo test -p nautilus-predict --features execution --test execution node_host::cancellations::record_batch_http_timeout_probe --locked -- --ignored --exact
+```
+
+Version a synthetic fixture only when a test consumes it as a reproducible input
+or it supplies reference evidence not covered by the test itself. Existing
+retained captures remain immutable; exporters use `create_new`.
 
 Real read-only session and query evidence is retained under
 [`live_readonly_resources_20261017T100325Z`](fixtures/private_api/live_readonly_resources_20261017T100325Z/).

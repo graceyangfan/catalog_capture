@@ -360,7 +360,7 @@ impl PredictAuthenticatedHttpClient {
 
     /// Removes a bounded set of decimal order IDs from the venue orderbook exactly once.
     /// This REST operation does not invalidate the signed orders on-chain. Unlike the hash
-    /// removal endpoint, this endpoint documents an explicit removed/noop partition.
+    /// removal endpoint, this endpoint documents an explicit removed/noop/rejected partition.
     ///
     /// # Errors
     /// Empty, oversized or duplicate requests and incomplete/foreign acknowledgements are rejected.

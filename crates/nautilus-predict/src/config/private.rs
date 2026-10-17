@@ -15,7 +15,6 @@
 //! Private HTTP configuration, separate from capture configuration.
 
 use nautilus_core::string::secret::SecretString;
-use nautilus_network::http::Url;
 
 use crate::{
     common::{credential::validate_header_secret, environment::PredictEnvironment},
@@ -57,31 +56,13 @@ impl PredictPrivateClientConfig {
         if self.http_timeout_secs == 0 {
             return Err(Error::Configuration("HTTP timeout must be positive"));
         }
-        let url = Url::parse(
+        let url = crate::http::validated_http_origin(
             self.base_url_http
                 .as_deref()
                 .unwrap_or(self.environment.http_url()),
         )
-        .map_err(|_| Error::Configuration("invalid private HTTP base URL"))?;
-        let host = url
-            .host_str()
-            .ok_or(Error::Configuration("HTTP base URL requires a host"))?;
-        let loopback = host == "localhost"
-            || host
-                .trim_matches(['[', ']'])
-                .parse::<std::net::IpAddr>()
-                .is_ok_and(|address| address.is_loopback());
-        if !(url.scheme() == "https" || (url.scheme() == "http" && loopback))
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-            || url.path() != "/"
-        {
-            return Err(Error::Configuration(
-                "private HTTP URL must be an HTTPS origin without credentials, query or fragment",
-            ));
-        }
+        .map_err(Error::Configuration)?;
+        let host = url.host_str().expect("validated HTTP origin has a host");
         let official_environment = match host {
             "api.predict.fun" => Some(PredictEnvironment::BnbMainnet),
             "api-testnet.predict.fun" => Some(PredictEnvironment::BnbTestnet),

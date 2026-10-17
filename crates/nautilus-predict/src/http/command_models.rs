@@ -42,7 +42,9 @@ struct PredictCreateOrderData<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     is_post_only: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    slippage_bps: Option<u32>,
+    slippage_bps: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_min_amount_out: Option<bool>,
     order: PredictContractOrder<'a>,
 }
 
@@ -85,6 +87,7 @@ impl<'a> PredictCreateOrderRequest<'a> {
                 strategy: "LIMIT",
                 is_post_only: Some(is_post_only),
                 slippage_bps: None,
+                is_min_amount_out: None,
                 order: signed.contract_order()?,
             },
         })
@@ -132,7 +135,8 @@ impl<'a> PredictCreateOrderRequest<'a> {
                 price_per_share: amounts.price_per_share.to_string(),
                 strategy: "MARKET",
                 is_post_only: None,
-                slippage_bps: Some(amounts.slippage_bps),
+                slippage_bps: Some(amounts.slippage_bps.to_string()),
+                is_min_amount_out: Some(false),
                 order: signed.contract_order()?,
             },
         })
@@ -158,6 +162,9 @@ pub struct PredictRemoveOrdersReceipt {
     pub success: bool,
     pub removed: Vec<String>,
     pub noop: Vec<String>,
+    /// Orders still within their market's removal lock window. Older receipts omit this field.
+    #[serde(default)]
+    pub rejected: Vec<String>,
 }
 
 impl PredictRemoveOrdersReceipt {
@@ -173,7 +180,7 @@ impl PredictRemoveOrdersReceipt {
         }
         let expected: HashSet<_> = ids.iter().copied().collect();
         let mut seen = HashSet::new();
-        for value in self.removed.iter().chain(&self.noop) {
+        for value in self.removed.iter().chain(&self.noop).chain(&self.rejected) {
             let id = decimal_u256::parse::<serde::de::value::Error>(value).map_err(|_| {
                 Error::decode(endpoint, PredictDecodeErrorKind::InvalidAcknowledgement)
             })?;

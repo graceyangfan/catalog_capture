@@ -60,7 +60,15 @@ fn client() -> (PredictExecutionClient, Rc<RefCell<Cache>>) {
 }
 
 fn order(closed: bool) -> OrderAny {
-    let mut order = OrderTestBuilder::new(OrderType::Limit)
+    order_with_tags(closed, None)
+}
+
+fn order_with_tags(closed: bool, tags: Option<Vec<ustr::Ustr>>) -> OrderAny {
+    let mut builder = OrderTestBuilder::new(OrderType::Limit);
+    if let Some(tags) = tags {
+        builder.tags(tags);
+    }
+    let mut order = builder
         .instrument_id("42-1.PREDICT".into())
         .side(nautilus_model::enums::OrderSide::Buy)
         .quantity(nautilus_model::types::Quantity::from(32))
@@ -231,16 +239,20 @@ fn retiring_filled_snapshot_preserves_chain_freshness_watermark() {
         enums::LiquiditySide,
         types::{Currency, Money},
     };
-    let (client, _) = client();
-    let mut order = order(false);
-    let factory = OrderEventFactory::new(
-        order.trader_id(),
-        client.core.account_id,
-        AccountType::Cash,
-        None,
-    );
-    order
-        .apply(factory.generate_order_filled(
+    for synthetic in [false, true] {
+        let (client, _) = client();
+        let mut order = order_with_tags(
+            false,
+            synthetic
+                .then(|| vec![nautilus_execution::reconciliation::RECONCILIATION_ORDER_TAG.into()]),
+        );
+        let factory = OrderEventFactory::new(
+            order.trader_id(),
+            client.core.account_id,
+            AccountType::Cash,
+            None,
+        );
+        let mut event = factory.generate_order_filled(
             &order,
             order.venue_order_id().unwrap(),
             None,
@@ -252,23 +264,38 @@ fn retiring_filled_snapshot_preserves_chain_freshness_watermark() {
             LiquiditySide::Taker,
             UnixNanos::from(100),
             UnixNanos::from(100),
-        ))
-        .unwrap();
-    let order = Arc::new(order);
-    let weak = Arc::downgrade(&order);
-    client
-        .orders
-        .insert(order.venue_order_id().unwrap(), order.clone());
-    client.account_orders.insert(order.client_order_id(), order);
-    client.prune_order_lookups();
-    assert!(weak.upgrade().is_none());
-    assert_eq!(
-        client.account_sync.state.lock().unwrap().latest_fill,
-        UnixNanos::from(100)
-    );
-    client.prune_order_lookups();
-    assert_eq!(
-        client.account_sync.state.lock().unwrap().latest_fill,
-        UnixNanos::from(100)
-    );
+        );
+        let nautilus_model::events::OrderEventAny::Filled(fill) = &mut event else {
+            unreachable!()
+        };
+        // REST-recovered real fills are also reconciliation events. Only Native's
+        // synthetic order tag distinguishes a local position adjustment.
+        fill.reconciliation = true;
+        order.apply(event).unwrap();
+        let order = Arc::new(order);
+        let weak = Arc::downgrade(&order);
+        client
+            .orders
+            .insert(order.venue_order_id().unwrap(), order.clone());
+        client.account_orders.insert(order.client_order_id(), order);
+        client.prune_order_lookups();
+        assert!(weak.upgrade().is_none());
+        assert_eq!(
+            client.account_sync.state.lock().unwrap().latest_fill,
+            if synthetic {
+                UnixNanos::default()
+            } else {
+                UnixNanos::from(100)
+            }
+        );
+        client.prune_order_lookups();
+        assert_eq!(
+            client.account_sync.state.lock().unwrap().latest_fill,
+            if synthetic {
+                UnixNanos::default()
+            } else {
+                UnixNanos::from(100)
+            }
+        );
+    }
 }

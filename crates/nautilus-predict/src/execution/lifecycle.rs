@@ -111,11 +111,7 @@ impl PredictExecutionClient {
                 self.account_orders
                     .load()
                     .values()
-                    .flat_map(|order| order.events())
-                    .filter_map(|event| match event {
-                        OrderEventAny::Filled(fill) => Some(fill.ts_event),
-                        _ => None,
-                    })
+                    .map(|order| account::latest_venue_fill(order))
                     .max()
                     .unwrap_or_default(),
             );
@@ -138,7 +134,9 @@ impl PredictExecutionClient {
                 {
                     let mut sync = account_sync.state.lock().expect("account sync poisoned");
                     sync.revision = sync.revision.wrapping_add(1);
-                    if let OrderEventAny::Filled(fill) = event {
+                    if let OrderEventAny::Filled(fill) = event
+                        && !account::is_synthetic_order(&order)
+                    {
                         sync.latest_fill = sync.latest_fill.max(fill.ts_event);
                     }
                     let order = Arc::new(order);
@@ -239,17 +237,7 @@ impl PredictExecutionClient {
                 continue;
             }
             retired.insert(order.client_order_id());
-            sync.latest_fill = sync.latest_fill.max(
-                order
-                    .events()
-                    .into_iter()
-                    .filter_map(|event| match event {
-                        OrderEventAny::Filled(fill) => Some(fill.ts_event),
-                        _ => None,
-                    })
-                    .max()
-                    .unwrap_or_default(),
-            );
+            sync.latest_fill = sync.latest_fill.max(account::latest_venue_fill(order));
         }
         if retired.is_empty() {
             return;

@@ -71,11 +71,16 @@ fn market_amounts_signed_hash_signature_and_envelope_match_official_sdk() {
         let body =
             serde_json::to_value(PredictCreateOrderRequest::market(&signed, &amounts).unwrap())
                 .unwrap();
-        assert_eq!(body, vector["body"]);
+        // Retain the saved SDK signing oracle unchanged. Its hand-built HTTP
+        // envelope predates the REST schema's string slippage and explicit mode.
+        let mut expected = vector["body"].clone();
+        expected["data"]["slippageBps"] = amounts.slippage_bps.to_string().into();
+        expected["data"]["isMinAmountOut"] = false.into();
+        assert_eq!(body, expected);
         assert_eq!(body["data"]["order"]["expiration"], 1_800_000_300u64);
         assert!(body["data"].get("isPostOnly").is_none());
         assert!(body["data"].get("timeInForce").is_none());
-        assert!(body["data"].get("isMinAmountOut").is_none());
+        assert_eq!(body["data"]["isMinAmountOut"], false);
     }
 }
 

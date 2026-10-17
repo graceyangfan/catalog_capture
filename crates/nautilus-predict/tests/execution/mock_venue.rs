@@ -283,8 +283,19 @@ pub(super) async fn remove_orders(
             .unwrap()
             .retain(|row| !ids.contains(&row["id"]));
     }
+    if reply["echoRemovalLocked"] == true || reply["echoAllRemovalLocked"] == true {
+        let ids = request["data"]["ids"].as_array().unwrap();
+        reply = if reply["echoAllRemovalLocked"] == true {
+            json!({"success":true,"removed":[],"noop":[],"rejected":ids})
+        } else {
+            json!({"success":true,"removed":[ids[0].clone()],"noop":[],"rejected":ids[1..].to_vec()})
+        };
+    }
     if reply["echoRemoved"] == true {
         reply = json!({"success":true,"removed":request["data"]["ids"],"noop":[]});
+    }
+    if reply["echoNoop"] == true {
+        reply = json!({"success":true,"removed":[],"noop":request["data"]["ids"]});
     }
     if status == 200
         && let Some(removed) = reply["removed"].as_array()

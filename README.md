@@ -39,7 +39,7 @@ venues → catalog-capture-cli + TOML
 
 ## Quick start
 
-Requires Rust **1.99.0** and sibling `../nautilus_trader`. Run from the **repo root**.
+Requires Rust **1.99.0** and sibling `../nautilus_trader_quantity_commission`. Run from the **repo root**.
 
 ```bash
 # Clone + checkout the Nautilus revision pinned by CI (recommended)
@@ -86,7 +86,7 @@ More: [examples/README.md](examples/README.md).
 | `make build-release` | All venues (`all-venues`) |
 | `make build-slim FEATURES=venue-deribit` | Single-venue debug |
 | `make build-release-small` | Smaller binary, slower compile |
-| `make clean` / `make clean-all-targets` | Free disk (`clean-all` also clears `../nautilus_trader/target`) |
+| `make clean` / `make clean-all-targets` | Free disk (`clean-all` also clears `../nautilus_trader_quantity_commission/target`) |
 
 Build size notes: [docs/how_to/build_size.md](docs/how_to/build_size.md).
 

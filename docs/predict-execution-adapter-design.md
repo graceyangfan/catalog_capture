@@ -51,10 +51,75 @@ Venue wallet/REST facts -> Native events/reports -> Order/Position/Portfolio
 | BUY LIMIT | GTC/GTD, maker or explicitly permitted non-post-only; exact signing and collateral/allowance/nonce checks |
 | SELL LIMIT / MARKET | Available net inventory less active SELL reservations; MARKET GTC uses `market_slippage_bps` |
 | CancelOrder | Verify the signed hash's numeric REST ID, then call `orders/remove` |
-| BatchCancelOrders | Send `ids[]` together; interpret each `removed/noop` independently |
+| BatchCancelOrders | Send `ids[]` together; interpret each `removed/noop/rejected` independently |
 | CancelAllOrders | Select owned orders by account/instrument/side and reuse removal |
 | ModifyOrder | Emit standard ModifyRejected; replacement requires explicit cancel and a new order |
 | OrderList / batch modify / reduce-only | Reject unsupported operations rather than discarding intent |
+
+### Cancellation
+
+Single and batch cancellation share per-order preflight and outcome handling.
+The signed hash is the Native VenueOrderId; its numeric REST ID is used only for
+[orderbook removal](https://dev.predict.fun/remove-orders-from-the-orderbook-25326904e0).
+Removal does not invalidate the signed order on-chain.
+
+| Evidence | Adapter action |
+| --- | --- |
+| Proven not sent or explicitly rejected | Emit OrderCancelRejected; keep the order and its reservation active. A definitive rejection remains valid during a wallet gap. |
+| Requested ID in `removed`, continuous session | Emit OrderCanceled; retain command ownership until Native applies the terminal event. |
+| Requested ID in `noop` | Query the hash. A validated zero-fill CANCELLED/EXPIRED snapshot produces an OrderStatusReport; OPEN or unresolved fills do not establish cancellation. |
+| Timeout, 5xx, malformed receipt or lost wallet continuity after transmission | Retain the unknown outcome for WS, Native QueryOrder and periodic reconciliation. Do not automatically repeat the removal write. |
+
+The [receipt schema](https://dev.predict.fun/removeordersresponse-14037528d0)
+partitions IDs into `removed`, `noop` and `rejected`; batch success is not atomic.
+Task ownership and generation checks prevent stale responses from changing a
+new session. Native Cache owns state transitions and duplicate-report handling.
+
+The official Rust adapters at develop snapshot `7fe26c3d59` provide comparisons:
+
+| Adapter | Unknown cancellation outcome |
+| --- | --- |
+| [Binance Spot](https://github.com/nautechsystems/nautilus_trader/blob/7fe26c3d59/crates/adapters/binance/src/spot/execution.rs) | Await reconciliation; emit CancelRejected only for NotSent or VenueRejected. |
+| [Polymarket](https://github.com/nautechsystems/nautilus_trader/blob/7fe26c3d59/crates/adapters/polymarket/src/execution/cancellations.rs) | Await stream/reports; its cancel guard protects the HTTP task lifetime. |
+| [Hyperliquid](https://github.com/nautechsystems/nautilus_trader/blob/7fe26c3d59/crates/adapters/hyperliquid/src/execution.rs) | Await reconciliation; query by client ID, then venue ID. |
+| [Lighter](https://github.com/nautechsystems/nautilus_trader/blob/7fe26c3d59/crates/adapters/lighter/src/execution.rs) | Retain pending action and nonce evidence; do not reject an unknown send outcome. |
+
+These are source comparisons, not live validation on the other venues.
+Venue-specific confirmations and task ownership need not be identical.
+
+### Native cancellation recovery limit
+
+An unchanged OPEN snapshot maps to Accepted. It proves the order remains live,
+not that a delayed cancel failed. Native deliberately preserves PendingCancel
+and its inflight query tracking for this report.
+
+In the pinned Rust ExecutionManager, an exhausted PendingCancel confirmation
+budget can generate reconciliation Canceled without venue terminal evidence.
+This branch and unchanged-Accepted handling match the official develop snapshot
+above. The retry budget counts confirmation checks, not repeated cancel writes.
+Reported account reservations continue to include venue OPEN orders even if
+Native has closed their cached order.
+
+A later OPEN snapshot cannot reopen a terminal cached order, and Native Strategy
+suppresses cancellation of that closed ID. Automatic replacement must therefore
+not rely on timeout-derived Canceled as proof of venue removal. Resolve the venue
+state before resuming that workflow. The current adapter does not guarantee
+automatic recovery from an indefinite outage; increasing retries only extends
+the confirmation window. Disabling inflight checks removes normal coverage.
+
+The adapter preserves this boundary without a second timer, synthetic rejection
+or shadow order-state machine. `SubmissionRecoveryPolicy` covers unresolved
+submissions, not cancellation of an already accepted order. Offline coverage is
+described in the [test guide](../crates/nautilus-predict/tests/README.md#cancellation-coverage);
+observed mainnet behavior is documented in [live evidence](reference/predict-live-evidence.md).
+
+### Submission and fills
+
+Quantity-based MARKET requests preserve the SDK's signed maker/taker amounts,
+serialize `slippageBps` as a decimal string, and explicitly send
+`isMinAmountOut=false`. Slippage already adjusts signed amounts; the flag must
+match the SDK mode, rather than applying another price adjustment. See the
+[official order guide](https://dev.predict.fun/how-to-create-or-cancel-orders-679306m0).
 
 Builder inputs follow the supported SDK precision: up to three significant price
 digits and five significant quantity digits, with the SDK's 0.01-share quantity
@@ -73,6 +138,14 @@ identity supports WS/REST deduplication; Native applies order and position state
 Both REST and WS may confirm cancellation without creating a second strategy
 transition. [Orderbook removal](https://dev.predict.fun/remove-orders-from-the-orderbook-25326904e0)
 is distinct from the SDK's on-chain signature invalidation operation.
+
+Native can also synthesize an order tagged with its reserved
+`RECONCILIATION_ORDER_TAG` to align cached positions with a position report.
+Those local adjustments still reach Native order/position callbacks, but do not
+advance Predict's chain-cash freshness requirement. Real venue fills recovered
+through reconciliation do advance it; `OrderFilled.reconciliation` alone does
+not distinguish these sources. Startup, event observation, snapshot retirement,
+account refresh, readiness and submission use the same classification.
 
 ## Sessions
 

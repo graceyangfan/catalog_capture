@@ -49,7 +49,10 @@ use super::{
 };
 use crate::{
     config::PredictAccountStateMode,
-    http::{PredictAuthenticatedHttpClient, account_models::PredictOrderStatus},
+    http::{
+        PredictAuthenticatedHttpClient, account_models::PredictOrderStatus,
+        command_models::PredictRemoveOrdersReceipt,
+    },
 };
 
 // Tracks outstanding commands only, never order status, balances or position state. Ambiguous
@@ -435,17 +438,19 @@ impl CancelWorker {
                     guard.id
                 );
             }
-            Err(_) => {
-                if !guard.retain {
-                    self.reject("Predict cancel preflight timed out");
-                }
-                log::warn!(
-                    "Predict cancel timed out for {} (transmitted: {})",
-                    guard.id,
-                    guard.retain
-                );
-            }
+            Err(_) => self.resolve_timeout(guard),
         }
+    }
+
+    fn resolve_timeout(&self, guard: &CancelGuard) {
+        if !guard.retain {
+            self.reject("Predict cancel preflight timed out");
+        }
+        log::warn!(
+            "Predict cancel timed out for {} (transmitted: {})",
+            guard.id,
+            guard.retain
+        );
     }
 
     async fn preflight(&self) -> Result<Option<U256>, CommandFailure> {
@@ -497,16 +502,15 @@ impl CancelWorker {
             .request_remove_orders(&[id])
             .await
             .map_err(|e| classify_http_command_failure(&e))?;
-        self.complete(guard, receipt.removed.contains(&id.to_string()))
-            .await
+        self.complete(guard, &receipt, id).await
     }
 
-    async fn complete(&self, guard: &mut CancelGuard, removed: bool) -> Result<(), CommandFailure> {
-        if !self.session_active() {
-            return Err(CommandFailure::ambiguous(
-                "Predict cancel session lost wallet continuity after transmission",
-            ));
-        }
+    async fn complete(
+        &self,
+        guard: &mut CancelGuard,
+        receipt: &PredictRemoveOrdersReceipt,
+        id: U256,
+    ) -> Result<(), CommandFailure> {
         let order = self.current_order().ok_or_else(|| {
             CommandFailure::ambiguous("Predict cancel lost native context after transmission")
         })?;
@@ -514,7 +518,21 @@ impl CancelWorker {
             guard.retain = false;
             return Ok(());
         }
-        if removed {
+        let id = id.to_string();
+        if receipt.rejected.contains(&id) {
+            return Err(CommandFailure::VenueRejected(
+                "Predict removal rejected during the market removal lock window".into(),
+            ));
+        }
+        // A validated rejection is definitive even if wallet continuity was lost.
+        // Successful/unknown outcomes keep the existing continuity requirements;
+        // resolve/reject still enforce task ownership and the current native order.
+        if !self.session_active() {
+            return Err(CommandFailure::ambiguous(
+                "Predict cancel session lost wallet continuity after transmission",
+            ));
+        }
+        if receipt.removed.contains(&id) {
             let now = self.clock.get_time_ns();
             let event = self
                 .factory
@@ -626,17 +644,15 @@ async fn execute_batch(entries: Vec<(CancelWorker, CancelGuard)>) {
         }
         match tokio::time::timeout(timeout, session.request_remove_orders(&ids)).await {
             Ok(Ok(receipt)) => {
+                let receipt = &receipt;
                 futures_util::future::join_all(active.into_iter().map(
-                    |(worker, mut guard, id)| {
-                        let removed = receipt.removed.contains(&id.to_string());
-                        async move {
-                            let result = tokio::time::timeout(
-                                worker.timeout,
-                                worker.complete(&mut guard, removed),
-                            )
-                            .await;
-                            worker.resolve(&mut guard, result);
-                        }
+                    |(worker, mut guard, id)| async move {
+                        let result = tokio::time::timeout(
+                            worker.timeout,
+                            worker.complete(&mut guard, receipt, id),
+                        )
+                        .await;
+                        worker.resolve(&mut guard, result);
                     },
                 ))
                 .await;
@@ -647,12 +663,8 @@ async fn execute_batch(entries: Vec<(CancelWorker, CancelGuard)>) {
                 }
             }
             Err(_) => {
-                // The write may have reached the venue. Keep all command ownership for Native reconciliation.
-                for (_, guard, _) in active {
-                    log::warn!(
-                        "Predict batch cancel timed out after transmission for {}",
-                        guard.id
-                    );
+                for (worker, guard, _) in active {
+                    worker.resolve_timeout(&guard);
                 }
             }
         }

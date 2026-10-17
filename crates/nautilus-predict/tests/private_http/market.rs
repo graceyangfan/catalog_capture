@@ -47,7 +47,12 @@ async fn market_transport_preserves_sdk_request_and_never_retries_ambiguous_crea
         }
         let requests = server.requests.lock().unwrap();
         assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0].body, vector["body"]);
+        // Saved vectors retain the SDK's signed payload and legacy hand-built
+        // envelope. Current REST fields have explicit types and mode.
+        let mut expected = vector["body"].clone();
+        expected["data"]["slippageBps"] = "0".into();
+        expected["data"]["isMinAmountOut"] = false.into();
+        assert_eq!(requests[0].body, expected);
         assert_eq!(requests[0].method, Method::POST);
         assert_eq!(requests[0].path, "/v1/orders");
     }

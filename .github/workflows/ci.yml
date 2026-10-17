@@ -48,6 +48,10 @@ jobs:
       - name: Install pre-commit
         run: pip install pre-commit
 
+      - name: Verify Predict evidence
+        working-directory: catalog_capture
+        run: python3 tests/predict_evidence.py
+
       - name: Run pre-commit
         working-directory: catalog_capture
         run: pre-commit run --all-files
@@ -95,6 +99,10 @@ jobs:
           cargo test -p nautilus-predict --features execution --lib --tests --locked
           cargo clippy -p nautilus-predict --features execution --all-targets --locked -- -D warnings
           cargo check -p nautilus-predict --lib --no-default-features --features execution --locked
+
+      - name: Build Predict API documentation
+        working-directory: catalog_capture
+        run: cargo doc -p nautilus-predict --no-deps --features execution --locked
 
       - name: Verify Predict quantity-commission baseline offline
         working-directory: catalog_capture

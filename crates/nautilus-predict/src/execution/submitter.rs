@@ -234,14 +234,7 @@ impl SubmitWorker {
             .orders
             .load()
             .values()
-            .flat_map(|order| order.events())
-            .filter_map(|event| {
-                if let nautilus_model::events::OrderEventAny::Filled(fill) = event {
-                    Some(fill.ts_event)
-                } else {
-                    None
-                }
-            })
+            .map(|order| super::account::latest_venue_fill(order))
             .max()
             .unwrap_or_default()
             .max(latest_fill);

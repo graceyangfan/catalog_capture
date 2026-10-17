@@ -416,14 +416,7 @@ impl ReadinessCheck {
             .context
             .orders
             .values()
-            // REST observations and off-chain removal acknowledgements do not advance
-            // chain cash. Requiring their observation time would keep a polling client
-            // gated forever; canonical cash must cover actual settled native fills.
-            .flat_map(|o| o.events().into_iter())
-            .filter_map(|event| match event {
-                nautilus_model::events::OrderEventAny::Filled(fill) => Some(fill.ts_event),
-                _ => None,
-            })
+            .map(super::account::latest_venue_fill)
             .max()
             .unwrap_or_default()
             .max(latest_fill);

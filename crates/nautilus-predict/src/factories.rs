@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Nautilus factory for [`PredictDataClient`](crate::PredictDataClient).
+//! Nautilus factory for [`PredictDataClient`].
 
 use std::{any::Any, cell::RefCell, rc::Rc};
 

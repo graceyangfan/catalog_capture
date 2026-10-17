@@ -168,6 +168,17 @@ pub(super) async fn exit_socket(
     })
 }
 
+pub(super) fn assert_no_submission_failure(journal: &Rc<RefCell<Vec<Value>>>) {
+    let rows = journal.borrow();
+    let rejected = rows
+        .iter()
+        .find(|row| row["type"] == "Rejected" || row["type"] == "Denied");
+    assert!(
+        rejected.is_none(),
+        "unexpected Native admission failure before HTTP: {rejected:?}"
+    );
+}
+
 pub(super) async fn barrier(label: &str, mut predicate: impl FnMut() -> bool) {
     timeout(Duration::from_secs(5), async {
         while !predicate() {
@@ -692,6 +703,8 @@ pub(super) async fn run_exit_case(
                 .await;
                 let stop = private.state.creations.lock().unwrap()[1].clone();
                 assert_eq!(stop["data"]["strategy"], "MARKET");
+                assert_eq!(stop["data"]["slippageBps"], "100");
+                assert_eq!(stop["data"]["isMinAmountOut"], false);
                 assert!(stop["data"].get("isPostOnly").is_none());
                 assert_eq!(
                     stop["data"]["order"]["makerAmount"],

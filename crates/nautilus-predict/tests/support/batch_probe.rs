@@ -41,6 +41,9 @@ pub struct BatchProbe {
     pub book: Option<PredictOrderbookSnapshot>,
     pub modified: bool,
     pub batch_sent: bool,
+    pub single_cancel: bool,
+    pub resume_cancel: Option<Rc<Cell<bool>>>,
+    pub query_closed_before_cancel: bool,
     pub modify_rejections: usize,
     pub last_account: Option<UUID4>,
 }
@@ -172,8 +175,38 @@ impl BatchProbe {
                 && orders.iter().all(|o| o.status() == OrderStatus::Accepted)
             {
                 self.batch_sent = true;
-                self.record(json!({"type":"StrategyBatchCancelOrders","clientOrderIds":self.ids.iter().map(ToString::to_string).collect::<Vec<_>>() }));
-                self.cancel_orders(self.ids.clone(), Some(ClientId::new("PREDICT")), None)?;
+                if self.single_cancel {
+                    self.record(json!({"type":"StrategyCancelOrder","clientOrderId":self.ids[0].to_string()}));
+                    self.cancel_order(self.ids[0], Some(ClientId::new("PREDICT")), None)?;
+                } else {
+                    self.record(json!({"type":"StrategyBatchCancelOrders","clientOrderIds":self.ids.iter().map(ToString::to_string).collect::<Vec<_>>() }));
+                    self.cancel_orders(self.ids.clone(), Some(ClientId::new("PREDICT")), None)?;
+                }
+            }
+            if self
+                .resume_cancel
+                .as_ref()
+                .is_some_and(|request| request.replace(false))
+            {
+                if self.query_closed_before_cancel {
+                    for order in orders.iter().filter(|order| order.is_closed()) {
+                        self.record(json!({"type":"StrategyQueryClosedOrder","clientOrderId":order.client_order_id().to_string()}));
+                        self.query_order(order, Some(ClientId::new("PREDICT")), None)?;
+                        self.cancel_order(
+                            order.client_order_id(),
+                            Some(ClientId::new("PREDICT")),
+                            None,
+                        )?;
+                        self.record(json!({"type":"StrategyCancelClosedOrderAttempt","clientOrderId":order.client_order_id().to_string()}));
+                    }
+                }
+                let ids = orders
+                    .iter()
+                    .filter(|order| !order.is_closed() && !order.is_pending_cancel())
+                    .map(|order| order.client_order_id())
+                    .collect::<Vec<_>>();
+                self.record(json!({"type":"StrategyExplicitCancelAfterRecovery","clientOrderIds":ids.iter().map(ToString::to_string).collect::<Vec<_>>() }));
+                self.cancel_orders(ids, Some(ClientId::new("PREDICT")), None)?;
             }
             if self.batch_sent
                 && orders.iter().all(|o| o.status() == OrderStatus::Canceled)
@@ -279,6 +312,6 @@ nautilus_strategy!(BatchProbe, {
         self.record(json!({"type":"ModifyTermsPreserved","clientOrderId":event.client_order_id.to_string(),"price":expected.to_string()}));
     }
     fn on_order_event(&mut self, event: OrderEventAny) {
-        self.record(json!({"type":"StrategyOrderCallback","kind":format!("{:?}",event.event_type()),"clientOrderId":event.client_order_id().to_string(),"venueOrderId":event.venue_order_id().map(|v|v.to_string()),"cachedStatus":self.cache().order(&event.client_order_id()).map(|o|o.status().to_string())}));
+        self.record(json!({"type":"StrategyOrderCallback","kind":format!("{:?}",event.event_type()),"clientOrderId":event.client_order_id().to_string(),"venueOrderId":event.venue_order_id().map(|v|v.to_string()),"cachedStatus":self.cache().order(&event.client_order_id()).map(|o|o.status().to_string()),"reconciliation":if let OrderEventAny::Canceled(e) = &event {Some(e.reconciliation)} else {None},"reason":if let OrderEventAny::CancelRejected(e) = &event {Some(e.reason.as_str())} else {None}}));
     }
 });

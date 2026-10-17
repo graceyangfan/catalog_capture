@@ -26,7 +26,8 @@ use std::{
 
 use alloy::primitives::B256;
 use nautilus_common::factories::OrderEventFactory;
-use nautilus_core::{AtomicMap, Params, UUID4, time::AtomicTime};
+use nautilus_core::{AtomicMap, Params, UUID4, UnixNanos, time::AtomicTime};
+use nautilus_execution::reconciliation::RECONCILIATION_ORDER_TAG;
 use nautilus_live::ExecutionEventEmitter;
 use nautilus_model::{
     accounts::cash::CashAccount,
@@ -48,6 +49,30 @@ use crate::{
     http::account_models::PredictOrderData,
 };
 
+// Native position adjustments change cached holdings, not venue settlement or chain cash.
+// The reconciliation event flag alone also marks real fills recovered through REST.
+pub(super) fn is_synthetic_order(order: &OrderAny) -> bool {
+    order.tags().is_some_and(|tags| {
+        tags.iter()
+            .any(|tag| tag.as_str() == RECONCILIATION_ORDER_TAG)
+    })
+}
+
+pub(super) fn latest_venue_fill(order: &OrderAny) -> UnixNanos {
+    if is_synthetic_order(order) {
+        return UnixNanos::default();
+    }
+    order
+        .events()
+        .into_iter()
+        .filter_map(|event| match event {
+            OrderEventAny::Filled(fill) => Some(fill.ts_event),
+            _ => None,
+        })
+        .max()
+        .unwrap_or_default()
+}
+
 #[derive(Debug, Default)]
 pub(super) struct AccountSync {
     pub state: Mutex<AccountSyncState>,
@@ -58,7 +83,7 @@ pub(super) struct AccountSync {
 pub(super) struct AccountSyncState {
     pub revision: u64,
     // Chain freshness must outlive Native's retention of individual settled orders.
-    pub latest_fill: nautilus_core::UnixNanos,
+    pub latest_fill: UnixNanos,
     pub last_event: Option<UUID4>,
     block: Option<(u64, B256)>,
 }
@@ -116,14 +141,7 @@ impl AccountReporter {
         // A lagging RPC block must not undo collateral changes of already confirmed native fills.
         let newest_fill = orders
             .values()
-            .flat_map(|order| order.events())
-            .filter_map(|event| {
-                if let OrderEventAny::Filled(fill) = event {
-                    Some(fill.ts_event)
-                } else {
-                    None
-                }
-            })
+            .map(|order| latest_venue_fill(order))
             .max()
             .unwrap_or_default()
             .max(latest_fill);

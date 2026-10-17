@@ -4,12 +4,15 @@
 
 Write-focused capture service:
 
-- ingress via Nautilus Trader venue adapters (`../nautilus_trader`)
+- ingress via Nautilus Trader venue adapters (`../nautilus_trader_quantity_commission`)
 - one product binary: `catalog-capture-cli`
 - declarative TOML plans
 - output: **Rust-canonical** `ParquetDataCatalog` layout only
 
-Does not fork Nautilus Trader, run strategies, or mirror Python legacy catalog paths.
+The Predict adapter also provides an opt-in execution host for Rust strategies.
+Capture remains a separate actor. Dependencies use the pinned project fork;
+see [installation](../getting_started/installation.md) and the
+[execution contract](../predict-execution-adapter-design.md).
 
 ## Principles
 

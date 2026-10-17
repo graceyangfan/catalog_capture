@@ -855,6 +855,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
                 }
                 books.push(book(&private, &public, "0.012", saved.as_ref()));
                 barrier("take profit POST", || {
+                    super::exit_orders::assert_no_submission_failure(&journal);
                     exit_requests(&private, case).len() == 2
                 })
                 .await;

@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use anyhow::Context;
 use nautilus_network::http::{
@@ -26,18 +26,30 @@ use super::models::{
 
 const DEFAULT_HTTP_URL: &str = "https://api.predict.fun";
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PredictHttpClient {
     base_url: String,
     client: HttpClient,
 }
 
+impl fmt::Debug for PredictHttpClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Native transport Debug includes its default headers.
+        f.debug_struct("PredictHttpClient")
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
+    }
+}
+
 impl PredictHttpClient {
     pub fn new(api_key: &str, base_url: Option<&str>, timeout_secs: u64) -> anyhow::Result<Self> {
         anyhow::ensure!(
-            !api_key.trim().is_empty(),
-            "Predict API key is required for REST market metadata"
+            !api_key.is_empty() && api_key.bytes().all(|byte| byte.is_ascii_graphic()),
+            "Predict API key must be a nonempty printable ASCII header value"
         );
+        anyhow::ensure!(timeout_secs > 0, "HTTP timeout must be positive");
+        let url = super::validated_http_origin(base_url.unwrap_or(DEFAULT_HTTP_URL))
+            .map_err(anyhow::Error::msg)?;
         let mut headers: HashMap<String, String> =
             create_standard_nautilus_headers().into_iter().collect();
         headers.insert("x-api-key".to_string(), api_key.to_string());
@@ -48,10 +60,7 @@ impl PredictHttpClient {
             .build()
             .context("failed to build Predict HTTP client")?;
         Ok(Self {
-            base_url: base_url
-                .unwrap_or(DEFAULT_HTTP_URL)
-                .trim_end_matches('/')
-                .to_string(),
+            base_url: url.as_str().trim_end_matches('/').to_string(),
             client,
         })
     }

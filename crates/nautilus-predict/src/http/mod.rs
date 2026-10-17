@@ -39,3 +39,31 @@ pub mod query;
 pub use client::PredictHttpClient;
 #[cfg(feature = "execution")]
 pub use private_client::{PredictAuthenticatedHttpClient, PredictPrivateHttpClient};
+
+/// Validates credential-bearing REST origins before any request is constructed.
+#[cfg(feature = "live")]
+pub(crate) fn validated_http_origin(
+    raw: &str,
+) -> Result<nautilus_network::http::Url, &'static str> {
+    use nautilus_network::http::Url;
+
+    let url = Url::parse(raw).map_err(|_| "invalid HTTP base URL")?;
+    let host = url.host_str().ok_or("HTTP base URL requires a host")?;
+    let loopback = host == "localhost"
+        || host
+            .trim_matches(['[', ']'])
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|address| address.is_loopback());
+    if !(url.scheme() == "https" || (url.scheme() == "http" && loopback))
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || url.path() != "/"
+    {
+        return Err(
+            "HTTP URL must be an HTTPS origin without credentials, path, query or fragment",
+        );
+    }
+    Ok(url)
+}

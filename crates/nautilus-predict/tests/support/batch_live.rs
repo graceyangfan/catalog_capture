@@ -43,6 +43,9 @@ fn probe(
         book: None,
         modified: false,
         batch_sent: false,
+        single_cancel: false,
+        resume_cancel: None,
+        query_closed_before_cancel: false,
         modify_rejections: 0,
         last_account: None,
     }

@@ -275,6 +275,7 @@ async fn removal_uses_decimal_ids_and_checks_the_entire_removed_noop_partition()
         .unwrap();
     assert_eq!(receipt.removed, ["12345"]);
     assert_eq!(receipt.noop, [U256::MAX.to_string()]);
+    assert!(receipt.rejected.is_empty());
     let requests = server.requests.lock().unwrap();
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0].method, Method::POST);
@@ -290,10 +291,84 @@ async fn removal_uses_decimal_ids_and_checks_the_entire_removed_noop_partition()
 }
 
 #[tokio::test]
+async fn recorded_single_and_batch_removal_receipts_preserve_real_rest_ids() {
+    use alloy::primitives::U256;
+    for captured in [
+        include_str!(
+            "../fixtures/private_api/exit_only_restart_20261017T053156Z/http_responses.json"
+        ),
+        include_str!(
+            "../fixtures/private_api/live_resting_http-batch_20261016T160926Z/http_responses.json"
+        ),
+    ] {
+        let captured: Value = serde_json::from_str(captured).unwrap();
+        let removal = captured["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|event| event["path"] == "/v1/orders/remove")
+            .unwrap();
+        assert_eq!(removal["status"], 200);
+        let expected = &removal["responseBody"];
+        let ids = removal["requestIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|id| id.as_str().unwrap().parse::<U256>().unwrap())
+            .collect::<Vec<_>>();
+        let server = server(vec![Reply::json(expected.clone())]).await;
+        let session = transport(&server)
+            .authenticated(
+                PredictAuthToken::new(TOKEN.into()).unwrap(),
+                OWNER.parse().unwrap(),
+            )
+            .unwrap();
+        let receipt = session.request_remove_orders(&ids).await.unwrap();
+        assert_eq!(json!(receipt.removed), expected["removed"]);
+        assert!(receipt.noop.is_empty());
+        assert!(receipt.rejected.is_empty());
+        let requests = server.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].path, "/v1/orders/remove");
+        assert_eq!(
+            requests[0].body,
+            json!({"data":{"ids":removal["requestIds"]}})
+        );
+    }
+}
+
+#[tokio::test]
+async fn removal_preserves_each_removed_noop_and_rejected_partition() {
+    use alloy::primitives::U256;
+    let server = server(vec![Reply::json(
+        json!({"success":true,"removed":["1"],"noop":["2"],"rejected":["3"]}),
+    )])
+    .await;
+    let session = transport(&server)
+        .authenticated(
+            PredictAuthToken::new(TOKEN.into()).unwrap(),
+            OWNER.parse().unwrap(),
+        )
+        .unwrap();
+    let receipt = session
+        .request_remove_orders(&[U256::from(1), U256::from(2), U256::from(3)])
+        .await
+        .unwrap();
+    assert_eq!(receipt.removed, ["1"]);
+    assert_eq!(receipt.noop, ["2"]);
+    assert_eq!(receipt.rejected, ["3"]);
+    assert_eq!(server.requests.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
 async fn incomplete_duplicate_or_foreign_removal_receipts_fail_without_retrying() {
     use alloy::primitives::U256;
     for body in [
         json!({"success":true,"removed":[],"noop":[]}),
+        json!({"success":true,"removed":["12345"],"noop":[],"rejected":["12345"]}),
+        json!({"success":true,"removed":[],"noop":[],"rejected":["99999"]}),
+        json!({"success":true,"removed":[],"noop":[],"rejected":["012345"]}),
+        json!({"success":true,"removed":[],"noop":[],"rejected":[12345]}),
         json!({"success":true,"removed":["12345"],"noop":["12345"]}),
         json!({"success":true,"removed":["12345","99999"],"noop":[]}),
         json!({"success":true,"removed":["012345"],"noop":[]}),
