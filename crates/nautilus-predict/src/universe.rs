@@ -219,6 +219,7 @@ mod tests {
             created_at: Some("2026-10-03T20:00:00Z".to_string()),
             variant_data: Some(PredictVariantData {
                 variant_type: "CRYPTO_UP_DOWN".to_string(),
+                start_price: None,
                 price_feed_symbol: Some("BTC/USD".to_string()),
             }),
         };
@@ -245,6 +246,7 @@ mod tests {
             created_at: Some("2026-10-07T16:00:02.000Z".to_string()),
             variant_data: Some(PredictVariantData {
                 variant_type: "CRYPTO_UP_DOWN".to_string(),
+                start_price: None,
                 price_feed_symbol: Some("BTCUSDT".to_string()),
             }),
         };

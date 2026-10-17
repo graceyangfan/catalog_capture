@@ -24,6 +24,73 @@ use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
 use nautilus_predict::{PredictOrderbookSnapshot, register_predict_custom_data};
 
 #[test]
+#[ignore = "requires PREDICT_PROBE_CATALOG and PREDICT_START_PRICE_API_JSON from a live capture"]
+fn live_start_price_matches_api_and_reads_native_snapshots() {
+    let root = std::env::var("PREDICT_PROBE_CATALOG").expect("set PREDICT_PROBE_CATALOG");
+    let evidence = std::env::var("PREDICT_START_PRICE_API_JSON")
+        .expect("set PREDICT_START_PRICE_API_JSON to a market_id -> decimal string JSON file");
+    let expected: BTreeMap<String, String> =
+        serde_json::from_slice(&std::fs::read(evidence).unwrap()).unwrap();
+    assert!(!expected.is_empty());
+    register_predict_custom_data();
+    let mut catalog = ParquetDataCatalog::new(Path::new(&root), None, None, None, None);
+    let instruments = catalog.instruments(None, None, None).unwrap();
+    assert_eq!(instruments.len(), expected.len() * 2);
+    for (market_id, price) in &expected {
+        for outcome in [1, 2] {
+            let id = format!("{market_id}-{outcome}.PREDICT");
+            let instrument = instruments
+                .iter()
+                .find(|item| item.id().to_string() == id)
+                .unwrap();
+            let info = instrument.info().expect("live start_price must persist");
+            assert_eq!(info.len(), 1);
+            assert_eq!(info["start_price"].as_str(), Some(price.as_str()));
+            println!("{id}: info.start_price={price}");
+        }
+    }
+    let rows = catalog
+        .query_custom_data_dynamic(
+            "PredictOrderbookSnapshot",
+            None,
+            None,
+            None,
+            None,
+            None,
+            true,
+        )
+        .unwrap();
+    let mut counts = BTreeMap::<String, usize>::new();
+    for row in &rows {
+        let Data::Custom(custom) = row else {
+            panic!("expected custom data")
+        };
+        let book = custom
+            .data
+            .as_any()
+            .downcast_ref::<PredictOrderbookSnapshot>()
+            .unwrap();
+        assert!(expected.contains_key(&book.market_id.to_string()));
+        assert!(!book.bids.is_empty() || !book.asks.is_empty());
+        *counts.entry(book.market_id.to_string()).or_default() += 1;
+    }
+    assert_eq!(counts.len(), expected.len());
+    assert!(!rows.is_empty());
+    println!("native catalog snapshots: {counts:?}");
+    fn assert_sealed(path: &Path) {
+        for entry in std::fs::read_dir(path).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                assert_sealed(&path);
+            } else {
+                assert!(!path.to_string_lossy().ends_with(".part"));
+            }
+        }
+    }
+    assert_sealed(Path::new(&root));
+}
+
+#[test]
 #[ignore = "requires PREDICT_PROBE_CATALOG from a BTC 5m recording across one boundary"]
 fn btc_selector_rolls_and_reads_back() {
     let root = std::env::var("PREDICT_PROBE_CATALOG").expect("set PREDICT_PROBE_CATALOG");

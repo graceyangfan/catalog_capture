@@ -214,6 +214,48 @@ let rows = catalog.query_custom_data_dynamic(
 Read the matching outcome definitions by `{market_id}-1.PREDICT` and
 `{market_id}-2.PREDICT`. Each custom row itself carries the YES instrument ID.
 
+For crypto Up/Down markets, both outcome definitions store the API's
+`variantData.startPrice` as the exact decimal string `info["start_price"]`.
+Nautilus persists this dictionary in the instrument Parquet `info` JSON column
+and restores it when reading instruments. No extra feed metadata is added.
+If the field is absent or null when the market is loaded, the key is omitted;
+capture does not poll specifically for this value. Existing recordings can be
+enriched later using the script below.
+
+### Backfill historical start prices
+
+Stop the recorder for the target catalog before running the backfill. With
+Python 3.11+ and `pyarrow` (or `uv` to supply it), run from the repository root:
+
+```bash
+uv run --with pyarrow python scripts/backfill_predict_start_price.py \
+  --catalog /absolute/path/to/catalog --dry-run
+
+uv run --with pyarrow python scripts/backfill_predict_start_price.py \
+  --catalog /absolute/path/to/catalog
+```
+
+Credentials default to `env/predictfun.toml` (`api_key`), with
+`PREDICT_CREDENTIALS_FILE` or `--credentials-file` as alternatives. The script
+queries the production market-detail API once per market needing a value, then
+fills only absent/null `start_price` entries in existing
+`data/binary_option/{market_id}-{1|2}.PREDICT/*.parquet` files. It preserves other
+instrument values, timestamps, schema metadata, row groups and compression.
+Orderbook files are never opened or modified. Existing non-null prices are
+left alone, so successful reruns require no requests or writes.
+
+Each changed file gets an adjacent byte-for-byte original backup named
+`<filename>.parquet.pre-start-price.bak`; replacement is atomic per file, not
+across the whole catalog. An existing backup blocks another replacement of that
+file. A null API price leaves that market unchanged. The final counters report
+updated (or would-update) files/rows, unavailable prices and errors; unavailable
+prices or errors produce a nonzero exit status. Correct a reported failure and
+rerun; inspect any existing backup before removing it to retry that file.
+
+This is historical metadata enrichment: original instrument timestamps are
+preserved. It does not claim the recorder had observed the price at that time,
+and does not add `endPrice` or other post-resolution fields to a backtest.
+
 The stored snapshot supports spread, mid, microprice, L1/L5/full-depth
 imbalance, shape, displayed-liquidity, and snapshot-to-snapshot replenishment
 research. `order_count` supports aggregate fragmentation analysis, but does not

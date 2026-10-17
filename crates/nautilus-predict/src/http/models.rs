@@ -67,6 +67,8 @@ pub struct PredictVariantData {
     #[serde(rename = "type")]
     pub variant_type: String,
     pub price_feed_symbol: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_start_price")]
+    pub start_price: Option<rust_decimal::Decimal>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -75,4 +77,25 @@ pub struct PredictOutcome {
     pub name: String,
     pub index_set: u8,
     pub on_chain_id: String,
+}
+
+// Read the original JSON token rather than passing a numeric price through f64.
+fn deserialize_start_price<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<rust_decimal::Decimal>, D::Error> {
+    use serde::de::Error;
+
+    let raw = Option::<Box<serde_json::value::RawValue>>::deserialize(deserializer)?;
+    raw.map(|raw| {
+        let token = raw.get();
+        let text = if token.starts_with('"') {
+            serde_json::from_str::<String>(token).map_err(D::Error::custom)?
+        } else {
+            token.to_owned()
+        };
+        rust_decimal::Decimal::from_str_exact(&text)
+            .or_else(|_| rust_decimal::Decimal::from_scientific(&text))
+            .map_err(D::Error::custom)
+    })
+    .transpose()
 }

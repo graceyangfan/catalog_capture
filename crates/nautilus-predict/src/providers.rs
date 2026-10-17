@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use ahash::AHashMap;
 use async_trait::async_trait;
 use nautilus_common::providers::{InstrumentProvider, InstrumentStore};
-use nautilus_core::UnixNanos;
+use nautilus_core::{Params, UnixNanos};
 use nautilus_model::{
     enums::AssetClass,
     identifiers::{InstrumentId, Symbol},
@@ -189,6 +189,16 @@ pub(crate) fn instruments_from_market(
         SNAPSHOT_SIZE_PRECISION,
     )?;
     let currency = Currency::get_or_create_crypto("USDT");
+    let info = market
+        .variant_data
+        .as_ref()
+        .filter(|variant| variant.variant_type == "CRYPTO_UP_DOWN")
+        .and_then(|variant| variant.start_price)
+        .map(|price| {
+            let mut info = Params::new();
+            info.insert("start_price".into(), price.to_string().into());
+            info
+        });
     let instruments = [yes, no]
         .into_iter()
         .map(|outcome| {
@@ -210,6 +220,7 @@ pub(crate) fn instruments_from_market(
                 .max_price(max_price)
                 .outcome(Ustr::from(outcome.name.as_str()))
                 .description(Ustr::from(market.title.as_str()))
+                .maybe_info(info.clone())
                 .ts_event(ts_init)
                 .ts_init(ts_init)
                 .build()?;
@@ -303,10 +314,103 @@ mod tests {
     }
 
     #[test]
+    fn start_price_preserves_exact_decimal_and_only_populates_crypto_info() {
+        for token in ["81566.995123456789123", "\"81566.995123456789123\""] {
+            let mut json = include_str!("../test_data/market_2859346.json").replace(
+                "\"priceFeedSymbol\":",
+                &format!("\"startPrice\": {token}, \"priceFeedSymbol\":"),
+            );
+            let response: PredictResponse<PredictMarket> = serde_json::from_str(&json).unwrap();
+            let (_, instruments) = instruments_from_market(&response.data, 1.into()).unwrap();
+            for instrument in &instruments {
+                let info = instrument.info().unwrap();
+                assert_eq!(info.len(), 1);
+                assert_eq!(info["start_price"], "81566.995123456789123");
+            }
+            json = json.replace("CRYPTO_UP_DOWN", "DEFAULT");
+            let response: PredictResponse<PredictMarket> = serde_json::from_str(&json).unwrap();
+            let (_, instruments) = instruments_from_market(&response.data, 1.into()).unwrap();
+            assert!(
+                instruments
+                    .iter()
+                    .all(|instrument| instrument.info().is_none())
+            );
+        }
+        for field in ["", "\"startPrice\": null,"] {
+            let json = include_str!("../test_data/market_2859346.json").replace(
+                "\"priceFeedSymbol\":",
+                &format!("{field} \"priceFeedSymbol\":"),
+            );
+            let response: PredictResponse<PredictMarket> = serde_json::from_str(&json).unwrap();
+            let (_, instruments) = instruments_from_market(&response.data, 1.into()).unwrap();
+            assert!(
+                instruments
+                    .iter()
+                    .all(|instrument| instrument.info().is_none())
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "requires PREDICT_BACKFILL_PYTHON with pyarrow installed"]
+    fn backfilled_instruments_read_back_through_native_catalog() {
+        let python = std::env::var("PREDICT_BACKFILL_PYTHON").unwrap();
+        let response: PredictResponse<PredictMarket> =
+            serde_json::from_str(include_str!("../test_data/market_2859346.json")).unwrap();
+        let (_, instruments) = instruments_from_market(&response.data, 1_000.into()).unwrap();
+        assert!(instruments.iter().all(|item| item.info().is_none()));
+        let root = unique_temp_catalog("predict-start-price-backfill");
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..CaptureConfig::default()
+        };
+        let sink = NautilusCatalogSink::from_config(&config).unwrap();
+        sink.write_instruments(instruments.clone()).unwrap();
+        let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../scripts/backfill_predict_start_price.py");
+        let output = std::process::Command::new(python)
+            .arg("-c")
+            .arg(
+                "import importlib.util, pathlib, sys; \
+                 spec = importlib.util.spec_from_file_location('backfill', sys.argv[1]); \
+                 module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); \
+                 stats = module.backfill(pathlib.Path(sys.argv[2]), lambda _: '81566.995123456789123'); \
+                 assert stats['rows'] == 2 and stats['errors'] == 0, stats",
+            )
+            .arg(script)
+            .arg(&root)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        let catalog = ParquetDataCatalog::new(&root, None, None, None, None);
+        let restored = catalog.instruments(None, None, None).unwrap();
+        assert_eq!(restored.len(), 2);
+        for item in &restored {
+            assert_eq!(item.info().unwrap()["start_price"], "81566.995123456789123");
+            let original = instruments
+                .iter()
+                .find(|old| old.id() == item.id())
+                .unwrap();
+            let mut expected = original.clone();
+            let nautilus_model::instruments::InstrumentAny::BinaryOption(binary) = &mut expected
+            else {
+                panic!("expected binary option");
+            };
+            binary.info = item.info().cloned();
+            assert_eq!(&expected, item);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn market_instruments_and_yes_snapshot_round_trip_through_parquet_catalog() {
         register_predict_custom_data();
         let response: PredictResponse<PredictMarket> =
-            serde_json::from_str(include_str!("../test_data/market_2859346.json")).unwrap();
+            serde_json::from_str(&include_str!("../test_data/market_2859346.json").replace(
+                "\"priceFeedSymbol\":",
+                "\"startPrice\": 81566.995123456789123, \"priceFeedSymbol\":",
+            ))
+            .unwrap();
         let (context, instruments) =
             instruments_from_market(&response.data, UnixNanos::from(1_000)).unwrap();
         let wire: PredictOrderbookWire =
@@ -384,6 +488,14 @@ mod tests {
                 .iter()
                 .any(|item| item.id() == context.no_instrument_id)
         );
+
+        for instrument in &restored_instruments {
+            let info = instrument
+                .info()
+                .expect("start price survives catalog roundtrip");
+            assert_eq!(info.len(), 1);
+            assert_eq!(info["start_price"], "81566.995123456789123");
+        }
 
         let market_ids = vec![context.market_id.to_string()];
         let restored = catalog
