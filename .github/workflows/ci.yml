@@ -22,12 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout catalog capture
-        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: catalog_capture
 
       - name: Checkout nautilus_trader
-        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: graceyangfan/nautilus_trader
           ref: ${{ env.NAUTILUS_TRADER_REF }}
@@ -57,12 +57,12 @@ jobs:
     needs: pre-commit
     steps:
       - name: Checkout catalog capture
-        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: catalog_capture
 
       - name: Checkout nautilus_trader
-        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: graceyangfan/nautilus_trader
           ref: ${{ env.NAUTILUS_TRADER_REF }}
@@ -118,12 +118,12 @@ jobs:
     needs: pre-commit
     steps:
       - name: Checkout catalog capture
-        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: catalog_capture
 
       - name: Checkout nautilus_trader
-        uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: graceyangfan/nautilus_trader
           ref: ${{ env.NAUTILUS_TRADER_REF }}
