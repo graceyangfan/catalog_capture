@@ -1,0 +1,8 @@
+{
+  "source": "authenticated complete read-only mainnet order query projection; no order POST or chain write",
+  "checkedAtUtc": "2026-10-15T10:13:27.536773+00:00",
+  "openOrderCount": 0,
+  "ordinaryOrderWritesEnabled": false,
+  "temporaryRunConfigExists": false,
+  "temporaryRelayManifestExists": false
+}

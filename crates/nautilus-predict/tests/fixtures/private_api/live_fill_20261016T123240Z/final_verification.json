@@ -1,0 +1,20 @@
+{
+  "source": "actual mainnet final checks",
+  "nodeExitCode": 0,
+  "openOrders": 0,
+  "positions": 0,
+  "independentSummary": {
+    "matches": 6,
+    "chainVerifiedOwnFills": 6,
+    "walletEvents": 9,
+    "heartbeats": 12,
+    "positions": 0,
+    "openOrders": 0,
+    "cashWeiBefore": "48297729200000000001",
+    "cashWeiAfter": "48216308400000000001",
+    "cashUnchanged": false
+  },
+  "nativeFeedbackAvailable": true,
+  "nativeAccountMatchesChain": true,
+  "complete": true
+}

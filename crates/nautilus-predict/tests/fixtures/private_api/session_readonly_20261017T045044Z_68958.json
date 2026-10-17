@@ -1,0 +1,4115 @@
+{
+  "source": "actual readonly REST/RPC response JSON relayed unchanged to Rust; credential/profile redaction only in retained copy",
+  "transforms": [
+    "wallet and contract addresses anonymized, including query parameters and ABI calldata",
+    "signatures, JWT, authentication requests and account profile omitted",
+    "SDK hash verification performed before redaction"
+  ],
+  "events": [
+    {
+      "sequence": 0,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:48.349265+00:00",
+      "method": "GET",
+      "path": "/v1/auth/message",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "data": {
+          "message": "[redacted]"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:48.688257+00:00"
+    },
+    {
+      "sequence": 1,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:48.693311+00:00",
+      "method": "POST",
+      "path": "/v1/auth",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "authenticationBodyOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:49.038205+00:00"
+    },
+    {
+      "sequence": 2,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:49.043453+00:00",
+      "method": "GET",
+      "path": "/v1/categories/btc-updown-5m-1792212600",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "data": {
+          "createdAt": "2026-10-16T04:50:01.000Z",
+          "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.\n2026-10-17T04:50:00Z",
+          "endsAt": "2026-10-17T04:55:00.000Z",
+          "id": 618923,
+          "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": false,
+          "marketVariant": "CRYPTO_UP_DOWN",
+          "markets": [
+            {
+              "boostEndsAt": "2026-10-17T04:55:00.000Z",
+              "boostStartsAt": "2026-10-17T04:50:00.000Z",
+              "categorySlug": "btc-updown-5m-1792212600",
+              "conditionId": "0x452b5ecc37c0ae22823a044f9bca51785d51a446f5fa332bf81a6c4928ac8e44",
+              "createdAt": "2026-10-16T04:50:01.000Z",
+              "decimalPrecision": 2,
+              "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+              "feeRateBps": 200,
+              "id": 3395989,
+              "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+              "isBoosted": false,
+              "isNegRisk": false,
+              "isVisible": true,
+              "isYieldBearing": false,
+              "kalshiMarketTicker": null,
+              "marketType": null,
+              "marketVariant": "CRYPTO_UP_DOWN",
+              "oracleQuestionId": "0x20cae74b4f8fc96e2eaaea5a2b075992e5c23e6149ab2149318aee656230ddd5",
+              "outcomes": [
+                {
+                  "bestAsk": {
+                    "price": 0.36,
+                    "size": 290.0004
+                  },
+                  "bestBid": {
+                    "price": 0.35,
+                    "size": 234.05846153846156
+                  },
+                  "indexSet": 1,
+                  "name": "Up",
+                  "onChainId": "111987223477734974297680959199298501320058566601237356823604753189520238868002",
+                  "status": null,
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "bestAsk": {
+                    "price": 0.65,
+                    "size": 234.05846153846156
+                  },
+                  "bestBid": {
+                    "price": 0.64,
+                    "size": 290.0004
+                  },
+                  "indexSet": 2,
+                  "name": "Down",
+                  "onChainId": "3911435998392325478962638803098695689612939087011589877427319051579883469602",
+                  "status": null,
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "polymarketConditionIds": [],
+              "question": "Bitcoin Up or Down - October 17, 12:50AM-12:55AM ET",
+              "questionIndex": null,
+              "resolution": null,
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "rewards": {
+                "current": {
+                  "endsAt": "2026-10-17T04:55:00.000Z",
+                  "hourlyRate": 3000,
+                  "startsAt": "2026-10-17T04:50:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "endsAt": "2026-10-17T04:55:00.000Z",
+                    "hourlyRate": 3000,
+                    "startsAt": "2026-10-17T04:50:00.000Z"
+                  }
+                ]
+              },
+              "seriesSlug": "btc-updown-5m",
+              "shareThreshold": 100,
+              "spreadThreshold": 0.06,
+              "status": "REGISTERED",
+              "team": null,
+              "title": "Bitcoin Up or Down - October 17, 12:50AM-12:55AM ET",
+              "tradingStatus": "OPEN",
+              "variantData": {
+                "endPrice": null,
+                "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+                "priceFeedProvider": "CHAINLINK",
+                "priceFeedSymbol": "BTCUSDT",
+                "startPrice": 81566.995,
+                "type": "CRYPTO_UP_DOWN"
+              }
+            }
+          ],
+          "negRiskOnChainId": null,
+          "parentSlug": null,
+          "protocol": "LEGACY",
+          "publishedAt": "2026-10-16T04:50:55.002Z",
+          "resolutionProvider": "CHAINLINK",
+          "seriesSlug": "btc-updown-5m",
+          "shortTitle": "BTC Up or Down 5m",
+          "slug": "btc-updown-5m-1792212600",
+          "startsAt": "2026-10-17T04:50:00.000Z",
+          "stats": null,
+          "status": "OPEN",
+          "tags": [
+            {
+              "id": "2",
+              "level": 1,
+              "makerRebateBps": 2500,
+              "name": "Crypto",
+              "parentId": null
+            },
+            {
+              "id": "15",
+              "level": null,
+              "makerRebateBps": 0,
+              "name": "BTC",
+              "parentId": null
+            },
+            {
+              "id": "111",
+              "level": 2,
+              "makerRebateBps": 2500,
+              "name": "Up/Down",
+              "parentId": "2"
+            },
+            {
+              "id": "156",
+              "level": 2,
+              "makerRebateBps": 0,
+              "name": "UpDown_Binance",
+              "parentId": "2"
+            },
+            {
+              "id": "162",
+              "level": 2,
+              "makerRebateBps": 0,
+              "name": "5 Min",
+              "parentId": "2"
+            }
+          ],
+          "teams": null,
+          "title": "Bitcoin Up or Down - October 17, 12:50AM-12:55AM ET",
+          "tradingSession": null,
+          "variantData": {
+            "endPrice": null,
+            "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+            "priceFeedProvider": "CHAINLINK",
+            "priceFeedSymbol": "BTCUSDT",
+            "startPrice": 81566.995,
+            "type": "CRYPTO_UP_DOWN"
+          },
+          "variantDetails": {
+            "crypto": {
+              "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+              "priceFeedProvider": "CHAINLINK",
+              "priceFeedSymbol": "BTCUSDT",
+              "startPrice": 81566.995
+            },
+            "upDown": {
+              "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+              "priceFeedProvider": "CHAINLINK",
+              "priceFeedSymbol": "BTCUSDT",
+              "startPrice": 81566.995
+            }
+          }
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:49.387317+00:00"
+    },
+    {
+      "sequence": 3,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:49.388741+00:00",
+      "method": "GET",
+      "path": "/v1/categories/btc-updown-5m-1792212900",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "data": {
+          "createdAt": "2026-10-16T04:55:02.000Z",
+          "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.\n2026-10-17T04:55:00Z",
+          "endsAt": "2026-10-17T05:00:00.000Z",
+          "id": 618929,
+          "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": false,
+          "marketVariant": "CRYPTO_UP_DOWN",
+          "markets": [
+            {
+              "boostEndsAt": "2026-10-17T05:00:00.000Z",
+              "boostStartsAt": "2026-10-17T04:55:00.000Z",
+              "categorySlug": "btc-updown-5m-1792212900",
+              "conditionId": "0x433994bdcf8768107feef43d553236e5062d6180104c6691a16874c70fbd68bc",
+              "createdAt": "2026-10-16T04:55:02.000Z",
+              "decimalPrecision": 2,
+              "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+              "feeRateBps": 200,
+              "id": 3396034,
+              "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+              "isBoosted": false,
+              "isNegRisk": false,
+              "isVisible": true,
+              "isYieldBearing": false,
+              "kalshiMarketTicker": null,
+              "marketType": null,
+              "marketVariant": "CRYPTO_UP_DOWN",
+              "oracleQuestionId": "0x8cdd8abfbac0107a65243114f2bcb870606136b343e9f5311c2b29bbb52a8de9",
+              "outcomes": [
+                {
+                  "bestAsk": {
+                    "price": 0.5,
+                    "size": 162
+                  },
+                  "bestBid": {
+                    "price": 0.49,
+                    "size": 1.0612
+                  },
+                  "indexSet": 1,
+                  "name": "Up",
+                  "onChainId": "5198573785293402727465469383404741380672549311822218985332555665799521663715",
+                  "status": null,
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "bestAsk": {
+                    "price": 0.51,
+                    "size": 1.0612
+                  },
+                  "bestBid": {
+                    "price": 0.5,
+                    "size": 162
+                  },
+                  "indexSet": 2,
+                  "name": "Down",
+                  "onChainId": "36044743358168553674964245671215265530539010921886158608222399346606259058207",
+                  "status": null,
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "polymarketConditionIds": [],
+              "question": "Bitcoin Up or Down - October 17, 12:55AM-1AM ET",
+              "questionIndex": null,
+              "resolution": null,
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "rewards": {
+                "current": null,
+                "schedule": [
+                  {
+                    "endsAt": "2026-10-17T05:00:00.000Z",
+                    "hourlyRate": 3000,
+                    "startsAt": "2026-10-17T04:55:00.000Z"
+                  }
+                ]
+              },
+              "seriesSlug": "btc-updown-5m",
+              "shareThreshold": 100,
+              "spreadThreshold": 0.06,
+              "status": "REGISTERED",
+              "team": null,
+              "title": "Bitcoin Up or Down - October 17, 12:55AM-1AM ET",
+              "tradingStatus": "OPEN",
+              "variantData": {
+                "endPrice": null,
+                "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+                "priceFeedProvider": "CHAINLINK",
+                "priceFeedSymbol": "BTCUSDT",
+                "startPrice": null,
+                "type": "CRYPTO_UP_DOWN"
+              }
+            }
+          ],
+          "negRiskOnChainId": null,
+          "parentSlug": null,
+          "protocol": "LEGACY",
+          "publishedAt": "2026-10-16T04:55:55.001Z",
+          "resolutionProvider": "CHAINLINK",
+          "seriesSlug": "btc-updown-5m",
+          "shortTitle": "BTC Up or Down 5m",
+          "slug": "btc-updown-5m-1792212900",
+          "startsAt": "2026-10-17T04:55:00.000Z",
+          "stats": null,
+          "status": "OPEN",
+          "tags": [
+            {
+              "id": "2",
+              "level": 1,
+              "makerRebateBps": 2500,
+              "name": "Crypto",
+              "parentId": null
+            },
+            {
+              "id": "15",
+              "level": null,
+              "makerRebateBps": 0,
+              "name": "BTC",
+              "parentId": null
+            },
+            {
+              "id": "111",
+              "level": 2,
+              "makerRebateBps": 2500,
+              "name": "Up/Down",
+              "parentId": "2"
+            },
+            {
+              "id": "156",
+              "level": 2,
+              "makerRebateBps": 0,
+              "name": "UpDown_Binance",
+              "parentId": "2"
+            },
+            {
+              "id": "162",
+              "level": 2,
+              "makerRebateBps": 0,
+              "name": "5 Min",
+              "parentId": "2"
+            }
+          ],
+          "teams": null,
+          "title": "Bitcoin Up or Down - October 17, 12:55AM-1AM ET",
+          "tradingSession": null,
+          "variantData": {
+            "endPrice": null,
+            "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+            "priceFeedProvider": "CHAINLINK",
+            "priceFeedSymbol": "BTCUSDT",
+            "startPrice": null,
+            "type": "CRYPTO_UP_DOWN"
+          },
+          "variantDetails": {
+            "crypto": {
+              "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+              "priceFeedProvider": "CHAINLINK",
+              "priceFeedSymbol": "BTCUSDT"
+            },
+            "upDown": {
+              "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+              "priceFeedProvider": "CHAINLINK",
+              "priceFeedSymbol": "BTCUSDT"
+            }
+          }
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:49.727762+00:00"
+    },
+    {
+      "sequence": 4,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:49.730151+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "status": [
+          "OPEN"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:50.038660+00:00"
+    },
+    {
+      "sequence": 5,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:50.044871+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:50.423252+00:00"
+    },
+    {
+      "sequence": 6,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:50.425140+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "includeLost": [
+          "true"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:50.861900+00:00"
+    },
+    {
+      "sequence": 7,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:50.869175+00:00",
+      "method": "GET",
+      "path": "/v1/markets/3395989",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "data": {
+          "boostEndsAt": "2026-10-17T04:55:00.000Z",
+          "boostStartsAt": "2026-10-17T04:50:00.000Z",
+          "categorySlug": "btc-updown-5m-1792212600",
+          "conditionId": "0x452b5ecc37c0ae22823a044f9bca51785d51a446f5fa332bf81a6c4928ac8e44",
+          "createdAt": "2026-10-16T04:50:01.000Z",
+          "decimalPrecision": 2,
+          "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+          "feeRateBps": 200,
+          "id": 3395989,
+          "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": false,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "CRYPTO_UP_DOWN",
+          "oracleQuestionId": "0x20cae74b4f8fc96e2eaaea5a2b075992e5c23e6149ab2149318aee656230ddd5",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.36,
+                "size": 270.70215438596495
+              },
+              "bestBid": {
+                "price": 0.35,
+                "size": 163.98153846153846
+              },
+              "indexSet": 1,
+              "name": "Up",
+              "onChainId": "111987223477734974297680959199298501320058566601237356823604753189520238868002",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.65,
+                "size": 163.98153846153846
+              },
+              "bestBid": {
+                "price": 0.64,
+                "size": 270.70215438596495
+              },
+              "indexSet": 2,
+              "name": "Down",
+              "onChainId": "3911435998392325478962638803098695689612939087011589877427319051579883469602",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [],
+          "question": "Bitcoin Up or Down - October 17, 12:50AM-12:55AM ET",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-10-17T04:55:00.000Z",
+              "hourlyRate": 3000,
+              "startsAt": "2026-10-17T04:50:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-10-17T04:55:00.000Z",
+                "hourlyRate": 3000,
+                "startsAt": "2026-10-17T04:50:00.000Z"
+              }
+            ]
+          },
+          "seriesSlug": "btc-updown-5m",
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Bitcoin Up or Down - October 17, 12:50AM-12:55AM ET",
+          "tradingStatus": "OPEN",
+          "variantData": {
+            "endPrice": null,
+            "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+            "priceFeedProvider": "CHAINLINK",
+            "priceFeedSymbol": "BTCUSDT",
+            "startPrice": 81566.995,
+            "type": "CRYPTO_UP_DOWN"
+          }
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:51.552126+00:00"
+    },
+    {
+      "sequence": 8,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:52.283211+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:52.570079+00:00"
+    },
+    {
+      "sequence": 9,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:53.243266+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:53.570034+00:00"
+    },
+    {
+      "sequence": 10,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:53.572739+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "status": [
+          "OPEN"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:53.915891+00:00"
+    },
+    {
+      "sequence": 11,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:53.917292+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_chainId",
+        "params": []
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x38"
+      },
+      "completedAtUtc": "2026-10-17T04:50:54.472612+00:00"
+    },
+    {
+      "sequence": 12,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:54.476336+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_getBlockByNumber",
+        "params": [
+          "latest",
+          false
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "withdrawals": [],
+          "hash": "0xebedd8bf381b923f96c79050a6fb01c4f10550f6aec454b79b835db51836cdee",
+          "parentHash": "0xbb55be7b25f10a096b756489702ec251fcd08e398db5967e48d960965b3db36d",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "miner": "0x0000000000000000000000000000000000000033",
+          "stateRoot": "0x97507dd7dcc2497f6d5be51658e742248c6b48e4193d1fbadf1f06d4a609c32a",
+          "transactionsRoot": "0x1224b015852eb4ddbba9ada9c232c292efc1593dc7280b2da69acf05d2db4aa5",
+          "receiptsRoot": "0x0d3c80ecc08001a808682c11fd59f9dcc0ba81bb571895a2fb09fa37dd112d4d",
+          "logsBloom": "0x2eac320691ad3740672a604c83a475d1f4c4a2e12560750087023405610342a0c62930819c4002224bab2e99bcae0009218aec7a0048a82c2c0d4238362c32c7c40416542451023b1300523a8a7907aa245680a1604d28c82057130822803001101b5022d28a0440e4b198904f088e54998a82d148065400d3555e5015582622e1f92ac1c07a010161d04c1c3f20289a49260c02c500c42ed27941d54100863842a5086283006230b8ccb3e0cb19c309220048601b410888e3485a2e8048cba040c0053a9828045132a3643030615020a5242ac77c0c2e9c72187bbe5a85e40dcf146884ce5c43134f20c684810619c5aa43c38708f04d56d1101a0d269126b0",
+          "difficulty": "0x2",
+          "number": "0x7a2cb45",
+          "gasLimit": "0x42c1d80",
+          "gasUsed": "0xd55516",
+          "timestamp": "0x6ad2fead",
+          "extraData": "0xda8301070888383531313861383288676f312e32352e30836c696e00d38cc282f8b5831dffffb86093d6e86772758ea84c3f1f3d9b1f881fdac4020e2a74a0ea577f195be45dbe191658b1088c5577e61ff0a60f7b51b40f11b65f7ef9d30f997f7d302ee0ab61c36f940e8c2be24ed4d12ef7b736b1c7c327fb74027f7871c0b888d84ce2221153f84c8407a2cb43a0429819584837b7411c68121b87a1858eeb92f4d9b632ee13894c24a0188c90c98407a2cb44a0bb55be7b25f10a096b756489702ec251fcd08e398db5967e48d960965b3db36d80104baaa9a7f82e9a9b2638124ac47074a7a71bd663a31bba1dee2ae93ac9853917c0063df71f16ea5387af041cab305c3c04cca2864f987cd6c3eb5195dce4a100",
+          "mixHash": "0x00000000000000000000000000000000000000000000000000000000000001c2",
+          "nonce": "0x0000000000000000",
+          "size": "0x850d",
+          "totalDifficulty": "0xf3ca683",
+          "baseFeePerGas": "0x0",
+          "transactions": [
+            "0x008bfd31bdf881194a684912e18c07d293505159bf079f36f940a08af7118e6f",
+            "0x040e0a1f320f5a1ccfbcd61da94030ee651d4cbda02d84d37b28a56171c9680b",
+            "0xe6b995d6998b9c8e7f3bb913f386b6002e4e8e9ac9356eb7d8686bc4b12b4c1a",
+            "0x922c637974e1ec93100e696495cfd217b4f5915d75d76f2f9d977db473952ae0",
+            "0x6d9e5f76211986f0ff9fd5fcb120797c03f8231a69c6ab95b7cac1e72a7eead0",
+            "0xc33cbdcc4db69cf11deb3d03bb20d8cc491b12db87386696e3e41b024f889bda",
+            "0x0d53758283b17a86df85ad80f126adb1c658c02b354ca40e53e81f858af7498f",
+            "0x562363b2b22a3764f0fdc1233e34fed69abf67af4e15053bacd5e0b30d8095de",
+            "0x1069bf40f3660d5197c210a79b3d12129deaa56436dbecddfb3ecc321590d812",
+            "0x588d456d55001e3623c8043aedd9b7069d7f89fe9fe42ec20cf1a9e182ccab91",
+            "0x3ec8af51439f9ee2191d79dba4b01c780bcb0dac169a08fea11bf5b572089ef3",
+            "0x6db43854177334e4485f4e8cb48a47bdeccbb115abbd7aa42aa70ec8edc21037",
+            "0x9a642bdfb79dc2135b1f5ef925a1de36632b66c722f61c4ca2f309acc4ba6009",
+            "0x69c908ca8074700cc4ceda80d4f43c4faf41a7cd2dd53df6ecb0c6a5dd2bf35c",
+            "0x4450b1db0d364ccb9bef237776fc9465c5abde9686bb850250e4e18a23fafb3d",
+            "0x90f141e28da278e072edf0c4b0861ccf1bb33ce30855e0a28f9867e9e896a5d5",
+            "0xfd7e62ed5830436ee97ce43e3063ce8602a18d6c840260122d700237568f949b",
+            "0x74341cf23310c71ed1d3366ef1f7b19897a769ed6db03eca977945a54dc803b5",
+            "0xc39e1dc830891fc44d9dacedc12b10b8f09576c261da3d2b78c024157a1cfeca",
+            "0xda66f38538e036a9bbb0352e70af0e0f7e838f578f72776b920ccbc1e51fac14",
+            "0x23094c7de1694c2ed255932282cb1dcb3714cdf487132c5a9762746e5a49987d",
+            "0x9e3e58793b5801d9615826b3432cbcbbe2623230e0a64feb6825eae0ea38f08a",
+            "0x37a6ae5a090556b25d039d43eacca7b6eaa35fa0d4bfacfda4904bbb974375a1",
+            "0x94a37c6bc5cfbcdf36ffc8f1921e75c6a87efd513481d4f1e6c6de54ded019bb",
+            "0x3aba829fd3ebe40ac6e3bbca0e46e531e74ad52c7a7a5e1b07fadfd908eb83c2",
+            "0x4d52932dbca0ac8a15c2a7f0005e7ab27eb1ab16c1530fb6eb99032a547701d5",
+            "0x34fa19b8d78302539023fa973643b5cedd264738b1ac18296b0778fb51964122",
+            "0xef50770fce4a0bfb67a42e9172defcc04fec78c1b3658673400b9cfe69a66965",
+            "0xbbc059596065141c734e642bbde99a8e0dd82b0ad50af8714cc97731f3a67db6",
+            "0xed7214aeb84e31ddf656e17a19ae4ddf1a52242e1ffb856941f7e560f7ce9487",
+            "0xdeb72f910fe7e5457a3da8c49a21ecc7dc6e2c0b710817582ef3d4829d5232a6",
+            "0xf475046dabf8882c58301d0a7a042dc4c848c4d949d1d6b9305e2635836ac949",
+            "0x2a18e45a4a72ff88505bdfde0ab8732c6062002f87ee27c97635e9c6cde6a7af",
+            "0x533377932f8de5c4206f56109f7b4e4865b4749025bdf157e479f7378a15ac32",
+            "0x7c201d0914d8768c25b706f2c7e8652221f1d77e441d424b0967f52165586b9a",
+            "0xc9efd4bde0a034760d8bd01b7749d9519dc2369b2ae40770756fad9b79a3adc4",
+            "0xddfda5a985cb5a570a900a07a69fae029c0d351ab70fae3aaa5f67caa8c9a0f3",
+            "0x7c7ad525254ba4f52bcc73fced7de5bbefb131b0d21c0d5e1bdaa917a1a0f92f",
+            "0x36543fc590214f9bfd13cf0635fbfb35f26932eddc2485581033b2c4e5dda3d0",
+            "0x110b43fcc829f749c2c447e2c9d872d5abaa45355ebbdf7893cf2155d8f72141",
+            "0x0aa845dea47803acd4c69f1257f2a0a315c72ea2ee55ae31ead19f7bd5274804",
+            "0xf51c425ee7995326d9eacb3defec4b151f8e5dd6da5e7138db4cd4efb15c72e0",
+            "0x3a7e501327960e3fc87dca6a0014ecfb3b95f60e88e17f3e22372dccc9f1dadc",
+            "0xb22415260a5fd2dd7b8fde26f2bc2b4017f8074beabd7a36a567dccc9b790bd1",
+            "0x70663f0d34541cb494ea7514abf5bde9f9700a6842efbd3f4a98dab0a3ad6f10",
+            "0x68dbdd7cd457a8af67ad40ab7ed3f8c27d38a2987117ac0779395e71c8eca135",
+            "0xc35696ec9f39d6c883826ba8f72a325ef33d61fcc0ed6c828706392a7e9f8ece",
+            "0xd3645a1375745359be9ee53ea873a4526e947bb319478061766b45a9d92bae01",
+            "0x6d272c10d8043cf9b69af2adc33e9dfd705cdba5117f7dbe3b25957e758d1e32",
+            "0xa046a0031df320110dacea4d533206199de3416788a581f48353ec29278dfe63",
+            "0xe76598c60b8d28fd0321eee0757961cf8b08e4e47d11445aff35436c10137998",
+            "0x45289eac8250891beec5b4df72ea95afd2d182cc6a99c4b8b47a33b7a7f929fd",
+            "0xef5d49daa7062a7497935a50e3e6e52bc5d8bd835a78f81b139d29c9b2ea944b",
+            "0x4d8cbb68400610886f9d253793f2c349264ec363b1078303301d6bb98e5bd541",
+            "0x0e0e2e54e9c1600f5802868d64954c554f07d706073bcaa2b120aa4c30b62a89",
+            "0xb2fa950206497069b3f734a05df4ec4806f2552ea13a4558e1453a1ae0c0192f",
+            "0xf9c2261f63ba30ef7d3894cd631dcc00412337a035fc7564d81fa38be5c4d5c5",
+            "0xf7db53233706c4203aa68e663c6748f44e29fb7ec07fe08de45757ea081d5ea2",
+            "0x3e080d041980a0ad3233cdc18cf538ca3d7fdbf1757a775d730529665192b7b7",
+            "0xc63b38679ee309987af04f39d87486afbf5fe3353ec71bf46b96def979749c48",
+            "0xc156af1432dd2da096958f92ebc1ff9fa10da9777da25c9b03271af2646c4a6c",
+            "0x6aad84ce4c52ac8ff065c1f8b6e47d4633f0f11050e74910a36764a76fff15c7",
+            "0x346c94bb9324bb526b74f525992c7f5a69696e5fe9f03ef60d908ae67fea9d66",
+            "0x709b6edd77c0641a4add7d530091dcd2b7b77dbf74303078c180cdf747ed221f",
+            "0xa17d17cc92a191aec4278d4386bef4447f34bba52a3baac373a33121b03094b8",
+            "0x2ad11cf05679896e0c98dc531fc948de927776b6b25a817be57c563280578072",
+            "0x2d2f252834f4e2a1918a2297a39617ad365918617b7b6a329490efca13aee41c",
+            "0xc8bcf68ad7f6b54e16ffa6a451c2488bc2ec09629810e333cdbb4d106f14c4d1",
+            "0x9916564d55fa7fb2f570fb29075dbda6256e5e27d5d61c284ad067cd96222020",
+            "0xff993343c4fadab7a415f82beaf9a2bb466ab673c59fc7d080a919ba7c8e91fd",
+            "0xb0af9379a1134c907558e8e92404b5d2be3c69dac4cd0bf32e15d0b2cbe47236",
+            "0x0373a877197feda9de9fba8c9ef1402c2bc439a18f9f8175bf40f0c273e93579",
+            "0x603ea27d5eb846b3bfce92a674db72096805a407840ed8d8fdac79892d387d3c",
+            "0x23fc10c79d01969b2eb1bed347a4d19deae16588dcfb17f3aecb110a11823333",
+            "0x7b5d6487fa9614a61c0248061b0473f8a3be612e2145c31a345ce7a3ffa65c6f",
+            "0xfa9ac93025f44796657ff2941d3950b472201e493f64c7f470cf3c19b7d8a30d",
+            "0xd939d7c143686a7ef2952ab9a0e09d507469d116415c6825b223346566dc205b",
+            "0xa210ef6bc18ab4ce46d5ec60cae206eeaa0966fcc166067f37a74378aba1a29e",
+            "0x5157ca13d56e2767f5d997a8ca085c5ed3645d413bcd35191c1b91c93d8a5b39",
+            "0xff9076cfca1175cb5ebe3ac5d3c371dd744ce5ae4ddbf26de48336defe820544",
+            "0x52232b0412a301036b20680d0c771d42b50f543de2d1786b8ad5bb48594c4a19",
+            "0x313de1e391a0ef17af19667b9c963830ac3f215c2ebc19c09e661962245c8f4e"
+          ],
+          "uncles": [],
+          "blobGasUsed": "0x0",
+          "excessBlobGas": "0x0",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "requestsHash": "0x0000000000000000000000025532cdb3c0c4278f9848fc4560b495b70ba67455",
+          "milliTimestamp": "0x1a14832d58a"
+        }
+      },
+      "completedAtUtc": "2026-10-17T04:50:55.133532+00:00"
+    },
+    {
+      "sequence": 13,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:55.134836+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000000033",
+            "data": "0x313ce567"
+          },
+          {
+            "blockHash": "0xebedd8bf381b923f96c79050a6fb01c4f10550f6aec454b79b835db51836cdee",
+            "requireCanonical": true
+          }
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x0000000000000000000000000000000000000000000000000000000000000012"
+      },
+      "completedAtUtc": "2026-10-17T04:50:55.889948+00:00"
+    },
+    {
+      "sequence": 14,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:55.896426+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000000033",
+            "data": "0x70a082310000000000000000000000000000000000000000000000000000000000000022"
+          },
+          {
+            "blockHash": "0xebedd8bf381b923f96c79050a6fb01c4f10550f6aec454b79b835db51836cdee",
+            "requireCanonical": true
+          }
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x0000000000000000000000000000000000000000000000029d22bd0762aee001"
+      },
+      "completedAtUtc": "2026-10-17T04:50:56.535911+00:00"
+    },
+    {
+      "sequence": 15,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:56.537656+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_getBlockByNumber",
+        "params": [
+          "0x7a2cb45",
+          false
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "withdrawals": [],
+          "hash": "0xebedd8bf381b923f96c79050a6fb01c4f10550f6aec454b79b835db51836cdee",
+          "parentHash": "0xbb55be7b25f10a096b756489702ec251fcd08e398db5967e48d960965b3db36d",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "miner": "0x0000000000000000000000000000000000000033",
+          "stateRoot": "0x97507dd7dcc2497f6d5be51658e742248c6b48e4193d1fbadf1f06d4a609c32a",
+          "transactionsRoot": "0x1224b015852eb4ddbba9ada9c232c292efc1593dc7280b2da69acf05d2db4aa5",
+          "receiptsRoot": "0x0d3c80ecc08001a808682c11fd59f9dcc0ba81bb571895a2fb09fa37dd112d4d",
+          "logsBloom": "0x2eac320691ad3740672a604c83a475d1f4c4a2e12560750087023405610342a0c62930819c4002224bab2e99bcae0009218aec7a0048a82c2c0d4238362c32c7c40416542451023b1300523a8a7907aa245680a1604d28c82057130822803001101b5022d28a0440e4b198904f088e54998a82d148065400d3555e5015582622e1f92ac1c07a010161d04c1c3f20289a49260c02c500c42ed27941d54100863842a5086283006230b8ccb3e0cb19c309220048601b410888e3485a2e8048cba040c0053a9828045132a3643030615020a5242ac77c0c2e9c72187bbe5a85e40dcf146884ce5c43134f20c684810619c5aa43c38708f04d56d1101a0d269126b0",
+          "difficulty": "0x2",
+          "number": "0x7a2cb45",
+          "gasLimit": "0x42c1d80",
+          "gasUsed": "0xd55516",
+          "timestamp": "0x6ad2fead",
+          "extraData": "0xda8301070888383531313861383288676f312e32352e30836c696e00d38cc282f8b5831dffffb86093d6e86772758ea84c3f1f3d9b1f881fdac4020e2a74a0ea577f195be45dbe191658b1088c5577e61ff0a60f7b51b40f11b65f7ef9d30f997f7d302ee0ab61c36f940e8c2be24ed4d12ef7b736b1c7c327fb74027f7871c0b888d84ce2221153f84c8407a2cb43a0429819584837b7411c68121b87a1858eeb92f4d9b632ee13894c24a0188c90c98407a2cb44a0bb55be7b25f10a096b756489702ec251fcd08e398db5967e48d960965b3db36d80104baaa9a7f82e9a9b2638124ac47074a7a71bd663a31bba1dee2ae93ac9853917c0063df71f16ea5387af041cab305c3c04cca2864f987cd6c3eb5195dce4a100",
+          "mixHash": "0x00000000000000000000000000000000000000000000000000000000000001c2",
+          "nonce": "0x0000000000000000",
+          "size": "0x850d",
+          "totalDifficulty": "0xf3ca683",
+          "baseFeePerGas": "0x0",
+          "transactions": [
+            "0x008bfd31bdf881194a684912e18c07d293505159bf079f36f940a08af7118e6f",
+            "0x040e0a1f320f5a1ccfbcd61da94030ee651d4cbda02d84d37b28a56171c9680b",
+            "0xe6b995d6998b9c8e7f3bb913f386b6002e4e8e9ac9356eb7d8686bc4b12b4c1a",
+            "0x922c637974e1ec93100e696495cfd217b4f5915d75d76f2f9d977db473952ae0",
+            "0x6d9e5f76211986f0ff9fd5fcb120797c03f8231a69c6ab95b7cac1e72a7eead0",
+            "0xc33cbdcc4db69cf11deb3d03bb20d8cc491b12db87386696e3e41b024f889bda",
+            "0x0d53758283b17a86df85ad80f126adb1c658c02b354ca40e53e81f858af7498f",
+            "0x562363b2b22a3764f0fdc1233e34fed69abf67af4e15053bacd5e0b30d8095de",
+            "0x1069bf40f3660d5197c210a79b3d12129deaa56436dbecddfb3ecc321590d812",
+            "0x588d456d55001e3623c8043aedd9b7069d7f89fe9fe42ec20cf1a9e182ccab91",
+            "0x3ec8af51439f9ee2191d79dba4b01c780bcb0dac169a08fea11bf5b572089ef3",
+            "0x6db43854177334e4485f4e8cb48a47bdeccbb115abbd7aa42aa70ec8edc21037",
+            "0x9a642bdfb79dc2135b1f5ef925a1de36632b66c722f61c4ca2f309acc4ba6009",
+            "0x69c908ca8074700cc4ceda80d4f43c4faf41a7cd2dd53df6ecb0c6a5dd2bf35c",
+            "0x4450b1db0d364ccb9bef237776fc9465c5abde9686bb850250e4e18a23fafb3d",
+            "0x90f141e28da278e072edf0c4b0861ccf1bb33ce30855e0a28f9867e9e896a5d5",
+            "0xfd7e62ed5830436ee97ce43e3063ce8602a18d6c840260122d700237568f949b",
+            "0x74341cf23310c71ed1d3366ef1f7b19897a769ed6db03eca977945a54dc803b5",
+            "0xc39e1dc830891fc44d9dacedc12b10b8f09576c261da3d2b78c024157a1cfeca",
+            "0xda66f38538e036a9bbb0352e70af0e0f7e838f578f72776b920ccbc1e51fac14",
+            "0x23094c7de1694c2ed255932282cb1dcb3714cdf487132c5a9762746e5a49987d",
+            "0x9e3e58793b5801d9615826b3432cbcbbe2623230e0a64feb6825eae0ea38f08a",
+            "0x37a6ae5a090556b25d039d43eacca7b6eaa35fa0d4bfacfda4904bbb974375a1",
+            "0x94a37c6bc5cfbcdf36ffc8f1921e75c6a87efd513481d4f1e6c6de54ded019bb",
+            "0x3aba829fd3ebe40ac6e3bbca0e46e531e74ad52c7a7a5e1b07fadfd908eb83c2",
+            "0x4d52932dbca0ac8a15c2a7f0005e7ab27eb1ab16c1530fb6eb99032a547701d5",
+            "0x34fa19b8d78302539023fa973643b5cedd264738b1ac18296b0778fb51964122",
+            "0xef50770fce4a0bfb67a42e9172defcc04fec78c1b3658673400b9cfe69a66965",
+            "0xbbc059596065141c734e642bbde99a8e0dd82b0ad50af8714cc97731f3a67db6",
+            "0xed7214aeb84e31ddf656e17a19ae4ddf1a52242e1ffb856941f7e560f7ce9487",
+            "0xdeb72f910fe7e5457a3da8c49a21ecc7dc6e2c0b710817582ef3d4829d5232a6",
+            "0xf475046dabf8882c58301d0a7a042dc4c848c4d949d1d6b9305e2635836ac949",
+            "0x2a18e45a4a72ff88505bdfde0ab8732c6062002f87ee27c97635e9c6cde6a7af",
+            "0x533377932f8de5c4206f56109f7b4e4865b4749025bdf157e479f7378a15ac32",
+            "0x7c201d0914d8768c25b706f2c7e8652221f1d77e441d424b0967f52165586b9a",
+            "0xc9efd4bde0a034760d8bd01b7749d9519dc2369b2ae40770756fad9b79a3adc4",
+            "0xddfda5a985cb5a570a900a07a69fae029c0d351ab70fae3aaa5f67caa8c9a0f3",
+            "0x7c7ad525254ba4f52bcc73fced7de5bbefb131b0d21c0d5e1bdaa917a1a0f92f",
+            "0x36543fc590214f9bfd13cf0635fbfb35f26932eddc2485581033b2c4e5dda3d0",
+            "0x110b43fcc829f749c2c447e2c9d872d5abaa45355ebbdf7893cf2155d8f72141",
+            "0x0aa845dea47803acd4c69f1257f2a0a315c72ea2ee55ae31ead19f7bd5274804",
+            "0xf51c425ee7995326d9eacb3defec4b151f8e5dd6da5e7138db4cd4efb15c72e0",
+            "0x3a7e501327960e3fc87dca6a0014ecfb3b95f60e88e17f3e22372dccc9f1dadc",
+            "0xb22415260a5fd2dd7b8fde26f2bc2b4017f8074beabd7a36a567dccc9b790bd1",
+            "0x70663f0d34541cb494ea7514abf5bde9f9700a6842efbd3f4a98dab0a3ad6f10",
+            "0x68dbdd7cd457a8af67ad40ab7ed3f8c27d38a2987117ac0779395e71c8eca135",
+            "0xc35696ec9f39d6c883826ba8f72a325ef33d61fcc0ed6c828706392a7e9f8ece",
+            "0xd3645a1375745359be9ee53ea873a4526e947bb319478061766b45a9d92bae01",
+            "0x6d272c10d8043cf9b69af2adc33e9dfd705cdba5117f7dbe3b25957e758d1e32",
+            "0xa046a0031df320110dacea4d533206199de3416788a581f48353ec29278dfe63",
+            "0xe76598c60b8d28fd0321eee0757961cf8b08e4e47d11445aff35436c10137998",
+            "0x45289eac8250891beec5b4df72ea95afd2d182cc6a99c4b8b47a33b7a7f929fd",
+            "0xef5d49daa7062a7497935a50e3e6e52bc5d8bd835a78f81b139d29c9b2ea944b",
+            "0x4d8cbb68400610886f9d253793f2c349264ec363b1078303301d6bb98e5bd541",
+            "0x0e0e2e54e9c1600f5802868d64954c554f07d706073bcaa2b120aa4c30b62a89",
+            "0xb2fa950206497069b3f734a05df4ec4806f2552ea13a4558e1453a1ae0c0192f",
+            "0xf9c2261f63ba30ef7d3894cd631dcc00412337a035fc7564d81fa38be5c4d5c5",
+            "0xf7db53233706c4203aa68e663c6748f44e29fb7ec07fe08de45757ea081d5ea2",
+            "0x3e080d041980a0ad3233cdc18cf538ca3d7fdbf1757a775d730529665192b7b7",
+            "0xc63b38679ee309987af04f39d87486afbf5fe3353ec71bf46b96def979749c48",
+            "0xc156af1432dd2da096958f92ebc1ff9fa10da9777da25c9b03271af2646c4a6c",
+            "0x6aad84ce4c52ac8ff065c1f8b6e47d4633f0f11050e74910a36764a76fff15c7",
+            "0x346c94bb9324bb526b74f525992c7f5a69696e5fe9f03ef60d908ae67fea9d66",
+            "0x709b6edd77c0641a4add7d530091dcd2b7b77dbf74303078c180cdf747ed221f",
+            "0xa17d17cc92a191aec4278d4386bef4447f34bba52a3baac373a33121b03094b8",
+            "0x2ad11cf05679896e0c98dc531fc948de927776b6b25a817be57c563280578072",
+            "0x2d2f252834f4e2a1918a2297a39617ad365918617b7b6a329490efca13aee41c",
+            "0xc8bcf68ad7f6b54e16ffa6a451c2488bc2ec09629810e333cdbb4d106f14c4d1",
+            "0x9916564d55fa7fb2f570fb29075dbda6256e5e27d5d61c284ad067cd96222020",
+            "0xff993343c4fadab7a415f82beaf9a2bb466ab673c59fc7d080a919ba7c8e91fd",
+            "0xb0af9379a1134c907558e8e92404b5d2be3c69dac4cd0bf32e15d0b2cbe47236",
+            "0x0373a877197feda9de9fba8c9ef1402c2bc439a18f9f8175bf40f0c273e93579",
+            "0x603ea27d5eb846b3bfce92a674db72096805a407840ed8d8fdac79892d387d3c",
+            "0x23fc10c79d01969b2eb1bed347a4d19deae16588dcfb17f3aecb110a11823333",
+            "0x7b5d6487fa9614a61c0248061b0473f8a3be612e2145c31a345ce7a3ffa65c6f",
+            "0xfa9ac93025f44796657ff2941d3950b472201e493f64c7f470cf3c19b7d8a30d",
+            "0xd939d7c143686a7ef2952ab9a0e09d507469d116415c6825b223346566dc205b",
+            "0xa210ef6bc18ab4ce46d5ec60cae206eeaa0966fcc166067f37a74378aba1a29e",
+            "0x5157ca13d56e2767f5d997a8ca085c5ed3645d413bcd35191c1b91c93d8a5b39",
+            "0xff9076cfca1175cb5ebe3ac5d3c371dd744ce5ae4ddbf26de48336defe820544",
+            "0x52232b0412a301036b20680d0c771d42b50f543de2d1786b8ad5bb48594c4a19",
+            "0x313de1e391a0ef17af19667b9c963830ac3f215c2ebc19c09e661962245c8f4e"
+          ],
+          "uncles": [],
+          "blobGasUsed": "0x0",
+          "excessBlobGas": "0x0",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "requestsHash": "0x0000000000000000000000025532cdb3c0c4278f9848fc4560b495b70ba67455",
+          "milliTimestamp": "0x1a14832d58a"
+        }
+      },
+      "completedAtUtc": "2026-10-17T04:50:57.164966+00:00"
+    },
+    {
+      "sequence": 16,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:57.178796+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:57.485527+00:00"
+    },
+    {
+      "sequence": 17,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:57.180040+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:57.491069+00:00"
+    },
+    {
+      "sequence": 18,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:57.487704+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "status": [
+          "OPEN"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:57.841568+00:00"
+    },
+    {
+      "sequence": 19,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:57.492367+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "status": [
+          "OPEN"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:57.841225+00:00"
+    },
+    {
+      "sequence": 20,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:57.843944+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:58.206692+00:00"
+    },
+    {
+      "sequence": 21,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:57.844549+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_chainId",
+        "params": []
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x38"
+      },
+      "completedAtUtc": "2026-10-17T04:50:58.381378+00:00"
+    },
+    {
+      "sequence": 22,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:58.211838+00:00",
+      "method": "GET",
+      "path": "/v1/orders/matches",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "signerAddress": [
+          "0x0000000000000000000000000000000000000022"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "cursor": null,
+        "data": [
+          {
+            "market": {
+              "id": 10835,
+              "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+              "title": "Will the US confirm that aliens exist before 2027?",
+              "question": "Will the US confirm that aliens exist before 2027?",
+              "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+              "tradingStatus": "OPEN",
+              "status": "REGISTERED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": true,
+              "feeRateBps": 200,
+              "resolution": null,
+              "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+              "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": null,
+              "boostEndsAt": null,
+              "polymarketConditionIds": [
+                "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+              ],
+              "kalshiMarketTicker": null,
+              "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+              "createdAt": "2026-02-26T10:39:37.847Z",
+              "decimalPrecision": 3,
+              "marketVariant": "DEFAULT",
+              "variantData": null,
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": {
+                  "hourlyRate": 180,
+                  "startsAt": "2026-04-28T14:00:00.000Z",
+                  "endsAt": "2026-12-31T00:00:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "hourlyRate": 180,
+                    "startsAt": "2026-04-28T14:00:00.000Z",
+                    "endsAt": "2026-12-31T00:00:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Ask",
+              "amount": "31360000000000000000",
+              "price": "39000000000000000",
+              "outcome": {
+                "name": "Yes",
+                "indexSet": 1,
+                "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                "status": null,
+                "bestBid": {
+                  "price": 0.039,
+                  "size": 2773.489
+                },
+                "bestAsk": {
+                  "price": 0.04,
+                  "size": 53580.82999996875
+                },
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0x5db08f73a72d8b890003943383c19a4db249c9ffd252bd28ec73a4f6c7679543",
+              "fee": {
+                "amount": "24460800000000000",
+                "type": "COLLATERAL"
+              }
+            },
+            "amountFilled": "31360000000000000000",
+            "priceExecuted": "39000000000000000",
+            "makers": [
+              {
+                "quoteType": "Ask",
+                "amount": "31360000000000000000",
+                "price": "961000000000000000",
+                "outcome": {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xe66059d398976c92c9bb4e5c92333569abce364d8914d9e17ebb12ad14f6fb96",
+                "fee": {
+                  "amount": "0",
+                  "type": "COLLATERAL"
+                }
+              }
+            ],
+            "transactionHash": "0x430851e590a79a997f83d42498d67e97a1fb9ca7f980bd3b4ac1cd31104b2d89",
+            "settlementId": "01a144b5-8e9b-7e90-af96-b3f51996a669",
+            "executedAt": "2026-10-16T12:35:12.000Z"
+          },
+          {
+            "market": {
+              "id": 10835,
+              "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+              "title": "Will the US confirm that aliens exist before 2027?",
+              "question": "Will the US confirm that aliens exist before 2027?",
+              "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+              "tradingStatus": "OPEN",
+              "status": "REGISTERED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": true,
+              "feeRateBps": 200,
+              "resolution": null,
+              "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+              "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": null,
+              "boostEndsAt": null,
+              "polymarketConditionIds": [
+                "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+              ],
+              "kalshiMarketTicker": null,
+              "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+              "createdAt": "2026-02-26T10:39:37.847Z",
+              "decimalPrecision": 3,
+              "marketVariant": "DEFAULT",
+              "variantData": null,
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": {
+                  "hourlyRate": 180,
+                  "startsAt": "2026-04-28T14:00:00.000Z",
+                  "endsAt": "2026-12-31T00:00:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "hourlyRate": 180,
+                    "startsAt": "2026-04-28T14:00:00.000Z",
+                    "endsAt": "2026-12-31T00:00:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Bid",
+              "amount": "32000000000000000000",
+              "price": "40000000000000000",
+              "outcome": {
+                "name": "Yes",
+                "indexSet": 1,
+                "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                "status": null,
+                "bestBid": {
+                  "price": 0.039,
+                  "size": 2773.489
+                },
+                "bestAsk": {
+                  "price": 0.04,
+                  "size": 53580.82999996875
+                },
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0xa43e99743ded01e5fc6dd2e6da8070783e4952a6c993492ec0ea28d4bc289b23",
+              "fee": {
+                "amount": "640000000000000000",
+                "type": "SHARES"
+              }
+            },
+            "amountFilled": "32000000000000000000",
+            "priceExecuted": "40000000000000000",
+            "makers": [
+              {
+                "quoteType": "Ask",
+                "amount": "32000000000000000000",
+                "price": "40000000000000000",
+                "outcome": {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+                "fee": {
+                  "amount": "0",
+                  "type": "COLLATERAL"
+                }
+              }
+            ],
+            "transactionHash": "0xb2de2bcb4f123d138ae271f2b23f1195995b174d17c35b302a9232ecb22dd35d",
+            "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+            "executedAt": "2026-10-16T12:33:48.000Z"
+          },
+          {
+            "market": {
+              "id": 10835,
+              "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+              "title": "Will the US confirm that aliens exist before 2027?",
+              "question": "Will the US confirm that aliens exist before 2027?",
+              "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+              "tradingStatus": "OPEN",
+              "status": "REGISTERED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": true,
+              "feeRateBps": 200,
+              "resolution": null,
+              "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+              "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": null,
+              "boostEndsAt": null,
+              "polymarketConditionIds": [
+                "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+              ],
+              "kalshiMarketTicker": null,
+              "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+              "createdAt": "2026-02-26T10:39:37.847Z",
+              "decimalPrecision": 3,
+              "marketVariant": "DEFAULT",
+              "variantData": null,
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": {
+                  "hourlyRate": 180,
+                  "startsAt": "2026-04-28T14:00:00.000Z",
+                  "endsAt": "2026-12-31T00:00:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "hourlyRate": 180,
+                    "startsAt": "2026-04-28T14:00:00.000Z",
+                    "endsAt": "2026-12-31T00:00:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Ask",
+              "amount": "31360000000000000000",
+              "price": "39000000000000000",
+              "outcome": {
+                "name": "Yes",
+                "indexSet": 1,
+                "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                "status": null,
+                "bestBid": {
+                  "price": 0.039,
+                  "size": 2773.489
+                },
+                "bestAsk": {
+                  "price": 0.04,
+                  "size": 53580.82999996875
+                },
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+              "fee": {
+                "amount": "24460800000000000",
+                "type": "COLLATERAL"
+              }
+            },
+            "amountFilled": "31360000000000000000",
+            "priceExecuted": "39000000000000000",
+            "makers": [
+              {
+                "quoteType": "Ask",
+                "amount": "31360000000000000000",
+                "price": "961000000000000000",
+                "outcome": {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xe66059d398976c92c9bb4e5c92333569abce364d8914d9e17ebb12ad14f6fb96",
+                "fee": {
+                  "amount": "0",
+                  "type": "COLLATERAL"
+                }
+              }
+            ],
+            "transactionHash": "0xd491d97e9c7b1484e2b4a3173039660e5f3b24300a931e842fe410eb1755879c",
+            "settlementId": "01a144ab-4d30-7ff3-a405-a3fdda3ea597",
+            "executedAt": "2026-10-16T12:23:59.000Z"
+          },
+          {
+            "market": {
+              "id": 10835,
+              "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+              "title": "Will the US confirm that aliens exist before 2027?",
+              "question": "Will the US confirm that aliens exist before 2027?",
+              "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+              "tradingStatus": "OPEN",
+              "status": "REGISTERED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": true,
+              "feeRateBps": 200,
+              "resolution": null,
+              "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+              "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": null,
+              "boostEndsAt": null,
+              "polymarketConditionIds": [
+                "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+              ],
+              "kalshiMarketTicker": null,
+              "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+              "createdAt": "2026-02-26T10:39:37.847Z",
+              "decimalPrecision": 3,
+              "marketVariant": "DEFAULT",
+              "variantData": null,
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": {
+                  "hourlyRate": 180,
+                  "startsAt": "2026-04-28T14:00:00.000Z",
+                  "endsAt": "2026-12-31T00:00:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "hourlyRate": 180,
+                    "startsAt": "2026-04-28T14:00:00.000Z",
+                    "endsAt": "2026-12-31T00:00:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Bid",
+              "amount": "32000000000000000000",
+              "price": "40000000000000000",
+              "outcome": {
+                "name": "Yes",
+                "indexSet": 1,
+                "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                "status": null,
+                "bestBid": {
+                  "price": 0.039,
+                  "size": 2773.489
+                },
+                "bestAsk": {
+                  "price": 0.04,
+                  "size": 53580.82999996875
+                },
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec",
+              "fee": {
+                "amount": "640000000000000000",
+                "type": "SHARES"
+              }
+            },
+            "amountFilled": "32000000000000000000",
+            "priceExecuted": "40000000000000000",
+            "makers": [
+              {
+                "quoteType": "Ask",
+                "amount": "32000000000000000000",
+                "price": "40000000000000000",
+                "outcome": {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+                "fee": {
+                  "amount": "0",
+                  "type": "COLLATERAL"
+                }
+              }
+            ],
+            "transactionHash": "0x9c1dee0312d7ec71b997d30e89b270e5fd85d7a1f9bc5741fa13d5df149d46e6",
+            "settlementId": "01a144ab-2b2a-74f3-bd18-75dfc504a41d",
+            "executedAt": "2026-10-16T12:23:51.000Z"
+          },
+          {
+            "market": {
+              "id": 3277308,
+              "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+              "title": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+              "question": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+              "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+              "tradingStatus": "CLOSED",
+              "status": "RESOLVED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "feeRateBps": 200,
+              "resolution": {
+                "name": "Up",
+                "indexSet": 1,
+                "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                "status": "WON",
+                "bestBid": null,
+                "bestAsk": null,
+                "team": null,
+                "variantData": null
+              },
+              "oracleQuestionId": "0x336b705e0507015ecf35a4eb5c20eaf3b1e0f0c94359dfb45c769e01056ef9ab",
+              "conditionId": "0xfbfa915d92cf17705ac5873e889648c33d158e00094f04f6346df2fc3f4cb48e",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Up",
+                  "indexSet": 1,
+                  "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                  "status": "WON",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+                  "status": "LOST",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": "2026-10-14T09:40:00.000Z",
+              "boostEndsAt": "2026-10-14T09:45:00.000Z",
+              "polymarketConditionIds": [],
+              "kalshiMarketTicker": null,
+              "categorySlug": "btc-updown-5m-1791970800",
+              "seriesSlug": "btc-updown-5m",
+              "createdAt": "2026-10-13T09:40:02.000Z",
+              "decimalPrecision": 2,
+              "marketVariant": "CRYPTO_UP_DOWN",
+              "variantData": {
+                "type": "CRYPTO_UP_DOWN",
+                "priceFeedProvider": "CHAINLINK",
+                "startPrice": 83306.625,
+                "endPrice": 83306.765,
+                "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+                "priceFeedSymbol": "BTCUSDT"
+              },
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": null,
+                "schedule": [
+                  {
+                    "hourlyRate": 3000,
+                    "startsAt": "2026-10-14T09:40:00.000Z",
+                    "endsAt": "2026-10-14T09:45:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Bid",
+              "amount": "28241892307692307693",
+              "price": "130000000000000000",
+              "outcome": {
+                "name": "Up",
+                "indexSet": 1,
+                "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                "status": "WON",
+                "bestBid": null,
+                "bestAsk": null,
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+              "fee": {
+                "amount": "564837846153846153",
+                "type": "SHARES"
+              }
+            },
+            "amountFilled": "28241892307692307693",
+            "priceExecuted": "130000000000000000",
+            "makers": [
+              {
+                "quoteType": "Bid",
+                "amount": "28241892307692307693",
+                "price": "870000000000000000",
+                "outcome": {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+                  "status": "LOST",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xc383c03d4c0591fdcc2a7bc3149b674bf88e7802ba55a07beec856db127cc114",
+                "fee": {
+                  "amount": "0",
+                  "type": "SHARES"
+                }
+              }
+            ],
+            "transactionHash": "0xb795a077aaf1e3a1f07224f843a42358eef5460d6b25260b494e317a4c875c4b",
+            "settlementId": "01a139cb-c3e8-7472-9612-8463cf64339c",
+            "executedAt": "2026-10-14T09:43:38.000Z"
+          },
+          {
+            "market": {
+              "id": 3277308,
+              "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+              "title": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+              "question": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+              "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+              "tradingStatus": "CLOSED",
+              "status": "RESOLVED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "feeRateBps": 200,
+              "resolution": {
+                "name": "Up",
+                "indexSet": 1,
+                "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                "status": "WON",
+                "bestBid": null,
+                "bestAsk": null,
+                "team": null,
+                "variantData": null
+              },
+              "oracleQuestionId": "0x336b705e0507015ecf35a4eb5c20eaf3b1e0f0c94359dfb45c769e01056ef9ab",
+              "conditionId": "0xfbfa915d92cf17705ac5873e889648c33d158e00094f04f6346df2fc3f4cb48e",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Up",
+                  "indexSet": 1,
+                  "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                  "status": "WON",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+                  "status": "LOST",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": "2026-10-14T09:40:00.000Z",
+              "boostEndsAt": "2026-10-14T09:45:00.000Z",
+              "polymarketConditionIds": [],
+              "kalshiMarketTicker": null,
+              "categorySlug": "btc-updown-5m-1791970800",
+              "seriesSlug": "btc-updown-5m",
+              "createdAt": "2026-10-13T09:40:02.000Z",
+              "decimalPrecision": 2,
+              "marketVariant": "CRYPTO_UP_DOWN",
+              "variantData": {
+                "type": "CRYPTO_UP_DOWN",
+                "priceFeedProvider": "CHAINLINK",
+                "startPrice": 83306.625,
+                "endPrice": 83306.765,
+                "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+                "priceFeedSymbol": "BTCUSDT"
+              },
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": null,
+                "schedule": [
+                  {
+                    "hourlyRate": 3000,
+                    "startsAt": "2026-10-14T09:40:00.000Z",
+                    "endsAt": "2026-10-14T09:45:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Bid",
+              "amount": "5157107692307692306",
+              "price": "130000000000000000",
+              "outcome": {
+                "name": "Up",
+                "indexSet": 1,
+                "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                "status": "WON",
+                "bestBid": null,
+                "bestAsk": null,
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+              "fee": {
+                "amount": "103142153846153846",
+                "type": "SHARES"
+              }
+            },
+            "amountFilled": "5157107692307692306",
+            "priceExecuted": "130000000000000000",
+            "makers": [
+              {
+                "quoteType": "Bid",
+                "amount": "5157107692307692306",
+                "price": "870000000000000000",
+                "outcome": {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+                  "status": "LOST",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0x3f2ead104d26e21932c2ceb67845050b1f337731b2131b656cd6b0901bd93476",
+                "fee": {
+                  "amount": "0",
+                  "type": "SHARES"
+                }
+              }
+            ],
+            "transactionHash": "0xe139f5f63ab4316e922df79c945655468c865c4ec2d1c2609836f44a1f419173",
+            "settlementId": "01a139cb-c3e8-7472-9612-847f3fd4ae0a",
+            "executedAt": "2026-10-14T09:43:38.000Z"
+          }
+        ]
+      },
+      "completedAtUtc": "2026-10-17T04:50:58.554014+00:00"
+    },
+    {
+      "sequence": 23,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:58.386418+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_getBlockByNumber",
+        "params": [
+          "latest",
+          false
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "withdrawals": [],
+          "hash": "0x7469f38be3ae2945324ce1a7044b447ac02fea2aed0f574e9fe256109dbd84bc",
+          "parentHash": "0xb9483cf7055dbf584869c880dd1c2a84f58aac474cbfda221bfe709a854d98ce",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "miner": "0x0000000000000000000000000000000000000033",
+          "stateRoot": "0x843d425a17fa857e884905682bec98a2f34458d75b06f605313dde087cca52a2",
+          "transactionsRoot": "0xb3deb9ee7fc2a0064c06ed99da6db9727f2906fab134cbdd0179ed411deda59e",
+          "receiptsRoot": "0x9fa9f0116a0c19242c04e6045c58b7ca121c91fea034be065ca33e3950f402a0",
+          "logsBloom": "0x0daf12143908aa981810135ac830120b0952b64d070525601929da013d50907594393405bd208ba3410a02aba10208130681d3226d63c166a5802af203213a81e4b0935121440002ffc12ab91023072963540b289ec8022e0a55016000714cc531f882240a2b84882519602011042e80080ccc5b2c020d52101010548093203a0c5064ad9c0a694190885094750329c2413425524e0095586c5400458083922003b42902114409baabf01299a308d6812d94f901c0c464886b6866a0be2015641400010691a0007801a51c0468271900fe6400ba05c83b946a994c0a8b28b71008148b01a25144500de183d4a0d099647302aaa907453938c19829202f01abc5",
+          "difficulty": "0x2",
+          "number": "0x7a2cb4d",
+          "gasLimit": "0x42c1d80",
+          "gasUsed": "0xae246b",
+          "timestamp": "0x6ad2feb1",
+          "extraData": "0xda8301070888636462373534386288676f312e32362e30836c696e00d38cc282f8b5831dffffb860b13be857d26d41eafef8365e49d7a9e77d91e1056d6e27509e53316d28c483393593c4e2140cfca39c1b5ad4dbb6bd1c125bd9cc816b87810d5e1df662a640e6b487ee517aff5d562c80eda8bb71b2f5298094487d85dc2eafa9dd258031d641f84c8407a2cb4ba0693d294f1ddb758188cace1eb8c4b5a31fedc9306bbb8177f2233915ae33a26f8407a2cb4ca0b9483cf7055dbf584869c880dd1c2a84f58aac474cbfda221bfe709a854d98ce8044cba3c272ef45ca51075e6d07fc6ef5502a9878ef919ba64253982f0339fdfb156c122fc92eeaef3100e12ddd8db4dfa642169020d8144728acbfde2e688c2400",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000032",
+          "nonce": "0x0000000000000000",
+          "size": "0xec34",
+          "totalDifficulty": "0xf3ca693",
+          "baseFeePerGas": "0x0",
+          "transactions": [
+            "0xb0fd48d357ecd5c29604d512f54be0f52dc2669cc564f6022912dcd50d10b901",
+            "0x02d342810828c98d416757a0cf50a21b3f669b0b7aedf40551f4f955645b001b",
+            "0xc00e747e57fe8f50a69675bdc1e1781706e7f171202edf0629025d2401d88fb2",
+            "0x1fbc25930618539df5c586d315ee66604f373f652f238a9492b72863fc0bc89f",
+            "0x1dd4de267368b5c1f5585545cea7dec4a646fe948121f7f4c95adbc2e8e25882",
+            "0x5e82df121977bfa217d4cc75ab94dbc3c75c502cb7ddb42c5a871df5d401bd42",
+            "0x64f9dbaa2505044310002ca6d147e0b2d00fedff31710d4092b0e311948bdea4",
+            "0x351cd26d4f0a62fcf5c680b53585e073b478972db569c3295d2f3f61924b0308",
+            "0x5d33dee1728dbbdfebaa0e516a70406645337cdc5874492e6021801b3362b60a",
+            "0x16ae6fce2fb792f2aff42aee24c7a5061bc4d5b54531fb8593d8a7b133c10ef7",
+            "0xd61325120e46b3ea129ae7f09135d06ab481b1de967e279df6f1c95c95a6c506",
+            "0x0034d5617c6ff922461c907399af1f96fa05e34f7a3605014250b53b8c19747d",
+            "0xabafe5d509aa5322a2876277459119b1fe7ce6dceb67da06a721fddb80fd586a",
+            "0x204e0133526911e73f1d8210738da87857e2596509d91ba50d4dae2171606441",
+            "0xba95996226aaec08db3822e3d87ffff24cb24a57d972b742c2e07d1337d7a321",
+            "0x1e3d88738566bfc0b6064ad9be9b7761b65ba47be283e93b4cf95af699453708",
+            "0xe92f9b2bb419cec9bb06a901f77cb06e62caa41764ec8f627a37a8538893b2f4",
+            "0x5751837a72acbf3a32aee8dda6b4d32d36ddab9d5f1f5c75b45cb13e26021128",
+            "0xd00f4b741b36b07d0904a52b6344340ebb6ca08bfc60de836c7bf4da78a608a8",
+            "0x0a7857fa4a3bf75c74f5ff1901f972ec9efb0c9e36b1a47785d796b519a40597",
+            "0xcf83febc68fbff2eaf53a36ed8117b3f4852518abfcb403de46b034dd66068b3",
+            "0x6dc0a60be5c715177ae6ccededb5e4ecdb20d9cf29d1879249836a90cc42ccfd",
+            "0x199065f8be61094e69cf8070ad6bcd12fecca9974e77d41295127507e730b26c",
+            "0x3b73cea4a6c5cee892d03e7201de5abf07d0bead9d977837f3c45e3b098cf201",
+            "0xca773c229174dd74200817f088e0376dc4625878975a968c21d5f386b31a73c1",
+            "0x505913e9a8418ff75d7e499df34ea5493908b18d674118da2dc2150aff2bd310",
+            "0x084f8539765a22dfe4a5822a74b02c1045dd017ea1b7aea1b93ed636cfe6cc3e",
+            "0x8d4f079b3c130c736d061398580c91f0c503b4b78a8f478d8e9d6b725c40ea27",
+            "0x3cb6d87eeeef3defdac87173143f18080681be3e54624018e0065f9647b124d8",
+            "0xc7a3462802da6e682d5cbe88d034b003ad10c7d10d55173f93c7522330fd9c3c",
+            "0x4b4539cf60969d13a58487017b5bbfecdbd3df0f4f83d5d13fd38e123ca3a4f6",
+            "0xb2aa5279aa9e926a03135cdca1bf02d94c3872e4443cf2b4f05cbd66a1290a38",
+            "0xa1aaeb7ec2dc986274ead468bf65e0c12672eefb11af055d5d3952c3d35b3743",
+            "0xe70052e4b75d907abbcc35ac990088b28872b2e1c7b3cb26ea30925cba82e8ba",
+            "0x1fa58d813a4c12ae56b8de8da15bf6a4e306ad3bca7e6f8335378ed8b86f4056",
+            "0x16d2e17370084f6f62143f095c881d165cb13f911184efa35a1d6e702f326185",
+            "0xbc13c7a82b68f5137ad77f5afd8f548464728280a21ce5443943b7aa3c58b39b",
+            "0x09b630996a662e356f6d28f90a972bcbbcd0fcb1e0876672f5f307991f3ea8f2",
+            "0xf630757331df6d6ff72a36d1173aa6396379420a573466c8deb5cd31a5fd5437",
+            "0x0c6a191d5e3ef937834c02c8fa8a2c978c743c1f4f39ffde9ac40e61ca31fc6d",
+            "0x5cfe3367e62bf87abaacc86d66cd7c0894e5089aa1c898053e177d5490d73121",
+            "0x55f3129248b17b4da1ff2bc3e590e201b1f89195daba1e91559cc6a6773aa290",
+            "0xfec83f2530d5ca980c526387d5bacc14b8c8671b5094a14d470fcc4bb10d466d",
+            "0x88c4c8d7332923e948de0bc3b3820acdf24b075136ba7caed2d56f31b2b99b45",
+            "0x2f3cdbb6a90beeecfb0e32cd16832b0f5dc10955cc657b8b52f5a5165df2f65c",
+            "0x3a23c1f78d76f5a5d1a7407141e6dc5f794567569aa6c1de84a69e32f6ce2a18",
+            "0x9c19363849979607815a084b6215aecb2bb69b55614391469f6f60f7c0bfb063",
+            "0x42f5b511ac270c0e1f67ac3ce318688dc9187a31f2c176af3a7f0bb640c368c5",
+            "0x55d85a5234ed8cc2c88e127428e6752e1253d65549c3083d5b99072f7bc6adef",
+            "0x0ce147d88aae99bb43ba74751787c76af2faf39e279836ac0111aed8f5801d78",
+            "0x9ec8a6220e9cf4a022620d5835c0ae8d91f33a7b5f63929551a92558c508c2b4",
+            "0x5fa2791d435bdc17de475ea723217e26ed86c9fee8d861601bc690e2f7ece7bc",
+            "0x68b254ab8411a8b2caa6a827c41996e9db051a95442a4754fe216ce84de5c496",
+            "0x6e4699199126e01502b49c67c1503324ae235629ff85d491142db252a7d64a8e",
+            "0x89d130e69b16f5ee727fd2381b6844a81d5197725c17c3756ad4b3d0d40f04a2",
+            "0xf9f8b727d606654ccba289d7b8785e8673347a2b3524c10f5917a04e003f4ed6",
+            "0x44cdd49205d2ae41b0f3149f767853a1a6099845f0da197cd55153860a5e7935",
+            "0x3e89831ceac3a2f7d5420adb30572b8432d1be4c050b4619f45a4c27b08c4371",
+            "0xdbeefedee6fc6f8797cd96cc37b57becfc5b2f4502e0849cae4f40eaebea8e3d",
+            "0x9e71d5feac082e2dd6f3700a5b7446193966e3d9d778bde9c4af0a44e8d81a0b",
+            "0xa5bfbfa71c7457591728a03962f6dd9a20a05eb606e5f324fcfcf942b9c86aed",
+            "0xbe0822bd403356495108b8df60e0cadcc585c7db5eb73752fcc53c5399cae234",
+            "0xe1c83fdc85673ca08772b797f6543dde570054eb1a7fbf906ca1fd20bda56ba4",
+            "0x43831f69e94355be513a7b486f8cf0f93934f51f8a89f1cc3af4b588347b8fac",
+            "0x1a90bc0f6da224dbf5db0fdadda1b484916d604f5fc177880bc19e1c2752dc75",
+            "0x06325b6058c26fbe0ade3b523b6deec74f5d6705f942494ec22213ec4ff84461",
+            "0x8a7abe0ac1245d1ec99abab076dae5c6ebd417f77634bcd2c6d24c35dfb8b09b",
+            "0x666f1876455403bd2c1b1a8e7eb57d7c91eda58fae2bbfc2163d42e2bca7be84",
+            "0x1ce6658df888beb7327ecfc6f1b29f492fa807d0cf23edbf75d44532b5e43ccd",
+            "0x53e2a6fa66866ac4527f1cad6929f83ff7c1b4d4182bc582c3284793ffa8dc41",
+            "0x3d5b350ff73d5b4209760fe1e4878b3ef26866bd11fdbbcac5bfb7b69d4d5a53",
+            "0xfe13a3b14b799c12a082d974ac26638eefe0644e4c739c0fccea55c54ee40c2c",
+            "0xbe2e94014f46445a53623cafa745167e997f84788563e5f862ed6c26ab53ad09",
+            "0xed8764ddd2774a9577544b634b9dbcf7a130ee3f75417da33d1820747e33ec81",
+            "0xc264ca1a3aa0f3e1709cb5d746bba7eb5a1a4a447cb0a5670e906961d65e4c6d",
+            "0xfb0ad0304775193cb704a8ac67344d8c923501e84c40b8ffc5e6526d47175277",
+            "0x06b92b7a22c4169476402077e9b3feba0777e10ca3c2ee5e5c708c616fba8644"
+          ],
+          "uncles": [],
+          "blobGasUsed": "0x0",
+          "excessBlobGas": "0x0",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "requestsHash": "0x0000000000000000000000025532cdb3c0c4278f9848fc4560b495b70ba67455",
+          "milliTimestamp": "0x1a14832e39a"
+        }
+      },
+      "completedAtUtc": "2026-10-17T04:50:59.009718+00:00"
+    },
+    {
+      "sequence": 24,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:58.559150+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:58.868285+00:00"
+    },
+    {
+      "sequence": 25,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:58.870542+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "includeLost": [
+          "true"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:59.288047+00:00"
+    },
+    {
+      "sequence": 26,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:59.010966+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000000033",
+            "data": "0x313ce567"
+          },
+          {
+            "blockHash": "0x7469f38be3ae2945324ce1a7044b447ac02fea2aed0f574e9fe256109dbd84bc",
+            "requireCanonical": true
+          }
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x0000000000000000000000000000000000000000000000000000000000000012"
+      },
+      "completedAtUtc": "2026-10-17T04:50:59.587043+00:00"
+    },
+    {
+      "sequence": 27,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:59.290725+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:59.651866+00:00"
+    },
+    {
+      "sequence": 28,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:59.593509+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000000033",
+            "data": "0x70a082310000000000000000000000000000000000000000000000000000000000000022"
+          },
+          {
+            "blockHash": "0x7469f38be3ae2945324ce1a7044b447ac02fea2aed0f574e9fe256109dbd84bc",
+            "requireCanonical": true
+          }
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x0000000000000000000000000000000000000000000000029d22bd0762aee001"
+      },
+      "completedAtUtc": "2026-10-17T04:51:00.494945+00:00"
+    },
+    {
+      "sequence": 29,
+      "phase": "authentication",
+      "startedAtUtc": "2026-10-17T04:50:59.655997+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "includeLost": [
+          "true"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:50:59.996458+00:00"
+    },
+    {
+      "sequence": 30,
+      "phase": "renewal-1",
+      "startedAtUtc": "2026-10-17T04:51:00.009661+00:00",
+      "method": "GET",
+      "path": "/v1/auth/message",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "data": {
+          "message": "[redacted]"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:00.346287+00:00"
+    },
+    {
+      "sequence": 31,
+      "phase": "renewal-1",
+      "startedAtUtc": "2026-10-17T04:51:00.350374+00:00",
+      "method": "POST",
+      "path": "/v1/auth",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "authenticationBodyOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:00.688728+00:00"
+    },
+    {
+      "sequence": 32,
+      "phase": "renewal-1",
+      "startedAtUtc": "2026-10-17T04:51:00.497612+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_getBlockByNumber",
+        "params": [
+          "0x7a2cb4d",
+          false
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "withdrawals": [],
+          "hash": "0x7469f38be3ae2945324ce1a7044b447ac02fea2aed0f574e9fe256109dbd84bc",
+          "parentHash": "0xb9483cf7055dbf584869c880dd1c2a84f58aac474cbfda221bfe709a854d98ce",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "miner": "0x0000000000000000000000000000000000000033",
+          "stateRoot": "0x843d425a17fa857e884905682bec98a2f34458d75b06f605313dde087cca52a2",
+          "transactionsRoot": "0xb3deb9ee7fc2a0064c06ed99da6db9727f2906fab134cbdd0179ed411deda59e",
+          "receiptsRoot": "0x9fa9f0116a0c19242c04e6045c58b7ca121c91fea034be065ca33e3950f402a0",
+          "logsBloom": "0x0daf12143908aa981810135ac830120b0952b64d070525601929da013d50907594393405bd208ba3410a02aba10208130681d3226d63c166a5802af203213a81e4b0935121440002ffc12ab91023072963540b289ec8022e0a55016000714cc531f882240a2b84882519602011042e80080ccc5b2c020d52101010548093203a0c5064ad9c0a694190885094750329c2413425524e0095586c5400458083922003b42902114409baabf01299a308d6812d94f901c0c464886b6866a0be2015641400010691a0007801a51c0468271900fe6400ba05c83b946a994c0a8b28b71008148b01a25144500de183d4a0d099647302aaa907453938c19829202f01abc5",
+          "difficulty": "0x2",
+          "number": "0x7a2cb4d",
+          "gasLimit": "0x42c1d80",
+          "gasUsed": "0xae246b",
+          "timestamp": "0x6ad2feb1",
+          "extraData": "0xda8301070888636462373534386288676f312e32362e30836c696e00d38cc282f8b5831dffffb860b13be857d26d41eafef8365e49d7a9e77d91e1056d6e27509e53316d28c483393593c4e2140cfca39c1b5ad4dbb6bd1c125bd9cc816b87810d5e1df662a640e6b487ee517aff5d562c80eda8bb71b2f5298094487d85dc2eafa9dd258031d641f84c8407a2cb4ba0693d294f1ddb758188cace1eb8c4b5a31fedc9306bbb8177f2233915ae33a26f8407a2cb4ca0b9483cf7055dbf584869c880dd1c2a84f58aac474cbfda221bfe709a854d98ce8044cba3c272ef45ca51075e6d07fc6ef5502a9878ef919ba64253982f0339fdfb156c122fc92eeaef3100e12ddd8db4dfa642169020d8144728acbfde2e688c2400",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000032",
+          "nonce": "0x0000000000000000",
+          "size": "0xec34",
+          "totalDifficulty": "0xf3ca693",
+          "baseFeePerGas": "0x0",
+          "transactions": [
+            "0xb0fd48d357ecd5c29604d512f54be0f52dc2669cc564f6022912dcd50d10b901",
+            "0x02d342810828c98d416757a0cf50a21b3f669b0b7aedf40551f4f955645b001b",
+            "0xc00e747e57fe8f50a69675bdc1e1781706e7f171202edf0629025d2401d88fb2",
+            "0x1fbc25930618539df5c586d315ee66604f373f652f238a9492b72863fc0bc89f",
+            "0x1dd4de267368b5c1f5585545cea7dec4a646fe948121f7f4c95adbc2e8e25882",
+            "0x5e82df121977bfa217d4cc75ab94dbc3c75c502cb7ddb42c5a871df5d401bd42",
+            "0x64f9dbaa2505044310002ca6d147e0b2d00fedff31710d4092b0e311948bdea4",
+            "0x351cd26d4f0a62fcf5c680b53585e073b478972db569c3295d2f3f61924b0308",
+            "0x5d33dee1728dbbdfebaa0e516a70406645337cdc5874492e6021801b3362b60a",
+            "0x16ae6fce2fb792f2aff42aee24c7a5061bc4d5b54531fb8593d8a7b133c10ef7",
+            "0xd61325120e46b3ea129ae7f09135d06ab481b1de967e279df6f1c95c95a6c506",
+            "0x0034d5617c6ff922461c907399af1f96fa05e34f7a3605014250b53b8c19747d",
+            "0xabafe5d509aa5322a2876277459119b1fe7ce6dceb67da06a721fddb80fd586a",
+            "0x204e0133526911e73f1d8210738da87857e2596509d91ba50d4dae2171606441",
+            "0xba95996226aaec08db3822e3d87ffff24cb24a57d972b742c2e07d1337d7a321",
+            "0x1e3d88738566bfc0b6064ad9be9b7761b65ba47be283e93b4cf95af699453708",
+            "0xe92f9b2bb419cec9bb06a901f77cb06e62caa41764ec8f627a37a8538893b2f4",
+            "0x5751837a72acbf3a32aee8dda6b4d32d36ddab9d5f1f5c75b45cb13e26021128",
+            "0xd00f4b741b36b07d0904a52b6344340ebb6ca08bfc60de836c7bf4da78a608a8",
+            "0x0a7857fa4a3bf75c74f5ff1901f972ec9efb0c9e36b1a47785d796b519a40597",
+            "0xcf83febc68fbff2eaf53a36ed8117b3f4852518abfcb403de46b034dd66068b3",
+            "0x6dc0a60be5c715177ae6ccededb5e4ecdb20d9cf29d1879249836a90cc42ccfd",
+            "0x199065f8be61094e69cf8070ad6bcd12fecca9974e77d41295127507e730b26c",
+            "0x3b73cea4a6c5cee892d03e7201de5abf07d0bead9d977837f3c45e3b098cf201",
+            "0xca773c229174dd74200817f088e0376dc4625878975a968c21d5f386b31a73c1",
+            "0x505913e9a8418ff75d7e499df34ea5493908b18d674118da2dc2150aff2bd310",
+            "0x084f8539765a22dfe4a5822a74b02c1045dd017ea1b7aea1b93ed636cfe6cc3e",
+            "0x8d4f079b3c130c736d061398580c91f0c503b4b78a8f478d8e9d6b725c40ea27",
+            "0x3cb6d87eeeef3defdac87173143f18080681be3e54624018e0065f9647b124d8",
+            "0xc7a3462802da6e682d5cbe88d034b003ad10c7d10d55173f93c7522330fd9c3c",
+            "0x4b4539cf60969d13a58487017b5bbfecdbd3df0f4f83d5d13fd38e123ca3a4f6",
+            "0xb2aa5279aa9e926a03135cdca1bf02d94c3872e4443cf2b4f05cbd66a1290a38",
+            "0xa1aaeb7ec2dc986274ead468bf65e0c12672eefb11af055d5d3952c3d35b3743",
+            "0xe70052e4b75d907abbcc35ac990088b28872b2e1c7b3cb26ea30925cba82e8ba",
+            "0x1fa58d813a4c12ae56b8de8da15bf6a4e306ad3bca7e6f8335378ed8b86f4056",
+            "0x16d2e17370084f6f62143f095c881d165cb13f911184efa35a1d6e702f326185",
+            "0xbc13c7a82b68f5137ad77f5afd8f548464728280a21ce5443943b7aa3c58b39b",
+            "0x09b630996a662e356f6d28f90a972bcbbcd0fcb1e0876672f5f307991f3ea8f2",
+            "0xf630757331df6d6ff72a36d1173aa6396379420a573466c8deb5cd31a5fd5437",
+            "0x0c6a191d5e3ef937834c02c8fa8a2c978c743c1f4f39ffde9ac40e61ca31fc6d",
+            "0x5cfe3367e62bf87abaacc86d66cd7c0894e5089aa1c898053e177d5490d73121",
+            "0x55f3129248b17b4da1ff2bc3e590e201b1f89195daba1e91559cc6a6773aa290",
+            "0xfec83f2530d5ca980c526387d5bacc14b8c8671b5094a14d470fcc4bb10d466d",
+            "0x88c4c8d7332923e948de0bc3b3820acdf24b075136ba7caed2d56f31b2b99b45",
+            "0x2f3cdbb6a90beeecfb0e32cd16832b0f5dc10955cc657b8b52f5a5165df2f65c",
+            "0x3a23c1f78d76f5a5d1a7407141e6dc5f794567569aa6c1de84a69e32f6ce2a18",
+            "0x9c19363849979607815a084b6215aecb2bb69b55614391469f6f60f7c0bfb063",
+            "0x42f5b511ac270c0e1f67ac3ce318688dc9187a31f2c176af3a7f0bb640c368c5",
+            "0x55d85a5234ed8cc2c88e127428e6752e1253d65549c3083d5b99072f7bc6adef",
+            "0x0ce147d88aae99bb43ba74751787c76af2faf39e279836ac0111aed8f5801d78",
+            "0x9ec8a6220e9cf4a022620d5835c0ae8d91f33a7b5f63929551a92558c508c2b4",
+            "0x5fa2791d435bdc17de475ea723217e26ed86c9fee8d861601bc690e2f7ece7bc",
+            "0x68b254ab8411a8b2caa6a827c41996e9db051a95442a4754fe216ce84de5c496",
+            "0x6e4699199126e01502b49c67c1503324ae235629ff85d491142db252a7d64a8e",
+            "0x89d130e69b16f5ee727fd2381b6844a81d5197725c17c3756ad4b3d0d40f04a2",
+            "0xf9f8b727d606654ccba289d7b8785e8673347a2b3524c10f5917a04e003f4ed6",
+            "0x44cdd49205d2ae41b0f3149f767853a1a6099845f0da197cd55153860a5e7935",
+            "0x3e89831ceac3a2f7d5420adb30572b8432d1be4c050b4619f45a4c27b08c4371",
+            "0xdbeefedee6fc6f8797cd96cc37b57becfc5b2f4502e0849cae4f40eaebea8e3d",
+            "0x9e71d5feac082e2dd6f3700a5b7446193966e3d9d778bde9c4af0a44e8d81a0b",
+            "0xa5bfbfa71c7457591728a03962f6dd9a20a05eb606e5f324fcfcf942b9c86aed",
+            "0xbe0822bd403356495108b8df60e0cadcc585c7db5eb73752fcc53c5399cae234",
+            "0xe1c83fdc85673ca08772b797f6543dde570054eb1a7fbf906ca1fd20bda56ba4",
+            "0x43831f69e94355be513a7b486f8cf0f93934f51f8a89f1cc3af4b588347b8fac",
+            "0x1a90bc0f6da224dbf5db0fdadda1b484916d604f5fc177880bc19e1c2752dc75",
+            "0x06325b6058c26fbe0ade3b523b6deec74f5d6705f942494ec22213ec4ff84461",
+            "0x8a7abe0ac1245d1ec99abab076dae5c6ebd417f77634bcd2c6d24c35dfb8b09b",
+            "0x666f1876455403bd2c1b1a8e7eb57d7c91eda58fae2bbfc2163d42e2bca7be84",
+            "0x1ce6658df888beb7327ecfc6f1b29f492fa807d0cf23edbf75d44532b5e43ccd",
+            "0x53e2a6fa66866ac4527f1cad6929f83ff7c1b4d4182bc582c3284793ffa8dc41",
+            "0x3d5b350ff73d5b4209760fe1e4878b3ef26866bd11fdbbcac5bfb7b69d4d5a53",
+            "0xfe13a3b14b799c12a082d974ac26638eefe0644e4c739c0fccea55c54ee40c2c",
+            "0xbe2e94014f46445a53623cafa745167e997f84788563e5f862ed6c26ab53ad09",
+            "0xed8764ddd2774a9577544b634b9dbcf7a130ee3f75417da33d1820747e33ec81",
+            "0xc264ca1a3aa0f3e1709cb5d746bba7eb5a1a4a447cb0a5670e906961d65e4c6d",
+            "0xfb0ad0304775193cb704a8ac67344d8c923501e84c40b8ffc5e6526d47175277",
+            "0x06b92b7a22c4169476402077e9b3feba0777e10ca3c2ee5e5c708c616fba8644"
+          ],
+          "uncles": [],
+          "blobGasUsed": "0x0",
+          "excessBlobGas": "0x0",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "requestsHash": "0x0000000000000000000000025532cdb3c0c4278f9848fc4560b495b70ba67455",
+          "milliTimestamp": "0x1a14832e39a"
+        }
+      },
+      "completedAtUtc": "2026-10-17T04:51:01.017045+00:00"
+    },
+    {
+      "sequence": 33,
+      "phase": "renewal-1",
+      "startedAtUtc": "2026-10-17T04:51:00.691732+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:00.999220+00:00"
+    },
+    {
+      "sequence": 34,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:01.702038+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:01.998529+00:00"
+    },
+    {
+      "sequence": 35,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:02.001879+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "status": [
+          "OPEN"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:02.304310+00:00"
+    },
+    {
+      "sequence": 36,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:02.305815+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_chainId",
+        "params": []
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x38"
+      },
+      "completedAtUtc": "2026-10-17T04:51:03.074020+00:00"
+    },
+    {
+      "sequence": 37,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:03.076214+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_getBlockByNumber",
+        "params": [
+          "latest",
+          false
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "withdrawals": [],
+          "hash": "0xbd12936e51493eaa22641d3f15f53ea51e2f71fea8c36667b923829e652015ec",
+          "parentHash": "0x80595e407260702818dafa1260771bff25b9e1068ec277986a74d1e720c54387",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "miner": "0x0000000000000000000000000000000000000033",
+          "stateRoot": "0xf106ada88d0bb871cb5d5cfe70c366a73d3f9f6dda8a4bc16a612f7022e2ea9b",
+          "transactionsRoot": "0x974d7c0c82c71c69f5766514a199db9b895c824a176b847acf3043f656fe5385",
+          "receiptsRoot": "0xf3ff3f9a011d320b2457dd5c47abae8c80f98cff34b949b5fbf69df375a2ee0f",
+          "logsBloom": "0x2b2f731c8d0d0c1360776f7da9e75d2392cabea9d1fa91c07769ff97a27fb5f7d76dbb2e1f16f44ecdff3e696d77a3dd82bfe7f55f2868fe21b959c01128eb9ef644c679c5e6776bc3a2b9fbb6bd6766a616cce1d7e769f949575a3bfcbf9e6f98fb8370b73aa37a7cb9c367dc60eb6db881c71b881d14b8beef5bd5c15d1aeefed17160eb7fa3a0c1b8f005b3cceb3e4df74f37fb6254daf2793cf815879c3d57759ee5fb72f6f6b92cb6fbcaf3b44364dcb9db63989ffb9feec3fa39f6ef5d81d854fb5b6b4fbf70ea6fe420ba71e03dd536e7c3f9c6da7bd76ace7904a7cefedee01d56fd508a695727d5e3be2f6c463fcfcf4059ffdedbd6392f3e83815a",
+          "difficulty": "0x2",
+          "number": "0x7a2cb58",
+          "gasLimit": "0x42c1d80",
+          "gasUsed": "0xee8e79",
+          "timestamp": "0x6ad2feb6",
+          "extraData": "0xdb8301070888636462373534386289676f312e32352e3132836c696ed38cc282f8b5831dffffb860b2ee1da4cad829dc9a07db0ff25039ac4460086a8a0281c4714468fae937e2f9ea5d23aaf19d64050d31ef0c14bef04b0437a26f031407e3b7da0357ec1a346ffd1e29684457b12f089ee2449e94105f1715ea37b026e905a8c1cfd98fbbe024f84c8407a2cb56a04bd29039e9d891963ba740ced20293ce31779e844a6a712563f8944a251887578407a2cb57a080595e407260702818dafa1260771bff25b9e1068ec277986a74d1e720c543878048d393a6cda42927416d7b8a3e753f979ee1b4ceb5f412908d8fa125e85ed52525f075dec693f2a3c6c0a9c162210cacc4d2627d8ec1f75a68ff0c314b03ea6400",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "nonce": "0x0000000000000000",
+          "size": "0xc9f9",
+          "totalDifficulty": "0xf3ca6a9",
+          "baseFeePerGas": "0x0",
+          "transactions": [
+            "0x561984c128b720b96c8e30ae48f212d59210dbbb5e07810323d439b11b83af82",
+            "0x969a9a0c28ee347bdc64dd33c0d6b494809626c56f828a25abad548102545ca8",
+            "0x189a7d9cb528082593893e595330264293c518c75f6b40a6c15eeed73a4e3602",
+            "0x9d0c7f6ec93d4b1e2193dbefcf5f9bdb81ea4779ac9443cc557cbc495761ebea",
+            "0x75ad3d27e6b11f1206eddebe7d453ab03d9ec2572f2522299fc1561781d1bae9",
+            "0x01f4ce7110f37ad9f34acc099277c0d6b5ba816fcbc4964351cf96df7caff2d1",
+            "0xe51cc4167e0f5409c81dddc18e9c8f9c3144627d51562410adf96133d0ade00a",
+            "0xbe8d415d47ea83d1607938d7761a54ab3d61d669c62b3d77847f128730c3c0cf",
+            "0xee7b0d381771fcca08dcb6151c3fbad51d41ef3d2f38b254615824cfd320d7a1",
+            "0x383049eaf12e99d1d0aec9832a1c70d1ad4eb361120638acc4c1ea928f28ede2",
+            "0x0a117f83543f175919841a40fa3c529200dd9137a476e671be9cc4f7924f7d72",
+            "0x25b387b6272f2ddc2d3ffe4c922fe8db5fc410da7d3b28d136ee4143f7494733",
+            "0xa75e6c3b8772e8eb38b74054b222bf1bb8ba4c9814ff9443e1dd07f43f11e0f0",
+            "0xece6ca0f6176de4d43f85e8bb2aed845e70da399efc546e06a3bf62ba240b7e1",
+            "0x2087f536f863e999b6906ff2275d68370e239ca998b172cf84c1d9e5895db657",
+            "0xbb731725e7b77ed071ccaf5c5c89883364f4b27f7094c21912ab8a5783dfe4d4",
+            "0xc56729330d8d9b328892fa9806da6b1e6fdf7978b1cf34c7af5bc7f386b66f3b",
+            "0xf5ef143e43c01c8e9b11ee4b67d1382dfad3bc5e25036430623a1bfde6d6caa1",
+            "0x3088d695db263aa8f19a0b1fd862fa432fd21ad5a4d7ecace47c4f0d0924e164",
+            "0x8eed2e662cccdf9e144e8b5b2954e8be091bc62ff750e0361cc1ab4b02f60fda",
+            "0xb9f3fd56ff9a1890c138edf7ad3c954908a39e5a9bcc8fa000f1d732fbdfa8d1",
+            "0x0e5a1b4203381c557165fe7848827e1ecffdeb369dbc78143b3b7892aec39821",
+            "0xcf83022bcd10a1618d8f9b8a98b82a8adcf98637ad15cfb72c40891f2ceb0e5e",
+            "0x90a39d3431fec117b4eeb712164eeebab3f2ca5c671b5eecb4702379bd672b2c",
+            "0x78893ecf96387e5e165a7e8b1a33be7c66579a471a9199a3066da521858ba2cc",
+            "0xd5b5d1013fbba536b6df58b6b3102479ba980e721f4a4f0664f55567c8b36351",
+            "0x30e1075e3421880a879c15a8ef124c2b819f99b1ef22d0e909aace5e23f63d08",
+            "0xdd51c80a069ff01a0f2616bfb8de80ede44771648dd3e507693bd7f190cc666b",
+            "0xb17f5c28485cac4df8d9048a9207a618987bab2c4e0ff371ee6f29a3c267802c",
+            "0xaed6f4871f9ef867c2c1fa2b174b9fab21f9dc5742a6af482373d7d8abd0ce48",
+            "0xc297c960eb129c616ce8259b445efccaada7bccce84465d1bc46f2e0f2cb89ea",
+            "0xced5e3ed4e4dddd53b903a0c66f6e880f17a8af854d54c97f450ba5afd9e8c8a",
+            "0x1732246999a1dd438ada5b839ed78b4051cebf43b3429843817bcc62320fcd8a",
+            "0x5d9907004cb94788b608918bf908861c2142d263e6fe323d8290af33c2e2d180",
+            "0x8b4d7a3a18a0773e03836fa46025fcf2906c82f35e5609bcd0e573f534f4f65b",
+            "0xcebded4aab61f2c23095215e9ae40eb9e825100725cfb6b337ba2f977735c276",
+            "0x4430e5b1a99368127fdb3f648050f0671f7736cbf0d738fe84f452640fbd5c90",
+            "0xabfcaca42ee5723b77d525d7153fe3858211370b0a7c88e7f7f52639a39eebf3",
+            "0xf6b80c5f776f23817f306b690807310bb104289821e4441e9be1d000fcca45d3",
+            "0x6be42864368e3e56780778bfa67bb080d0135c5709ff91923b0b0502d5a924f3",
+            "0x3673cf5e56a5c518ce20d89efda7cf99bb84e8fa95a0d9ad31ebebc78328f8b1",
+            "0x6888d08a168b1578c3224fe50fae46e3a254c056c45363deb7a5ccb030b54e00",
+            "0x113ca1349350260318194717f3f20d28eea1a1bdfb0a58aab90efcd4d7dbf2d7",
+            "0xe5092ee218320f68e058f04795f48adfd305c09ec78d44d034e8f8944eb9e55a",
+            "0x57cad48b39f7cdffecb5deebccee3b938fb5c3394ed15a03065b6a2a421300c3",
+            "0xf710dedff376fabc53a64cee7448d601cf1823ac37b09c690e2bcc21934532e2",
+            "0x1452f55faa92b1c710a9bafa443d80891bb110fd7ca221ebb3838e9ccbd8f2f0",
+            "0xf476d287e207df22a8aa9e8ca75d66ad484af034fc3e7a1aacf7b1db13473762",
+            "0xa93a040faeb53dcf93e3bee5fa9a7bdbbad75acfa8acb553921438d628bd676c",
+            "0x4835fcd7046fef89f2545b88d8b9938a5955724c241d53df8a94f27d884e98e3",
+            "0x32af6d1cbe674d736e6683acdce477d9ebafbde47a1de3ba5c3e503bdb2af299",
+            "0x28eafb4c3817e791f91a0d31109c20cb3441d427c68da1d15fdee24fe5176f08",
+            "0x9acbea208b9b70719e808b7df1c8bcab39bbbb194a51fed5492ffe3156c01112",
+            "0x40e9acabb089074b6811d67a8e6c0e30163f1fa7c5ae4d53847d071be5a4e0a2",
+            "0xa10abc258deecaf12e3fdd788de93eb7b2991bf283fad9a62636c6fd90644af5",
+            "0xcfe24d7ff1bd044ad0fcf75adb64290dfbdebcc2acdc7781a505a96c8d3573a5",
+            "0xdccbddb37011d85d3290bafd08ba218391793976284d171a7d7bcbc34470c1af",
+            "0x5883bf995c74d38830a20c58979806296b3ffa60492fc7445242eaa390716c9a",
+            "0xc6db0182e7edbdd95527ea09b6cb4c49e8336260d34caceacb20106a9e943388",
+            "0x89717cc2228a58dcd731ac0db2ca4a8b163dd79813e970e16247a317619ee76d",
+            "0xc89286c165415b533453c71ec0714069293d94c69deb406aaba92c86df898500",
+            "0x488e7bb96125c03d50ab69b408f8c5efec968df9554493abfcd33cb893af1b0e",
+            "0x5c0c8ffacffacd4318eafdf99c2a793f677c7e96fa08d75caf17ad2cde918184",
+            "0xba5ca34713c34fb18b04f1f8ef9ee256561882ce7838079d897f6d1e48b3c5d4",
+            "0xcdd66d1553648dd5afa5054fa13bf94679930024fe99b797a3a1540527faa721",
+            "0x9344ad97de8d5e79f7be7fc1f6843b125f1578ba8007f833dfb5f7ede8964804",
+            "0xd2dec1d8270956f3d242912bc951a7323928ed90e9101070e54fcb4147059b6e",
+            "0xd93354a7242e539ee009c89725c13327632310a38963701132a276211d7ae878",
+            "0xf0610217f831e250f82a5a031111aa88085d05786dfbc8c9f38286d3772811bd",
+            "0x7c97e6003fddab74557876de1ddd3bc3a57ece88cace57d151b8d130e8fb8c5f",
+            "0xac585c1b9549fffa432c0d1f9094233ced3c1ea9c97a77af2d2c7eeed8f91b13",
+            "0x0238b5c69dc2b9ab7c00c4aa605c860c1b78ee80d8b45ec57f35f6656b155df8",
+            "0x3f3e06eaf823eefe37516eb14ae16e318f0ecca2f01d06bf2e39a292c46aa0fc",
+            "0x9da3643ca69bbb696856cc3f38cf2ffe06dcbcb9ed5b6e1595624a9b2307d68b",
+            "0xc27df09bcc4e775cea97e194f0757358622b21f5c9c99c5930040fbcf1d8d64d",
+            "0xa94704fc7d55954fa72f077e5ac86fb4042d5d0b7b34f541e264d5e8f1bba528",
+            "0x392874947ec6c9d4fb8e87dbf3d66a41722cfcd9566499028a1f3f8ea80113d3",
+            "0x51e06df4cbd530ed78263b0dcdbdaef5278d64eefd84db4c19e0462f0918f32e",
+            "0x4fc98a736544d9d6aed75a3ffb53b79187716475848674253bdea98139903982",
+            "0x542e8fe6b54b6327b2b6f524547d8adf109c6da876cd5d99b09dcae659d67262",
+            "0x6145b5a2ef3e3182cb420468c4c26c959e2e6d94edb51b96c28197b15a57107a",
+            "0xdad7cedb7cf7eaeba2a178e7e2ee88dfa56d36c391a05510e821c228cf95371f",
+            "0xb1c20495c84d4c8226ddfe3fe2ed0225c8d76722bd5a3cdc2c83f9f9819a78b2",
+            "0x88b0184c255578cd7d622f4de3e5df8b7417aaab69fc5cc7fb7231ed9b12186a",
+            "0x12052de1b281b3f05f28aab80284ab189843a5ac874a53ff15f3ec16770991f2",
+            "0x4771d28cee8191905538f2ac830db0721b2474a1f6cc44e87faf2409b98b2620",
+            "0xbf151371518fb7b08826539975f27a2a4e8934df69d734c472fbd1cad33da667",
+            "0x713444e47191b971c82722f1472922be0a8c1a7a45c3b31e8345cbde2148dbbf",
+            "0x6cfd7cd5f26338f5e814a031602c926bf831f0043d8496673a4fe7e2fb2daa49"
+          ],
+          "uncles": [],
+          "blobGasUsed": "0x20000",
+          "excessBlobGas": "0x0",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "requestsHash": "0x00000000000000000000000249d91b1ab0cc6a1591c2e5863e602d7159d36149",
+          "milliTimestamp": "0x1a14832f6f0"
+        }
+      },
+      "completedAtUtc": "2026-10-17T04:51:03.812872+00:00"
+    },
+    {
+      "sequence": 38,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:03.819076+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000000033",
+            "data": "0x313ce567"
+          },
+          {
+            "blockHash": "0xbd12936e51493eaa22641d3f15f53ea51e2f71fea8c36667b923829e652015ec",
+            "requireCanonical": true
+          }
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x0000000000000000000000000000000000000000000000000000000000000012"
+      },
+      "completedAtUtc": "2026-10-17T04:51:04.626475+00:00"
+    },
+    {
+      "sequence": 39,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:04.629165+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000000033",
+            "data": "0x70a082310000000000000000000000000000000000000000000000000000000000000022"
+          },
+          {
+            "blockHash": "0xbd12936e51493eaa22641d3f15f53ea51e2f71fea8c36667b923829e652015ec",
+            "requireCanonical": true
+          }
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x0000000000000000000000000000000000000000000000029d22bd0762aee001"
+      },
+      "completedAtUtc": "2026-10-17T04:51:05.316901+00:00"
+    },
+    {
+      "sequence": 40,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:05.318562+00:00",
+      "method": "POST",
+      "path": "/rpc",
+      "query": {},
+      "status": 200,
+      "requestBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_getBlockByNumber",
+        "params": [
+          "0x7a2cb58",
+          false
+        ]
+      },
+      "responseBody": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "withdrawals": [],
+          "hash": "0xbd12936e51493eaa22641d3f15f53ea51e2f71fea8c36667b923829e652015ec",
+          "parentHash": "0x80595e407260702818dafa1260771bff25b9e1068ec277986a74d1e720c54387",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "miner": "0x0000000000000000000000000000000000000033",
+          "stateRoot": "0xf106ada88d0bb871cb5d5cfe70c366a73d3f9f6dda8a4bc16a612f7022e2ea9b",
+          "transactionsRoot": "0x974d7c0c82c71c69f5766514a199db9b895c824a176b847acf3043f656fe5385",
+          "receiptsRoot": "0xf3ff3f9a011d320b2457dd5c47abae8c80f98cff34b949b5fbf69df375a2ee0f",
+          "logsBloom": "0x2b2f731c8d0d0c1360776f7da9e75d2392cabea9d1fa91c07769ff97a27fb5f7d76dbb2e1f16f44ecdff3e696d77a3dd82bfe7f55f2868fe21b959c01128eb9ef644c679c5e6776bc3a2b9fbb6bd6766a616cce1d7e769f949575a3bfcbf9e6f98fb8370b73aa37a7cb9c367dc60eb6db881c71b881d14b8beef5bd5c15d1aeefed17160eb7fa3a0c1b8f005b3cceb3e4df74f37fb6254daf2793cf815879c3d57759ee5fb72f6f6b92cb6fbcaf3b44364dcb9db63989ffb9feec3fa39f6ef5d81d854fb5b6b4fbf70ea6fe420ba71e03dd536e7c3f9c6da7bd76ace7904a7cefedee01d56fd508a695727d5e3be2f6c463fcfcf4059ffdedbd6392f3e83815a",
+          "difficulty": "0x2",
+          "number": "0x7a2cb58",
+          "gasLimit": "0x42c1d80",
+          "gasUsed": "0xee8e79",
+          "timestamp": "0x6ad2feb6",
+          "extraData": "0xdb8301070888636462373534386289676f312e32352e3132836c696ed38cc282f8b5831dffffb860b2ee1da4cad829dc9a07db0ff25039ac4460086a8a0281c4714468fae937e2f9ea5d23aaf19d64050d31ef0c14bef04b0437a26f031407e3b7da0357ec1a346ffd1e29684457b12f089ee2449e94105f1715ea37b026e905a8c1cfd98fbbe024f84c8407a2cb56a04bd29039e9d891963ba740ced20293ce31779e844a6a712563f8944a251887578407a2cb57a080595e407260702818dafa1260771bff25b9e1068ec277986a74d1e720c543878048d393a6cda42927416d7b8a3e753f979ee1b4ceb5f412908d8fa125e85ed52525f075dec693f2a3c6c0a9c162210cacc4d2627d8ec1f75a68ff0c314b03ea6400",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "nonce": "0x0000000000000000",
+          "size": "0xc9f9",
+          "totalDifficulty": "0xf3ca6a9",
+          "baseFeePerGas": "0x0",
+          "transactions": [
+            "0x561984c128b720b96c8e30ae48f212d59210dbbb5e07810323d439b11b83af82",
+            "0x969a9a0c28ee347bdc64dd33c0d6b494809626c56f828a25abad548102545ca8",
+            "0x189a7d9cb528082593893e595330264293c518c75f6b40a6c15eeed73a4e3602",
+            "0x9d0c7f6ec93d4b1e2193dbefcf5f9bdb81ea4779ac9443cc557cbc495761ebea",
+            "0x75ad3d27e6b11f1206eddebe7d453ab03d9ec2572f2522299fc1561781d1bae9",
+            "0x01f4ce7110f37ad9f34acc099277c0d6b5ba816fcbc4964351cf96df7caff2d1",
+            "0xe51cc4167e0f5409c81dddc18e9c8f9c3144627d51562410adf96133d0ade00a",
+            "0xbe8d415d47ea83d1607938d7761a54ab3d61d669c62b3d77847f128730c3c0cf",
+            "0xee7b0d381771fcca08dcb6151c3fbad51d41ef3d2f38b254615824cfd320d7a1",
+            "0x383049eaf12e99d1d0aec9832a1c70d1ad4eb361120638acc4c1ea928f28ede2",
+            "0x0a117f83543f175919841a40fa3c529200dd9137a476e671be9cc4f7924f7d72",
+            "0x25b387b6272f2ddc2d3ffe4c922fe8db5fc410da7d3b28d136ee4143f7494733",
+            "0xa75e6c3b8772e8eb38b74054b222bf1bb8ba4c9814ff9443e1dd07f43f11e0f0",
+            "0xece6ca0f6176de4d43f85e8bb2aed845e70da399efc546e06a3bf62ba240b7e1",
+            "0x2087f536f863e999b6906ff2275d68370e239ca998b172cf84c1d9e5895db657",
+            "0xbb731725e7b77ed071ccaf5c5c89883364f4b27f7094c21912ab8a5783dfe4d4",
+            "0xc56729330d8d9b328892fa9806da6b1e6fdf7978b1cf34c7af5bc7f386b66f3b",
+            "0xf5ef143e43c01c8e9b11ee4b67d1382dfad3bc5e25036430623a1bfde6d6caa1",
+            "0x3088d695db263aa8f19a0b1fd862fa432fd21ad5a4d7ecace47c4f0d0924e164",
+            "0x8eed2e662cccdf9e144e8b5b2954e8be091bc62ff750e0361cc1ab4b02f60fda",
+            "0xb9f3fd56ff9a1890c138edf7ad3c954908a39e5a9bcc8fa000f1d732fbdfa8d1",
+            "0x0e5a1b4203381c557165fe7848827e1ecffdeb369dbc78143b3b7892aec39821",
+            "0xcf83022bcd10a1618d8f9b8a98b82a8adcf98637ad15cfb72c40891f2ceb0e5e",
+            "0x90a39d3431fec117b4eeb712164eeebab3f2ca5c671b5eecb4702379bd672b2c",
+            "0x78893ecf96387e5e165a7e8b1a33be7c66579a471a9199a3066da521858ba2cc",
+            "0xd5b5d1013fbba536b6df58b6b3102479ba980e721f4a4f0664f55567c8b36351",
+            "0x30e1075e3421880a879c15a8ef124c2b819f99b1ef22d0e909aace5e23f63d08",
+            "0xdd51c80a069ff01a0f2616bfb8de80ede44771648dd3e507693bd7f190cc666b",
+            "0xb17f5c28485cac4df8d9048a9207a618987bab2c4e0ff371ee6f29a3c267802c",
+            "0xaed6f4871f9ef867c2c1fa2b174b9fab21f9dc5742a6af482373d7d8abd0ce48",
+            "0xc297c960eb129c616ce8259b445efccaada7bccce84465d1bc46f2e0f2cb89ea",
+            "0xced5e3ed4e4dddd53b903a0c66f6e880f17a8af854d54c97f450ba5afd9e8c8a",
+            "0x1732246999a1dd438ada5b839ed78b4051cebf43b3429843817bcc62320fcd8a",
+            "0x5d9907004cb94788b608918bf908861c2142d263e6fe323d8290af33c2e2d180",
+            "0x8b4d7a3a18a0773e03836fa46025fcf2906c82f35e5609bcd0e573f534f4f65b",
+            "0xcebded4aab61f2c23095215e9ae40eb9e825100725cfb6b337ba2f977735c276",
+            "0x4430e5b1a99368127fdb3f648050f0671f7736cbf0d738fe84f452640fbd5c90",
+            "0xabfcaca42ee5723b77d525d7153fe3858211370b0a7c88e7f7f52639a39eebf3",
+            "0xf6b80c5f776f23817f306b690807310bb104289821e4441e9be1d000fcca45d3",
+            "0x6be42864368e3e56780778bfa67bb080d0135c5709ff91923b0b0502d5a924f3",
+            "0x3673cf5e56a5c518ce20d89efda7cf99bb84e8fa95a0d9ad31ebebc78328f8b1",
+            "0x6888d08a168b1578c3224fe50fae46e3a254c056c45363deb7a5ccb030b54e00",
+            "0x113ca1349350260318194717f3f20d28eea1a1bdfb0a58aab90efcd4d7dbf2d7",
+            "0xe5092ee218320f68e058f04795f48adfd305c09ec78d44d034e8f8944eb9e55a",
+            "0x57cad48b39f7cdffecb5deebccee3b938fb5c3394ed15a03065b6a2a421300c3",
+            "0xf710dedff376fabc53a64cee7448d601cf1823ac37b09c690e2bcc21934532e2",
+            "0x1452f55faa92b1c710a9bafa443d80891bb110fd7ca221ebb3838e9ccbd8f2f0",
+            "0xf476d287e207df22a8aa9e8ca75d66ad484af034fc3e7a1aacf7b1db13473762",
+            "0xa93a040faeb53dcf93e3bee5fa9a7bdbbad75acfa8acb553921438d628bd676c",
+            "0x4835fcd7046fef89f2545b88d8b9938a5955724c241d53df8a94f27d884e98e3",
+            "0x32af6d1cbe674d736e6683acdce477d9ebafbde47a1de3ba5c3e503bdb2af299",
+            "0x28eafb4c3817e791f91a0d31109c20cb3441d427c68da1d15fdee24fe5176f08",
+            "0x9acbea208b9b70719e808b7df1c8bcab39bbbb194a51fed5492ffe3156c01112",
+            "0x40e9acabb089074b6811d67a8e6c0e30163f1fa7c5ae4d53847d071be5a4e0a2",
+            "0xa10abc258deecaf12e3fdd788de93eb7b2991bf283fad9a62636c6fd90644af5",
+            "0xcfe24d7ff1bd044ad0fcf75adb64290dfbdebcc2acdc7781a505a96c8d3573a5",
+            "0xdccbddb37011d85d3290bafd08ba218391793976284d171a7d7bcbc34470c1af",
+            "0x5883bf995c74d38830a20c58979806296b3ffa60492fc7445242eaa390716c9a",
+            "0xc6db0182e7edbdd95527ea09b6cb4c49e8336260d34caceacb20106a9e943388",
+            "0x89717cc2228a58dcd731ac0db2ca4a8b163dd79813e970e16247a317619ee76d",
+            "0xc89286c165415b533453c71ec0714069293d94c69deb406aaba92c86df898500",
+            "0x488e7bb96125c03d50ab69b408f8c5efec968df9554493abfcd33cb893af1b0e",
+            "0x5c0c8ffacffacd4318eafdf99c2a793f677c7e96fa08d75caf17ad2cde918184",
+            "0xba5ca34713c34fb18b04f1f8ef9ee256561882ce7838079d897f6d1e48b3c5d4",
+            "0xcdd66d1553648dd5afa5054fa13bf94679930024fe99b797a3a1540527faa721",
+            "0x9344ad97de8d5e79f7be7fc1f6843b125f1578ba8007f833dfb5f7ede8964804",
+            "0xd2dec1d8270956f3d242912bc951a7323928ed90e9101070e54fcb4147059b6e",
+            "0xd93354a7242e539ee009c89725c13327632310a38963701132a276211d7ae878",
+            "0xf0610217f831e250f82a5a031111aa88085d05786dfbc8c9f38286d3772811bd",
+            "0x7c97e6003fddab74557876de1ddd3bc3a57ece88cace57d151b8d130e8fb8c5f",
+            "0xac585c1b9549fffa432c0d1f9094233ced3c1ea9c97a77af2d2c7eeed8f91b13",
+            "0x0238b5c69dc2b9ab7c00c4aa605c860c1b78ee80d8b45ec57f35f6656b155df8",
+            "0x3f3e06eaf823eefe37516eb14ae16e318f0ecca2f01d06bf2e39a292c46aa0fc",
+            "0x9da3643ca69bbb696856cc3f38cf2ffe06dcbcb9ed5b6e1595624a9b2307d68b",
+            "0xc27df09bcc4e775cea97e194f0757358622b21f5c9c99c5930040fbcf1d8d64d",
+            "0xa94704fc7d55954fa72f077e5ac86fb4042d5d0b7b34f541e264d5e8f1bba528",
+            "0x392874947ec6c9d4fb8e87dbf3d66a41722cfcd9566499028a1f3f8ea80113d3",
+            "0x51e06df4cbd530ed78263b0dcdbdaef5278d64eefd84db4c19e0462f0918f32e",
+            "0x4fc98a736544d9d6aed75a3ffb53b79187716475848674253bdea98139903982",
+            "0x542e8fe6b54b6327b2b6f524547d8adf109c6da876cd5d99b09dcae659d67262",
+            "0x6145b5a2ef3e3182cb420468c4c26c959e2e6d94edb51b96c28197b15a57107a",
+            "0xdad7cedb7cf7eaeba2a178e7e2ee88dfa56d36c391a05510e821c228cf95371f",
+            "0xb1c20495c84d4c8226ddfe3fe2ed0225c8d76722bd5a3cdc2c83f9f9819a78b2",
+            "0x88b0184c255578cd7d622f4de3e5df8b7417aaab69fc5cc7fb7231ed9b12186a",
+            "0x12052de1b281b3f05f28aab80284ab189843a5ac874a53ff15f3ec16770991f2",
+            "0x4771d28cee8191905538f2ac830db0721b2474a1f6cc44e87faf2409b98b2620",
+            "0xbf151371518fb7b08826539975f27a2a4e8934df69d734c472fbd1cad33da667",
+            "0x713444e47191b971c82722f1472922be0a8c1a7a45c3b31e8345cbde2148dbbf",
+            "0x6cfd7cd5f26338f5e814a031602c926bf831f0043d8496673a4fe7e2fb2daa49"
+          ],
+          "uncles": [],
+          "blobGasUsed": "0x20000",
+          "excessBlobGas": "0x0",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "requestsHash": "0x00000000000000000000000249d91b1ab0cc6a1591c2e5863e602d7159d36149",
+          "milliTimestamp": "0x1a14832f6f0"
+        }
+      },
+      "completedAtUtc": "2026-10-17T04:51:06.120797+00:00"
+    },
+    {
+      "sequence": 41,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:06.123028+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:06.506968+00:00"
+    },
+    {
+      "sequence": 42,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:06.509090+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "status": [
+          "OPEN"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:06.910717+00:00"
+    },
+    {
+      "sequence": 43,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:06.915703+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:07.597375+00:00"
+    },
+    {
+      "sequence": 44,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:07.598665+00:00",
+      "method": "GET",
+      "path": "/v1/orders/matches",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "signerAddress": [
+          "0x0000000000000000000000000000000000000022"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "cursor": null,
+        "data": [
+          {
+            "market": {
+              "id": 10835,
+              "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+              "title": "Will the US confirm that aliens exist before 2027?",
+              "question": "Will the US confirm that aliens exist before 2027?",
+              "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+              "tradingStatus": "OPEN",
+              "status": "REGISTERED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": true,
+              "feeRateBps": 200,
+              "resolution": null,
+              "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+              "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": null,
+              "boostEndsAt": null,
+              "polymarketConditionIds": [
+                "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+              ],
+              "kalshiMarketTicker": null,
+              "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+              "createdAt": "2026-02-26T10:39:37.847Z",
+              "decimalPrecision": 3,
+              "marketVariant": "DEFAULT",
+              "variantData": null,
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": {
+                  "hourlyRate": 180,
+                  "startsAt": "2026-04-28T14:00:00.000Z",
+                  "endsAt": "2026-12-31T00:00:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "hourlyRate": 180,
+                    "startsAt": "2026-04-28T14:00:00.000Z",
+                    "endsAt": "2026-12-31T00:00:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Ask",
+              "amount": "31360000000000000000",
+              "price": "39000000000000000",
+              "outcome": {
+                "name": "Yes",
+                "indexSet": 1,
+                "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                "status": null,
+                "bestBid": {
+                  "price": 0.039,
+                  "size": 2773.489
+                },
+                "bestAsk": {
+                  "price": 0.04,
+                  "size": 53580.82999996875
+                },
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0x5db08f73a72d8b890003943383c19a4db249c9ffd252bd28ec73a4f6c7679543",
+              "fee": {
+                "amount": "24460800000000000",
+                "type": "COLLATERAL"
+              }
+            },
+            "amountFilled": "31360000000000000000",
+            "priceExecuted": "39000000000000000",
+            "makers": [
+              {
+                "quoteType": "Ask",
+                "amount": "31360000000000000000",
+                "price": "961000000000000000",
+                "outcome": {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xe66059d398976c92c9bb4e5c92333569abce364d8914d9e17ebb12ad14f6fb96",
+                "fee": {
+                  "amount": "0",
+                  "type": "COLLATERAL"
+                }
+              }
+            ],
+            "transactionHash": "0x430851e590a79a997f83d42498d67e97a1fb9ca7f980bd3b4ac1cd31104b2d89",
+            "settlementId": "01a144b5-8e9b-7e90-af96-b3f51996a669",
+            "executedAt": "2026-10-16T12:35:12.000Z"
+          },
+          {
+            "market": {
+              "id": 10835,
+              "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+              "title": "Will the US confirm that aliens exist before 2027?",
+              "question": "Will the US confirm that aliens exist before 2027?",
+              "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+              "tradingStatus": "OPEN",
+              "status": "REGISTERED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": true,
+              "feeRateBps": 200,
+              "resolution": null,
+              "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+              "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": null,
+              "boostEndsAt": null,
+              "polymarketConditionIds": [
+                "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+              ],
+              "kalshiMarketTicker": null,
+              "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+              "createdAt": "2026-02-26T10:39:37.847Z",
+              "decimalPrecision": 3,
+              "marketVariant": "DEFAULT",
+              "variantData": null,
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": {
+                  "hourlyRate": 180,
+                  "startsAt": "2026-04-28T14:00:00.000Z",
+                  "endsAt": "2026-12-31T00:00:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "hourlyRate": 180,
+                    "startsAt": "2026-04-28T14:00:00.000Z",
+                    "endsAt": "2026-12-31T00:00:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Bid",
+              "amount": "32000000000000000000",
+              "price": "40000000000000000",
+              "outcome": {
+                "name": "Yes",
+                "indexSet": 1,
+                "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                "status": null,
+                "bestBid": {
+                  "price": 0.039,
+                  "size": 2773.489
+                },
+                "bestAsk": {
+                  "price": 0.04,
+                  "size": 53580.82999996875
+                },
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0xa43e99743ded01e5fc6dd2e6da8070783e4952a6c993492ec0ea28d4bc289b23",
+              "fee": {
+                "amount": "640000000000000000",
+                "type": "SHARES"
+              }
+            },
+            "amountFilled": "32000000000000000000",
+            "priceExecuted": "40000000000000000",
+            "makers": [
+              {
+                "quoteType": "Ask",
+                "amount": "32000000000000000000",
+                "price": "40000000000000000",
+                "outcome": {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+                "fee": {
+                  "amount": "0",
+                  "type": "COLLATERAL"
+                }
+              }
+            ],
+            "transactionHash": "0xb2de2bcb4f123d138ae271f2b23f1195995b174d17c35b302a9232ecb22dd35d",
+            "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+            "executedAt": "2026-10-16T12:33:48.000Z"
+          },
+          {
+            "market": {
+              "id": 10835,
+              "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+              "title": "Will the US confirm that aliens exist before 2027?",
+              "question": "Will the US confirm that aliens exist before 2027?",
+              "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+              "tradingStatus": "OPEN",
+              "status": "REGISTERED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": true,
+              "feeRateBps": 200,
+              "resolution": null,
+              "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+              "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": null,
+              "boostEndsAt": null,
+              "polymarketConditionIds": [
+                "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+              ],
+              "kalshiMarketTicker": null,
+              "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+              "createdAt": "2026-02-26T10:39:37.847Z",
+              "decimalPrecision": 3,
+              "marketVariant": "DEFAULT",
+              "variantData": null,
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": {
+                  "hourlyRate": 180,
+                  "startsAt": "2026-04-28T14:00:00.000Z",
+                  "endsAt": "2026-12-31T00:00:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "hourlyRate": 180,
+                    "startsAt": "2026-04-28T14:00:00.000Z",
+                    "endsAt": "2026-12-31T00:00:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Ask",
+              "amount": "31360000000000000000",
+              "price": "39000000000000000",
+              "outcome": {
+                "name": "Yes",
+                "indexSet": 1,
+                "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                "status": null,
+                "bestBid": {
+                  "price": 0.039,
+                  "size": 2773.489
+                },
+                "bestAsk": {
+                  "price": 0.04,
+                  "size": 53580.82999996875
+                },
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+              "fee": {
+                "amount": "24460800000000000",
+                "type": "COLLATERAL"
+              }
+            },
+            "amountFilled": "31360000000000000000",
+            "priceExecuted": "39000000000000000",
+            "makers": [
+              {
+                "quoteType": "Ask",
+                "amount": "31360000000000000000",
+                "price": "961000000000000000",
+                "outcome": {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xe66059d398976c92c9bb4e5c92333569abce364d8914d9e17ebb12ad14f6fb96",
+                "fee": {
+                  "amount": "0",
+                  "type": "COLLATERAL"
+                }
+              }
+            ],
+            "transactionHash": "0xd491d97e9c7b1484e2b4a3173039660e5f3b24300a931e842fe410eb1755879c",
+            "settlementId": "01a144ab-4d30-7ff3-a405-a3fdda3ea597",
+            "executedAt": "2026-10-16T12:23:59.000Z"
+          },
+          {
+            "market": {
+              "id": 10835,
+              "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+              "title": "Will the US confirm that aliens exist before 2027?",
+              "question": "Will the US confirm that aliens exist before 2027?",
+              "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+              "tradingStatus": "OPEN",
+              "status": "REGISTERED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": true,
+              "feeRateBps": 200,
+              "resolution": null,
+              "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+              "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "No",
+                  "indexSet": 2,
+                  "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.96,
+                    "size": 53580.82999996875
+                  },
+                  "bestAsk": {
+                    "price": 0.961,
+                    "size": 2773.489
+                  },
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": null,
+              "boostEndsAt": null,
+              "polymarketConditionIds": [
+                "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+              ],
+              "kalshiMarketTicker": null,
+              "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+              "createdAt": "2026-02-26T10:39:37.847Z",
+              "decimalPrecision": 3,
+              "marketVariant": "DEFAULT",
+              "variantData": null,
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": {
+                  "hourlyRate": 180,
+                  "startsAt": "2026-04-28T14:00:00.000Z",
+                  "endsAt": "2026-12-31T00:00:00.000Z"
+                },
+                "schedule": [
+                  {
+                    "hourlyRate": 180,
+                    "startsAt": "2026-04-28T14:00:00.000Z",
+                    "endsAt": "2026-12-31T00:00:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Bid",
+              "amount": "32000000000000000000",
+              "price": "40000000000000000",
+              "outcome": {
+                "name": "Yes",
+                "indexSet": 1,
+                "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                "status": null,
+                "bestBid": {
+                  "price": 0.039,
+                  "size": 2773.489
+                },
+                "bestAsk": {
+                  "price": 0.04,
+                  "size": 53580.82999996875
+                },
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec",
+              "fee": {
+                "amount": "640000000000000000",
+                "type": "SHARES"
+              }
+            },
+            "amountFilled": "32000000000000000000",
+            "priceExecuted": "40000000000000000",
+            "makers": [
+              {
+                "quoteType": "Ask",
+                "amount": "32000000000000000000",
+                "price": "40000000000000000",
+                "outcome": {
+                  "name": "Yes",
+                  "indexSet": 1,
+                  "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+                  "status": null,
+                  "bestBid": {
+                    "price": 0.039,
+                    "size": 2773.489
+                  },
+                  "bestAsk": {
+                    "price": 0.04,
+                    "size": 53580.82999996875
+                  },
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+                "fee": {
+                  "amount": "0",
+                  "type": "COLLATERAL"
+                }
+              }
+            ],
+            "transactionHash": "0x9c1dee0312d7ec71b997d30e89b270e5fd85d7a1f9bc5741fa13d5df149d46e6",
+            "settlementId": "01a144ab-2b2a-74f3-bd18-75dfc504a41d",
+            "executedAt": "2026-10-16T12:23:51.000Z"
+          },
+          {
+            "market": {
+              "id": 3277308,
+              "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+              "title": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+              "question": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+              "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+              "tradingStatus": "CLOSED",
+              "status": "RESOLVED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "feeRateBps": 200,
+              "resolution": {
+                "name": "Up",
+                "indexSet": 1,
+                "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                "status": "WON",
+                "bestBid": null,
+                "bestAsk": null,
+                "team": null,
+                "variantData": null
+              },
+              "oracleQuestionId": "0x336b705e0507015ecf35a4eb5c20eaf3b1e0f0c94359dfb45c769e01056ef9ab",
+              "conditionId": "0xfbfa915d92cf17705ac5873e889648c33d158e00094f04f6346df2fc3f4cb48e",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Up",
+                  "indexSet": 1,
+                  "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                  "status": "WON",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+                  "status": "LOST",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": "2026-10-14T09:40:00.000Z",
+              "boostEndsAt": "2026-10-14T09:45:00.000Z",
+              "polymarketConditionIds": [],
+              "kalshiMarketTicker": null,
+              "categorySlug": "btc-updown-5m-1791970800",
+              "seriesSlug": "btc-updown-5m",
+              "createdAt": "2026-10-13T09:40:02.000Z",
+              "decimalPrecision": 2,
+              "marketVariant": "CRYPTO_UP_DOWN",
+              "variantData": {
+                "type": "CRYPTO_UP_DOWN",
+                "priceFeedProvider": "CHAINLINK",
+                "startPrice": 83306.625,
+                "endPrice": 83306.765,
+                "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+                "priceFeedSymbol": "BTCUSDT"
+              },
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": null,
+                "schedule": [
+                  {
+                    "hourlyRate": 3000,
+                    "startsAt": "2026-10-14T09:40:00.000Z",
+                    "endsAt": "2026-10-14T09:45:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Bid",
+              "amount": "28241892307692307693",
+              "price": "130000000000000000",
+              "outcome": {
+                "name": "Up",
+                "indexSet": 1,
+                "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                "status": "WON",
+                "bestBid": null,
+                "bestAsk": null,
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+              "fee": {
+                "amount": "564837846153846153",
+                "type": "SHARES"
+              }
+            },
+            "amountFilled": "28241892307692307693",
+            "priceExecuted": "130000000000000000",
+            "makers": [
+              {
+                "quoteType": "Bid",
+                "amount": "28241892307692307693",
+                "price": "870000000000000000",
+                "outcome": {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+                  "status": "LOST",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0xc383c03d4c0591fdcc2a7bc3149b674bf88e7802ba55a07beec856db127cc114",
+                "fee": {
+                  "amount": "0",
+                  "type": "SHARES"
+                }
+              }
+            ],
+            "transactionHash": "0xb795a077aaf1e3a1f07224f843a42358eef5460d6b25260b494e317a4c875c4b",
+            "settlementId": "01a139cb-c3e8-7472-9612-8463cf64339c",
+            "executedAt": "2026-10-14T09:43:38.000Z"
+          },
+          {
+            "market": {
+              "id": 3277308,
+              "imageUrl": "https://static.predict.fun/automarket-btc-usd-5-minutes-gold",
+              "title": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+              "question": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+              "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+              "tradingStatus": "CLOSED",
+              "status": "RESOLVED",
+              "isVisible": true,
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "feeRateBps": 200,
+              "resolution": {
+                "name": "Up",
+                "indexSet": 1,
+                "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                "status": "WON",
+                "bestBid": null,
+                "bestAsk": null,
+                "team": null,
+                "variantData": null
+              },
+              "oracleQuestionId": "0x336b705e0507015ecf35a4eb5c20eaf3b1e0f0c94359dfb45c769e01056ef9ab",
+              "conditionId": "0xfbfa915d92cf17705ac5873e889648c33d158e00094f04f6346df2fc3f4cb48e",
+              "resolverAddress": "0x0000000000000000000000000000000000000033",
+              "outcomes": [
+                {
+                  "name": "Up",
+                  "indexSet": 1,
+                  "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                  "status": "WON",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                },
+                {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+                  "status": "LOST",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                }
+              ],
+              "questionIndex": null,
+              "spreadThreshold": 0.06,
+              "shareThreshold": 100,
+              "isBoosted": false,
+              "boostStartsAt": "2026-10-14T09:40:00.000Z",
+              "boostEndsAt": "2026-10-14T09:45:00.000Z",
+              "polymarketConditionIds": [],
+              "kalshiMarketTicker": null,
+              "categorySlug": "btc-updown-5m-1791970800",
+              "seriesSlug": "btc-updown-5m",
+              "createdAt": "2026-10-13T09:40:02.000Z",
+              "decimalPrecision": 2,
+              "marketVariant": "CRYPTO_UP_DOWN",
+              "variantData": {
+                "type": "CRYPTO_UP_DOWN",
+                "priceFeedProvider": "CHAINLINK",
+                "startPrice": 83306.625,
+                "endPrice": 83306.765,
+                "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+                "priceFeedSymbol": "BTCUSDT"
+              },
+              "team": null,
+              "marketType": null,
+              "rewards": {
+                "current": null,
+                "schedule": [
+                  {
+                    "hourlyRate": 3000,
+                    "startsAt": "2026-10-14T09:40:00.000Z",
+                    "endsAt": "2026-10-14T09:45:00.000Z"
+                  }
+                ]
+              }
+            },
+            "taker": {
+              "quoteType": "Bid",
+              "amount": "5157107692307692306",
+              "price": "130000000000000000",
+              "outcome": {
+                "name": "Up",
+                "indexSet": 1,
+                "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+                "status": "WON",
+                "bestBid": null,
+                "bestAsk": null,
+                "team": null,
+                "variantData": null
+              },
+              "signer": "0x0000000000000000000000000000000000000022",
+              "hash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+              "fee": {
+                "amount": "103142153846153846",
+                "type": "SHARES"
+              }
+            },
+            "amountFilled": "5157107692307692306",
+            "priceExecuted": "130000000000000000",
+            "makers": [
+              {
+                "quoteType": "Bid",
+                "amount": "5157107692307692306",
+                "price": "870000000000000000",
+                "outcome": {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+                  "status": "LOST",
+                  "bestBid": null,
+                  "bestAsk": null,
+                  "team": null,
+                  "variantData": null
+                },
+                "signer": "0x0000000000000000000000000000000000000033",
+                "hash": "0x3f2ead104d26e21932c2ceb67845050b1f337731b2131b656cd6b0901bd93476",
+                "fee": {
+                  "amount": "0",
+                  "type": "SHARES"
+                }
+              }
+            ],
+            "transactionHash": "0xe139f5f63ab4316e922df79c945655468c865c4ec2d1c2609836f44a1f419173",
+            "settlementId": "01a139cb-c3e8-7472-9612-847f3fd4ae0a",
+            "executedAt": "2026-10-14T09:43:38.000Z"
+          }
+        ]
+      },
+      "completedAtUtc": "2026-10-17T04:51:08.011141+00:00"
+    },
+    {
+      "sequence": 45,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:10.100260+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:10.509860+00:00"
+    },
+    {
+      "sequence": 46,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:10.514640+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "includeLost": [
+          "true"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:10.895275+00:00"
+    },
+    {
+      "sequence": 47,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:20.299478+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:20.834160+00:00"
+    },
+    {
+      "sequence": 48,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:20.839947+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "includeLost": [
+          "true"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:21.459118+00:00"
+    },
+    {
+      "sequence": 49,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:30.301923+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:30.845462+00:00"
+    },
+    {
+      "sequence": 50,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:30.849726+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "includeLost": [
+          "true"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:31.293601+00:00"
+    },
+    {
+      "sequence": 51,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:40.501774+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:40.881642+00:00"
+    },
+    {
+      "sequence": 52,
+      "phase": "query-account-1",
+      "startedAtUtc": "2026-10-17T04:51:40.885965+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "query": {
+        "first": [
+          "100"
+        ],
+        "includeLost": [
+          "true"
+        ]
+      },
+      "status": 200,
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "completedAtUtc": "2026-10-17T04:51:41.274729+00:00"
+    }
+  ],
+  "rustFeedback": {
+    "source": "real venue JWT/WS/REST/RPC with Rust strategy + LiveNode; no trading capabilities",
+    "renewalTrigger": "explicit early renewal with real venue JWT; not natural expiration",
+    "initialExpiry": 1792299047,
+    "nativeReconciliationEnabled": true,
+    "adapterRecoveryTimerEnabled": false,
+    "submissionSignerInstalled": false,
+    "orderbookRemovalEnabled": false,
+    "nodeSucceeded": true,
+    "checksSucceeded": false,
+    "failure": "session barrier timed out: QueryAccount and native readiness",
+    "strategyJournal": [
+      {
+        "type": "StrategyStarted"
+      },
+      {
+        "type": "NativeStartupComplete",
+        "connectionReady": true,
+        "orders": 0,
+        "positions": 0,
+        "account": {
+          "account_id": "PREDICT-001",
+          "account_type": "CASH",
+          "base_currency": null,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "48.21630840 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "48.21630840 USDT"
+            }
+          ],
+          "margins": [],
+          "is_reported": true,
+          "event_id": "bd8fd026-94fb-4b10-883e-de8c858289e3",
+          "ts_event": 1792212657165498000,
+          "ts_init": 1792212657165773000,
+          "info": {
+            "predict_block_number": 128109381,
+            "predict_block_hash": "0xebedd8bf381b923f96c79050a6fb01c4f10550f6aec454b79b835db51836cdee",
+            "predict_account_address": "0x0000000000000000000000000000000000000022",
+            "predict_balance_wei": "48216308400000000001",
+            "predict_chain_id": 56,
+            "predict_requested_lock": "0.00000000"
+          }
+        }
+      },
+      {
+        "type": "StrategyAccountSnapshot",
+        "eventId": "bd8fd026-94fb-4b10-883e-de8c858289e3",
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "48.21630840 USDT",
+            "locked": "0.00000000 USDT",
+            "free": "48.21630840 USDT"
+          }
+        ],
+        "info": {
+          "predict_block_number": 128109381,
+          "predict_block_hash": "0xebedd8bf381b923f96c79050a6fb01c4f10550f6aec454b79b835db51836cdee",
+          "predict_account_address": "0x0000000000000000000000000000000000000022",
+          "predict_balance_wei": "48216308400000000001",
+          "predict_chain_id": 56,
+          "predict_requested_lock": "0.00000000"
+        },
+        "querySequence": 0
+      },
+      {
+        "type": "RealAuthenticationRenewed",
+        "cycle": 1,
+        "previousExp": 1792299047,
+        "newExp": 1792299059,
+        "tokenChanged": true
+      },
+      {
+        "type": "NewWalletAckBeforeQuery",
+        "cycle": 1,
+        "nativeReady": false,
+        "accountEventId": "bd8fd026-94fb-4b10-883e-de8c858289e3"
+      },
+      {
+        "type": "StrategyQueryAccount",
+        "sequence": 1
+      },
+      {
+        "type": "StrategyAccountSnapshot",
+        "eventId": "7ba96bd8-1649-4157-bcbd-62def33f943d",
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "48.21630840 USDT",
+            "locked": "0.00000000 USDT",
+            "free": "48.21630840 USDT"
+          }
+        ],
+        "info": {
+          "predict_block_number": 128109400,
+          "predict_block_hash": "0xbd12936e51493eaa22641d3f15f53ea51e2f71fea8c36667b923829e652015ec",
+          "predict_account_address": "0x0000000000000000000000000000000000000022",
+          "predict_balance_wei": "48216308400000000001",
+          "predict_chain_id": 56,
+          "predict_requested_lock": "0.00000000"
+        },
+        "querySequence": 1
+      }
+    ],
+    "walletFrames": [
+      {
+        "connection": 0,
+        "direction": "native-to-venue",
+        "receivedAtUtc": "2026-10-17T04:50:53.072591+00:00",
+        "frame": {
+          "method": "subscribe",
+          "requestId": 1,
+          "params": [
+            "predictWalletEvents/[redacted]"
+          ]
+        }
+      },
+      {
+        "connection": 0,
+        "direction": "venue-to-native",
+        "receivedAtUtc": "2026-10-17T04:50:53.240021+00:00",
+        "frame": {
+          "type": "R",
+          "requestId": 1,
+          "success": true
+        }
+      },
+      {
+        "connection": 1,
+        "direction": "native-to-venue",
+        "receivedAtUtc": "2026-10-17T04:51:01.475285+00:00",
+        "frame": {
+          "method": "subscribe",
+          "requestId": 2,
+          "params": [
+            "predictWalletEvents/[redacted]"
+          ]
+        }
+      },
+      {
+        "connection": 1,
+        "direction": "venue-to-native",
+        "receivedAtUtc": "2026-10-17T04:51:01.648500+00:00",
+        "frame": {
+          "type": "R",
+          "requestId": 2,
+          "success": true
+        }
+      },
+      {
+        "connection": 1,
+        "direction": "venue-to-native",
+        "receivedAtUtc": "2026-10-17T04:51:16.480301+00:00",
+        "frame": {
+          "data": 1792212675227,
+          "topic": "heartbeat",
+          "type": "M"
+        }
+      },
+      {
+        "connection": 1,
+        "direction": "native-to-venue",
+        "receivedAtUtc": "2026-10-17T04:51:16.481860+00:00",
+        "frame": {
+          "method": "heartbeat",
+          "data": 1792212675227
+        }
+      },
+      {
+        "connection": 1,
+        "direction": "venue-to-native",
+        "receivedAtUtc": "2026-10-17T04:51:31.460329+00:00",
+        "frame": {
+          "data": 1792212690228,
+          "topic": "heartbeat",
+          "type": "M"
+        }
+      },
+      {
+        "connection": 1,
+        "direction": "native-to-venue",
+        "receivedAtUtc": "2026-10-17T04:51:31.461249+00:00",
+        "frame": {
+          "method": "heartbeat",
+          "data": 1792212690228
+        }
+      },
+      {
+        "connection": 1,
+        "direction": "venue-to-native",
+        "receivedAtUtc": "2026-10-17T04:51:46.458841+00:00",
+        "frame": {
+          "data": 1792212705227,
+          "topic": "heartbeat",
+          "type": "M"
+        }
+      },
+      {
+        "connection": 1,
+        "direction": "native-to-venue",
+        "receivedAtUtc": "2026-10-17T04:51:46.460486+00:00",
+        "frame": {
+          "method": "heartbeat",
+          "data": 1792212705227
+        }
+      }
+    ],
+    "acknowledgedConnections": [
+      0,
+      1
+    ]
+  },
+  "passed": false,
+  "orderWrites": 0,
+  "chainWrites": 0,
+  "nativeDependencyModified": false,
+  "recordingLogicModified": false
+}

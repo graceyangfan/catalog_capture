@@ -6,9 +6,8 @@
 
 //! Predict venue-specific helpers which do not require a live client.
 
-mod crypto_up_down;
-
-pub use crypto_up_down::{
+// Compatibility exports: the adapter owns venue rules, while core owns recording policy.
+pub use nautilus_predict::common::{
     CryptoUpDownMarketCandidate, CryptoUpDownMarketSelector, CryptoUpDownMarketWindow,
     CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
     PREDICT_SELECTOR_TITLE_ASSET, parse_crypto_up_down_title, predict_outcome_instrument_id,

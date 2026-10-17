@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use catalog_capture_core::{capture_plan_difference, CapturePlan};
+use catalog_capture_core::{CapturePlan, capture_plan_difference};
 
 #[derive(Debug, Clone, Default)]
 pub struct DynamicPlanDelta<TChange, TRecord> {

@@ -1,0 +1,31 @@
+{
+  "source": "mainnet Rust Strategy + LiveNode; write-enabled test, see submitted count",
+  "case": "yes-gtd",
+  "timeInForce": "GTD",
+  "postOnly": true,
+  "marketId": 58416,
+  "outcome": 1,
+  "price": "0.01",
+  "quantity": "100",
+  "snapshots": 155,
+  "submitted": 2,
+  "accepted": 2,
+  "rejected": 0,
+  "denied": 0,
+  "modifyRejected": 2,
+  "cancelRejected": 0,
+  "accountReportsObserved": 3,
+  "positionEvents": 0,
+  "modifyTermsPreserved": 2,
+  "canceled": 2,
+  "fills": 0,
+  "cashTotal": "48.37915000",
+  "cashLocked": "0.00000000",
+  "cleanup": {
+    "verifiedOpenOrders": 0,
+    "fallbackRemovedIds": []
+  },
+  "cleanupFailed": false,
+  "nodeFailed": false,
+  "feedbackWriteFailed": false
+}

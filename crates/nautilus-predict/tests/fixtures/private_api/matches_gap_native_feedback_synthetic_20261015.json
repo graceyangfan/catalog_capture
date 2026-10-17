@@ -1,0 +1,1074 @@
+{
+  "source": "synthetic offline Rust Strategy + LiveNode; not mainnet trades; imported MARKET BUY is not an enabled submit path",
+  "sessions": [
+    {
+      "sharesFee": false,
+      "request": {
+        "data": {
+          "pricePerShare": "620000000000000000",
+          "strategy": "LIMIT",
+          "isPostOnly": true,
+          "order": {
+            "salt": "1519295457",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "62000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "expiration": 4102444800,
+            "nonce": "7",
+            "feeRateBps": "0",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57149810b62fc05a1a388b69c5821edffc652b771a22118e726760ce7c44a5dd2d4c7a8d16a95a7df978c6811cb697ed39879d8357c4ae460f9999b19a6a3c5a911b"
+          }
+        }
+      },
+      "orderResponses": [
+        {
+          "path": "/v1/orders/0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1519295457",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 4102444800,
+                "nonce": "7",
+                "feeRateBps": "0",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57149810b62fc05a1a388b69c5821edffc652b771a22118e726760ce7c44a5dd2d4c7a8d16a95a7df978c6811cb697ed39879d8357c4ae460f9999b19a6a3c5a911b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "33000000000000000005",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "LIMIT",
+              "status": "OPEN",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1519295457",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 4102444800,
+                "nonce": "7",
+                "feeRateBps": "0",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57149810b62fc05a1a388b69c5821edffc652b771a22118e726760ce7c44a5dd2d4c7a8d16a95a7df978c6811cb697ed39879d8357c4ae460f9999b19a6a3c5a911b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "33000000000000000005",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "LIMIT",
+              "status": "OPEN",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1519295457",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 4102444800,
+                "nonce": "7",
+                "feeRateBps": "0",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57149810b62fc05a1a388b69c5821edffc652b771a22118e726760ce7c44a5dd2d4c7a8d16a95a7df978c6811cb697ed39879d8357c4ae460f9999b19a6a3c5a911b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "33000000000000000005",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "LIMIT",
+              "status": "OPEN",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1519295457",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 4102444800,
+                "nonce": "7",
+                "feeRateBps": "0",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57149810b62fc05a1a388b69c5821edffc652b771a22118e726760ce7c44a5dd2d4c7a8d16a95a7df978c6811cb697ed39879d8357c4ae460f9999b19a6a3c5a911b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "33000000000000000005",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "LIMIT",
+              "status": "OPEN",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1519295457",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 4102444800,
+                "nonce": "7",
+                "feeRateBps": "0",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57149810b62fc05a1a388b69c5821edffc652b771a22118e726760ce7c44a5dd2d4c7a8d16a95a7df978c6811cb697ed39879d8357c4ae460f9999b19a6a3c5a911b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "100000000000000000000",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "LIMIT",
+              "status": "FILLED",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1519295457",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 4102444800,
+                "nonce": "7",
+                "feeRateBps": "0",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57149810b62fc05a1a388b69c5821edffc652b771a22118e726760ce7c44a5dd2d4c7a8d16a95a7df978c6811cb697ed39879d8357c4ae460f9999b19a6a3c5a911b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "100000000000000000000",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "LIMIT",
+              "status": "FILLED",
+              "rewardEarningRate": 0
+            }
+          }
+        }
+      ],
+      "matches": [
+        {
+          "market": {
+            "id": 42,
+            "isNegRisk": false,
+            "isYieldBearing": false,
+            "decimalPrecision": 3,
+            "outcomes": [
+              {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": null
+              },
+              {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": null
+              }
+            ]
+          },
+          "taker": {
+            "quoteType": "Bid",
+            "amount": "33000000000000000005",
+            "price": "380000000000000000",
+            "outcome": {
+              "name": "fixture",
+              "indexSet": 2,
+              "onChainId": "22",
+              "status": null
+            },
+            "signer": "0x2222222222222222222222222222222222222222",
+            "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "fee": {
+              "type": "SHARES",
+              "amount": "0"
+            }
+          },
+          "makers": [
+            {
+              "quoteType": "Bid",
+              "amount": "33000000000000000005",
+              "price": "620000000000000000",
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": null
+              },
+              "signer": "0x1111111111111111111111111111111111111111",
+              "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+              "fee": {
+                "type": "SHARES",
+                "amount": "0"
+              }
+            }
+          ],
+          "amountFilled": "33000000000000000005",
+          "priceExecuted": "380000000000000000",
+          "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+          "settlementId": "gap-settlement-1",
+          "executedAt": "2026-10-15T13:06:55.970261+00:00"
+        },
+        {
+          "market": {
+            "id": 42,
+            "isNegRisk": false,
+            "isYieldBearing": false,
+            "decimalPrecision": 3,
+            "outcomes": [
+              {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": null
+              },
+              {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": null
+              }
+            ]
+          },
+          "taker": {
+            "quoteType": "Bid",
+            "amount": "66999999999999999995",
+            "price": "380000000000000000",
+            "outcome": {
+              "name": "fixture",
+              "indexSet": 2,
+              "onChainId": "22",
+              "status": null
+            },
+            "signer": "0x2222222222222222222222222222222222222222",
+            "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "fee": {
+              "type": "SHARES",
+              "amount": "0"
+            }
+          },
+          "makers": [
+            {
+              "quoteType": "Bid",
+              "amount": "66999999999999999995",
+              "price": "620000000000000000",
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": null
+              },
+              "signer": "0x1111111111111111111111111111111111111111",
+              "hash": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5",
+              "fee": {
+                "type": "SHARES",
+                "amount": "0"
+              }
+            }
+          ],
+          "amountFilled": "66999999999999999995",
+          "priceExecuted": "380000000000000000",
+          "transactionHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+          "settlementId": "gap-settlement-2",
+          "executedAt": "2026-10-15T13:06:55.970261+00:00"
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountSnapshot",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "Submitted",
+          "cachedStatus": "SUBMITTED"
+        },
+        {
+          "type": "AccountSnapshot",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "type": "StrategyQueryOrder",
+          "cachedStatus": "SUBMITTED",
+          "venueOrderId": null
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_order_accepted",
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Accepted",
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "callback": "on_order_filled",
+          "clientOrderId": "O-20261015-130655-001-001-1",
+          "tradeId": "PF-40ff12b067e9bfafd08cdf56ebbee968",
+          "lastQty": "33.0000000000000000",
+          "commission": "0.00000000 USDT",
+          "cachedFilledQty": "33.0000000000000000"
+        },
+        {
+          "type": "Filled",
+          "cachedStatus": "PARTIALLY_FILLED"
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_position_event",
+          "quantity": "33.0000000000000000"
+        },
+        {
+          "type": "AccountSnapshot",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "41.54000000"
+            }
+          ]
+        },
+        {
+          "type": "StrategyQueryOrder",
+          "cachedStatus": "PARTIALLY_FILLED",
+          "venueOrderId": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5"
+        },
+        {
+          "type": "StrategyQueryOrder",
+          "cachedStatus": "PARTIALLY_FILLED",
+          "venueOrderId": "0x5dbbe9dfab7a910642a7123f18dfc5c2e7b9531de70d044c75f64e5f3862d2f5"
+        },
+        {
+          "callback": "on_order_filled",
+          "clientOrderId": "O-20261015-130655-001-001-1",
+          "tradeId": "PF-66025f0ac4d5121378112da351237bfb",
+          "lastQty": "67.0000000000000000",
+          "commission": "0.00000000 USDT",
+          "cachedFilledQty": "100.0000000000000000"
+        },
+        {
+          "type": "Filled",
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "41.54000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_position_event",
+          "quantity": "100.0000000000000000"
+        },
+        {
+          "type": "AccountSnapshot",
+          "balances": [
+            {
+              "total": "938.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "primaryFillCallbacks": 2,
+      "grossFilled": "100",
+      "netPosition": "100.0000000000000000",
+      "cashTotal": "938",
+      "cashLocked": "0",
+      "orderPosts": 1,
+      "streamGap": true,
+      "newSubmissionsBlocked": true
+    },
+    {
+      "sharesFee": true,
+      "request": {
+        "data": {
+          "strategy": "MARKET",
+          "order": {
+            "salt": "1",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "62000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "expiration": 1792069916,
+            "nonce": "0",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57c17c5c42eb3d1d40e003dc4b74ca7c7a807cc910f67ce2f4e3cdd28afd98d2e07299bf73617e3b52641009b35c4da77e2373f62b23aaa955aa30899ad246e6401b"
+          }
+        }
+      },
+      "orderResponses": [
+        {
+          "path": "/v1/orders/0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792069916,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57c17c5c42eb3d1d40e003dc4b74ca7c7a807cc910f67ce2f4e3cdd28afd98d2e07299bf73617e3b52641009b35c4da77e2373f62b23aaa955aa30899ad246e6401b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "33000000000000000005",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "MARKET",
+              "status": "OPEN",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792069916,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57c17c5c42eb3d1d40e003dc4b74ca7c7a807cc910f67ce2f4e3cdd28afd98d2e07299bf73617e3b52641009b35c4da77e2373f62b23aaa955aa30899ad246e6401b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "33000000000000000005",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "MARKET",
+              "status": "OPEN",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792069916,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57c17c5c42eb3d1d40e003dc4b74ca7c7a807cc910f67ce2f4e3cdd28afd98d2e07299bf73617e3b52641009b35c4da77e2373f62b23aaa955aa30899ad246e6401b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "33000000000000000005",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "MARKET",
+              "status": "OPEN",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792069916,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57c17c5c42eb3d1d40e003dc4b74ca7c7a807cc910f67ce2f4e3cdd28afd98d2e07299bf73617e3b52641009b35c4da77e2373f62b23aaa955aa30899ad246e6401b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "33000000000000000005",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "MARKET",
+              "status": "OPEN",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792069916,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57c17c5c42eb3d1d40e003dc4b74ca7c7a807cc910f67ce2f4e3cdd28afd98d2e07299bf73617e3b52641009b35c4da77e2373f62b23aaa955aa30899ad246e6401b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "100000000000000000000",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "MARKET",
+              "status": "FILLED",
+              "rewardEarningRate": 0
+            }
+          }
+        },
+        {
+          "path": "/v1/orders/0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "order": {
+                "salt": "1",
+                "maker": "0x1111111111111111111111111111111111111111",
+                "signer": "0x1111111111111111111111111111111111111111",
+                "taker": "0x0000000000000000000000000000000000000000",
+                "tokenId": "11",
+                "makerAmount": "62000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792069916,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+                "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57c17c5c42eb3d1d40e003dc4b74ca7c7a807cc910f67ce2f4e3cdd28afd98d2e07299bf73617e3b52641009b35c4da77e2373f62b23aaa955aa30899ad246e6401b"
+              },
+              "id": "12345",
+              "marketId": 42,
+              "currency": "USDT",
+              "amount": "unknown-unit",
+              "amountFilled": "100000000000000000000",
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "strategy": "MARKET",
+              "status": "FILLED",
+              "rewardEarningRate": 0
+            }
+          }
+        }
+      ],
+      "matches": [
+        {
+          "market": {
+            "id": 42,
+            "isNegRisk": false,
+            "isYieldBearing": false,
+            "decimalPrecision": 3,
+            "outcomes": [
+              {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": null
+              },
+              {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": null
+              }
+            ]
+          },
+          "taker": {
+            "quoteType": "Bid",
+            "amount": "33000000000000000005",
+            "price": "620000000000000000",
+            "outcome": {
+              "name": "fixture",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": null
+            },
+            "signer": "0x1111111111111111111111111111111111111111",
+            "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+            "fee": {
+              "type": "SHARES",
+              "amount": "660000000000000000"
+            }
+          },
+          "makers": [
+            {
+              "quoteType": "Bid",
+              "amount": "17000000000000000000",
+              "price": "380000000000000000",
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": null
+              },
+              "signer": "0x2222222222222222222222222222222222222222",
+              "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+              "fee": {
+                "type": "SHARES",
+                "amount": "0"
+              }
+            }
+          ],
+          "amountFilled": "33000000000000000005",
+          "priceExecuted": "620000000000000000",
+          "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+          "settlementId": "gap-settlement-1",
+          "executedAt": "2026-10-15T13:06:56.273201+00:00"
+        },
+        {
+          "market": {
+            "id": 42,
+            "isNegRisk": false,
+            "isYieldBearing": false,
+            "decimalPrecision": 3,
+            "outcomes": [
+              {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": null
+              },
+              {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": null
+              }
+            ]
+          },
+          "taker": {
+            "quoteType": "Bid",
+            "amount": "66999999999999999995",
+            "price": "620000000000000000",
+            "outcome": {
+              "name": "fixture",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": null
+            },
+            "signer": "0x1111111111111111111111111111111111111111",
+            "hash": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a",
+            "fee": {
+              "type": "SHARES",
+              "amount": "1340000000000000000"
+            }
+          },
+          "makers": [
+            {
+              "quoteType": "Bid",
+              "amount": "17000000000000000000",
+              "price": "380000000000000000",
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": null
+              },
+              "signer": "0x2222222222222222222222222222222222222222",
+              "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+              "fee": {
+                "type": "SHARES",
+                "amount": "0"
+              }
+            }
+          ],
+          "amountFilled": "66999999999999999995",
+          "priceExecuted": "620000000000000000",
+          "transactionHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+          "settlementId": "gap-settlement-2",
+          "executedAt": "2026-10-15T13:06:56.273201+00:00"
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountSnapshot",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "type": "StrategyQueryOrder",
+          "cachedStatus": "ACCEPTED",
+          "venueOrderId": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a"
+        },
+        {
+          "callback": "on_order_filled",
+          "clientOrderId": "IMPORTED-TAKER-001",
+          "tradeId": "PF-515f800ca05969af25c506cebdd05dda",
+          "lastQty": "33.0000000000000000",
+          "commission": "0.40920000 USDT",
+          "cachedFilledQty": "33.0000000000000000"
+        },
+        {
+          "type": "Filled",
+          "cachedStatus": "PARTIALLY_FILLED"
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_position_event",
+          "quantity": "33.0000000000000000"
+        },
+        {
+          "type": "AccountSnapshot",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_order_accepted",
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Accepted",
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "callback": "on_order_filled",
+          "clientOrderId": "6fa9aa67-c27d-5542-ac69-2a66eb90d2e6",
+          "tradeId": "25a03925-6ee9-5606-a7b5-3dc3c46647d2",
+          "lastQty": "0.6600000000000000",
+          "commission": null,
+          "cachedFilledQty": "0.6600000000000000"
+        },
+        {
+          "type": "Filled",
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_position_event",
+          "quantity": "32.3400000000000064"
+        },
+        {
+          "type": "AccountSnapshot",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "type": "StrategyQueryOrder",
+          "cachedStatus": "PARTIALLY_FILLED",
+          "venueOrderId": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a"
+        },
+        {
+          "type": "StrategyQueryOrder",
+          "cachedStatus": "PARTIALLY_FILLED",
+          "venueOrderId": "0x9c237a048c397178e11cd75f6b01eeaf6e844381723a435fe03d9fae321b339a"
+        },
+        {
+          "callback": "on_order_filled",
+          "clientOrderId": "IMPORTED-TAKER-001",
+          "tradeId": "PF-da71a17dabd1c771f3fe5b431923c750",
+          "lastQty": "67.0000000000000000",
+          "commission": "0.83080000 USDT",
+          "cachedFilledQty": "100.0000000000000000"
+        },
+        {
+          "type": "Filled",
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "979.53999999",
+              "locked": "62.00000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_position_event",
+          "quantity": "99.3400000000000000"
+        },
+        {
+          "type": "AccountSnapshot",
+          "balances": [
+            {
+              "total": "938.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "938.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_order_accepted",
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Accepted",
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "callback": "on_order_filled",
+          "clientOrderId": "02afbb87-b37b-53e6-b60f-4502131232a2",
+          "tradeId": "e84cef5e-299e-50ae-949f-7a3d5ac6ea92",
+          "lastQty": "1.3400000000000000",
+          "commission": null,
+          "cachedFilledQty": "1.3400000000000000"
+        },
+        {
+          "type": "Filled",
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "AccountReported",
+          "balances": [
+            {
+              "total": "938.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "callback": "on_position_event",
+          "quantity": "98.0000000000000000"
+        }
+      ],
+      "primaryFillCallbacks": 2,
+      "grossFilled": "100",
+      "netPosition": "98.0000000000000000",
+      "cashTotal": "938",
+      "cashLocked": "0",
+      "orderPosts": 0,
+      "streamGap": true,
+      "newSubmissionsBlocked": true
+    }
+  ]
+}

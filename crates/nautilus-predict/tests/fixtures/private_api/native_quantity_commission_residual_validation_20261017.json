@@ -1,0 +1,136 @@
+{
+  "date": "2026-10-17",
+  "source": "Rust offline validation; not new exchange captures",
+  "mainnetReads": false,
+  "mainnetWrites": false,
+  "recordingLogicModified": false,
+  "redisUsed": false,
+  "officialDevelop": "3b9c7cd2889a3a4ba56dd4f26042bede0a425ec0",
+  "branch": "codex/instrument-quantity-commission",
+  "nativeQuantityPrecision": 16,
+  "rawEvidencePrecision": 18,
+  "usdtMoneyPrecision": 8,
+  "fixtures": {
+    "crates/nautilus-predict/tests/fixtures/private_api/native_quantity_commission_residual_live_node_20261017_v2.json": {
+      "sha256": "260123848792abda7d6daf085ef5fe338ab96c6ce0197dd7f842fb5d9d025d42",
+      "evidence": "offline synthetic/loopback, not new venue acceptance"
+    },
+    "crates/nautilus-predict/tests/fixtures/private_api/native_quantity_commission_partial_exit_live_node_20261017_v3.json": {
+      "sha256": "76eb9c579feeec0480d3aa3b69f9947ca08269861ccccff497f2d4cbd456333e",
+      "evidence": "offline synthetic/loopback, not new venue acceptance"
+    }
+  },
+  "checks": [
+    {
+      "name": "native model",
+      "logSha256": "7e645d3018319f42fffc349260d3050333b4044192db398611a3b19449dea6b7",
+      "results": [
+        "test result: ok. 3991 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.09s"
+      ]
+    },
+    {
+      "name": "native serialization arrow capnp high-precision",
+      "logSha256": "ba4264c1bf3872ecdcd030ff1d90b538f6f380cb0f028b32c929c20577adff62",
+      "results": [
+        "test result: ok. 431 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s"
+      ]
+    },
+    {
+      "name": "default execution integration",
+      "logSha256": "9a34d5a4cd43388fc34253cdda07f2d0920dce14924dc95b3138e36b7f5aacd8",
+      "results": [
+        "test result: ok. 182 passed; 0 failed; 54 ignored; 0 measured; 0 filtered out; finished in 19.79s"
+      ]
+    },
+    {
+      "name": "default execution library",
+      "logSha256": "f357043244cbaac8ef4f8a6b92ae42117bd697d3814fb8872697e7a9063b98d0",
+      "results": [
+        "test result: ok. 49 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s"
+      ]
+    },
+    {
+      "name": "opt-in library and integration",
+      "logSha256": "2e4936b78da744e2e8b46f3247d8f8d37ed203bdead04220a675b602312728bf",
+      "results": [
+        "test result: ok. 50 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 189 passed; 0 failed; 57 ignored; 0 measured; 0 filtered out; finished in 19.72s"
+      ]
+    },
+    {
+      "name": "explicit combined JSON capture",
+      "logSha256": "635d972f181fe6cfb6283fd2d626892d6bf1b8518d5e79301d5c19e0923aa1d7",
+      "results": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 245 filtered out; finished in 0.26s"
+      ]
+    },
+    {
+      "name": "adapter clippy -D warnings",
+      "logSha256": "9a729745f9bc332e3e8715946f97ad012019dd5cf979a7f08fd577c0aab18e19",
+      "results": [
+        "    Finished `dev` profile [unoptimized] target(s) in 9.17s"
+      ]
+    },
+    {
+      "name": "Native make format",
+      "passed": true,
+      "logSha256": "18b73725b2a314f4e98392d3428a90a09d68ba3a87f5516602d8e7696890dda8"
+    },
+    {
+      "name": "Native make pre-commit",
+      "passed": true,
+      "logSha256": "a6bbcf77620c2eb0c48290193136adc4fe3273e698d2923e28a41e5016c37d97"
+    }
+  ],
+  "limits": [
+    "Exact 18-decimal protocol evidence is not a global Native 18-decimal inventory or PnL rewrite.",
+    "Existing f64/Money moving-average PnL retained; mixed BUY/SELL/re-entry differs from cash by one Money quantum.",
+    "1 wei venue inventory explicitly remains after combined projected native close.",
+    "Prototype long linear unit inventory, reported cash only; public binding/correction/general-account work deferred.",
+    "Unpublished prototype caches without quantity fee totals must be rebuilt; no compatibility history scan added.",
+    "Combined new partials are wallet WS coverage; complete REST matches replay tested in separate LiveNode scenarios."
+  ],
+  "nativeCommit": "78bef53612b0fa2660851ee6f59a6ddd12c2d1d4",
+  "remoteBranchVerified": "78bef53612b0fa2660851ee6f59a6ddd12c2d1d4",
+  "rfcComment": "https://github.com/graceyangfan/nautilus_trader/issues/1#issuecomment-6228610862",
+  "designReview": "docs/reference/predict-quantity-commission-residual-design-20261017.md",
+  "patchReverseApplyCheck": "passed",
+  "patch": {
+    "path": "docs/reference/patches/nautilus-instrument-quantity-commission-residuals-3b9c7cd288.patch",
+    "sha256": "e6b06f5cbcc8c078e52458944ca2d3a8ec11cefdbf530efdeb69b568d2da61de"
+  },
+  "commands": [
+    {
+      "cwd": "nautilus_trader_quantity_commission",
+      "command": "CARGO_TARGET_DIR=/Users/yfclark/nautilus_catalog_capture/target CARGO_PROFILE_TEST_DEBUG=false CARGO_PROFILE_TEST_STRIP=debuginfo cargo test -p nautilus-model --locked --features high-precision --lib"
+    },
+    {
+      "cwd": "nautilus_trader_quantity_commission",
+      "command": "cargo test -p nautilus-serialization --locked --features arrow,capnp,high-precision --lib"
+    },
+    {
+      "cwd": "nautilus_catalog_capture",
+      "command": "cargo test -p nautilus-predict --features execution --locked --test execution"
+    },
+    {
+      "cwd": "nautilus_catalog_capture",
+      "command": "cargo test -p nautilus-predict --features execution --locked --lib"
+    },
+    {
+      "cwd": "nautilus_catalog_capture",
+      "command": "cargo test -p nautilus-predict --features native-quantity-commission --locked --lib --test execution"
+    },
+    {
+      "cwd": "nautilus_catalog_capture",
+      "command": "cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution record_partial_prices_entry_tp_cancel_sell_json -- --ignored --exact recorded_startup::record_partial_prices_entry_tp_cancel_sell_json"
+    },
+    {
+      "cwd": "nautilus_catalog_capture",
+      "command": "cargo clippy -p nautilus-predict --features native-quantity-commission --locked --lib --test execution -- -D warnings"
+    },
+    {
+      "cwd": "nautilus_trader_quantity_commission",
+      "command": "make format && make pre-commit"
+    }
+  ]
+}

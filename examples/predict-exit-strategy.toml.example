@@ -1,0 +1,13 @@
+# Offline Rust strategy / LiveNode exit replay parameters. No credentials or market IDs.
+# Fee rate comes from market metadata. Entry price and net inventory come from fills/reconciliation.
+[strategy]
+# Gross entry average + delta, rounded up; actual cash / net inventory is a lower bound.
+# Post-only maker exit fee is zero; taker stop fee is included in the loss estimate.
+take_profit_delta = "0.003"
+stop_loss_usdt = "0.15"
+stale_after_ms = 2000
+# Maximum total MARKET stop attempts; another attempt needs a confirmed terminal state.
+max_stop_attempts = 2
+
+# Holdings have no forced time exit. Entry admission deadlines do not liquidate positions.
+# Keep the execution host running to monitor stop loss while the maker order waits.

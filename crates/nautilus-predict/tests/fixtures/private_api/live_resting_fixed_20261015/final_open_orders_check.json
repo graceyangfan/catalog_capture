@@ -1,0 +1,8 @@
+{
+  "source": "authenticated complete mainnet REST query after fixed Rust LiveNode and independent wallet observation; no order writes during this check",
+  "checkedAtUtc": "2026-10-15T09:49:00.790979+00:00",
+  "openOrders": 0,
+  "orderWritesEnabled": false,
+  "temporaryRunConfigExists": false,
+  "temporaryRelayManifestExists": false
+}

@@ -1,0 +1,64 @@
+{
+  "source": "synthetic wallet/order/holding shapes; one-based wallet outcome index calibrated against actual mainnet; not observed fills",
+  "accepted": {
+    "type": "orderAccepted",
+    "orderId": "12345",
+    "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+    "walletAddress": "0x1111111111111111111111111111111111111111",
+    "timestamp": 1,
+    "details": {
+      "marketId": 42,
+      "outcomeIndex": 1,
+      "marketQuestion": "fixture",
+      "outcome": "YES",
+      "quoteType": "BID",
+      "quantity": "100",
+      "quantityFilled": "0",
+      "price": "0.620",
+      "value": "62",
+      "valueFilled": "0",
+      "strategyType": "LIMIT",
+      "categorySlug": "fixture"
+    }
+  },
+  "confirmedFillFields": {
+    "settlementId": "settlement-42",
+    "fill": {
+      "executedPriceWei": "620000000000000000",
+      "executedSizeWei": "17000000000000000000",
+      "executedValueWei": "10540000000000000000"
+    },
+    "isMaker": false,
+    "fee": {
+      "amountWei": "100000000000000000",
+      "type": "COLLATERAL"
+    }
+  },
+  "holding": {
+    "id": "holding-1",
+    "market": {
+      "id": 42,
+      "isNegRisk": false,
+      "isYieldBearing": false,
+      "decimalPrecision": 3,
+      "outcomes": [
+        {
+          "name": "fixture",
+          "indexSet": 1,
+          "onChainId": "11",
+          "status": "LOST"
+        }
+      ]
+    },
+    "outcome": {
+      "name": "fixture",
+      "indexSet": 1,
+      "onChainId": "11",
+      "status": "LOST"
+    },
+    "amount": "17000000000000000000",
+    "valueUsd": "0",
+    "averageBuyPriceUsd": "0.62",
+    "pnlUsd": "-1"
+  }
+}

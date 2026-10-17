@@ -1,0 +1,1009 @@
+{
+  "source": "synthetic offline adapter admission; not mainnet",
+  "sessions": [
+    {
+      "case": "queued_buy_funds",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "224611610",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0xb11b5561f8d917189ff742eea5fcb72b81311c3d3786100b47c9cd40b1ca7de3",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57a5675f89b0e0512dec7be99ffd9b503e85fe4a13d3e2286c2f771d734f7b01f54b5b5bacb108940a10c46f2cbc9b0ccab1ff23a288f1ea2ca2a20e500b4b00f91b"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "REJECTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1.50000000 USDT",
+              "locked": "1.50000000 USDT",
+              "free": "0.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "Rejected",
+          "id": "MULTI-1",
+          "reason": "Predict fresh collateral minus outstanding BUY reservations is insufficient",
+          "status": "REJECTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1.50000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "1.50000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "1500000000000000000",
+      "expectedPosts": 1,
+      "orderPosts": 1,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "1.50000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "unknown_buy_funds",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "671463132",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x5b81bb0671de412906e4df2e8937e832eca8d55d9f8a90ed5bdc5920d52d726b",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57689d0d35123186bc9e8d9fdb15a8106def7651e950758ee1042e4e6d65b6f0832de3da133fa852402c511c97d000aa32545dcc3a2add6ed5545353b27ac982db1c"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "REJECTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1.50000000 USDT",
+              "locked": "1.50000000 USDT",
+              "free": "0.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "Rejected",
+          "id": "MULTI-1",
+          "reason": "Predict fresh collateral minus outstanding BUY reservations is insufficient",
+          "status": "REJECTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1.50000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "1.50000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "1500000000000000000",
+      "expectedPosts": 1,
+      "orderPosts": 1,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "1.50000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "queued_lifetime_cap",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "367837448",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0xff236c9c45667e8974d3ae071e1ea0b87af03bb08f1c9de08873c2dd3e64d463",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5747fbbb98e0902ea84ea14450b2e5581d0d15df3e5d6ed9ea77e5df5bdd03b8b33437f9b65bd343d63950585bf90fa3dec3646f4f8ad04806f14b167ccaa787a71b"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1055398577",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x9e60f36142e1228f012c0cd27e4b716fe732bf5f282a1308b1329c2f01f77222",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5740459c1aceb1a7564f49dbf14b45eea6e40c621affa17fc484028491f36008032c0d707e0cb975aef21693077ca380344ba99819fd387d0b2d34ba946b1fe5a81b"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-2",
+          "status": "REJECTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-2",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000 USDT",
+              "locked": "3.00000000 USDT",
+              "free": "997.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "Rejected",
+          "id": "MULTI-2",
+          "reason": "Predict collateral cap is exhausted",
+          "status": "REJECTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "1000.00000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "1000000000000000000000",
+      "expectedPosts": 2,
+      "orderPosts": 2,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "1000.00000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "represented_buy",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "2135645481",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x0d3c65de1b458c657cf865d3c581a72adbc7b465dd04078051b70898910a03da",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57af66acb2ce1489afbef9a71f5c1e94a3c121034c5a733b2de22f7011793706927f711fcd80cb8b21ff8a832bd392ff4f445d1b9587d9739ed0ddf785c54591811c"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1277537780",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0xd09dcec52cb6d883ce2c583d38d5061994de1d1792a181a27d1b57b74b9fd6a4",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57ed673d3f4671054c45ce1bd1ceb3697e291ca422d2a46984608b24db2a8c02887aa068271c32604e10e764595595c5c62255c83e2a7f66d4ff56481d7a59be051b"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "SUBMITTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "1.00000000 USDT",
+              "free": "1.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "2.00000000 USDT",
+              "free": "0.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "2.00000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "2000000000000000000",
+      "expectedPosts": 2,
+      "orderPosts": 2,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "2.00000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "unrepresented_buy",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "892821457",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x2dc4dd0da51d53a72b002721b789d5b21d0a22d5801089337fddc67f15815198",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57640b29c2fdf5c281e99803f82e88156c4c0dbe71dc0f53520ba2735aaa7f90a26cc9118a13ba5d8d3ddb9d3f5dbf21552b55f05617bd0d779627153d546fa02e1c"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "546368771",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0xd0e89eb35d6968caf907ea7a1057a9df6460d2551dfc157ce4f0c868201a5f74",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57a9c775fced72bd0dd56f4540dad5d6e1822f0f7ed2e4a5e38d6a679a37a511ac5a54ff0f7e15fb27a506128a9bba9b9561efffcc84f4668758b7f232437184dd1c"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "SUBMITTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "2.00000000 USDT",
+              "free": "0.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "2.00000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "2000000000000000000",
+      "expectedPosts": 2,
+      "orderPosts": 2,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "2.00000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "queued_sell_inventory",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "20000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "96712343",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "100000000000000000000",
+              "takerAmount": "2000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x3b70c10cf44081ed3e8c9552e6b6bed183b8b58606537667414baedc84f725cc",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5729818da01a9da3c8294fd0411f75b5c521a94ef9e4116c003f098ad1b24859706444805ae8e698b589500ac0d5e31e89cc3290da49356ebea8db049bdd1ec49c1c"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "REJECTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "2.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "Rejected",
+          "id": "MULTI-1",
+          "reason": "Predict fresh net inventory minus outstanding SELL reservations is insufficient",
+          "status": "REJECTED"
+        }
+      ],
+      "initialBalanceWei": "2000000000000000000",
+      "expectedPosts": 1,
+      "orderPosts": 1,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "2.00000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "represented_sell",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "20000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1839833885",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "100000000000000000000",
+              "takerAmount": "2000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x624759b362698e36b2488a8609e42b590b3473fcae6b1dfb6314681101043f40",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5746b03c5cd55b51db6d0ac78a4810c36f8c42b88635aef291b652cf32321f84170d4cc0cb9cb075597d280f3e6e2bb2a63266d24b360747703c894f0c602769cc1c"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "20000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "555829330",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "100000000000000000000",
+              "takerAmount": "2000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0xede722850524f118908db08143d4647c993e3ec95668769a0d52405921ad234f",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce570e2399dab5f236ad20e36cefd7606bc5c3cc3790427d5691f9a4e4cc9d954c6c392619486a3a48f3fe2bb428dd46c9411683bceea47e04601f8a90578cd250661c"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "SUBMITTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "2.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "2.00000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "2000000000000000000",
+      "expectedPosts": 2,
+      "orderPosts": 2,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "2.00000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "other_token_sell",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "20000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "85778517",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "100000000000000000000",
+              "takerAmount": "2000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x282746fa1ac81ab1b9a0467660125a8e46bb13744ad99a856c38e3c72cd6b61e",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57943be21d834eb46cc07c645140dde44f3b0ba849397ae0e56e128c9f6308a5834164136fb877d11f73a9772bf2f5a34d1a5712a63509fdb0bb0925bd2b0d0c421b"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "20000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "2116033895",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "22",
+              "makerAmount": "100000000000000000000",
+              "takerAmount": "2000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x7dc9bc26df8ce6d6e9affdaccd81df10020235f8243f8e05c4cb20c7567b43fe",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce571a614010bf2fb1d2306ad4dcbe196bff77ff447cca32ab53d26b7c7b0b41743d5e67133bbb30cacb9eb0c31bdec7c8c2986a508aa349fb2ebd3fbb5bdd42bbca1c"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "SUBMITTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "2.00000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "2000000000000000000",
+      "expectedPosts": 2,
+      "orderPosts": 2,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "2.00000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "unknown_buy_then_sell",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1651742920",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x3ceec073749cec7c878b2a8ca261b7e773792930af69a0d15eab3043b8d7936a",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce575a5da7bca130216339d89b427d3ae4508df031e0fbe549150c7a209e823405e1196548d247595789ebdcb44a4ae652a3620210acc31952137e2287f93231aed41c"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "20000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1827340708",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "100000000000000000000",
+              "takerAmount": "2000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x31e4bb99d5601bdce8428c8b4d453ac7aa902df82352b9871c56678d4fa10492",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57fe3b8ede76c4c8e3996fb083fe181a83dbd3a07ab050dd1e5f6514ea75a83cd1442d715e049d9a6ee5b2a63cfe49c35d06e8f55e86d6a89136c748ad75bb06af1c"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "SUBMITTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "1.00000000 USDT",
+              "free": "1.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "2.00000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "2000000000000000000",
+      "expectedPosts": 2,
+      "orderPosts": 2,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "2.00000000 USDT",
+      "mainnetWrites": 0
+    },
+    {
+      "case": "pending_buy_then_sell",
+      "source": "synthetic loopback adapter admission + native ExecutionEngine/Portfolio; direct client commands intentionally bypass native RiskEngine",
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "222911830",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x775a5e55aa543614e7f9adf8bb32ef842e9b0e110740f6adaee9bc86365a6c18",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57d6cf603b6814796babab0c4dcae90aad4bcf0ad376d16023ae6484ffd99d4ab5619253f2d3a2f2b64cfa647dc392397143dcd1a1fc153338de6a68b906fc16771c"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "20000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "392046559",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "100000000000000000000",
+              "takerAmount": "2000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0xcd49fbd7a4efb4e9ba0aa4f5c869eaa16d9e13e21fdded30647ca312b50853c4",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57bf97aa621492a2a0dce2304f0a6fa727979a76daecd9c1089c48890e8ec834224a52c823d1fd0bb55249fcf741aa5b10a138a2b8f37a9ab5d545eb4357a9b3f21c"
+            }
+          }
+        }
+      ],
+      "beforeCleanup": [
+        {
+          "id": "MULTI-0",
+          "status": "SUBMITTED"
+        },
+        {
+          "id": "MULTI-1",
+          "status": "SUBMITTED"
+        }
+      ],
+      "feedback": [
+        {
+          "type": "Submitted",
+          "id": "MULTI-0",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "Submitted",
+          "id": "MULTI-1",
+          "reason": null,
+          "status": "SUBMITTED"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "1.00000000 USDT",
+              "free": "1.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000 USDT",
+              "locked": "0.00000000 USDT",
+              "free": "2.00000000 USDT"
+            }
+          ]
+        }
+      ],
+      "initialBalanceWei": "2000000000000000000",
+      "expectedPosts": 2,
+      "orderPosts": 2,
+      "finalOpenOrders": 0,
+      "finalInflightOrders": 0,
+      "finalCash": "2.00000000 USDT",
+      "mainnetWrites": 0
+    }
+  ]
+}

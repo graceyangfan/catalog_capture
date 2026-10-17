@@ -1,0 +1,102 @@
+{
+  "verifiedAtUTC": "2026-10-16T10:46:29.196130+00:00",
+  "source": "synthetic loopback Rust strategy + actual product host; no operator account access or mainnet orders",
+  "scope": "Native prepare/add_strategy/run; snapshot signal LIMIT submit Accepted cancel Canceled; test policy remains in tests; production CLI remains observer",
+  "checks": {
+    "rustPassed": 274,
+    "rustFailed": 0,
+    "rustIgnored": 48,
+    "hostPassed": 4,
+    "pythonPassed": 64,
+    "sdkProtocolFilePassed": 30,
+    "sdkVersion": "0.0.22",
+    "clippyAllTargetsDenyWarnings": true,
+    "targetedRustfmt": true,
+    "ruff": true,
+    "diffCheck": true,
+    "restoredControlReplayPassed": true
+  },
+  "businessEvidence": {
+    "customSnapshotCallbacks": 2,
+    "orderSubmissions": 1,
+    "acceptedCallbacks": 1,
+    "canceledCallbacks": 1,
+    "canceledBeforeNodeStop": true,
+    "nativeReservedUsdtAtAccepted": "1",
+    "nativeLockedUsdtBeforeStop": "0",
+    "finalCashUsdt": "1000",
+    "finalOpen": 0,
+    "finalInflight": 0,
+    "finalPositions": 0
+  },
+  "counterfactual": {
+    "change": "disable custom snapshot subscription; retain Native quote actor",
+    "expectedFailure": "exit replay causal barrier timed out: Rust strategy submits through host Native node",
+    "sourceRestoredByteExactly": true
+  },
+  "accountNotificationBoundary": {
+    "nativeCacheUpdatedAfterReportedRefresh": true,
+    "accountTopicContainsReservation": true,
+    "accountTopicDoesNotRepublishAllReportedRefreshes": true,
+    "noFabricatedAccountEvent": true,
+    "nativeMechanism": "AsyncRunner ExecutionEvent::Account -> portfolio_update_account endpoint -> Portfolio::update_account; Polymarket uses same emitter"
+  },
+  "unchanged": {
+    "productionAdapterAndHost": true,
+    "nativeSourceVersionAndLock": true,
+    "recorderDiscoveryRotation": true,
+    "projectCargoLock": true,
+    "newTimers": 0,
+    "newDependencies": 0,
+    "redisOperations": 0,
+    "realAccountReads": 0,
+    "realOrders": 0
+  },
+  "nativeHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "nativeStatusPreserved": " M docs/developer_guide/execution_actions.md\n M docs/integrations/hyperliquid.md\n",
+  "protectedFilesComparedToPreviousManifest": 402,
+  "changedPreviousFiles": [
+    "crates/nautilus-predict/tests/execution/node_host.rs",
+    "docs/predict-execution-integration-progress.md",
+    "docs/predict-execution-work-plan.md",
+    "docs/reference/predict-thin-node-host-20261016.md",
+    "tests/test_predict_exit_protocol.py"
+  ],
+  "sha256": {
+    "crates/nautilus-predict/tests/execution/node_host.rs": "ac0896a100aa4a788d0bd5fcddeeba41b4f7aa3834a468885afbf30ffb3d34d1",
+    "crates/nautilus-predict/tests/fixtures/private_api/snapshot_strategy_account_feedback_synthetic_20261016.json": "1a3a69050eed5916eed0b36c7835e6161581fdc835eb37c2852bd22d1f1e1331",
+    "crates/nautilus-predict/tests/fixtures/private_api/snapshot_strategy_host_synthetic_20261016.json": "a33d981965fd0e90d2560a2d56a79a1347bd0afb2679ec38f4f4e2f32ce9aebe",
+    "crates/nautilus-predict/tests/support/snapshot_maker.rs": "7fb9025dc7d9605da2b389a4cd78f4c4b2ca3a096d1d84e7104c5acf6c29414a",
+    "docs/predict-execution-integration-progress.md": "24b6b63d233d956d63fc45951dee88d76a2389e63dc15c2b0f59c35772b06cd5",
+    "docs/predict-execution-work-plan.md": "16c9f74e17fd329d1bd1d8ed5f0bed4a5c1d8ef8c955576b7b558bd56b141bb7",
+    "docs/reference/predict-thin-node-host-20261016.md": "8594db985ca1694f3b6ac3ba6ef187ed787dcd2ca29603ed064094c02d0a06c0",
+    "tests/test_predict_exit_protocol.py": "1934d7c3bf0513e1cd9f14dea1db5bd9a4215b2d5b7e36e9ed854aea4a2798a7"
+  },
+  "validationLogSha256": {
+    ".predict-snapshot-capture.log": "1480236b61fcf26c3b5a4b113ab65234cfa864756cb0bbc058a41cd59f338e6f",
+    ".predict-snapshot-check.log": "cff9d36f401f83d5a7affaed3f6685f1a1e378622a7fadd64c2acade1bf32fb8",
+    ".predict-snapshot-clippy.log": "a9d19213175be056b8ae8d8a6e168837d9d703ada0fee57e62e6009f92207030",
+    ".predict-snapshot-control.log": "fd6d1ac62205b771386e758eda7890af57cd8cd14d74e7c61aaa71710373e54f",
+    ".predict-snapshot-host.log": "9299b57e29446e286a4338b0b62a7518dce8d9a6d934d6dd9df731d492e70daa",
+    ".predict-snapshot-python.log": "e10f759a5991e10d97a55e4edfe5c96dba01651571043720a1a7b126ea6eefc6",
+    ".predict-snapshot-restored.log": "d0faad123e9915c0ef4ce73c3d3c2cd12ec123b7a3fb890cf34dc9e0747e7b8e",
+    ".predict-snapshot-rust.log": "79b00af0c62195e6783e8fe8e846661a1e4c19343e8bb304dbe28f14e195a571",
+    ".predict-snapshot-sdk.log": "fd421c2e8d6dfe0486f0cc93a35e4dd8909100175e76bdf7f299aff01425619b"
+  },
+  "cleanup": {
+    "temporaryLogsRemoved": [
+      ".predict-snapshot-capture.log",
+      ".predict-snapshot-check.log",
+      ".predict-snapshot-clippy.log",
+      ".predict-snapshot-control.log",
+      ".predict-snapshot-host.log",
+      ".predict-snapshot-python.log",
+      ".predict-snapshot-restored.log",
+      ".predict-snapshot-rust.log",
+      ".predict-snapshot-sdk.log"
+    ],
+    "syntheticJsonPreserved": true,
+    "temporaryCredentialsCreated": false,
+    "redisStarted": false
+  }
+}

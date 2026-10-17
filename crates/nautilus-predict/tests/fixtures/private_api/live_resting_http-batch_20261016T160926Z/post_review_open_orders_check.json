@@ -1,0 +1,13 @@
+{
+  "source": "additional independent authenticated complete OPEN pagination after offline review",
+  "observedAtUtc": "2026-10-16T16:11:50.275438+00:00",
+  "method": "GET",
+  "path": "/v1/orders",
+  "params": {
+    "status": "OPEN",
+    "first": 100
+  },
+  "responseRows": [],
+  "verifiedOpenOrders": 0,
+  "orderWrites": 0
+}

@@ -1,0 +1,647 @@
+{
+  "source": "live read-only; SDK 0.0.22 ABI; no order writes",
+  "before": {
+    "block": 127730468,
+    "blockHash": "62345ac0e0229177a4d71addc4237556edff1e3fdbb0a25f17f2fc1ba789c17e",
+    "observedAt": "2026-10-15T05:27:10.377593+00:00",
+    "account": {
+      "data": {
+        "address": "0x0000000000000000000000000000000000000022",
+        "imageUrl": null,
+        "name": "redacted-fixture",
+        "points": {
+          "rank": null,
+          "total": 0.0
+        },
+        "referral": {
+          "code": null,
+          "status": "LOCKED"
+        }
+      },
+      "success": true
+    },
+    "positionChecks": [],
+    "matches": [
+      {
+        "market": {
+          "id": 3277308,
+          "imageUrl": null,
+          "title": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+          "question": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+          "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+          "tradingStatus": "CLOSED",
+          "status": "RESOLVED",
+          "isVisible": true,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "feeRateBps": 200,
+          "resolution": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+            "status": "WON",
+            "bestBid": null,
+            "bestAsk": null,
+            "team": null,
+            "variantData": null
+          },
+          "oracleQuestionId": "0x336b705e0507015ecf35a4eb5c20eaf3b1e0f0c94359dfb45c769e01056ef9ab",
+          "conditionId": "0xfbfa915d92cf17705ac5873e889648c33d158e00094f04f6346df2fc3f4cb48e",
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "outcomes": [
+            {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+              "status": "WON",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "name": "redacted-fixture",
+              "indexSet": 2,
+              "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+              "status": "LOST",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "questionIndex": null,
+          "spreadThreshold": 0.06,
+          "shareThreshold": 100,
+          "isBoosted": false,
+          "boostStartsAt": "2026-10-14T09:40:00.000Z",
+          "boostEndsAt": "2026-10-14T09:45:00.000Z",
+          "polymarketConditionIds": [],
+          "kalshiMarketTicker": null,
+          "categorySlug": "btc-updown-5m-1791970800",
+          "seriesSlug": "btc-updown-5m",
+          "createdAt": "2026-10-13T09:40:02.000Z",
+          "decimalPrecision": 2,
+          "marketVariant": "CRYPTO_UP_DOWN",
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedProvider": "CHAINLINK",
+            "startPrice": 83306.625,
+            "endPrice": 83306.765,
+            "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "team": null,
+          "marketType": null,
+          "rewards": {
+            "current": null,
+            "schedule": [
+              {
+                "hourlyRate": 3000,
+                "startsAt": "2026-10-14T09:40:00.000Z",
+                "endsAt": "2026-10-14T09:45:00.000Z"
+              }
+            ]
+          }
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "28241892307692307693",
+          "price": "130000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+            "status": "WON",
+            "bestBid": null,
+            "bestAsk": null,
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x0000000000000000000000000000000000000022",
+          "hash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+          "fee": {
+            "amount": "564837846153846153",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "28241892307692307693",
+        "priceExecuted": "130000000000000000",
+        "makers": [
+          {
+            "quoteType": "Bid",
+            "amount": "28241892307692307693",
+            "price": "870000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 2,
+              "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+              "status": "LOST",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0xc383c03d4c0591fdcc2a7bc3149b674bf88e7802ba55a07beec856db127cc114",
+            "fee": {
+              "amount": "0",
+              "type": "SHARES"
+            }
+          }
+        ],
+        "transactionHash": "0xb795a077aaf1e3a1f07224f843a42358eef5460d6b25260b494e317a4c875c4b",
+        "settlementId": "01a139cb-c3e8-7472-9612-8463cf64339c",
+        "executedAt": "2026-10-14T09:43:38.000Z"
+      },
+      {
+        "market": {
+          "id": 3277308,
+          "imageUrl": null,
+          "title": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+          "question": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+          "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+          "tradingStatus": "CLOSED",
+          "status": "RESOLVED",
+          "isVisible": true,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "feeRateBps": 200,
+          "resolution": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+            "status": "WON",
+            "bestBid": null,
+            "bestAsk": null,
+            "team": null,
+            "variantData": null
+          },
+          "oracleQuestionId": "0x336b705e0507015ecf35a4eb5c20eaf3b1e0f0c94359dfb45c769e01056ef9ab",
+          "conditionId": "0xfbfa915d92cf17705ac5873e889648c33d158e00094f04f6346df2fc3f4cb48e",
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "outcomes": [
+            {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+              "status": "WON",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "name": "redacted-fixture",
+              "indexSet": 2,
+              "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+              "status": "LOST",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "questionIndex": null,
+          "spreadThreshold": 0.06,
+          "shareThreshold": 100,
+          "isBoosted": false,
+          "boostStartsAt": "2026-10-14T09:40:00.000Z",
+          "boostEndsAt": "2026-10-14T09:45:00.000Z",
+          "polymarketConditionIds": [],
+          "kalshiMarketTicker": null,
+          "categorySlug": "btc-updown-5m-1791970800",
+          "seriesSlug": "btc-updown-5m",
+          "createdAt": "2026-10-13T09:40:02.000Z",
+          "decimalPrecision": 2,
+          "marketVariant": "CRYPTO_UP_DOWN",
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedProvider": "CHAINLINK",
+            "startPrice": 83306.625,
+            "endPrice": 83306.765,
+            "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "team": null,
+          "marketType": null,
+          "rewards": {
+            "current": null,
+            "schedule": [
+              {
+                "hourlyRate": 3000,
+                "startsAt": "2026-10-14T09:40:00.000Z",
+                "endsAt": "2026-10-14T09:45:00.000Z"
+              }
+            ]
+          }
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "5157107692307692306",
+          "price": "130000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+            "status": "WON",
+            "bestBid": null,
+            "bestAsk": null,
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x0000000000000000000000000000000000000022",
+          "hash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+          "fee": {
+            "amount": "103142153846153846",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "5157107692307692306",
+        "priceExecuted": "130000000000000000",
+        "makers": [
+          {
+            "quoteType": "Bid",
+            "amount": "5157107692307692306",
+            "price": "870000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 2,
+              "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+              "status": "LOST",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0x3f2ead104d26e21932c2ceb67845050b1f337731b2131b656cd6b0901bd93476",
+            "fee": {
+              "amount": "0",
+              "type": "SHARES"
+            }
+          }
+        ],
+        "transactionHash": "0xe139f5f63ab4316e922df79c945655468c865c4ec2d1c2609836f44a1f419173",
+        "settlementId": "01a139cb-c3e8-7472-9612-847f3fd4ae0a",
+        "executedAt": "2026-10-14T09:43:38.000Z"
+      }
+    ],
+    "positions": [],
+    "orders": [],
+    "cashWei": "48379150000000000001",
+    "tokenBalances": {
+      "77793380835300842690944276804983809749767673127595715327551206727195662009410": {
+        "contract": "0x0000000000000000000000000000000000000033",
+        "balanceWei": "0"
+      }
+    }
+  },
+  "after": {
+    "block": 127730710,
+    "blockHash": "c391593d63cea67d6eb95773add04d8a5c85232d9276e40bd9c59deb0bea3a57",
+    "observedAt": "2026-10-15T05:28:58.670166+00:00",
+    "account": {
+      "data": {
+        "address": "0x0000000000000000000000000000000000000022",
+        "imageUrl": null,
+        "name": "redacted-fixture",
+        "points": {
+          "rank": null,
+          "total": 0.0
+        },
+        "referral": {
+          "code": null,
+          "status": "LOCKED"
+        }
+      },
+      "success": true
+    },
+    "positionChecks": [],
+    "matches": [
+      {
+        "market": {
+          "id": 3277308,
+          "imageUrl": null,
+          "title": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+          "question": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+          "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+          "tradingStatus": "CLOSED",
+          "status": "RESOLVED",
+          "isVisible": true,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "feeRateBps": 200,
+          "resolution": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+            "status": "WON",
+            "bestBid": null,
+            "bestAsk": null,
+            "team": null,
+            "variantData": null
+          },
+          "oracleQuestionId": "0x336b705e0507015ecf35a4eb5c20eaf3b1e0f0c94359dfb45c769e01056ef9ab",
+          "conditionId": "0xfbfa915d92cf17705ac5873e889648c33d158e00094f04f6346df2fc3f4cb48e",
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "outcomes": [
+            {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+              "status": "WON",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "name": "redacted-fixture",
+              "indexSet": 2,
+              "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+              "status": "LOST",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "questionIndex": null,
+          "spreadThreshold": 0.06,
+          "shareThreshold": 100,
+          "isBoosted": false,
+          "boostStartsAt": "2026-10-14T09:40:00.000Z",
+          "boostEndsAt": "2026-10-14T09:45:00.000Z",
+          "polymarketConditionIds": [],
+          "kalshiMarketTicker": null,
+          "categorySlug": "btc-updown-5m-1791970800",
+          "seriesSlug": "btc-updown-5m",
+          "createdAt": "2026-10-13T09:40:02.000Z",
+          "decimalPrecision": 2,
+          "marketVariant": "CRYPTO_UP_DOWN",
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedProvider": "CHAINLINK",
+            "startPrice": 83306.625,
+            "endPrice": 83306.765,
+            "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "team": null,
+          "marketType": null,
+          "rewards": {
+            "current": null,
+            "schedule": [
+              {
+                "hourlyRate": 3000,
+                "startsAt": "2026-10-14T09:40:00.000Z",
+                "endsAt": "2026-10-14T09:45:00.000Z"
+              }
+            ]
+          }
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "28241892307692307693",
+          "price": "130000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+            "status": "WON",
+            "bestBid": null,
+            "bestAsk": null,
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x0000000000000000000000000000000000000022",
+          "hash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+          "fee": {
+            "amount": "564837846153846153",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "28241892307692307693",
+        "priceExecuted": "130000000000000000",
+        "makers": [
+          {
+            "quoteType": "Bid",
+            "amount": "28241892307692307693",
+            "price": "870000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 2,
+              "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+              "status": "LOST",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0xc383c03d4c0591fdcc2a7bc3149b674bf88e7802ba55a07beec856db127cc114",
+            "fee": {
+              "amount": "0",
+              "type": "SHARES"
+            }
+          }
+        ],
+        "transactionHash": "0xb795a077aaf1e3a1f07224f843a42358eef5460d6b25260b494e317a4c875c4b",
+        "settlementId": "01a139cb-c3e8-7472-9612-8463cf64339c",
+        "executedAt": "2026-10-14T09:43:38.000Z"
+      },
+      {
+        "market": {
+          "id": 3277308,
+          "imageUrl": null,
+          "title": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+          "question": "Bitcoin Up or Down - October 14, 5:40AM-5:45AM ET",
+          "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+          "tradingStatus": "CLOSED",
+          "status": "RESOLVED",
+          "isVisible": true,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "feeRateBps": 200,
+          "resolution": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+            "status": "WON",
+            "bestBid": null,
+            "bestAsk": null,
+            "team": null,
+            "variantData": null
+          },
+          "oracleQuestionId": "0x336b705e0507015ecf35a4eb5c20eaf3b1e0f0c94359dfb45c769e01056ef9ab",
+          "conditionId": "0xfbfa915d92cf17705ac5873e889648c33d158e00094f04f6346df2fc3f4cb48e",
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "outcomes": [
+            {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+              "status": "WON",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "name": "redacted-fixture",
+              "indexSet": 2,
+              "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+              "status": "LOST",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "questionIndex": null,
+          "spreadThreshold": 0.06,
+          "shareThreshold": 100,
+          "isBoosted": false,
+          "boostStartsAt": "2026-10-14T09:40:00.000Z",
+          "boostEndsAt": "2026-10-14T09:45:00.000Z",
+          "polymarketConditionIds": [],
+          "kalshiMarketTicker": null,
+          "categorySlug": "btc-updown-5m-1791970800",
+          "seriesSlug": "btc-updown-5m",
+          "createdAt": "2026-10-13T09:40:02.000Z",
+          "decimalPrecision": 2,
+          "marketVariant": "CRYPTO_UP_DOWN",
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedProvider": "CHAINLINK",
+            "startPrice": 83306.625,
+            "endPrice": 83306.765,
+            "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "team": null,
+          "marketType": null,
+          "rewards": {
+            "current": null,
+            "schedule": [
+              {
+                "hourlyRate": 3000,
+                "startsAt": "2026-10-14T09:40:00.000Z",
+                "endsAt": "2026-10-14T09:45:00.000Z"
+              }
+            ]
+          }
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "5157107692307692306",
+          "price": "130000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+            "status": "WON",
+            "bestBid": null,
+            "bestAsk": null,
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x0000000000000000000000000000000000000022",
+          "hash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+          "fee": {
+            "amount": "103142153846153846",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "5157107692307692306",
+        "priceExecuted": "130000000000000000",
+        "makers": [
+          {
+            "quoteType": "Bid",
+            "amount": "5157107692307692306",
+            "price": "870000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 2,
+              "onChainId": "66855640970666362625963299013686340059267760889667917327568711886757251397861",
+              "status": "LOST",
+              "bestBid": null,
+              "bestAsk": null,
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0x3f2ead104d26e21932c2ceb67845050b1f337731b2131b656cd6b0901bd93476",
+            "fee": {
+              "amount": "0",
+              "type": "SHARES"
+            }
+          }
+        ],
+        "transactionHash": "0xe139f5f63ab4316e922df79c945655468c865c4ec2d1c2609836f44a1f419173",
+        "settlementId": "01a139cb-c3e8-7472-9612-847f3fd4ae0a",
+        "executedAt": "2026-10-14T09:43:38.000Z"
+      }
+    ],
+    "positions": [],
+    "orders": [],
+    "cashWei": "48379150000000000001",
+    "tokenBalances": {
+      "77793380835300842690944276804983809749767673127595715327551206727195662009410": {
+        "contract": "0x0000000000000000000000000000000000000033",
+        "balanceWei": "0"
+      }
+    }
+  },
+  "wallet": {
+    "subscribed": true,
+    "seconds": 105.007,
+    "heartbeats": 7,
+    "events": []
+  },
+  "comparisons": [
+    {
+      "settlementId": "01a139cb-c3e8-7472-9612-8463cf64339c",
+      "orderHash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+      "transactionHash": "0xb795a077aaf1e3a1f07224f843a42358eef5460d6b25260b494e317a4c875c4b",
+      "block": 127572729,
+      "tokenId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+      "grossWei": "28241892307692307693",
+      "feeWei": "564837846153846153",
+      "netTransferWei": "27677054461538461540",
+      "collateralWei": "3671446000000000000",
+      "feeType": "SHARES"
+    },
+    {
+      "settlementId": "01a139cb-c3e8-7472-9612-847f3fd4ae0a",
+      "orderHash": "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af",
+      "transactionHash": "0xe139f5f63ab4316e922df79c945655468c865c4ec2d1c2609836f44a1f419173",
+      "block": 127572729,
+      "tokenId": "77793380835300842690944276804983809749767673127595715327551206727195662009410",
+      "grossWei": "5157107692307692306",
+      "feeWei": "103142153846153846",
+      "netTransferWei": "5053965538461538460",
+      "collateralWei": "670423999999999999",
+      "feeType": "SHARES"
+    }
+  ],
+  "cumulative": {
+    "0x60f376426dbd0b979d599eea2bc7ab2ff30ac735a4a85c1a4d6d55e402f195af": {
+      "grossWei": "33398999999999999999",
+      "feeWei": "667979999999999999",
+      "netWei": "32731020000000000000"
+    }
+  },
+  "summary": {
+    "matches": 2,
+    "chainVerifiedOwnFills": 2,
+    "walletEvents": 0,
+    "heartbeats": 7,
+    "positions": 0,
+    "openOrders": 0,
+    "cashWeiBefore": "48379150000000000001",
+    "cashWeiAfter": "48379150000000000001",
+    "cashUnchanged": true
+  }
+}

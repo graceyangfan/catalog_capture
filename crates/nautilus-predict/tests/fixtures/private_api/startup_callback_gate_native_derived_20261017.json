@@ -1,0 +1,1381 @@
+{
+  "source": "offline actual-economic derived cold-start; not new venue evidence",
+  "startupBusinessCallbacks": 0,
+  "sessions": [
+    {
+      "source": "offline Native cold-start with actual signed order economics and confirmed match/chain transfer; derived time slice, not actual nonempty REST snapshot",
+      "claimed": false,
+      "holdingOnly": false,
+      "transforms": [
+        "market/token/wallet rebind and pure SDK-compatible hash recalculation",
+        "TP CANCELLED snapshot replayed at earlier Accepted point as OPEN",
+        "position shape derived from confirmed net ERC1155 receipt; display value/cost fields unused zero placeholders",
+        "historical fill shifted to 120s before startup"
+      ],
+      "primaryOrderSource": "cold_start_readonly_20261016T133220Z.json",
+      "buy": {
+        "amount": "32000000000000000000",
+        "amountFilled": "32000000000000000000",
+        "currency": "USDT",
+        "id": "5571035580",
+        "isNegRisk": false,
+        "isYieldBearing": true,
+        "marketId": 42,
+        "order": {
+          "expiration": 4102444800,
+          "feeRateBps": "200",
+          "hash": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "makerAmount": "1280000000000000000",
+          "nonce": "0",
+          "salt": "288389313",
+          "side": 0,
+          "signature": "redacted-signature",
+          "signatureType": 0,
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "takerAmount": "32000000000000000000",
+          "tokenId": "11"
+        },
+        "rewardEarningRate": 0,
+        "status": "FILLED",
+        "strategy": "LIMIT"
+      },
+      "takeProfit": {
+        "amount": "31360000000000000000",
+        "amountFilled": "0",
+        "currency": "USDT",
+        "id": "5571059310",
+        "isNegRisk": false,
+        "isYieldBearing": true,
+        "marketId": 42,
+        "order": {
+          "expiration": 4102444800,
+          "feeRateBps": "200",
+          "hash": "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "makerAmount": "31360000000000000000",
+          "nonce": "0",
+          "salt": "1338202951",
+          "side": 1,
+          "signature": "redacted-signature",
+          "signatureType": 0,
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "takerAmount": "1348480000000000000",
+          "tokenId": "11"
+        },
+        "rewardEarningRate": 0,
+        "status": "OPEN",
+        "strategy": "LIMIT"
+      },
+      "confirmedMatch": {
+        "market": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+          "createdAt": "2026-02-26T10:39:37.847Z",
+          "decimalPrecision": 3,
+          "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+          "feeRateBps": 200,
+          "id": 42,
+          "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.04,
+                "size": 50270.79999996875
+              },
+              "bestBid": {
+                "price": 0.039,
+                "size": 2601.199417273673
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "11",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.961,
+                "size": 2601.199417273673
+              },
+              "bestBid": {
+                "price": 0.96,
+                "size": 50270.79999996875
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "22",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+          ],
+          "question": "Will the US confirm that aliens exist before 2027?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-12-31T00:00:00.000Z",
+                "hourlyRate": 180,
+                "startsAt": "2026-04-28T14:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will the US confirm that aliens exist before 2027?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "32000000000000000000",
+          "price": "40000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "11",
+            "status": null,
+            "bestBid": {
+              "price": 0.039,
+              "size": 2644.199417273673
+            },
+            "bestAsk": {
+              "price": 0.04,
+              "size": 54757.333333312505
+            },
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x1111111111111111111111111111111111111111",
+          "hash": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+          "fee": {
+            "amount": "640000000000000000",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "32000000000000000000",
+        "priceExecuted": "40000000000000000",
+        "makers": [
+          {
+            "quoteType": "Ask",
+            "amount": "32000000000000000000",
+            "price": "40000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": null,
+              "bestBid": {
+                "price": 0.039,
+                "size": 2644.199417273673
+              },
+              "bestAsk": {
+                "price": 0.04,
+                "size": 54757.333333312505
+              },
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+            "fee": {
+              "amount": "0",
+              "type": "COLLATERAL"
+            }
+          }
+        ],
+        "transactionHash": "0xb2de2bcb4f123d138ae271f2b23f1195995b174d17c35b302a9232ecb22dd35d",
+        "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+        "executedAt": "2026-10-16T16:36:44.760034+00:00"
+      },
+      "position": {
+        "id": "derived-holding-from-confirmed-chain-transfer",
+        "market": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+          "createdAt": "2026-02-26T10:39:37.847Z",
+          "decimalPrecision": 3,
+          "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+          "feeRateBps": 200,
+          "id": 42,
+          "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.04,
+                "size": 50270.79999996875
+              },
+              "bestBid": {
+                "price": 0.039,
+                "size": 2601.199417273673
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "11",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.961,
+                "size": 2601.199417273673
+              },
+              "bestBid": {
+                "price": 0.96,
+                "size": 50270.79999996875
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "22",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+          ],
+          "question": "Will the US confirm that aliens exist before 2027?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-12-31T00:00:00.000Z",
+                "hourlyRate": 180,
+                "startsAt": "2026-04-28T14:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will the US confirm that aliens exist before 2027?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "outcome": {
+          "bestAsk": {
+            "price": 0.04,
+            "size": 50270.79999996875
+          },
+          "bestBid": {
+            "price": 0.039,
+            "size": 2601.199417273673
+          },
+          "indexSet": 1,
+          "name": "Yes",
+          "onChainId": "11",
+          "status": null,
+          "team": null,
+          "variantData": null
+        },
+        "amount": "31360000000000000000",
+        "valueUsd": "0",
+        "averageBuyPriceUsd": "0",
+        "pnlUsd": "0"
+      },
+      "nativeFeedback": [
+        {
+          "type": "StrategyOnStart",
+          "openOrders": 1,
+          "netPositions": [
+            "31.3600000000000000"
+          ],
+          "owners": [
+            "EXTERNAL"
+          ],
+          "cash": "47.01772920 USDT",
+          "locked": "0.00000000 USDT"
+        },
+        {
+          "type": "CustomSnapshot"
+        }
+      ],
+      "repeated": {
+        "massStatus": {
+          "type": "ExecutionMassStatus",
+          "client_id": "PREDICT",
+          "account_id": "PREDICT-fixture",
+          "venue": "PREDICT",
+          "report_id": "7356d408-ecc9-4ddd-b799-a86feee21b3c",
+          "ts_init": 1792168724783451000,
+          "lookback_start": 1792168664783451000,
+          "reports_complete": true,
+          "order_reports": {
+            "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d": {
+              "type": "OrderStatusReport",
+              "account_id": "PREDICT-fixture",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+              "venue_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+              "order_side": "BUY",
+              "order_type": "LIMIT",
+              "time_in_force": "GTD",
+              "order_status": "FILLED",
+              "quantity": "32.0000000000000000",
+              "filled_qty": "32.0000000000000000",
+              "report_id": "a6a68c3a-7af3-4527-93bc-5b71f2e6174b",
+              "ts_accepted": 1792168604760034000,
+              "ts_last": 1792168724785889000,
+              "ts_init": 1792168724785889000,
+              "order_list_id": null,
+              "venue_position_id": null,
+              "linked_order_ids": null,
+              "parent_order_id": null,
+              "contingency_type": "NO_CONTINGENCY",
+              "expire_time": 4102444800000000000,
+              "price": "0.040",
+              "activation_price": null,
+              "trigger_price": null,
+              "trigger_type": "NO_TRIGGER",
+              "limit_offset": null,
+              "trailing_offset": null,
+              "trailing_offset_type": "NO_TRAILING_OFFSET",
+              "avg_px": null,
+              "display_qty": null,
+              "post_only": false,
+              "reduce_only": false,
+              "cancel_reason": null,
+              "ts_triggered": null
+            },
+            "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b": {
+              "type": "OrderStatusReport",
+              "account_id": "PREDICT-fixture",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b",
+              "venue_order_id": "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b",
+              "order_side": "SELL",
+              "order_type": "LIMIT",
+              "time_in_force": "GTD",
+              "order_status": "ACCEPTED",
+              "quantity": "31.3600000000000000",
+              "filled_qty": "0.0000000000000000",
+              "report_id": "c7bb00e6-464f-46a1-8cbe-441d693a24b1",
+              "ts_accepted": 1792168724782115000,
+              "ts_last": 1792168724785889000,
+              "ts_init": 1792168724785889000,
+              "order_list_id": null,
+              "venue_position_id": null,
+              "linked_order_ids": null,
+              "parent_order_id": null,
+              "contingency_type": "NO_CONTINGENCY",
+              "expire_time": 4102444800000000000,
+              "price": "0.043",
+              "activation_price": null,
+              "trigger_price": null,
+              "trigger_type": "NO_TRIGGER",
+              "limit_offset": null,
+              "trailing_offset": null,
+              "trailing_offset_type": "NO_TRAILING_OFFSET",
+              "avg_px": null,
+              "display_qty": null,
+              "post_only": false,
+              "reduce_only": false,
+              "cancel_reason": null,
+              "ts_triggered": null
+            }
+          },
+          "fill_reports": {
+            "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d": [
+              {
+                "type": "FillReport",
+                "account_id": "PREDICT-fixture",
+                "instrument_id": "42-1.PREDICT",
+                "venue_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+                "trade_id": "PF-bc5f985baff5f4dc9e0e427e61ef12df",
+                "order_side": "BUY",
+                "last_qty": "32.0000000000000000",
+                "last_px": "0.040",
+                "commission": "0.02560000 USDT",
+                "liquidity_side": "TAKER",
+                "avg_px": null,
+                "report_id": "c054dffe-9217-4abd-ba58-750ae916e704",
+                "ts_event": 1792168604760034000,
+                "ts_init": 1792168724785889000,
+                "client_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+                "venue_position_id": null
+              }
+            ]
+          },
+          "position_reports": {
+            "42-1.PREDICT": [
+              {
+                "type": "PositionStatusReport",
+                "account_id": "PREDICT-fixture",
+                "instrument_id": "42-1.PREDICT",
+                "position_side": "LONG",
+                "quantity": "31.3600000000000000",
+                "signed_decimal_qty": "31.3600000000000000",
+                "report_id": "e29428e5-5c9c-49d0-88ef-b26a1cb86977",
+                "ts_last": 1792168724786407000,
+                "ts_init": 1792168724786407000,
+                "venue_position_id": null,
+                "avg_px_open": null,
+                "avg_px_open_reconciliation": "MATCH",
+                "avg_px_open_precision": null
+              }
+            ]
+          }
+        },
+        "repeatedEvents": 0,
+        "orderCount": 3
+      },
+      "initialCacheOrders": 0,
+      "initialCachePositions": 0,
+      "initialCacheInstruments": 0,
+      "finalNetShares": "31.36",
+      "orderWrites": 0
+    },
+    {
+      "source": "offline Native cold-start with actual signed order economics and confirmed match/chain transfer; derived time slice, not actual nonempty REST snapshot",
+      "claimed": true,
+      "holdingOnly": false,
+      "transforms": [
+        "market/token/wallet rebind and pure SDK-compatible hash recalculation",
+        "TP CANCELLED snapshot replayed at earlier Accepted point as OPEN",
+        "position shape derived from confirmed net ERC1155 receipt; display value/cost fields unused zero placeholders",
+        "historical fill shifted to 120s before startup"
+      ],
+      "primaryOrderSource": "cold_start_readonly_20261016T133220Z.json",
+      "buy": {
+        "amount": "32000000000000000000",
+        "amountFilled": "32000000000000000000",
+        "currency": "USDT",
+        "id": "5571035580",
+        "isNegRisk": false,
+        "isYieldBearing": true,
+        "marketId": 42,
+        "order": {
+          "expiration": 4102444800,
+          "feeRateBps": "200",
+          "hash": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "makerAmount": "1280000000000000000",
+          "nonce": "0",
+          "salt": "288389313",
+          "side": 0,
+          "signature": "redacted-signature",
+          "signatureType": 0,
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "takerAmount": "32000000000000000000",
+          "tokenId": "11"
+        },
+        "rewardEarningRate": 0,
+        "status": "FILLED",
+        "strategy": "LIMIT"
+      },
+      "takeProfit": {
+        "amount": "31360000000000000000",
+        "amountFilled": "0",
+        "currency": "USDT",
+        "id": "5571059310",
+        "isNegRisk": false,
+        "isYieldBearing": true,
+        "marketId": 42,
+        "order": {
+          "expiration": 4102444800,
+          "feeRateBps": "200",
+          "hash": "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "makerAmount": "31360000000000000000",
+          "nonce": "0",
+          "salt": "1338202951",
+          "side": 1,
+          "signature": "redacted-signature",
+          "signatureType": 0,
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "takerAmount": "1348480000000000000",
+          "tokenId": "11"
+        },
+        "rewardEarningRate": 0,
+        "status": "OPEN",
+        "strategy": "LIMIT"
+      },
+      "confirmedMatch": {
+        "market": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+          "createdAt": "2026-02-26T10:39:37.847Z",
+          "decimalPrecision": 3,
+          "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+          "feeRateBps": 200,
+          "id": 42,
+          "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.04,
+                "size": 50270.79999996875
+              },
+              "bestBid": {
+                "price": 0.039,
+                "size": 2601.199417273673
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "11",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.961,
+                "size": 2601.199417273673
+              },
+              "bestBid": {
+                "price": 0.96,
+                "size": 50270.79999996875
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "22",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+          ],
+          "question": "Will the US confirm that aliens exist before 2027?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-12-31T00:00:00.000Z",
+                "hourlyRate": 180,
+                "startsAt": "2026-04-28T14:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will the US confirm that aliens exist before 2027?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "32000000000000000000",
+          "price": "40000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "11",
+            "status": null,
+            "bestBid": {
+              "price": 0.039,
+              "size": 2644.199417273673
+            },
+            "bestAsk": {
+              "price": 0.04,
+              "size": 54757.333333312505
+            },
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x1111111111111111111111111111111111111111",
+          "hash": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+          "fee": {
+            "amount": "640000000000000000",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "32000000000000000000",
+        "priceExecuted": "40000000000000000",
+        "makers": [
+          {
+            "quoteType": "Ask",
+            "amount": "32000000000000000000",
+            "price": "40000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": null,
+              "bestBid": {
+                "price": 0.039,
+                "size": 2644.199417273673
+              },
+              "bestAsk": {
+                "price": 0.04,
+                "size": 54757.333333312505
+              },
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+            "fee": {
+              "amount": "0",
+              "type": "COLLATERAL"
+            }
+          }
+        ],
+        "transactionHash": "0xb2de2bcb4f123d138ae271f2b23f1195995b174d17c35b302a9232ecb22dd35d",
+        "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+        "executedAt": "2026-10-16T16:36:44.995654+00:00"
+      },
+      "position": {
+        "id": "derived-holding-from-confirmed-chain-transfer",
+        "market": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+          "createdAt": "2026-02-26T10:39:37.847Z",
+          "decimalPrecision": 3,
+          "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+          "feeRateBps": 200,
+          "id": 42,
+          "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.04,
+                "size": 50270.79999996875
+              },
+              "bestBid": {
+                "price": 0.039,
+                "size": 2601.199417273673
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "11",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.961,
+                "size": 2601.199417273673
+              },
+              "bestBid": {
+                "price": 0.96,
+                "size": 50270.79999996875
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "22",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+          ],
+          "question": "Will the US confirm that aliens exist before 2027?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-12-31T00:00:00.000Z",
+                "hourlyRate": 180,
+                "startsAt": "2026-04-28T14:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will the US confirm that aliens exist before 2027?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "outcome": {
+          "bestAsk": {
+            "price": 0.04,
+            "size": 50270.79999996875
+          },
+          "bestBid": {
+            "price": 0.039,
+            "size": 2601.199417273673
+          },
+          "indexSet": 1,
+          "name": "Yes",
+          "onChainId": "11",
+          "status": null,
+          "team": null,
+          "variantData": null
+        },
+        "amount": "31360000000000000000",
+        "valueUsd": "0",
+        "averageBuyPriceUsd": "0",
+        "pnlUsd": "0"
+      },
+      "nativeFeedback": [
+        {
+          "type": "StrategyOnStart",
+          "openOrders": 1,
+          "netPositions": [
+            "31.3600000000000000"
+          ],
+          "owners": [
+            "COLD-001"
+          ],
+          "cash": "47.01772920 USDT",
+          "locked": "0.00000000 USDT"
+        },
+        {
+          "type": "CustomSnapshot"
+        }
+      ],
+      "repeated": {
+        "massStatus": {
+          "type": "ExecutionMassStatus",
+          "client_id": "PREDICT",
+          "account_id": "PREDICT-fixture",
+          "venue": "PREDICT",
+          "report_id": "818c853f-c864-4160-b07f-5480cafb6d12",
+          "ts_init": 1792168725014408000,
+          "lookback_start": 1792168665014408000,
+          "reports_complete": true,
+          "order_reports": {
+            "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d": {
+              "type": "OrderStatusReport",
+              "account_id": "PREDICT-fixture",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+              "venue_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+              "order_side": "BUY",
+              "order_type": "LIMIT",
+              "time_in_force": "GTD",
+              "order_status": "FILLED",
+              "quantity": "32.0000000000000000",
+              "filled_qty": "32.0000000000000000",
+              "report_id": "0caa8b96-cb01-4092-80e8-ef6413995be5",
+              "ts_accepted": 1792168604995654000,
+              "ts_last": 1792168725016919000,
+              "ts_init": 1792168725016919000,
+              "order_list_id": null,
+              "venue_position_id": null,
+              "linked_order_ids": null,
+              "parent_order_id": null,
+              "contingency_type": "NO_CONTINGENCY",
+              "expire_time": 4102444800000000000,
+              "price": "0.040",
+              "activation_price": null,
+              "trigger_price": null,
+              "trigger_type": "NO_TRIGGER",
+              "limit_offset": null,
+              "trailing_offset": null,
+              "trailing_offset_type": "NO_TRAILING_OFFSET",
+              "avg_px": null,
+              "display_qty": null,
+              "post_only": false,
+              "reduce_only": false,
+              "cancel_reason": null,
+              "ts_triggered": null
+            },
+            "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b": {
+              "type": "OrderStatusReport",
+              "account_id": "PREDICT-fixture",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b",
+              "venue_order_id": "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b",
+              "order_side": "SELL",
+              "order_type": "LIMIT",
+              "time_in_force": "GTD",
+              "order_status": "ACCEPTED",
+              "quantity": "31.3600000000000000",
+              "filled_qty": "0.0000000000000000",
+              "report_id": "09872dfb-317e-49fe-9dce-538b1e56c322",
+              "ts_accepted": 1792168725013325000,
+              "ts_last": 1792168725016919000,
+              "ts_init": 1792168725016919000,
+              "order_list_id": null,
+              "venue_position_id": null,
+              "linked_order_ids": null,
+              "parent_order_id": null,
+              "contingency_type": "NO_CONTINGENCY",
+              "expire_time": 4102444800000000000,
+              "price": "0.043",
+              "activation_price": null,
+              "trigger_price": null,
+              "trigger_type": "NO_TRIGGER",
+              "limit_offset": null,
+              "trailing_offset": null,
+              "trailing_offset_type": "NO_TRAILING_OFFSET",
+              "avg_px": null,
+              "display_qty": null,
+              "post_only": false,
+              "reduce_only": false,
+              "cancel_reason": null,
+              "ts_triggered": null
+            }
+          },
+          "fill_reports": {
+            "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d": [
+              {
+                "type": "FillReport",
+                "account_id": "PREDICT-fixture",
+                "instrument_id": "42-1.PREDICT",
+                "venue_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+                "trade_id": "PF-bc5f985baff5f4dc9e0e427e61ef12df",
+                "order_side": "BUY",
+                "last_qty": "32.0000000000000000",
+                "last_px": "0.040",
+                "commission": "0.02560000 USDT",
+                "liquidity_side": "TAKER",
+                "avg_px": null,
+                "report_id": "27ae32cb-2cf5-4891-9d04-ce386d4488c4",
+                "ts_event": 1792168604995654000,
+                "ts_init": 1792168725016919000,
+                "client_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+                "venue_position_id": null
+              }
+            ]
+          },
+          "position_reports": {
+            "42-1.PREDICT": [
+              {
+                "type": "PositionStatusReport",
+                "account_id": "PREDICT-fixture",
+                "instrument_id": "42-1.PREDICT",
+                "position_side": "LONG",
+                "quantity": "31.3600000000000000",
+                "signed_decimal_qty": "31.3600000000000000",
+                "report_id": "392a678e-3ac2-4981-9f2b-4077ff63a0e4",
+                "ts_last": 1792168725017349000,
+                "ts_init": 1792168725017349000,
+                "venue_position_id": null,
+                "avg_px_open": null,
+                "avg_px_open_reconciliation": "MATCH",
+                "avg_px_open_precision": null
+              }
+            ]
+          }
+        },
+        "repeatedEvents": 0,
+        "orderCount": 3
+      },
+      "initialCacheOrders": 0,
+      "initialCachePositions": 0,
+      "initialCacheInstruments": 0,
+      "finalNetShares": "31.36",
+      "orderWrites": 0
+    },
+    {
+      "source": "offline Native cold-start with actual signed order economics and confirmed match/chain transfer; derived time slice, not actual nonempty REST snapshot",
+      "claimed": true,
+      "holdingOnly": true,
+      "transforms": [
+        "market/token/wallet rebind and pure SDK-compatible hash recalculation",
+        "TP CANCELLED snapshot replayed at earlier Accepted point as OPEN",
+        "position shape derived from confirmed net ERC1155 receipt; display value/cost fields unused zero placeholders",
+        "historical fill shifted to 120s before startup"
+      ],
+      "primaryOrderSource": "cold_start_readonly_20261016T133220Z.json",
+      "buy": {
+        "amount": "32000000000000000000",
+        "amountFilled": "32000000000000000000",
+        "currency": "USDT",
+        "id": "5571035580",
+        "isNegRisk": false,
+        "isYieldBearing": true,
+        "marketId": 42,
+        "order": {
+          "expiration": 4102444800,
+          "feeRateBps": "200",
+          "hash": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "makerAmount": "1280000000000000000",
+          "nonce": "0",
+          "salt": "288389313",
+          "side": 0,
+          "signature": "redacted-signature",
+          "signatureType": 0,
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "takerAmount": "32000000000000000000",
+          "tokenId": "11"
+        },
+        "rewardEarningRate": 0,
+        "status": "FILLED",
+        "strategy": "LIMIT"
+      },
+      "takeProfit": {
+        "amount": "31360000000000000000",
+        "amountFilled": "0",
+        "currency": "USDT",
+        "id": "5571059310",
+        "isNegRisk": false,
+        "isYieldBearing": true,
+        "marketId": 42,
+        "order": {
+          "expiration": 4102444800,
+          "feeRateBps": "200",
+          "hash": "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "makerAmount": "31360000000000000000",
+          "nonce": "0",
+          "salt": "1338202951",
+          "side": 1,
+          "signature": "redacted-signature",
+          "signatureType": 0,
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "takerAmount": "1348480000000000000",
+          "tokenId": "11"
+        },
+        "rewardEarningRate": 0,
+        "status": "OPEN",
+        "strategy": "LIMIT"
+      },
+      "confirmedMatch": {
+        "market": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+          "createdAt": "2026-02-26T10:39:37.847Z",
+          "decimalPrecision": 3,
+          "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+          "feeRateBps": 200,
+          "id": 42,
+          "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.04,
+                "size": 50270.79999996875
+              },
+              "bestBid": {
+                "price": 0.039,
+                "size": 2601.199417273673
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "11",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.961,
+                "size": 2601.199417273673
+              },
+              "bestBid": {
+                "price": 0.96,
+                "size": 50270.79999996875
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "22",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+          ],
+          "question": "Will the US confirm that aliens exist before 2027?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-12-31T00:00:00.000Z",
+                "hourlyRate": 180,
+                "startsAt": "2026-04-28T14:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will the US confirm that aliens exist before 2027?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "32000000000000000000",
+          "price": "40000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "11",
+            "status": null,
+            "bestBid": {
+              "price": 0.039,
+              "size": 2644.199417273673
+            },
+            "bestAsk": {
+              "price": 0.04,
+              "size": 54757.333333312505
+            },
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x1111111111111111111111111111111111111111",
+          "hash": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+          "fee": {
+            "amount": "640000000000000000",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "32000000000000000000",
+        "priceExecuted": "40000000000000000",
+        "makers": [
+          {
+            "quoteType": "Ask",
+            "amount": "32000000000000000000",
+            "price": "40000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": null,
+              "bestBid": {
+                "price": 0.039,
+                "size": 2644.199417273673
+              },
+              "bestAsk": {
+                "price": 0.04,
+                "size": 54757.333333312505
+              },
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+            "fee": {
+              "amount": "0",
+              "type": "COLLATERAL"
+            }
+          }
+        ],
+        "transactionHash": "0xb2de2bcb4f123d138ae271f2b23f1195995b174d17c35b302a9232ecb22dd35d",
+        "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+        "executedAt": "2026-10-16T16:36:45.227434+00:00"
+      },
+      "position": {
+        "id": "derived-holding-from-confirmed-chain-transfer",
+        "market": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+          "createdAt": "2026-02-26T10:39:37.847Z",
+          "decimalPrecision": 3,
+          "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+          "feeRateBps": 200,
+          "id": 42,
+          "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.04,
+                "size": 50270.79999996875
+              },
+              "bestBid": {
+                "price": 0.039,
+                "size": 2601.199417273673
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "11",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.961,
+                "size": 2601.199417273673
+              },
+              "bestBid": {
+                "price": 0.96,
+                "size": 50270.79999996875
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "22",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+          ],
+          "question": "Will the US confirm that aliens exist before 2027?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-12-31T00:00:00.000Z",
+                "hourlyRate": 180,
+                "startsAt": "2026-04-28T14:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will the US confirm that aliens exist before 2027?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "outcome": {
+          "bestAsk": {
+            "price": 0.04,
+            "size": 50270.79999996875
+          },
+          "bestBid": {
+            "price": 0.039,
+            "size": 2601.199417273673
+          },
+          "indexSet": 1,
+          "name": "Yes",
+          "onChainId": "11",
+          "status": null,
+          "team": null,
+          "variantData": null
+        },
+        "amount": "31360000000000000000",
+        "valueUsd": "0",
+        "averageBuyPriceUsd": "0",
+        "pnlUsd": "0"
+      },
+      "nativeFeedback": [
+        {
+          "type": "StrategyOnStart",
+          "openOrders": 0,
+          "netPositions": [
+            "31.3600000000000000"
+          ],
+          "owners": [],
+          "cash": "47.01772920 USDT",
+          "locked": "0.00000000 USDT"
+        },
+        {
+          "type": "CustomSnapshot"
+        }
+      ],
+      "repeated": {
+        "massStatus": {
+          "type": "ExecutionMassStatus",
+          "client_id": "PREDICT",
+          "account_id": "PREDICT-fixture",
+          "venue": "PREDICT",
+          "report_id": "67b21e9d-4237-445b-831b-801b3e0406aa",
+          "ts_init": 1792168725247272000,
+          "lookback_start": 1792168665247272000,
+          "reports_complete": true,
+          "order_reports": {
+            "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d": {
+              "type": "OrderStatusReport",
+              "account_id": "PREDICT-fixture",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+              "venue_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+              "order_side": "BUY",
+              "order_type": "LIMIT",
+              "time_in_force": "GTD",
+              "order_status": "FILLED",
+              "quantity": "32.0000000000000000",
+              "filled_qty": "32.0000000000000000",
+              "report_id": "5641d822-844f-4dbc-bd27-3fc6fcf3f6c4",
+              "ts_accepted": 1792168605227434000,
+              "ts_last": 1792168725250421000,
+              "ts_init": 1792168725250421000,
+              "order_list_id": null,
+              "venue_position_id": null,
+              "linked_order_ids": null,
+              "parent_order_id": null,
+              "contingency_type": "NO_CONTINGENCY",
+              "expire_time": 4102444800000000000,
+              "price": "0.040",
+              "activation_price": null,
+              "trigger_price": null,
+              "trigger_type": "NO_TRIGGER",
+              "limit_offset": null,
+              "trailing_offset": null,
+              "trailing_offset_type": "NO_TRAILING_OFFSET",
+              "avg_px": null,
+              "display_qty": null,
+              "post_only": false,
+              "reduce_only": false,
+              "cancel_reason": null,
+              "ts_triggered": null
+            }
+          },
+          "fill_reports": {
+            "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d": [
+              {
+                "type": "FillReport",
+                "account_id": "PREDICT-fixture",
+                "instrument_id": "42-1.PREDICT",
+                "venue_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+                "trade_id": "PF-bc5f985baff5f4dc9e0e427e61ef12df",
+                "order_side": "BUY",
+                "last_qty": "32.0000000000000000",
+                "last_px": "0.040",
+                "commission": "0.02560000 USDT",
+                "liquidity_side": "TAKER",
+                "avg_px": null,
+                "report_id": "ca105be8-0de1-4ec3-b754-291a5de06ea2",
+                "ts_event": 1792168605227434000,
+                "ts_init": 1792168725250421000,
+                "client_order_id": "0xc5a2b9bb153b9f03acb1f718a95b2ba0c959e50c8a61ccf1dbc3316848532f7d",
+                "venue_position_id": null
+              }
+            ]
+          },
+          "position_reports": {
+            "42-1.PREDICT": [
+              {
+                "type": "PositionStatusReport",
+                "account_id": "PREDICT-fixture",
+                "instrument_id": "42-1.PREDICT",
+                "position_side": "LONG",
+                "quantity": "31.3600000000000000",
+                "signed_decimal_qty": "31.3600000000000000",
+                "report_id": "a600af37-9205-4ce6-806b-3dbf3bace383",
+                "ts_last": 1792168725250819000,
+                "ts_init": 1792168725250819000,
+                "venue_position_id": null,
+                "avg_px_open": null,
+                "avg_px_open_reconciliation": "MATCH",
+                "avg_px_open_precision": null
+              }
+            ]
+          }
+        },
+        "repeatedEvents": 0,
+        "orderCount": 2
+      },
+      "initialCacheOrders": 0,
+      "initialCachePositions": 0,
+      "initialCacheInstruments": 0,
+      "finalNetShares": "31.36",
+      "orderWrites": 0
+    }
+  ]
+}

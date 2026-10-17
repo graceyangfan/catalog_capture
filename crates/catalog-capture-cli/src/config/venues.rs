@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "venue-binance")]
@@ -252,9 +252,12 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             #[cfg(feature = "venue-okx")]
             {
                 let instrument_types = parse_okx_instrument_types(&venue.instrument_types)?;
-                let instrument_families = parse_okx_instrument_families(&venue.instrument_families)?;
+                let instrument_families =
+                    parse_okx_instrument_families(&venue.instrument_families)?;
                 if instrument_types.contains(&OKXInstrumentType::Option)
-                    && instrument_families.as_ref().is_none_or(std::vec::Vec::is_empty)
+                    && instrument_families
+                        .as_ref()
+                        .is_none_or(std::vec::Vec::is_empty)
                 {
                     bail!(
                         "okx venue requires non-empty instrument_families when instrument_types includes option"

@@ -19,7 +19,7 @@ use std::{fs, path::Path};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{metrics_export::unix_time_ms, CapturePlan};
+use crate::{CapturePlan, metrics_export::unix_time_ms};
 
 pub const CAPTURE_RUN_FILE: &str = "metadata/capture_run.json";
 pub const CAPTURE_RUN_SCHEMA_VERSION: u32 = 1;

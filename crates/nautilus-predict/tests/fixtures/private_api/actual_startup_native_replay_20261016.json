@@ -1,0 +1,16 @@
+{
+  "source": "offline Rust LiveNode startup replay derived from retained actual mainnet JSON; not a new live observation",
+  "realSource": "live_fill_20261016T123240Z_independent/calibration.json",
+  "identityTransform": "own account rebound; public market 10835 -> test 42; book receipt time rebound; historical economics and execution times unchanged",
+  "reconciliation": true,
+  "reconciliationLookbackMins": 1,
+  "historicalMatches": 6,
+  "historicalOrdersImported": 0,
+  "snapshots": 1,
+  "accountReportsObserved": 1,
+  "nativeCash": "48.21630840",
+  "nativeOrders": 0,
+  "nativePositions": 0,
+  "submitted": 0,
+  "networkScope": "loopback only"
+}

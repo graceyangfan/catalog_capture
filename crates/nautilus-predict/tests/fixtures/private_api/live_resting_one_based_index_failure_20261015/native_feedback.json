@@ -1,0 +1,72 @@
+[
+  {
+    "type": "AccountStateApplied",
+    "eventId": "9c9f6774-c420-4de7-ab25-b2c6794b9a53",
+    "tsEvent": 1792045278088949000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "48.37915000",
+        "locked": "0.00000000"
+      }
+    ]
+  },
+  {
+    "type": "SubmissionDecision",
+    "marketId": 190414,
+    "bookTsEvent": 1791879306971000000,
+    "observedNs": 1792045278229426000,
+    "bestBid": "0.82",
+    "bestAsk": "0.99",
+    "restConfirmed": true,
+    "price": "0.01",
+    "quantity": "100.00000",
+    "cost": "1.0000000"
+  },
+  {
+    "type": "Initialized",
+    "clientOrderId": "O-20261015-062118-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792045278229472000,
+    "cachedOrder": {
+      "status": "INITIALIZED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC"
+    }
+  },
+  {
+    "type": "Submitted",
+    "clientOrderId": "O-20261015-062118-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792045278230251000,
+    "cachedOrder": {
+      "status": "SUBMITTED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC"
+    }
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "e88f598b-4b63-4b83-abfa-f074735cd624",
+    "tsEvent": 1792045281102429000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "CancelDeferredUnresolvedSubmission",
+    "clientOrderId": "O-20261015-062118-001-001-1"
+  }
+]

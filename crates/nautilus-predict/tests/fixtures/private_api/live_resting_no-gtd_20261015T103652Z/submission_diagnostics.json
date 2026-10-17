@@ -1,0 +1,7 @@
+{
+  "source": "allowlisted sanitized adapter diagnostics",
+  "lines": [
+    "2026-10-15T10:35:21.108011000Z [INFO] PREDICT-CALIBRATION-001.nautilus_predict::execution::submitter: Predict transmitting LIMIT order: client_order_id=O-20261015-103518-001-001-1 order_hash=0xe231c352622ec95d035dd37e4fe374f0bf755b1d6d1b53a6e80a86742d828b33",
+    "2026-10-15T10:35:27.012105000Z [INFO] PREDICT-CALIBRATION-001.nautilus_predict::execution::submitter: Predict transmitting LIMIT order: client_order_id=O-20261015-103524-001-001-2 order_hash=0x6abc4430992ffeb3e3d2b8bf2140806677aa50511005290a0cf791f0331f5213"
+  ]
+}

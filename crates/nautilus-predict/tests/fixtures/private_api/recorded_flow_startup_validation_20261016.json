@@ -1,0 +1,295 @@
+{
+  "source": "recorded-evidence adapter/SDK comparison, derived offline Strategy+LiveNode replay, plus separately authorized real read-only startup; no new real orders",
+  "nativeHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "officialDevelopCompiled": false,
+  "officialDevelopFetchedPreviously": "b4a115e976073681de8b165e1357d8d856d16715",
+  "sdk": "predict-sdk 0.0.22",
+  "readonlyLive": {
+    "nativeStartupReconciliation": true,
+    "fillLookbackMins": 1,
+    "coldStartScope": "flat account; no unknown in-window fills or active orders",
+    "cashUsdt": "48.21630840",
+    "cashWei": "48216308400000000001",
+    "lockedUsdt": "0.00000000",
+    "openOrders": 0,
+    "positions": 0,
+    "independentHistoryChainVerified": 6,
+    "cashUnchanged": true,
+    "submissionSignerInstalled": false,
+    "newRealOrders": 0,
+    "chainWrites": 0
+  },
+  "offlineActualEconomics": {
+    "buyGross": "32",
+    "sharesFee": "0.64",
+    "netShares": "31.36",
+    "sellGrossCash": "1.22304",
+    "collateralFee": "0.0244608",
+    "cyclePnlUsdt": "-0.08142080",
+    "finalCashUsdt": "48.21630840",
+    "duplicateWalletNotifications": true,
+    "primaryFills": 2,
+    "nativeQuantityAdjustmentFills": 1,
+    "positionOpenedChangedClosedCallbacks": [
+      1,
+      1,
+      1
+    ],
+    "marketFlags": {
+      "isNegRisk": false,
+      "isYieldBearing": true
+    },
+    "orderAmountsHashesSignaturesMatchSdk": 3
+  },
+  "startupBoundaries": [
+    "current orders and positions are complete, not window-filtered",
+    "known orders retain full older fill prefix; test fill2ms/window3ms",
+    "unknown old account-owned matches may be omitted only outside explicit fill window",
+    "unknown active orders or in-window fills still fail; external cold-start adoption not implemented",
+    "unbounded None remains strict; product default was not narrowed",
+    "no additional recovery timer/service or position ledger"
+  ],
+  "validation": {
+    "rustOfflinePassed": 285,
+    "rustDefaultIgnored": 58,
+    "pythonPassed": 84,
+    "newPrimaryEvidencePythonTests": 4,
+    "v2OfflineCaptureTestsPassed": 2,
+    "authorizedReadonlyMainnetTestPassed": 1,
+    "adapterAllTargetClippyWarningsDenied": "passed",
+    "minimalExecutionAllTargetBuild": "passed",
+    "productSlimExecutionBuild": "passed with 14 unrelated unused/dead-code warnings",
+    "formatAndWhitespace": "passed",
+    "counterfactual": "failed as expected without window scoping; source restored byte-for-byte before final tests"
+  },
+  "priorPrimaryFilesVerifiedUnchanged": 18,
+  "priorEvidenceManifestSha256": "a39bf60ee3a7bd80b75f1122f656fb1aaf8c61a9152a349627d4191cf2d01f0e",
+  "files": [
+    {
+      "grade": "primary actual mainnet read-only",
+      "path": "native_startup_readonly_20261016T130830Z_31130.json",
+      "sha256": "9b8bf3a65fa1eab656c20f502d9794221d24c5a450c57bd8b050034c908d5d4a"
+    },
+    {
+      "grade": "primary independent SDK REST wallet chain read-only",
+      "path": "startup_readonly_20261016_v1/calibration.json",
+      "sha256": "0b14ddd75f83d06871a2fc71751dc41351379984fa6ee19046ed725c92b4577e"
+    },
+    {
+      "grade": "primary prior live fill source",
+      "path": "live_fill_20261016T123240Z_independent/calibration.json",
+      "sha256": "eb6e342a831c183ec7d0b8d0b9c172212053857d9b7908c500b509bdc0dc18b5"
+    },
+    {
+      "grade": "primary prior live HTTP receipts",
+      "path": "live_fill_20261016T123240Z/http_responses.json",
+      "sha256": "0ae3f8ee0c992006fbd81740073b6742db21bfb3b73c73b3c17e55cd89950460"
+    },
+    {
+      "grade": "primary prior real orderbook",
+      "path": "live_fill_20261016T123240Z/admission.json",
+      "sha256": "469e6572ae817d2c892e76e0811714dfd59f07b0f7558a97061e55df7fb4f8d4"
+    },
+    {
+      "grade": "derived actual economics; loopback only",
+      "path": "actual_startup_native_replay_20261016_v2.json",
+      "sha256": "7ce9c210231bfdf27028ec966f493db35ffb063cb5b337ea8f043de1b5308a55"
+    },
+    {
+      "grade": "derived actual economics; loopback only",
+      "path": "actual_trade_flow_native_replay_20261016_v2.json",
+      "sha256": "c22507e2bf9c7c8a1b3f92600da3ebc9e7068cc73f17737ebede1ef451c6276c"
+    },
+    {
+      "grade": "superseded derived v1; incorrect unchanged-clock description",
+      "path": "actual_startup_native_replay_20261016.json",
+      "sha256": "3946083f991776abb4432d70392851356ed20f4b3bbe80c1cdb5dc5d928b66f1"
+    },
+    {
+      "grade": "superseded derived v1; uses non-yield loopback domain",
+      "path": "actual_trade_flow_native_replay_20261016.json",
+      "sha256": "d77d1798a8c394e51ce7c2fa27ef0a03f11f356c407fb7486b322b4f76978d9d"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "crates/nautilus-predict/src/execution/mod.rs",
+      "sha256": "72a155d46b2237e41e3c70755bf0bf3f95eb0c1a328f6302a3a3f52690c9b71c"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/reconciliation.rs",
+      "sha256": "c80119ee85cdfc21fd9bc2f04b5627d7ced6ee8c00c5269fa7f6287710984286"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/matches.rs",
+      "sha256": "ba58c7726a4df72eae5885d9747b8526d832074e90a74fd9cc62afce95f4ca41"
+    },
+    {
+      "path": "crates/catalog-capture-cli/src/predict_node.rs",
+      "sha256": "084c3cfdfdcfdc34400b9c192663224e0684559c012b8872588053e28ba64327"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/recorded_startup.rs",
+      "sha256": "3d69c94effcbc2f3938c05a70403578fb3ccf785d0192c0043a63469d345151d"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/bulk_reports.rs",
+      "sha256": "f09541b5880eccf98ae837bff009de50102b75fa15bd9b9351ee4d54005e644a"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/node_host.rs",
+      "sha256": "17e982431fe5ad7ebed0b80c22e5a167e85e8e51c16a913bf57f0c6bdfc01fe4"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/submissions.rs",
+      "sha256": "1dd6070b0a232d353496d146a96fa93a7a15f711ba747de66706e4f057e8b5fb"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution.rs",
+      "sha256": "ac49e3eedee0367cfc60f681dc6bd55f95e8b281e4a927cc334e9dcbf830173f"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/private_api_live.rs",
+      "sha256": "efc5f9cccf7276a1dbfd1dace67d131b928df943a4c6a99c57b2aaa90fddcb20"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/exit_strategy.rs",
+      "sha256": "a2b4ac889b8e61a3a751476027b44bc6d2bb3c902c8d898bdfa1bad91b85dac5"
+    },
+    {
+      "path": "tests/test_predict_recorded_evidence.py",
+      "sha256": "1e58aee500f5177b7aacb42746aecc69be31b14d576c118d168ebcfb47dddf89"
+    },
+    {
+      "path": "tests/test_predict_exit_protocol.py",
+      "sha256": "29774ff698fd4ed6f4f570e0e009dfc9c18e7ba29cf4178927cfaeeb0d68ca55"
+    },
+    {
+      "path": "examples/predict-node.toml.example",
+      "sha256": "7488ff6039c4e4dfb7c71632c00840d3c9b60f346d672c294cd768ab35e56a7e"
+    }
+  ],
+  "intermediateLogsRemoved": [
+    {
+      "path": ".predict-recorded-flow-all-tests.log",
+      "sha256": "a873dc7517cb6c99b2225e80b11415f82ff6ff0b529114816b3ae1c2cfaace69",
+      "bytes": 2927628
+    },
+    {
+      "path": ".predict-recorded-flow-bulk.log",
+      "sha256": "50eebb7925a42fe8e191b6cc44e5481c22b970f35e75f64636698d940b697599",
+      "bytes": 1179
+    },
+    {
+      "path": ".predict-recorded-flow-capture-v2.log",
+      "sha256": "f0d1842631e326c56be2ef17a001efcbd4eaa022a405d552909f7e2b8e2b8d7e",
+      "bytes": 52819
+    },
+    {
+      "path": ".predict-recorded-flow-capture.log",
+      "sha256": "58e61d917d8948965ac10df044349eac3e5d787fe85af88257043ef94c75738b",
+      "bytes": 53336
+    },
+    {
+      "path": ".predict-recorded-flow-clippy-verified.log",
+      "sha256": "89c6d907e2cf5aa6ab895e656594d3af783199176ae22cfcb81e9b076204b045",
+      "bytes": 418
+    },
+    {
+      "path": ".predict-recorded-flow-clippy.log",
+      "sha256": "42abfed389d4c4695acb1dde7ecf139fac7bddb79243fcfb536f210c62b215d8",
+      "bytes": 914
+    },
+    {
+      "path": ".predict-recorded-flow-counterfactual.log",
+      "sha256": "273c33d0a1f3efe48b3539fc46d8373e38126fd0584aa81dbe2ecf1e17952564",
+      "bytes": 1659
+    },
+    {
+      "path": ".predict-recorded-flow-feature-check.log",
+      "sha256": "b9906fab2ad771a7c5984f06d15bfb95a0d2f8b6f6276f06036dd421a4c5ed8b",
+      "bytes": 662
+    },
+    {
+      "path": ".predict-recorded-flow-final-bulk.log",
+      "sha256": "f0e584a9ad3545b467fbede39e74c14e4690b79b200271f2c9406fd02dcc320a",
+      "bytes": 1250
+    },
+    {
+      "path": ".predict-recorded-flow-final-clippy.log",
+      "sha256": "5e3f1f01f66d02c909a031ffc993067e82cc3b67452b49b02ff6073a6787fb69",
+      "bytes": 1006
+    },
+    {
+      "path": ".predict-recorded-flow-final-tests.log",
+      "sha256": "e6a0cc0c78ef5ecb537c2c99b5150c1e3dcd6296efc167e2a88660945a803b7d",
+      "bytes": 2869633
+    },
+    {
+      "path": ".predict-recorded-flow-format.log",
+      "sha256": "dc2223de4873b785f9686f9f7c0c6c9c3ea2305734d6fc639a0e55f6f474eab9",
+      "bytes": 2409
+    },
+    {
+      "path": ".predict-recorded-flow-host-check.log",
+      "sha256": "8bedf83b9e3d61f613fa8663e3a7383ba58d695c28e81997c4b72f58c1f6c9d7",
+      "bytes": 4276
+    },
+    {
+      "path": ".predict-recorded-flow-mainnet-readonly.log",
+      "sha256": "2ad2479443abc59bb356f081c794fdf8bc6736828a34f59f4ce5753806ccfa7e",
+      "bytes": 19978
+    },
+    {
+      "path": ".predict-recorded-flow-python-all.log",
+      "sha256": "c8c2e5ecff92e4bef5d05a3a24338e7886dc2e8b9402a54ac39f3baed49818ef",
+      "bytes": 183
+    },
+    {
+      "path": ".predict-recorded-flow-replay-v2.log",
+      "sha256": "b5141bab456d8017b84050f7d781a9670989b3ab338747b55b79c698f572e81c",
+      "bytes": 56481
+    },
+    {
+      "path": ".predict-recorded-flow-replay.log",
+      "sha256": "c60e91052860a9095b83dbb8aaf1423edf251d2383f9d07f02dd1d1a03b679d7",
+      "bytes": 56045
+    },
+    {
+      "path": ".predict-recorded-flow-ruff.log",
+      "sha256": "6402afb96d3fea2cc34e6744987271e3ba8adcea7757949723ec6ebae37ef363",
+      "bytes": 964
+    },
+    {
+      "path": ".predict-recorded-flow-sdk-readonly.log",
+      "sha256": "c6b96b62e2fef494ff758a0c0a318bdd18b2a46bc6b0f2b505701376a41dc6cd",
+      "bytes": 302
+    },
+    {
+      "path": ".predict-recorded-flow-sdk-tests.log",
+      "sha256": "b2300d1aafe0595c9c54a615ef485e8d42fbb732d33a076b213da446a6aafe8f",
+      "bytes": 102
+    },
+    {
+      "path": ".predict-recorded-flow-startup.log",
+      "sha256": "a5775395c13f231775ff23b83441296d809d27b0c8e5625d668ccddff869f8ef",
+      "bytes": 19687
+    },
+    {
+      "path": ".predict-recorded-flow-verified-python.log",
+      "sha256": "a81fb2254efd7fb1a5c7a538246e3b42472959536e16338cf90790a2fb668274",
+      "bytes": 183
+    },
+    {
+      "path": ".predict-recorded-flow-verified-tests.log",
+      "sha256": "eb5ee814de2db91a567b35eb711ec8a8aaf7ad34936782e657d384fda140ef83",
+      "bytes": 2926533
+    }
+  ],
+  "nautilusDependencyModified": false,
+  "productionRecordingDiscoveryRotationModified": false,
+  "redisUsed": false,
+  "futureRealOrdersRequireFreshUserApproval": true,
+  "futureExitPreference": "wait maker TP without old forced-timeout liquidation; policy not implemented for live yet; strategy taker loss stop remains separate",
+  "oldForcedTimeoutLiveHarnessChanged": false
+}

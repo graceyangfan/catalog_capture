@@ -14,12 +14,12 @@
 
 #[cfg(feature = "venue-hyperliquid")]
 use anyhow::Context;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
+use catalog_capture_core::{Hip4UniverseSpec, ResolvedHip4Universe};
 #[cfg(feature = "venue-hyperliquid")]
 use catalog_capture_core::{
-    build_resolved_hip4_universe, resolve_hip4_market, ResolveHip4MarketOptions,
+    ResolveHip4MarketOptions, build_resolved_hip4_universe, resolve_hip4_market,
 };
-use catalog_capture_core::{Hip4UniverseSpec, ResolvedHip4Universe};
 #[cfg(feature = "venue-hyperliquid")]
 use nautilus_hyperliquid::http::client::HyperliquidRawHttpClient;
 

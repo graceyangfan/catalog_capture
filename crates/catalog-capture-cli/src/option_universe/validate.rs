@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use catalog_capture_core::OptionUniverseSpec;
 #[cfg(any(
     feature = "venue-deribit",
@@ -140,7 +140,6 @@ fn validate_option_universe(
             "capture.option_universe currently only supports [[venues]] entries with kind = \"deribit\", \"bybit\", or \"okx\""
         ),
     }
-
 }
 
 #[cfg(any(
@@ -188,7 +187,9 @@ fn validate_option_universe_families(spec: &OptionUniverseSpec) -> Result<()> {
         .iter()
         .any(|family| matches!(family, OptionUniverseFamily::Instruments));
     if wants_book_deltas && !has_instruments {
-        bail!("capture.option_universe families book_deltas require instruments in the same families list");
+        bail!(
+            "capture.option_universe families book_deltas require instruments in the same families list"
+        );
     }
 
     Ok(())

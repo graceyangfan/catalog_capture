@@ -115,31 +115,39 @@ pub struct ResolvedOptionUniverse {
 
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum OptionUniverseResolveError {
-    #[error(
-        "no matching option instruments found for venue_id={venue_id} underlying={underlying}"
-    )]
+    #[error("no matching option instruments found for venue_id={venue_id} underlying={underlying}")]
     NoMatchingOptions {
         venue_id: String,
         underlying: String,
     },
-    #[error("no expiry matched the configured expiry policy for venue_id={venue_id} underlying={underlying}")]
+    #[error(
+        "no expiry matched the configured expiry policy for venue_id={venue_id} underlying={underlying}"
+    )]
     NoMatchingExpiry {
         venue_id: String,
         underlying: String,
     },
-    #[error("no call/put pairs remained after strike filtering for venue_id={venue_id} underlying={underlying}")]
+    #[error(
+        "no call/put pairs remained after strike filtering for venue_id={venue_id} underlying={underlying}"
+    )]
     NoStrikePairs {
         venue_id: String,
         underlying: String,
     },
-    #[error("include_perp=true requires a resolved perpetual instrument for venue_id={venue_id} underlying={underlying}")]
+    #[error(
+        "include_perp=true requires a resolved perpetual instrument for venue_id={venue_id} underlying={underlying}"
+    )]
     MissingPerpetual {
         venue_id: String,
         underlying: String,
     },
-    #[error("capture.option_universe venue_id={venue_id} requires settlement_currency to derive the hedge instrument")]
+    #[error(
+        "capture.option_universe venue_id={venue_id} requires settlement_currency to derive the hedge instrument"
+    )]
     MissingSettlementCurrency { venue_id: String },
-    #[error("no option instrument matched the configured expiry policy for venue_id={venue_id} underlying={underlying}")]
+    #[error(
+        "no option instrument matched the configured expiry policy for venue_id={venue_id} underlying={underlying}"
+    )]
     NoReferenceInstrument {
         venue_id: String,
         underlying: String,

@@ -16,8 +16,8 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Result};
 use catalog_capture_core::{
-    metrics_export::{render_json, render_prometheus},
     CaptureMetricsSnapshot,
+    metrics_export::{render_json, render_prometheus},
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -122,7 +122,7 @@ async fn serve_connection(
 mod tests {
     use std::sync::{Arc, RwLock};
 
-    use catalog_capture_core::{metrics::CaptureMetrics, CaptureMetricsSnapshot};
+    use catalog_capture_core::{CaptureMetricsSnapshot, metrics::CaptureMetrics};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 

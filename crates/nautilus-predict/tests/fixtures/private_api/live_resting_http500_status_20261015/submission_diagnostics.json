@@ -1,0 +1,7 @@
+{
+  "source": "allowlisted sanitized adapter diagnostics",
+  "lines": [
+    "2026-10-15T06:10:15.535835000Z [INFO] PREDICT-CALIBRATION-001.nautilus_predict::execution::submitter: Predict transmitting LIMIT order: client_order_id=O-20261015-061011-001-001-1 order_hash=0xa5a3a554119bfbb2b85d085744eed5d12f0b18704f27fdeb5e6218c881100621",
+    "2026-10-15T06:10:15.730162000Z [WARN] PREDICT-CALIBRATION-001.nautilus_predict::execution::orders: Predict submission outcome is unresolved; client_order_id=O-20261015-061011-001-001-1 reason=HTTP 500 at /v1/orders; do not resubmit"
+  ]
+}

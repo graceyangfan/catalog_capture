@@ -1,0 +1,28 @@
+{
+  "source": "derived checks of actual Native report subscriptions, strategy callbacks, independent wallet and REST",
+  "coldCacheOrdersBeforeRun": 0,
+  "restoredActiveOrders": 2,
+  "nativeBatchCommands": 1,
+  "cancelOrdering": [
+    {
+      "hash": "0x4b4bc205cade94fb27c818dd61285bf9d5219d0259099343fd0310f4461fc8c3",
+      "callbackIndex": 56,
+      "walletReportIndices": [
+        61
+      ],
+      "duplicateCanceledCallbacks": 0,
+      "first": "native-callback-before-wallet-report"
+    },
+    {
+      "hash": "0x9bf08d276fae9370c870dc24f796d06b503f1a82e4ac606a66d8ab614eebeefc",
+      "callbackIndex": 58,
+      "walletReportIndices": [
+        62
+      ],
+      "duplicateCanceledCallbacks": 0,
+      "first": "native-callback-before-wallet-report"
+    }
+  ],
+  "finalLocked": "0",
+  "newFills": 0
+}

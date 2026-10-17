@@ -73,3 +73,6 @@ impl DataClientFactory for PredictDataClientFactory {
         "PredictDataClientConfig"
     }
 }
+
+#[cfg(feature = "execution")]
+pub use crate::execution::factory::PredictExecutionClientFactory;

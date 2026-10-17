@@ -19,6 +19,8 @@ mod hip4;
 mod metrics_server;
 mod option_universe;
 mod order_book;
+#[cfg(feature = "predict-execution")]
+mod predict_node;
 mod runner;
 mod universe_materialize;
 
@@ -30,16 +32,19 @@ use catalog_capture_core::{
     OptionUniverseReadbackReport, OptionUniverseResolutionValidationReport,
 };
 use clap::{Parser, Subcommand, ValueEnum};
-use config::{load_config, render_effective_config, resolve_config, EffectiveConfig};
+use config::{EffectiveConfig, load_config, render_effective_config, resolve_config};
 use hip4::{
-    render_hip4_universe_reports_json, render_hip4_universe_reports_text,
-    Hip4UniverseResolutionReport,
+    Hip4UniverseResolutionReport, render_hip4_universe_reports_json,
+    render_hip4_universe_reports_text,
 };
 use nautilus_common::logging::ensure_logging_initialized;
 use option_universe::{
-    load_option_universe_summaries, merge_validation_options, readback_options_for_config,
-    readback_options_from_cli, render_option_universe_catalog_validation_json,
-    render_option_universe_catalog_validation_text,
+    OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
+    OptionUniverseCatalogValidationReport, OptionUniverseOutputFormat,
+    OptionUniverseResolutionReport, OptionUniverseValidationSuiteOptions, PostRunReportOptions,
+    StrikeModeArg, load_option_universe_summaries, merge_validation_options,
+    readback_options_for_config, readback_options_from_cli,
+    render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
     render_option_universe_metadata_validation_json,
     render_option_universe_metadata_validation_text, render_option_universe_readback_json,
     render_option_universe_readback_text, render_option_universe_reports_json,
@@ -48,12 +53,8 @@ use option_universe::{
     run_option_universe_readback_validation, run_option_universe_validation_suite,
     validate_option_universe_catalog, validate_option_universe_metadata,
     validation_options_for_preset, validation_options_from_cli,
-    OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
-    OptionUniverseCatalogValidationReport, OptionUniverseOutputFormat,
-    OptionUniverseResolutionReport, OptionUniverseValidationSuiteOptions, PostRunReportOptions,
-    StrikeModeArg,
 };
-use order_book::{validate_order_books, OrderBookValidationFormat};
+use order_book::{OrderBookValidationFormat, validate_order_books};
 use runner::{
     materialize_full_capture_plan, run_capture, run_capture_with_plan_and_reports, validate_runtime,
 };
@@ -124,6 +125,12 @@ impl From<OptionUniverseCatalogValidationPresetArg> for OptionUniverseCatalogVal
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Run an independent Predict Rust LiveNode (read-only unless submission is configured).
+    #[cfg(feature = "predict-execution")]
+    PredictNode {
+        #[arg(long)]
+        config: PathBuf,
+    },
     Run {
         #[arg(long)]
         config: PathBuf,
@@ -315,10 +322,26 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
+    #[cfg(not(feature = "predict-execution"))]
     ensure_logging_initialized();
     let cli = Cli::parse();
+    // This host supplies Native logging through LiveNodeConfig. Capture retains lazy logging.
+    #[cfg(feature = "predict-execution")]
+    if !matches!(&cli.command, Command::PredictNode { .. }) {
+        ensure_logging_initialized();
+    }
 
     match cli.command {
+        #[cfg(feature = "predict-execution")]
+        Command::PredictNode { config } => {
+            let profile = predict_node::NodeProfile::load(&config)?;
+            let api_key = credentials::predict_api_key("PREDICT")?;
+            let signer = predict_node::load_signer(
+                &profile.predict.privy_credentials_file,
+                profile.predict.environment(),
+            )?;
+            predict_node::run(profile, api_key.into(), signer).await?;
+        }
         Command::Run {
             config,
             print_option_universe,

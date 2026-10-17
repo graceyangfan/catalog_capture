@@ -1,0 +1,1601 @@
+{
+  "source": "official mainnet HTTP via test-only loopback relay; requests/responses forwarded unchanged, no POST retries",
+  "events": [
+    {
+      "observedAtUtc": "2026-10-16T12:22:40.305393+00:00",
+      "method": "GET",
+      "path": "/v1/auth/message",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:40.622044+00:00",
+      "method": "POST",
+      "path": "/v1/auth",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:40.952062+00:00",
+      "method": "GET",
+      "path": "/v1/markets/10835",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:43.951728+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:44.923094+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:45.287398+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:47.266861+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:47.595151+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:48.366444+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:48.688383+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:46.764715+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:49.510427+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:49.466066+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:49.875161+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:50.587498+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:50.666776+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:50.972708+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:51.072747+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:51.867460+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:52.065726+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:52.253406+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:52.413208+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:52.967093+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:53.562964+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:53.678722+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:54.057102+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:54.065102+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:54.467956+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:55.165427+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:55.174495+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:55.527717+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:55.562412+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:56.165437+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:56.549827+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:56.648434+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:57.039951+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:57.365901+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:57.835014+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:58.095807+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:58.467228+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:58.515461+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:58.869870+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:59.666625+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:22:59.863402+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:00.019018+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:00.335795+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:00.865074+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:01.278089+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:01.544799+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:01.965388+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:01.934829+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:02.394424+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:03.099777+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:03.166077+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:03.496512+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:03.524300+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:04.366407+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:04.622947+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:04.750689+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:05.035628+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:05.564382+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:05.970491+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:06.076093+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:06.442453+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:06.665064+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:07.080746+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:07.587347+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:07.866037+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:07.969563+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:08.332395+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:08.964989+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:09.383699+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:09.387726+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:09.766761+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:10.066188+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:10.541657+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:10.896010+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:11.278263+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:11.266529+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:11.796451+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:12.365722+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:12.496912+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:12.948132+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:12.928231+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:13.564556+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:13.911784+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:13.971164+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:14.574486+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:14.665427+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:15.063322+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:15.736740+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:15.764313+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:16.117112+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:16.226536+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:16.864951+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:17.143301+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:17.317717+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:17.498564+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:18.064278+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:18.414710+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:18.590958+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:18.940925+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:19.164605+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:19.540030+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:20.364372+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:21.208685+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:21.363687+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:21.768465+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:22.064358+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:22.446226+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:22.885765+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:23.163982+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:23.274800+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:23.535620+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:24.265266+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:24.437874+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:24.665381+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:24.828519+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:25.464842+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:25.820862+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:25.917181+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:26.278630+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:26.564624+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:26.920253+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:27.664285+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:27.717685+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:28.096002+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:28.065926+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:28.863610+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:29.232796+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:29.276104+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:29.964733+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:29.582197+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:30.343311+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:31.063764+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:31.226284+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:31.521736+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:31.584968+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:32.264029+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:32.652995+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:32.668234+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:33.010779+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:33.264166+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:33.802756+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:34.164547+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:34.363950+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:34.524991+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:34.776840+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:35.564283+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:35.599328+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:35.977930+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:35.999704+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:36.764670+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:37.153559+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:37.172828+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:37.517162+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:37.963969+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:38.331565+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:38.815702+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:39.063247+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:39.281770+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:39.416583+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:40.164990+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:40.348950+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:40.599528+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:40.708622+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:41.264863+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:41.608495+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:41.792484+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:42.171213+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:42.464597+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:42.844983+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:43.299003+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:43.563888+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:43.650010+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:43.939963+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:44.284552+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:44.690863+00:00",
+      "method": "GET",
+      "path": "/v1/markets/10835",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:44.664199+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:44.700442+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:45.040299+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:45.097734+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:45.041739+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:45.763511+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:46.138552+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:46.291506+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:46.676929+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:47.107227+00:00",
+      "method": "POST",
+      "path": "/v1/orders",
+      "status": 201,
+      "requestTerms": {
+        "salt": "254185252",
+        "nonce": "0",
+        "expiration": 4102444800,
+        "feeRateBps": "200",
+        "makerAmount": "1280000000000000000",
+        "takerAmount": "32000000000000000000",
+        "hash": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec"
+      },
+      "responseBody": {
+        "data": {
+          "code": "OK",
+          "orderHash": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec",
+          "orderId": "5570524637",
+          "removalLockedUntil": null
+        },
+        "success": true
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:46.863329+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:47.239629+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:47.863951+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:47.843458+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:48.220235+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:48.226172+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:48.963228+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:49.299701+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:49.304963+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:49.691753+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:50.062317+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:50.475139+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:50.714063+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:50.844479+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:51.114019+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:51.236444+00:00",
+      "method": "GET",
+      "path": "/v1/orders/matches",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:51.662340+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:52.026094+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:52.510625+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:52.664149+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:52.783069+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:52.898315+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:53.029278+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:53.204879+00:00",
+      "method": "GET",
+      "path": "/v1/markets/10835",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:53.563918+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:53.764111+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:54.022678+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:54.134969+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:54.427673+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:54.964511+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:55.368306+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:55.402805+00:00",
+      "method": "GET",
+      "path": "/v1/markets/10835/orderbook",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:55.822095+00:00",
+      "method": "POST",
+      "path": "/v1/orders",
+      "status": 201,
+      "requestTerms": {
+        "salt": "565792027",
+        "nonce": "0",
+        "expiration": 1792153732,
+        "feeRateBps": "200",
+        "makerAmount": "31360000000000000000",
+        "takerAmount": "1210809600000000000",
+        "hash": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3"
+      },
+      "responseBody": {
+        "data": {
+          "code": "OK",
+          "orderHash": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+          "orderId": "5570532556",
+          "removalLockedUntil": null
+        },
+        "success": true
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:55.628909+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:56.010514+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:56.164525+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:56.595280+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:57.363393+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:57.864068+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:57.755237+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:58.234992+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:58.463602+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:58.611609+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:58.815946+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:58.973245+00:00",
+      "method": "GET",
+      "path": "/v1/orders/matches",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:59.421930+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:23:59.662125+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:00.035135+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:00.663820+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:01.089214+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:01.763394+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:02.116412+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:02.862933+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:03.225551+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:03.963368+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:04.437928+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:05.063042+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:05.436382+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:06.163713+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:06.561458+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:07.264505+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:07.683925+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:08.463424+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:08.883079+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:09.563412+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:09.949208+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:10.563446+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:10.954806+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:11.663698+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:12.040715+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:12.863337+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-16T12:24:13.295865+00:00",
+      "method": "GET",
+      "path": "/v1/positions",
+      "status": 200
+    }
+  ]
+}

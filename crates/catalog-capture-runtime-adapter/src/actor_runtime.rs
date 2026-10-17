@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use catalog_capture_core::{
     background::BackgroundCaptureRuntime,
     capture_config_for_family,

@@ -1,0 +1,628 @@
+{
+  "source": "synthetic loopback actual product Rust host + Native LiveNode; not mainnet",
+  "writesEnabledInFixture": true,
+  "nativeRiskBypassed": false,
+  "discoveredMarket": 42,
+  "marketDefinition": {
+    "success": true,
+    "data": {
+      "id": 42,
+      "title": "Bitcoin Up or Down - October 16, 6:50AM-6:55AM ET",
+      "tradingStatus": "OPEN",
+      "status": "OPEN",
+      "createdAt": "2026-10-03T22:00:00.000Z",
+      "decimalPrecision": 3,
+      "variantData": {
+        "type": "CRYPTO_UP_DOWN",
+        "priceFeedSymbol": "BTCUSDT"
+      },
+      "outcomes": [
+        {
+          "name": "Up",
+          "indexSet": 1,
+          "onChainId": "11",
+          "status": "WON"
+        },
+        {
+          "name": "Down",
+          "indexSet": 2,
+          "onChainId": "22",
+          "status": "LOST"
+        }
+      ],
+      "feeRateBps": 0,
+      "isNegRisk": false,
+      "isYieldBearing": false
+    }
+  },
+  "trace": [
+    {
+      "kind": "category",
+      "slug": "btc-updown-5m-1792147800"
+    },
+    {
+      "kind": "category",
+      "slug": "btc-updown-5m-1792148100"
+    },
+    {
+      "kind": "challenge",
+      "body": {
+        "success": true,
+        "data": {
+          "message": "offline Predict node authentication challenge"
+        }
+      }
+    },
+    {
+      "kind": "authenticate",
+      "request": {
+        "signer": "0x1111111111111111111111111111111111111111",
+        "message": "offline Predict node authentication challenge",
+        "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57f4fc5ccc8b20db917eb3015a57fdb4c0658c074d89edd4eca6709f4d624749c80eeded39868060b22fe0f47c0587e888a252745f6d0b5c869b73f455119de44a1c"
+      }
+    },
+    {
+      "kind": "market",
+      "body": {
+        "success": true,
+        "data": {
+          "id": 42,
+          "title": "Bitcoin Up or Down - October 16, 6:50AM-6:55AM ET",
+          "tradingStatus": "OPEN",
+          "status": "OPEN",
+          "createdAt": "2026-10-03T22:00:00.000Z",
+          "decimalPrecision": 3,
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "outcomes": [
+            {
+              "name": "Up",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": "WON"
+            },
+            {
+              "name": "Down",
+              "indexSet": 2,
+              "onChainId": "22",
+              "status": "LOST"
+            }
+          ],
+          "feeRateBps": 0,
+          "isNegRisk": false,
+          "isYieldBearing": false
+        }
+      }
+    },
+    {
+      "kind": "market",
+      "body": {
+        "success": true,
+        "data": {
+          "id": 42,
+          "title": "Bitcoin Up or Down - October 16, 6:50AM-6:55AM ET",
+          "tradingStatus": "OPEN",
+          "status": "OPEN",
+          "createdAt": "2026-10-03T22:00:00.000Z",
+          "decimalPrecision": 3,
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "outcomes": [
+            {
+              "name": "Up",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": "WON"
+            },
+            {
+              "name": "Down",
+              "indexSet": 2,
+              "onChainId": "22",
+              "status": "LOST"
+            }
+          ],
+          "feeRateBps": 0,
+          "isNegRisk": false,
+          "isYieldBearing": false
+        }
+      }
+    },
+    {
+      "kind": "market",
+      "body": {
+        "success": true,
+        "data": {
+          "id": 42,
+          "title": "Bitcoin Up or Down - October 16, 6:50AM-6:55AM ET",
+          "tradingStatus": "OPEN",
+          "status": "OPEN",
+          "createdAt": "2026-10-03T22:00:00.000Z",
+          "decimalPrecision": 3,
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "outcomes": [
+            {
+              "name": "Up",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": "WON"
+            },
+            {
+              "name": "Down",
+              "indexSet": 2,
+              "onChainId": "22",
+              "status": "LOST"
+            }
+          ],
+          "feeRateBps": 0,
+          "isNegRisk": false,
+          "isYieldBearing": false
+        }
+      }
+    }
+  ],
+  "books": [
+    {
+      "type": "M",
+      "topic": "predictOrderbook/42",
+      "data": {
+        "marketId": 42,
+        "updateTimestampMs": 1792147922772,
+        "orderCount": 2,
+        "bids": [
+          [
+            "0.630",
+            "1000"
+          ]
+        ],
+        "asks": [
+          [
+            "0.640",
+            "1000"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "M",
+      "topic": "predictOrderbook/42",
+      "data": {
+        "marketId": 42,
+        "updateTimestampMs": 1792147922772,
+        "orderCount": 2,
+        "bids": [
+          [
+            "0.630",
+            "1000"
+          ]
+        ],
+        "asks": [
+          [
+            "0.640",
+            "1000"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "M",
+      "topic": "predictOrderbook/42",
+      "data": {
+        "marketId": 42,
+        "updateTimestampMs": 1792147922779,
+        "orderCount": 2,
+        "bids": [
+          [
+            "0.631",
+            "1000"
+          ]
+        ],
+        "asks": [
+          [
+            "0.641",
+            "1000"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "M",
+      "topic": "predictOrderbook/42",
+      "data": {
+        "marketId": 42,
+        "updateTimestampMs": 1792147922779,
+        "orderCount": 2,
+        "bids": [
+          [
+            "0.631",
+            "1000"
+          ]
+        ],
+        "asks": [
+          [
+            "0.641",
+            "1000"
+          ]
+        ]
+      }
+    }
+  ],
+  "wallet": [
+    {
+      "type": "orderAccepted",
+      "orderId": "12345",
+      "orderHash": "0xdf9976348cf938f095af268ec972fba91631f99547f771a81e7fffe52ad8e9a6",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "timestamp": 1792147922776,
+      "details": {
+        "marketId": 42,
+        "outcomeIndex": 1,
+        "marketQuestion": "fixture",
+        "outcome": "YES",
+        "quoteType": "BID",
+        "quantity": "100",
+        "quantityFilled": "0",
+        "price": "0.01",
+        "value": "1.00",
+        "valueFilled": "0",
+        "strategyType": "LIMIT",
+        "categorySlug": "fixture"
+      }
+    },
+    {
+      "type": "orderAccepted",
+      "orderId": "12345",
+      "orderHash": "0xdf9976348cf938f095af268ec972fba91631f99547f771a81e7fffe52ad8e9a6",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "timestamp": 1792147922776,
+      "details": {
+        "marketId": 42,
+        "outcomeIndex": 1,
+        "marketQuestion": "fixture",
+        "outcome": "YES",
+        "quoteType": "BID",
+        "quantity": "100",
+        "quantityFilled": "0",
+        "price": "0.01",
+        "value": "1.00",
+        "valueFilled": "0",
+        "strategyType": "LIMIT",
+        "categorySlug": "fixture"
+      }
+    },
+    {
+      "type": "orderAccepted",
+      "orderId": "12345",
+      "orderHash": "0x6da6d379eaa91ec0bc4d2b550e30e3632b385aad44c6bfcdceadb828a8c11a5b",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "timestamp": 1792147922782,
+      "details": {
+        "marketId": 42,
+        "outcomeIndex": 1,
+        "marketQuestion": "fixture",
+        "outcome": "YES",
+        "quoteType": "BID",
+        "quantity": "100",
+        "quantityFilled": "0",
+        "price": "0.011",
+        "value": "1.100",
+        "valueFilled": "0",
+        "strategyType": "LIMIT",
+        "categorySlug": "fixture"
+      }
+    }
+  ],
+  "quotes": [
+    {
+      "instrument": "42-1.PREDICT",
+      "bid": "0.630",
+      "ask": "0.640"
+    },
+    {
+      "instrument": "42-2.PREDICT",
+      "bid": "0.360",
+      "ask": "0.370"
+    },
+    {
+      "instrument": "42-1.PREDICT",
+      "bid": "0.631",
+      "ask": "0.641"
+    },
+    {
+      "instrument": "42-2.PREDICT",
+      "bid": "0.359",
+      "ask": "0.369"
+    }
+  ],
+  "requests": [
+    {
+      "data": {
+        "pricePerShare": "10000000000000000",
+        "strategy": "LIMIT",
+        "isPostOnly": true,
+        "order": {
+          "salt": "52370236",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "tokenId": "11",
+          "makerAmount": "1000000000000000000",
+          "takerAmount": "100000000000000000000",
+          "expiration": 4102444800,
+          "nonce": "7",
+          "feeRateBps": "0",
+          "side": 0,
+          "signatureType": 0,
+          "hash": "0xdf9976348cf938f095af268ec972fba91631f99547f771a81e7fffe52ad8e9a6",
+          "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57930794f817c180dc7e6f0db867aebb23b5a038f9e2d1c0cd10b7df28562e6f6339dc527da5520cbbf85e9f87ffdf3bfe8a5d1f769c2021c9a208986a4d24f92d1b"
+        }
+      }
+    },
+    {
+      "data": {
+        "pricePerShare": "11000000000000000",
+        "strategy": "LIMIT",
+        "isPostOnly": true,
+        "order": {
+          "salt": "1697397841",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "tokenId": "11",
+          "makerAmount": "1100000000000000000",
+          "takerAmount": "100000000000000000000",
+          "expiration": 4102444800,
+          "nonce": "7",
+          "feeRateBps": "0",
+          "side": 0,
+          "signatureType": 0,
+          "hash": "0x6da6d379eaa91ec0bc4d2b550e30e3632b385aad44c6bfcdceadb828a8c11a5b",
+          "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57845d0beb9f84d3d82fe913a7ef8c2d80fbdc2b68792c053b84b31b760e6484134afa9da01519dd731bc3d5a2869d82ccd188785f890bca57a2db3cdbc20ddbbc1b"
+        }
+      }
+    }
+  ],
+  "feedback": [
+    {
+      "type": "Initialized"
+    },
+    {
+      "type": "Submitted"
+    },
+    {
+      "type": "PendingUpdate"
+    },
+    {
+      "type": "Accepted"
+    },
+    {
+      "type": "PendingCancel"
+    },
+    {
+      "type": "ModifyRejected"
+    },
+    {
+      "type": "Canceled"
+    },
+    {
+      "type": "Initialized"
+    },
+    {
+      "type": "Submitted"
+    },
+    {
+      "type": "PendingCancel"
+    },
+    {
+      "type": "Accepted"
+    },
+    {
+      "type": "Canceled"
+    }
+  ],
+  "removalResponses": [
+    {
+      "status": 200,
+      "body": {
+        "success": true,
+        "removed": [
+          "12345"
+        ],
+        "noop": []
+      },
+      "request": {
+        "data": {
+          "ids": [
+            "12345"
+          ]
+        }
+      }
+    },
+    {
+      "status": 200,
+      "body": {
+        "success": true,
+        "removed": [
+          "12345"
+        ],
+        "noop": []
+      },
+      "request": {
+        "data": {
+          "ids": [
+            "12345"
+          ]
+        }
+      }
+    }
+  ],
+  "hostPreloadedInstruments": false,
+  "nativeBootstrapLoadedBothInstruments": true,
+  "finalOpen": 0,
+  "finalInflight": 0,
+  "finalPositions": 0,
+  "finalLocked": "0",
+  "finalCash": "1000",
+  "accountFeedback": [
+    {
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "1000.00000000",
+          "free": "999.00000000",
+          "locked": "1.00000000"
+        }
+      ]
+    },
+    {
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "1000.00000000",
+          "free": "999.00000000",
+          "locked": "1.00000000"
+        }
+      ]
+    },
+    {
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "1000.00000000",
+          "free": "998.90000000",
+          "locked": "1.10000000"
+        }
+      ]
+    },
+    {
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "1000.00000000",
+          "free": "998.90000000",
+          "locked": "1.10000000"
+        }
+      ]
+    }
+  ],
+  "strategyCallbacks": [
+    {
+      "callback": "on_data",
+      "source": "PredictOrderbookSnapshot"
+    },
+    {
+      "callback": "submit_order",
+      "price": "0.010",
+      "quantity": "100",
+      "signal": "custom_snapshot"
+    },
+    {
+      "callback": "OrderIntent",
+      "round": 0,
+      "account": {
+        "total": "1000.00000000",
+        "free": "1000.00000000",
+        "locked": "0.00000000",
+        "block": 1
+      },
+      "price": "0.010"
+    },
+    {
+      "callback": "on_order_accepted"
+    },
+    {
+      "callback": "modify_order",
+      "requestedPrice": "0.011"
+    },
+    {
+      "callback": "on_order_modify_rejected",
+      "reason": "Predict atomic order modification is unsupported; cancel then replace explicitly",
+      "cachedPrice": "0.010",
+      "cachedQuantity": "100",
+      "cachedStatus": "Accepted"
+    },
+    {
+      "callback": "on_order_canceled"
+    },
+    {
+      "callback": "query_account",
+      "source": "native_strategy_command",
+      "accountBeforeQuery": {
+        "total": "1000.00000000",
+        "free": "999.00000000",
+        "locked": "1.00000000",
+        "block": 1
+      }
+    },
+    {
+      "callback": "on_data",
+      "source": "PredictOrderbookSnapshot"
+    },
+    {
+      "callback": "ReplacementDeferred",
+      "account": {
+        "total": "1000.00000000",
+        "free": "999.00000000",
+        "locked": "1.00000000",
+        "block": 1
+      },
+      "source": "native_cache"
+    },
+    {
+      "callback": "on_data",
+      "source": "PredictOrderbookSnapshot"
+    },
+    {
+      "callback": "ReplacementAccountReady",
+      "account": {
+        "total": "1000.00000000",
+        "free": "1000.00000000",
+        "locked": "0.00000000",
+        "block": 2
+      },
+      "source": "native_cache"
+    },
+    {
+      "callback": "submit_order",
+      "price": "0.011",
+      "quantity": "100",
+      "signal": "custom_snapshot"
+    },
+    {
+      "callback": "OrderIntent",
+      "round": 1,
+      "account": {
+        "total": "1000.00000000",
+        "free": "1000.00000000",
+        "locked": "0.00000000",
+        "block": 2
+      },
+      "price": "0.011"
+    },
+    {
+      "callback": "on_order_accepted"
+    },
+    {
+      "callback": "on_order_canceled"
+    },
+    {
+      "callback": "on_data",
+      "source": "PredictOrderbookSnapshot"
+    }
+  ],
+  "signalInput": "custom_snapshot",
+  "canceledBeforeNodeStop": true,
+  "scenario": "custom_snapshot_modify_rejected_cancel_replace",
+  "accountRefreshHeldBeforeReplacement": true,
+  "nativeAccountAtEnd": {
+    "total": "1000",
+    "locked": "0",
+    "block": 2
+  }
+}

@@ -1,0 +1,229 @@
+{
+  "source": "derived final audit of true multi-ID HTTP batch integration and actual mainnet capture",
+  "verifiedAtUtc": "2026-10-16T16:13:01.902864+00:00",
+  "userTimezone": "Asia/Shanghai",
+  "nativeHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "sdk": "predict-sdk==0.0.22",
+  "scope": "BatchCancelOrders to POST /v1/orders/remove with multiple decimal IDs; no SubmitOrderList, batch amendment, chain cancel, new timer, Native dependency change or production recording change",
+  "offlineRust": {
+    "passed": 296,
+    "failed": 0,
+    "ignored": 67
+  },
+  "offlinePython": {
+    "passed": 100,
+    "failed": 0
+  },
+  "clippyAllTargetsDenyWarnings": true,
+  "pythonRuffFAndE9": true,
+  "explicitMainnetRuns": 1,
+  "createdPostOnlyOrders": 2,
+  "maxOrderUSDT": "1",
+  "maxTotalUSDT": "2",
+  "nativeBatchCommands": 1,
+  "actualHttpRemovalRequests": 1,
+  "idsInHttpRequest": 2,
+  "removedIds": 2,
+  "noopIds": 0,
+  "strategyCanceledCallbacks": 2,
+  "duplicateCanceledCallbacks": 0,
+  "walletCanceledEvents": 2,
+  "fills": 0,
+  "lockedUSDT": [
+    "2",
+    "0"
+  ],
+  "cashWeiUnchanged": true,
+  "newMatches": 0,
+  "finalOpenOrders": 0,
+  "fallbackRemovals": 0,
+  "officialSdkHashesAndAmountsMatch": true,
+  "protocolAndReplayFiles": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/batch_native_validation.json",
+      "sha256": "21835779979c508c894c029b2b9aee284f339c801a15d925a6af56c9552b4aec"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/calibration.json",
+      "sha256": "cc7290838121c00a1f016771c94e54299d59a5cdc9c27dba4bc7cef6f0140675"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/evidence_validation.json",
+      "sha256": "170c91490f445502e1de7ceeeafc17463df0df8f42a2181e6007119ebcbf4752"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/final_open_orders_check.json",
+      "sha256": "19fa15e7e6c816869802e2a7a919b989698ec31282ac436b2d8331d7eb7466c7"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/http_responses.json",
+      "sha256": "c2cfa4f2b9c613f38589c74bee78ac632422be67d7d56a8f4159cfcdc265ac49"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/native_input_and_callbacks.json",
+      "sha256": "da1a2ba8f3652846d417630a0c93e3c0e0d13370ecbe954818603d6a0f920f82"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/official_sdk_validation.json",
+      "sha256": "f5e00889715f8bfcb29c456f0c4c7f8d3bbeff57886a998cc96f3481a7bd7ff1"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/post_review_open_orders_check.json",
+      "sha256": "5b4444a6b0663a77faa14a0e2f1bab3e4f523aa9fdbc3434174523b61a825b55"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/result.json",
+      "sha256": "924b7816ef937068415f3ca207d8f3dde1065eec15aa2617a99faac24b74b7cb"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/runtime_diagnostics.json",
+      "sha256": "51b71ea33426c32a20962904b1707c7b94ad07d011bef88519ba227dae06646a"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/submission_diagnostics.json",
+      "sha256": "7e9e7038bd4d0919545a0f60e7f9e63628c9c2fcccdf89081497b6f911d99fe7"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/supervisor_cleanup.json",
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/http_batch_native_synthetic_20261017.json",
+      "sha256": "b378a7e915347c939cf011526b02e0c0b8d9f1bc1fb5d726e7f9ff6d19b9436f"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/http_batch_native_actual_replay_20261017.json",
+      "sha256": "d81910823684229fed2cb6635bcff2f359a86006edd5a2071b0cc3b3a615e9e8"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "crates/nautilus-predict/src/execution/cancellations.rs",
+      "sha256": "d15679cc5b9c97d708e645c951a43d67c974ba4c736c1bdcfc2e51207cecde96"
+    },
+    {
+      "path": "crates/nautilus-predict/src/config/execution.rs",
+      "sha256": "243ab682e553478dd833791ab59363cf86fbbcc8c4912e45f765f34b4ddebc54"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution.rs",
+      "sha256": "6b7021d2c191f913ea452e8388751c3945d98f76a4f0cc8fb1f0b096d0326d0c"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/node_host.rs",
+      "sha256": "9fb2f55a0bfcc0a815d4d9ed089c7000c8036ffc706b0b208e5f89a05de04e47"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/command_alignment.rs",
+      "sha256": "1168a1ae99b0b1d59df3bad2827473040bd0df4d0b4040c32cbc51d0db4f6ef2"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/batch_recorded.rs",
+      "sha256": "fccf1a8441dce988fa978596cc3450d68f639443a91e0a78515709af4775e95c"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/batch_live.rs",
+      "sha256": "96a1a50712a3d44070a6fdf84032f23d2618d7fa0012592e049d61bef9d50c58"
+    },
+    {
+      "path": "tests/predict_private_http_recorder.py",
+      "sha256": "6a09550aa4a267e4f70d5e229ffa1b096b3c72d9b4996dca676e188613dea86e"
+    },
+    {
+      "path": "tests/run_predict_resting_live.py",
+      "sha256": "2dd6f8764103521f55c94450a3dcde26e041450e51c563d5bee8c89f54e6349c"
+    },
+    {
+      "path": "tests/test_predict_batch_live.py",
+      "sha256": "90910422896cc230d130120d64ead443dc54540fa7ed2d08bc7f79caf8ac51a9"
+    },
+    {
+      "path": "docs/reference/predict-http-batch-cancel-20261017.md",
+      "sha256": "d3165bf434714809d549c89ab8f3d87a8199b7a60b34c9bcb0480f0965fe95f2"
+    },
+    {
+      "path": "docs/predict-execution-work-plan.md",
+      "sha256": "009e5b9f525a033e3517566f9d981d857901d96357df5366b8fe3f537d4a7b61"
+    },
+    {
+      "path": "tests/README.md",
+      "sha256": "df9288149ae71c9286766a5cc3bd25636305daceca435ddd1a8e7ec5cfad2d97"
+    }
+  ],
+  "priorRealBatchEvidenceFilesUnchanged": 13,
+  "priorValidationSha256": "2e30b793a12470d2c6c1b42ca74c36254c08aa0f42032f705a57494fdd6cac71",
+  "credentialAddressJwtAndSignatureScan": {
+    "files": 14,
+    "passed": true
+  },
+  "removedOwnLogs": [
+    {
+      "path": ".predict-http-batch-actual-record.log",
+      "sha256": "869a3c83c6b532b521f7a4fe1be0b4c5106de303956140f82bb457edd4d6cf01"
+    },
+    {
+      "path": ".predict-http-batch-all.log",
+      "sha256": "43309f570403d5ef0fed3559546bcb270b28443cc08acdd6a7d723d0eb3d9ab1"
+    },
+    {
+      "path": ".predict-http-batch-clippy.log",
+      "sha256": "b65bbf6f8c23e2640de708cefc9ccf959acdb53016ae24c368e9446ac267fa2f"
+    },
+    {
+      "path": ".predict-http-batch-commands.log",
+      "sha256": "681a5131ff33316b9900162abb845df9bf27c73f34cffc7b770da9ea2c49206c"
+    },
+    {
+      "path": ".predict-http-batch-final-clippy.log",
+      "sha256": "11c11cd3832e622e22f5779be4168f76d917bfe905276f753b76f8ab783a3f93"
+    },
+    {
+      "path": ".predict-http-batch-final-rust.log",
+      "sha256": "6950e5073b2b112111dc1a4b14ef88f9a20ca193893b2c432901220d212adc0a"
+    },
+    {
+      "path": ".predict-http-batch-live.log",
+      "sha256": "d0d8f0a5bfc933b69000c8823b89c60ab5ce84cfd33bfcf2999576c22bcaae35"
+    },
+    {
+      "path": ".predict-http-batch-offline.log",
+      "sha256": "44c838a43fbe14dcad76adc944ae76b72fafda99f4a117be84e3fe731d96ac61"
+    },
+    {
+      "path": ".predict-http-batch-python-final.log",
+      "sha256": "6f4c8f7a760c0e9c8914abaa032c30247ccb1774af4a6b524732f2f2467b84fb"
+    },
+    {
+      "path": ".predict-http-batch-python.log",
+      "sha256": "015ab5285d38aebd35059f76e2856f28087b17a56e915400c27cadee0603657b"
+    },
+    {
+      "path": ".predict-http-batch-record.log",
+      "sha256": "45795547f62562e1c051f1af3f1a275e996331d3fd98a1c72360c619a493d092"
+    },
+    {
+      "path": ".predict-http-batch-replay.log",
+      "sha256": "af0bfe44fbbd474800113dd3b8807ae89d65e6a96b17350378d1b66a09d69810"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/node.log",
+      "sha256": "bada6186857c4961468a3d66ca0709b1e476fe3066ad824f498a13d271ba0343"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/collector.log",
+      "sha256": "13e544fb9d603e372897b11554c6dd4284828ea2726e12c2b557deb864a85a94"
+    }
+  ],
+  "temporaryRunConfigAndRelayRemoved": true,
+  "userRedisTouched": false,
+  "offlineHarnessNotes": [
+    "Preflight-invalid fixture was first injected too early and invalidated startup; moved after native startup before batch command; no live writes during those failed offline attempts",
+    "Historical per-order 400/500 fixtures retained unchanged; current replay explicitly models the new whole-batch failure scope"
+  ],
+  "limits": [
+    "Two-order real success only; mixed noop/rejection and unknown outcomes validated offline",
+    "Large batches over the local HTTP bound and real partial fills during cancellation not deliberately mainnet-tested",
+    "Off-chain removal does not invalidate cryptographic order signature",
+    "Cold cache startup attribute limits unchanged; no OS crash or real nonzero-position restart claimed"
+  ]
+}

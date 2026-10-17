@@ -1,0 +1,2158 @@
+{
+  "source": "synthetic offline Rust Strategy + LiveNode; no operator credentials, no mainnet orders",
+  "sessions": [
+    {
+      "source": "synthetic loopback Rust strategy and LiveNode; no mainnet transactions",
+      "profit": false,
+      "cancelRejected": false,
+      "subminimum": false,
+      "fullFillDuringCancel": false,
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772490,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "67",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "67000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "670000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772491,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "200",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "2660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "133000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "1330000000000000000"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "12345",
+          "orderHash": "0x79b47f4547c8242c0f3cae46324bbeaa51c15e4af2631aae3f4dbd16979885d1",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772615,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "0",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x79b47f4547c8242c0f3cae46324bbeaa51c15e4af2631aae3f4dbd16979885d1",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772632,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "46",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-cancel-race",
+          "isMaker": true,
+          "fee": {
+            "type": "COLLATERAL",
+            "amountWei": "0"
+          },
+          "fill": {
+            "executedSizeWei": "46000000000000000000",
+            "executedPriceWei": "13000000000000000",
+            "executedValueWei": "598000000000000000"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "12345",
+          "orderHash": "0x2f924fc429211a91cf4615500b42b11d35cf325293c2508e55d8d655fc0b2057",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772636,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "150",
+            "quantityFilled": "0",
+            "price": "0.008",
+            "value": "1.200",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x2f924fc429211a91cf4615500b42b11d35cf325293c2508e55d8d655fc0b2057",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772636,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "150",
+            "quantityFilled": "150",
+            "price": "0.008",
+            "value": "1.200",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-stop",
+          "isMaker": false,
+          "fee": {
+            "type": "COLLATERAL",
+            "amountWei": "24000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "150000000000000000000",
+            "executedPriceWei": "8000000000000000",
+            "executedValueWei": "1200000000000000000"
+          }
+        }
+      ],
+      "orderbooks": [
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064772593,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.012",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        },
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064772615,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.008",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "13000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1563209628",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "196000000000000000000",
+              "takerAmount": "2548000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "200",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x79b47f4547c8242c0f3cae46324bbeaa51c15e4af2631aae3f4dbd16979885d1",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce579dd3d98a9feab73e7c0a3daaf149cba8c9c83a60bc75a5253bdea7b9b4b67269352f2e3eb85aa85b6bad9bec50c7aca37622f9ee1a15566d4277ed0c9953d39b1c"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "8000000000000000",
+            "strategy": "MARKET",
+            "slippageBps": 100,
+            "order": {
+              "salt": "1409698943",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "150000000000000000000",
+              "takerAmount": "1188000000000000000",
+              "expiration": 1792065072,
+              "nonce": "7",
+              "feeRateBps": "200",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x2f924fc429211a91cf4615500b42b11d35cf325293c2508e55d8d655fc0b2057",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57f7bc425c2f85a23aaa9dc8016274153fcec6b0454e4c25304d64f69a6b3e5cbf697c1b5400694d48250196198c35c8cdc8bb5ba849d11501f78304deae4fa0691b"
+            }
+          }
+        }
+      ],
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12345"
+            ]
+          }
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "67.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "67.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01340000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "PARTIALLY_FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "67.0000000000000000",
+          "realizedPnl": "-0.01340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "133.0000000000000000",
+            "price": "0.010",
+            "commission": "0.02660000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "200.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "b61fb039-d1e1-53c3-b165-6459563a798f",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "b61fb039-d1e1-53c3-b165-6459563a798f",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "b61fb039-d1e1-53c3-b165-6459563a798f",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "4.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "196.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "MakerTakeProfitSubmitted",
+          "price": "0.013",
+          "quantity": "196.0000000000000000",
+          "entryAverage": "0.010"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "SUBMITTED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "StopTriggered",
+          "netQuantity": "196.0000000000000000",
+          "estimatedProceeds": "1.536640000000000000000",
+          "entryCost": "2.0000000000000000000",
+          "realizedProceeds": "0",
+          "estimatedRoundPnl": "-0.463360000000000000000"
+        },
+        {
+          "type": "CancelTakeProfitRequested"
+        },
+        {
+          "type": "PendingCancel",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "PENDING_CANCEL"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "46.0000000000000000",
+            "price": "0.013",
+            "commission": "0.00000000 USDT",
+            "liquidity": "MAKER"
+          },
+          "cachedStatus": "PENDING_CANCEL"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "150.0000000000000000",
+          "realizedPnl": "0.09800000 USDT"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Canceled",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "CANCELED"
+        },
+        {
+          "type": "TakerStopSubmitted",
+          "quantity": "150.0000000000000000"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261015-114612-001-001-2",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261015-114612-001-001-2",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "SUBMITTED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.59800000",
+              "free": "998.59800000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261015-114612-001-001-2",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261015-114612-001-001-2",
+          "quantity": "0",
+          "reason": null,
+          "fill": {
+            "quantity": "150.0000000000000000",
+            "price": "0.008",
+            "commission": "0.02400000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.59800000",
+              "free": "998.59800000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "0",
+          "realizedPnl": "-0.22600000 USDT"
+        }
+      ],
+      "remainingVenueOrders": 0,
+      "activeNativeOrders": 0,
+      "finalPositions": [],
+      "finalCash": "999.77400000"
+    },
+    {
+      "source": "synthetic loopback Rust strategy and LiveNode; no mainnet transactions",
+      "profit": true,
+      "cancelRejected": false,
+      "subminimum": false,
+      "fullFillDuringCancel": false,
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772821,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "67",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "67000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "670000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772821,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "200",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "2660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "133000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "1330000000000000000"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "12345",
+          "orderHash": "0x2d3c6de7892e6f8682003540d1c1246df648f89f785758c56d6f3b3081eda398",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772946,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "0",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x2d3c6de7892e6f8682003540d1c1246df648f89f785758c56d6f3b3081eda398",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064772946,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "196",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-profit",
+          "isMaker": true,
+          "fee": {
+            "type": "COLLATERAL",
+            "amountWei": "0"
+          },
+          "fill": {
+            "executedSizeWei": "196000000000000000000",
+            "executedPriceWei": "13000000000000000",
+            "executedValueWei": "2548000000000000000"
+          }
+        }
+      ],
+      "orderbooks": [
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064772924,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.012",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "13000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "469561966",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "196000000000000000000",
+              "takerAmount": "2548000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "200",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x2d3c6de7892e6f8682003540d1c1246df648f89f785758c56d6f3b3081eda398",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57ac628c83746b25f2824ca7d962aa01d1bf61feffa0e776ad9dbd3fffec2f90d4270266bac122229df4b5cd18f92a53a72ac77d162496468967c600d023445f5c1b"
+            }
+          }
+        }
+      ],
+      "removals": [],
+      "nativeFeedback": [
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "67.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "67.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01340000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "PARTIALLY_FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "67.0000000000000000",
+          "realizedPnl": "-0.01340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "133.0000000000000000",
+            "price": "0.010",
+            "commission": "0.02660000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "200.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "f48b02f3-06c1-50be-a3c5-0c4d7757b752",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "f48b02f3-06c1-50be-a3c5-0c4d7757b752",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "f48b02f3-06c1-50be-a3c5-0c4d7757b752",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "4.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "196.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "MakerTakeProfitSubmitted",
+          "price": "0.013",
+          "quantity": "196.0000000000000000",
+          "entryAverage": "0.010"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "SUBMITTED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261015-114612-001-001-1",
+          "quantity": "0",
+          "reason": null,
+          "fill": {
+            "quantity": "196.0000000000000000",
+            "price": "0.013",
+            "commission": "0.00000000 USDT",
+            "liquidity": "MAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "0",
+          "realizedPnl": "0.54800000 USDT"
+        }
+      ],
+      "remainingVenueOrders": 0,
+      "activeNativeOrders": 0,
+      "finalPositions": [],
+      "finalCash": "1000.54800000"
+    },
+    {
+      "source": "synthetic loopback Rust strategy and LiveNode; no mainnet transactions",
+      "profit": false,
+      "cancelRejected": true,
+      "subminimum": false,
+      "fullFillDuringCancel": false,
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773151,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "67",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "67000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "670000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773151,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "200",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "2660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "133000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "1330000000000000000"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "12345",
+          "orderHash": "0x526e5613547e5b1358949cc7e4e70b62f3b0499b87f6d147f7d8705bbfdbbef5",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773276,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "0",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        }
+      ],
+      "orderbooks": [
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064773253,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.012",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        },
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064773276,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.008",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "13000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1158580676",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "196000000000000000000",
+              "takerAmount": "2548000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "200",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0x526e5613547e5b1358949cc7e4e70b62f3b0499b87f6d147f7d8705bbfdbbef5",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57de2247bf79d8e1d9f00d5663e5b338c8f9246b468f4fac91c8456691debf08b74d871bfb84bf8dafe44fa58583973042c61bb12e42d35030e9779f5f52f5ab201b"
+            }
+          }
+        }
+      ],
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12345"
+            ]
+          }
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "67.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "67.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01340000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "PARTIALLY_FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "67.0000000000000000",
+          "realizedPnl": "-0.01340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "133.0000000000000000",
+            "price": "0.010",
+            "commission": "0.02660000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "200.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "b0c1671d-fe41-5fb2-a09d-7ab563c52826",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "b0c1671d-fe41-5fb2-a09d-7ab563c52826",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "b0c1671d-fe41-5fb2-a09d-7ab563c52826",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "4.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "196.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "MakerTakeProfitSubmitted",
+          "price": "0.013",
+          "quantity": "196.0000000000000000",
+          "entryAverage": "0.010"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "SUBMITTED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "StopTriggered",
+          "netQuantity": "196.0000000000000000",
+          "estimatedProceeds": "1.536640000000000000000",
+          "entryCost": "2.0000000000000000000",
+          "realizedProceeds": "0",
+          "estimatedRoundPnl": "-0.463360000000000000000"
+        },
+        {
+          "type": "CancelTakeProfitRequested"
+        },
+        {
+          "type": "PendingCancel",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "PENDING_CANCEL"
+        },
+        {
+          "type": "CancelRejected",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": "HTTP 400 at /v1/orders/remove: InvalidRequest, API code Some(400), reason Unknown",
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        }
+      ],
+      "remainingVenueOrders": 1,
+      "activeNativeOrders": 1,
+      "finalPositions": [
+        "196.0000000000000000"
+      ],
+      "finalCash": "998.00000000"
+    },
+    {
+      "source": "synthetic loopback Rust strategy and LiveNode; no mainnet transactions",
+      "profit": false,
+      "cancelRejected": false,
+      "subminimum": true,
+      "fullFillDuringCancel": false,
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773477,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "67",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "67000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "670000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773477,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "200",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "2660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "133000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "1330000000000000000"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "12345",
+          "orderHash": "0xd044f8e48294af3b1892bd8dc2fec7586668e78cc9bb5e51294b81182e356d78",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773601,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "0",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xd044f8e48294af3b1892bd8dc2fec7586668e78cc9bb5e51294b81182e356d78",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773618,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "46",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-cancel-race",
+          "isMaker": true,
+          "fee": {
+            "type": "COLLATERAL",
+            "amountWei": "0"
+          },
+          "fill": {
+            "executedSizeWei": "46000000000000000000",
+            "executedPriceWei": "13000000000000000",
+            "executedValueWei": "598000000000000000"
+          }
+        }
+      ],
+      "orderbooks": [
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064773580,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.012",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        },
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064773602,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.005",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "13000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1216619644",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "196000000000000000000",
+              "takerAmount": "2548000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "200",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0xd044f8e48294af3b1892bd8dc2fec7586668e78cc9bb5e51294b81182e356d78",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5702406388822cbdf87bf0053f1f18e314f8582812ad7b87332f8befcc7284351509c00c0da30fbf24dc0fd8bb6129ac3401bb5a78b3566c84d030f2677d5d69d41b"
+            }
+          }
+        }
+      ],
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12345"
+            ]
+          }
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "67.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "67.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01340000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "PARTIALLY_FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "67.0000000000000000",
+          "realizedPnl": "-0.01340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "133.0000000000000000",
+            "price": "0.010",
+            "commission": "0.02660000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "200.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "7fb05d29-69a3-5304-9088-4652af9e6188",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "7fb05d29-69a3-5304-9088-4652af9e6188",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "7fb05d29-69a3-5304-9088-4652af9e6188",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "4.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "196.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "MakerTakeProfitSubmitted",
+          "price": "0.013",
+          "quantity": "196.0000000000000000",
+          "entryAverage": "0.010"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "SUBMITTED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "StopTriggered",
+          "netQuantity": "196.0000000000000000",
+          "estimatedProceeds": "0.960400000000000000000",
+          "entryCost": "2.0000000000000000000",
+          "realizedProceeds": "0",
+          "estimatedRoundPnl": "-1.039600000000000000000"
+        },
+        {
+          "type": "CancelTakeProfitRequested"
+        },
+        {
+          "type": "PendingCancel",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "PENDING_CANCEL"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "46.0000000000000000",
+            "price": "0.013",
+            "commission": "0.00000000 USDT",
+            "liquidity": "MAKER"
+          },
+          "cachedStatus": "PENDING_CANCEL"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "150.0000000000000000",
+          "realizedPnl": "0.09800000 USDT"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Canceled",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "CANCELED"
+        },
+        {
+          "type": "TakerStopSubmitted",
+          "quantity": "150.0000000000000000"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261015-114613-001-001-2",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261015-114613-001-001-2",
+          "quantity": "150.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "SUBMITTED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Rejected",
+          "clientOrderId": "O-20261015-114613-001-001-2",
+          "quantity": "150.0000000000000000",
+          "reason": "Predict MARKET SELL is below the venue minimum of 1 USDT at its slippage floor",
+          "fill": null,
+          "cachedStatus": "REJECTED"
+        }
+      ],
+      "remainingVenueOrders": 0,
+      "activeNativeOrders": 0,
+      "finalPositions": [
+        "150.0000000000000000"
+      ],
+      "finalCash": "998.59800000"
+    },
+    {
+      "source": "synthetic loopback Rust strategy and LiveNode; no mainnet transactions",
+      "profit": false,
+      "cancelRejected": false,
+      "subminimum": false,
+      "fullFillDuringCancel": true,
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773808,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "67",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "67000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "670000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773808,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "200",
+            "quantityFilled": "200",
+            "price": "0.01",
+            "value": "2.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-entry-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "2660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "133000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "1330000000000000000"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "12345",
+          "orderHash": "0xa164f9921850d781e9221888ac3671609b20c65d4df546f051f933a4aab38cb5",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773933,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "0",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xa164f9921850d781e9221888ac3671609b20c65d4df546f051f933a4aab38cb5",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792064773949,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "196",
+            "quantityFilled": "196",
+            "price": "0.013",
+            "value": "2.548",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "exit-cancel-race",
+          "isMaker": true,
+          "fee": {
+            "type": "COLLATERAL",
+            "amountWei": "0"
+          },
+          "fill": {
+            "executedSizeWei": "196000000000000000000",
+            "executedPriceWei": "13000000000000000",
+            "executedValueWei": "2548000000000000000"
+          }
+        }
+      ],
+      "orderbooks": [
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064773911,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.012",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        },
+        {
+          "marketId": 42,
+          "updateTimestampMs": 1792064773933,
+          "orderCount": 2,
+          "bids": [
+            [
+              "0.008",
+              "1000"
+            ]
+          ],
+          "asks": [
+            [
+              "0.014",
+              "1000"
+            ]
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "13000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1076676879",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "196000000000000000000",
+              "takerAmount": "2548000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "200",
+              "side": 1,
+              "signatureType": 0,
+              "hash": "0xa164f9921850d781e9221888ac3671609b20c65d4df546f051f933a4aab38cb5",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce576083282cfd3bf9f9e14f9bc64bc6b04c793298dcb39e0c07baf36ca02590526342aa11190067765a2a677f69e03e79dc31d08ca383cca73607a1d26b256beaf01c"
+            }
+          }
+        }
+      ],
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12345"
+            ]
+          }
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "67.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "67.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01340000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "PARTIALLY_FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "67.0000000000000000",
+          "realizedPnl": "-0.01340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "EXIT-ENTRY-001",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "133.0000000000000000",
+            "price": "0.010",
+            "commission": "0.02660000 USDT",
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "800.00000000",
+              "locked": "200.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "200.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "496d4c2f-e26a-582d-9fc8-5b72fdbb5329",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "496d4c2f-e26a-582d-9fc8-5b72fdbb5329",
+          "quantity": "200.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "496d4c2f-e26a-582d-9fc8-5b72fdbb5329",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": {
+            "quantity": "4.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquidity": "TAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "196.0000000000000000",
+          "realizedPnl": "-0.04000000 USDT"
+        },
+        {
+          "type": "MakerTakeProfitSubmitted",
+          "price": "0.013",
+          "quantity": "196.0000000000000000",
+          "entryAverage": "0.010"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "INITIALIZED"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "SUBMITTED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "ACCEPTED"
+        },
+        {
+          "type": "StopTriggered",
+          "netQuantity": "196.0000000000000000",
+          "estimatedProceeds": "1.536640000000000000000",
+          "entryCost": "2.0000000000000000000",
+          "realizedProceeds": "0",
+          "estimatedRoundPnl": "-0.463360000000000000000"
+        },
+        {
+          "type": "CancelTakeProfitRequested"
+        },
+        {
+          "type": "PendingCancel",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "196.0000000000000000",
+          "reason": null,
+          "fill": null,
+          "cachedStatus": "PENDING_CANCEL"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261015-114613-001-001-1",
+          "quantity": "0",
+          "reason": null,
+          "fill": {
+            "quantity": "196.0000000000000000",
+            "price": "0.013",
+            "commission": "0.00000000 USDT",
+            "liquidity": "MAKER"
+          },
+          "cachedStatus": "FILLED"
+        },
+        {
+          "type": "NativeAccountReported",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "998.00000000",
+              "free": "998.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "NativePositionApplied",
+          "quantity": "0",
+          "realizedPnl": "0.54800000 USDT"
+        }
+      ],
+      "remainingVenueOrders": 0,
+      "activeNativeOrders": 0,
+      "finalPositions": [],
+      "finalCash": "1000.54800000"
+    }
+  ]
+}

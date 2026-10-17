@@ -1,0 +1,24 @@
+{
+  "source": "completion of intended identity-only redaction before finalizing new captures; no previous-session evidence changed",
+  "files": [
+    {
+      "path": "query_commands_readonly_20261016T145051Z_40290.json",
+      "beforeAdditionalRedactionSha256": "d908302d643421a7b50f860d97afa5356b743eff203793523c756fe57ebe56dc",
+      "sha256AfterInitialIdentityPass": "5892de99964e9283ff9efb8155668439e77d18618f094fc83a9e1a1ba976b493",
+      "sha256": "b9fee2790f5eef1de73ecccc6cb1cd9388d69c54b6fc0d540a6a17bad2402ecb"
+    },
+    {
+      "path": "query_commands_readonly_20261016T145331Z_40524.json",
+      "beforeAdditionalRedactionSha256": "443b2c45910e41f742f5fc3250518ed5dc7ae75696cff6424b4485cd39b815bb",
+      "sha256AfterInitialIdentityPass": "7f84667df893a9546967629fb3be061b400e62cbbb1a62c266374f436a249fbc",
+      "sha256": "230ad78b42e4ee7e756317e40eb5e21b6594917532284804fc9da8f24e8524f6"
+    },
+    {
+      "path": "query_commands_readonly_20261016T145520Z_41000.json",
+      "beforeAdditionalRedactionSha256": "babc518da92a31b7667a873b156ad82818b81d8333d5a492785cbf1cda2cbff1",
+      "sha256AfterInitialIdentityPass": "6fbdccb07bcbb12982a16233320aeffcc6d8c800db7a6a529462dfd7c6344e5b",
+      "sha256": "91ef549fd498f95802abde3bb0c769f1d6dc65b6a40c194bc2f4f7837c841ff6"
+    }
+  ],
+  "aliasPolicy": "Owner/counterparty aliases remain idempotent; original ownership recovered by previously SDK-verified original signed hashes; no financial quantities, statuses, hashes or blocks changed."
+}

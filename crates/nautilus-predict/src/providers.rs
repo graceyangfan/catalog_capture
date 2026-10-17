@@ -29,8 +29,7 @@ use ustr::Ustr;
 
 use crate::{
     common::{PredictMarketContext, instrument_id_from_outcome},
-    http::PredictHttpClient,
-    models::PredictMarket,
+    http::{PredictHttpClient, models::PredictMarket},
 };
 
 // Predict's execution SDK represents on-chain quantities in 18-decimal wei, while its
@@ -59,6 +58,10 @@ impl PredictInstrumentProvider {
 
     pub fn context(&self, market_id: u64) -> Option<&PredictMarketContext> {
         self.contexts.get(&market_id)
+    }
+
+    pub(crate) fn http_client(&self) -> &PredictHttpClient {
+        &self.http_client
     }
 
     pub async fn load_market(
@@ -225,7 +228,7 @@ pub(crate) fn instruments_from_market(
     ))
 }
 
-fn parse_market_id(instrument_id: &InstrumentId) -> anyhow::Result<u64> {
+pub(crate) fn parse_market_id(instrument_id: &InstrumentId) -> anyhow::Result<u64> {
     anyhow::ensure!(
         instrument_id.venue.as_str() == "PREDICT",
         "instrument {instrument_id} is not a Predict instrument"
@@ -253,6 +256,10 @@ fn parse_market_id(instrument_id: &InstrumentId) -> anyhow::Result<u64> {
         fields.next().is_none() && matches!(outcome_index, 1 | 2),
         "invalid Predict instrument symbol {instrument_id}; expected {{market_id}}-{{1|2}}.PREDICT"
     );
+    anyhow::ensure!(
+        instrument_id_from_outcome(market_id, outcome_index)? == *instrument_id,
+        "Predict instrument ID must be canonical"
+    );
     Ok(market_id)
 }
 
@@ -260,7 +267,7 @@ fn parse_market_id(instrument_id: &InstrumentId) -> anyhow::Result<u64> {
 mod tests {
     use std::fs;
 
-    use catalog_capture_core::{CaptureConfig, CryptoUpDownSelectorKey, NautilusCatalogSink};
+    use catalog_capture_core::{CaptureConfig, NautilusCatalogSink};
     use nautilus_core::UnixNanos;
     use nautilus_model::{
         data::Data,
@@ -272,9 +279,10 @@ mod tests {
 
     use super::{instruments_from_market, parse_market_id};
     use crate::{
-        PredictOrderbookSnapshot, PredictOrderbookWire, predict_crypto_up_down_orderbook_data_type,
+        PredictOrderbookSnapshot, PredictOrderbookWire,
+        common::CryptoUpDownSelectorKey,
         models::{PredictMarket, PredictResponse},
-        register_predict_custom_data,
+        predict_crypto_up_down_orderbook_data_type, register_predict_custom_data,
     };
 
     #[test]

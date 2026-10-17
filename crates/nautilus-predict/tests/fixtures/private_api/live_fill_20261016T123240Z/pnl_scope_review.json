@@ -1,0 +1,12 @@
+{
+  "source": "review of actual captured cycle, preserving original complete flag",
+  "supersedesCompleteFlagIn": "final_verification.json",
+  "complete": false,
+  "orderFlowAndAccountMatch": true,
+  "nativeCyclePnlMatchesCash": false,
+  "cashLossThisCycle": "0.0814208",
+  "nativePnlIncludingEarlierCycle": "-0.16284160",
+  "finalOpenOrders": 0,
+  "finalPositions": 0,
+  "fixValidation": "offline replay: native one-minute position lookback with flat/no-recent-settlement preflight; no further mainnet orders"
+}

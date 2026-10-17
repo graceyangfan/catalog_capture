@@ -1,0 +1,2320 @@
+{
+  "source": "actual mainnet public GET responses; no JWT/signing/order writes; economic comparisons are hypothetical, not a trading signal",
+  "observedAtUtc": "2026-10-15T11:54:00.042275+00:00",
+  "tradeAllowed": false,
+  "orderWrites": 0,
+  "marketPages": 3,
+  "listedMarkets": 300,
+  "booksRequested": 45,
+  "rankingScope": "bounded first 45 OPEN trading markets from first three listing pages; not exhaustive",
+  "buyModel": "hypothetical undiscounted taker entry; native MARKET BUY remains unsupported; maker entry not guaranteed",
+  "candidates": [
+    {
+      "marketId": 12742,
+      "title": "0 (0 bps)",
+      "outcome": "YES",
+      "bid": "0.961",
+      "ask": "0.962",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 655,
+      "bidTopShares": "8748.450512820513",
+      "askTopShares": "11397.213575883576",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.998419958419958419958419958",
+      "hypotheticalEntryCostUsdt": "1.924",
+      "immediateRoundTripLossUsdt": "0.005077187525987525987525988",
+      "roundTripFrictionFraction": "0.002638870855502872134888767152",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": true
+    },
+    {
+      "marketId": 12742,
+      "title": "0 (0 bps)",
+      "outcome": "NO",
+      "bid": "0.038",
+      "ask": "0.039",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 655,
+      "bidTopShares": "11397.213575883576",
+      "askTopShares": "8748.450512820513",
+      "hypotheticalGrossShares": "34",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "33.32",
+      "hypotheticalEntryCostUsdt": "1.326",
+      "immediateRoundTripLossUsdt": "0.0851632",
+      "roundTripFrictionFraction": "0.06422564102564102564102564103",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": true
+    },
+    {
+      "marketId": 52261,
+      "title": "Will Ethereum hit $1,000 or $3,000 first?",
+      "outcome": "NO",
+      "bid": "0.65",
+      "ask": "0.71",
+      "spread": "0.06",
+      "feeRateBps": "200",
+      "bookAgeMs": 4119,
+      "bidTopShares": "3736.3",
+      "askTopShares": "479.86545",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.983661971830985915492957746",
+      "hypotheticalEntryCostUsdt": "1.42",
+      "immediateRoundTripLossUsdt": "0.144505352112676056338028169",
+      "roundTripFrictionFraction": "0.1017643324737155326324142035",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": true
+    },
+    {
+      "marketId": 52261,
+      "title": "Will Ethereum hit $1,000 or $3,000 first?",
+      "outcome": "YES",
+      "bid": "0.29",
+      "ask": "0.35",
+      "spread": "0.06",
+      "feeRateBps": "200",
+      "bookAgeMs": 4119,
+      "bidTopShares": "479.86545",
+      "askTopShares": "3736.3",
+      "hypotheticalGrossShares": "5",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "4.90",
+      "hypotheticalEntryCostUsdt": "1.75",
+      "immediateRoundTripLossUsdt": "0.357420",
+      "roundTripFrictionFraction": "0.20424",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": true
+    },
+    {
+      "marketId": 12745,
+      "title": "3 (75 bps)",
+      "outcome": "NO",
+      "bid": "0.996",
+      "ask": "0.997",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 151602,
+      "bidTopShares": "46921.427635",
+      "askTopShares": "6935.37999",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999879638916750250752256770",
+      "hypotheticalEntryCostUsdt": "1.994",
+      "immediateRoundTripLossUsdt": "0.002279870010030090270812438",
+      "roundTripFrictionFraction": "0.001143365100315993114750470411",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 12744,
+      "title": "2 (50 bps)",
+      "outcome": "NO",
+      "bid": "0.993",
+      "ask": "0.994",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 151460,
+      "bidTopShares": "11737.7848",
+      "askTopShares": "15482.895999999999",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999758551307847082494969819",
+      "hypotheticalEntryCostUsdt": "1.988",
+      "immediateRoundTripLossUsdt": "0.002519724748490945674044266",
+      "roundTripFrictionFraction": "0.001267467177309328809881421529",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 10909,
+      "title": "Will Jesus Christ return before 2027?",
+      "outcome": "NO",
+      "bid": "0.99",
+      "ask": "0.991",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 649340,
+      "bidTopShares": "3314.86",
+      "askTopShares": "2403.622603430878",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999636730575176589303733602",
+      "hypotheticalEntryCostUsdt": "1.982",
+      "immediateRoundTripLossUsdt": "0.002759564076690211907164481",
+      "roundTripFrictionFraction": "0.001392312854031388449628900605",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30541,
+      "title": "\u2193 2.75%",
+      "outcome": "NO",
+      "bid": "0.979",
+      "ask": "0.98",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 155107,
+      "bidTopShares": "547",
+      "askTopShares": "330",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999183673469387755102040816",
+      "hypotheticalEntryCostUsdt": "1.96",
+      "immediateRoundTripLossUsdt": "0.003638840816326530612244898",
+      "roundTripFrictionFraction": "0.001856551436901291128696376531",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30542,
+      "title": "\u2193 2.5%",
+      "outcome": "NO",
+      "bid": "0.976",
+      "ask": "0.977",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 154438,
+      "bidTopShares": "303",
+      "askTopShares": "411.35",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999058341862845445240532242",
+      "hypotheticalEntryCostUsdt": "1.954",
+      "immediateRoundTripLossUsdt": "0.003878606345957011258955987",
+      "roundTripFrictionFraction": "0.001984957188309627051666318833",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 12743,
+      "title": "1 (25 bps)",
+      "outcome": "NO",
+      "bid": "0.972",
+      "ask": "0.973",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 151360,
+      "bidTopShares": "2164.2",
+      "askTopShares": "6777.148428622815",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.998890030832476875642343268",
+      "hypotheticalEntryCostUsdt": "1.946",
+      "immediateRoundTripLossUsdt": "0.004198268448098663926002056",
+      "roundTripFrictionFraction": "0.002157383580729015378212772867",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 10835,
+      "title": "Will the US confirm that aliens exist before 2027?",
+      "outcome": "NO",
+      "bid": "0.969",
+      "ask": "0.97",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 148842,
+      "bidTopShares": "18361.29847483871",
+      "askTopShares": "13318.49",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.998762886597938144329896907",
+      "hypotheticalEntryCostUsdt": "1.94",
+      "immediateRoundTripLossUsdt": "0.004437995876288659793814433",
+      "roundTripFrictionFraction": "0.002287626740354979275162078866",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30531,
+      "title": "\u2193 3.0%",
+      "outcome": "NO",
+      "bid": "0.943",
+      "ask": "0.962",
+      "spread": "0.019",
+      "feeRateBps": "200",
+      "bookAgeMs": 129318,
+      "bidTopShares": "129",
+      "askTopShares": "100",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.998419958419958419958419958",
+      "hypotheticalEntryCostUsdt": "1.924",
+      "immediateRoundTripLossUsdt": "0.041768177962577962577962579",
+      "roundTripFrictionFraction": "0.02170903220508210113199718243",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30532,
+      "title": "\u2193 3.25%",
+      "outcome": "NO",
+      "bid": "0.954",
+      "ask": "0.996",
+      "spread": "0.042",
+      "feeRateBps": "200",
+      "bookAgeMs": 811542,
+      "bidTopShares": "200",
+      "askTopShares": "2082.83",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999839357429718875502008032",
+      "hypotheticalEntryCostUsdt": "1.992",
+      "immediateRoundTripLossUsdt": "0.085993105220883534136546184",
+      "roundTripFrictionFraction": "0.04316922952855599103240270281",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30523,
+      "title": "\u2191 5.0%",
+      "outcome": "NO",
+      "bid": "0.948",
+      "ask": "0.998",
+      "spread": "0.050",
+      "feeRateBps": "200",
+      "bookAgeMs": 1483874,
+      "bidTopShares": "32",
+      "askTopShares": "428.62",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999919839679358717434869739",
+      "hypotheticalEntryCostUsdt": "1.996",
+      "immediateRoundTripLossUsdt": "0.102155908617234468937875752",
+      "roundTripFrictionFraction": "0.05118031493849422291476741082",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 58416,
+      "title": "Will Solana hit $60 or $140 first?",
+      "outcome": "NO",
+      "bid": "0.58",
+      "ask": "0.6",
+      "spread": "0.02",
+      "feeRateBps": "200",
+      "bookAgeMs": 150956,
+      "bidTopShares": "319",
+      "askTopShares": "500",
+      "hypotheticalGrossShares": "3",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "2.960000000000000000000000000",
+      "hypotheticalEntryCostUsdt": "1.8",
+      "immediateRoundTripLossUsdt": "0.108064000000000000000000000",
+      "roundTripFrictionFraction": "0.06003555555555555555555555556",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 2508071,
+      "title": "Will BNB hit $700 or $900 first?",
+      "outcome": "YES",
+      "bid": "0.83",
+      "ask": "0.88",
+      "spread": "0.05",
+      "feeRateBps": "200",
+      "bookAgeMs": 255611,
+      "bidTopShares": "500",
+      "askTopShares": "4.233636363636363",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.994545454545454545454545455",
+      "hypotheticalEntryCostUsdt": "1.76",
+      "immediateRoundTripLossUsdt": "0.111308727272727272727272727",
+      "roundTripFrictionFraction": "0.06324359504132231404958677670",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30540,
+      "title": "\u2193 2.25%",
+      "outcome": "NO",
+      "bid": "0.932",
+      "ask": "0.997",
+      "spread": "0.065",
+      "feeRateBps": "200",
+      "bookAgeMs": 400448,
+      "bidTopShares": "321.88",
+      "askTopShares": "349.9",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999879638916750250752256770",
+      "hypotheticalEntryCostUsdt": "1.994",
+      "immediateRoundTripLossUsdt": "0.132832012838515546639919759",
+      "roundTripFrictionFraction": "0.06661585398120137745231682999",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 10835,
+      "title": "Will the US confirm that aliens exist before 2027?",
+      "outcome": "YES",
+      "bid": "0.03",
+      "ask": "0.031",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 148842,
+      "bidTopShares": "13318.49",
+      "askTopShares": "18361.29847483871",
+      "hypotheticalGrossShares": "43",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "42.14",
+      "hypotheticalEntryCostUsdt": "1.333",
+      "immediateRoundTripLossUsdt": "0.094084",
+      "roundTripFrictionFraction": "0.07058064516129032258064516129",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 12743,
+      "title": "1 (25 bps)",
+      "outcome": "YES",
+      "bid": "0.027",
+      "ask": "0.028",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 151360,
+      "bidTopShares": "6777.148428622815",
+      "askTopShares": "2164.2",
+      "hypotheticalGrossShares": "48",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "47.04",
+      "hypotheticalEntryCostUsdt": "1.344",
+      "immediateRoundTripLossUsdt": "0.0993216",
+      "roundTripFrictionFraction": "0.0739",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30542,
+      "title": "\u2193 2.5%",
+      "outcome": "YES",
+      "bid": "0.023",
+      "ask": "0.024",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 154438,
+      "bidTopShares": "411.35",
+      "askTopShares": "303",
+      "hypotheticalGrossShares": "57",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "55.86",
+      "hypotheticalEntryCostUsdt": "1.368",
+      "immediateRoundTripLossUsdt": "0.1089156",
+      "roundTripFrictionFraction": "0.07961666666666666666666666667",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30533,
+      "title": "\u2191 5.5%",
+      "outcome": "NO",
+      "bid": "0.92",
+      "ask": "0.999",
+      "spread": "0.079",
+      "feeRateBps": "200",
+      "bookAgeMs": 193960,
+      "bidTopShares": "326.08",
+      "askTopShares": "1738.12",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999959959959959959959959960",
+      "hypotheticalEntryCostUsdt": "1.998",
+      "immediateRoundTripLossUsdt": "0.161236772772772772772772773",
+      "roundTripFrictionFraction": "0.08069908547185824463101740390",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 58416,
+      "title": "Will Solana hit $60 or $140 first?",
+      "outcome": "YES",
+      "bid": "0.4",
+      "ask": "0.42",
+      "spread": "0.02",
+      "feeRateBps": "200",
+      "bookAgeMs": 150956,
+      "bidTopShares": "500",
+      "askTopShares": "319",
+      "hypotheticalGrossShares": "4",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "3.92",
+      "hypotheticalEntryCostUsdt": "1.68",
+      "immediateRoundTripLossUsdt": "0.14336",
+      "roundTripFrictionFraction": "0.08533333333333333333333333333",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30541,
+      "title": "\u2193 2.75%",
+      "outcome": "YES",
+      "bid": "0.02",
+      "ask": "0.021",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 155107,
+      "bidTopShares": "330",
+      "askTopShares": "547",
+      "hypotheticalGrossShares": "65",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "63.70",
+      "hypotheticalEntryCostUsdt": "1.365",
+      "immediateRoundTripLossUsdt": "0.116480",
+      "roundTripFrictionFraction": "0.08533333333333333333333333333",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30529,
+      "title": "\u2193 0.5%",
+      "outcome": "NO",
+      "bid": "0.901",
+      "ask": "0.987",
+      "spread": "0.086",
+      "feeRateBps": "200",
+      "bookAgeMs": 343995,
+      "bidTopShares": "332.96",
+      "askTopShares": "202.64",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999473150962512664640324215",
+      "hypotheticalEntryCostUsdt": "1.974",
+      "immediateRoundTripLossUsdt": "0.176433647821681864235055724",
+      "roundTripFrictionFraction": "0.08937874763003133953143653698",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30525,
+      "title": "\u2191 4.75%",
+      "outcome": "NO",
+      "bid": "0.881",
+      "ask": "0.969",
+      "spread": "0.088",
+      "feeRateBps": "200",
+      "bookAgeMs": 1484636,
+      "bidTopShares": "10",
+      "askTopShares": "29.354",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.998720330237358101135190918",
+      "hypotheticalEntryCostUsdt": "1.938",
+      "immediateRoundTripLossUsdt": "0.181884343446852425180598555",
+      "roundTripFrictionFraction": "0.09385157040601260329236251548",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 10909,
+      "title": "Will Jesus Christ return before 2027?",
+      "outcome": "YES",
+      "bid": "0.009",
+      "ask": "0.01",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 649340,
+      "bidTopShares": "2403.622603430878",
+      "askTopShares": "3314.86",
+      "hypotheticalGrossShares": "144",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "141.12",
+      "hypotheticalEntryCostUsdt": "1.44",
+      "immediateRoundTripLossUsdt": "0.1953216",
+      "roundTripFrictionFraction": "0.13564",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30524,
+      "title": "\u2191 5.25%",
+      "outcome": "NO",
+      "bid": "0.863",
+      "ask": "0.997",
+      "spread": "0.134",
+      "feeRateBps": "200",
+      "bookAgeMs": 38859,
+      "bidTopShares": "5",
+      "askTopShares": "1000",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999879638916750250752256770",
+      "hypotheticalEntryCostUsdt": "1.994",
+      "immediateRoundTripLossUsdt": "0.273583541825476429287863591",
+      "roundTripFrictionFraction": "0.1372033810559059324412555622",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 190414,
+      "title": "Will Justin Sun's address no longer be blacklisted by WLFI by 2027?",
+      "outcome": "NO",
+      "bid": "0.82",
+      "ask": "0.99",
+      "spread": "0.17",
+      "feeRateBps": "200",
+      "bookAgeMs": 4691340,
+      "bidTopShares": "3.09",
+      "askTopShares": "1452.020202020202",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.999595959595959595959595960",
+      "hypotheticalEntryCostUsdt": "1.98",
+      "immediateRoundTripLossUsdt": "0.347529858585858585858585858",
+      "roundTripFrictionFraction": "0.1755201305989184777063564939",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 12744,
+      "title": "2 (50 bps)",
+      "outcome": "YES",
+      "bid": "0.006",
+      "ask": "0.007",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 151460,
+      "bidTopShares": "15482.895999999999",
+      "askTopShares": "11737.7848",
+      "hypotheticalGrossShares": "215",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "210.70",
+      "hypotheticalEntryCostUsdt": "1.505",
+      "immediateRoundTripLossUsdt": "0.2660840",
+      "roundTripFrictionFraction": "0.1768",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30535,
+      "title": "\u2191 4.25%",
+      "outcome": "YES",
+      "bid": "0.68",
+      "ask": "0.864",
+      "spread": "0.184",
+      "feeRateBps": "200",
+      "bookAgeMs": 15222,
+      "bidTopShares": "7",
+      "askTopShares": "106.691",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.993703703703703703703703704",
+      "hypotheticalEntryCostUsdt": "1.728",
+      "immediateRoundTripLossUsdt": "0.385041185185185185185185185",
+      "roundTripFrictionFraction": "0.2228247599451303155006858709",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 12745,
+      "title": "3 (75 bps)",
+      "outcome": "YES",
+      "bid": "0.003",
+      "ask": "0.004",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 151602,
+      "bidTopShares": "6935.37999",
+      "askTopShares": "46921.427635",
+      "hypotheticalGrossShares": "430",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "421.40",
+      "hypotheticalEntryCostUsdt": "1.720",
+      "immediateRoundTripLossUsdt": "0.4810840",
+      "roundTripFrictionFraction": "0.2797",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30531,
+      "title": "\u2193 3.0%",
+      "outcome": "YES",
+      "bid": "0.038",
+      "ask": "0.057",
+      "spread": "0.019",
+      "feeRateBps": "200",
+      "bookAgeMs": 129318,
+      "bidTopShares": "100",
+      "askTopShares": "129",
+      "hypotheticalGrossShares": "34",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "33.32",
+      "hypotheticalEntryCostUsdt": "1.938",
+      "immediateRoundTripLossUsdt": "0.6971632",
+      "roundTripFrictionFraction": "0.3597333333333333333333333333",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30529,
+      "title": "\u2193 0.5%",
+      "outcome": "YES",
+      "bid": "0.013",
+      "ask": "0.099",
+      "spread": "0.086",
+      "feeRateBps": "200",
+      "bookAgeMs": 343995,
+      "bidTopShares": "202.64",
+      "askTopShares": "332.96",
+      "hypotheticalGrossShares": "100",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "98.00",
+      "hypotheticalEntryCostUsdt": "9.900",
+      "immediateRoundTripLossUsdt": "8.6514800",
+      "roundTripFrictionFraction": "0.8738868686868686868686868687",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30534,
+      "title": "\u2191 4.5%",
+      "outcome": "YES",
+      "bid": "0.117",
+      "ask": "0.989",
+      "spread": "0.872",
+      "feeRateBps": "200",
+      "bookAgeMs": 25932,
+      "bidTopShares": "131.74",
+      "askTopShares": "1339.6999999999998",
+      "hypotheticalGrossShares": "11",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "10.99755308392315470171890799",
+      "hypotheticalEntryCostUsdt": "10.879",
+      "immediateRoundTripLossUsdt": "9.618020563397371081900910010",
+      "roundTripFrictionFraction": "0.8840905012774493135307390394",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30534,
+      "title": "\u2191 4.5%",
+      "outcome": "NO",
+      "bid": "0.011",
+      "ask": "0.883",
+      "spread": "0.872",
+      "feeRateBps": "200",
+      "bookAgeMs": 25932,
+      "bidTopShares": "1339.6999999999998",
+      "askTopShares": "131.74",
+      "hypotheticalGrossShares": "116",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "115.6925934314835787089467724",
+      "hypotheticalEntryCostUsdt": "102.428",
+      "immediateRoundTripLossUsdt": "101.1808338428086070215175538",
+      "roundTripFrictionFraction": "0.9878239723787304938251020600",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 3235726,
+      "title": "21-25",
+      "outcome": "YES",
+      "bid": "0.01",
+      "ask": "0.99",
+      "spread": "0.98",
+      "feeRateBps": "200",
+      "bookAgeMs": 256864291,
+      "bidTopShares": "300",
+      "askTopShares": "300",
+      "hypotheticalGrossShares": "127",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.9743434343434343434343434",
+      "hypotheticalEntryCostUsdt": "125.73",
+      "immediateRoundTripLossUsdt": "124.4856514343434343434343434",
+      "roundTripFrictionFraction": "0.9901030098969492908886848278",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 3235726,
+      "title": "21-25",
+      "outcome": "NO",
+      "bid": "0.01",
+      "ask": "0.99",
+      "spread": "0.98",
+      "feeRateBps": "200",
+      "bookAgeMs": 256864291,
+      "bidTopShares": "300",
+      "askTopShares": "300",
+      "hypotheticalGrossShares": "127",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.9743434343434343434343434",
+      "hypotheticalEntryCostUsdt": "125.73",
+      "immediateRoundTripLossUsdt": "124.4856514343434343434343434",
+      "roundTripFrictionFraction": "0.9901030098969492908886848278",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 3235727,
+      "title": "26-30",
+      "outcome": "YES",
+      "bid": "0.01",
+      "ask": "0.99",
+      "spread": "0.98",
+      "feeRateBps": "200",
+      "bookAgeMs": 256860091,
+      "bidTopShares": "300",
+      "askTopShares": "200",
+      "hypotheticalGrossShares": "127",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.9743434343434343434343434",
+      "hypotheticalEntryCostUsdt": "125.73",
+      "immediateRoundTripLossUsdt": "124.4856514343434343434343434",
+      "roundTripFrictionFraction": "0.9901030098969492908886848278",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 3235727,
+      "title": "26-30",
+      "outcome": "NO",
+      "bid": "0.01",
+      "ask": "0.99",
+      "spread": "0.98",
+      "feeRateBps": "200",
+      "bookAgeMs": 256860091,
+      "bidTopShares": "200",
+      "askTopShares": "300",
+      "hypotheticalGrossShares": "127",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.9743434343434343434343434",
+      "hypotheticalEntryCostUsdt": "125.73",
+      "immediateRoundTripLossUsdt": "124.4856514343434343434343434",
+      "roundTripFrictionFraction": "0.9901030098969492908886848278",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 3235728,
+      "title": "31-35",
+      "outcome": "YES",
+      "bid": "0.01",
+      "ask": "0.99",
+      "spread": "0.98",
+      "feeRateBps": "200",
+      "bookAgeMs": 256855822,
+      "bidTopShares": "300",
+      "askTopShares": "200",
+      "hypotheticalGrossShares": "127",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.9743434343434343434343434",
+      "hypotheticalEntryCostUsdt": "125.73",
+      "immediateRoundTripLossUsdt": "124.4856514343434343434343434",
+      "roundTripFrictionFraction": "0.9901030098969492908886848278",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 3235728,
+      "title": "31-35",
+      "outcome": "NO",
+      "bid": "0.01",
+      "ask": "0.99",
+      "spread": "0.98",
+      "feeRateBps": "200",
+      "bookAgeMs": 256855822,
+      "bidTopShares": "200",
+      "askTopShares": "300",
+      "hypotheticalGrossShares": "127",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.9743434343434343434343434",
+      "hypotheticalEntryCostUsdt": "125.73",
+      "immediateRoundTripLossUsdt": "124.4856514343434343434343434",
+      "roundTripFrictionFraction": "0.9901030098969492908886848278",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 2508071,
+      "title": "Will BNB hit $700 or $900 first?",
+      "outcome": "NO",
+      "bid": "0.12",
+      "ask": "0.17",
+      "spread": "0.05",
+      "feeRateBps": "200",
+      "bookAgeMs": 255611,
+      "bidTopShares": "4.233636363636363",
+      "askTopShares": "500",
+      "hypotheticalGrossShares": "11",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "10.78",
+      "hypotheticalEntryCostUsdt": "1.87",
+      "immediateRoundTripLossUsdt": "0.602272",
+      "roundTripFrictionFraction": "0.3220705882352941176470588235",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30535,
+      "title": "\u2191 4.25%",
+      "outcome": "NO",
+      "bid": "0.136",
+      "ask": "0.32",
+      "spread": "0.184",
+      "feeRateBps": "200",
+      "bookAgeMs": 15222,
+      "bidTopShares": "106.691",
+      "askTopShares": "7",
+      "hypotheticalGrossShares": "10",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "9.80",
+      "hypotheticalEntryCostUsdt": "3.20",
+      "immediateRoundTripLossUsdt": "1.8938560",
+      "roundTripFrictionFraction": "0.59183",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30525,
+      "title": "\u2191 4.75%",
+      "outcome": "YES",
+      "bid": "0.031",
+      "ask": "0.119",
+      "spread": "0.088",
+      "feeRateBps": "200",
+      "bookAgeMs": 1484636,
+      "bidTopShares": "29.354",
+      "askTopShares": "10",
+      "hypotheticalGrossShares": "42",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "41.16",
+      "hypotheticalEntryCostUsdt": "4.998",
+      "immediateRoundTripLossUsdt": "3.7475592",
+      "roundTripFrictionFraction": "0.7498117647058823529411764706",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30532,
+      "title": "\u2193 3.25%",
+      "outcome": "YES",
+      "bid": "0.004",
+      "ask": "0.046",
+      "spread": "0.042",
+      "feeRateBps": "200",
+      "bookAgeMs": 811542,
+      "bidTopShares": "2082.83",
+      "askTopShares": "200",
+      "hypotheticalGrossShares": "323",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "316.54",
+      "hypotheticalEntryCostUsdt": "14.858",
+      "immediateRoundTripLossUsdt": "13.6171632",
+      "roundTripFrictionFraction": "0.9164869565217391304347826087",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 190414,
+      "title": "Will Justin Sun's address no longer be blacklisted by WLFI by 2027?",
+      "outcome": "YES",
+      "bid": "0.01",
+      "ask": "0.18",
+      "spread": "0.17",
+      "feeRateBps": "200",
+      "bookAgeMs": 4691340,
+      "bidTopShares": "1452.020202020202",
+      "askTopShares": "3.09",
+      "hypotheticalGrossShares": "129",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.42",
+      "hypotheticalEntryCostUsdt": "23.22",
+      "immediateRoundTripLossUsdt": "21.981084",
+      "roundTripFrictionFraction": "0.9466444444444444444444444444",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30540,
+      "title": "\u2193 2.25%",
+      "outcome": "YES",
+      "bid": "0.003",
+      "ask": "0.068",
+      "spread": "0.065",
+      "feeRateBps": "200",
+      "bookAgeMs": 400448,
+      "bidTopShares": "349.9",
+      "askTopShares": "321.88",
+      "hypotheticalGrossShares": "430",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "421.40",
+      "hypotheticalEntryCostUsdt": "29.240",
+      "immediateRoundTripLossUsdt": "28.0010840",
+      "roundTripFrictionFraction": "0.9576294117647058823529411765",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30523,
+      "title": "\u2191 5.0%",
+      "outcome": "YES",
+      "bid": "0.002",
+      "ask": "0.052",
+      "spread": "0.050",
+      "feeRateBps": "200",
+      "bookAgeMs": 1483874,
+      "bidTopShares": "428.62",
+      "askTopShares": "32",
+      "hypotheticalGrossShares": "645",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "632.10",
+      "hypotheticalEntryCostUsdt": "33.540",
+      "immediateRoundTripLossUsdt": "32.3010840",
+      "roundTripFrictionFraction": "0.9630615384615384615384615385",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30524,
+      "title": "\u2191 5.25%",
+      "outcome": "YES",
+      "bid": "0.003",
+      "ask": "0.137",
+      "spread": "0.134",
+      "feeRateBps": "200",
+      "bookAgeMs": 38859,
+      "bidTopShares": "1000",
+      "askTopShares": "5",
+      "hypotheticalGrossShares": "430",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "421.40",
+      "hypotheticalEntryCostUsdt": "58.910",
+      "immediateRoundTripLossUsdt": "57.6710840",
+      "roundTripFrictionFraction": "0.9789693430656934306569343066",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 30533,
+      "title": "\u2191 5.5%",
+      "outcome": "YES",
+      "bid": "0.001",
+      "ask": "0.08",
+      "spread": "0.079",
+      "feeRateBps": "200",
+      "bookAgeMs": 193960,
+      "bidTopShares": "1738.12",
+      "askTopShares": "326.08",
+      "hypotheticalGrossShares": "1289",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1263.22",
+      "hypotheticalEntryCostUsdt": "103.12",
+      "immediateRoundTripLossUsdt": "101.8820444",
+      "roundTripFrictionFraction": "0.987995",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 3235729,
+      "title": "36-40",
+      "outcome": "YES",
+      "bid": "0.01",
+      "ask": "0.99",
+      "spread": "0.98",
+      "feeRateBps": "200",
+      "bookAgeMs": 256851043,
+      "bidTopShares": "100",
+      "askTopShares": "300",
+      "hypotheticalGrossShares": "127",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.9743434343434343434343434",
+      "hypotheticalEntryCostUsdt": "125.73",
+      "immediateRoundTripLossUsdt": "124.4856514343434343434343434",
+      "roundTripFrictionFraction": "0.9901030098969492908886848278",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    },
+    {
+      "marketId": 3235729,
+      "title": "36-40",
+      "outcome": "NO",
+      "bid": "0.01",
+      "ask": "0.99",
+      "spread": "0.98",
+      "feeRateBps": "200",
+      "bookAgeMs": 256851043,
+      "bidTopShares": "300",
+      "askTopShares": "100",
+      "hypotheticalGrossShares": "127",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "126.9743434343434343434343434",
+      "hypotheticalEntryCostUsdt": "125.73",
+      "immediateRoundTripLossUsdt": "124.4856514343434343434343434",
+      "roundTripFrictionFraction": "0.9901030098969492908886848278",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": false,
+      "freshWithinFiveSeconds": false
+    }
+  ],
+  "followupCandidates": [
+    {
+      "marketId": 12742,
+      "title": "0 (0 bps)",
+      "outcome": "YES",
+      "bid": "0.961",
+      "ask": "0.962",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 655,
+      "bidTopShares": "8748.450512820513",
+      "askTopShares": "11397.213575883576",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.998419958419958419958419958",
+      "hypotheticalEntryCostUsdt": "1.924",
+      "immediateRoundTripLossUsdt": "0.005077187525987525987525988",
+      "roundTripFrictionFraction": "0.002638870855502872134888767152",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": true
+    },
+    {
+      "marketId": 52261,
+      "title": "Will Ethereum hit $1,000 or $3,000 first?",
+      "outcome": "NO",
+      "bid": "0.65",
+      "ask": "0.71",
+      "spread": "0.06",
+      "feeRateBps": "200",
+      "bookAgeMs": 4119,
+      "bidTopShares": "3736.3",
+      "askTopShares": "479.86545",
+      "hypotheticalGrossShares": "2",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "1.983661971830985915492957746",
+      "hypotheticalEntryCostUsdt": "1.42",
+      "immediateRoundTripLossUsdt": "0.144505352112676056338028169",
+      "roundTripFrictionFraction": "0.1017643324737155326324142035",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": true
+    }
+  ],
+  "followupBooks": [
+    {
+      "marketId": 12742,
+      "sample": 0,
+      "localObservedAtUtc": "2026-10-15T11:53:47.207503+00:00",
+      "updateTimestampMs": 1792065221726,
+      "bids": [
+        [
+          "0.961",
+          "8748.450512820513"
+        ],
+        [
+          "0.96",
+          "11611.060000000001"
+        ],
+        [
+          "0.959",
+          "15104.36"
+        ],
+        [
+          "0.958",
+          "208.76"
+        ],
+        [
+          "0.957",
+          "10645.712"
+        ],
+        [
+          "0.956",
+          "6144.6"
+        ],
+        [
+          "0.955",
+          "314.13"
+        ],
+        [
+          "0.954",
+          "1257.86"
+        ],
+        [
+          "0.953",
+          "1678.8899999999999"
+        ],
+        [
+          "0.952",
+          "1050.4"
+        ],
+        [
+          "0.951",
+          "1151.5"
+        ],
+        [
+          "0.948",
+          "1579.1000000000001"
+        ],
+        [
+          "0.946",
+          "1741.9"
+        ],
+        [
+          "0.943",
+          "6473.1"
+        ],
+        [
+          "0.942",
+          "1992.7"
+        ],
+        [
+          "0.941",
+          10626
+        ],
+        [
+          "0.935",
+          "21101.607"
+        ],
+        [
+          "0.901",
+          298
+        ],
+        [
+          "0.021",
+          925
+        ],
+        [
+          "0.02",
+          100
+        ],
+        [
+          "0.006",
+          500
+        ],
+        [
+          "0.005",
+          2000
+        ],
+        [
+          "0.004",
+          2000
+        ],
+        [
+          "0.003",
+          336
+        ],
+        [
+          "0.001",
+          59779
+        ]
+      ],
+      "asks": [
+        [
+          "0.962",
+          "11397.213575883576"
+        ],
+        [
+          "0.965",
+          "12646.47"
+        ],
+        [
+          "0.966",
+          "1892.77"
+        ],
+        [
+          "0.969",
+          4700
+        ],
+        [
+          "0.97",
+          "34.49013996009312"
+        ],
+        [
+          "0.971",
+          2000
+        ],
+        [
+          "0.972",
+          100
+        ],
+        [
+          "0.974",
+          240
+        ],
+        [
+          "0.975",
+          1388
+        ],
+        [
+          "0.98",
+          4496
+        ],
+        [
+          "0.986",
+          20000
+        ],
+        [
+          "0.989",
+          32029
+        ],
+        [
+          "0.99",
+          200
+        ],
+        [
+          "0.992",
+          2000
+        ],
+        [
+          "0.993",
+          2000
+        ],
+        [
+          "0.995",
+          200
+        ],
+        [
+          "0.998",
+          "50000499.919999994"
+        ],
+        [
+          "0.999",
+          "5177504.6"
+        ]
+      ]
+    },
+    {
+      "marketId": 52261,
+      "sample": 0,
+      "localObservedAtUtc": "2026-10-15T11:53:48.252359+00:00",
+      "updateTimestampMs": 1792065217726,
+      "bids": [
+        [
+          "0.29",
+          "479.86545"
+        ],
+        [
+          "0.24",
+          169
+        ],
+        [
+          "0.22",
+          "828.8"
+        ],
+        [
+          "0.19",
+          "114.289"
+        ],
+        [
+          "0.11",
+          300
+        ],
+        [
+          "0.1",
+          "491.77066666666667"
+        ],
+        [
+          "0.09",
+          "31.111"
+        ],
+        [
+          "0.06",
+          100
+        ],
+        [
+          "0.05",
+          1000
+        ],
+        [
+          "0.04",
+          262
+        ],
+        [
+          "0.03",
+          300
+        ],
+        [
+          "0.02",
+          "445.5"
+        ]
+      ],
+      "asks": [
+        [
+          "0.35",
+          "3736.3"
+        ],
+        [
+          "0.36",
+          "207.7"
+        ],
+        [
+          "0.38",
+          32
+        ],
+        [
+          "0.4",
+          3
+        ],
+        [
+          "0.45",
+          "478.49"
+        ],
+        [
+          "0.53",
+          100
+        ],
+        [
+          "0.79",
+          300
+        ],
+        [
+          "0.8",
+          "2.47"
+        ],
+        [
+          "0.92",
+          20
+        ],
+        [
+          "0.95",
+          100
+        ],
+        [
+          "0.97",
+          200
+        ],
+        [
+          "0.98",
+          400
+        ],
+        [
+          "0.99",
+          "3967.0000000000005"
+        ]
+      ]
+    },
+    {
+      "marketId": 12742,
+      "sample": 1,
+      "localObservedAtUtc": "2026-10-15T11:53:51.670812+00:00",
+      "updateTimestampMs": 1792065221726,
+      "bids": [
+        [
+          "0.961",
+          "8748.450512820513"
+        ],
+        [
+          "0.96",
+          "11611.060000000001"
+        ],
+        [
+          "0.959",
+          "15104.36"
+        ],
+        [
+          "0.958",
+          "208.76"
+        ],
+        [
+          "0.957",
+          "10645.712"
+        ],
+        [
+          "0.956",
+          "6144.6"
+        ],
+        [
+          "0.955",
+          "314.13"
+        ],
+        [
+          "0.954",
+          "1257.86"
+        ],
+        [
+          "0.953",
+          "1678.8899999999999"
+        ],
+        [
+          "0.952",
+          "1050.4"
+        ],
+        [
+          "0.951",
+          "1151.5"
+        ],
+        [
+          "0.948",
+          "1579.1000000000001"
+        ],
+        [
+          "0.946",
+          "1741.9"
+        ],
+        [
+          "0.943",
+          "6473.1"
+        ],
+        [
+          "0.942",
+          "1992.7"
+        ],
+        [
+          "0.941",
+          10626
+        ],
+        [
+          "0.935",
+          "21101.607"
+        ],
+        [
+          "0.901",
+          298
+        ],
+        [
+          "0.021",
+          925
+        ],
+        [
+          "0.02",
+          100
+        ],
+        [
+          "0.006",
+          500
+        ],
+        [
+          "0.005",
+          2000
+        ],
+        [
+          "0.004",
+          2000
+        ],
+        [
+          "0.003",
+          336
+        ],
+        [
+          "0.001",
+          59779
+        ]
+      ],
+      "asks": [
+        [
+          "0.962",
+          "11397.213575883576"
+        ],
+        [
+          "0.965",
+          "12646.47"
+        ],
+        [
+          "0.966",
+          "1892.77"
+        ],
+        [
+          "0.969",
+          4700
+        ],
+        [
+          "0.97",
+          "34.49013996009312"
+        ],
+        [
+          "0.971",
+          2000
+        ],
+        [
+          "0.972",
+          100
+        ],
+        [
+          "0.974",
+          240
+        ],
+        [
+          "0.975",
+          1388
+        ],
+        [
+          "0.98",
+          4496
+        ],
+        [
+          "0.986",
+          20000
+        ],
+        [
+          "0.989",
+          32029
+        ],
+        [
+          "0.99",
+          200
+        ],
+        [
+          "0.992",
+          2000
+        ],
+        [
+          "0.993",
+          2000
+        ],
+        [
+          "0.995",
+          200
+        ],
+        [
+          "0.998",
+          "50000499.919999994"
+        ],
+        [
+          "0.999",
+          "5177504.6"
+        ]
+      ]
+    },
+    {
+      "marketId": 52261,
+      "sample": 1,
+      "localObservedAtUtc": "2026-10-15T11:53:52.034252+00:00",
+      "updateTimestampMs": 1792065217726,
+      "bids": [
+        [
+          "0.29",
+          "479.86545"
+        ],
+        [
+          "0.24",
+          169
+        ],
+        [
+          "0.22",
+          "828.8"
+        ],
+        [
+          "0.19",
+          "114.289"
+        ],
+        [
+          "0.11",
+          300
+        ],
+        [
+          "0.1",
+          "491.77066666666667"
+        ],
+        [
+          "0.09",
+          "31.111"
+        ],
+        [
+          "0.06",
+          100
+        ],
+        [
+          "0.05",
+          1000
+        ],
+        [
+          "0.04",
+          262
+        ],
+        [
+          "0.03",
+          300
+        ],
+        [
+          "0.02",
+          "445.5"
+        ]
+      ],
+      "asks": [
+        [
+          "0.35",
+          "3736.3"
+        ],
+        [
+          "0.36",
+          "207.7"
+        ],
+        [
+          "0.38",
+          32
+        ],
+        [
+          "0.4",
+          3
+        ],
+        [
+          "0.45",
+          "478.49"
+        ],
+        [
+          "0.53",
+          100
+        ],
+        [
+          "0.79",
+          300
+        ],
+        [
+          "0.8",
+          "2.47"
+        ],
+        [
+          "0.92",
+          20
+        ],
+        [
+          "0.95",
+          100
+        ],
+        [
+          "0.97",
+          200
+        ],
+        [
+          "0.98",
+          400
+        ],
+        [
+          "0.99",
+          "3967.0000000000005"
+        ]
+      ]
+    },
+    {
+      "marketId": 12742,
+      "sample": 2,
+      "localObservedAtUtc": "2026-10-15T11:53:55.513979+00:00",
+      "updateTimestampMs": 1792065231713,
+      "bids": [
+        [
+          "0.961",
+          "8748.450512820513"
+        ],
+        [
+          "0.96",
+          "11611.060000000001"
+        ],
+        [
+          "0.959",
+          "15104.36"
+        ],
+        [
+          "0.958",
+          "208.76"
+        ],
+        [
+          "0.957",
+          "10645.712"
+        ],
+        [
+          "0.956",
+          "6144.6"
+        ],
+        [
+          "0.955",
+          "314.13"
+        ],
+        [
+          "0.954",
+          "1257.86"
+        ],
+        [
+          "0.953",
+          "1678.8899999999999"
+        ],
+        [
+          "0.952",
+          "1050.4"
+        ],
+        [
+          "0.951",
+          "1151.5"
+        ],
+        [
+          "0.948",
+          "1579.1000000000001"
+        ],
+        [
+          "0.946",
+          "1741.9"
+        ],
+        [
+          "0.943",
+          "6473.1"
+        ],
+        [
+          "0.942",
+          "1992.7"
+        ],
+        [
+          "0.941",
+          10626
+        ],
+        [
+          "0.935",
+          "21101.607"
+        ],
+        [
+          "0.901",
+          298
+        ],
+        [
+          "0.021",
+          925
+        ],
+        [
+          "0.02",
+          100
+        ],
+        [
+          "0.006",
+          500
+        ],
+        [
+          "0.005",
+          2000
+        ],
+        [
+          "0.004",
+          2000
+        ],
+        [
+          "0.003",
+          336
+        ],
+        [
+          "0.001",
+          59779
+        ]
+      ],
+      "asks": [
+        [
+          "0.962",
+          "11397.213575883576"
+        ],
+        [
+          "0.965",
+          "12646.47"
+        ],
+        [
+          "0.966",
+          "1892.77"
+        ],
+        [
+          "0.969",
+          4700
+        ],
+        [
+          "0.97",
+          "34.49013996009312"
+        ],
+        [
+          "0.971",
+          2000
+        ],
+        [
+          "0.972",
+          100
+        ],
+        [
+          "0.974",
+          240
+        ],
+        [
+          "0.975",
+          1388
+        ],
+        [
+          "0.98",
+          4496
+        ],
+        [
+          "0.986",
+          20000
+        ],
+        [
+          "0.989",
+          32029
+        ],
+        [
+          "0.99",
+          200
+        ],
+        [
+          "0.992",
+          2000
+        ],
+        [
+          "0.993",
+          2000
+        ],
+        [
+          "0.995",
+          200
+        ],
+        [
+          "0.998",
+          "50000499.919999994"
+        ],
+        [
+          "0.999",
+          "5177504.6"
+        ]
+      ]
+    },
+    {
+      "marketId": 52261,
+      "sample": 2,
+      "localObservedAtUtc": "2026-10-15T11:53:55.885652+00:00",
+      "updateTimestampMs": 1792065217726,
+      "bids": [
+        [
+          "0.29",
+          "479.86545"
+        ],
+        [
+          "0.24",
+          169
+        ],
+        [
+          "0.22",
+          "828.8"
+        ],
+        [
+          "0.19",
+          "114.289"
+        ],
+        [
+          "0.11",
+          300
+        ],
+        [
+          "0.1",
+          "491.77066666666667"
+        ],
+        [
+          "0.09",
+          "31.111"
+        ],
+        [
+          "0.06",
+          100
+        ],
+        [
+          "0.05",
+          1000
+        ],
+        [
+          "0.04",
+          262
+        ],
+        [
+          "0.03",
+          300
+        ],
+        [
+          "0.02",
+          "445.5"
+        ]
+      ],
+      "asks": [
+        [
+          "0.35",
+          "3736.3"
+        ],
+        [
+          "0.36",
+          "207.7"
+        ],
+        [
+          "0.38",
+          32
+        ],
+        [
+          "0.4",
+          3
+        ],
+        [
+          "0.45",
+          "478.49"
+        ],
+        [
+          "0.53",
+          100
+        ],
+        [
+          "0.79",
+          300
+        ],
+        [
+          "0.8",
+          "2.47"
+        ],
+        [
+          "0.92",
+          20
+        ],
+        [
+          "0.95",
+          100
+        ],
+        [
+          "0.97",
+          200
+        ],
+        [
+          "0.98",
+          400
+        ],
+        [
+          "0.99",
+          "3967.0000000000005"
+        ]
+      ]
+    },
+    {
+      "marketId": 12742,
+      "sample": 3,
+      "localObservedAtUtc": "2026-10-15T11:53:59.355681+00:00",
+      "updateTimestampMs": 1792065231713,
+      "bids": [
+        [
+          "0.961",
+          "8748.450512820513"
+        ],
+        [
+          "0.96",
+          "11611.060000000001"
+        ],
+        [
+          "0.959",
+          "15104.36"
+        ],
+        [
+          "0.958",
+          "208.76"
+        ],
+        [
+          "0.957",
+          "10645.712"
+        ],
+        [
+          "0.956",
+          "6144.6"
+        ],
+        [
+          "0.955",
+          "314.13"
+        ],
+        [
+          "0.954",
+          "1257.86"
+        ],
+        [
+          "0.953",
+          "1678.8899999999999"
+        ],
+        [
+          "0.952",
+          "1050.4"
+        ],
+        [
+          "0.951",
+          "1151.5"
+        ],
+        [
+          "0.948",
+          "1579.1000000000001"
+        ],
+        [
+          "0.946",
+          "1741.9"
+        ],
+        [
+          "0.943",
+          "6473.1"
+        ],
+        [
+          "0.942",
+          "1992.7"
+        ],
+        [
+          "0.941",
+          10626
+        ],
+        [
+          "0.935",
+          "21101.607"
+        ],
+        [
+          "0.901",
+          298
+        ],
+        [
+          "0.021",
+          925
+        ],
+        [
+          "0.02",
+          100
+        ],
+        [
+          "0.006",
+          500
+        ],
+        [
+          "0.005",
+          2000
+        ],
+        [
+          "0.004",
+          2000
+        ],
+        [
+          "0.003",
+          336
+        ],
+        [
+          "0.001",
+          59779
+        ]
+      ],
+      "asks": [
+        [
+          "0.962",
+          "11397.213575883576"
+        ],
+        [
+          "0.965",
+          "12646.47"
+        ],
+        [
+          "0.966",
+          "1892.77"
+        ],
+        [
+          "0.969",
+          4700
+        ],
+        [
+          "0.97",
+          "34.49013996009312"
+        ],
+        [
+          "0.971",
+          2000
+        ],
+        [
+          "0.972",
+          100
+        ],
+        [
+          "0.974",
+          240
+        ],
+        [
+          "0.975",
+          1388
+        ],
+        [
+          "0.98",
+          4496
+        ],
+        [
+          "0.986",
+          20000
+        ],
+        [
+          "0.989",
+          32029
+        ],
+        [
+          "0.99",
+          200
+        ],
+        [
+          "0.992",
+          2000
+        ],
+        [
+          "0.993",
+          2000
+        ],
+        [
+          "0.995",
+          200
+        ],
+        [
+          "0.998",
+          "50000499.919999994"
+        ],
+        [
+          "0.999",
+          "5177504.6"
+        ]
+      ]
+    },
+    {
+      "marketId": 52261,
+      "sample": 3,
+      "localObservedAtUtc": "2026-10-15T11:54:00.042255+00:00",
+      "updateTimestampMs": 1792065217726,
+      "bids": [
+        [
+          "0.29",
+          "479.86545"
+        ],
+        [
+          "0.24",
+          169
+        ],
+        [
+          "0.22",
+          "828.8"
+        ],
+        [
+          "0.19",
+          "114.289"
+        ],
+        [
+          "0.11",
+          300
+        ],
+        [
+          "0.1",
+          "491.77066666666667"
+        ],
+        [
+          "0.09",
+          "31.111"
+        ],
+        [
+          "0.06",
+          100
+        ],
+        [
+          "0.05",
+          1000
+        ],
+        [
+          "0.04",
+          262
+        ],
+        [
+          "0.03",
+          300
+        ],
+        [
+          "0.02",
+          "445.5"
+        ]
+      ],
+      "asks": [
+        [
+          "0.35",
+          "3736.3"
+        ],
+        [
+          "0.36",
+          "207.7"
+        ],
+        [
+          "0.38",
+          32
+        ],
+        [
+          "0.4",
+          3
+        ],
+        [
+          "0.45",
+          "478.49"
+        ],
+        [
+          "0.53",
+          100
+        ],
+        [
+          "0.79",
+          300
+        ],
+        [
+          "0.8",
+          "2.47"
+        ],
+        [
+          "0.92",
+          20
+        ],
+        [
+          "0.95",
+          100
+        ],
+        [
+          "0.97",
+          200
+        ],
+        [
+          "0.98",
+          400
+        ],
+        [
+          "0.99",
+          "3967.0000000000005"
+        ]
+      ]
+    }
+  ],
+  "profitabilityEvidence": "No validated predictive reversal or positive expected return; short observations cannot establish an edge."
+}

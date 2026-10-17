@@ -1,0 +1,19 @@
+title = "Catalog Capture secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public Anvil account-0 development key used by official SDK test vectors"
+regexTarget = "secret"
+regexes = [
+  '''^(0x)?ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80$''',
+]
+
+[[allowlists]]
+description = "Reviewed SHA-256 source metadata in retained validation summaries"
+regexTarget = "line"
+regexes = [
+  '''^\s*"crates/nautilus-predict/(src/signing/auth\.rs|src/common/credential\.rs|tests/private_api_live\.rs|tests/fixtures/auth_vectors\.json)":\s*"[a-f0-9]{64}",?\s*$''',
+  '''^\s*"crates/catalog-capture-cli/src/credentials\.rs":\s*"[a-f0-9]{64}",?\s*$''',
+]

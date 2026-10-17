@@ -1,0 +1,27 @@
+{
+  "source": "offline maker hardening command results, retained real evidence checksums and explicit mainnet read-only check; not a new mainnet order run",
+  "checkedAtUtc": "2026-10-15T10:15:26.197306+00:00",
+  "offlineRust": {
+    "passed": 196,
+    "failed": 0,
+    "ignored": 8
+  },
+  "python": {
+    "passed": 17,
+    "failed": 0
+  },
+  "executionAllTargetClippy": true,
+  "noDefaultExecutionBuild": true,
+  "formatChecks": true,
+  "originalActualJsonFilesUnchanged": 10,
+  "newMainnetOrders": 0,
+  "makerRegressionCases": [
+    "captured duplicate accepted/canceled wallet messages",
+    "HTTP rejection after observed collateral reservation",
+    "wallet post-only rejection reason and native due_post_only",
+    "cancel rejection preserves original order and reservation",
+    "typed lifecycle reasons preserve safe native report fields",
+    "subminimum notional denied with unchanged quantity and exact 1 USDT control"
+  ],
+  "lastReadOnlyOpenOrderCount": 0
+}

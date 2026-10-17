@@ -1,0 +1,332 @@
+[
+  {
+    "type": "AccountStateApplied",
+    "eventId": "70153597-f1f9-4567-a7ad-20518f3641f4",
+    "tsEvent": 1792152049085116000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "48.37915000",
+        "locked": "0.00000000"
+      }
+    ]
+  },
+  {
+    "type": "SubmissionDecision",
+    "marketId": 2508071,
+    "bookTsEvent": 1792151552131000000,
+    "observedNs": 1792152049254397000,
+    "bestBid": "0.82",
+    "bestAsk": "0.83",
+    "restConfirmed": true,
+    "timeInForce": "GTC",
+    "price": "0.01",
+    "quantity": "100.00000",
+    "cost": "1.0000000"
+  },
+  {
+    "type": "Initialized",
+    "clientOrderId": "O-20261016-120049-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792152049254504000,
+    "cachedOrder": {
+      "status": "INITIALIZED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "Submitted",
+    "clientOrderId": "O-20261016-120049-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792152049256815000,
+    "cachedOrder": {
+      "status": "SUBMITTED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "2a1538ec-fe2a-43ea-96a6-1011a7a54d16",
+    "tsEvent": 1792152052484719000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "PendingUpdate",
+    "clientOrderId": "O-20261016-120049-001-001-1",
+    "venueOrderId": "0xeb749ca0b55c6a2f2586cae4503a009a127f6e03e696a3eaec80abdce8df8b26",
+    "tsEvent": 1792152053234619000,
+    "cachedOrder": {
+      "status": "PENDING_UPDATE",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "Accepted",
+    "clientOrderId": "O-20261016-120049-001-001-1",
+    "venueOrderId": "0xeb749ca0b55c6a2f2586cae4503a009a127f6e03e696a3eaec80abdce8df8b26",
+    "tsEvent": 1792152056425000000,
+    "cachedOrder": {
+      "status": "PENDING_UPDATE",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "ModifyRejected",
+    "clientOrderId": "O-20261016-120049-001-001-1",
+    "venueOrderId": "0xeb749ca0b55c6a2f2586cae4503a009a127f6e03e696a3eaec80abdce8df8b26",
+    "tsEvent": 1792152053235934000,
+    "cachedOrder": {
+      "status": "ACCEPTED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": "Predict atomic order modification is unsupported; cancel then replace explicitly",
+    "duePostOnly": null
+  },
+  {
+    "type": "PendingCancel",
+    "clientOrderId": "O-20261016-120049-001-001-1",
+    "venueOrderId": "0xeb749ca0b55c6a2f2586cae4503a009a127f6e03e696a3eaec80abdce8df8b26",
+    "tsEvent": 1792152055300180000,
+    "cachedOrder": {
+      "status": "PENDING_CANCEL",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "Canceled",
+    "clientOrderId": "O-20261016-120049-001-001-1",
+    "venueOrderId": "0xeb749ca0b55c6a2f2586cae4503a009a127f6e03e696a3eaec80abdce8df8b26",
+    "tsEvent": 1792152056167486000,
+    "cachedOrder": {
+      "status": "CANCELED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "SubmissionDecision",
+    "marketId": 2508071,
+    "bookTsEvent": 1792152056425000000,
+    "observedNs": 1792152056199160000,
+    "bestBid": "0.82",
+    "bestAsk": "0.83",
+    "restConfirmed": true,
+    "timeInForce": "GTC",
+    "price": "0.02",
+    "quantity": "50.00000",
+    "cost": "1.0000000"
+  },
+  {
+    "type": "Initialized",
+    "clientOrderId": "O-20261016-120056-001-001-2",
+    "venueOrderId": null,
+    "tsEvent": 1792152056199187000,
+    "cachedOrder": {
+      "status": "INITIALIZED",
+      "quantity": "50.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.02",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "Submitted",
+    "clientOrderId": "O-20261016-120056-001-001-2",
+    "venueOrderId": null,
+    "tsEvent": 1792152056199992000,
+    "cachedOrder": {
+      "status": "SUBMITTED",
+      "quantity": "50.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.02",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "PendingUpdate",
+    "clientOrderId": "O-20261016-120056-001-001-2",
+    "venueOrderId": "0x3b3f1e7a60178f35b039eccc003d7f8908cca58a5001680a2dbb13dede947793",
+    "tsEvent": 1792152060126399000,
+    "cachedOrder": {
+      "status": "PENDING_UPDATE",
+      "quantity": "50.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.02",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "Accepted",
+    "clientOrderId": "O-20261016-120056-001-001-2",
+    "venueOrderId": "0x3b3f1e7a60178f35b039eccc003d7f8908cca58a5001680a2dbb13dede947793",
+    "tsEvent": 1792152063327000000,
+    "cachedOrder": {
+      "status": "PENDING_UPDATE",
+      "quantity": "50.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.02",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "ModifyRejected",
+    "clientOrderId": "O-20261016-120056-001-001-2",
+    "venueOrderId": "0x3b3f1e7a60178f35b039eccc003d7f8908cca58a5001680a2dbb13dede947793",
+    "tsEvent": 1792152060127963000,
+    "cachedOrder": {
+      "status": "ACCEPTED",
+      "quantity": "50.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.02",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": "Predict atomic order modification is unsupported; cancel then replace explicitly",
+    "duePostOnly": null
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "617dd2d7-9508-40fa-ba27-2ff429084ea3",
+    "tsEvent": 1792152062125736000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "PendingCancel",
+    "clientOrderId": "O-20261016-120056-001-001-2",
+    "venueOrderId": "0x3b3f1e7a60178f35b039eccc003d7f8908cca58a5001680a2dbb13dede947793",
+    "tsEvent": 1792152062198904000,
+    "cachedOrder": {
+      "status": "PENDING_CANCEL",
+      "quantity": "50.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.02",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "Canceled",
+    "clientOrderId": "O-20261016-120056-001-001-2",
+    "venueOrderId": "0x3b3f1e7a60178f35b039eccc003d7f8908cca58a5001680a2dbb13dede947793",
+    "tsEvent": 1792152063071134000,
+    "cachedOrder": {
+      "status": "CANCELED",
+      "quantity": "50.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.02",
+      "postOnly": true,
+      "timeInForce": "GTC",
+      "expireTimeNs": null
+    },
+    "fill": null,
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "b99eb14a-1413-4593-8f97-055c1245196c",
+    "tsEvent": 1792152066182028000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "48.37915000",
+        "locked": "0.00000000"
+      }
+    ]
+  }
+]

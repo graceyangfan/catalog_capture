@@ -16,7 +16,7 @@ use nautilus_model::{
     types::{Currency, Price, Quantity},
 };
 use nautilus_network::http::{
-    create_standard_nautilus_headers, HttpClient, HttpRedirectPolicy, Method,
+    HttpClient, HttpRedirectPolicy, Method, create_standard_nautilus_headers,
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;

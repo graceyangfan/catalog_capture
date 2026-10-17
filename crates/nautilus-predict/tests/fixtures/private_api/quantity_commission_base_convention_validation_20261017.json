@@ -1,0 +1,249 @@
+{
+  "source": "offline model/Strategy+LiveNode validation; no new venue evidence",
+  "nativeDevelopBase": "7b6e2c27b86bd1688fde49bcf6e81d7a89560b05",
+  "nativeCommit": "806b0ee9160b4927e658bf7523f16363a9fd3062",
+  "remote": "graceyangfan/nautilus_trader",
+  "remoteHeadVerified": true,
+  "draftPr": "https://github.com/graceyangfan/nautilus_trader/pull/2",
+  "change": {
+    "removed": [
+      "QuantityCommissionTotals type",
+      "cumulative inventory fee cost",
+      "additional quote realized PnL expense",
+      "cost residual diagnostic helper"
+    ],
+    "retained": "single Option<Decimal> quantity_commission_total; actual fill fee; existing internal commission adjustment; Native lifecycle and replay_state",
+    "positionProductionDeltaFromPrevious": {
+      "added": 37,
+      "removed": 74
+    },
+    "fullDiffRelativeToDevelop": {
+      "files": 12,
+      "insertions": 913,
+      "deletions": 81
+    }
+  },
+  "existingBaseCommissionParity": {
+    "grossBuy": "1",
+    "buyPrice": "100",
+    "inventoryFee": "0.01",
+    "net": "0.990000",
+    "sellQty": "0.99",
+    "sellPrice": "110",
+    "cashDifference": "8.90 USDT",
+    "legacyRealized": "9.90000000 USDT",
+    "legacyCommissions": {
+      "BTC": "0.01000000 BTC",
+      "USDT": "0.00000000 USDT"
+    },
+    "quantityRealized": "9.90000000 USDT",
+    "quantityCommissions": "0.01",
+    "meaning": "Both paths preserve Native quote realized PnL; inventory fees remain separately identifiable and quote realized is not all-in cash PnL."
+  },
+  "partialExit": {
+    "nativeOpenOrders": 0,
+    "nativeOpenPositions": 0,
+    "reportedCash": "48.23330840",
+    "nativeQuoteRealizedPnl": "-0.03931866 USDT",
+    "cashPnlFromRetainedEntryExitFacts": "-0.06442080 USDT",
+    "inventoryFees": [
+      {
+        "fees": "0.639999999999999999",
+        "quantityResidual": "0.000000000000000001",
+        "realizedPnl": "-0.03931866 USDT"
+      }
+    ]
+  },
+  "mixedCycle": {
+    "nativeQuoteRealizedPnl": "0.08069573 USDT",
+    "cashPnl": "0.07479360",
+    "quantityFeeTotal": "0.639999999999999999",
+    "quantityResidual": "0.000000000000000001",
+    "noFeeCostState": true,
+    "noInventoryFeePnlAdjustment": true,
+    "replayStateRestoresQuantityTotal": true
+  },
+  "restoredUpstreamFiles": [
+    {
+      "path": "crates/model/src/orders/mod.rs",
+      "matchesDevelopExactly": true,
+      "sha256": "8eb0b860dda92ba5352f4d2f7f5d64b016457f1e493746ef45e18564a1f76c41"
+    },
+    {
+      "path": "crates/model/src/events/position/snapshot.rs",
+      "matchesDevelopExactly": true,
+      "sha256": "5936ee1d12550a175dd03cc17f1e5b43388f99eea0dbe3445c27150924c8c832"
+    },
+    {
+      "path": "crates/serialization/src/arrow/snapshot.rs",
+      "matchesDevelopExactly": true,
+      "sha256": "11debcd595db8c1d0a05100b1b739edc3323eb0597d27c362e6a7043cd570702"
+    }
+  ],
+  "captures": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/quantity_commission_base_parity_audit_20261017.json",
+      "sha256": "4efe5e298bac843bc08b164481aa3ad8c6c36784677d2abfba791af399b87983"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/native_quantity_commission_quantity_only_partial_exit_20261017.json",
+      "sha256": "ff57316365e7acb9d62f82fbeb844752c8d3a823e7e0d94d3958ab9ffb881431"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/native_quantity_commission_quantity_only_live_node_20261017.json",
+      "sha256": "3d8f451496cc720d1350595024cc345ea85b96417f5d122a2ee5e61ab03d9452"
+    }
+  ],
+  "logs": [
+    {
+      "label": "red",
+      "path": "/tmp/qty-convention-red.log",
+      "sha256": "330a2169175938ae6844aebed8a4145c76507f14a4f7044f24f92954de94c30d",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 21.75s",
+        "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3916 filtered out; finished in 0.01s"
+      ],
+      "expectedFailure": true
+    },
+    {
+      "label": "model-final",
+      "path": "/tmp/qty-convention-model-final.log",
+      "sha256": "28cc11189ed0d22882cc17ed255ad01334652b8d6c2e73e581606487ccd9908f",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 23.81s",
+        "test result: ok. 3995 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.66s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "engine",
+      "path": "/tmp/qty-convention-engine.log",
+      "sha256": "4b1a676678c07c9880e383e9c14158838ff4eb5852c04282e6e0c88acfbbc8e3",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 26.76s",
+        "test result: ok. 702 passed; 0 failed; 0 ignored; 0 measured; 1185 filtered out; finished in 0.03s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "serialization",
+      "path": "/tmp/qty-convention-serialization.log",
+      "sha256": "7b4938241f7fcd504a7768bd6a19eb1141d85865e3bd248b6fbb8a102c4afebd",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 13.83s",
+        "test result: ok. 431 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "predict-final",
+      "path": "/tmp/qty-convention-predict-final.log",
+      "sha256": "8b8f671b13984dd3b7c15940752b056ff9c603e3a9161473b5406024a441e055",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 15.43s",
+        "test result: ok. 50 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 190 passed; 0 failed; 58 ignored; 0 measured; 0 filtered out; finished in 19.74s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "default",
+      "path": "/tmp/qty-convention-default.log",
+      "sha256": "928b48e79a4e577aca35221cc50a53a16f2aa1e26e8172a8b02d20650ef2c5f2",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 22.48s",
+        "test result: ok. 49 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.03s",
+        "test result: ok. 182 passed; 0 failed; 54 ignored; 0 measured; 0 filtered out; finished in 19.88s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "audit-capture",
+      "path": "/tmp/qty-convention-audit-capture.log",
+      "sha256": "99a5f12ce55832e0e932c9d958af4bc4c7f4b49b87a13f3e4b13a2f9a64cab64",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 0.36s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.00s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "partial-capture",
+      "path": "/tmp/qty-convention-partial-capture.log",
+      "sha256": "1762081d9c974552691cb96777dc6b91084cfc047bdec66384e6cfc95dfc29ef",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 0.29s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.36s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "residual-capture",
+      "path": "/tmp/qty-convention-residual-capture.log",
+      "sha256": "2088d72bb068a3037f7fd87caab3aed9afc150b0eea0ac74839bd25ca21b1014",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 0.78s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 1.00s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "format",
+      "path": "/tmp/qty-convention-format.log",
+      "sha256": "18b73725b2a314f4e98392d3428a90a09d68ba3a87f5516602d8e7696890dda8",
+      "results": [],
+      "expectedFailure": false
+    },
+    {
+      "label": "hooks",
+      "path": "/tmp/qty-convention-hooks.log",
+      "sha256": "276608f3747c714f57ad93ed7cd349a6586d6310250f3e25d51cbfbfd9a58a5d",
+      "results": [
+        "Pre-commit time: 0:02:42"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "clippy",
+      "path": "/tmp/qty-convention-clippy.log",
+      "sha256": "1d9cd3887e17ee4524efb4fcf6ac29a94f0b60936c2bd69be48c976f58be88b6",
+      "results": [
+        "    Finished `dev` profile [unoptimized] target(s) in 22.18s"
+      ],
+      "expectedFailure": false
+    },
+    {
+      "label": "cli",
+      "path": "/tmp/qty-convention-cli.log",
+      "sha256": "80bbfeb6b75aa3ad6acc68d3083a0032cd5e501913bd9e0d2ce7dc448d8f1c09",
+      "results": [
+        "    Finished `dev` profile [unoptimized] target(s) in 38.54s"
+      ],
+      "expectedFailure": false
+    }
+  ],
+  "patch": {
+    "path": "docs/reference/patches/nautilus-inventory-quantity-only-7b6e2c27b8.patch",
+    "sha256": "91ccd473fa439ce5f7991524f9c96300690e3ace0b2944cf862bd8a380dd9e80",
+    "reverseApplyCheck": true
+  },
+  "limitations": [
+    "reported Cash, long linear unit inventory prototype only",
+    "quote realized PnL excludes separately identified inventory fee valuation, consistent with existing base commission",
+    "Python/PyO3/FFI and general corrections not complete",
+    "earlier prototype snapshots require rebuilding from fills"
+  ],
+  "noLiveOrders": true,
+  "noPrivateReads": true,
+  "noRedisOperations": true,
+  "recordingLogicUnchanged": true,
+  "pullRequestStatus": {
+    "number": 2,
+    "state": "closed",
+    "merged": false,
+    "closedAt": "2026-10-17T03:25:16Z",
+    "frozenHead": "01c7bf60c9533cd65d15b06c7b91cfc1feab175a",
+    "reopened": false
+  },
+  "currentReviewCompare": "https://github.com/graceyangfan/nautilus_trader/compare/7b6e2c27b86bd1688fde49bcf6e81d7a89560b05...806b0ee9160b4927e658bf7523f16363a9fd3062"
+}

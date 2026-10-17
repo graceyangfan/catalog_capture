@@ -1,0 +1,94 @@
+{
+  "source": "derived offline review of retained actual mainnet JSON and separately labeled corrected synthetic replay; no new venue calls",
+  "sources": [
+    {
+      "path": "live_fill_20261016T123240Z/native_roundtrip.json",
+      "sha256": "93a6fbbfba86c9f3b6aad84c8b0ce55536c811358e5e31ea9b1f210cc1234905",
+      "grade": "actual capture"
+    },
+    {
+      "path": "live_fill_20261016T123240Z_independent/calibration.json",
+      "sha256": "eb6e342a831c183ec7d0b8d0b9c172212053857d9b7908c500b509bdc0dc18b5",
+      "grade": "actual capture"
+    },
+    {
+      "path": "live_fill_20261016T123240Z/pnl_scope_review.json",
+      "sha256": "6543ac05da6a48034423046833bfc2b01added387df4eae6bfae2daca4053447",
+      "grade": "derived review of actual capture"
+    },
+    {
+      "path": "live_fill_20261016T122233Z/account_consistency_review.json",
+      "sha256": "4af2642a2ab4a8c8f2ec958abd6f7eea399f11062464faf4ccdc3d5c738978a1",
+      "grade": "derived review of actual capture"
+    },
+    {
+      "path": "actual_trade_flow_native_replay_20261016_v2.json",
+      "sha256": "c22507e2bf9c7c8a1b3f92600da3ebc9e7068cc73f17737ebede1ef451c6276c",
+      "grade": "derived corrected Rust LiveNode replay"
+    }
+  ],
+  "actualEconomics": {
+    "grossShares": "32",
+    "sharesFee": "0.64",
+    "netShares": "31.36",
+    "shareFeeUSDTEquivalent": "0.0256",
+    "buyCashDebit": "1.28",
+    "sellGrossCredit": "1.22304",
+    "sellCashFee": "0.0244608",
+    "cashDelta": "-0.0814208",
+    "finalNativeCash": "48.21630840",
+    "walletMatchesAndChainAgree": true
+  },
+  "actualCallbackCounts": {
+    "on_order_submitted": 3,
+    "on_order_accepted": 6,
+    "on_order_filled": 5,
+    "on_position_opened": 1,
+    "on_position_changed": 3,
+    "on_order_pending_cancel": 1,
+    "on_order_canceled": 1,
+    "on_position_closed": 1
+  },
+  "actualHistoricalFillsAdopted": 2,
+  "actualPositionCallbackQuantities": [
+    "32.0000000000000000",
+    "64.0000000000000000",
+    "32.6400000000000000",
+    "31.3600000000000000",
+    "0"
+  ],
+  "actualFinalNativeAccountMatchesChain": true,
+  "actualFinalCashObservedOnAccountTopic": false,
+  "actualCyclePnLAccepted": false,
+  "firstCycleAccountAccepted": false,
+  "correctedReplay": {
+    "grade": "derived offline economic replay, not a new real fill",
+    "callbackCounts": {
+      "on_order_submitted": 3,
+      "on_order_accepted": 4,
+      "on_order_filled": 3,
+      "on_position_opened": 1,
+      "on_position_changed": 1,
+      "on_order_pending_cancel": 1,
+      "on_order_canceled": 1,
+      "on_position_closed": 1
+    },
+    "netPositionSequence": [
+      "32.0000000000000000",
+      "31.3600000000000000",
+      "0"
+    ],
+    "filledCallbacksIncludeNativeSyntheticAdjustment": true,
+    "cashDeltaMatchesNativePnL": true,
+    "finalPositions": 0,
+    "finalOpenOrders": 0
+  },
+  "nativeContractNotes": [
+    "Rust Strategy exposes order and position callbacks but no built-in on_account hook in reviewed revision",
+    "reported AccountState goes through runner portfolio endpoint to Cache; account topic observation is not a complete report-delivery contract",
+    "Native reconciliation can generate synthetic order/fill callbacks; distinguish venue fills by owned orders and Native reconciliation metadata",
+    "OrderFilled gross quantity is not fee-deducted spendable inventory"
+  ],
+  "newApiCalls": 0,
+  "newOrderWrites": 0
+}

@@ -1,0 +1,163 @@
+{
+  "source": "offline continuous calibration host implementation; prior mainnet economic facts and separately identified synthetic maker profit; no live trading approval implied",
+  "nativeCommit": "587e1065efde08db19016a8eab921c1605d5d2a4",
+  "nativeWorktreeUnchanged": true,
+  "primary": {
+    "path": "crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261016T123240Z_independent/calibration.json",
+    "sha256": "eb6e342a831c183ec7d0b8d0b9c172212053857d9b7908c500b509bdc0dc18b5"
+  },
+  "capture": {
+    "path": "crates/nautilus-predict/tests/fixtures/private_api/continuous_host_recorded_lifecycle_20261017.json",
+    "sha256": "e7b8ff2fafedb4166e6ff655aa7bebd24afc06f29764caa917683c3808a062ef"
+  },
+  "validation": {
+    "default": {
+      "passed": true,
+      "path": "/tmp/predict-continuous-default-ready.log",
+      "sha256": "ea8d22e74236ca7ba4259d5f672865568574bd752586a1d8b15343a72d3d44d4",
+      "assertions": [
+        "49 passed; 0 failed",
+        "187 passed; 0 failed"
+      ]
+    },
+    "quantityCommission": {
+      "passed": true,
+      "path": "/tmp/predict-continuous-experimental-ready.log",
+      "sha256": "185c41e645784d9f64b424ccc731ad6a6c698b1767d9359204871fc86595385e",
+      "assertions": [
+        "50 passed; 0 failed",
+        "196 passed; 0 failed"
+      ]
+    },
+    "python": {
+      "passed": true,
+      "path": "/tmp/predict-continuous-python-verified.log",
+      "sha256": "b47381f0105bcb67240a327b1812102803a89a35fcf3a237b9e436f3a63f2f4f",
+      "assertions": [
+        "Ran 37 tests",
+        "OK"
+      ]
+    },
+    "capture": {
+      "passed": true,
+      "path": "/tmp/predict-continuous-capture.log",
+      "sha256": "ca724e208890d6d84d93d88289d3a49b5b290c840d4ab966ad7e80d19ef00f6a",
+      "assertions": [
+        "1 passed; 0 failed"
+      ]
+    },
+    "clippy": {
+      "passed": true,
+      "path": "/tmp/predict-continuous-clippy-ready.log",
+      "sha256": "075547701aef74028003aac30af33fdb37fe38664a59c71703c4e6ed29e7875a",
+      "assertions": [
+        "Finished `dev` profile"
+      ]
+    },
+    "directExecutableBuildOnly": {
+      "passed": true,
+      "path": "/tmp/predict-continuous-direct-build.log",
+      "sha256": "98d030a8d10dd7c54e32c966308af59e8b025e2907685c07308c23a3e70ad6e0",
+      "assertions": [
+        "\"compiledOnly\": true",
+        "\"executedHost\": false"
+      ]
+    }
+  },
+  "sourceFiles": [
+    {
+      "path": "crates/nautilus-predict/tests/support/fill_session.rs",
+      "sha256": "17ef3da7c1c4910c241f8e36dbcdf519a7b10e599649ba72bf9db920318d2d6b"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/fill_live.rs",
+      "sha256": "776100ba00e9edc40f38950be31d0fa1851d2b7a5c8593d0160b9300a715f267"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/exit_strategy.rs",
+      "sha256": "130239d8fcfe68712d48b1a7c4fe43ff1698d68e763eec6e994cbcb9d5523f99"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/recorded_startup.rs",
+      "sha256": "0df2c540218ec92e9d9648ba91fdc30af7ef433ec374a70db958920d1e5d7d2d"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution.rs",
+      "sha256": "d6ed64e3c6e0ee021a07080ed53901de17be1f261ce23395b4f0b64ad301a418"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/private_api_live.rs",
+      "sha256": "ab9c6650c19bfbb88719a6320d36d5f79aa7fc86e893439ae4d033636f553759"
+    },
+    {
+      "path": "tests/run_predict_fill_live.py",
+      "sha256": "6241fdd3fbe6494ba1b76e2c2eba77848ebbc746c8de1ec9a200fcff15f58d1e"
+    },
+    {
+      "path": "tests/predict_read_only_calibration.py",
+      "sha256": "3d36b5787a5c0f0a337472573b79fb0b4ef4a1a371b3b456347472b07ebb1f67"
+    },
+    {
+      "path": "tests/capture_predict_private_fixtures.py",
+      "sha256": "0d7e703c5c5f0fb79a017b04bcf9e9826dc50fe90e51d80f7883cfacabd13d8a"
+    },
+    {
+      "path": "tests/test_predict_continuous_session.py",
+      "sha256": "2b35643e934f1443769d3fa2a45809cb17c8188d0506b62ea82dbf5864f404ac"
+    },
+    {
+      "path": "docs/reference/predict-continuous-exit-host-review-20261017.md",
+      "sha256": "5745cdcb1f9f90d338f218d0fed7e24c05e97b1987da0e358105225ae047292f"
+    },
+    {
+      "path": "docs/how_to/predict-rust-strategy-calibration.md",
+      "sha256": "078bd793c28e05b9576403376599e3c77801d80630db4bfaea24b92148d5954a"
+    },
+    {
+      "path": "docs/predict-execution-work-plan.md",
+      "sha256": "5ee069efa32a07b29466fc8ec9ff6e9940eee05aea83c75286e976b488a2421e"
+    }
+  ],
+  "hostContract": {
+    "entryWindowSeconds": 60,
+    "holdingDeadlineSeconds": null,
+    "nativeOwnsSignals": true,
+    "directRustExecutable": true,
+    "compileBeforeAuthentication": true,
+    "completionRequires": [
+      "filled entry",
+      "terminal orders",
+      "flat positions",
+      "cash report after latest fill",
+      "expected actual quote cash balance"
+    ],
+    "failureDoesNotClaimFlat": true,
+    "manualStopCanLeaveInventory": true
+  },
+  "observability": {
+    "nativeCheckpointMs": 500,
+    "walletJSONLFlushPerEvent": true,
+    "HTTPRelayRecordReads": true,
+    "addedRecoveryTimers": 0
+  },
+  "cashVerification": {
+    "basis": "own Native fills and chain-verified settlements compared against actual account cash delta; Native quote PnL reported separately",
+    "currentCashPnl": "-0.08142080",
+    "nativeQuoteRealizedPnl": "-0.05582080 USDT",
+    "syntheticProfitCashPnl": "0.548",
+    "syntheticNativeQuotePnl": "0.588 USDT"
+  },
+  "limits": [
+    "continuous mainnet mode has not run",
+    "long-lived JWT and real long disconnect evidence missing",
+    "calibration requires independent flat account and exclusive ownership",
+    "not a 24/7 production supervisor or restart takeover",
+    "reported Cash inventory-fee prototype/public bindings/other adapter literal migrations remain limited"
+  ],
+  "liveOrders": 0,
+  "privateReads": 0,
+  "redisOperations": 0,
+  "productionAdapterUnchanged": true,
+  "productionRecordingLogicUnchanged": true,
+  "testOnlyCollectorExtended": true
+}

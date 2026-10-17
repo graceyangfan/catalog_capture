@@ -16,4 +16,21 @@ make pre-commit
 in `rustfmt.toml` (`group_imports`, `imports_granularity`) do not break the check —
 same approach as Nautilus Trader.
 
-Clippy requires a sibling `../nautilus_trader` checkout.
+Clippy requires the pinned sibling `../nautilus_trader_quantity_commission` checkout.
+
+
+## Secret scan before publishing
+
+Local operator TOML and `.env` files must remain ignored. Review the staged file
+list and scan the outgoing commit range with Gitleaks:
+
+```bash
+gitleaks git --redact=100 --log-opts="origin/main..HEAD"
+```
+
+The repository configuration extends the default rules. It permits only the
+public Anvil account-0 development key and exact source-hash metadata shapes in
+retained validation summaries. Do not exclude entire fixture directories or
+create a blanket baseline for unexplained findings. Keep scan reports local and
+redacted. A clean pattern scan complements, but does not replace, collector
+redaction and review of captured data.

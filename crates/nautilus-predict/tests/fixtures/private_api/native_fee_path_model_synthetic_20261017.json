@@ -1,0 +1,57 @@
+{
+  "source": "synthetic direct Native model probes; not Rust LiveNode or venue execution",
+  "nativeModified": false,
+  "newExchangeRequests": 0,
+  "newOrders": 0,
+  "spot": {
+    "gross": "1",
+    "net": "0.990000",
+    "adjustments": 1,
+    "nativeRealizedUSDT": "9.90000000",
+    "baseCommission": "0.01000000 BTC",
+    "flatCashDifferenceUSDT": "8.90",
+    "meaning": "Base fee is retained in its own currency; quote realized alone is not all-in cash PnL"
+  },
+  "binary": [
+    {
+      "source": "direct Native Order/Position model, not live routing",
+      "includeFeeDisposalPnL": false,
+      "secondFillMaker": false,
+      "grossOrderFilled": "32",
+      "netPositionBeforeExit": "31.3600000000000000",
+      "positionAverage": 0.00947378395451674,
+      "cashPnL": "0.0106",
+      "nativeRealizedPnL": "0.01044214",
+      "matchesCash": false,
+      "finalQuantity": "0.0000000000000000",
+      "liveAdapterIngressProven": false
+    },
+    {
+      "source": "direct Native Order/Position model, not live routing",
+      "includeFeeDisposalPnL": true,
+      "secondFillMaker": false,
+      "grossOrderFilled": "32",
+      "netPositionBeforeExit": "31.3600000000000000",
+      "positionAverage": 0.00947378395451674,
+      "cashPnL": "0.0106",
+      "nativeRealizedPnL": "0.01060000",
+      "matchesCash": true,
+      "finalQuantity": "0.0000000000000000",
+      "liveAdapterIngressProven": false
+    },
+    {
+      "source": "direct Native Order/Position model, not live routing",
+      "includeFeeDisposalPnL": true,
+      "secondFillMaker": true,
+      "grossOrderFilled": "32",
+      "netPositionBeforeExit": "31.6600000000000000",
+      "positionAverage": 0.00947378395451674,
+      "cashPnL": "0.0136",
+      "nativeRealizedPnL": "0.01360000",
+      "matchesCash": true,
+      "finalQuantity": "0.0000000000000000",
+      "liveAdapterIngressProven": false
+    }
+  ],
+  "liveAdapterIngressProven": false
+}

@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-17",
+  "nativeBaseCommit": "78bef53612b0fa2660851ee6f59a6ddd12c2d1d4",
+  "officialDevelopFetched": "7b6e2c27b86bd1688fde49bcf6e81d7a89560b05",
+  "branch": "codex/instrument-quantity-commission",
+  "source": "offline Rust Native regressions plus Rust Strategy/LiveNode loopback; not new exchange evidence",
+  "privateExchangeRequests": false,
+  "liveOrders": false,
+  "recordingLogicChanged": false,
+  "newAccountingAlgorithm": false,
+  "accountScopeExpanded": false,
+  "costPresentationUnified": false,
+  "globalPrecisionUnified": false,
+  "historicalDuplicateContractPassed": true,
+  "checks": {
+    "modelRed": {
+      "sha256": "35859cd8181c594121921933f9c1556d921ab300fbfed9a420c75d92783658d6",
+      "results": [
+        "test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 3992 filtered out; finished in 0.01s"
+      ]
+    },
+    "engineRed": {
+      "sha256": "6153e367fadfe58b64be6cea7df51992f5d4d9dd5cd8b15e32844163768d44ba",
+      "results": [
+        "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1886 filtered out; finished in 0.01s"
+      ]
+    },
+    "modelFull": {
+      "sha256": "835a57e05c7d02954316417a61243a79507263c208465542257aff75419ecadd",
+      "results": [
+        "test result: ok. 3993 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.57s"
+      ]
+    },
+    "engineModule": {
+      "sha256": "af9e24c91d36f860920508af9f1b279485de5035e3e2145dd2afc0f042524fa9",
+      "results": [
+        "test result: ok. 702 passed; 0 failed; 0 ignored; 0 measured; 1185 filtered out; finished in 0.03s"
+      ]
+    },
+    "predictExperimental": {
+      "sha256": "fc84be54d575a9af3977c2a57b57d2b6887b7d35882f30fb8e9dad8e04429eac",
+      "results": [
+        "test result: ok. 50 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 190 passed; 0 failed; 58 ignored; 0 measured; 0 filtered out; finished in 19.72s"
+      ]
+    },
+    "predictDefault": {
+      "sha256": "5acf22f6061b0348a3b41c314acc20ceec943a21980660841e7fa34d3abaa3e8",
+      "results": [
+        "test result: ok. 49 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.03s",
+        "test result: ok. 182 passed; 0 failed; 54 ignored; 0 measured; 0 filtered out; finished in 19.87s"
+      ]
+    },
+    "auditCapture": {
+      "sha256": "2a051b180e29faae236f29adb47a9ca81ea7770d3dea48a1a03a02dc08e72686",
+      "results": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.00s"
+      ]
+    },
+    "liveNodeCapture": {
+      "sha256": "56fa5afb786e92be639a74e42633d6646d94a401162719617d9521c87b3263aa",
+      "results": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.28s"
+      ]
+    },
+    "predictClippy": {
+      "sha256": "25d8b44608682bebb04df9048435aa557417b209efe4476ef51dd9ee26b11c20",
+      "results": [
+        "    Finished `dev` profile [unoptimized] target(s) in 9.59s"
+      ]
+    },
+    "nativeFormat": {
+      "passed": true,
+      "sha256": "18b73725b2a314f4e98392d3428a90a09d68ba3a87f5516602d8e7696890dda8"
+    },
+    "nativePreCommit": {
+      "passed": true,
+      "sha256": "56ea00f4b029a1386b531127be9644e346d440bc30e85829222146b8ebb989a6"
+    }
+  },
+  "fixtures": {
+    "crates/nautilus-predict/tests/fixtures/private_api/quantity_commission_architecture_audit_fixed_20261017.json": "63f86a57ee3b0730ad3cfae1f303f71986ab05308af4ac3c60025cf47b2c4f04",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_quantity_commission_partial_exit_live_node_replay_fixed_20261017.json": "daba73cac65fb1b71317fc2705bdd09fd407d729df823f35adff33102bdf1c00"
+  },
+  "nativeCommit": "22442781c3c4bd3cda86e07423659df98cf227ba",
+  "remoteBranchVerified": "22442781c3c4bd3cda86e07423659df98cf227ba",
+  "rfcComment": "https://github.com/graceyangfan/nautilus_trader/issues/1#issuecomment-6228786961",
+  "patch": {
+    "path": "docs/reference/patches/nautilus-instrument-quantity-commission-replay-fix-3b9c7cd288.patch",
+    "sha256": "bb4760f9c0f9daa9b14c8316d544e059335f5b772666d7105787c4ccbf612562",
+    "reverseApplyCheckPassed": true
+  },
+  "commands": [
+    "cargo test -p nautilus-model --locked --features high-precision --lib",
+    "cargo test -p nautilus-execution --locked --features high-precision --test integration exec_engine",
+    "cargo test -p nautilus-predict --features native-quantity-commission --locked --lib --test execution",
+    "cargo test -p nautilus-predict --features execution --locked --lib --test execution",
+    "cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution record_quantity_commission_architecture_audit_json -- --ignored",
+    "cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution record_partial_prices_entry_tp_cancel_sell_json -- --ignored",
+    "cargo clippy -p nautilus-predict --features native-quantity-commission --locked --lib --test execution -- -D warnings",
+    "make format",
+    "make pre-commit"
+  ]
+}

@@ -16,9 +16,9 @@ use std::path::Path;
 
 use anyhow::Result;
 use catalog_capture_core::{
-    validate_option_universe_resolution_metadata, OptionUniverseResolutionValidationOptions,
+    ALL_STRIKES_MIN_SELECTED_STRIKES, OptionUniverseResolutionValidationOptions,
     OptionUniverseResolutionValidationReport, StrikePolicy, StrikeSelectionProfile,
-    ALL_STRIKES_MIN_SELECTED_STRIKES,
+    validate_option_universe_resolution_metadata,
 };
 
 use crate::config::EffectiveConfig;

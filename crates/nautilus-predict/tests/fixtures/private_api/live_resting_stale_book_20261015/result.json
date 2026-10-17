@@ -1,0 +1,23 @@
+{
+  "source": "mainnet Rust Strategy + LiveNode; actual order writes",
+  "marketId": 190414,
+  "outcome": 2,
+  "price": "0.01",
+  "quantity": "100",
+  "submitted": 0,
+  "accepted": 0,
+  "modifyRejected": 0,
+  "modifyTermsPreserved": 0,
+  "canceled": 0,
+  "fills": 0,
+  "cashTotal": "48.37915000",
+  "cashLocked": "0.00000000",
+  "cleanup": {
+    "verifiedOpenOrders": 0,
+    "fallbackRemovedIds": []
+  },
+  "cleanupFailed": false,
+  "nodeFailed": false,
+  "feedbackWriteFailed": false,
+  "_capture_note": "Write-enabled runner skipped all submissions because cached orderbook timestamp was stale; no actual order writes."
+}

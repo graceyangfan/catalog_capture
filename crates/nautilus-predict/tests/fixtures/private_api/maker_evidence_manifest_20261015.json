@@ -1,0 +1,46 @@
+{
+  "source": "immutable sanitized actual mainnet maker evidence captured before this audit; checksums describe retained files, not newly observed API traffic",
+  "capturedDate": "2026-10-15",
+  "files": [
+    {
+      "path": "live_resting_fixed_20261015/calibration.json",
+      "sha256": "e039a8459dbcc01c981056559b663f48e837ab3356429324eead092d5ca45783"
+    },
+    {
+      "path": "live_resting_fixed_20261015/final_open_orders_check.json",
+      "sha256": "19aeb4ef30179749b6643f7c108849b7170f1967b5210ed655457524bae8f7ba"
+    },
+    {
+      "path": "live_resting_fixed_20261015/http_responses.json",
+      "sha256": "2af9dbd112b6a74c987dc7e029942fd114a1d52ba4022e5094f53354a5bf6d97"
+    },
+    {
+      "path": "live_resting_fixed_20261015/native_feedback.json",
+      "sha256": "acec4a73a9f84d25f6fd7fa452cba48245f5502a53621046c3c70cc6d14816e6"
+    },
+    {
+      "path": "live_resting_fixed_20261015/result.json",
+      "sha256": "c6f5b7a1dd5540e8079bc60a996256578a99ac829350cab58a2bd33b290465cb"
+    },
+    {
+      "path": "live_resting_fixed_20261015/submission_diagnostics.json",
+      "sha256": "49a89a57a74a24450751c14e2431b6501b4e3b9684cacdcacb8230cd9032999a"
+    },
+    {
+      "path": "live_resting_fixed_20261015/supervisor_cleanup.json",
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "live_resting_fixed_20261015/validation.json",
+      "sha256": "e65227440c96d54cf167e15dc6d6eeda6c5b325c5442c79c5149de49f852a864"
+    },
+    {
+      "path": "wallet_resting_actual_20261015.json",
+      "sha256": "39e7ff31aeb72c51a4b4b9741e55f77e2a27bcdd11ace826e768faae5ec154f3"
+    },
+    {
+      "path": "order_create_internal_error_20261015.json",
+      "sha256": "e5206f2ccc37cf0e8b7d4c1a23bb9e929cd7e6139c0874e578f19115d43aa8aa"
+    }
+  ]
+}

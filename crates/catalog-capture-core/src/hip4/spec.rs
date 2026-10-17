@@ -17,7 +17,7 @@ use std::str::FromStr;
 use nautilus_core::UnixNanos;
 use nautilus_model::identifiers::InstrumentId;
 
-use super::outcome_meta::{hip4_perp_instrument_id, ResolvedHip4Market};
+use super::outcome_meta::{ResolvedHip4Market, hip4_perp_instrument_id};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hip4UniverseFamily {

@@ -14,7 +14,7 @@
 
 use std::collections::BTreeSet;
 
-use catalog_capture_core::{merge_capture_plans, CapturePlan};
+use catalog_capture_core::{CapturePlan, merge_capture_plans};
 use nautilus_model::identifiers::InstrumentId;
 
 #[derive(Debug, Clone)]

@@ -1,0 +1,153 @@
+   Compiling nautilus-predict v0.1.0 (/Users/yfclark/nautilus_catalog_capture/crates/nautilus-predict)
+    Finished `test` profile [unoptimized] target(s) in 2.23s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running tests/private_api_live.rs (target/debug/deps/private_api_live-5b5fd0a27a2ec04a)
+
+running 1 test
+[1m2026-10-17T04:56:31.139778000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.139884000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration:  NAUTILUS TRADER - Automated Algorithmic Trading Platform[0m
+[1m2026-10-17T04:56:31.139886000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration:  by Nautech Systems Pty Ltd.[0m
+[1m2026-10-17T04:56:31.139886001Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration:  Copyright (C) 2015-2026. All rights reserved.[0m
+[1m2026-10-17T04:56:31.139895000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.139896000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⡤⠤⠤⠤⠤⠤⠤⠤⢤⡀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139977000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠖⠚⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⠁⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139978000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⢀⣠⠖⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡴⠚⠁⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139979000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⢀⡴⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139979001Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⣠⠏⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠖⠒⠒⠒⠒⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139979002Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⢀⡖⠋⣠⢴⢪⠞⣩⢟⡭⠵⢤⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139979003Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⣦⡙⠦⣄⡀⠀⢀⣠⠴⠋⢠⡐⣇⢸⡘⢦⡇⣏⡴⣋⡭⠖⠮⢥⡀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139979004Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⢸⡉⠓⠦⠭⠭⠭⠴⣺⠃⠸⣷⢬⣓⣛⠒⠩⣌⢡⡷⢒⣫⠭⣝⡛⠆⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139980000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠙⠦⢤⣀⣠⠤⠞⣡⠞⡆⠺⣭⣭⡷⢇⣷⡻⠡⠾⣛⣒⠦⢤⡙⡆⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139980001Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠈⠳⣖⠒⠒⠒⠋⠁⣠⠇⡼⢦⠀⣌⡉⢥⣄⣛⡻⢥⡈⠉⢳⡙⠇⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139980002Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠈⠙⣒⣒⣒⣋⡥⠞⠁⣸⠃⡇⠙⢦⢹⠀⠙⡆⢳⢀⡴⠃⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139980003Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⠀⠈⠙⠒⠦⠤⠴⣚⣡⠞⠁⣠⠏⡼⢀⣠⠇⠞⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139981000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠉⠑⠚⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:56:31.139981001Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.139981002Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration:  SYSTEM SPECIFICATION[0m
+[1m2026-10-17T04:56:31.139981003Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.139982000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: CPU architecture: Apple M3 Max[0m
+[1m2026-10-17T04:56:31.139992000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: CPU(s): 16 @ 4056 MHz[0m
+[1m2026-10-17T04:56:31.139993000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: OS: kernel-25.4.0 macOS 26.4.1 Tahoe[0m
+[1m2026-10-17T04:56:31.140095000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.140097000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration:  MEMORY USAGE[0m
+[1m2026-10-17T04:56:31.140097001Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.140102000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: RAM-Total: 64.00 GiB[0m
+[1m2026-10-17T04:56:31.140103000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: RAM-Used: 22.01 GiB (34.39%)[0m
+[1m2026-10-17T04:56:31.140104000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: RAM-Avail: 41.99 GiB (65.61%)[0m
+[1m2026-10-17T04:56:31.140104001Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: Swap: disabled[0m
+[1m2026-10-17T04:56:31.140127000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.140127001Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration:  IDENTIFIERS[0m
+[1m2026-10-17T04:56:31.140128000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.140142000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: trader_id: SESSION-001[0m
+[1m2026-10-17T04:56:31.140143000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: machine_id: yfclark.local[0m
+[1m2026-10-17T04:56:31.140150000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: instance_id: a1a3038c-647e-48af-b3a5-1759727f73ad[0m
+[1m2026-10-17T04:56:31.140150001Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: PID: 69708[0m
+[1m2026-10-17T04:56:31.140151000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.140151001Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration:  VERSIONING[0m
+[1m2026-10-17T04:56:31.140152000Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.140153000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: nautilus_trader: 0.67.0[0m
+[1m2026-10-17T04:56:31.140158000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: rustc: 1.99.0 (b940084d7 2026-09-28)[0m
+[1m2026-10-17T04:56:31.140158001Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: target: aarch64-apple-darwin[0m
+[1m2026-10-17T04:56:31.140159000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: profile: debug[0m
+[1m2026-10-17T04:56:31.140159001Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: panic: unwind[0m
+[1m2026-10-17T04:56:31.140160000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: precision: high (128-bit, 16 dp)[0m
+[1m2026-10-17T04:56:31.140161000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: allocator: system[0m
+[1m2026-10-17T04:56:31.140161001Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: cargo_lock: a0c38730[0m
+[1m2026-10-17T04:56:31.140162000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: rust_decimal: 1.43.0[0m
+[1m2026-10-17T04:56:31.140163000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: rustls: 0.23.46[0m
+[1m2026-10-17T04:56:31.140163001Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: aws_lc_rs: 1.18.1[0m
+[1m2026-10-17T04:56:31.140164000Z[0m [INFO] SESSION-001.PredictRustStrategyCalibration: tokio: 1.53.2[0m
+[1m2026-10-17T04:56:31.140164001Z[0m [36m[INFO] SESSION-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T04:56:31.140206000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Building system kernel[0m
+[1m2026-10-17T04:56:31.142656000Z[0m [INFO] SESSION-001.nautilus_live::node::builder: Registered DataClient-PREDICT[0m
+[1m2026-10-17T04:56:31.143278000Z[0m [INFO] SESSION-001.nautilus_live::node::builder: Registered ExecutionClient-PREDICT[0m
+[1m2026-10-17T04:56:31.143368000Z[0m [INFO] SESSION-001.nautilus_execution::engine: Set client PREDICT routing for PREDICT[0m
+[1m2026-10-17T04:56:31.143493000Z[0m [INFO] SESSION-001.nautilus_execution::engine: Subscribed to instrument updates for venue PREDICT[0m
+[1m2026-10-17T04:56:31.143563000Z[0m [INFO] SESSION-001.nautilus_execution::engine: Subscribed to instrument closes for venue PREDICT[0m
+[1m2026-10-17T04:56:31.143757000Z[0m [INFO] SESSION-001.nautilus_live::node::builder: Built successfully[0m
+[1m2026-10-17T04:56:31.144317000Z[0m [INFO] SESSION-001.SESSION-PROBE-001: Ready[0m
+[1m2026-10-17T04:56:31.144788000Z[0m [INFO] SESSION-001.nautilus_system::trader: Registered strategy SESSION-PROBE-001 with trader SESSION-001[0m
+[1m2026-10-17T04:56:31.145013000Z[0m [INFO] SESSION-001.nautilus_live::node: Event loop starting[0m
+[1m2026-10-17T04:56:31.145030000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Starting[0m
+[1m2026-10-17T04:56:31.145062000Z[0m [INFO] SESSION-001.nautilus_predict::data::lifecycle: Starting Predict data client: client_id=PREDICT[0m
+[1m2026-10-17T04:56:31.145140000Z[0m [INFO] SESSION-001.nautilus_execution::engine: Started[0m
+[1m2026-10-17T04:56:31.145141000Z[0m [INFO] SESSION-001.nautilus_risk::engine: Started[0m
+[1m2026-10-17T04:56:31.145149000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Initializing trader[0m
+[1m2026-10-17T04:56:31.145150001Z[0m [INFO] SESSION-001.nautilus_system::kernel: Started[0m
+[1m2026-10-17T04:56:31.145240000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Connecting data clients...[0m
+[1m2026-10-17T04:56:32.191303000Z[0m [INFO] SESSION-001.nautilus_predict::data::lifecycle: Connected: client_id=PREDICT[0m
+[1m2026-10-17T04:56:32.191574000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Connecting execution clients...[0m
+[1m2026-10-17T04:56:37.180450000Z[0m [INFO] SESSION-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=ff74fa20-dcf4-45bd-9a9d-9f185c8a1dbc)[0m
+[1m2026-10-17T04:56:37.192232000Z[0m [INFO] SESSION-001.nautilus_live::node: Awaiting engine connections (20s timeout)...[0m
+[1m2026-10-17T04:56:37.192282000Z[0m [INFO] SESSION-001.nautilus_live::node: All engine clients connected[0m
+[1m2026-10-17T04:56:37.192293000Z[0m [94m[INFO] SESSION-001.nautilus_live::node: Starting execution state reconciliation...[0m
+[1m2026-10-17T04:56:37.192312000Z[0m [94m[INFO] SESSION-001.nautilus_live::node: Requesting mass status from PREDICT...[0m
+[1m2026-10-17T04:56:40.381180000Z[0m [94m[INFO] SESSION-001.nautilus_live::node: Reconciling ExecutionMassStatus for PREDICT[0m
+[1m2026-10-17T04:56:40.381258000Z[0m [94m[INFO] SESSION-001.nautilus_live::execution::manager: Reconciling ExecutionMassStatus for PREDICT[0m
+[1m2026-10-17T04:56:40.381265000Z[0m [94m[INFO] SESSION-001.nautilus_live::execution::manager: Received 0 order(s), 0 fill(s), 0 position(s)[0m
+[1m2026-10-17T04:56:40.381329000Z[0m [94m[INFO] SESSION-001.nautilus_live::execution::manager: Reconciliation complete for PREDICT: reconciled=0, external=0, open=0, fills=0, positions=0, skipped=0, filtered=0[0m
+[1m2026-10-17T04:56:40.381336000Z[0m [94m[INFO] SESSION-001.nautilus_live::node: Reconciliation for PREDICT succeeded[0m
+[1m2026-10-17T04:56:40.381357000Z[0m [INFO] SESSION-001.nautilus_portfolio::portfolio: Initialized 0 open orders[0m
+[1m2026-10-17T04:56:40.381362000Z[0m [INFO] SESSION-001.nautilus_portfolio::portfolio: Initialized 0 open positions[0m
+[1m2026-10-17T04:56:40.381379000Z[0m [INFO] SESSION-001.nautilus_portfolio::portfolio: Initialized 0 Wallet reservations[0m
+[1m2026-10-17T04:56:40.381380000Z[0m [94m[INFO] SESSION-001.nautilus_live::node: Startup reconciliation completed in 3.19s[0m
+[1m2026-10-17T04:56:40.381385000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Starting trader...[0m
+[1m2026-10-17T04:56:40.381405000Z[0m [INFO] SESSION-001.nautilus_execution::order_emulator::emulator: Started[0m
+[1m2026-10-17T04:56:40.381413000Z[0m [INFO] SESSION-001.nautilus_system::trader: Starting[0m
+[1m2026-10-17T04:56:40.381440000Z[0m [INFO] SESSION-001.SESSION-PROBE-001: Starting[0m
+[1m2026-10-17T04:56:40.381470000Z[0m [INFO] SESSION-001.SESSION-PROBE-001: Running[0m
+[1m2026-10-17T04:56:40.381473000Z[0m [INFO] SESSION-001.nautilus_system::trader: Running[0m
+[1m2026-10-17T04:56:40.381474000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Trader started[0m
+[1m2026-10-17T04:56:41.576542000Z[0m [INFO] SESSION-001.nautilus_network::websocket::client: Reconnecting[0m
+[1m2026-10-17T04:56:41.630347000Z[0m [1;33m[WARN] SESSION-001.nautilus_predict::execution::account: Predict account refresh failed; retaining the last reported state: Predict wallet connection changed during account collection[0m
+[1m2026-10-17T04:56:41.782043000Z[0m [INFO] SESSION-001.nautilus_network::websocket::client: Reconnect succeeded[0m
+[1m2026-10-17T04:56:42.360370000Z[0m [INFO] SESSION-001.nautilus_predict::execution::runtime: Predict wallet resubscribed; submissions remain gated pending REST reconciliation[0m
+[1m2026-10-17T04:56:57.184330000Z[0m [INFO] SESSION-001.nautilus_trading::strategy: [CMD]--> QueryAccount(client_id=Some("PREDICT"), account_id=PREDICT-001)[0m
+[1m2026-10-17T04:56:57.184415000Z[0m [94m[INFO] SESSION-001.nautilus_execution::engine: Query PREDICT-001[0m
+[1m2026-10-17T04:57:01.737955000Z[0m [INFO] SESSION-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=d6abb642-1f53-4d7e-98d2-2ebcb258de6a)[0m
+[1m2026-10-17T04:57:09.045832000Z[0m [INFO] SESSION-001.nautilus_predict::execution::readiness: Predict applied native state verified; stream-gap submission gate released[0m
+[1m2026-10-17T04:57:09.045858000Z[0m [INFO] SESSION-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=94c2bae0-0537-4c71-82e8-aa9732095646)[0m
+[1m2026-10-17T04:57:10.064933000Z[0m [INFO] SESSION-001.nautilus_network::websocket::client: Reconnecting[0m
+[1m2026-10-17T04:57:10.268930000Z[0m [INFO] SESSION-001.nautilus_network::websocket::client: Reconnect succeeded[0m
+[1m2026-10-17T04:57:11.872341000Z[0m [INFO] SESSION-001.nautilus_predict::execution::runtime: Predict wallet resubscribed; submissions remain gated pending REST reconciliation[0m
+[1m2026-10-17T04:57:26.783342000Z[0m [INFO] SESSION-001.nautilus_trading::strategy: [CMD]--> QueryAccount(client_id=Some("PREDICT"), account_id=PREDICT-001)[0m
+[1m2026-10-17T04:57:26.783415000Z[0m [94m[INFO] SESSION-001.nautilus_execution::engine: Query PREDICT-001[0m
+test mainnet_jwt_wallet_recovery_readonly has been running for over 60 seconds
+[1m2026-10-17T04:57:30.297840000Z[0m [INFO] SESSION-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=54a405a5-2d08-4504-9718-ba9b9a80904e)[0m
+[1m2026-10-17T04:57:36.391308000Z[0m [INFO] SESSION-001.nautilus_predict::execution::readiness: Predict applied native state verified; stream-gap submission gate released[0m
+[1m2026-10-17T04:57:36.391344000Z[0m [INFO] SESSION-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=b4720c5e-0e13-4594-a254-572a323f8a69)[0m
+[1m2026-10-17T04:57:36.580731000Z[0m [INFO] SESSION-001.nautilus_live::node: Received stop signal from handle[0m
+[1m2026-10-17T04:57:36.580754000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Stopping trader...[0m
+[1m2026-10-17T04:57:36.580772000Z[0m [INFO] SESSION-001.nautilus_system::trader: Stopping[0m
+[1m2026-10-17T04:57:36.580791000Z[0m [INFO] SESSION-001.SESSION-PROBE-001: Stopping[0m
+[1m2026-10-17T04:57:36.580857000Z[0m [INFO] SESSION-001.SESSION-PROBE-001: Stopped[0m
+[1m2026-10-17T04:57:36.580860001Z[0m [INFO] SESSION-001.nautilus_system::trader: Stopped[0m
+[1m2026-10-17T04:57:36.580861000Z[0m [INFO] SESSION-001.nautilus_live::node: Awaiting residual events (0ns)...[0m
+[1m2026-10-17T04:57:36.582164000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Disconnecting clients...[0m
+[1m2026-10-17T04:57:36.687386000Z[0m [INFO] SESSION-001.nautilus_predict::data::lifecycle: Disconnected: client_id=PREDICT[0m
+[1m2026-10-17T04:57:36.687465000Z[0m [INFO] SESSION-001.nautilus_live::node: Awaiting engine disconnections (5s timeout)...[0m
+[1m2026-10-17T04:57:36.687654000Z[0m [INFO] SESSION-001.nautilus_live::node: All engine clients disconnected[0m
+[1m2026-10-17T04:57:36.687748000Z[0m [INFO] SESSION-001.nautilus_execution::engine: Stopped[0m
+[1m2026-10-17T04:57:36.687754000Z[0m [INFO] SESSION-001.nautilus_risk::engine: Stopped[0m
+[1m2026-10-17T04:57:36.687757000Z[0m [INFO] SESSION-001.nautilus_execution::order_emulator::emulator: Stopped[0m
+[1m2026-10-17T04:57:36.687762000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Stopped[0m
+[1m2026-10-17T04:57:36.687772000Z[0m [INFO] SESSION-001.nautilus_live::node: Event loop stopped[0m
+[1m2026-10-17T04:57:36.687794000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Disposing[0m
+[1m2026-10-17T04:57:36.687799000Z[0m [INFO] SESSION-001.nautilus_system::trader: Disposing[0m
+[1m2026-10-17T04:57:36.687809000Z[0m [INFO] SESSION-001.SESSION-PROBE-001: Disposing[0m
+[1m2026-10-17T04:57:36.687824000Z[0m [INFO] SESSION-001.SESSION-PROBE-001: Disposed[0m
+[1m2026-10-17T04:57:36.687851000Z[0m [INFO] SESSION-001.nautilus_system::trader: Disposed[0m
+[1m2026-10-17T04:57:36.687855000Z[0m [INFO] SESSION-001.nautilus_execution::engine: Stopped[0m
+[1m2026-10-17T04:57:36.687855001Z[0m [INFO] SESSION-001.nautilus_risk::engine: Stopped[0m
+[1m2026-10-17T04:57:36.687856000Z[0m [INFO] SESSION-001.nautilus_execution::order_emulator::emulator: Stopped[0m
+[1m2026-10-17T04:57:36.687903000Z[0m [INFO] SESSION-001.nautilus_execution::engine: Disposed[0m
+[1m2026-10-17T04:57:36.687904000Z[0m [INFO] SESSION-001.nautilus_risk::engine: Disposed[0m
+[1m2026-10-17T04:57:36.687922000Z[0m [INFO] SESSION-001.nautilus_execution::order_emulator::emulator: Disposed[0m
+[1m2026-10-17T04:57:36.687939000Z[0m [INFO] SESSION-001.nautilus_common::cache: Reset cache[0m
+[1m2026-10-17T04:57:36.687956000Z[0m [INFO] SESSION-001.nautilus_system::kernel: Disposed[0m
+test mainnet_jwt_wallet_recovery_readonly ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 68.30s
+
+{"file": "crates/nautilus-predict/tests/fixtures/private_api/session_readonly_20261017T045625Z_69675.json", "passed": true, "requests": 101, "walletFrames": 10, "orderWrites": 0, "chainWrites": 0}

@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use catalog_capture_core::{capture_plan_difference, merge_capture_plans, CapturePlan};
+use catalog_capture_core::{CapturePlan, capture_plan_difference, merge_capture_plans};
 
 use crate::dynamic_hip4_universe::{DynamicHip4UniverseConfig, DynamicHip4UniverseManager};
 use crate::dynamic_option_universe::{DynamicOptionUniverseConfig, DynamicOptionUniverseManager};

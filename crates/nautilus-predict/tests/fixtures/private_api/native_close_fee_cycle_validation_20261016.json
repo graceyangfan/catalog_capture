@@ -1,0 +1,166 @@
+{
+  "verifiedAtUTC": "2026-10-16T06:34:53.379314+00:00",
+  "source": "synthetic loopback Rust Strategy + LiveNode; not mainnet feedback",
+  "productionFilesChangedThisStage": [
+    "crates/nautilus-predict/src/execution/submitter.rs"
+  ],
+  "productionChange": "Remove obsolete fee-bearing non-post-only BUY guard only; default require_post_only=true and all other budget/identity/freshness checks remain",
+  "nativeDependencyHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "nativeDependencySourceVersionAndLockChanged": false,
+  "productionRecorderDiscoveryRotationChanged": false,
+  "mainnetAccountReads": 0,
+  "mainnetOrderWrites": 0,
+  "rustNormal": {
+    "passed": 257,
+    "failed": 0,
+    "ignored": 38
+  },
+  "rustFinalAdmissionAfterLexicalLockScopeFix": {
+    "passed": 1
+  },
+  "rustRedis": {
+    "passed": 3,
+    "failed": 0,
+    "scenarios": 5,
+    "serial": true
+  },
+  "python": {
+    "passed": 55,
+    "failed": 0,
+    "scope": "unittest discover -s tests -p test_predict*.py",
+    "officialSdk": "predict-sdk==0.0.22",
+    "newSignedPayloadsCompared": 6,
+    "previousNarrowScopeWas50": true
+  },
+  "checks": {
+    "clippyAllTargetsDenyWarnings": true,
+    "noDefaultFeaturesExecutionAllTargets": true,
+    "targetedRustfmt": true,
+    "ruffCheckAndFormat": true,
+    "gitDiffCheck": true
+  },
+  "oldGuardControl": {
+    "expectedFailure": true,
+    "reason": "Predict fee-bearing markets require post-only until taker share-fee accounting is supported",
+    "barrier": "native BUY POST",
+    "productionGateRemovedAfterCandidateSucceeded": true
+  },
+  "evidence": {
+    "fixture": "crates/nautilus-predict/tests/fixtures/private_api/native_close_fee_cycle_synthetic_20261016.json",
+    "sessions": 2,
+    "signedPosts": 6,
+    "removals": 4,
+    "grossEntryPartialFills": [
+      "67",
+      "133"
+    ],
+    "shareFees": [
+      "1.34",
+      "2.66"
+    ],
+    "netEntry": "196",
+    "tpCancelRaceFill": "46",
+    "nativeMarketCloseQuantity": "150",
+    "nativeStopPartialFills": [
+      "54",
+      "96"
+    ],
+    "finalCash": "999.774",
+    "realizedPnl": "-0.226",
+    "makerControlFinalCash": "999.80536",
+    "finalOpenOrders": 0,
+    "finalInflightOrders": 0,
+    "finalLocked": "0",
+    "finalPosition": "0",
+    "nativeCloseExplicitReduceOnly": false,
+    "realVenueFillCallbacksPerSession": 5,
+    "nativeAdjustmentEventsDistinguishedFromVenueFills": true,
+    "ordinaryRustTestsReplaySavedWalletAndBook": true
+  },
+  "ownership": {
+    "native": "Order states, gross fills, cash reservation and net position reconciliation",
+    "strategy": "Wait for net holdings, cancel TP terminal barrier and native close helper",
+    "adapter": "Protocol/signature, reports and reported cash; no new OMS or recovery timer"
+  },
+  "boundaries": [
+    "Host native position reconciliation required for SHARES exits",
+    "Native default reduce_only=true helper rejection combination remains pending",
+    "Fee/minimum residual combined acceptance remains pending",
+    "No new mainnet calibration or live profitability claim",
+    "No JWT renewal, crash-durable unknown hash, settlement or production quote bridge added"
+  ],
+  "fixtureTimingFixes": [
+    "Wait for Submitted then HTTP POST independently",
+    "Advance mock canonical block before reconnect to follow native adjustment fills; production lag guard unchanged"
+  ],
+  "redis": {
+    "testOnly": true,
+    "loopback": true,
+    "maxmemoryBytes": 33554432,
+    "policy": "noeviction",
+    "databases": 1,
+    "maxclients": 32,
+    "rdb": false,
+    "aof": false,
+    "testServersExited": true,
+    "existingUserRedisTouched": false
+  },
+  "commands": [
+    "cargo test -p nautilus-predict --features execution --lib --tests --locked",
+    "cargo test -p nautilus-predict --features execution --locked --test execution native_restart_ -- --ignored --skip record_ --test-threads=1",
+    "uv run --with predict-sdk==0.0.22 --with websocket-client --with python-dotenv python -m unittest discover -s tests -p 'test_predict*.py'",
+    "cargo clippy -p nautilus-predict --features execution --all-targets --locked -- -D warnings",
+    "cargo check -p nautilus-predict --no-default-features --features execution --all-targets --locked"
+  ],
+  "priorStageFilesVerifiedUnchanged": {
+    "Cargo.lock": "85405759e32fc3fee05937c59061f8b2732053e0ccbc7ecfe1f641793db258af",
+    "crates/nautilus-predict/Cargo.toml": "ddb8b478dfd50b94d038ad421951d46ad8407b4a7e5488c57697201c5c5095c8",
+    "crates/nautilus-predict/src/execution/mod.rs": "5dc6d02e149a2f8458bad755ae1960f8c35339234f1fa6b46804538b458abf4d",
+    "crates/nautilus-predict/src/execution/orders.rs": "1a17526bf4247995f1730429a854167a8d5acce1acfc1418680c162f4752b217",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_submission_native_synthetic_20261016.json": "f3307e7d1af01b4731bae0c20cb5635f2f09209aa6ebcc7cc083fcde97744678",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_admission_synthetic_20261016.json": "d72ef22f37e594a269843740f872e44d3ef4674510d16a4c88c7d686645aee67",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_admission_exit_replay_synthetic_20261016.json": "e4ed67d1183d3c66721e8f1134858d414a9ba89f9605010da03b0c80d66c3c1a",
+    "crates/nautilus-predict/tests/fixtures/private_api/command_alignment_synthetic_20261016.json": "1065bc1720b3c0908ec70970a341b71be860d9793c6d5c784fedbb5f6da3005b",
+    "crates/nautilus-predict/tests/fixtures/private_api/command_gap_rejections_synthetic_20261016.json": "5a36887ab7f6322e9baf5db864947c175ff316f69117ed16d42d540ba1e00533",
+    "crates/nautilus-predict/tests/fixtures/private_api/readonly_share_recovery_synthetic_20261016.json": "3a678b869174a5e01ae4d103168231aaab64553b4b420cb588b73689ae89e86b",
+    "crates/nautilus-predict/tests/fixtures/private_api/readonly_native_restart_synthetic_20261016.json": "80af82abe9cd8dfba721b4e2a2a1be5d421a8a330b62dcf0ef16bfc8baaccd0e",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_strategy_restart_synthetic_20261016.json": "a55303b502eda5936ac87cf25fd309da9682cbfa988a975ffc0cef2bb0f9c2b7",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_submission_retention_synthetic_20261016.json": "5a7377f7e25ed1657a0eebf0d2af655a5ea0a2ad37dffd15bb8fb1ed69569ca5",
+    "crates/nautilus-predict/tests/execution.rs": "e104ebcdeb89605437b1a0358a9f6c7488500eb2ab163c433f2fec392c94b2ee",
+    "crates/nautilus-predict/tests/fixtures/private_api/concurrent_strategy_exit_synthetic_20261016.json": "c625bd1aff46799d7907125ae67f702ee573ba3d5b78aa4f8f2f774ae6a9029b",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_submission_validation_20261016.json": "f7e16c82b00ea993d827464ba1b51386918186b3a8ba5d895291ebb0bcd72379",
+    "crates/nautilus-predict/tests/fixtures/private_api/concurrent_strategy_exit_validation_20261016.json": "626a40cedfb03dcb8266ab1da75ecf088af52b0df3282d4cd8250a83625e45c5",
+    "crates/nautilus-predict/src/execution/readiness.rs": "fc7730ba6b6dca5070a6ff5aa339f748430f6445d35ae41d3c6ebdd1daedf100",
+    "crates/nautilus-predict/src/execution/account.rs": "bdc7fa1e12da82e24afe87fc13b535bf15c58a2f494fa30fe387c810e3c351bb",
+    "crates/nautilus-predict/tests/fixtures/private_api/concurrent_native_reconciliation_synthetic_20261016.json": "6336d1ad1a40ba02f71f499921a7d6e46733e3446ff09061572d5d7846f618a4",
+    "crates/nautilus-predict/tests/fixtures/private_api/concurrent_native_reconciliation_validation_20261016.json": "06bcb0a6d3f9bdf8b424a36ff2e92703e85e1b4d7c85d42d23d7685fe214b2f7",
+    "crates/nautilus-predict/tests/execution/passive_strategy.rs": "7098f91b9dce0b8efe927b047f7f434396c67a82266a1b8def1948518181b879",
+    "crates/nautilus-predict/tests/fixtures/private_api/concurrent_partial_buy_synthetic_20261016.json": "aa399037adb7a3796fec00894965d6b8f85289035d5216ab0b533fec5e600d4a"
+  },
+  "sha256": {
+    "crates/nautilus-predict/src/execution/submitter.rs": "9c6885086d1fb986f4b3d4b94ce4c42ff8bacde89bcc77d89f6febfa0510783a",
+    "crates/nautilus-predict/tests/execution/submissions.rs": "866bd35654bcbb222140f96f0928fe9502577c46c80f10fbf54cd4d02ce0fa7f",
+    "crates/nautilus-predict/README.md": "495e1076f6b1636860b6438a7b3d729c919d8206ffd0bb773c7e868a86ecea34",
+    "crates/nautilus-predict/tests/execution/strategy_lifecycle.rs": "847d2f4ce44580dc8b3f284ed1bee79a80bf82ceab0e9b04b5b74fd032e2b15e",
+    "crates/nautilus-predict/tests/support/exit_strategy.rs": "430ac6bd4fe4644502da67428204ab46fe28fcccf30e881b38ce1ffdfc92db67",
+    "tests/test_predict_exit_protocol.py": "1bea58f88faef991a7efb68eeed8387e58e3153f72de91f397d06b1e9d521e33",
+    "docs/predict-execution-integration-progress.md": "2df974d045a18624b04a0bdbda633fcafc2fd8f6240376dbf0db6319c8ac7bf2",
+    "docs/predict-execution-work-plan.md": "0f6e5831ae0e818ab2c6487678345889922fd350cf78631c5be864ba6230ffb8",
+    "crates/nautilus-predict/tests/execution/recovery_live.rs": "68245cb212665c7da249e0bbe4a6395f938306f8971c475a2ba14d4ecd916b8e",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_close_fee_cycle_synthetic_20261016.json": "6b5ffc3946f1a2bb33a33e12d2791398f1a918841c5ca9e1a059ff3d2437b56e",
+    "crates/nautilus-predict/tests/fixtures/private_api/concurrent_partial_buy_validation_20261016.json": "7adeb73258f3c20846a37ab23c35fa0359c0421853063691addde7dbde18e8a5"
+  },
+  "temporaryLogSha256BeforeCleanup": {
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-baseline.log": "760167f8dbe07183ce02cec730fd10f5f186ba2a0493470e0ed3e9547f48feb1",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-capture.log": "0d888c4edd59ed9b7a4e7b64d24d38dece3dae6c74886343c400129da94de5e1",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-clippy.log": "605ec3ecc51095a28f3ffc4ad9387add1f1c9d5e526488579c30dd924d1c1e61",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-fix.log": "c84ba9769ba719ffacb8aecafeb95bfd2ca8cf8ae4a3df3875fca63c8f86e7f3",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-nodefault.log": "b5aa2ef3edc802d7b1e2208a4848b12d2b4362abfd7950f4d04fdbe88da33fb4",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-probe.log": "240ec9f4e7658fd1c5cc157116991de934d488679ab6150ab8c44456904fc39d",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-python.log": "ae068e57e128fdf9adf2485c9054e83783c042b17f92f6c6cebb6abf21c8e881",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-reconnect.log": "1781644a47469a8c732bd318f20cda81c8691f859f33009719190cc16adc0f4a",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-redis.log": "66afbf95c051d97a2d8f2454bfa2d9b557218e7dd19ae3a205522c3a9017500f",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "/Users/yfclark/nautilus_catalog_capture/.predict-fee-cycle-rust.log": "3e059454662658786ab053d2565d6590610b1ea359398bf51df4c49151b8cd4c"
+  }
+}

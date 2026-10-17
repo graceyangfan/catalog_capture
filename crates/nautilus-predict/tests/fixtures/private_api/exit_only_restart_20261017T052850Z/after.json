@@ -1,0 +1,137 @@
+{
+  "orders": [
+    {
+      "amount": "31360000000000000000",
+      "amountFilled": "0",
+      "currency": "USDT",
+      "id": "5624744546",
+      "isNegRisk": false,
+      "isYieldBearing": true,
+      "marketId": 10835,
+      "order": {
+        "expiration": 4102444800,
+        "feeRateBps": "200",
+        "hash": "0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3",
+        "maker": "[redacted]",
+        "makerAmount": "31360000000000000000",
+        "nonce": "0",
+        "salt": "1923833767",
+        "side": 1,
+        "signature": "[redacted-signature]",
+        "signatureType": 0,
+        "signer": "[redacted]",
+        "taker": "[redacted-address]",
+        "takerAmount": "1348480000000000000",
+        "tokenId": "43913266138716061999370819231995125816339102838741430587666640620946616511038"
+      },
+      "rewardEarningRate": 0,
+      "status": "OPEN",
+      "strategy": "LIMIT"
+    }
+  ],
+  "positions": [
+    {
+      "amount": "31360000000000000000",
+      "averageBuyPriceUsd": "0.04",
+      "id": "[redacted-jwt]==",
+      "market": {
+        "boostEndsAt": null,
+        "boostStartsAt": null,
+        "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+        "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+        "createdAt": "2026-02-26T10:39:37.847Z",
+        "decimalPrecision": 3,
+        "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+        "feeRateBps": 200,
+        "id": 10835,
+        "isBoosted": false,
+        "isNegRisk": false,
+        "isVisible": true,
+        "isYieldBearing": true,
+        "kalshiMarketTicker": null,
+        "marketType": null,
+        "marketVariant": "DEFAULT",
+        "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+        "outcomes": [
+          {
+            "bestAsk": {
+              "price": 0.04,
+              "size": 53444.82999996875
+            },
+            "bestBid": {
+              "price": 0.039,
+              "size": 2915.519
+            },
+            "indexSet": 1,
+            "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+            "status": null,
+            "team": null,
+            "variantData": null
+          },
+          {
+            "bestAsk": {
+              "price": 0.961,
+              "size": 2915.519
+            },
+            "bestBid": {
+              "price": 0.96,
+              "size": 53444.82999996875
+            },
+            "indexSet": 2,
+            "onChainId": "95666191922701525064334130359292250282544945245687904032708488194449877618656",
+            "status": null,
+            "team": null,
+            "variantData": null
+          }
+        ],
+        "polymarketConditionIds": [
+          "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+        ],
+        "question": "Will the US confirm that aliens exist before 2027?",
+        "questionIndex": null,
+        "resolution": null,
+        "resolverAddress": "[redacted-address]",
+        "rewards": {
+          "current": {
+            "endsAt": "2026-12-31T00:00:00.000Z",
+            "hourlyRate": 180,
+            "startsAt": "2026-04-28T14:00:00.000Z"
+          },
+          "schedule": [
+            {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            }
+          ]
+        },
+        "shareThreshold": 100,
+        "spreadThreshold": 0.06,
+        "status": "REGISTERED",
+        "team": null,
+        "title": "Will the US confirm that aliens exist before 2027?",
+        "tradingStatus": "OPEN",
+        "variantData": null
+      },
+      "outcome": {
+        "bestAsk": {
+          "price": 0.04,
+          "size": 53444.82999996875
+        },
+        "bestBid": {
+          "price": 0.039,
+          "size": 2915.519
+        },
+        "indexSet": 1,
+        "onChainId": "43913266138716061999370819231995125816339102838741430587666640620946616511038",
+        "status": null,
+        "team": null,
+        "variantData": null
+      },
+      "pnlUsd": "-0.03",
+      "valueUsd": "1.22"
+    }
+  ],
+  "buyAllowed": false,
+  "shutdownCancels": false
+}

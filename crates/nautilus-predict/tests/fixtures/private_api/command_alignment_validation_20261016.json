@@ -1,0 +1,127 @@
+{
+  "verifiedAtUTC": "2026-10-16T05:14:52.695651+00:00",
+  "source": "synthetic offline Rust Strategy + LiveNode, loopback HTTP/WS/RPC, native Redis integration; no mainnet execution",
+  "nativeDependencyHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "nativeDependencySourceVersionAndLockChanged": false,
+  "productionRecorderDiscoveryRotationChanged": false,
+  "mainnetAccountReads": 0,
+  "mainnetOrderWrites": 0,
+  "rustNormal": {
+    "passed": 248,
+    "failed": 0,
+    "ignored": 31,
+    "suites": 13
+  },
+  "redisIntegration": {
+    "passed": 3,
+    "failed": 0,
+    "scenarios": 5,
+    "readOnlyFilledOfflineRestart": true
+  },
+  "python": {
+    "passed": 43,
+    "failed": 0,
+    "sdk": "predict-sdk==0.0.22",
+    "newSdkComparedOrderPayloads": 5
+  },
+  "sdkHashVectors": {
+    "count": 32,
+    "sameSignerHashAndKeylessHasher": true
+  },
+  "checks": {
+    "clippyAllTargetsDenyWarnings": true,
+    "noDefaultExecutionAllTargets": true,
+    "targetedRustfmt": true,
+    "ruffCheckAndFormat": true,
+    "gitDiffCheck": true
+  },
+  "differentialRegression": {
+    "test": "wallet_gap_during_cancel_preflight_rejects_known_unsent_command",
+    "before": {
+      "passed": 0,
+      "failed": 1,
+      "reason": "known unsent cancellation must not be stranded by a stream gap: Elapsed(())"
+    },
+    "afterCancellationSuite": {
+      "passed": 12,
+      "failed": 0
+    },
+    "usesExistingTaskGenerationCancellationToken": true
+  },
+  "captureEntrypointsPassed": [
+    "record_command_alignment_json",
+    "record_disconnected_command_rejections_json",
+    "record_read_only_share_recovery_json",
+    "record_read_only_native_restart_json"
+  ],
+  "commandCases": {
+    "PreflightRejected": "ModifyRejected + CancelRejected restore Accepted; fixture wallet cleanup; no remove write",
+    "DisconnectedPreflight": "wallet epoch gap; disconnected Modify/Cancel standard rejection; terminal fixture cleanup + QueryAccount",
+    "BatchMixed": "one reject + one cancel; cancel-all removes remainder; no final open orders",
+    "BatchUnknown": "HTTP 500 remains unresolved until duplicate wallet cancellation evidence; no write retry",
+    "CancelAll": "two retained native cached orders canceled individually"
+  },
+  "readOnlyShares": {
+    "submission": null,
+    "primaryGrossFills": [
+      "33",
+      "67"
+    ],
+    "shareFeeQuantity": [
+      "0.66",
+      "1.34"
+    ],
+    "finalNetPosition": "98",
+    "cash": "938",
+    "locked": "0",
+    "orderPosts": 0
+  },
+  "boundaries": [
+    "Native batch command mapping fans out individual verified REST removal requests; no atomic HTTP batch",
+    "Bulk cases begin from retained native cached orders; calibration active-submission serialization unchanged",
+    "No automatic chain cancellation or signature invalidation",
+    "Modify remains native rejection, strategy controls explicit cancel/replace",
+    "No native OMS, persistence, reconciliation scheduler, dependency or recorder changes",
+    "Restart proof is graceful saved two-Node lifecycle, not OS crash recovery"
+  ],
+  "redisResources": {
+    "temporaryInstancesRemaining": 0,
+    "existing6379Untouched": true,
+    "maxMemoryBytes": 33554432,
+    "serial": true,
+    "rdb": false,
+    "aof": false
+  },
+  "historicalJsonUnchanged": {
+    "crates/nautilus-predict/tests/fixtures/private_api/native_strategy_restart_synthetic_20261016.json": "a55303b502eda5936ac87cf25fd309da9682cbfa988a975ffc0cef2bb0f9c2b7",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_submission_retention_synthetic_20261016.json": "5a7377f7e25ed1657a0eebf0d2af655a5ea0a2ad37dffd15bb8fb1ed69569ca5"
+  },
+  "sha256": {
+    "crates/nautilus-predict/src/config/execution.rs": "cabf1bdbc6d8c4dfb34bf0cc2758fc27cb5dd08793434346d8337d0482e2e47f",
+    "crates/nautilus-predict/src/execution/cancellations.rs": "fad7f8d64a8feea8cbf67bef037913f4e2bfc7c0fb8012505d8887cffbe21b55",
+    "crates/nautilus-predict/src/execution/orders.rs": "72f9240c66e3e7eee0e18a59470252649b3040fc71b6460f35ec3093be1bc41d",
+    "crates/nautilus-predict/src/execution/mod.rs": "ba485dba886e7cbe3a3569dddb232bec39f0722fb06a41876231efff632d54ac",
+    "crates/nautilus-predict/src/execution/parse.rs": "8c0d44e5a7ad029ff14bdf71d2ee6a2c9b379c1feebf6c99fe21088032d5856b",
+    "crates/nautilus-predict/src/execution/reconciliation.rs": "ef4977143b93f0e0b1a3f977d7ad76f72c7c2be56e67b9af58d5e2b9d2046f80",
+    "crates/nautilus-predict/src/execution/recovery.rs": "bbb72210da36b975c417959b3f902f2a04d071857156d3b8a71e1c1644cf33aa",
+    "crates/nautilus-predict/src/execution/reports.rs": "5a16b31c524612db3df92d22e5397926fa10f667a032432632d3b40bee6fdd2a",
+    "crates/nautilus-predict/src/execution/readiness.rs": "093997947e1995bd828f90f4252b5d82acdcfe83b3443e5865e4039ac64a2218",
+    "crates/nautilus-predict/src/signing/order.rs": "71dc0c58951000f3ab29c26ea374848489f0a7982175f02e8b6ff0505313d9f7",
+    "crates/nautilus-predict/src/signing/mod.rs": "23d46e41099e0e966830c74880c4ca65d75df301576df9fd406b49b7ba883f7f",
+    "crates/nautilus-predict/tests/execution.rs": "66f6036961a811d154c528483458c5399a5a4741ae3a07349b398c0fab064971",
+    "crates/nautilus-predict/tests/execution/cancellations.rs": "ac256090ab44daa1d30a2784ca360e1f84cbc97edfc438bf58f24035c1adb082",
+    "crates/nautilus-predict/tests/execution/command_alignment.rs": "8a17849a6563382f4162a4edd6cb21c89ba0ed6501c71384b148e3172d9c12af",
+    "crates/nautilus-predict/tests/execution/restart_live.rs": "ca3d9e2a80e8d114ae784befd0bfc60e7c20fc37528457472d7fbfddc4004e6d",
+    "crates/nautilus-predict/tests/execution/recovery_live.rs": "7aaeb9b112d9279194b887a4a4179ea0dfdf98e2352e693b863f33f9103af9e9",
+    "crates/nautilus-predict/tests/order_signing.rs": "2587af5310eb98454a97726026796325775be8674e18a1c64150ca514344a15b",
+    "tests/test_predict_exit_protocol.py": "dcf147f59831b23d80a8259764050a5e7d54493cb72cdafa784c6e2003c4ef0c",
+    "crates/nautilus-predict/README.md": "e79209a630723b25481b202e97a5e58eb3598f67a395504061a14da5a897d03e",
+    "docs/predict-execution-integration-progress.md": "981142bb7ba247be3e087130dc910ef9886d9d12ff580b3171660ba81a2d2ef7",
+    "Cargo.lock": "85405759e32fc3fee05937c59061f8b2732053e0ccbc7ecfe1f641793db258af",
+    "crates/nautilus-predict/Cargo.toml": "ddb8b478dfd50b94d038ad421951d46ad8407b4a7e5488c57697201c5c5095c8",
+    "crates/nautilus-predict/tests/fixtures/private_api/command_alignment_synthetic_20261016.json": "1065bc1720b3c0908ec70970a341b71be860d9793c6d5c784fedbb5f6da3005b",
+    "crates/nautilus-predict/tests/fixtures/private_api/command_gap_rejections_synthetic_20261016.json": "5a36887ab7f6322e9baf5db864947c175ff316f69117ed16d42d540ba1e00533",
+    "crates/nautilus-predict/tests/fixtures/private_api/readonly_share_recovery_synthetic_20261016.json": "3a678b869174a5e01ae4d103168231aaab64553b4b420cb588b73689ae89e86b",
+    "crates/nautilus-predict/tests/fixtures/private_api/readonly_native_restart_synthetic_20261016.json": "80af82abe9cd8dfba721b4e2a2a1be5d421a8a330b62dcf0ef16bfc8baaccd0e"
+  }
+}

@@ -31,9 +31,9 @@ mod tests;
 
 use std::{fs, path::Path};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use catalog_capture_core::{
-    validate_capture_config, CaptureConfig, CapturePlan, Hip4UniverseSpec, OptionUniverseSpec,
+    CaptureConfig, CapturePlan, Hip4UniverseSpec, OptionUniverseSpec, validate_capture_config,
 };
 
 // Field type for CliConfigFile; tests re-export selectors via super::*.

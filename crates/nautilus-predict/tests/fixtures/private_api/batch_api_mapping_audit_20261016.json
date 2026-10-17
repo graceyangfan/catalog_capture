@@ -1,0 +1,40 @@
+{
+  "source": "offline capability and existing mapping audit, not a new live capture",
+  "verifiedAtUtc": "2026-10-16T15:59:08.275685+00:00",
+  "officialBatchRemoval": {
+    "endpoint": "POST /v1/orders/remove",
+    "request": "data.ids[]",
+    "result": "removed[] / noop[]",
+    "httpLayerMultipleIdsOfflineVerified": true,
+    "executionMapping": "Native BatchCancelOrders expands verified per-order removal; not one HTTP batch",
+    "actualTwoOrderEvidence": "live_resting_batch-restart_20261016T153745Z"
+  },
+  "publicBatchCreateEndpointFound": false,
+  "publicAtomicModifyEndpointFound": false,
+  "newOrderListFanoutAdded": false,
+  "newLiveOrderWrites": 0,
+  "nativeDependencyChanged": false,
+  "productionRecordingChanged": false,
+  "offlineTests": {
+    "nativeCommandAlignmentPassed": 10,
+    "multipleIdRemovalProtocolPassed": 2
+  },
+  "files": [
+    {
+      "path": "crates/nautilus-predict/src/execution/mod.rs",
+      "sha256": "724271b4f07f5b5ae0f29b26cbebbe3b2a459128a43dff40acdef9848eba35d1"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/cancellations.rs",
+      "sha256": "c45c2fa91a55d5026542cc209c491bf6e35ee85607b7c79e041f36e0cb2b4dac"
+    },
+    {
+      "path": "docs/reference/predict-batch-api-mapping-20261016.md",
+      "sha256": "999447758c971e68c475206f549607f05caaa3b848d5a43d80ec921559f52d81"
+    }
+  ],
+  "ownLogsRemoved": [
+    ".predict-batch-api-check.log",
+    ".predict-batch-api-http-check.log"
+  ]
+}

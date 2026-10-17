@@ -1,0 +1,7 @@
+{
+  "provenance": "authenticated mainnet read-only check; no order POST or chain transaction",
+  "checkedAtUtc": "2026-10-15T06:06:20.490157+00:00",
+  "openOrders": 0,
+  "temporaryRunConfigExists": false,
+  "orderWritesEnabled": false
+}

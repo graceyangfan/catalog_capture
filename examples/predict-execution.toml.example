@@ -1,0 +1,30 @@
+# Copy to env/predict-execution.toml and chmod 600 that file.
+# Decimal financial values must be strings. This example contains no credentials.
+
+[network]
+environment = "mainnet"
+rpc_url = "https://bsc-dataseed.bnbchain.org"
+api_key_file = "predictfun.toml"
+timeout_secs = 15
+
+[privy]
+# eoa for a plain wallet; predict_account for a separate Kernel deposit account.
+mode = "predict_account"
+# Exported owner/Privy key; NEVER the deposit address's private key.
+private_key = ""
+# Separate Predict Account/deposit address; leave empty for mode = "eoa".
+predict_account = ""
+# Optional check against the address derived from private_key.
+owner_address = ""
+
+[test]
+# Authentication and chain/market reads are allowed without enabling order writes.
+allow_order_writes = false
+max_order_usdt = "0.10"
+max_total_usdt = "0.20"
+# The first order is post-only and below the chosen outcome's best bid.
+require_post_only = true
+# Auto-discovery searches current open markets. It does not place a guessed order.
+max_fill_price = "0.01"
+max_discovery_pages = 3
+wait_secs = 20

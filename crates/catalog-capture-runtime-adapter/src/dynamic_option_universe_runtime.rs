@@ -12,13 +12,13 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use catalog_capture_core::{
+    AtmReferenceSource, CapturePlan, MarkPriceCaptureSpec, OptionUniverseSpec,
+    OptionUniverseVenueKind, QuoteCaptureSpec, ResolvedOptionUniverse, StrikeOpenInterestByStrike,
     aggregate_open_interest_by_strike, derive_perp_instrument_id,
     option_instrument_ids_at_selected_expiry, resolve_option_universe,
-    select_cache_perp_strike_fallback, AtmReferenceSource, CapturePlan, MarkPriceCaptureSpec,
-    OptionUniverseSpec, OptionUniverseVenueKind, QuoteCaptureSpec, ResolvedOptionUniverse,
-    StrikeOpenInterestByStrike,
+    select_cache_perp_strike_fallback,
 };
 use nautilus_common::cache::Cache;
 use nautilus_core::UnixNanos;

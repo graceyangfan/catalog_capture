@@ -1,0 +1,15 @@
+{
+  "source": "actual independent authenticated complete GET /v1/orders?status=OPEN; empty pages have no wallet identifiers",
+  "observedAtUtc": "2026-10-15T10:38:24.799187+00:00",
+  "verifiedOpenOrders": 0,
+  "pages": [
+    {
+      "cursor": null,
+      "data": [],
+      "success": true
+    }
+  ],
+  "ordinaryOrderWrites": false,
+  "oneRunConfigExists": false,
+  "relayManifestExists": false
+}

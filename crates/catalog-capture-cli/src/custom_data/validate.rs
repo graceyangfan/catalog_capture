@@ -14,14 +14,14 @@
 
 //! Runtime validation of custom-data `DataType` values against the registry.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use nautilus_model::data::DataType;
 
 #[cfg(any(feature = "venue-binance", feature = "venue-hyperliquid"))]
 use super::ensure_identifier_matches;
 use super::{
-    ensure_non_empty, require_venue, string_metadata, supported_request_csv,
-    supported_subscribe_csv, KnownCustomDataType,
+    KnownCustomDataType, ensure_non_empty, require_venue, string_metadata, supported_request_csv,
+    supported_subscribe_csv,
 };
 use crate::config::VenueRuntimeConfig;
 
@@ -228,7 +228,9 @@ impl KnownCustomDataType {
                     let value = metadata.get(key).and_then(serde_json::Value::as_str);
                     ensure_non_empty(
                         value.unwrap_or_default(),
-                        &format!("custom_data PredictCryptoUpDown requires non-empty metadata.{key}"),
+                        &format!(
+                            "custom_data PredictCryptoUpDown requires non-empty metadata.{key}"
+                        ),
                     )?;
                 }
                 let interval_secs = metadata

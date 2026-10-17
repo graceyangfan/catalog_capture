@@ -1,0 +1,32 @@
+{
+  "source": "derived offline SDK 0.0.22 check of actual signed terms and subsequent REST rows; identities restored only in memory from local config",
+  "apiCalls": 0,
+  "orders": [
+    {
+      "hash": "0x490edcb66860c654beab4c0653c8100d7a76927a4da23af34d9396164185ebe8",
+      "decimalOrderId": "5584734161",
+      "officialSdkHashMatches": true,
+      "officialSdkAmountsMatch": true,
+      "receiptMatchesRestHashAndId": true,
+      "nonce": "0",
+      "feeRateBps": "200",
+      "expiration": "4102444800",
+      "makerUSDT": "1",
+      "quantity": "100"
+    },
+    {
+      "hash": "0xd16d1a86a63badb634a31edc69879678c87b229dd7a5c768e851cdb5faea1c6b",
+      "decimalOrderId": "5584746901",
+      "officialSdkHashMatches": true,
+      "officialSdkAmountsMatch": true,
+      "receiptMatchesRestHashAndId": true,
+      "nonce": "0",
+      "feeRateBps": "200",
+      "expiration": "4102444800",
+      "makerUSDT": "1",
+      "quantity": "50"
+    }
+  ],
+  "signatureRecomputed": false,
+  "signatureNote": "signatures deliberately not retained; hash and amounts checked, not a new signature equality claim"
+}

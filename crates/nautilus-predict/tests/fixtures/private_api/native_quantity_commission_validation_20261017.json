@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-17",
+  "kind": "offline native quantity commission prototype validation",
+  "nativeBase": "09ede53ed676bf28b43c3462b771461cee674398",
+  "branch": "codex/instrument-quantity-commission",
+  "patchSha256": "648f46e444eb83c92667310eedaac35bcacb97dd28cd331cdcedc331b2684815",
+  "defaultEnabled": false,
+  "mainnetReads": 0,
+  "mainnetWrites": 0,
+  "recorderChanged": false,
+  "tests": {
+    ".native-quantity-regression.log": {
+      "status": "ok",
+      "passed": 182,
+      "failed": 0,
+      "ignored": 54
+    },
+    ".native-quantity-feature-regression.log": {
+      "status": "FAILED",
+      "passed": 186,
+      "failed": 1,
+      "ignored": 55
+    },
+    ".native-quantity-tests.log": {
+      "status": "ok",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 1
+    },
+    ".native-quantity-model.log": {
+      "status": "ok",
+      "passed": 210,
+      "failed": 0,
+      "ignored": 0
+    },
+    ".native-quantity-capnp-test.log": {
+      "status": "ok",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    ".native-quantity-reconnect-final.log": {
+      "status": "FAILED",
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    }
+  },
+  "predictClippyWarningsDenied": true,
+  "nativeModelClippyWarningsDenied": true,
+  "failures": [
+    {
+      "test": "recovery_live::strategy_reconnect_verifies_share_fee_net_position_before_resuming",
+      "diagnostic": "thread 'recovery_live::strategy_reconnect_verifies_share_fee_net_position_before_resuming' (193947) panicked at /Users/yfclark/nautilus_trader_quantity_commission/crates/live/src/execution/client.rs:334:14:\nRefCell already mutably borrowed"
+    }
+  ],
+  "reconnectTrace": [
+    "3: <nautilus_live::execution::client::LiveExecutionClient as nautilus_common::clients::execution::ExecutionClient>::provides_bulk_position_coverage",
+    "4: nautilus_live::execution::reconciliation::resolve_position_report_client_coverage",
+    "5: <core::iter::adapters::map::Map<indexmap::set::iter::Iter<(nautilus_model::identifiers::instrument_id::InstrumentId, nautilus_model::identifiers::account_id::AccountId)>, <nautilus_live::execution::manager::ExecutionManager>::prepare_position_report_check::{closure#0}> as core::iter::traits::iterator::Iterator>::fold::<(), core::iter::traits::iterator::Iterator::for_each::call<((nautilus_model::identifiers::instrument_id::InstrumentId, nautilus_model::identifiers::account_id::AccountId), nautilus_live::execution::reconciliation::ReportClientCoverage), <indexmap::map::IndexMap<(nautilus_model::identifiers::instrument_id::InstrumentId, nautilus_model::identifiers::account_id::AccountId), nautilus_live::execution::reconciliation::ReportClientCoverage> as core::iter::traits::collect::Extend<((nautilus_model::identifiers::instrument_id::InstrumentId, nautilus_model::identifiers::account_id::AccountId), nautilus_live::execution::reconciliation::ReportClientCoverage)>>::extend<core::iter::adapters::map::Map<indexmap::set::iter::Iter<(nautilus_model::identifiers::instrument_id::InstrumentId, nautilus_model::identifiers::account_id::AccountId)>, <nautilus_live::execution::manager::ExecutionManager>::prepare_position_report_check::{closure#0}>>::{closure#0}>::{closure#0}>",
+    "6: <indexmap::map::IndexMap<(nautilus_model::identifiers::instrument_id::InstrumentId, nautilus_model::identifiers::account_id::AccountId), nautilus_live::execution::reconciliation::ReportClientCoverage> as core::iter::traits::collect::FromIterator<((nautilus_model::identifiers::instrument_id::InstrumentId, nautilus_model::identifiers::account_id::AccountId), nautilus_live::execution::reconciliation::ReportClientCoverage)>>::from_iter::<core::iter::adapters::map::Map<indexmap::set::iter::Iter<(nautilus_model::identifiers::instrument_id::InstrumentId, nautilus_model::identifiers::account_id::AccountId)>, <nautilus_live::execution::manager::ExecutionManager>::prepare_position_report_check::{closure#0}>>",
+    "7: <nautilus_live::execution::manager::ExecutionManager>::prepare_position_report_check",
+    "8: <nautilus_live::node::LiveNode>::run_reconciliation_checks",
+    "9: <nautilus_live::node::LiveNode>::run_with_mode::{closure#0}"
+  ],
+  "knownBoundaries": [
+    "sub-instrument-precision fees are explicitly rejected, not claimed supported",
+    "legacy quote-fee events are not silently migrated into quantity fees",
+    "manual reconnect client borrow conflicts with concurrent Native position coverage check",
+    "Python/FFI and complete fee summary/snapshot surfaces remain incomplete; Capnp quantity-fee roundtrip is tested",
+    "calculated accounts, flips, fill voids and price restatements unsupported in new path"
+  ],
+  "recordedEconomicsReplay": "native_quantity_commission_recorded_flow_20261017.json",
+  "productionReady": false,
+  "captureCliCheckPassed": true
+}

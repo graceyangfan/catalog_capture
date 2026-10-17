@@ -1,0 +1,140 @@
+{
+  "source": "official mainnet HTTP via test-only loopback relay; requests/responses forwarded unchanged, no POST retries",
+  "events": [
+    {
+      "observedAtUtc": "2026-10-15T06:21:11.257665+00:00",
+      "method": "GET",
+      "path": "/v1/auth/message",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:11.635174+00:00",
+      "method": "POST",
+      "path": "/v1/auth",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:11.953917+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:12.255448+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:15.509875+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:16.598995+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:16.881612+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:18.468279+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:18.529025+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:18.762527+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:18.830098+00:00",
+      "method": "GET",
+      "path": "/v1/markets/190414",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:19.148132+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:19.776733+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:20.190653+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:21.392604+00:00",
+      "method": "POST",
+      "path": "/v1/orders",
+      "status": 201,
+      "requestTerms": {
+        "salt": "841045456",
+        "nonce": "0",
+        "expiration": 4102444800,
+        "feeRateBps": "200",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "100000000000000000000",
+        "hash": "0x793058895728999cfed7ccd8670f4464c3717ed6ed5ffed25448ec3e1dfe27d1"
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:21.497514+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:21.837847+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:45.818184+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:46.241860+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0x793058895728999cfed7ccd8670f4464c3717ed6ed5ffed25448ec3e1dfe27d1",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:46.658572+00:00",
+      "method": "POST",
+      "path": "/v1/orders/remove",
+      "status": 200
+    },
+    {
+      "observedAtUtc": "2026-10-15T06:21:47.997569+00:00",
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200
+    }
+  ]
+}

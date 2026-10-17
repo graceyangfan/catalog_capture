@@ -17,11 +17,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use catalog_capture_core::{
-    forward_price_log_path, read_option_universe_resolution_records,
-    sample_all_strikes_instrument_ids, summarize_option_universe_resolution_records,
-    OptionUniverseResolutionSummary, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
+    ALL_STRIKES_READBACK_SAMPLE_LIMIT, OptionUniverseResolutionSummary, forward_price_log_path,
+    read_option_universe_resolution_records, sample_all_strikes_instrument_ids,
+    summarize_option_universe_resolution_records,
 };
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use serde::Serialize;

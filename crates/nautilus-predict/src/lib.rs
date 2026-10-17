@@ -13,34 +13,74 @@
 // -------------------------------------------------------------------------------------------------
 
 //! NautilusTrader-style Predict adapter primitives.
+//!
+//! # Feature Flags
+//!
+//! - `execution`: Private REST, wallet WebSocket and signing primitives; implies `live`.
+//!   Covers JWT, read-only queries, lifecycle/settlement facts and offline order signing.
+//!   Maps supported order commands and native execution reports; submission is explicitly opt-in.
+//! - `high-precision` (default): Propagates Nautilus fixed-point precision features.
+//! - `live` (default): Public market-data client, instrument discovery, and live transports.
 
 #![warn(rustc::all)]
 #![deny(unsafe_code)]
 
+#[cfg(feature = "execution")]
+pub mod blockchain;
 pub mod common;
+#[cfg(feature = "live")]
 pub mod config;
 pub mod data;
+#[cfg(feature = "live")]
 pub mod data_client;
+pub mod data_types;
+#[cfg(feature = "execution")]
+pub mod execution;
+#[cfg(feature = "live")]
 pub mod factories;
+#[cfg(feature = "execution")]
+pub mod fees;
 pub mod http;
 pub mod models;
+#[cfg(feature = "live")]
 pub mod providers;
+#[cfg(feature = "execution")]
+pub mod signing;
+#[cfg(feature = "live")]
 pub mod universe;
+pub mod websocket;
 
+#[cfg(feature = "execution")]
+pub use common::environment::PredictEnvironment;
 pub use common::{
     PREDICT, PREDICT_VENUE, PredictMarketContext, instrument_id_from_outcome,
     predict_crypto_up_down_orderbook_data_type, predict_orderbook_data_type,
 };
+#[cfg(feature = "live")]
 pub use config::PredictDataClientConfig;
-pub use data::{
+#[cfg(feature = "execution")]
+pub use config::{
+    PredictAccountStateMode, PredictChainClientConfig, PredictExecutionClientConfig,
+    PredictPrivateClientConfig, PredictSubmissionConfig, PredictWalletWebSocketConfig,
+};
+#[cfg(feature = "live")]
+pub use data::PredictDataClient;
+pub use data_types::{
     PredictLastOrderSettled, PredictLastOrderSettledWire, PredictOrderbookLevel,
     PredictOrderbookSnapshot, PredictOrderbookWire, PredictSettlementPendingLevel,
     PredictSettlementsPending, PredictSettlementsPendingWire, register_predict_custom_data,
 };
-pub use data_client::PredictDataClient;
+#[cfg(feature = "execution")]
+pub use execution::PredictExecutionClient;
+#[cfg(feature = "live")]
 pub use factories::PredictDataClientFactory;
+#[cfg(feature = "execution")]
+pub use factories::PredictExecutionClientFactory;
+#[cfg(feature = "live")]
 pub use http::PredictHttpClient;
+#[cfg(feature = "live")]
 pub use providers::PredictInstrumentProvider;
+#[cfg(feature = "live")]
 pub use universe::{
     PredictCryptoUpDownSelector, SelectedCryptoUpDownMarket, discover_crypto_up_down_market,
 };

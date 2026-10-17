@@ -16,8 +16,8 @@ use std::collections::BTreeSet;
 
 use anyhow::Result;
 use catalog_capture_core::{
-    hip4_startup_resolution_record, instrument_id_overlap_and_new, Hip4UniverseResolutionRecord,
-    Hip4UniverseSpec, ResolvedHip4Universe,
+    Hip4UniverseResolutionRecord, Hip4UniverseSpec, ResolvedHip4Universe,
+    hip4_startup_resolution_record, instrument_id_overlap_and_new,
 };
 use nautilus_core::UnixNanos;
 use nautilus_model::identifiers::InstrumentId;

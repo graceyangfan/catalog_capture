@@ -1,0 +1,8 @@
+# Copy to a local ignored credential file; chmod 600. Never commit the filled copy.
+# Exported Privy owner key + separate Predict Account/deposit address.
+# This schema is separate from old test/network configuration.
+[privy]
+private_key = ""
+predict_account = ""
+# Optional verification of the owner derived from the exported key.
+owner_address = ""

@@ -1,0 +1,677 @@
+// Copyright (C) 2026 yfclark and contributors. Licensed under LGPL-3.0.
+
+use nautilus_model::events::OrderEventAny;
+
+use super::*;
+
+pub(super) fn cancel(order: &OrderAny) -> CancelOrder {
+    CancelOrder::new(
+        trader_id(),
+        Some(ClientId::new("PREDICT")),
+        order.strategy_id(),
+        order.instrument_id(),
+        order.client_order_id(),
+        order.venue_order_id(),
+        UUID4::new(),
+        UnixNanos::from(OBSERVED),
+        None,
+        None,
+    )
+}
+
+#[tokio::test]
+async fn wallet_gap_during_cancel_preflight_rejects_known_unsent_command() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.order_gate.lock().unwrap() = Some(gate.clone());
+    client.cancel_order(cancel(&order)).unwrap();
+    super::exit_orders::barrier("cancel read before transmission", || {
+        !server.state.order_requests.lock().unwrap().is_empty()
+    })
+    .await;
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    super::exit_orders::barrier("wallet gap before cancel transmission", || {
+        !client.is_connected()
+    })
+    .await;
+    gate.notify_one();
+    let result = timeout(Duration::from_secs(1), rx.recv()).await;
+    assert!(server.state.removals.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+    let ExecutionEvent::Order(event @ OrderEventAny::CancelRejected(_)) = result
+        .expect("known unsent cancellation must not be stranded by a stream gap")
+        .expect("native event channel")
+    else {
+        panic!("native preflight rejection")
+    };
+    engine(&cache).process(&event);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+}
+
+async fn setup(
+    server: &Server,
+) -> (
+    PredictExecutionClient,
+    mpsc::UnboundedReceiver<ExecutionEvent>,
+    Rc<RefCell<Cache>>,
+    Portfolio,
+    OrderAny,
+) {
+    let row = rest_order_data("OPEN", 1, OrderSide::Buy);
+    server.state.open_orders.lock().unwrap().push(row.clone());
+    server
+        .state
+        .orders
+        .lock()
+        .unwrap()
+        .push_back(json!({"success":true,"data":row}));
+    let (mut client, mut rx, cache) = reported_client_with_removal(server, true);
+    let portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let order = order(1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    (client, rx, cache, portfolio, order)
+}
+
+pub(super) fn engine(cache: &Rc<RefCell<Cache>>) -> ExecutionEngine {
+    let mut clock = VirtualClock::new();
+    clock.advance_time(UnixNanos::from(OBSERVED), true);
+    ExecutionEngine::new(Rc::new(RefCell::new(clock)), cache.clone(), None)
+}
+
+fn removal(server: &Server, status: u16, body: Value, delay: u64) {
+    server
+        .state
+        .remove_replies
+        .lock()
+        .unwrap()
+        .push_back((status, body, delay));
+}
+
+async fn wait_for_post(server: &Server) {
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if !server.state.removals.lock().unwrap().is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn acknowledged_removal_flows_through_native_engine_and_portfolio() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        0,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_locked(Some(Currency::USDT())),
+        Some(Money::from("62 USDT"))
+    );
+    // The SDK represents no requested expiry as 2100-01-01, including GTC orders.
+    server.state.orders.lock().unwrap()[0]["data"]["order"]["expiration"] = json!(4102444800i64);
+    client.cancel_order(cancel(&order)).unwrap();
+    assert!(client.cancel_order(cancel(&order)).is_err());
+    let ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) = next(&mut rx).await else {
+        panic!("native canceled event");
+    };
+    assert_eq!(event.client_order_id(), order.client_order_id());
+    // Until the engine applies the event, native state and command ownership stay active.
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    assert!(client.cancel_order(cancel(&order)).is_err());
+    let mut engine = engine(&cache);
+    engine.process(&event);
+    apply_account(&mut rx).await;
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Canceled
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_free(Some(Currency::USDT())),
+        Some(Money::from("1000 USDT"))
+    );
+    assert!(
+        cache
+            .borrow()
+            .positions(None, None, None, None, None)
+            .is_empty()
+    );
+    assert_eq!(
+        *server.state.removals.lock().unwrap(),
+        [json!({"data":{"ids":["12345"]}})]
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn removed_ack_preserves_confirmed_partial_fill_and_native_position() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        150,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    let mut engine = engine(&cache);
+    client.cancel_order(cancel(&order)).unwrap();
+    wait_for_post(&server).await;
+    *server.state.rpc_frame.lock().unwrap() = (989_360_000_000_000_000_000u128, 2, 2);
+    server.wallet(fill(1));
+    let mut fill_seen = false;
+    let mut cancel_seen = false;
+    let mut unlocked = false;
+    timeout(Duration::from_secs(3), async {
+        while !fill_seen || !cancel_seen || !unlocked {
+            match rx.recv().await.unwrap() {
+                ExecutionEvent::Report(report) => {
+                    engine.reconcile_execution_report(&report);
+                    fill_seen = true;
+                }
+                ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) => {
+                    engine.process(&event);
+                    cancel_seen = true;
+                }
+                ExecutionEvent::Account(state) => {
+                    msgbus::send_account_state(
+                        MessagingSwitchboard::portfolio_update_account(),
+                        &state,
+                    );
+                    unlocked = state.balances[0].locked == Money::from("0 USDT");
+                }
+                _ => panic!("unexpected execution event"),
+            }
+        }
+    })
+    .await
+    .unwrap();
+    {
+        let cache = cache.borrow();
+        let native = cache.order(&order.client_order_id()).unwrap();
+        assert_eq!(native.status(), OrderStatus::Canceled);
+        assert_eq!(native.filled_qty().as_decimal(), Decimal::new(17, 0));
+        assert_eq!(
+            cache.positions(None, None, None, None, None)[0]
+                .quantity
+                .as_decimal(),
+            Decimal::new(17, 0)
+        );
+        assert_eq!(
+            cache
+                .account(&account_id())
+                .unwrap()
+                .balance_free(Some(Currency::USDT())),
+            Some(Money::from("989.36 USDT"))
+        );
+    }
+    assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn noop_is_resolved_only_by_verified_terminal_snapshot() {
+    for status in ["CANCELLED", "FILLED", "OPEN"] {
+        let server = server(vec![]).await;
+        removal(
+            &server,
+            200,
+            json!({"success":true,"removed":[],"noop":["12345"]}),
+            0,
+        );
+        let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+        server
+            .state
+            .orders
+            .lock()
+            .unwrap()
+            .push_back(json!({"success":true,"data":rest_order_data(status, 1, OrderSide::Buy)}));
+        client.cancel_order(cancel(&order)).unwrap();
+        if status == "CANCELLED" {
+            server.state.open_orders.lock().unwrap().clear();
+            let ExecutionEvent::Report(report) = next(&mut rx).await else {
+                panic!("verified terminal snapshot");
+            };
+            let ExecutionReport::Order(snapshot) = &report else {
+                panic!("order report");
+            };
+            assert_eq!(snapshot.order_status, OrderStatus::Canceled);
+            engine(&cache).reconcile_execution_report(&report);
+            apply_account(&mut rx).await;
+            assert_eq!(
+                cache
+                    .borrow()
+                    .order(&order.client_order_id())
+                    .unwrap()
+                    .status(),
+                OrderStatus::Canceled
+            );
+        } else {
+            wait_for_post(&server).await;
+            assert!(
+                timeout(Duration::from_millis(100), rx.recv())
+                    .await
+                    .is_err()
+            );
+            assert_eq!(
+                cache
+                    .borrow()
+                    .order(&order.client_order_id())
+                    .unwrap()
+                    .status(),
+                OrderStatus::Accepted
+            );
+            assert!(client.cancel_order(cancel(&order)).is_err());
+            assert_eq!(
+                cache
+                    .borrow()
+                    .account(&account_id())
+                    .unwrap()
+                    .balance_locked(Some(Currency::USDT())),
+                Some(Money::from("62 USDT"))
+            );
+        }
+        assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn only_definitive_rejection_emits_cancel_rejected_and_ambiguous_writes_stay_pending() {
+    for case in 0..6 {
+        let server = server(vec![]).await;
+        let (status, reply, delay) = match case {
+            0 => (400, json!({"error":"fixture-rejection"}), 0),
+            1 => (500, json!({"error":"fixture-unknown"}), 0),
+            2 => (200, json!({"success":true,"removed":[],"noop":[]}), 0),
+            3 => (
+                200,
+                json!({"success":true,"removed":["99999"],"noop":[]}),
+                0,
+            ),
+            4 => (
+                200,
+                json!({"success":true,"removed":["12345"],"noop":[]}),
+                1500,
+            ),
+            _ => (
+                200,
+                json!({"success":false,"removed":["12345"],"noop":[]}),
+                0,
+            ),
+        };
+        removal(&server, status, reply, delay);
+        let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+        client.cancel_order(cancel(&order)).unwrap();
+        wait_for_post(&server).await;
+        if case == 0 {
+            let ExecutionEvent::Order(event @ OrderEventAny::CancelRejected(_)) =
+                next(&mut rx).await
+            else {
+                panic!("native cancel rejected");
+            };
+            engine(&cache).process(&event);
+        } else {
+            assert!(
+                timeout(
+                    Duration::from_millis(if case == 4 { 1700 } else { 100 }),
+                    rx.recv()
+                )
+                .await
+                .is_err()
+            );
+            assert!(client.cancel_order(cancel(&order)).is_err());
+        }
+        assert_eq!(
+            cache
+                .borrow()
+                .order(&order.client_order_id())
+                .unwrap()
+                .status(),
+            OrderStatus::Accepted
+        );
+        assert_eq!(
+            cache
+                .borrow()
+                .account(&account_id())
+                .unwrap()
+                .balance_locked(Some(Currency::USDT())),
+            Some(Money::from("62 USDT"))
+        );
+        assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn command_identity_and_signed_preflight_terms_are_checked_before_writing() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    for field in 0..5 {
+        let mut command = cancel(&order);
+        match field {
+            0 => command.trader_id = TraderId::new("OTHER-001"),
+            1 => command.strategy_id = "OTHER-001".into(),
+            2 => command.instrument_id = instrument_id(2),
+            3 => command.venue_order_id = Some(VenueOrderId::new(format!("0x{}", "22".repeat(32)))),
+            _ => command.client_id = Some(ClientId::new("OTHER")),
+        }
+        assert!(client.cancel_order(command).is_err());
+    }
+    let mut invalid = server.state.orders.lock().unwrap().pop_front().unwrap();
+    invalid["data"]["order"]["makerAmount"] = json!("63000000000000000000");
+    server.state.orders.lock().unwrap().push_back(invalid);
+    client.cancel_order(cancel(&order)).unwrap();
+    let ExecutionEvent::Order(event @ OrderEventAny::CancelRejected(_)) = next(&mut rx).await
+    else {
+        panic!("invalid preflight rejection");
+    };
+    engine(&cache).process(&event);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    assert!(server.state.removals.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn stop_cancels_in_flight_removal_without_publishing_a_late_ack() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        250,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    client.cancel_order(cancel(&order)).unwrap();
+    wait_for_post(&server).await;
+    client.disconnect().await.unwrap();
+    assert!(!client.is_connected());
+    assert!(
+        timeout(Duration::from_millis(350), rx.recv())
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn wallet_terminal_event_wins_over_late_removal_ack() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        250,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    client.cancel_order(cancel(&order)).unwrap();
+    wait_for_post(&server).await;
+    server.wallet(event("orderCancelled", 1));
+    let ExecutionEvent::Report(report) = next(&mut rx).await else {
+        panic!("wallet cancel report");
+    };
+    engine(&cache).reconcile_execution_report(&report);
+    apply_account(&mut rx).await;
+    assert!(
+        timeout(Duration::from_millis(350), rx.recv())
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Canceled
+    );
+    assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn wallet_disconnect_prevents_late_removal_publication() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        250,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    client.cancel_order(cancel(&order)).unwrap();
+    wait_for_post(&server).await;
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    timeout(Duration::from_secs(2), async {
+        while client.is_connected() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        timeout(Duration::from_millis(350), rx.recv())
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn rest_removal_is_disabled_by_default() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache) = reported_client(&server);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let order = order(1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    client.cancel_order(cancel(&order)).unwrap();
+    let ExecutionEvent::Order(OrderEventAny::CancelRejected(event)) = next(&mut rx).await else {
+        panic!("disabled removal must publish native rejection");
+    };
+    assert!(event.reason.contains("not enabled"));
+    assert!(server.state.removals.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn settlement_after_removed_ack_updates_position_without_reopening_cancelled_order() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        0,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    client.cancel_order(cancel(&order)).unwrap();
+    let ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) = next(&mut rx).await else {
+        panic!("native canceled event");
+    };
+    let mut engine = engine(&cache);
+    engine.process(&event);
+    apply_account(&mut rx).await;
+    *server.state.rpc_frame.lock().unwrap() = (989_360_000_000_000_000_000u128, 2, 2);
+    server.wallet(fill(1));
+    let ExecutionEvent::Report(report) = next(&mut rx).await else {
+        panic!("late confirmed fill");
+    };
+    engine.reconcile_execution_report(&report);
+    apply_account(&mut rx).await;
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Canceled
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .filled_qty()
+            .as_decimal(),
+        Decimal::new(17, 0)
+    );
+    assert_eq!(
+        cache.borrow().positions(None, None, None, None, None)[0]
+            .quantity
+            .as_decimal(),
+        Decimal::new(17, 0)
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_locked(Some(Currency::USDT())),
+        Some(Money::from("0 USDT"))
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_free(Some(Currency::USDT())),
+        Some(Money::from("989.36 USDT"))
+    );
+    assert!(client.is_connected());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn disconnected_owned_commands_publish_rejections_without_writes() {
+    use nautilus_common::messages::execution::ModifyOrder;
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    client.stop().unwrap();
+    client.cancel_order(cancel(&order)).unwrap();
+    let ExecutionEvent::Order(event @ OrderEventAny::CancelRejected(_)) = next(&mut rx).await
+    else {
+        panic!("disconnected cancel rejection");
+    };
+    let mut engine = engine(&cache);
+    engine.process(&event);
+    client
+        .modify_order(ModifyOrder::new(
+            trader_id(),
+            Some(ClientId::new("PREDICT")),
+            order.strategy_id(),
+            order.instrument_id(),
+            order.client_order_id(),
+            order.venue_order_id(),
+            None,
+            Some(Price::from("0.610")),
+            None,
+            UUID4::new(),
+            UnixNanos::from(OBSERVED),
+            None,
+            None,
+        ))
+        .unwrap();
+    let ExecutionEvent::Order(event @ OrderEventAny::ModifyRejected(_)) = next(&mut rx).await
+    else {
+        panic!("disconnected modify rejection");
+    };
+    engine.process(&event);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    assert!(server.state.removals.lock().unwrap().is_empty());
+    assert!(server.state.creations.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}

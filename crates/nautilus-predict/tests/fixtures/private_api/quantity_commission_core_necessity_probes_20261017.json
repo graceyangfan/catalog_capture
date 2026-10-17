@@ -1,0 +1,72 @@
+{
+  "source": "controlled offline source-removal experiments; all changed sources restored byte-for-byte before final validation",
+  "baselineCommit": "806b0ee9160b4927e658bf7523f16363a9fd3062",
+  "candidateChange": "apply inventory preflight only when Native applies position economics",
+  "experiments": [
+    {
+      "experiment": "discard-cumulative-fees",
+      "source": "crates/model/src/position.rs",
+      "sourceShaBefore": "b458965f67b34eadbaee7f0870a0104ff6cf877324111aee77f07d31ab857417",
+      "mutatedSourceSha": "de1f4d98d3765abecc33b5ff09f95046a2ffd0afad30cb0c2e9104e822f0a38d",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "nautilus-model",
+        "--lib",
+        "--features",
+        "high-precision",
+        "subprecision_fees_accumulate_once_across_restore_and_snapshot"
+      ],
+      "expectedFailureObserved": true,
+      "exitCode": 101,
+      "log": "/tmp/qty-core-mutant-discard-cumulative-fees.log",
+      "logSha256": "80c4f2fb49506db6d884dc430c6b2d3288654ff492259653dfcf8100c7983f5a",
+      "failureSummary": "failures:\n    position::quantity_commission_tests::subprecision_fees_accumulate_once_across_restore_and_snapshot\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3996 filtered out; finished in 0.38s\n\nerror: test failed, to rerun pass `-p nautilus-model --lib`\n"
+    },
+    {
+      "experiment": "remove-canonical-projection",
+      "source": "crates/model/src/position.rs",
+      "sourceShaBefore": "b458965f67b34eadbaee7f0870a0104ff6cf877324111aee77f07d31ab857417",
+      "mutatedSourceSha": "3d82e65acc9069928451b0499c302c2f68e6417392ef847485f8be6096c14ec5",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "nautilus-model",
+        "--lib",
+        "--features",
+        "high-precision",
+        "inventory_fee_projection_survives_zero_fee_buy_and_quote_fee_close"
+      ],
+      "expectedFailureObserved": true,
+      "exitCode": 101,
+      "log": "/tmp/qty-core-mutant-remove-canonical-projection.log",
+      "logSha256": "aa0fd29bff39b8412c6ee84de3047c0b215ad869cccf46e08aeb3067b3fec7ac",
+      "failureSummary": "failures:\n    position::quantity_commission_tests::inventory_fee_projection_survives_zero_fee_buy_and_quote_fee_close\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3996 filtered out; finished in 0.01s\n\nerror: test failed, to rerun pass `-p nautilus-model --lib`\n"
+    },
+    {
+      "experiment": "remove-inventory-preflight",
+      "source": "crates/execution/src/engine/mod.rs",
+      "sourceShaBefore": "3dbd87723795ac5ab2ee24158d61030e3033cdf775f5ecaefbb158dea52fef9f",
+      "mutatedSourceSha": "cc26f3d24b2031fad13836ebe7df68ab8a35efeb725b89e663c34664f871621b",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "nautilus-execution",
+        "--test",
+        "integration",
+        "test_quantity_fee_reopen_filters_duplicates_before_inventory_validation"
+      ],
+      "expectedFailureObserved": true,
+      "exitCode": 101,
+      "log": "/tmp/qty-core-mutant-remove-inventory-preflight.log",
+      "logSha256": "fd31c86db18c9c8aac2525aa155f25b23e3178261a7129c9dc4057fe2b54bbdf",
+      "failureSummary": "failures:\n    exec_engine::test_quantity_fee_reopen_filters_duplicates_before_inventory_validation\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1888 filtered out; finished in 0.01s\n\nerror: test failed, to rerun pass `-p nautilus-execution --test integration`\n"
+    }
+  ],
+  "sourcesRestoredExactly": true,
+  "venueWrites": 0,
+  "privateReads": 0
+}

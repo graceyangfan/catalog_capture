@@ -1,0 +1,31 @@
+{
+  "source": "offline startup and different-price partial-fill validation; no new venue calls",
+  "rust_execution_suite": {
+    "passed": 169,
+    "ignored_at_time_of_run": 50
+  },
+  "explicit_offline_captures_passed": 2,
+  "clippy_all_targets": "passed",
+  "strategy_guard_differential": "fails without managed-entry guard: no Canceled callback for remaining entry; passes with guard",
+  "economicsAccepted": false,
+  "openFindings": [
+    "historical market scope must be narrowed with Native ownership/report contracts",
+    "interleaved SHARES net-quantity correction leaves Native cost-basis residual"
+  ],
+  "sourceDigests": [
+    {
+      "path": "different_price_partial_share_fees_native_synthetic_20261017.json",
+      "sha256": "dbda7704bd48d57df8db24b377ccf1fef51b40d3faee19be4a5c186c502d7d0e"
+    },
+    {
+      "path": "startup_callback_gate_native_derived_20261017.json",
+      "sha256": "29769ac5a83b8296924e4509b1c7308bedf69f5fa79fa16753331d0f924dd81c"
+    }
+  ],
+  "newVenueCalls": 0,
+  "newRealOrders": 0,
+  "nativeDependencyChanged": false,
+  "productionAdapterChanged": false,
+  "recordingLogicChanged": false,
+  "redisUsed": false
+}

@@ -14,8 +14,8 @@ env:
   # Keep in sync with rust-toolchain.toml / workspace.package.rust-version
   RUSTUP_TOOLCHAIN: 1.99.0
   # Pin sibling nautilus_trader revision (do not track develop tip).
-  # Local checkout used for current adapters: c8b7dafef45dd04a705da0e005129a2fc350c8b9
-  NAUTILUS_TRADER_REF: c8b7dafef45dd04a705da0e005129a2fc350c8b9
+  # Local checkout used for current adapters: 587e1065efde08db19016a8eab921c1605d5d2a4
+  NAUTILUS_TRADER_REF: 587e1065efde08db19016a8eab921c1605d5d2a4
 
 jobs:
   pre-commit:
@@ -29,9 +29,9 @@ jobs:
       - name: Checkout nautilus_trader
         uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
         with:
-          repository: nautechsystems/nautilus_trader
+          repository: graceyangfan/nautilus_trader
           ref: ${{ env.NAUTILUS_TRADER_REF }}
-          path: nautilus_trader
+          path: nautilus_trader_quantity_commission
           submodules: recursive
 
       - name: Install Rust toolchain
@@ -64,9 +64,9 @@ jobs:
       - name: Checkout nautilus_trader
         uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
         with:
-          repository: nautechsystems/nautilus_trader
+          repository: graceyangfan/nautilus_trader
           ref: ${{ env.NAUTILUS_TRADER_REF }}
-          path: nautilus_trader
+          path: nautilus_trader_quantity_commission
           submodules: recursive
 
       - name: Install Rust toolchain
@@ -85,6 +85,25 @@ jobs:
         working-directory: catalog_capture
         run: cargo test --workspace --lib --bins
 
+      - name: Run Predict adapter tests
+        working-directory: catalog_capture
+        run: cargo test -p nautilus-predict --lib --tests --locked
+
+      - name: Verify Predict private execution offline
+        working-directory: catalog_capture
+        run: |
+          cargo test -p nautilus-predict --features execution --lib --tests --locked
+          cargo clippy -p nautilus-predict --features execution --all-targets --locked -- -D warnings
+          cargo check -p nautilus-predict --lib --no-default-features --features execution --locked
+
+      - name: Verify Predict quantity-commission baseline offline
+        working-directory: catalog_capture
+        run: cargo test -p nautilus-predict --features native-quantity-commission --lib --tests --locked
+
+      - name: Check Predict domain without live runtime
+        working-directory: catalog_capture
+        run: cargo check -p nautilus-predict --lib --no-default-features --locked
+
       # Slim CLI graph smoke: deribit-only product binary still compiles.
       - name: Check slim venue-deribit CLI
         working-directory: catalog_capture
@@ -92,7 +111,7 @@ jobs:
 
       - name: Run clippy
         working-directory: catalog_capture
-        run: cargo clippy -p catalog-capture-core -p catalog-capture-runtime-adapter -p catalog-capture-cli --all-targets -- -D warnings
+        run: cargo clippy -p nautilus-predict -p catalog-capture-core -p catalog-capture-runtime-adapter -p catalog-capture-cli --all-targets -- -D warnings
 
   cargo-deny:
     runs-on: ubuntu-latest
@@ -106,9 +125,9 @@ jobs:
       - name: Checkout nautilus_trader
         uses: actions/checkout@11bd71901a5ea3df5b9bc28b76e0369fa6d5afed # v4.2.2
         with:
-          repository: nautechsystems/nautilus_trader
+          repository: graceyangfan/nautilus_trader
           ref: ${{ env.NAUTILUS_TRADER_REF }}
-          path: nautilus_trader
+          path: nautilus_trader_quantity_commission
           submodules: recursive
 
       - name: Install Rust toolchain

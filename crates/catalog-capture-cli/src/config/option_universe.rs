@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use catalog_capture_core::{ExpiryPolicy, OptionUniverseFamily, OptionUniverseSpec, StrikePolicy};
 use serde::{Deserialize, Serialize};
 

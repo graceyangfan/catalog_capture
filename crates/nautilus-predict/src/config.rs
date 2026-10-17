@@ -12,10 +12,31 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Configuration for the public Predict orderbook data client.
+//! Independent configuration for public capture and private execution clients.
 
+#[cfg(feature = "execution")]
+mod chain;
+#[cfg(feature = "execution")]
+pub use chain::PredictChainClientConfig;
+
+#[cfg(feature = "execution")]
+mod execution;
+#[cfg(feature = "execution")]
+pub use execution::{
+    PredictAccountStateMode, PredictExecutionClientConfig, PredictSubmissionConfig,
+};
+
+#[cfg(feature = "execution")]
+mod private;
+
+#[cfg(feature = "execution")]
+pub use private::PredictPrivateClientConfig;
+#[cfg(feature = "execution")]
+mod private_ws;
 use nautilus_core::string::secret::SecretString;
 use nautilus_network::websocket::TransportBackend;
+#[cfg(feature = "execution")]
+pub use private_ws::PredictWalletWebSocketConfig;
 
 /// Runtime-only client configuration. The API key is deliberately supplied by the CLI environment,
 /// not by capture TOML.

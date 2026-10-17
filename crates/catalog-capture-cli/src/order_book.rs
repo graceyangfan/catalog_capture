@@ -1,6 +1,6 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use catalog_capture_core::{
-    catalog_root_from_uri, validate_order_book_replay, OrderBookReplayReport,
+    OrderBookReplayReport, catalog_root_from_uri, validate_order_book_replay,
 };
 use clap::ValueEnum;
 use nautilus_model::identifiers::InstrumentId;

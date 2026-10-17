@@ -1,0 +1,9 @@
+# Copy to env/predict-strategy.toml. Credentials stay in predict-execution.toml.
+# No market IDs, token IDs, prices or quantities: discovery supplies those.
+[strategy]
+# observe: no private writes. resting: probe amend rejection, then cancel/replace.
+# fill: requires a separate successful resting stage and supported accounting.
+phase = "observe"
+run_secs = 30
+stale_after_ms = 2000
+minimum_rebound_ticks = 1

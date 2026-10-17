@@ -1,0 +1,166 @@
+
+running 1 test
+[1m2026-10-17T05:32:14.174324000Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174507000Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration:  NAUTILUS TRADER - Automated Algorithmic Trading Platform[0m
+[1m2026-10-17T05:32:14.174508000Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration:  by Nautech Systems Pty Ltd.[0m
+[1m2026-10-17T05:32:14.174509000Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration:  Copyright (C) 2015-2026. All rights reserved.[0m
+[1m2026-10-17T05:32:14.174509001Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174509002Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⡤⠤⠤⠤⠤⠤⠤⠤⢤⡀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174523000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠖⠚⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⠁⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174524000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⢀⣠⠖⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡴⠚⠁⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174524001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⢀⡴⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174524002Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⣠⠏⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠖⠒⠒⠒⠒⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174528000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⢀⡖⠋⣠⢴⢪⠞⣩⢟⡭⠵⢤⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174528001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⣦⡙⠦⣄⡀⠀⢀⣠⠴⠋⢠⡐⣇⢸⡘⢦⡇⣏⡴⣋⡭⠖⠮⢥⡀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174528002Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⢸⡉⠓⠦⠭⠭⠭⠴⣺⠃⠸⣷⢬⣓⣛⠒⠩⣌⢡⡷⢒⣫⠭⣝⡛⠆⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174528003Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠙⠦⢤⣀⣠⠤⠞⣡⠞⡆⠺⣭⣭⡷⢇⣷⡻⠡⠾⣛⣒⠦⢤⡙⡆⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174528004Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠈⠳⣖⠒⠒⠒⠋⠁⣠⠇⡼⢦⠀⣌⡉⢥⣄⣛⡻⢥⡈⠉⢳⡙⠇⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174528005Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠈⠙⣒⣒⣒⣋⡥⠞⠁⣸⠃⡇⠙⢦⢹⠀⠙⡆⢳⢀⡴⠃⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174529000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⠀⠈⠙⠒⠦⠤⠴⣚⣡⠞⠁⣠⠏⡼⢀⣠⠇⠞⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174529001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠉⠑⠚⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T05:32:14.174529002Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174529003Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration:  SYSTEM SPECIFICATION[0m
+[1m2026-10-17T05:32:14.174529004Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174529005Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: CPU architecture: Apple M3 Max[0m
+[1m2026-10-17T05:32:14.174531000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: CPU(s): 16 @ 4056 MHz[0m
+[1m2026-10-17T05:32:14.174531001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: OS: kernel-25.4.0 macOS 26.4.1 Tahoe[0m
+[1m2026-10-17T05:32:14.174555000Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174555001Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration:  MEMORY USAGE[0m
+[1m2026-10-17T05:32:14.174555002Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174558000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: RAM-Total: 64.00 GiB[0m
+[1m2026-10-17T05:32:14.174559000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: RAM-Used: 24.15 GiB (37.73%)[0m
+[1m2026-10-17T05:32:14.174559001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: RAM-Avail: 39.85 GiB (62.27%)[0m
+[1m2026-10-17T05:32:14.174560000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: Swap: disabled[0m
+[1m2026-10-17T05:32:14.174566000Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174567000Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration:  IDENTIFIERS[0m
+[1m2026-10-17T05:32:14.174567001Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174567002Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: trader_id: PREDICT-FILL-001[0m
+[1m2026-10-17T05:32:14.174568000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: machine_id: yfclark.local[0m
+[1m2026-10-17T05:32:14.174586000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: instance_id: 2819f361-eea7-4cbf-bb45-cb0eb6de8c0a[0m
+[1m2026-10-17T05:32:14.174586001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: PID: 76621[0m
+[1m2026-10-17T05:32:14.174587000Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174587001Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration:  VERSIONING[0m
+[1m2026-10-17T05:32:14.174587002Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174587003Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: nautilus_trader: 0.67.0[0m
+[1m2026-10-17T05:32:14.174591000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: rustc: 1.99.0 (b940084d7 2026-09-28)[0m
+[1m2026-10-17T05:32:14.174591001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: target: aarch64-apple-darwin[0m
+[1m2026-10-17T05:32:14.174592000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: profile: debug[0m
+[1m2026-10-17T05:32:14.174592001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: panic: unwind[0m
+[1m2026-10-17T05:32:14.174592002Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: precision: high (128-bit, 16 dp)[0m
+[1m2026-10-17T05:32:14.174593000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: allocator: system[0m
+[1m2026-10-17T05:32:14.174593001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: cargo_lock: a0c38730[0m
+[1m2026-10-17T05:32:14.174593002Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: rust_decimal: 1.43.0[0m
+[1m2026-10-17T05:32:14.174608000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: rustls: 0.23.46[0m
+[1m2026-10-17T05:32:14.174608001Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: aws_lc_rs: 1.18.1[0m
+[1m2026-10-17T05:32:14.174609000Z[0m [INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: tokio: 1.53.2[0m
+[1m2026-10-17T05:32:14.174609001Z[0m [36m[INFO] PREDICT-FILL-001.PredictRustStrategyCalibration: =================================================================[0m
+[1m2026-10-17T05:32:14.174615000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Building system kernel[0m
+[1m2026-10-17T05:32:14.176681000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node::builder: Registered DataClient-PREDICT[0m
+[1m2026-10-17T05:32:14.177117000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node::builder: Registered ExecutionClient-PREDICT[0m
+[1m2026-10-17T05:32:14.177164000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::engine: Set client PREDICT routing for PREDICT[0m
+[1m2026-10-17T05:32:14.177250000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::engine: Subscribed to instrument updates for venue PREDICT[0m
+[1m2026-10-17T05:32:14.177253000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::engine: Subscribed to instrument closes for venue PREDICT[0m
+[1m2026-10-17T05:32:14.177376000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node::builder: Built successfully[0m
+[1m2026-10-17T05:32:14.178156000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: Registered external order claims for PREDICT-EXIT-001: ["10835-1.PREDICT"][0m
+[1m2026-10-17T05:32:14.178408000Z[0m [INFO] PREDICT-FILL-001.PREDICT-EXIT-001: Ready[0m
+[1m2026-10-17T05:32:14.178788000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::trader: Registered strategy PREDICT-EXIT-001 with trader PREDICT-FILL-001[0m
+[1m2026-10-17T05:32:14.178820000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::engine: Registered OMS::Netting for PREDICT-EXIT-001[0m
+[1m2026-10-17T05:32:14.179030000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: Event loop starting[0m
+[1m2026-10-17T05:32:14.179033000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Starting[0m
+[1m2026-10-17T05:32:14.179071000Z[0m [INFO] PREDICT-FILL-001.nautilus_predict::data::lifecycle: Starting Predict data client: client_id=PREDICT[0m
+[1m2026-10-17T05:32:14.179135000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::engine: Started[0m
+[1m2026-10-17T05:32:14.179137000Z[0m [INFO] PREDICT-FILL-001.nautilus_risk::engine: Started[0m
+[1m2026-10-17T05:32:14.179137001Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Initializing trader[0m
+[1m2026-10-17T05:32:14.179138001Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Started[0m
+[1m2026-10-17T05:32:14.179197000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Connecting data clients...[0m
+[1m2026-10-17T05:32:15.360193000Z[0m [INFO] PREDICT-FILL-001.nautilus_predict::data::lifecycle: Connected: client_id=PREDICT[0m
+[1m2026-10-17T05:32:15.360584000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Connecting execution clients...[0m
+[1m2026-10-17T05:32:19.118464000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=4792abb1-1d70-4f06-aa26-3a9f783c19f7)[0m
+[1m2026-10-17T05:32:19.130286000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: Awaiting engine connections (20s timeout)...[0m
+[1m2026-10-17T05:32:19.130329000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: All engine clients connected[0m
+[1m2026-10-17T05:32:19.130347000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::node: Starting execution state reconciliation...[0m
+[1m2026-10-17T05:32:19.130389000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::node: Requesting mass status from PREDICT...[0m
+[1m2026-10-17T05:32:24.245238000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::node: Reconciling ExecutionMassStatus for PREDICT[0m
+[1m2026-10-17T05:32:24.245326000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: Reconciling ExecutionMassStatus for PREDICT[0m
+[1m2026-10-17T05:32:24.245330000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: Received 2 order(s), 1 fill(s), 1 position(s)[0m
+[1m2026-10-17T05:32:24.245396000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: Adjusting fills for 1 instrument(s) with position reports[0m
+[1m2026-10-17T05:32:24.245429000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: After adjustment: 2 order(s), 1 fill group(s)[0m
+[1m2026-10-17T05:32:24.245483000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: External order 0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3 for 10835-1.PREDICT claimed by strategy PREDICT-EXIT-001[0m
+[1m2026-10-17T05:32:24.245675000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderInitialized(instrument_id=10835-1.PREDICT, client_order_id=0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3, side=SELL, type=LIMIT, quantity=31.3600000000000000, time_in_force=GTD, post_only=false, reduce_only=false, quote_quantity=false, price=0.043, emulation_trigger=None, trigger_instrument_id=None, contingency_type=None, order_list_id=None, linked_order_ids=[None], parent_order_id=None, exec_algorithm_id=None, exec_algorithm_params=None, exec_spawn_id=None, tags=None)[0m
+[1m2026-10-17T05:32:24.245717000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: Created external order 0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3 (0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3) for 10835-1.PREDICT [ACCEPTED][0m
+[1m2026-10-17T05:32:24.245756000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: External order 0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0 for 10835-1.PREDICT claimed by strategy PREDICT-EXIT-001[0m
+[1m2026-10-17T05:32:24.245800000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderInitialized(instrument_id=10835-1.PREDICT, client_order_id=0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0, side=BUY, type=LIMIT, quantity=32.0000000000000000, time_in_force=GTD, post_only=false, reduce_only=false, quote_quantity=false, price=0.040, emulation_trigger=None, trigger_instrument_id=None, contingency_type=None, order_list_id=None, linked_order_ids=[None], parent_order_id=None, exec_algorithm_id=None, exec_algorithm_params=None, exec_spawn_id=None, tags=None)[0m
+[1m2026-10-17T05:32:24.245809000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: Created external order 0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0 (0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0) for 10835-1.PREDICT [FILLED][0m
+[1m2026-10-17T05:32:24.245888000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::reconciliation::orders: Generated inferred fill for 0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0 (0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0) qty=32.0000000000000000 px=0.040[0m
+[1m2026-10-17T05:32:24.246043000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=4792abb1-1d70-4f06-aa26-3a9f783c19f7)[0m
+[1m2026-10-17T05:32:24.246059000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderAccepted(instrument_id=10835-1.PREDICT, client_order_id=0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0, venue_order_id=0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0, account_id=PREDICT-calibration, ts_event=1792214231000000000)[0m
+[1m2026-10-17T05:32:24.246303000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderFilled(instrument_id=10835-1.PREDICT, client_order_id=0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0, venue_order_id=0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0, account_id=PREDICT-calibration, trade_id=PF-d4e71a48462239bd8076a9b76c4ffced, position_id=10835-1.PREDICT-PREDICT-EXIT-001, order_side=BUY, order_type=LIMIT, last_qty=32.0000000000000000, last_px=0.040 USDT, commission=0.00000000 USDT, liquidity_side=TAKER, ts_event=1792214231000000000)[0m
+[1m2026-10-17T05:32:24.246351000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: 10835-1.PREDICT net_position=31.3600000000000000[0m
+[1m2026-10-17T05:32:24.246385000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=4792abb1-1d70-4f06-aa26-3a9f783c19f7)[0m
+[1m2026-10-17T05:32:24.246417000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] PositionOpened(PositionOpened { trader_id: "PREDICT-FILL-001", strategy_id: "PREDICT-EXIT-001", instrument_id: "10835-1.PREDICT", position_id: "10835-1.PREDICT-PREDICT-EXIT-001", account_id: "PREDICT-calibration", opening_order_id: "0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0", entry: Buy, side: Long, signed_qty: 31.36, quantity: Quantity(31.3600000000000000), last_qty: Quantity(32.0000000000000000), last_px: Price(0.040), currency: Currency(code='USDT', precision=8, iso4217=0, name='Tether', currency_type=CRYPTO), avg_px_open: 0.04, realized_pnl: Some(Money(0.00000000, USDT)), event_id: UUID4(97b3a6bc-7e54-440e-86b6-37836eebee4a), ts_event: UnixNanos(1792214231000000000), ts_init: UnixNanos(1792215144246272000) })[0m
+[1m2026-10-17T05:32:24.246464000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=4792abb1-1d70-4f06-aa26-3a9f783c19f7)[0m
+[1m2026-10-17T05:32:24.246484000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderAccepted(instrument_id=10835-1.PREDICT, client_order_id=0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3, venue_order_id=0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3, account_id=PREDICT-calibration, ts_event=1792215143037382000)[0m
+[1m2026-10-17T05:32:24.246497000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::execution::manager: Reconciliation complete for PREDICT: reconciled=0, external=2, open=1, fills=1, positions=0, skipped=0, filtered=0[0m
+[1m2026-10-17T05:32:24.246538000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::node: Reconciliation for PREDICT processed 3 events[0m
+[1m2026-10-17T05:32:24.246608000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::manager: 10835-1.PREDICT balance_locked=0.00000000 USDT[0m
+[1m2026-10-17T05:32:24.246622000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Initialized 1 open order[0m
+[1m2026-10-17T05:32:24.246632000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Initialized 1 open position[0m
+[1m2026-10-17T05:32:24.246635000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Initialized 0 Wallet reservations[0m
+[1m2026-10-17T05:32:24.246636000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_live::node: Startup reconciliation completed in 5.12s[0m
+[1m2026-10-17T05:32:24.246640000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Starting trader...[0m
+[1m2026-10-17T05:32:24.246660000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::order_emulator::emulator: Started[0m
+[1m2026-10-17T05:32:24.246667000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::trader: Starting[0m
+[1m2026-10-17T05:32:24.246674000Z[0m [INFO] PREDICT-FILL-001.PREDICT-EXIT-001: Starting[0m
+[1m2026-10-17T05:32:24.246799000Z[0m [INFO] PREDICT-FILL-001.nautilus_common::actor::data_actor: [CMD]--> Subscribe(Quotes(SubscribeQuotes { instrument_id: "10835-1.PREDICT", client_id: Some("PREDICT"), venue: Some("PREDICT"), command_id: UUID4(1da30673-652d-4b40-90d8-bf0046be9524), ts_init: UnixNanos(1792215144246779000), correlation_id: None, params: None }))[0m
+[1m2026-10-17T05:32:24.246856000Z[0m [INFO] PREDICT-FILL-001.nautilus_common::actor::data_actor: [CMD]--> Subscribe(Data(SubscribeCustomData { client_id: Some("PREDICT"), venue: None, data_type: DataType(type_name=PredictOrderbookSnapshot, metadata=None, identifier=Some("10835")), command_id: UUID4(b51b2d65-22cd-40a3-94ac-902b4aabcdfc), ts_init: UnixNanos(1792215144246853000), correlation_id: None, params: None }))[0m
+[1m2026-10-17T05:32:24.246901000Z[0m [INFO] PREDICT-FILL-001.PREDICT-EXIT-001: Running[0m
+[1m2026-10-17T05:32:24.246903001Z[0m [INFO] PREDICT-FILL-001.nautilus_system::trader: Running[0m
+[1m2026-10-17T05:32:24.246904000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Trader started[0m
+[1m2026-10-17T05:32:24.247020000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=242e2ce6-a587-459d-9f20-f8c3bf2c073e)[0m
+[1m2026-10-17T05:32:24.247055000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=29c3fcc1-195f-4137-84e4-df6c6182aff4)[0m
+[1m2026-10-17T05:32:24.247141000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_data::client: Subscribed 10835-1.PREDICT quotes[0m
+[1m2026-10-17T05:32:24.247286000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_data::client: Subscribed PredictOrderbookSnapshot.identifier=10835[0m
+[1m2026-10-17T05:32:24.469327000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderPendingCancel(instrument_id=10835-1.PREDICT, client_order_id=0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3, venue_order_id=0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3, account_id=PREDICT-calibration, ts_event=1792215144469263000)[0m
+[1m2026-10-17T05:32:24.469391000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 [CMD]--> CancelOrder(instrument_id=10835-1.PREDICT, client_order_id=0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3, venue_order_id=Some("0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3"))[0m
+[1m2026-10-17T05:32:24.469441000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_execution::engine: Cancel 0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3 0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3[0m
+[1m2026-10-17T05:32:26.458291000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=70a988d4-93a6-427c-9656-8cf080050f81)[0m
+[1m2026-10-17T05:32:26.556995000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=70a988d4-93a6-427c-9656-8cf080050f81)[0m
+[1m2026-10-17T05:32:26.557035000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderCanceled(instrument_id=10835-1.PREDICT, client_order_id=0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3, venue_order_id=0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3, account_id=PREDICT-calibration, reason=None, ts_event=1792215146556888000)[0m
+[1m2026-10-17T05:32:26.557168000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderInitialized(instrument_id=10835-1.PREDICT, client_order_id=6e2a8698-628c-4330-9a3b-0d5c9337c666, side=SELL, type=MARKET, quantity=31.3600000000000000, time_in_force=GTC, post_only=false, reduce_only=false, quote_quantity=false, price=None, emulation_trigger=None, trigger_instrument_id=None, contingency_type=None, order_list_id=None, linked_order_ids=[None], parent_order_id=None, exec_algorithm_id=None, exec_algorithm_params=None, exec_spawn_id=None, tags=None)[0m
+[1m2026-10-17T05:32:26.557219000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 [CMD]--> SubmitOrder(instrument_id=10835-1.PREDICT, client_order_id=6e2a8698-628c-4330-9a3b-0d5c9337c666, position_id=None)[0m
+[1m2026-10-17T05:32:26.557388000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_execution::engine: Submit MarketOrder(SELL 31.3600000000000000 10835-1.PREDICT @ MARKET GTC, status=INITIALIZED, client_order_id=6e2a8698-628c-4330-9a3b-0d5c9337c666, venue_order_id=None, position_id=None, exec_algorithm_id=None, exec_spawn_id=None, tags=None)[0m
+[1m2026-10-17T05:32:26.557504000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderSubmitted(instrument_id=10835-1.PREDICT, client_order_id=6e2a8698-628c-4330-9a3b-0d5c9337c666, account_id=PREDICT-calibration, ts_event=1792215146557432000)[0m
+[1m2026-10-17T05:32:30.188614000Z[0m [INFO] PREDICT-FILL-001.nautilus_predict::execution::submitter: Predict transmitting order: client_order_id=6e2a8698-628c-4330-9a3b-0d5c9337c666 order_hash=0xbb48ddb1b5a740e6209ae50be97f5075fbb400d3faad17def3d7ba3fa8a39d63[0m
+[1m2026-10-17T05:32:30.256602000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=ee502034-7072-41fb-921d-9c9b426a5c58)[0m
+[1m2026-10-17T05:32:31.848273000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_execution::engine: Query 6e2a8698-628c-4330-9a3b-0d5c9337c666[0m
+[1m2026-10-17T05:32:34.259596000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=ee502034-7072-41fb-921d-9c9b426a5c58)[0m
+[1m2026-10-17T05:32:34.259654000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderAccepted(instrument_id=10835-1.PREDICT, client_order_id=6e2a8698-628c-4330-9a3b-0d5c9337c666, venue_order_id=0xbb48ddb1b5a740e6209ae50be97f5075fbb400d3faad17def3d7ba3fa8a39d63, account_id=PREDICT-calibration, ts_event=1792215152973000000)[0m
+[1m2026-10-17T05:32:36.072367000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_execution::reconciliation::orders: Reconciling fill for 6e2a8698-628c-4330-9a3b-0d5c9337c666: qty=31.3600000000000000, px=0.039, trade_id=PF-3cc58d5d52fbfef931f6404e8d0ac12d[0m
+[1m2026-10-17T05:32:36.072475000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderFilled(instrument_id=10835-1.PREDICT, client_order_id=6e2a8698-628c-4330-9a3b-0d5c9337c666, venue_order_id=0xbb48ddb1b5a740e6209ae50be97f5075fbb400d3faad17def3d7ba3fa8a39d63, account_id=PREDICT-calibration, trade_id=PF-3cc58d5d52fbfef931f6404e8d0ac12d, position_id=10835-1.PREDICT-PREDICT-EXIT-001, order_side=SELL, order_type=MARKET, last_qty=31.3600000000000000, last_px=0.039 USDT, commission=0.02446080 USDT, liquidity_side=TAKER, ts_event=1792215153000000000)[0m
+[1m2026-10-17T05:32:36.072546000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: 10835-1.PREDICT net_position=0[0m
+[1m2026-10-17T05:32:36.072566000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=46.93630840 USDT, locked=0.00000000 USDT, free=46.93630840 USDT)], margins=[], event_id=ee502034-7072-41fb-921d-9c9b426a5c58)[0m
+[1m2026-10-17T05:32:36.072590000Z[0m [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] PositionClosed(PositionClosed { trader_id: "PREDICT-FILL-001", strategy_id: "PREDICT-EXIT-001", instrument_id: "10835-1.PREDICT", position_id: "10835-1.PREDICT-PREDICT-EXIT-001", account_id: "PREDICT-calibration", opening_order_id: "0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0", closing_order_id: Some("6e2a8698-628c-4330-9a3b-0d5c9337c666"), entry: Buy, side: Flat, signed_qty: 0.0, quantity: Quantity(0.0000000000000000), peak_quantity: Quantity(31.3600000000000000), last_qty: Quantity(31.3600000000000000), last_px: Price(0.039), currency: Currency(code='USDT', precision=8, iso4217=0, name='Tether', currency_type=CRYPTO), avg_px_open: 0.04, avg_px_close: Some(0.039), realized_return: -0.025000000000000022, realized_pnl: Some(Money(-0.05582080, USDT)), unrealized_pnl: Money(0.00000000, USDT), duration: DurationNanos(922000000000), event_id: UUID4(52b67375-3c31-4a64-bcd4-c7cf505e4139), ts_opened: UnixNanos(1792214231000000000), ts_closed: Some(UnixNanos(1792215153000000000)), ts_event: UnixNanos(1792215153000000000), ts_init: UnixNanos(1792215156072436000) })[0m
+[1m2026-10-17T05:32:40.175131000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.13488760 USDT, locked=0.00000000 USDT, free=48.13488760 USDT)], margins=[], event_id=24f91bc1-3034-416b-ae8d-8bb0b0681f1e)[0m
+[1m2026-10-17T05:32:40.449102000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: Received stop signal from handle[0m
+[1m2026-10-17T05:32:40.449123000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Stopping trader...[0m
+[1m2026-10-17T05:32:40.449134000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::trader: Stopping[0m
+[1m2026-10-17T05:32:40.449153000Z[0m [INFO] PREDICT-FILL-001.PREDICT-EXIT-001: Stopping[0m
+[1m2026-10-17T05:32:40.449242000Z[0m [INFO] PREDICT-FILL-001.nautilus_common::actor::data_actor: [CMD]--> Unsubscribe(Quotes(UnsubscribeQuotes { instrument_id: "10835-1.PREDICT", client_id: Some("PREDICT"), venue: Some("PREDICT"), command_id: UUID4(e271b671-793b-475f-89f3-a60916350d83), ts_init: UnixNanos(1792215160449239001), correlation_id: None, params: None }))[0m
+[1m2026-10-17T05:32:40.449284000Z[0m [INFO] PREDICT-FILL-001.PREDICT-EXIT-001: Stopped[0m
+[1m2026-10-17T05:32:40.449289000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::trader: Stopped[0m
+[1m2026-10-17T05:32:40.449291000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: Awaiting residual events (3s)...[0m
+[1m2026-10-17T05:32:40.449355000Z[0m [94m[INFO] PREDICT-FILL-001.nautilus_data::client: Unsubscribed 10835-1.PREDICT quotes[0m
+[1m2026-10-17T05:32:42.247336000Z[0m [INFO] PREDICT-FILL-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-calibration, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.13488760 USDT, locked=0.00000000 USDT, free=48.13488760 USDT)], margins=[], event_id=50a6787e-c8a5-4d18-ae93-cbe3860e9d42)[0m
+[1m2026-10-17T05:32:43.450441000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Disconnecting clients...[0m
+[1m2026-10-17T05:32:43.557089000Z[0m [INFO] PREDICT-FILL-001.nautilus_predict::data::lifecycle: Disconnected: client_id=PREDICT[0m
+[1m2026-10-17T05:32:43.557138000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: Awaiting engine disconnections (5s timeout)...[0m
+[1m2026-10-17T05:32:43.557146000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: All engine clients disconnected[0m
+[1m2026-10-17T05:32:43.557235000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::engine: Stopped[0m
+[1m2026-10-17T05:32:43.557238000Z[0m [INFO] PREDICT-FILL-001.nautilus_risk::engine: Stopped[0m
+[1m2026-10-17T05:32:43.557242000Z[0m [INFO] PREDICT-FILL-001.nautilus_execution::order_emulator::emulator: Stopped[0m
+[1m2026-10-17T05:32:43.557248000Z[0m [INFO] PREDICT-FILL-001.nautilus_system::kernel: Stopped[0m
+[1m2026-10-17T05:32:43.557256000Z[0m [INFO] PREDICT-FILL-001.nautilus_live::node: Event loop stopped[0m
+test fill_live::mainnet_exit_only_restart ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 33.46s
+

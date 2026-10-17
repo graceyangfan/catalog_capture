@@ -1,0 +1,251 @@
+{
+  "source": "synthetic real loopback terminal WebSocket send failures; not mainnet feedback",
+  "sessions": [
+    {
+      "backend": "Sockudo",
+      "stage": "subscribe",
+      "error": "failed to subscribe Predict orderbook 2859346: send failed: client closed or disconnecting",
+      "frames": [],
+      "stable": {
+        "retainedQuotes": 1,
+        "retainedMarketReferences": 1,
+        "terminalGenerationCancelled": true,
+        "queuedLateQuoteEmitted": false,
+        "newGenerationStartsEmpty": true,
+        "newGenerationExplicitSubscribeQuotes": 1,
+        "newRequestId": 1
+      },
+      "mainnetWrites": 0
+    },
+    {
+      "backend": "Sockudo",
+      "stage": "unsubscribe",
+      "error": "failed to unsubscribe Predict orderbook 2859346: send failed: client closed or disconnecting",
+      "frames": [
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1700000000123,
+            "orderCount": 42,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                0.62,
+                1500.25
+              ],
+              [
+                0.61,
+                1200.0
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1700000000124,
+            "orderCount": 42,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.61",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        }
+      ],
+      "stable": {
+        "retainedQuotes": 1,
+        "retainedMarketReferences": 1,
+        "terminalGenerationCancelled": true,
+        "queuedLateQuoteEmitted": false,
+        "newGenerationStartsEmpty": true,
+        "newGenerationExplicitSubscribeQuotes": 1,
+        "newRequestId": 1
+      },
+      "mainnetWrites": 0
+    },
+    {
+      "backend": "Tungstenite",
+      "stage": "subscribe",
+      "error": "failed to subscribe Predict orderbook 2859346: send failed: client closed or disconnecting",
+      "frames": [],
+      "stable": {
+        "retainedQuotes": 1,
+        "retainedMarketReferences": 1,
+        "terminalGenerationCancelled": true,
+        "queuedLateQuoteEmitted": false,
+        "newGenerationStartsEmpty": true,
+        "newGenerationExplicitSubscribeQuotes": 1,
+        "newRequestId": 1
+      },
+      "mainnetWrites": 0
+    },
+    {
+      "backend": "Tungstenite",
+      "stage": "unsubscribe",
+      "error": "failed to unsubscribe Predict orderbook 2859346: send failed: client closed or disconnecting",
+      "frames": [
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1700000000123,
+            "orderCount": 42,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                0.62,
+                1500.25
+              ],
+              [
+                0.61,
+                1200.0
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1700000000124,
+            "orderCount": 42,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.61",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        }
+      ],
+      "stable": {
+        "retainedQuotes": 1,
+        "retainedMarketReferences": 1,
+        "terminalGenerationCancelled": true,
+        "queuedLateQuoteEmitted": false,
+        "newGenerationStartsEmpty": true,
+        "newGenerationExplicitSubscribeQuotes": 1,
+        "newRequestId": 1
+      },
+      "mainnetWrites": 0
+    }
+  ]
+}

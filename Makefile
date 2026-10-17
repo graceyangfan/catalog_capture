@@ -29,8 +29,8 @@ help:
 	@echo "  build-release-small    --profile release-small (slower, smaller binary)"
 	@echo "  package-cloud          build a self-contained cloud deployment tarball"
 	@echo "  build-slim             debug slim: FEATURES=venue-deribit (override FEATURES=...)"
-	@echo "  clean / clean-debug    wipe this repo target/ (not ../nautilus_trader/target)"
-	@echo "  clean-all-targets      also wipe sibling nautilus_trader/target (frees tens of GB)"
+	@echo "  clean / clean-debug    wipe this repo target/ (not ../nautilus_trader_quantity_commission/target)"
+	@echo "  clean-all-targets      also wipe sibling nautilus_trader_quantity_commission/target (frees tens of GB)"
 	@echo ""
 	@echo "Other: bootstrap-deps (--pin-ci), bootstrap-deps-local, test, clippy, run-service..."
 
@@ -80,7 +80,7 @@ fmt:
 	$(CARGO_TOOL) fmt --all
 
 clippy:
-	$(CARGO_TOOL) clippy -p catalog-capture-core -p catalog-capture-runtime-adapter -p $(CLI_PKG) --all-targets -- -D warnings
+	$(CARGO_TOOL) clippy -p nautilus-predict -p catalog-capture-core -p catalog-capture-runtime-adapter -p $(CLI_PKG) --all-targets -- -D warnings
 
 clean:
 	$(CARGO_TOOL) clean
@@ -92,9 +92,9 @@ clean-debug:
 # developing nautilus_trader itself (nextest/incremental/doc).
 clean-all-targets:
 	$(CARGO_TOOL) clean
-	@if [ -d ../nautilus_trader/target ]; then \
-		echo "Removing ../nautilus_trader/target ..."; \
-		rm -rf ../nautilus_trader/target; \
+	@if [ -d ../nautilus_trader_quantity_commission/target ]; then \
+		echo "Removing ../nautilus_trader_quantity_commission/target ..."; \
+		rm -rf ../nautilus_trader_quantity_commission/target; \
 	fi
 
 install-tools:

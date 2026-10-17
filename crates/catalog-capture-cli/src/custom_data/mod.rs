@@ -23,7 +23,7 @@ mod build;
 mod register;
 mod validate;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use nautilus_model::data::DataType;
 
 use crate::config::VenueRuntimeConfig;
@@ -195,11 +195,7 @@ pub(crate) fn require_venue(
     error: &str,
 ) -> Result<()> {
     let ok = venues.iter().any(|venue| venue_matches(venue, requirement));
-    if ok {
-        Ok(())
-    } else {
-        bail!("{error}")
-    }
+    if ok { Ok(()) } else { bail!("{error}") }
 }
 
 fn venue_matches(venue: &VenueRuntimeConfig, requirement: CustomDataVenue) -> bool {

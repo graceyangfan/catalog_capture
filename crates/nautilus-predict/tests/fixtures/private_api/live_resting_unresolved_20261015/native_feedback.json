@@ -1,0 +1,289 @@
+[
+  {
+    "type": "AccountStateApplied",
+    "eventId": "2f4db05f-5daa-4834-b5d6-39fd7dce21d0",
+    "tsEvent": 1792042253042553000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "48.37915000",
+        "locked": "0.00000000"
+      }
+    ]
+  },
+  {
+    "type": "SubmissionDecision",
+    "marketId": 190414,
+    "bookTsEvent": 1791879306971000000,
+    "observedNs": 1792042253672747000,
+    "bestBid": "0.82",
+    "bestAsk": "0.99",
+    "restConfirmed": true,
+    "price": "0.01",
+    "quantity": "100.00000",
+    "cost": "1.0000000"
+  },
+  {
+    "type": "Initialized",
+    "clientOrderId": "O-20261015-053053-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792042253672762000,
+    "cachedOrder": {
+      "status": "INITIALIZED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC"
+    }
+  },
+  {
+    "type": "Submitted",
+    "clientOrderId": "O-20261015-053053-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792042253674068000,
+    "cachedOrder": {
+      "status": "SUBMITTED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTC"
+    }
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "fa7128dd-9c39-4eeb-bc2e-863087b433f8",
+    "tsEvent": 1792042256073096000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "c27fb3eb-40ed-4d78-bae0-045c150e8ab6",
+    "tsEvent": 1792042257208091000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "a50ac43c-4d4a-44b0-a0c9-b693b5c2a88d",
+    "tsEvent": 1792042258393298000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "b043ef80-91d4-47c7-91e4-9a474faf483f",
+    "tsEvent": 1792042259592929000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "d1f7430f-bb74-4a47-891b-a4b6e44942a9",
+    "tsEvent": 1792042260727631000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "cd23ca3c-efae-4b60-b0ff-89259b11c6c7",
+    "tsEvent": 1792042262270223000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "d0b1d6fa-40c9-403a-9907-1b1287da4095",
+    "tsEvent": 1792042263469552000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "9d38436f-1a76-49cd-9528-81bbca8f16be",
+    "tsEvent": 1792042264715743000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "676ef36c-fc7c-41fc-b74a-e0a633b7c6a1",
+    "tsEvent": 1792042265914713000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "a4fcd59b-0d96-4ffa-ae2f-1dacec0fc05c",
+    "tsEvent": 1792042267314889000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "4bee75ff-8402-411b-8d2e-411f26eef559",
+    "tsEvent": 1792042270207049000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "52adcea8-4aa0-4918-8d92-e4a5597076ea",
+    "tsEvent": 1792042271401547000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "792f715a-e271-4682-b8b4-d6f9e2b2a133",
+    "tsEvent": 1792042272672990000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "c3c71b7c-d18b-4042-bec9-d1d23979fe9a",
+    "tsEvent": 1792042273983552000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "fbefeb2f-f91a-4a15-ada6-2bfd273b9ac8",
+    "tsEvent": 1792042275164232000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "2113b9e6-0da0-4ff0-b637-096f92818081",
+    "tsEvent": 1792042276363416000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "cb83b611-c57f-4eab-99d0-052a9c7676f3",
+    "tsEvent": 1792042277716190000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "36d3e013-f6ac-4119-83f7-0e25c96b276a",
+    "tsEvent": 1792042278971958000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  }
+]

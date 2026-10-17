@@ -1,0 +1,1263 @@
+{
+  "source": "actual mainnet Rust Strategy + LiveNode round trip",
+  "marketId": 10835,
+  "outcome": 1,
+  "nativeFeedback": [
+    {
+      "type": "NativeAccountSnapshot",
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54789.3333333125050000",
+      "tsEvent": 1792153952622000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54789.3333333125050000",
+      "tsEvent": 1792154019866000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54789.3333333125050000",
+      "tsEvent": 1792154020430000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "48.29772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeEntrySubmitted",
+      "clientOrderId": "EXIT-ENTRY-001"
+    },
+    {
+      "type": "Initialized",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "quantity": "0",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "INITIALIZED"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_submitted",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "cachedStatus": "SUBMITTED",
+      "quantity": "32.00000",
+      "filledQuantity": "0.00000",
+      "leavesQuantity": "32.00000",
+      "price": "0.040"
+    },
+    {
+      "type": "Submitted",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "quantity": "0",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "SUBMITTED"
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "47.01772920",
+          "locked": "1.28000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "47.01772920",
+          "locked": "1.28000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "47.01772920",
+          "locked": "1.28000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_accepted",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "cachedStatus": "ACCEPTED",
+      "quantity": "32.00000",
+      "filledQuantity": "0.00000",
+      "leavesQuantity": "32.00000",
+      "price": "0.040"
+    },
+    {
+      "type": "Accepted",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "quantity": "0",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "ACCEPTED"
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154028512000000
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_filled",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "cachedStatus": "FILLED",
+      "quantity": "32.00000",
+      "filledQuantity": "32.0000000000000000",
+      "leavesQuantity": "0.0000000000000000",
+      "price": "0.040"
+    },
+    {
+      "type": "Filled",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "quantity": "32.0000000000000000",
+      "reason": null,
+      "fill": {
+        "quantity": "32.0000000000000000",
+        "price": "0.040",
+        "commission": "0.02560000 USDT",
+        "liquidity": "TAKER"
+      },
+      "cachedStatus": "FILLED"
+    },
+    {
+      "type": "EntryHoldingDeadline",
+      "deadlineNs": 1792154087132773000
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "47.01772920",
+          "locked": "1.28000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_position_opened",
+      "eventQuantity": "32.0000000000000000",
+      "cachedNetQuantity": "32.0000000000000000"
+    },
+    {
+      "type": "NativePositionApplied",
+      "quantity": "32.0000000000000000",
+      "realizedPnl": "-0.02560000 USDT"
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154030310000000
+    },
+    {
+      "type": "Initialized",
+      "clientOrderId": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec",
+      "quantity": "32.0000000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "INITIALIZED"
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "47.01772920",
+          "locked": "1.28000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_accepted",
+      "clientOrderId": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec",
+      "cachedStatus": "ACCEPTED",
+      "quantity": "32.0000000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "32.0000000000000000",
+      "price": null
+    },
+    {
+      "type": "Accepted",
+      "clientOrderId": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec",
+      "quantity": "32.0000000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "ACCEPTED"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_filled",
+      "clientOrderId": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec",
+      "cachedStatus": "FILLED",
+      "quantity": "32.0000000000000000",
+      "filledQuantity": "32.0000000000000000",
+      "leavesQuantity": "0.0000000000000000",
+      "price": null
+    },
+    {
+      "type": "Filled",
+      "clientOrderId": "0xcd66ba07031a1b17e5a99168249cce176afae295e4f17f3684c4e271193f97ec",
+      "quantity": "64.0000000000000000",
+      "reason": null,
+      "fill": {
+        "quantity": "32.0000000000000000",
+        "price": "0.040",
+        "commission": "0.02560000 USDT",
+        "liquidity": "TAKER"
+      },
+      "cachedStatus": "FILLED"
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "47.01772920",
+          "locked": "1.28000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_position_changed",
+      "eventQuantity": "64.0000000000000000",
+      "cachedNetQuantity": "64.0000000000000000"
+    },
+    {
+      "type": "NativePositionApplied",
+      "quantity": "64.0000000000000000",
+      "realizedPnl": "-0.05120000 USDT"
+    },
+    {
+      "type": "Initialized",
+      "clientOrderId": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+      "quantity": "64.0000000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "INITIALIZED"
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "47.01772920",
+          "locked": "1.28000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_accepted",
+      "clientOrderId": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+      "cachedStatus": "ACCEPTED",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": null
+    },
+    {
+      "type": "Accepted",
+      "clientOrderId": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+      "quantity": "64.0000000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "ACCEPTED"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_filled",
+      "clientOrderId": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+      "cachedStatus": "FILLED",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "31.3600000000000000",
+      "leavesQuantity": "0.0000000000000000",
+      "price": null
+    },
+    {
+      "type": "Filled",
+      "clientOrderId": "0x25107111ec941b7b2a4e01ff64af7aa2865540abcd5004a7c92067a5579826d3",
+      "quantity": "32.6400000000000000",
+      "reason": null,
+      "fill": {
+        "quantity": "31.3600000000000000",
+        "price": "0.039",
+        "commission": "0.02446080 USDT",
+        "liquidity": "TAKER"
+      },
+      "cachedStatus": "FILLED"
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.29772920",
+          "free": "47.01772920",
+          "locked": "1.28000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_position_changed",
+      "eventQuantity": "32.6400000000000000",
+      "cachedNetQuantity": "32.6400000000000000"
+    },
+    {
+      "type": "NativePositionApplied",
+      "quantity": "32.6400000000000000",
+      "realizedPnl": "-0.10702080 USDT"
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "Initialized",
+      "clientOrderId": "6dd3c0e5-87f6-5e78-a6c7-c07cea251874",
+      "quantity": "32.6400000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "INITIALIZED"
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_accepted",
+      "clientOrderId": "6dd3c0e5-87f6-5e78-a6c7-c07cea251874",
+      "cachedStatus": "ACCEPTED",
+      "quantity": "1.2800000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "1.2800000000000000",
+      "price": null
+    },
+    {
+      "type": "Accepted",
+      "clientOrderId": "6dd3c0e5-87f6-5e78-a6c7-c07cea251874",
+      "quantity": "32.6400000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "ACCEPTED"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_filled",
+      "clientOrderId": "6dd3c0e5-87f6-5e78-a6c7-c07cea251874",
+      "cachedStatus": "FILLED",
+      "quantity": "1.2800000000000000",
+      "filledQuantity": "1.2800000000000000",
+      "leavesQuantity": "0.0000000000000000",
+      "price": null
+    },
+    {
+      "type": "Filled",
+      "clientOrderId": "6dd3c0e5-87f6-5e78-a6c7-c07cea251874",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": {
+        "quantity": "1.2800000000000000",
+        "price": "0.040",
+        "commission": null,
+        "liquidity": "TAKER"
+      },
+      "cachedStatus": "FILLED"
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_position_changed",
+      "eventQuantity": "31.3600000000000000",
+      "cachedNetQuantity": "31.3600000000000000"
+    },
+    {
+      "type": "NativePositionApplied",
+      "quantity": "31.3600000000000000",
+      "realizedPnl": "-0.10702080 USDT"
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154041165000000
+    },
+    {
+      "type": "MakerTakeProfitSubmitted",
+      "price": "0.043",
+      "quantity": "31.3600000000000000",
+      "entryAverage": "0.040"
+    },
+    {
+      "type": "Initialized",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "INITIALIZED"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_submitted",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "cachedStatus": "SUBMITTED",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": "0.043"
+    },
+    {
+      "type": "Submitted",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "SUBMITTED"
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_accepted",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "cachedStatus": "ACCEPTED",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": "0.043"
+    },
+    {
+      "type": "Accepted",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "ACCEPTED"
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154057507000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154082331000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154098169000000
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154098385000000
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154098573000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "StopTriggered",
+      "netQuantity": "31.3600000000000000",
+      "estimatedProceeds": "1.198579200000000000000",
+      "entryCost": "1.2800000000000000000",
+      "realizedProceeds": "0",
+      "estimatedRoundPnl": "-0.081420800000000000000"
+    },
+    {
+      "type": "CancelTakeProfitRequested"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_pending_cancel",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "cachedStatus": "PENDING_CANCEL",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": "0.043"
+    },
+    {
+      "type": "PendingCancel",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "PENDING_CANCEL"
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_canceled",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "cachedStatus": "CANCELED",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": "0.043"
+    },
+    {
+      "type": "Canceled",
+      "clientOrderId": "O-20261016-123401-001-001-1",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "CANCELED"
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2675.5594172736733000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154104331000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "TakerStopSubmitted",
+      "quantity": "31.3600000000000000"
+    },
+    {
+      "type": "Initialized",
+      "clientOrderId": "O-20261016-123504-001-001-2",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "INITIALIZED"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_submitted",
+      "clientOrderId": "O-20261016-123504-001-001-2",
+      "cachedStatus": "SUBMITTED",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": null
+    },
+    {
+      "type": "Submitted",
+      "clientOrderId": "O-20261016-123504-001-001-2",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "SUBMITTED"
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2644.1994172736730000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154111643000000
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_accepted",
+      "clientOrderId": "O-20261016-123504-001-001-2",
+      "cachedStatus": "ACCEPTED",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": null
+    },
+    {
+      "type": "Accepted",
+      "clientOrderId": "O-20261016-123504-001-001-2",
+      "quantity": "31.3600000000000000",
+      "reason": null,
+      "fill": null,
+      "cachedStatus": "ACCEPTED"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_filled",
+      "clientOrderId": "O-20261016-123504-001-001-2",
+      "cachedStatus": "FILLED",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "31.3600000000000000",
+      "leavesQuantity": "0.0000000000000000",
+      "price": null
+    },
+    {
+      "type": "Filled",
+      "clientOrderId": "O-20261016-123504-001-001-2",
+      "quantity": "0",
+      "reason": null,
+      "fill": {
+        "quantity": "31.3600000000000000",
+        "price": "0.039",
+        "commission": "0.02446080 USDT",
+        "liquidity": "TAKER"
+      },
+      "cachedStatus": "FILLED"
+    },
+    {
+      "type": "NativeAccountReported",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "47.01772920",
+          "free": "47.01772920",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_position_closed",
+      "eventQuantity": "0.0000000000000000",
+      "cachedNetQuantity": "0"
+    },
+    {
+      "type": "NativePositionApplied",
+      "quantity": "0",
+      "realizedPnl": "-0.16284160 USDT"
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2644.1994172736730000",
+      "askSize": "54757.3333333125050000",
+      "tsEvent": 1792154113675000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "48.21630840",
+          "free": "48.21630840",
+          "locked": "0.00000000"
+        }
+      ]
+    }
+  ],
+  "nativeOpenOrders": 0,
+  "nativeNetQuantity": "0",
+  "balances": [
+    {
+      "currency": "USDT",
+      "total": "48.21630840 USDT",
+      "locked": "0.00000000 USDT",
+      "free": "48.21630840 USDT"
+    }
+  ],
+  "nodeFailed": false
+}

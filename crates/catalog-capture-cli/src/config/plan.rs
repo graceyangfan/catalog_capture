@@ -14,12 +14,12 @@
 
 use std::str::FromStr;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use catalog_capture_core::{
-    plan::{BarCaptureSpec, BookDeltasCaptureSpec},
     ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
     InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
     OptionGreeksCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
+    plan::{BarCaptureSpec, BookDeltasCaptureSpec},
 };
 use nautilus_model::{data::BarType, enums::BookType, identifiers::InstrumentId};
 

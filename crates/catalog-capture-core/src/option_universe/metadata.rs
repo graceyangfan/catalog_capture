@@ -17,10 +17,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
-use crate::{jsonl::append_jsonl_records, OptionUniverseSpec, ResolvedOptionUniverse};
+use crate::{OptionUniverseSpec, ResolvedOptionUniverse, jsonl::append_jsonl_records};
 
 pub const OPTION_UNIVERSE_RESOLUTIONS_FILE: &str = "metadata/option_universe_resolutions.jsonl";
 
@@ -704,9 +704,10 @@ mod tests {
             },
         )
         .expect_err("missing refresh should fail");
-        assert!(err
-            .to_string()
-            .contains("expected at least one refresh delta"));
+        assert!(
+            err.to_string()
+                .contains("expected at least one refresh delta")
+        );
     }
 
     #[test]

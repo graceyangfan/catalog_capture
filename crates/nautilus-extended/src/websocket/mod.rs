@@ -15,8 +15,8 @@ use std::{
     collections::VecDeque,
     num::NonZeroU32,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
@@ -24,14 +24,15 @@ use std::{
 use ahash::{AHashMap, AHashSet};
 use anyhow::Context;
 use nautilus_common::{live::sender::EventSender, messages::DataEvent};
-use nautilus_core::{time::AtomicTime, AtomicMap};
-use nautilus_live::{book::snapshot::SnapshotGate, SocketControl};
+use nautilus_core::{AtomicMap, time::AtomicTime};
+use nautilus_live::{SocketControl, book::snapshot::SnapshotGate};
 use nautilus_model::{
     data::{Data, TradeTick},
     identifiers::InstrumentId,
     instruments::{Instrument, InstrumentAny},
 };
 use nautilus_network::{
+    RECONNECTED,
     http::create_standard_nautilus_headers,
     mode::ReconnectRequestOutcome,
     transport::Message,
@@ -39,9 +40,8 @@ use nautilus_network::{
         EpochMessageHandler, InitialConnectRetryPolicy, SubscriptionState, WebSocketClient,
         WebSocketConfig, WebSocketReconnectHandle,
     },
-    RECONNECTED,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use ustr::Ustr;
@@ -52,7 +52,7 @@ use crate::{
         messages::{
             ExtendedCommand, ExtendedDataKind, ExtendedTopic, RpcError, RpcResult, StreamEnvelope,
         },
-        parse::{parse_stream_message, ParsedMessage},
+        parse::{ParsedMessage, parse_stream_message},
     },
 };
 

@@ -1,0 +1,1 @@
+{"data":{"asks":[[0.068,321.88],[0.069,71.008],[0.984,1305],[0.985,100],[0.99,1000],[0.995,2000],[0.998,29731]],"bids":[[0.003,349.9]],"lastOrderSettled":{"id":"2336108735","kind":"MARKET","marketId":30540,"outcome":"Yes","price":"0.07","side":"Bid"},"marketId":30540,"updateTimestampMs":1792064825831},"success":true}

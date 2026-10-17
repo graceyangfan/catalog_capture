@@ -1,0 +1,114 @@
+{
+  "kind": "actual entry and active take-profit observation; exit is pending, not a completed cycle",
+  "observedAtUtc": "2026-10-17T05:20:05.102340+00:00",
+  "entryGross": "32",
+  "quantityCommissionShares": "0.64",
+  "nativeNetPosition": "31.36",
+  "entryCashUSDT": "1.28",
+  "nativeCashUSDT": "46.93630840",
+  "nativeLockedUSDT": "0",
+  "takeProfit": {
+    "type": "MakerTakeProfitSubmitted",
+    "price": "0.043",
+    "quantity": "31.3600000000000000",
+    "entryAverage": "0.040",
+    "entryCashCost": "1.2800000000000000000",
+    "realizedNetProceeds": "0",
+    "expectedMakerFeeUSDT": "0",
+    "expectedCashProfit": "0.0684800000000000000"
+  },
+  "strategyCallbacks": [
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_submitted",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "cachedStatus": "SUBMITTED",
+      "cachedNetQuantity": "0",
+      "quantity": "32.00000",
+      "filledQuantity": "0.00000",
+      "leavesQuantity": "32.00000",
+      "price": "0.040"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_accepted",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "cachedStatus": "ACCEPTED",
+      "cachedNetQuantity": "0",
+      "quantity": "32.00000",
+      "filledQuantity": "0.00000",
+      "leavesQuantity": "32.00000",
+      "price": "0.040"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_filled",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "cachedStatus": "FILLED",
+      "cachedNetQuantity": "31.3600000000000000",
+      "quantity": "32.00000",
+      "filledQuantity": "32.0000000000000000",
+      "leavesQuantity": "0.0000000000000000",
+      "price": "0.040"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_position_opened",
+      "eventQuantity": "31.3600000000000000",
+      "cachedNetQuantity": "31.3600000000000000"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_submitted",
+      "clientOrderId": "O-20261017-051714-001-001-1",
+      "cachedStatus": "SUBMITTED",
+      "cachedNetQuantity": "31.3600000000000000",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": "0.043"
+    },
+    {
+      "type": "StrategyCallback",
+      "callback": "on_order_accepted",
+      "clientOrderId": "O-20261017-051714-001-001-1",
+      "cachedStatus": "ACCEPTED",
+      "cachedNetQuantity": "31.3600000000000000",
+      "quantity": "31.3600000000000000",
+      "filledQuantity": "0.0000000000000000",
+      "leavesQuantity": "31.3600000000000000",
+      "price": "0.043"
+    }
+  ],
+  "nativeEventLog": [
+    "2026-10-17T05:17:14.585056000Z [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] OrderFilled(instrument_id=10835-1.PREDICT, client_order_id=EXIT-ENTRY-001, venue_order_id=0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0, account_id=PREDICT-calibration, trade_id=PF-d4e71a48462239bd8076a9b76c4ffced, position_id=10835-1.PREDICT-PREDICT-EXIT-001, order_side=BUY, order_type=LIMIT, last_qty=32.0000000000000000, last_px=0.040 USDT, commission=0.00000000 USDT, liquidity_side=TAKER, ts_event=1792214231000000000)",
+    "2026-10-17T05:17:14.585256000Z [INFO] PREDICT-FILL-001.nautilus_trading::strategy: PREDICT-EXIT-001 <--[EVT] PositionOpened(PositionOpened { trader_id: \"PREDICT-FILL-001\", strategy_id: \"PREDICT-EXIT-001\", instrument_id: \"10835-1.PREDICT\", position_id: \"10835-1.PREDICT-PREDICT-EXIT-001\", account_id: \"PREDICT-calibration\", opening_order_id: \"EXIT-ENTRY-001\", entry: Buy, side: Long, signed_qty: 31.36, quantity: Quantity(31.3600000000000000), last_qty: Quantity(32.0000000000000000), last_px: Price(0.040), currency: Currency(code='USDT', precision=8, iso4217=0, name='Tether', currency_type=CRYPTO), avg_px_open: 0.04, realized_pnl: Some(Money(0.00000000, USDT)), event_id: UUID4(627e3cd4-5490-442e-887e-ffc2f308543d), ts_event: UnixNanos(1792214231000000000), ts_init: UnixNanos(1792214234584979000) })"
+  ],
+  "nativeSnapshot": {
+    "path": "crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261017T051620Z/entry_native_observation.json",
+    "sha256": "d89243d12350ce3fa1e0879930bb9bc83b79c012d0df35863ca0e4cf5b60d3b8"
+  },
+  "remainingValidation": [
+    "actual SELL fill, sell fee, PositionClosed, final account cash and realized economics",
+    "PositionChanged requires a partial fill or other size change; not observed from this one full entry"
+  ],
+  "runtimePolicy": {
+    "maxBuyUSDT": "1.50",
+    "stopLossTriggerUSDT": "0.15",
+    "holdingTimeout": null,
+    "startupReconciliationInThisTradingHost": false,
+    "startupEvidence": "independent flat-account preflight; native mass status validated in preceding readonly run",
+    "nativeRuntimeReconciliation": true,
+    "nativeDependencyChanged": false,
+    "recordingLogicChanged": false
+  },
+  "processStopped": false,
+  "orderCanceled": false,
+  "walletSnapshot": {
+    "path": "crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261017T051620Z/entry_wallet_observation.json",
+    "sha256": "53bffe881bd24998ad001f3bf6fe2c57711331e63d325d447d466b44f31b0b48"
+  },
+  "entryOrderHash": "0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0",
+  "takeProfitOrderHash": "0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3",
+  "independentWalletConfirmed": true
+}

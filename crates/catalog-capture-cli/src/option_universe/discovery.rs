@@ -15,21 +15,23 @@
 #[cfg(feature = "venue-deribit")]
 use std::str::FromStr;
 
-use anyhow::{bail, Result};
 #[cfg(any(
     feature = "venue-deribit",
     feature = "venue-bybit",
     feature = "venue-okx"
 ))]
 use anyhow::Context;
+use anyhow::{Result, bail};
 #[cfg(feature = "venue-okx")]
 use catalog_capture_core::okx_instrument_family;
 #[cfg(any(feature = "venue-deribit", feature = "venue-bybit"))]
 use catalog_capture_core::select_strike_reference_from_decimal_string;
-#[cfg(feature = "venue-bybit")]
-use catalog_capture_core::{
-    aggregate_open_interest_by_strike, option_instrument_ids_at_selected_expiry,
-};
+#[cfg(any(
+    feature = "venue-deribit",
+    feature = "venue-bybit",
+    feature = "venue-okx"
+))]
+use catalog_capture_core::{AtmReferenceSource, select_nearest_expiry_reference_instrument_id};
 use catalog_capture_core::{OptionUniverseSpec, ResolvedOptionUniverse};
 #[cfg(any(
     feature = "venue-deribit",
@@ -37,15 +39,13 @@ use catalog_capture_core::{OptionUniverseSpec, ResolvedOptionUniverse};
     feature = "venue-okx"
 ))]
 use catalog_capture_core::{
-    derive_perp_instrument_id, resolve_option_universe, OptionUniverseVenueKind,
-    StrikeOpenInterestByStrike,
+    OptionUniverseVenueKind, StrikeOpenInterestByStrike, derive_perp_instrument_id,
+    resolve_option_universe,
 };
-#[cfg(any(
-    feature = "venue-deribit",
-    feature = "venue-bybit",
-    feature = "venue-okx"
-))]
-use catalog_capture_core::{select_nearest_expiry_reference_instrument_id, AtmReferenceSource};
+#[cfg(feature = "venue-bybit")]
+use catalog_capture_core::{
+    aggregate_open_interest_by_strike, option_instrument_ids_at_selected_expiry,
+};
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::common::enums::BybitProductType;
 #[cfg(feature = "venue-bybit")]

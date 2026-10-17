@@ -1,0 +1,8 @@
+{
+  "reason": "operator requested crash/restart with position and TP preserved",
+  "nativePid": 71853,
+  "supervisorPid": 71825,
+  "method": "supervisor SIGSTOP then Native and supervisor SIGKILL; bypass cancellation hooks",
+  "newBuysAllowed": false,
+  "nativePersistencePreviouslyEnabled": false
+}

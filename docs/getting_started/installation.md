@@ -5,7 +5,7 @@
 Path dependencies expect a sibling Nautilus Trader tree:
 
 ```text
-~/work/nautilus_trader   # adapters + persistence
+~/work/nautilus_trader_quantity_commission   # adapters + persistence
 ~/work/catalog_capture   # this repo
 ```
 
@@ -16,8 +16,8 @@ make bootstrap-deps          # recommended: resolve sibling + checkout CI pin
 # make bootstrap-deps-local  # resolve sibling only (no pin checkout)
 ```
 
-1. Uses `NAUTILUS_TRADER_PATH` if set, else existing `../nautilus_trader`.
-2. If missing, clones `nautechsystems/nautilus_trader` into `../nautilus_trader`.
+1. Uses `NAUTILUS_TRADER_PATH` if set, else existing `../nautilus_trader_quantity_commission`.
+2. If missing, clones `graceyangfan/nautilus_trader` into `../nautilus_trader_quantity_commission`.
 3. `make bootstrap-deps` checks out the **CI-pinned** revision (`--pin-ci`).
 4. Runs a workspace check.
 
@@ -28,9 +28,16 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `c8b7dafef45dd04a705da0e005129a2fc350c8b9` |
+| 0.1.x / main | `587e1065efde08db19016a8eab921c1605d5d2a4` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
+The 2026-10-17 execution baseline pins the project fork at the revision used for the
+actual Rust Strategy + LiveNode exit test. `native-quantity-commission` enables its
+experimental inventory-fee mapping; this is not an unmodified upstream develop build.
+The October 2026 Predict migration uses the published project fork so the pin and
+`Cargo.lock` match the existing execution-action dependency graph. The imported
+archive used official upstream `fb53ee6a420570a76af04fc4835f2122c3c6d6fb`;
+its source provenance is retained under `docs/reference/predict-dev-handoff-20261014/`.
 
 ## Toolchain
 
@@ -77,7 +84,7 @@ Path deps make `target/` large (see [build size](../how_to/build_size.md)).
 
 ```bash
 make clean                 # this repo target/
-make clean-all-targets     # + ../nautilus_trader/target
+make clean-all-targets     # + ../nautilus_trader_quantity_commission/target
 ```
 
 ## Python (optional)

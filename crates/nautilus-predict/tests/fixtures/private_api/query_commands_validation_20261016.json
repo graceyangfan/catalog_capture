@@ -1,0 +1,171 @@
+{
+  "source": "real read-only strategy command integration, recorded response replay and official SDK comparison",
+  "nativeHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "sdk": "predict-sdk 0.0.22",
+  "offlineRust": {
+    "passed": 293,
+    "ignored": 63
+  },
+  "offlinePython": {
+    "passed": 96
+  },
+  "adapterClippyAllTargetsDenyWarnings": true,
+  "pythonRuffFAndE9": true,
+  "explicitLiveAttempts": {
+    "total": 3,
+    "finalAcceptedEvidence": "query_commands_readonly_20261016T145520Z_41000.json",
+    "preliminaryAccountAttributionAccepted": false,
+    "failedHarnessAttemptPreserved": true
+  },
+  "realReadOnly": {
+    "finalHttpRpcRequests": 52,
+    "allStatus200": true,
+    "originalSignedHashChecks": 3,
+    "queryAccountBeforeBlock": 127998061,
+    "queryAccountAfterBlock": 127998077,
+    "canonicalBlockHashMatchesAppliedAccount": true,
+    "cashNativeUsdt": "48.21630840",
+    "chainBalanceUsdt": "48.216308400000000001",
+    "projection": "floor to canonical Native USDT precision; original 18-decimal RPC response retained",
+    "nativeOrderReportsApplied": 2,
+    "canceledCallbacks": 1,
+    "historicalAcceptedContextIsDerived": true,
+    "newExchangeAcceptedProvenByThisRun": false,
+    "freshOrderWrites": 0,
+    "chainWrites": 0
+  },
+  "boundaries": {
+    "adapterProductionSourceChanged": false,
+    "nautilusDependencyChanged": false,
+    "productionRecordingChanged": false,
+    "customRecoveryTimerAdded": false,
+    "redisTouched": false,
+    "futureNewLiveOrdersRequireUserApproval": true
+  },
+  "credentialAndOperatorAddressScan": "passed across four new raw/derived files; no secret material included",
+  "files": [
+    {
+      "grade": "primary final read-only REST/RPC plus derived local stale context + actual Native callbacks",
+      "path": "query_commands_readonly_20261016T145520Z_41000.json",
+      "sha256": "91ef549fd498f95802abde3bb0c769f1d6dc65b6a40c194bc2f4f7837c841ff6"
+    },
+    {
+      "grade": "primary preliminary: QueryOrder valid, QueryAccount overlaps startup",
+      "path": "query_commands_readonly_20261016T145051Z_40290.json",
+      "sha256": "b9fee2790f5eef1de73ecccc6cb1cd9388d69c54b6fc0d540a6a17bad2402ecb"
+    },
+    {
+      "grade": "primary failed harness calibration: EIP-1898 blockHash interpretation",
+      "path": "query_commands_readonly_20261016T145331Z_40524.json",
+      "sha256": "230ad78b42e4ee7e756317e40eb5e21b6594917532284804fc9da8f24e8524f6"
+    },
+    {
+      "grade": "offline actual-response Native replay with explicitly derived identity and local context",
+      "path": "query_commands_native_replay_20261016.json",
+      "sha256": "fc91255de1b9548c4c80202f5d31a1eb309ac9499a0a0f6fcb076fb8a6799061"
+    },
+    {
+      "grade": "completion of intended address redaction, hashes only",
+      "path": "query_commands_redaction_audit_20261016.json",
+      "sha256": "1306c5d626477089041b20b1872c61a962acbd92ce894ab94cc78dc3718d114a"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "crates/nautilus-predict/tests/support/query_readonly.rs",
+      "sha256": "44dae98cbe47df655cfd76a5437a5ea11fedd8349201e5f4293e16006a6bf172"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/private_api_live.rs",
+      "sha256": "b4a8db8d358b10e02a180899f53cb1955af852e60e016b7dba49b8ad4ce49a5c"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/query_recorded.rs",
+      "sha256": "aa7182ef26a0141e48fc1c896fb8c5f35dc0107c84d603025e3cf2e0c1f723fc"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution.rs",
+      "sha256": "67416243f82065886716f1d83f0fd5061f4274444eb49857204336d29b12d24b"
+    },
+    {
+      "path": "tests/run_predict_queries_readonly.py",
+      "sha256": "1767e853670791fa39df2a4136b9b99b7637168d2f70178b0f9567e9fab35fc6"
+    },
+    {
+      "path": "tests/test_predict_queries_readonly.py",
+      "sha256": "19c8bc23074ecd92c6efb02aad96417f914ca6c36f36d46fcf4d037470a06339"
+    },
+    {
+      "path": "docs/reference/predict-live-query-commands-20261016.md",
+      "sha256": "79c45f79761b612727d863827f751a6e77db3a71b35a384d747b67f5767480be"
+    },
+    {
+      "path": "docs/predict-execution-work-plan.md",
+      "sha256": "a53337a8648dc962d71b9ad204f489f1f8d440b601c0e792e710a5be82748222"
+    },
+    {
+      "path": "tests/README.md",
+      "sha256": "6ac934de3a82cda7740c9acb977f9bbf8a9343f02433ed0073f62616feca2943"
+    }
+  ],
+  "priorHostEvidencePreserved": 2,
+  "priorHostManifestSha256": "212c301af7a0bbd416e43bc9cab74202710714658df56961f3ff2391b34fc82c",
+  "intermediateLogsRemoved": [
+    {
+      "path": ".predict-query-all.log",
+      "sha256": "e40c1745a7e5ca3cc037e3fe3f1046dac7155712cc7afcc53aca836a1f5e4269"
+    },
+    {
+      "path": ".predict-query-build.log",
+      "sha256": "0c1e4c06e3ea78aff4fbd57d4b875aac7f95e54a4c1365267f972f6ccc54cc44"
+    },
+    {
+      "path": ".predict-query-clippy.log",
+      "sha256": "f52b8df00302bdbf21857e3b6fe55afff071afb0ae38db759706e6cf6e552d94"
+    },
+    {
+      "path": ".predict-query-format.log",
+      "sha256": "96a977f329ec3c59092d40e041a019b49dcf03ca04055e177aa0ccb8c27234df"
+    },
+    {
+      "path": ".predict-query-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": ".predict-query-live-canonical.log",
+      "sha256": "ba690759bb28e013c7405af0f5e103122f96f1d876a95744afd3ef4d3e44e8c9"
+    },
+    {
+      "path": ".predict-query-live-fenced.log",
+      "sha256": "224fdb3f0a1caa73bfa109906acf76c2aa731f395837a05fc01b426ef3818559"
+    },
+    {
+      "path": ".predict-query-live.log",
+      "sha256": "5e5d3046d0a8fff9caba166945cd7e29f3c2e743c0468e2366c14518ecfcdce0"
+    },
+    {
+      "path": ".predict-query-offline.log",
+      "sha256": "05a141b319115f8617d61397fd5c1b79b1674b942e08fb62dd207aabb51c075d"
+    },
+    {
+      "path": ".predict-query-python-all.log",
+      "sha256": "dad99dbf9750faa096061dd0b12588db59f4f9f7a28b82d286adb51664fcd3dd"
+    },
+    {
+      "path": ".predict-query-python.log",
+      "sha256": "17dff40d36c996c8de995c306861558fabb28fee3cd15d116a9c19043bacfc8e"
+    },
+    {
+      "path": ".predict-query-replay-capture.log",
+      "sha256": "03249c51675acc0862a1af21dfec69d889562fc08d8f05eb7e95e93b7cbfbeb2"
+    },
+    {
+      "path": ".predict-query-replay-final.log",
+      "sha256": "cadde5e47b4037168d5128879a6dab385e63a1c3cc1e5e71ff35a7f66f8aaed5"
+    },
+    {
+      "path": ".predict-query-replay.log",
+      "sha256": "7b49bb145ed40be77e549fa6f623edd8d39a7cb28baa100f66f53791e360df61"
+    }
+  ]
+}

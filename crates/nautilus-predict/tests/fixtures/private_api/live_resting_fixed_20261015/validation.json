@@ -1,0 +1,19 @@
+{
+  "source": "local command results and retained mainnet fixture verification",
+  "checkedAtUtc": "2026-10-15T09:54:13.410514+00:00",
+  "offlineRust": {
+    "passed": 190,
+    "failed": 0,
+    "ignored": 8
+  },
+  "python": {
+    "passed": 14,
+    "failed": 0
+  },
+  "executionAllTargetClippy": true,
+  "noDefaultExecutionBuild": true,
+  "realPrivySdkFullRequestParity": true,
+  "liveRestingLifecyclePassed": true,
+  "sanitizedJsonVerified": true,
+  "sdkRequestVectorCount": 48
+}

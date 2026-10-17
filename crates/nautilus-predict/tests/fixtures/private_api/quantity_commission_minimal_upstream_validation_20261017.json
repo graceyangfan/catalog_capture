@@ -1,0 +1,179 @@
+{
+  "date": "2026-10-17",
+  "evidenceLevel": "offline synthetic model and Rust Strategy + LiveNode loopback; not new venue evidence",
+  "nativeDevelopBase": "7b6e2c27b86bd1688fde49bcf6e81d7a89560b05",
+  "nativeCommit": "01c7bf60c9533cd65d15b06c7b91cfc1feab175a",
+  "forkBranchVerified": true,
+  "changedFileCountRelativeToDevelop": 12,
+  "previousChangedFileCount": 15,
+  "restoredUpstreamFiles": [
+    {
+      "path": "crates/model/src/orders/mod.rs",
+      "matchesDevelopExactly": true,
+      "sha256": "8eb0b860dda92ba5352f4d2f7f5d64b016457f1e493746ef45e18564a1f76c41"
+    },
+    {
+      "path": "crates/model/src/events/position/snapshot.rs",
+      "matchesDevelopExactly": true,
+      "sha256": "5936ee1d12550a175dd03cc17f1e5b43388f99eea0dbe3445c27150924c8c832"
+    },
+    {
+      "path": "crates/serialization/src/arrow/snapshot.rs",
+      "matchesDevelopExactly": true,
+      "sha256": "11debcd595db8c1d0a05100b1b739edc3323eb0597d27c362e6a7043cd570702"
+    }
+  ],
+  "existingSnapshotReplayStatePreservesFeeTotals": true,
+  "snapshotContinuation": {
+    "firstGrossBuy": "32",
+    "firstInventoryFee": "0.64",
+    "restoredNet": "31.36",
+    "nextGrossBuy": "1",
+    "nextFee": "0.02",
+    "finalNet": "32.34",
+    "cumulativeFee": "0.66",
+    "realizedFeeCost": "-0.0264 USDT",
+    "duplicateIgnored": true
+  },
+  "captures": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/quantity_commission_minimal_surface_audit_20261017.json",
+      "sha256": "86c9d0bfb4b41132dab546373e3fc98292085adf07130e9203a76c52ccf69429"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/native_quantity_commission_partial_exit_live_node_minimal_20261017.json",
+      "sha256": "a66e954f77ea2f8eba48c5b386dbdd3c446a6fef139d14686d9729eee1bbf2c1"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/native_quantity_commission_residual_live_node_minimal_20261017.json",
+      "sha256": "c0bb95a13106f97f05107e3e0d7e7a58423f50bdb1d2af7fdf07dec29bdd0ea4"
+    }
+  ],
+  "patch": {
+    "path": "docs/reference/patches/nautilus-instrument-quantity-commission-minimal-7b6e2c27b8.patch",
+    "sha256": "c05412d635a315c0e1d1a69974dd0043008dc256fb1ae1f81b2034a79942edd7",
+    "reverseApplyCheck": true
+  },
+  "validation": [
+    {
+      "label": "native-model",
+      "log": "/tmp/qty-minimal-native-model.log",
+      "sha256": "6e0de371e6824936650e38750431af8accb39cd3d105c9c906d881732501e6f3",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 11.16s",
+        "test result: ok. 3993 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.57s"
+      ]
+    },
+    {
+      "label": "native-serialization",
+      "log": "/tmp/qty-minimal-native-serialization.log",
+      "sha256": "25044b679441e8a1335b1de1c747516df3693228e51cd02ca0bf897f16ad607f",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 7.89s",
+        "test result: ok. 431 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s"
+      ]
+    },
+    {
+      "label": "native-engine",
+      "log": "/tmp/qty-minimal-native-engine.log",
+      "sha256": "aee0a960a91932fb4a96417eab77b9e5ec4ba04cdc4ad7015755efde0de32f2a",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 3m 04s",
+        "test result: ok. 702 passed; 0 failed; 0 ignored; 0 measured; 1185 filtered out; finished in 0.03s"
+      ]
+    },
+    {
+      "label": "predict-experimental-final",
+      "log": "/tmp/qty-minimal-predict-experimental-final.log",
+      "sha256": "2863c3cbf2cc4bb4cba3951b89fa3325abeb4f90fdebdef15cbc6b693fa69952",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 21.31s",
+        "test result: ok. 50 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 190 passed; 0 failed; 58 ignored; 0 measured; 0 filtered out; finished in 19.79s"
+      ]
+    },
+    {
+      "label": "predict-default",
+      "log": "/tmp/qty-minimal-predict-default.log",
+      "sha256": "e1a5ccb5cbe1082546610182620342b0792598e2f7c1d94e457c550df89af8cf",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 28.39s",
+        "test result: ok. 49 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 182 passed; 0 failed; 54 ignored; 0 measured; 0 filtered out; finished in 19.79s"
+      ]
+    },
+    {
+      "label": "predict-clippy",
+      "log": "/tmp/qty-minimal-predict-clippy.log",
+      "sha256": "1323c05e057e59fc53431daf06a756b9346449e900d064f544f249f6f25c10a7",
+      "resultLines": [
+        "    Finished `dev` profile [unoptimized] target(s) in 1m 53s"
+      ]
+    },
+    {
+      "label": "native-format",
+      "log": "/tmp/qty-minimal-native-format.log",
+      "sha256": "18b73725b2a314f4e98392d3428a90a09d68ba3a87f5516602d8e7696890dda8",
+      "resultLines": []
+    },
+    {
+      "label": "native-hooks",
+      "log": "/tmp/qty-minimal-native-hooks.log",
+      "sha256": "3ef32019277d7efc276d67bcecba826267ff548e3157ca72ba9761967a135ba4",
+      "resultLines": []
+    },
+    {
+      "label": "cli-check",
+      "log": "/tmp/qty-minimal-cli-check.log",
+      "sha256": "ab335cfe42270bf680b3bf17e54c390465c4dd2ced21a2f0f5e4053007d9b68a",
+      "resultLines": [
+        "    Finished `dev` profile [unoptimized] target(s) in 1m 48s"
+      ]
+    },
+    {
+      "label": "audit-capture",
+      "log": "/tmp/qty-minimal-audit-capture.log",
+      "sha256": "dd8f08a983d4b3b4a08b63a1d4bb5094dfd0474002ba688e372b5e6ba1f55a5e",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 0.32s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "label": "live-node-capture",
+      "log": "/tmp/qty-minimal-live-node-capture.log",
+      "sha256": "1e50384e4199e17687693ebae3cf653bddd678417b134b28f326efb2b2697e2c",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 0.29s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.25s"
+      ]
+    },
+    {
+      "label": "residual-capture",
+      "log": "/tmp/qty-minimal-residual-capture.log",
+      "sha256": "8675796c4701de3ba0d2d6069fc85ec91f4e74a108acdf0dcb8aaa4ef4069a35",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 0.27s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.94s"
+      ]
+    }
+  ],
+  "cargoLock": {
+    "sha256": "93c37d1821baf10ce60e57157799b3743b6faae4a7a4336886278897c63f205b",
+    "reason": "Required upstream sockudo-ws 3.1.0 / fastrand 2.5.0 dependency graph; pre-existing lock changes not attributed to this task"
+  },
+  "precision": {
+    "venueRaw": 18,
+    "nativeInstrumentQuantity": 16,
+    "nativeUsdtMoney": 8
+  },
+  "limits": [
+    "reported Cash, long linear unit inventory prototype scope retained",
+    "cost convention and limited canonical quantity policy require further design review",
+    "Python/PyO3/FFI and general correction semantics not complete"
+  ],
+  "noNewLiveOrders": true,
+  "noPrivateExchangeReads": true,
+  "noRedisOperations": true,
+  "recordingLogicUnchanged": true
+}

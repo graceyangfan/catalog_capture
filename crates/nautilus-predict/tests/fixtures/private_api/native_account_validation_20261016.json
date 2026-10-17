@@ -1,0 +1,97 @@
+{
+  "verifiedAtUTC": "2026-10-16T03:23:28.380630+00:00",
+  "source": "synthetic offline Rust Strategy + LiveNode and VirtualClock; not mainnet feedback",
+  "mainnetReads": 0,
+  "mainnetOrderWrites": 0,
+  "rust": {
+    "passed": 237,
+    "failed": 0,
+    "ignored": 22
+  },
+  "python": {
+    "passed": 39,
+    "failed": 0,
+    "sdkVersion": "predict-sdk==0.0.22",
+    "newSignedRequestsCompared": 8
+  },
+  "liveNodeSessions": 3,
+  "nativeResume": {
+    "checks": [
+      "startupMassStatus",
+      "inflight",
+      "fullOrders",
+      "positions"
+    ],
+    "strategyOrderQueries": false,
+    "accountOnlyTimer": true,
+    "simulatedPosts": 2,
+    "acceptedThenCanceledNewOrder": true,
+    "uniquePrimaryFills": 2,
+    "netPosition": "100",
+    "cashTotal": "938",
+    "cashLocked": "0"
+  },
+  "nativeExits": {
+    "checks": [
+      "startupMassStatus",
+      "inflight"
+    ],
+    "accountOnlyTimer": true,
+    "sessions": [
+      "active_take_profit",
+      "cancel_fill_race"
+    ],
+    "simulatedPostsPerSession": 3,
+    "removalsPerSession": 2,
+    "missingFillRecoveredShares": "46",
+    "marketStopShares": "154",
+    "fillCallbacksPerSession": 5,
+    "finalOpenOrders": 0,
+    "finalNetPosition": "0",
+    "finalLockedCash": "0",
+    "finalCash": "999.80536"
+  },
+  "timerDifferential": {
+    "activeOwnedOrders": 1,
+    "healthyCommands": 0,
+    "oldTimerCommands": 2,
+    "oldTimerExpectedFailure": true,
+    "currentTimerCommands": [
+      "QueryAccount"
+    ],
+    "staleCallbackAfterDisconnectCommands": 0
+  },
+  "checks": {
+    "clippyExecutionAllTargetsDenyWarnings": true,
+    "noDefaultExecutionAllTargets": true,
+    "targetedRustfmt": true,
+    "ruff": true,
+    "gitDiffCheck": true,
+    "historicalJsonHashReferencesUnchanged": 5
+  },
+  "boundaries": [
+    "Nautilus dependency untouched; only its two pre-existing documentation edits remain",
+    "public recording/discovery/rotation untouched",
+    "timer does not recover orders; use native checks or explicit QueryOrder",
+    "same-balance AccountState info is not a durable trading permission; native epoch and admission guards remain authoritative",
+    "existing known order ownership only; JWT renewal and process restart adoption deferred"
+  ],
+  "protocolSources": [
+    "https://dev.predict.fun/get-orders-25326902e0",
+    "https://dev.predict.fun/get-order-match-events-25663812e0",
+    "https://github.com/PredictDotFun/sdk"
+  ],
+  "sha256": {
+    "crates/nautilus-predict/src/execution/reconnect.rs": "46c06f68d4a7dcbf2ddaf3d9a5ef8cb93fa8883a36d41c1a0c84f215afef272d",
+    "crates/nautilus-predict/src/config/execution.rs": "14ea5dc55100cd54509f2d03f7a5c5061276f716cb1bf62743b4c6f00801e0b9",
+    "crates/nautilus-predict/tests/execution.rs": "6861dfb296404094c1a486ac858d23d241934c37981d86a27afbc8bd5a4a7e39",
+    "crates/nautilus-predict/tests/execution/account_recovery_timer.rs": "e67176c3f687b269a38581e0031b106d2749f7aa28812af23dfc195794d39809",
+    "crates/nautilus-predict/tests/execution/recovery_live.rs": "5ab890991b0f465fbfcfbf1bbad98a4dbd14152ce26fd1a02999fbbe9de6f685",
+    "crates/nautilus-predict/tests/execution/strategy_lifecycle.rs": "bb217f4d3b4444983e846649c378a0ee6b7e8d434d9aa04539806cdb9938f87c",
+    "crates/nautilus-predict/tests/support/node.rs": "7886438df2af5f5b64c96b4abb661f3a24464fd3b67bf0a523f4bb361484517b",
+    "tests/test_predict_exit_protocol.py": "b7cc020f96e53b1c72b6c00d479bbc70ec841ce0a643e334dd3aea9e50143498",
+    "docs/reference/predict-native-account-resume-20261016.md": "412a194bde9a9c7d4503e5380d83fed352daf5a2396825c7e1e95454315b55b5",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_account_resume_synthetic_20261016.json": "9d15bf163a2e0178eda640f8da254cfa69b13a015b52110982a33bfc3901bb41",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_account_exits_synthetic_20261016.json": "053149cb391dfa2aefd9cffb7361676d7d011112a54448207afabbbdb5abcad0"
+  }
+}

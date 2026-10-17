@@ -1,0 +1,23 @@
+{
+  "source": "mainnet Rust Strategy + LiveNode; write-enabled test, see submitted count",
+  "marketId": 190414,
+  "outcome": 2,
+  "price": "0.01",
+  "quantity": "100",
+  "snapshots": 255,
+  "submitted": 1,
+  "accepted": 0,
+  "modifyRejected": 0,
+  "modifyTermsPreserved": 0,
+  "canceled": 0,
+  "fills": 0,
+  "cashTotal": "48.37915000",
+  "cashLocked": "1.00000000",
+  "cleanup": {
+    "verifiedOpenOrders": 0,
+    "fallbackRemovedIds": []
+  },
+  "cleanupFailed": false,
+  "nodeFailed": true,
+  "feedbackWriteFailed": false
+}

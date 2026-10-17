@@ -1,0 +1,1 @@
+{"marketId": 10835, "outcome": 1, "entryCost": "1.28", "netExitFloor": "1.040848800000000000000000000", "maxBuyUsdt": "1.50", "maxLossTrigger": "0.15", "holdingDeadlineSeconds": null, "entryWindowSeconds": 60, "exitOwner": "Rust strategy: maker profit or taker loss threshold"}

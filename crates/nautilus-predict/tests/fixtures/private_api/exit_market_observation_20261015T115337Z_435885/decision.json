@@ -1,0 +1,110 @@
+{
+  "source": "Derived review of saved actual public GET responses; no new orders or private-wallet events",
+  "reviewedAtUtc": "2026-10-15T11:55:37.025927+00:00",
+  "tradingSelected": false,
+  "orderWrites": 0,
+  "scope": "300 listed markets, first 45 OPEN market books; bounded scan, not full catalog optimization",
+  "context": {
+    "52261": {
+      "title": "Will Ethereum hit $1,000 or $3,000 first?",
+      "question": "Will Ethereum hit $1,000 or $3,000 first?",
+      "outcomes": [
+        {
+          "indexSet": 1,
+          "name": "$1,000"
+        },
+        {
+          "indexSet": 2,
+          "name": "$3,000"
+        }
+      ]
+    },
+    "10909": {
+      "title": "Will Jesus Christ return before 2027?",
+      "question": "Will Jesus Christ return before 2027?",
+      "outcomes": [
+        {
+          "indexSet": 1,
+          "name": "Yes"
+        },
+        {
+          "indexSet": 2,
+          "name": "No"
+        }
+      ]
+    },
+    "12742": {
+      "title": "0 (0 bps)",
+      "question": "Will no Fed rate cuts happen in 2026?",
+      "outcomes": [
+        {
+          "indexSet": 1,
+          "name": "Yes"
+        },
+        {
+          "indexSet": 2,
+          "name": "No"
+        }
+      ]
+    }
+  },
+  "cheapPriceComparisons": [
+    {
+      "marketId": 12742,
+      "title": "0 (0 bps)",
+      "outcome": "NO",
+      "bid": "0.038",
+      "ask": "0.039",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 655,
+      "bidTopShares": "11397.213575883576",
+      "askTopShares": "8748.450512820513",
+      "hypotheticalGrossShares": "34",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "33.32",
+      "hypotheticalEntryCostUsdt": "1.326",
+      "immediateRoundTripLossUsdt": "0.0851632",
+      "roundTripFrictionFraction": "0.06422564102564102564102564103",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": true
+    },
+    {
+      "marketId": 10909,
+      "title": "Will Jesus Christ return before 2027?",
+      "outcome": "YES",
+      "bid": "0.009",
+      "ask": "0.01",
+      "spread": "0.001",
+      "feeRateBps": "200",
+      "bookAgeMs": 649340,
+      "bidTopShares": "2403.622603430878",
+      "askTopShares": "3314.86",
+      "hypotheticalGrossShares": "144",
+      "hypotheticalNetAfterUndiscountedTakerBuyShares": "141.12",
+      "hypotheticalEntryCostUsdt": "1.44",
+      "immediateRoundTripLossUsdt": "0.1953216",
+      "roundTripFrictionFraction": "0.13564",
+      "stressAssumption": "bid declines 20%; SELL slippage floor 1% lower; no guarantee of depth or future exits",
+      "stressExitAtLeastOneUsdt": true,
+      "currentTopDepthSufficient": true,
+      "freshWithinFiveSeconds": false
+    }
+  ],
+  "followupPriceMovesDetected": false,
+  "followupObservation": "Four short follow-up GET observations for two markets; top quotes unchanged. This cannot establish reversal probability or fill probability.",
+  "executionGaps": [
+    "No newly recorded genuine SELL MARKET fill in this adapter/strategy pipeline.",
+    "Native MARKET BUY remains unsupported.",
+    "MARKET partial-fill terminal/unknown-result and disconnected protective-exit policies remain incomplete.",
+    "Some hypothetical taker-BUY net quantities at high outcome prices have more than five significant digits and do not satisfy exact-quantity SDK submission admission.",
+    "No live full-close/dust exception for 1 USDT minimum has been established."
+  ],
+  "decision": "Do not select a profitable reversal trade from these observations. First use recorded actual private receipts to calibrate the remaining execution paths; then separately assess market signal and maker execution.",
+  "nativeEventEvidence": {
+    "accepted": "8 historical real maker acceptances and cancellations, no fills in those runs",
+    "filledPositionAccount": "Offline Rust Strategy/LiveNode and historical REST/chain facts validated; new strategy SELL mainnet fill round trip not yet validated"
+  },
+  "rawPublicResponseFiles": 56
+}

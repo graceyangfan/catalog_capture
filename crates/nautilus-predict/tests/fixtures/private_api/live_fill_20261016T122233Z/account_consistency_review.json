@@ -1,0 +1,12 @@
+{
+  "source": "independent review of retained actual mainnet evidence",
+  "supersedesCompleteFlagIn": "final_verification.json",
+  "complete": false,
+  "nativeAccountMatchesChain": false,
+  "nativeCash": "47.09915000",
+  "chainCash": "48.297729200000000001",
+  "actualLossUsdt": "0.0814208",
+  "finalOpenOrders": 0,
+  "finalPositions": 0,
+  "cause": "orderMarketMatchPlan was unsupported, stopping the wallet stream and fresh account reporting; SELL recovered by native queries/matches"
+}

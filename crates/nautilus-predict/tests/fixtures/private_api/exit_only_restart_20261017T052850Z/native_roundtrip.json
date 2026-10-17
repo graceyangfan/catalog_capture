@@ -1,0 +1,559 @@
+{
+  "source": "actual mainnet Rust Strategy + LiveNode observation",
+  "marketId": 10835,
+  "outcome": 1,
+  "waitForStrategyExit": true,
+  "exitOnly": true,
+  "sessionComplete": false,
+  "entryHasFill": true,
+  "cashFlowUSDT": "0",
+  "expectedCash": "46.93630840 USDT",
+  "cashCurrent": true,
+  "nativeFeedback": [
+    {
+      "type": "ExitOnlyAdopted",
+      "entry": "0xf333a838c5fde15877b8ce76f5958d4dbf23a5d161afac3ff78a5eab951394e0",
+      "maker": "0x7cd759a1a0be33a97fff2bf55dfd54c8995a8a64deb378c01c3246b4281e2ca3",
+      "entryQuantity": "32.0000000000000000",
+      "entrySharesFee": "0.64",
+      "entryCost": "1.2800000000000000000",
+      "netPosition": "31.3600000000000000",
+      "realizedProceeds": "0",
+      "noEntry": true
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2915.5190000000000000",
+      "askSize": "53556.8299999687440000",
+      "tsEvent": 1792214953945000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeQuoteObserved",
+      "instrumentId": "10835-1.PREDICT",
+      "bid": "0.039",
+      "ask": "0.040",
+      "bidSize": "2915.5190000000000000",
+      "askSize": "53444.8299999687500000",
+      "tsEvent": 1792214993624000000
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    },
+    {
+      "type": "NativeAccountSnapshot",
+      "reconciliationReady": null,
+      "connectionEpoch": null,
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "46.93630840",
+          "free": "46.93630840",
+          "locked": "0.00000000"
+        }
+      ]
+    }
+  ],
+  "nativeOpenOrders": 1,
+  "nativeNetQuantity": "31.3600000000000000",
+  "balances": [
+    {
+      "currency": "USDT",
+      "total": "46.93630840 USDT",
+      "locked": "0.00000000 USDT",
+      "free": "46.93630840 USDT"
+    }
+  ],
+  "nodeFailed": false
+}

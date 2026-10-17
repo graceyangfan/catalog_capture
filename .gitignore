@@ -3,6 +3,8 @@ bin/
 dist/
 logs/
 data/
+# Predict's Nautilus adapter source directory is not a generated catalog.
+!crates/nautilus-predict/src/data/
 config.json
 config.*.json
 !config.*.example.json

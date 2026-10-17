@@ -1,0 +1,16 @@
+{
+  "source": "mainnet read-only quiet selection and chain admission",
+  "marketId": 190414,
+  "outcome": 2,
+  "price": "0.01",
+  "quantity": "100",
+  "bestBid": "0.82",
+  "bestAsk": "0.99",
+  "orderUsdt": "1",
+  "runUsdt": "2",
+  "balanceSufficient": true,
+  "allowanceSufficient": true,
+  "configuredOrderWrites": false,
+  "configuredOrderCap": "0.10",
+  "configuredRunCap": "0.20"
+}

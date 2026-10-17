@@ -11,40 +11,40 @@
 use std::{
     net::SocketAddr,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
     time::Duration,
 };
 
 use axum::{
+    Router,
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     response::Response,
     routing::get,
-    Router,
 };
 use futures_util::{SinkExt, StreamExt};
 use nautilus_common::{
     clients::DataClient,
     live::runner::replace_data_event_sender,
     messages::{
+        DataEvent,
         data::{
             SubscribeBookDeltas, SubscribeFundingRates, SubscribeIndexPrices, SubscribeMarkPrices,
             SubscribeTrades, UnsubscribeMarkPrices, UnsubscribeTrades,
         },
-        DataEvent,
     },
 };
-use nautilus_core::{UnixNanos, UUID4};
+use nautilus_core::{UUID4, UnixNanos};
 use nautilus_extended::{
-    common::instrument_id_from_market, ExtendedDataClient, ExtendedDataClientConfig,
-    ExtendedInstrumentProviderConfig,
+    ExtendedDataClient, ExtendedDataClientConfig, ExtendedInstrumentProviderConfig,
+    common::instrument_id_from_market,
 };
 use nautilus_model::{data::Data, enums::BookType, identifiers::ClientId, instruments::Instrument};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const MARKETS: &str = include_str!("../test_data/http_markets_btc.json");
 const BOOK_SNAPSHOT: &str = include_str!("../test_data/ws_orderbook_snapshot_btc.json");

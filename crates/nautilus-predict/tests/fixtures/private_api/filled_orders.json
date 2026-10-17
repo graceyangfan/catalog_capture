@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "data": [],
+  "cursor": null,
+  "_capture": {
+    "pages_read": 1,
+    "max_pages": 3,
+    "exhausted": true
+  }
+}

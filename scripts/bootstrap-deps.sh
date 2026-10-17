@@ -3,10 +3,10 @@
 #  Bootstrap the sibling nautilus_trader path dependency for this workspace.
 #
 #  Policy:
-#    1. Prefer an existing local checkout (NAUTILUS_TRADER_PATH or ../nautilus_trader).
-#    2. If missing, clone https://github.com/nautechsystems/nautilus_trader (default: develop).
+#    1. Prefer an existing local checkout (NAUTILUS_TRADER_PATH or ../nautilus_trader_quantity_commission).
+#    2. If missing, clone https://github.com/graceyangfan/nautilus_trader (default: develop).
 #
-#  Cargo.toml path deps always expect ../nautilus_trader relative to this repo. If you point
+#  Cargo.toml path deps always expect ../nautilus_trader_quantity_commission relative to this repo. If you point
 #  NAUTILUS_TRADER_PATH elsewhere, this script creates/updates a sibling symlink so builds work.
 #
 #  Usage:
@@ -18,13 +18,13 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SIBLING_PATH="$(cd "${REPO_ROOT}/.." && pwd)/nautilus_trader"
+SIBLING_PATH="$(cd "${REPO_ROOT}/.." && pwd)/nautilus_trader_quantity_commission"
 
-UPSTREAM_URL="${NAUTILUS_TRADER_URL:-https://github.com/nautechsystems/nautilus_trader.git}"
+UPSTREAM_URL="${NAUTILUS_TRADER_URL:-https://github.com/graceyangfan/nautilus_trader.git}"
 CLONE_BRANCH="${NAUTILUS_TRADER_BRANCH:-develop}"
 
 # Keep default pin in sync with .github/workflows/ci.yml (NAUTILUS_TRADER_REF).
-CI_PIN_DEFAULT="c8b7dafef45dd04a705da0e005129a2fc350c8b9"
+CI_PIN_DEFAULT="587e1065efde08db19016a8eab921c1605d5d2a4"
 NAUTILUS_TRADER_REF="${NAUTILUS_TRADER_REF:-${CI_PIN_DEFAULT}}"
 
 PIN_CI=0
@@ -46,7 +46,7 @@ Options:
 
 Environment:
   NAUTILUS_TRADER_PATH    Existing checkout to use (symlink to sibling if needed)
-  NAUTILUS_TRADER_URL     Clone URL (default: nautechsystems/nautilus_trader)
+  NAUTILUS_TRADER_URL     Clone URL (default: graceyangfan/nautilus_trader)
   NAUTILUS_TRADER_BRANCH  Branch when cloning (default: develop)
   NAUTILUS_TRADER_REF     Git rev for --pin-ci (default: CI pin)
 EOF
@@ -154,8 +154,8 @@ maybe_pin() {
   log "checking out pin NAUTILUS_TRADER_REF=${NAUTILUS_TRADER_REF}"
   (
     cd "${path}"
-    git fetch --tags --recurse-submodules origin "${NAUTILUS_TRADER_REF}" 2> /dev/null ||
-      git fetch --tags --recurse-submodules origin
+    git fetch --tags --recurse-submodules "${UPSTREAM_URL}" "${NAUTILUS_TRADER_REF}" 2> /dev/null ||
+      git fetch --tags --recurse-submodules "${UPSTREAM_URL}"
     git checkout --recurse-submodules "${NAUTILUS_TRADER_REF}"
   )
 }

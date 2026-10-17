@@ -1,0 +1,7 @@
+{
+  "account": "0x0000000000000000000000000000000000000022",
+  "currency": "USDT",
+  "decimals": 18,
+  "balanceWei": "48379150000000000001",
+  "source": "official SDK balance_of; latest observation"
+}

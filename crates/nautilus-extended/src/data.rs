@@ -10,8 +10,8 @@
 
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
@@ -23,20 +23,20 @@ use nautilus_common::{
     clients::DataClient,
     live::{runner::get_data_event_sender, sender::EventSender},
     messages::{
+        DataEvent,
         data::{
             SubscribeBookDeltas, SubscribeFundingRates, SubscribeIndexPrices, SubscribeInstrument,
             SubscribeMarkPrices, SubscribeTrades, UnsubscribeBookDeltas, UnsubscribeFundingRates,
             UnsubscribeIndexPrices, UnsubscribeInstrument, UnsubscribeMarkPrices,
             UnsubscribeTrades,
         },
-        DataEvent,
     },
 };
 use nautilus_core::{
-    time::{get_atomic_clock_realtime, AtomicTime},
     AtomicMap,
+    time::{AtomicTime, get_atomic_clock_realtime},
 };
-use nautilus_live::{task::TaskGroup, SocketControlFactory};
+use nautilus_live::{SocketControlFactory, task::TaskGroup};
 use nautilus_model::{
     enums::BookType,
     identifiers::{ClientId, InstrumentId, Venue},
@@ -51,8 +51,8 @@ use crate::{
     config::ExtendedDataClientConfig,
     http::ExtendedHttpClient,
     websocket::{
-        messages::{ExtendedCommand, ExtendedDataKind, ExtendedTopic},
         ExtendedWebSocketSession,
+        messages::{ExtendedCommand, ExtendedDataKind, ExtendedTopic},
     },
 };
 

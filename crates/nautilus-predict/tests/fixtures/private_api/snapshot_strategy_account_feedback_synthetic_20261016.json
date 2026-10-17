@@ -1,0 +1,307 @@
+{
+  "source": "synthetic loopback actual product Rust host + Native LiveNode; not mainnet",
+  "writesEnabledInFixture": true,
+  "nativeRiskBypassed": false,
+  "discoveredMarket": 42,
+  "marketDefinition": {
+    "success": true,
+    "data": {
+      "id": 42,
+      "title": "Bitcoin Up or Down - October 16, 6:40AM-6:45AM ET",
+      "tradingStatus": "OPEN",
+      "status": "OPEN",
+      "createdAt": "2026-10-03T22:00:00.000Z",
+      "decimalPrecision": 3,
+      "variantData": {
+        "type": "CRYPTO_UP_DOWN",
+        "priceFeedSymbol": "BTCUSDT"
+      },
+      "outcomes": [
+        {
+          "name": "Up",
+          "indexSet": 1,
+          "onChainId": "11",
+          "status": "WON"
+        },
+        {
+          "name": "Down",
+          "indexSet": 2,
+          "onChainId": "22",
+          "status": "LOST"
+        }
+      ],
+      "feeRateBps": 0,
+      "isNegRisk": false,
+      "isYieldBearing": false
+    }
+  },
+  "trace": [
+    {
+      "kind": "category",
+      "slug": "btc-updown-5m-1792147200"
+    },
+    {
+      "kind": "category",
+      "slug": "btc-updown-5m-1792147500"
+    },
+    {
+      "kind": "challenge",
+      "body": {
+        "success": true,
+        "data": {
+          "message": "offline Predict node authentication challenge"
+        }
+      }
+    },
+    {
+      "kind": "authenticate",
+      "request": {
+        "signer": "0x1111111111111111111111111111111111111111",
+        "message": "offline Predict node authentication challenge",
+        "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57f4fc5ccc8b20db917eb3015a57fdb4c0658c074d89edd4eca6709f4d624749c80eeded39868060b22fe0f47c0587e888a252745f6d0b5c869b73f455119de44a1c"
+      }
+    },
+    {
+      "kind": "market",
+      "body": {
+        "success": true,
+        "data": {
+          "id": 42,
+          "title": "Bitcoin Up or Down - October 16, 6:40AM-6:45AM ET",
+          "tradingStatus": "OPEN",
+          "status": "OPEN",
+          "createdAt": "2026-10-03T22:00:00.000Z",
+          "decimalPrecision": 3,
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "outcomes": [
+            {
+              "name": "Up",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": "WON"
+            },
+            {
+              "name": "Down",
+              "indexSet": 2,
+              "onChainId": "22",
+              "status": "LOST"
+            }
+          ],
+          "feeRateBps": 0,
+          "isNegRisk": false,
+          "isYieldBearing": false
+        }
+      }
+    },
+    {
+      "kind": "market",
+      "body": {
+        "success": true,
+        "data": {
+          "id": 42,
+          "title": "Bitcoin Up or Down - October 16, 6:40AM-6:45AM ET",
+          "tradingStatus": "OPEN",
+          "status": "OPEN",
+          "createdAt": "2026-10-03T22:00:00.000Z",
+          "decimalPrecision": 3,
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "outcomes": [
+            {
+              "name": "Up",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": "WON"
+            },
+            {
+              "name": "Down",
+              "indexSet": 2,
+              "onChainId": "22",
+              "status": "LOST"
+            }
+          ],
+          "feeRateBps": 0,
+          "isNegRisk": false,
+          "isYieldBearing": false
+        }
+      }
+    }
+  ],
+  "books": [
+    {
+      "type": "M",
+      "topic": "predictOrderbook/42",
+      "data": {
+        "marketId": 42,
+        "updateTimestampMs": 1792147389714,
+        "orderCount": 2,
+        "bids": [
+          [
+            "0.630",
+            "1000"
+          ]
+        ],
+        "asks": [
+          [
+            "0.640",
+            "1000"
+          ]
+        ]
+      }
+    }
+  ],
+  "wallet": [
+    {
+      "type": "orderAccepted",
+      "orderId": "12345",
+      "orderHash": "0x72a1ebe5219295a64eb723ff48f502b7925454a5be9e691e0c3371e4bf4ddac2",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "timestamp": 1792147389719,
+      "details": {
+        "marketId": 42,
+        "outcomeIndex": 1,
+        "marketQuestion": "fixture",
+        "outcome": "YES",
+        "quoteType": "BID",
+        "quantity": "100",
+        "quantityFilled": "0",
+        "price": "0.01",
+        "value": "1.00",
+        "valueFilled": "0",
+        "strategyType": "LIMIT",
+        "categorySlug": "fixture"
+      }
+    }
+  ],
+  "quotes": [
+    {
+      "instrument": "42-1.PREDICT",
+      "bid": "0.630",
+      "ask": "0.640"
+    },
+    {
+      "instrument": "42-2.PREDICT",
+      "bid": "0.360",
+      "ask": "0.370"
+    }
+  ],
+  "requests": [
+    {
+      "data": {
+        "pricePerShare": "10000000000000000",
+        "strategy": "LIMIT",
+        "isPostOnly": true,
+        "order": {
+          "salt": "769690524",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "tokenId": "11",
+          "makerAmount": "1000000000000000000",
+          "takerAmount": "100000000000000000000",
+          "expiration": 4102444800,
+          "nonce": "7",
+          "feeRateBps": "0",
+          "side": 0,
+          "signatureType": 0,
+          "hash": "0x72a1ebe5219295a64eb723ff48f502b7925454a5be9e691e0c3371e4bf4ddac2",
+          "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce572d350a2dd0b7bb593faffa06d3ac061b0119fa4ed4bbd0f2dfbaeef089d9f5802b862a4e99152e03f45a35bcae13625bbda7120630f11d723c6f725068a780281b"
+        }
+      }
+    }
+  ],
+  "feedback": [
+    {
+      "type": "Initialized"
+    },
+    {
+      "type": "Submitted"
+    },
+    {
+      "type": "PendingCancel"
+    },
+    {
+      "type": "Accepted"
+    },
+    {
+      "type": "Canceled"
+    }
+  ],
+  "removalResponses": [
+    {
+      "status": 200,
+      "body": {
+        "success": true,
+        "removed": [
+          "12345"
+        ],
+        "noop": []
+      },
+      "request": {
+        "data": {
+          "ids": [
+            "12345"
+          ]
+        }
+      }
+    }
+  ],
+  "hostPreloadedInstruments": false,
+  "nativeBootstrapLoadedBothInstruments": true,
+  "finalOpen": 0,
+  "finalInflight": 0,
+  "finalPositions": 0,
+  "finalLocked": "0",
+  "finalCash": "1000",
+  "accountFeedback": [
+    {
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "1000.00000000",
+          "free": "999.00000000",
+          "locked": "1.00000000"
+        }
+      ]
+    },
+    {
+      "balances": [
+        {
+          "currency": "USDT",
+          "total": "1000.00000000",
+          "free": "999.00000000",
+          "locked": "1.00000000"
+        }
+      ]
+    }
+  ],
+  "strategyCallbacks": [
+    {
+      "callback": "on_data",
+      "source": "PredictOrderbookSnapshot"
+    },
+    {
+      "callback": "submit_order",
+      "price": "0.010",
+      "quantity": "100",
+      "signal": "custom_snapshot"
+    },
+    {
+      "callback": "on_order_accepted"
+    },
+    {
+      "callback": "on_order_canceled"
+    },
+    {
+      "callback": "on_data",
+      "source": "PredictOrderbookSnapshot"
+    }
+  ],
+  "signalInput": "custom_snapshot",
+  "canceledBeforeNodeStop": true
+}

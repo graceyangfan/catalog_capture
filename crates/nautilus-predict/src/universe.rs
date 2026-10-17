@@ -9,13 +9,15 @@
 //! Typed discovery for rolling Predict crypto up/down markets.
 
 use anyhow::Context;
-use catalog_capture_core::{
-    CryptoUpDownMarketCandidate, CryptoUpDownMarketSelector, CryptoUpDownMarketWindow,
-    resolve_crypto_up_down_market,
-};
 use chrono::{Datelike, Utc};
 
-use crate::{PredictHttpClient, models::PredictMarket};
+use crate::{
+    common::{
+        CryptoUpDownMarketCandidate, CryptoUpDownMarketSelector, CryptoUpDownMarketWindow,
+        resolve_crypto_up_down_market,
+    },
+    http::{PredictHttpClient, models::PredictMarket},
+};
 
 /// Product selector configured by the operator; market ID is intentionally absent.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -122,7 +124,10 @@ fn crypto_category_slugs(selector: &PredictCryptoUpDownSelector, now_ns: u64) ->
     let current_start = now_secs / interval_secs * interval_secs;
     vec![
         format!("{symbol}-updown-{interval}-{current_start}"),
-        format!("{symbol}-updown-{interval}-{}", current_start + interval_secs),
+        format!(
+            "{symbol}-updown-{interval}-{}",
+            current_start + interval_secs
+        ),
     ]
 }
 
@@ -172,15 +177,18 @@ fn matching_candidates(
 ) -> Vec<(PredictMarket, CryptoUpDownMarketWindow)> {
     markets
         .iter()
-        .filter_map(|market| {
-            match resolve_market_window(market, selector, fallback_year) {
+        .filter_map(
+            |market| match resolve_market_window(market, selector, fallback_year) {
                 Some(window) => Some((market.clone(), window)),
                 None => {
                     log::debug!(
                         "Predict market rejected id={} title={:?} variant={:?} feed={:?}",
                         market.id,
                         market.title,
-                        market.variant_data.as_ref().map(|value| value.variant_type.as_str()),
+                        market
+                            .variant_data
+                            .as_ref()
+                            .map(|value| value.variant_type.as_str()),
                         market
                             .variant_data
                             .as_ref()
@@ -188,16 +196,18 @@ fn matching_candidates(
                     );
                     None
                 }
-            }
-        })
+            },
+        )
         .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::{crypto_category_slugs, interval_slug, resolve_market_window};
-    use crate::models::{PredictMarket, PredictVariantData};
-    use catalog_capture_core::CryptoUpDownMarketSelector;
+    use crate::{
+        common::CryptoUpDownMarketSelector,
+        models::{PredictMarket, PredictVariantData},
+    };
 
     #[test]
     fn requires_typed_variant_feed_and_title_interval() {

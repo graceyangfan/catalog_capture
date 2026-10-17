@@ -1,0 +1,4296 @@
+{
+  "source": "offline synthetic scenarios; no exchange calls or real orders",
+  "sessions": [
+    {
+      "source": "synthetic different-price partial-fill Rust Strategy + LiveNode replay; not actual venue fills",
+      "outcome": 1,
+      "submittedQuantity": 100,
+      "grossFilled": 32,
+      "netPosition": "31.36",
+      "nativeFilledQuantity": "32.0000000000000000",
+      "nativeOrderStatus": "CANCELED",
+      "nativeAveragePrice": "0.00946875",
+      "cashDebit": "0.303",
+      "commissionUSDT": "0.00606000 USDT",
+      "strategyFilledCallbacks": 3,
+      "interleavedFeeCorrection": false,
+      "positionAverage": "0.00946875",
+      "positionBasisPlusCommission": "0.3030000000",
+      "basisResidualUSDT": "0.0000000000",
+      "basisMatchesCash": true,
+      "positionOnlyExitProbe": {
+        "source": "offline cloned Native Position close; not a strategy or venue SELL",
+        "sellPrice": "0.010",
+        "sellFee": "0",
+        "expectedCashPnL": "0.0106",
+        "nativeRealizedPnL": "0.01060000",
+        "pnlMatchesCash": true
+      },
+      "walletFrames": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194133667,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194133667,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194133667,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "300000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "15000000000000000000",
+            "executedValueWei": "150000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194133667,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "300000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "15000000000000000000",
+            "executedValueWei": "150000000000000000"
+          }
+        }
+      ],
+      "matchesResponses": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": [
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "15000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "300000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:13.667043000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "15000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "300000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:13.667043000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:13.667043000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:13.667043000Z"
+              }
+            ],
+            "cursor": null
+          }
+        }
+      ],
+      "positionResponses": [
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        }
+      ],
+      "fills": [
+        {
+          "tradeId": "PF-b1ff191408c4cfd9d4c0b914b8a959cc",
+          "quantity": "17.0000000000000000",
+          "price": "0.009",
+          "commission": "0.00306000 USDT"
+        },
+        {
+          "tradeId": "PF-7aff1decd583bbc73330f65fe14dff91",
+          "quantity": "15.0000000000000000",
+          "price": "0.010",
+          "commission": "0.00300000 USDT"
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "db119551-42c6-4c7a-a568-5a416d59dbd1",
+          "tsEvent": 1792194133590368000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "1cfc5271-ec12-48bb-ac04-8070ca145e70",
+          "tsEvent": 1792194133603419000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "SubmissionDecision",
+          "marketId": 42,
+          "bookTsEvent": 1792194133662000000,
+          "observedNs": 1792194133663064000,
+          "bestBid": "0.007",
+          "bestAsk": "0.010",
+          "restConfirmed": false,
+          "timeInForce": "GTC",
+          "price": "0.010",
+          "quantity": "100",
+          "cost": "1.000"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261016-234213-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194133663085000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261016-234213-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194133663396000,
+          "cachedOrder": {
+            "status": "SUBMITTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261016-234213-001-001-1",
+          "venueOrderId": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "tsEvent": 1792194133666000000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234213-001-001-1",
+          "venueOrderId": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "tsEvent": 1792194133667000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-b1ff191408c4cfd9d4c0b914b8a959cc",
+            "quantity": "17.0000000000000000",
+            "price": "0.009",
+            "commission": "0.00306000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00306000 USDT"
+        },
+        {
+          "type": "PendingCancel",
+          "clientOrderId": "O-20261016-234213-001-001-1",
+          "venueOrderId": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "tsEvent": 1792194133683700000,
+          "cachedOrder": {
+            "status": "PENDING_CANCEL",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234213-001-001-1",
+          "venueOrderId": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "tsEvent": 1792194133667000000,
+          "cachedOrder": {
+            "status": "PENDING_CANCEL",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-7aff1decd583bbc73330f65fe14dff91",
+            "quantity": "15.0000000000000000",
+            "price": "0.010",
+            "commission": "0.00300000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "32.0000000000000000",
+          "realizedPnl": "-0.00606000 USDT"
+        },
+        {
+          "type": "Canceled",
+          "clientOrderId": "O-20261016-234213-001-001-1",
+          "venueOrderId": "0xef5a53ff50cc4967cbbe22200665426c90f7cc7678dfa661e227189964451e9c",
+          "tsEvent": 1792194133685008000,
+          "cachedOrder": {
+            "status": "CANCELED",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "efc346d6-bafa-41bf-abd9-e4af2ceff260",
+          "tsEvent": 1792194133686225000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.69700000",
+              "free": "999.69700000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "b6379d8b-9bac-5704-9969-ca35a3934eb8",
+          "venueOrderId": null,
+          "tsEvent": 1792194133705032000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "0.6400000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "b6379d8b-9bac-5704-9969-ca35a3934eb8",
+          "venueOrderId": "b6379d8b-9bac-5704-9969-ca35a3934eb8",
+          "tsEvent": 1792194133705008000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "0.6400000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "b6379d8b-9bac-5704-9969-ca35a3934eb8",
+          "venueOrderId": "b6379d8b-9bac-5704-9969-ca35a3934eb8",
+          "tsEvent": 1792194133705008000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "0.6400000000000000",
+            "filledQuantity": "0.6400000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "6683efaf-34b9-52cb-9819-87451ef55c07",
+            "quantity": "0.6400000000000000",
+            "price": "0.00946875",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "31.3600000000000000",
+          "realizedPnl": "-0.00606000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "676d579b-c7d6-4892-96f1-a7736901bf53",
+          "tsEvent": 1792194133707269000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.69700000",
+              "free": "999.69700000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "duplicateWalletPackets": true,
+      "duplicateRestRows": true
+    },
+    {
+      "source": "synthetic different-price partial-fill Rust Strategy + LiveNode replay; not actual venue fills",
+      "outcome": 2,
+      "submittedQuantity": 100,
+      "grossFilled": 32,
+      "netPosition": "31.36",
+      "nativeFilledQuantity": "32.0000000000000000",
+      "nativeOrderStatus": "CANCELED",
+      "nativeAveragePrice": "0.00946875",
+      "cashDebit": "0.303",
+      "commissionUSDT": "0.00606000 USDT",
+      "strategyFilledCallbacks": 3,
+      "interleavedFeeCorrection": false,
+      "positionAverage": "0.00946875",
+      "positionBasisPlusCommission": "0.3030000000",
+      "basisResidualUSDT": "0.0000000000",
+      "basisMatchesCash": true,
+      "positionOnlyExitProbe": {
+        "source": "offline cloned Native Position close; not a strategy or venue SELL",
+        "sellPrice": "0.010",
+        "sellFee": "0",
+        "expectedCashPnL": "0.0106",
+        "nativeRealizedPnL": "0.01060000",
+        "pnlMatchesCash": true
+      },
+      "walletFrames": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134102,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134102,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134102,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "300000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "15000000000000000000",
+            "executedValueWei": "150000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134102,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "300000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "15000000000000000000",
+            "executedValueWei": "150000000000000000"
+          }
+        }
+      ],
+      "matchesResponses": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": [
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "15000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "300000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:14.102644000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "15000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "300000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:14.102644000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:14.102644000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:14.102644000Z"
+              }
+            ],
+            "cursor": null
+          }
+        }
+      ],
+      "positionResponses": [
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-2",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-2",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-2",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        }
+      ],
+      "fills": [
+        {
+          "tradeId": "PF-ae2b834f13a37c09290d7c4d482ffb04",
+          "quantity": "17.0000000000000000",
+          "price": "0.009",
+          "commission": "0.00306000 USDT"
+        },
+        {
+          "tradeId": "PF-dbd26ee06066fbd254b8dabf0c08aa9c",
+          "quantity": "15.0000000000000000",
+          "price": "0.010",
+          "commission": "0.00300000 USDT"
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "0b59a0c5-c094-4af1-b39e-2c4357aa2693",
+          "tsEvent": 1792194134025205000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "c1703a94-86c1-4c02-9b06-edb3a0335362",
+          "tsEvent": 1792194134038389000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "SubmissionDecision",
+          "marketId": 42,
+          "bookTsEvent": 1792194134098000000,
+          "observedNs": 1792194134099118000,
+          "bestBid": "0.007",
+          "bestAsk": "0.010",
+          "restConfirmed": false,
+          "timeInForce": "GTC",
+          "price": "0.010",
+          "quantity": "100",
+          "cost": "1.000"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194134099131000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194134099268000,
+          "cachedOrder": {
+            "status": "SUBMITTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "tsEvent": 1792194134102000000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "tsEvent": 1792194134102000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-ae2b834f13a37c09290d7c4d482ffb04",
+            "quantity": "17.0000000000000000",
+            "price": "0.009",
+            "commission": "0.00306000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00306000 USDT"
+        },
+        {
+          "type": "PendingCancel",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "tsEvent": 1792194134117280000,
+          "cachedOrder": {
+            "status": "PENDING_CANCEL",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "tsEvent": 1792194134102000000,
+          "cachedOrder": {
+            "status": "PENDING_CANCEL",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-dbd26ee06066fbd254b8dabf0c08aa9c",
+            "quantity": "15.0000000000000000",
+            "price": "0.010",
+            "commission": "0.00300000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "32.0000000000000000",
+          "realizedPnl": "-0.00606000 USDT"
+        },
+        {
+          "type": "Canceled",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0xe29f49ba8186bfee51f13413bd66f06c7d288a7253b2a71275135b99bdc49f8e",
+          "tsEvent": 1792194134117947000,
+          "cachedOrder": {
+            "status": "CANCELED",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "1c049154-9f87-49b1-844d-563dbbae524d",
+          "tsEvent": 1792194134119701000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.69700000",
+              "free": "999.69700000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "ccf38027-51d1-5556-ab9b-115b2f1f5f12",
+          "venueOrderId": null,
+          "tsEvent": 1792194134140134000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "0.6400000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "ccf38027-51d1-5556-ab9b-115b2f1f5f12",
+          "venueOrderId": "ccf38027-51d1-5556-ab9b-115b2f1f5f12",
+          "tsEvent": 1792194134140113000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "0.6400000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "ccf38027-51d1-5556-ab9b-115b2f1f5f12",
+          "venueOrderId": "ccf38027-51d1-5556-ab9b-115b2f1f5f12",
+          "tsEvent": 1792194134140113000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "0.6400000000000000",
+            "filledQuantity": "0.6400000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "24056564-38ab-51ea-ab7a-0e524e070c46",
+            "quantity": "0.6400000000000000",
+            "price": "0.00946875",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "31.3600000000000000",
+          "realizedPnl": "-0.00606000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "3c9596e7-6547-48a3-97f8-1a193143180b",
+          "tsEvent": 1792194134142125000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.69700000",
+              "free": "999.69700000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "duplicateWalletPackets": true,
+      "duplicateRestRows": true
+    },
+    {
+      "source": "synthetic different-price partial-fill Rust Strategy + LiveNode replay; not actual venue fills",
+      "outcome": 1,
+      "submittedQuantity": 100,
+      "grossFilled": 100,
+      "netPosition": "98.00",
+      "nativeFilledQuantity": "100.0000000000000000",
+      "nativeOrderStatus": "FILLED",
+      "nativeAveragePrice": "0.00983",
+      "cashDebit": "0.983",
+      "commissionUSDT": "0.01966000 USDT",
+      "strategyFilledCallbacks": 3,
+      "interleavedFeeCorrection": false,
+      "positionAverage": "0.00983",
+      "positionBasisPlusCommission": "0.98300000",
+      "basisResidualUSDT": "0.00000000",
+      "basisMatchesCash": true,
+      "positionOnlyExitProbe": {
+        "source": "offline cloned Native Position close; not a strategy or venue SELL",
+        "sellPrice": "0.010",
+        "sellFee": "0",
+        "expectedCashPnL": "-0.0030",
+        "nativeRealizedPnL": "-0.00300000",
+        "pnlMatchesCash": true
+      },
+      "walletFrames": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134537,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134537,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134537,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1660000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "83000000000000000000",
+            "executedValueWei": "830000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134537,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1660000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "83000000000000000000",
+            "executedValueWei": "830000000000000000"
+          }
+        }
+      ],
+      "matchesResponses": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": [
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "83000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "1660000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:14.537319000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "83000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "1660000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:14.537319000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:14.537319000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:14.537319000Z"
+              }
+            ],
+            "cursor": null
+          }
+        }
+      ],
+      "positionResponses": [
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "98000000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "98000000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "98000000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        }
+      ],
+      "fills": [
+        {
+          "tradeId": "PF-455b0d7faccc1f72b11b707ee47e0795",
+          "quantity": "17.0000000000000000",
+          "price": "0.009",
+          "commission": "0.00306000 USDT"
+        },
+        {
+          "tradeId": "PF-fd24774ab019afcb642730d50953b8eb",
+          "quantity": "83.0000000000000000",
+          "price": "0.010",
+          "commission": "0.01660000 USDT"
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "c4a2cf5a-0f90-4625-a790-b98a32b68c66",
+          "tsEvent": 1792194134461239000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "0411fff8-9b99-4c9c-988a-1dc5360cd46e",
+          "tsEvent": 1792194134474344000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "SubmissionDecision",
+          "marketId": 42,
+          "bookTsEvent": 1792194134533000000,
+          "observedNs": 1792194134534112000,
+          "bestBid": "0.007",
+          "bestAsk": "0.010",
+          "restConfirmed": false,
+          "timeInForce": "GTC",
+          "price": "0.010",
+          "quantity": "100",
+          "cost": "1.000"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194134534127000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194134534267000,
+          "cachedOrder": {
+            "status": "SUBMITTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+          "tsEvent": 1792194134537000000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+          "tsEvent": 1792194134537000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-455b0d7faccc1f72b11b707ee47e0795",
+            "quantity": "17.0000000000000000",
+            "price": "0.009",
+            "commission": "0.00306000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00306000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0x839b6f2564cbbaf493e02e2e7512cc294d0b0aaf1d779a764cdcf561d15e044b",
+          "tsEvent": 1792194134537000000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "100",
+            "filledQuantity": "100.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-fd24774ab019afcb642730d50953b8eb",
+            "quantity": "83.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01660000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "100.0000000000000000",
+          "realizedPnl": "-0.01966000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "acdfedbc-a3c4-4c27-b1b7-eaacfd87dfce",
+          "tsEvent": 1792194134554852000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.01700000",
+              "free": "999.01700000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "c7075a01-0eb0-5b2c-8c51-98993e693890",
+          "venueOrderId": null,
+          "tsEvent": 1792194134576336000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "c7075a01-0eb0-5b2c-8c51-98993e693890",
+          "venueOrderId": "c7075a01-0eb0-5b2c-8c51-98993e693890",
+          "tsEvent": 1792194134576310000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "c7075a01-0eb0-5b2c-8c51-98993e693890",
+          "venueOrderId": "c7075a01-0eb0-5b2c-8c51-98993e693890",
+          "tsEvent": 1792194134576310000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "2.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "5cacdadc-d50d-50a5-89e6-51f52f3a39f9",
+            "quantity": "2.0000000000000000",
+            "price": "0.00983",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "98.0000000000000000",
+          "realizedPnl": "-0.01966000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "c6ed7e51-c54d-4582-9370-40c1ef6c430e",
+          "tsEvent": 1792194134578627000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.01700000",
+              "free": "999.01700000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "duplicateWalletPackets": true,
+      "duplicateRestRows": true
+    },
+    {
+      "source": "synthetic different-price partial-fill Rust Strategy + LiveNode replay; not actual venue fills",
+      "outcome": 2,
+      "submittedQuantity": 100,
+      "grossFilled": 100,
+      "netPosition": "98.00",
+      "nativeFilledQuantity": "100.0000000000000000",
+      "nativeOrderStatus": "FILLED",
+      "nativeAveragePrice": "0.00983",
+      "cashDebit": "0.983",
+      "commissionUSDT": "0.01966000 USDT",
+      "strategyFilledCallbacks": 3,
+      "interleavedFeeCorrection": false,
+      "positionAverage": "0.00983",
+      "positionBasisPlusCommission": "0.98300000",
+      "basisResidualUSDT": "0.00000000",
+      "basisMatchesCash": true,
+      "positionOnlyExitProbe": {
+        "source": "offline cloned Native Position close; not a strategy or venue SELL",
+        "sellPrice": "0.010",
+        "sellFee": "0",
+        "expectedCashPnL": "-0.0030",
+        "nativeRealizedPnL": "-0.00300000",
+        "pnlMatchesCash": true
+      },
+      "walletFrames": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134972,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134972,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134972,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1660000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "83000000000000000000",
+            "executedValueWei": "830000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194134972,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1660000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "83000000000000000000",
+            "executedValueWei": "830000000000000000"
+          }
+        }
+      ],
+      "matchesResponses": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": [
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "83000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "1660000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:14.972179000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "83000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "1660000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:14.972179000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:14.972179000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:14.972179000Z"
+              }
+            ],
+            "cursor": null
+          }
+        }
+      ],
+      "positionResponses": [
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-2",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": "LOST"
+              },
+              "amount": "98000000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-2",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": "LOST"
+              },
+              "amount": "98000000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-2",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 2,
+                    "onChainId": "22",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 2,
+                "onChainId": "22",
+                "status": "LOST"
+              },
+              "amount": "98000000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        }
+      ],
+      "fills": [
+        {
+          "tradeId": "PF-15e149481a7a6347cf56e49088ea8d03",
+          "quantity": "17.0000000000000000",
+          "price": "0.009",
+          "commission": "0.00306000 USDT"
+        },
+        {
+          "tradeId": "PF-6614ab319ef9de15ea429f09a5e20b58",
+          "quantity": "83.0000000000000000",
+          "price": "0.010",
+          "commission": "0.01660000 USDT"
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "4a8e3bd5-aa7e-40bb-9770-c6d6c46fd187",
+          "tsEvent": 1792194134895953000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "5bade66f-086b-4cc9-9363-f04773588b13",
+          "tsEvent": 1792194134909167000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "SubmissionDecision",
+          "marketId": 42,
+          "bookTsEvent": 1792194134968000000,
+          "observedNs": 1792194134969146000,
+          "bestBid": "0.007",
+          "bestAsk": "0.010",
+          "restConfirmed": false,
+          "timeInForce": "GTC",
+          "price": "0.010",
+          "quantity": "100",
+          "cost": "1.000"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194134969158000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194134969318000,
+          "cachedOrder": {
+            "status": "SUBMITTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+          "tsEvent": 1792194134972000000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+          "tsEvent": 1792194134972000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-15e149481a7a6347cf56e49088ea8d03",
+            "quantity": "17.0000000000000000",
+            "price": "0.009",
+            "commission": "0.00306000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00306000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234214-001-001-1",
+          "venueOrderId": "0x74e70d09ca0a430084136b11c161faa9b02e64378b4c79c670724a4357f0adc5",
+          "tsEvent": 1792194134972000000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "100",
+            "filledQuantity": "100.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-6614ab319ef9de15ea429f09a5e20b58",
+            "quantity": "83.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01660000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "100.0000000000000000",
+          "realizedPnl": "-0.01966000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "e8a6b48d-aad4-4b5b-acbd-4b31cf19d285",
+          "tsEvent": 1792194134987287000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.01700000",
+              "free": "999.01700000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "d1cfe0cc-2415-5988-85ac-9765783fa354",
+          "venueOrderId": null,
+          "tsEvent": 1792194135011239000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "d1cfe0cc-2415-5988-85ac-9765783fa354",
+          "venueOrderId": "d1cfe0cc-2415-5988-85ac-9765783fa354",
+          "tsEvent": 1792194135011206000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "d1cfe0cc-2415-5988-85ac-9765783fa354",
+          "venueOrderId": "d1cfe0cc-2415-5988-85ac-9765783fa354",
+          "tsEvent": 1792194135011206000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "2.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "76912a92-28ec-5aa8-b100-cad99a585d5c",
+            "quantity": "2.0000000000000000",
+            "price": "0.00983",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "98.0000000000000000",
+          "realizedPnl": "-0.01966000 USDT"
+        }
+      ],
+      "duplicateWalletPackets": true,
+      "duplicateRestRows": true
+    },
+    {
+      "source": "synthetic different-price partial-fill Rust Strategy + LiveNode replay; not actual venue fills",
+      "outcome": 1,
+      "submittedQuantity": 100,
+      "grossFilled": 32,
+      "netPosition": "31.36",
+      "nativeFilledQuantity": "32.0000000000000000",
+      "nativeOrderStatus": "CANCELED",
+      "nativeAveragePrice": "0.00946875",
+      "cashDebit": "0.303",
+      "commissionUSDT": "0.00606000 USDT",
+      "strategyFilledCallbacks": 4,
+      "interleavedFeeCorrection": true,
+      "positionAverage": "0.00947378395451674",
+      "positionBasisPlusCommission": "0.3031578648136449664",
+      "basisResidualUSDT": "0.0001578648136449664",
+      "basisMatchesCash": false,
+      "positionOnlyExitProbe": {
+        "source": "offline cloned Native Position close; not a strategy or venue SELL",
+        "sellPrice": "0.010",
+        "sellFee": "0",
+        "expectedCashPnL": "0.0106",
+        "nativeRealizedPnL": "0.01044214",
+        "pnlMatchesCash": false
+      },
+      "walletFrames": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194135406,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194135406,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "9000000000000000",
+            "executedSizeWei": "17000000000000000000",
+            "executedValueWei": "153000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194135443,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "300000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "15000000000000000000",
+            "executedValueWei": "150000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792194135443,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "wallet-precision-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "300000000000000000"
+          },
+          "fill": {
+            "executedPriceWei": "10000000000000000",
+            "executedSizeWei": "15000000000000000000",
+            "executedValueWei": "150000000000000000"
+          }
+        }
+      ],
+      "matchesResponses": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "cursor": null,
+            "data": [
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:15.406351000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:15.406351000Z"
+              }
+            ]
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": [
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "15000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "300000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:15.406351000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "15000000000000000000",
+                  "price": "10000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "300000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-2",
+                "executedAt": "2026-10-16T23:42:15.406351000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:15.406351000Z"
+              },
+              {
+                "market": {
+                  "id": 42,
+                  "isNegRisk": false,
+                  "isYieldBearing": false,
+                  "decimalPrecision": 3,
+                  "outcomes": [
+                    {
+                      "name": "fixture",
+                      "indexSet": 1,
+                      "onChainId": "11",
+                      "status": "LOST"
+                    },
+                    {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    }
+                  ]
+                },
+                "taker": {
+                  "quoteType": "Bid",
+                  "amount": "17000000000000000000",
+                  "price": "9000000000000000",
+                  "outcome": {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  },
+                  "signer": "0x1111111111111111111111111111111111111111",
+                  "hash": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+                  "fee": {
+                    "type": "SHARES",
+                    "amount": "340000000000000000"
+                  }
+                },
+                "makers": [
+                  {
+                    "quoteType": "Bid",
+                    "amount": "17000000000000000000",
+                    "price": "380000000000000000",
+                    "outcome": {
+                      "name": "fixture",
+                      "indexSet": 2,
+                      "onChainId": "22",
+                      "status": "LOST"
+                    },
+                    "signer": "0x2222222222222222222222222222222222222222",
+                    "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                    "fee": {
+                      "type": "SHARES",
+                      "amount": "0"
+                    }
+                  }
+                ],
+                "amountFilled": "17000000000000000000",
+                "priceExecuted": "620000000000000000",
+                "transactionHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "settlementId": "wallet-precision-1",
+                "executedAt": "2026-10-16T23:42:15.406351000Z"
+              }
+            ],
+            "cursor": null
+          }
+        }
+      ],
+      "positionResponses": [
+        {
+          "success": true,
+          "cursor": null,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "16660000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "cursor": null,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "16660000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "id": "holding-1",
+              "market": {
+                "id": 42,
+                "isNegRisk": false,
+                "isYieldBearing": false,
+                "decimalPrecision": 3,
+                "outcomes": [
+                  {
+                    "name": "fixture",
+                    "indexSet": 1,
+                    "onChainId": "11",
+                    "status": "LOST"
+                  }
+                ]
+              },
+              "outcome": {
+                "name": "fixture",
+                "indexSet": 1,
+                "onChainId": "11",
+                "status": "LOST"
+              },
+              "amount": "31360000000000000000",
+              "valueUsd": "0",
+              "averageBuyPriceUsd": "0.62",
+              "pnlUsd": "-1"
+            }
+          ]
+        }
+      ],
+      "fills": [
+        {
+          "tradeId": "PF-bf9b635fd9eedf8341c0f436d1e7661f",
+          "quantity": "17.0000000000000000",
+          "price": "0.009",
+          "commission": "0.00306000 USDT"
+        },
+        {
+          "tradeId": "PF-988283f30c1acc85cd32c0396f2c284e",
+          "quantity": "15.0000000000000000",
+          "price": "0.010",
+          "commission": "0.00300000 USDT"
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "a6370f30-6a44-4250-8c78-559dbde00156",
+          "tsEvent": 1792194135330080000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "5cd83d36-444d-4630-a9f4-87f47b64f7c7",
+          "tsEvent": 1792194135343343000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "1000.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "SubmissionDecision",
+          "marketId": 42,
+          "bookTsEvent": 1792194135402000000,
+          "observedNs": 1792194135403172000,
+          "bestBid": "0.007",
+          "bestAsk": "0.010",
+          "restConfirmed": false,
+          "timeInForce": "GTC",
+          "price": "0.010",
+          "quantity": "100",
+          "cost": "1.000"
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "O-20261016-234215-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194135403185000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "O-20261016-234215-001-001-1",
+          "venueOrderId": null,
+          "tsEvent": 1792194135403347000,
+          "cachedOrder": {
+            "status": "SUBMITTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "O-20261016-234215-001-001-1",
+          "venueOrderId": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "tsEvent": 1792194135406000000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "100",
+            "filledQuantity": "0",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234215-001-001-1",
+          "venueOrderId": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "tsEvent": 1792194135406000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-bf9b635fd9eedf8341c0f436d1e7661f",
+            "quantity": "17.0000000000000000",
+            "price": "0.009",
+            "commission": "0.00306000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00306000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "b4c134c4-ea88-4e9a-a9f0-4552580aec7e",
+          "tsEvent": 1792194135408609000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.84700000",
+              "free": "999.01700000",
+              "locked": "0.83000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "6ae7c728-a730-5262-9787-0f91e9835306",
+          "venueOrderId": null,
+          "tsEvent": 1792194135443548000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "0.3400000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "6ae7c728-a730-5262-9787-0f91e9835306",
+          "venueOrderId": "6ae7c728-a730-5262-9787-0f91e9835306",
+          "tsEvent": 1792194135443516000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "0.3400000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "6ae7c728-a730-5262-9787-0f91e9835306",
+          "venueOrderId": "6ae7c728-a730-5262-9787-0f91e9835306",
+          "tsEvent": 1792194135443516000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "0.3400000000000000",
+            "filledQuantity": "0.3400000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "bf2f9172-17a2-517c-98ea-5b101acc3048",
+            "quantity": "0.3400000000000000",
+            "price": "0.009",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "16.6600000000000000",
+          "realizedPnl": "-0.00306000 USDT"
+        },
+        {
+          "type": "PendingCancel",
+          "clientOrderId": "O-20261016-234215-001-001-1",
+          "venueOrderId": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "tsEvent": 1792194135456648000,
+          "cachedOrder": {
+            "status": "PENDING_CANCEL",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "O-20261016-234215-001-001-1",
+          "venueOrderId": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "tsEvent": 1792194135443000000,
+          "cachedOrder": {
+            "status": "PENDING_CANCEL",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-988283f30c1acc85cd32c0396f2c284e",
+            "quantity": "15.0000000000000000",
+            "price": "0.010",
+            "commission": "0.00300000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "31.6600000000000000",
+          "realizedPnl": "-0.00606000 USDT"
+        },
+        {
+          "type": "Canceled",
+          "clientOrderId": "O-20261016-234215-001-001-1",
+          "venueOrderId": "0xb23e7a9056ca19336e7b43de2b503b0cecbcf6ff5b17ac05509ab062c0f36911",
+          "tsEvent": 1792194135458009000,
+          "cachedOrder": {
+            "status": "CANCELED",
+            "quantity": "100",
+            "filledQuantity": "32.0000000000000000",
+            "price": "0.010",
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "02c75dcf-0ca2-465d-9a65-8fa803128894",
+          "tsEvent": 1792194135459278000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.69700000",
+              "free": "999.69700000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "7d453aac-2bfe-5878-8a19-8545c7afdd34",
+          "venueOrderId": null,
+          "tsEvent": 1792194135545567000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "0.3000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "7d453aac-2bfe-5878-8a19-8545c7afdd34",
+          "venueOrderId": "7d453aac-2bfe-5878-8a19-8545c7afdd34",
+          "tsEvent": 1792194135545527000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "0.3000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "7d453aac-2bfe-5878-8a19-8545c7afdd34",
+          "venueOrderId": "7d453aac-2bfe-5878-8a19-8545c7afdd34",
+          "tsEvent": 1792194135545527000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "0.3000000000000000",
+            "filledQuantity": "0.3000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "0713424a-cc15-5594-bcfe-2f51bf5117a0",
+            "quantity": "0.3000000000000000",
+            "price": "0.0094737839545167",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "31.3600000000000000",
+          "realizedPnl": "-0.00606000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "92fc41cb-8a23-45bd-9025-8dde48accd59",
+          "tsEvent": 1792194135548184000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.69700000",
+              "free": "999.69700000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "duplicateWalletPackets": true,
+      "duplicateRestRows": true
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "source": "actual mainnet product prepare + Rust strategy + Native LiveNode; read-only",
+  "observedAtUtc": "2026-10-16T14:38:33.624780+00:00",
+  "discoveredMarketId": 3361940,
+  "nativeFeedback": [
+    {
+      "type": "StrategyOnStart",
+      "accountBalances": [
+        [
+          {
+            "currency": "USDT",
+            "total": "48.21630840 USDT",
+            "locked": "0.00000000 USDT",
+            "free": "48.21630840 USDT"
+          }
+        ]
+      ],
+      "instruments": [
+        "3361940-2.PREDICT",
+        "3361940-1.PREDICT"
+      ],
+      "openOrders": 0,
+      "positions": []
+    },
+    {
+      "type": "CustomSnapshot"
+    }
+  ],
+  "balances": [
+    [
+      {
+        "currency": "USDT",
+        "total": "48.21630840 USDT",
+        "locked": "0.00000000 USDT",
+        "free": "48.21630840 USDT"
+      }
+    ]
+  ],
+  "nativeStartupReconciliation": true,
+  "reconciliationLookbackMins": 1,
+  "submissionSignerInstalled": false,
+  "orderbookRemovalEnabled": false,
+  "orderWrites": 0,
+  "removalWrites": 0
+}

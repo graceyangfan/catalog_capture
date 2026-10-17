@@ -1,0 +1,10 @@
+{
+  "verifiedAtUtc": "2026-10-15T10:38:24.809666+00:00",
+  "case": "no-gtc",
+  "createdOrders": 2,
+  "walletAcceptedAndCanceled": 2,
+  "cashWeiUnchanged": true,
+  "positionsAndTokenBalancesUnchanged": true,
+  "newMatches": 0,
+  "finalOpenOrders": 0
+}

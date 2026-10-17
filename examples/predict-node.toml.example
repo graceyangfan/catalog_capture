@@ -1,0 +1,35 @@
+# Independent Rust LiveNode. This profile does not submit or remove orders.
+# Build: cargo build -p catalog-capture-cli --no-default-features --features predict-execution
+# Run: catalog-capture-cli predict-node --config env/predict-node.toml
+# API key: existing env/predictfun.toml or PREDICT_CREDENTIALS_FILE; chmod 600.
+[predict]
+account_id = "PREDICT-001"
+privy_credentials_file = "predict-node-privy.toml"
+environment = "mainnet"
+rpc_url = "https://bsc-dataseed.bnbchain.org"
+# No submission section: adapter SubmitOrder is disabled. REST removal is independently disabled.
+orderbook_removal_enabled = false
+
+[discovery]
+price_feed_symbol = "BTC/USDT"
+title_asset = "Bitcoin"
+interval_secs = 300
+
+# Native LiveNodeConfig fields, including Native std::time::Duration representation.
+[node]
+trader_id = "PREDICT-NODE-001"
+environment = "Live"
+delay_post_stop = { secs = 10, nanos = 0 }
+
+[node.risk_engine]
+bypass = false
+
+[node.exec_engine]
+reconciliation = true
+# Omit the time bound or set a native fill lookback explicitly.
+# Current orders/holdings and known-order prefixes remain authoritative;
+# unrelated completed cycles are not adopted as new strategy inventory.
+inflight_check_interval_ms = 2000
+inflight_check_threshold_ms = 5000
+open_check_interval_secs = 10.0
+position_check_interval_secs = 30.0

@@ -1,0 +1,124 @@
+{
+  "source": "actual mainnet read-only and Rust Strategy + LiveNode maker calibration; no synthetic trading outcomes",
+  "nativeHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "officialDevelopCompiled": false,
+  "sdk": "predict-sdk 0.0.22",
+  "liveDirectory": "live_resting_yes-gtc_20261016T120218Z",
+  "readOnlySummary": {
+    "matches": 2,
+    "chainVerifiedOwnFills": 2,
+    "walletEvents": 4,
+    "heartbeats": 6,
+    "positions": 0,
+    "openOrders": 0,
+    "cashWeiBefore": "48379150000000000001",
+    "cashWeiAfter": "48379150000000000001",
+    "cashUnchanged": true
+  },
+  "lifecycle": {
+    "marketId": 2508071,
+    "outcome": 1,
+    "snapshots": 175,
+    "submitted": 2,
+    "accepted": 2,
+    "modifyRejected": 2,
+    "canceled": 2,
+    "fills": 0,
+    "cashTotal": "48.37915000",
+    "cashLocked": "0.00000000"
+  },
+  "finalOrderCheck": {
+    "observedAtUtc": "2026-10-16T12:02:18.804595+00:00",
+    "source": "independent authenticated complete OPEN pagination after capture",
+    "verifiedOpenOrders": 0
+  },
+  "validation": {
+    "rustPassed": 279,
+    "rustIgnored": 53,
+    "pythonPassed": 72,
+    "clippyPrivateApiLive": true,
+    "ruff": true
+  },
+  "evidence": [
+    {
+      "path": "live_resting_yes-gtc_20261016T120218Z/calibration.json",
+      "sha256": "2e35b8f41c62679bd3ebb5323213cf70f242ce6604a8014994884953f3083d1a"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261016T120218Z/evidence_validation.json",
+      "sha256": "ff661fc36c57bdc111117c0fa7e26e4d34373cfbc329bf3938792322a3bf6759"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261016T120218Z/final_open_orders_check.json",
+      "sha256": "2bade8193cea2fd353a26a0bfb09b5ee472d5eaa9c3d020dbaaa5acc7e1d9edc"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261016T120218Z/http_responses.json",
+      "sha256": "6535f8d4dccf09480fa5ab1a2a2e73cdfe5dccdde5ad621e3f2c68b846d35378"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261016T120218Z/native_feedback.json",
+      "sha256": "d2c50bb32594b1ab360763633846fea826212725e54330451b2a82d36a2ef712"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261016T120218Z/result.json",
+      "sha256": "e72c55a0b527283938bbd17db355146c7d38ac816366f1a8af993fbf76a005d3"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261016T120218Z/submission_diagnostics.json",
+      "sha256": "7e9e7038bd4d0919545a0f60e7f9e63628c9c2fcccdf89081497b6f911d99fe7"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261016T120218Z/supervisor_cleanup.json",
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "read_only_livenode_20261016T115842Z_26677.json",
+      "sha256": "192c8ad262d402068b0b8f662d42e1fab7399d4734a39e2c1a78329c55c4ca46"
+    },
+    {
+      "path": "readonly_20261016_strategy_preflight/calibration.json",
+      "sha256": "2dd582889e79d5aa8d7136cd7e503993815c33115b6acfe15b623fc16fdf171e"
+    }
+  ],
+  "intermediateLogsRemoved": [
+    {
+      "path": ".predict-live-preflight-clippy.log",
+      "sha256": "343cf90b12dead66a76047acbb656b7c422debdf87833f60d8ed81006df256fe"
+    },
+    {
+      "path": ".predict-live-preflight-rust.log",
+      "sha256": "bfc9985a0cc046327ecfa9688d2c06b3b9b5ff0146c278764c23a8d3ad423aa0"
+    },
+    {
+      "path": ".predict-live-preflight-suite.log",
+      "sha256": "34619caf109f2943db079eb08a680b0b2b0631f82e97c4c1030e6c14d8f78fa1"
+    },
+    {
+      "path": ".predict-live-preflight-python-final.log",
+      "sha256": "272982eb200563aa8b430f7583bf7b236b7925f70e2eb47bcdd4d3ca9cfe8e1f"
+    },
+    {
+      "path": ".predict-live-preflight-observe.log",
+      "sha256": "cc1b902414b3418a38eded733b1c6c51fce169f4978aaac264ac449850ee2285"
+    },
+    {
+      "path": ".predict-live-preflight-python.log",
+      "sha256": "79a48561a6984c91d70155268aabbb796b6de93fd81eb6bcc89afdfbe399d180"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/node.log",
+      "sha256": "07415e24d54391ab18027eb3c93cba3ad1c939b385206988e24b853eb3d4b95b"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/collector.log",
+      "sha256": "5bcf15fd59abbdb951a53ebd4d8e93037732dc841e70d3d1c6e400f38774341f"
+    }
+  ],
+  "limits": [
+    "No real fills or nonzero SHARES wallet event in this run",
+    "Orderbook removal does not invalidate signed orders on chain",
+    "No official develop build claim",
+    "No production adapter, Nautilus dependency, recording/discovery/rotation changes"
+  ]
+}

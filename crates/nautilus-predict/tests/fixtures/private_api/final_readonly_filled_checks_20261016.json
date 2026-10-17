@@ -1,0 +1,11 @@
+{
+  "source": "fresh authenticated complete OPEN/positions and pinned chain cash; no order writes",
+  "observedAtUtc": "2026-10-16T12:45:03.432838+00:00",
+  "block": 127980643,
+  "cashWei": "48216308400000000001",
+  "openOrders": 0,
+  "positions": 0,
+  "nativeReadOnlyEvidence": "read_only_livenode_20261016T124310Z_29991.json",
+  "nativeCash": "48.21630840",
+  "nativeAccountMatchesChain": true
+}

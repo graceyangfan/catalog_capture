@@ -12,6 +12,8 @@ repos:
       - id: detect-private-key
       - id: check-added-large-files
         args: [--maxkb=1024]
+        # Complete sanitized live HTTP transcript; preserve all venue evidence.
+        exclude: ^crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261017T051620Z/http_responses\.json$
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-symlinks

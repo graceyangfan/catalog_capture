@@ -1,0 +1,55 @@
+{
+  "source": "Derived validation of synthetic Rust strategy command/callback replay; not mainnet fill evidence",
+  "verifiedAtUtc": "2026-10-15T12:24:11.871598+00:00",
+  "mainnetWrites": 0,
+  "operatorWritesEnabled": false,
+  "syntheticSessions": 7,
+  "nativeStrategyEntry": true,
+  "sdkRequestComparisons": 16,
+  "sdkVersion": "predict-sdk 0.0.22",
+  "rust": {
+    "passed": 219,
+    "ignored": 12,
+    "failed": 0
+  },
+  "python": {
+    "passed": 31,
+    "failed": 0
+  },
+  "clippyAllTargetsWarningsDenied": true,
+  "noDefaultExecutionAllTargets": true,
+  "ruffAndDiffChecks": true,
+  "operatorMaterialScan": "PASS",
+  "boundaries": [
+    "Native MARKET BUY remains unsupported",
+    "No-wallet signed-hash query recovery remains incomplete",
+    "Private-stream reconnect reconciliation remains incomplete",
+    "Synthetic profit is not market alpha evidence"
+  ],
+  "files": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/strategy_commands_synthetic_20261015.json",
+      "sha256": "9ec5847748e03b2e09a16d2ed14d1bb3d8533b007036a1a5bf6137dceab543d6"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/strategy_lifecycle.rs",
+      "sha256": "5e9c2fb0b73b4250462d3232996e049ace7dca5b94ab6e0456be14acbb0a2561"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/exit_strategy.rs",
+      "sha256": "c41e61a2016984060e8629464b75114b208dc487756e06d0b336162df5fb235e"
+    },
+    {
+      "path": "tests/test_predict_exit_protocol.py",
+      "sha256": "35d0f3ae7e934eeb7efb760da6b5f61d602237613381126a43464b3acf12933f"
+    },
+    {
+      "path": "examples/predict-exit-strategy.toml.example",
+      "sha256": "19265d67094c64753bc51748fc657d5342775029a619366a5bdf9f7b93039830"
+    },
+    {
+      "path": "docs/reference/predict-strategy-command-callback-replay-20261015.md",
+      "sha256": "9817a352e014a7b69c9ba5692a7dd6e18e51f91a53a183965f68f8c3dece461b"
+    }
+  ]
+}

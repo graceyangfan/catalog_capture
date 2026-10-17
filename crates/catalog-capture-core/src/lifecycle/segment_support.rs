@@ -22,7 +22,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use arrow::array::{Array, TimestampNanosecondArray};
 use arrow::record_batch::RecordBatch;
 use nautilus_core::UnixNanos;

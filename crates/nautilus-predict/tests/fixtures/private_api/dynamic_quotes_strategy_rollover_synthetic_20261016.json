@@ -1,0 +1,2175 @@
+{
+  "source": "synthetic offline dynamic quotes; no order writes",
+  "sessions": [
+    {
+      "backend": "Sockudo",
+      "source": "synthetic Rust Strategy + LiveNode dynamic quotes; no execution client",
+      "commands": [
+        {
+          "method": "subscribe",
+          "requestId": 1,
+          "params": [
+            "predictOrderbook/2859346"
+          ]
+        },
+        {
+          "method": "subscribe",
+          "requestId": 2,
+          "params": [
+            "predictOrderbook/2859347"
+          ]
+        },
+        {
+          "method": "unsubscribe",
+          "requestId": 3,
+          "params": [
+            "predictOrderbook/2859346"
+          ]
+        },
+        {
+          "method": "unsubscribe",
+          "requestId": 4,
+          "params": [
+            "predictOrderbook/2859347"
+          ]
+        }
+      ],
+      "frames": [
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065099000,
+            "orderCount": 41,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065099000,
+            "orderCount": 41,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065099000,
+            "orderCount": 41,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100001,
+            "orderCount": 44,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.61",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100002,
+            "orderCount": 45,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.60",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100003,
+            "orderCount": 46,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.59",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100004,
+            "orderCount": 47,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.58",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100009,
+            "orderCount": 999,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.57",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100010,
+            "orderCount": 48,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.61",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        }
+      ],
+      "feedback": [
+        {
+          "type": "instrument",
+          "id": "2859346-1.PREDICT"
+        },
+        {
+          "type": "instrument",
+          "id": "2859346-2.PREDICT"
+        },
+        {
+          "type": "quote",
+          "id": "2859346-1.PREDICT",
+          "ts": 1791065099000000000,
+          "bid": "0.62",
+          "ask": "0.63"
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065099000000000,
+          "bid": "0.37",
+          "ask": "0.38"
+        },
+        {
+          "type": "custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41,
+          "identifier": "2859346",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41,
+          "identifier": "2859346",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "instrument",
+          "id": "2859347-1.PREDICT"
+        },
+        {
+          "type": "instrument",
+          "id": "2859347-2.PREDICT"
+        },
+        {
+          "type": "custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41,
+          "identifier": "2859346",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859347-1.PREDICT",
+          "ts": 1791065100000000000,
+          "bid": "0.62",
+          "ask": "0.63"
+        },
+        {
+          "type": "quote",
+          "id": "2859347-2.PREDICT",
+          "ts": 1791065100000000000,
+          "bid": "0.37",
+          "ask": "0.38"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859346-1.PREDICT",
+          "ts": 1791065100001000000,
+          "bid": "0.61",
+          "ask": "0.63"
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065100001000000,
+          "bid": "0.37",
+          "ask": "0.39"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859346-1.PREDICT",
+          "ts": 1791065100002000000,
+          "bid": "0.60",
+          "ask": "0.63"
+        },
+        {
+          "type": "release",
+          "id": "2859346-1.PREDICT"
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065100002000000,
+          "bid": "0.37",
+          "ask": "0.40"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065100003000000,
+          "bid": "0.37",
+          "ask": "0.41"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065100004000000,
+          "bid": "0.37",
+          "ask": "0.42"
+        },
+        {
+          "type": "release",
+          "id": "2859346-2.PREDICT"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859347-1.PREDICT",
+          "ts": 1791065100010000000,
+          "bid": "0.61",
+          "ask": "0.63"
+        },
+        {
+          "type": "quote",
+          "id": "2859347-2.PREDICT",
+          "ts": 1791065100010000000,
+          "bid": "0.37",
+          "ask": "0.39"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100010000000,
+          "count": 48
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100010000000,
+          "count": 48,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        }
+      ],
+      "mainnetWrites": 0
+    },
+    {
+      "backend": "Tungstenite",
+      "source": "synthetic Rust Strategy + LiveNode dynamic quotes; no execution client",
+      "commands": [
+        {
+          "method": "subscribe",
+          "requestId": 1,
+          "params": [
+            "predictOrderbook/2859346"
+          ]
+        },
+        {
+          "method": "subscribe",
+          "requestId": 2,
+          "params": [
+            "predictOrderbook/2859347"
+          ]
+        },
+        {
+          "method": "unsubscribe",
+          "requestId": 3,
+          "params": [
+            "predictOrderbook/2859346"
+          ]
+        },
+        {
+          "method": "unsubscribe",
+          "requestId": 4,
+          "params": [
+            "predictOrderbook/2859347"
+          ]
+        }
+      ],
+      "frames": [
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065099000,
+            "orderCount": 41,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065099000,
+            "orderCount": 41,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065099000,
+            "orderCount": 41,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100001,
+            "orderCount": 44,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.61",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100002,
+            "orderCount": 45,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.60",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100003,
+            "orderCount": 46,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.59",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100004,
+            "orderCount": 47,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.58",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859346",
+          "data": {
+            "version": 1,
+            "marketId": 2859346,
+            "updateTimestampMs": 1791065100009,
+            "orderCount": 999,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.57",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859346,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100010,
+            "orderCount": 48,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.61",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/2859347",
+          "data": {
+            "version": 1,
+            "marketId": 2859347,
+            "updateTimestampMs": 1791065100000,
+            "orderCount": 43,
+            "asks": [
+              [
+                0.63,
+                800.5
+              ],
+              [
+                0.64,
+                1000.0
+              ]
+            ],
+            "bids": [
+              [
+                "0.62",
+                "1500.25"
+              ]
+            ],
+            "lastOrderSettled": {
+              "id": "987654321",
+              "price": "0.62",
+              "kind": "LIMIT",
+              "marketId": 2859347,
+              "side": "Ask",
+              "outcome": "Yes"
+            },
+            "settlementsPending": {
+              "asks": [
+                [
+                  0.63,
+                  10.5
+                ]
+              ],
+              "bids": []
+            }
+          }
+        }
+      ],
+      "feedback": [
+        {
+          "type": "instrument",
+          "id": "2859346-1.PREDICT"
+        },
+        {
+          "type": "instrument",
+          "id": "2859346-2.PREDICT"
+        },
+        {
+          "type": "quote",
+          "id": "2859346-1.PREDICT",
+          "ts": 1791065099000000000,
+          "bid": "0.62",
+          "ask": "0.63"
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065099000000000,
+          "bid": "0.37",
+          "ask": "0.38"
+        },
+        {
+          "type": "custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41,
+          "identifier": "2859346",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41,
+          "identifier": "2859346",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "instrument",
+          "id": "2859347-1.PREDICT"
+        },
+        {
+          "type": "instrument",
+          "id": "2859347-2.PREDICT"
+        },
+        {
+          "type": "custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859346,
+          "ts": 1791065099000000000,
+          "count": 41,
+          "identifier": "2859346",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859347-1.PREDICT",
+          "ts": 1791065100000000000,
+          "bid": "0.62",
+          "ask": "0.63"
+        },
+        {
+          "type": "quote",
+          "id": "2859347-2.PREDICT",
+          "ts": 1791065100000000000,
+          "bid": "0.37",
+          "ask": "0.38"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859346-1.PREDICT",
+          "ts": 1791065100001000000,
+          "bid": "0.61",
+          "ask": "0.63"
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065100001000000,
+          "bid": "0.37",
+          "ask": "0.39"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859346-1.PREDICT",
+          "ts": 1791065100002000000,
+          "bid": "0.60",
+          "ask": "0.63"
+        },
+        {
+          "type": "release",
+          "id": "2859346-1.PREDICT"
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065100002000000,
+          "bid": "0.37",
+          "ask": "0.40"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065100003000000,
+          "bid": "0.37",
+          "ask": "0.41"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859346-2.PREDICT",
+          "ts": 1791065100004000000,
+          "bid": "0.37",
+          "ask": "0.42"
+        },
+        {
+          "type": "release",
+          "id": "2859346-2.PREDICT"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "quote",
+          "id": "2859347-1.PREDICT",
+          "ts": 1791065100010000000,
+          "bid": "0.61",
+          "ask": "0.63"
+        },
+        {
+          "type": "quote",
+          "id": "2859347-2.PREDICT",
+          "ts": 1791065100010000000,
+          "bid": "0.37",
+          "ask": "0.39"
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100010000000,
+          "count": 48
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100010000000,
+          "count": 48,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        },
+        {
+          "type": "custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43
+        },
+        {
+          "type": "strategy_custom",
+          "market": 2859347,
+          "ts": 1791065100000000000,
+          "count": 43,
+          "identifier": "2859347",
+          "selector": {
+            "predict_price_feed_symbol": "BTCUSDT",
+            "predict_title_asset": "bitcoin",
+            "predict_interval_secs": "300"
+          }
+        }
+      ],
+      "mainnetWrites": 0
+    }
+  ]
+}

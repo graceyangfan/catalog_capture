@@ -14,17 +14,18 @@
 
 use anyhow::Result;
 use catalog_capture_core::{
+    CapturePlan, OptionUniverseResolutionRecord, OptionUniverseSpec, OptionUniverseVenueKind,
+    ResolvedOptionUniverse, StrikeChangeSmoothingState, StrikePolicy,
     compute_refresh_rollover_reason, expand_option_universe, instrument_id_difference,
     merge_capture_plans, plan_instrument_ids, refresh_resolution_record,
-    should_apply_strike_change, CapturePlan, OptionUniverseResolutionRecord, OptionUniverseSpec,
-    OptionUniverseVenueKind, ResolvedOptionUniverse, StrikeChangeSmoothingState, StrikePolicy,
+    should_apply_strike_change,
 };
 use nautilus_common::cache::Cache;
 use nautilus_core::UnixNanos;
 use nautilus_model::identifiers::{InstrumentId, Venue};
 
 use crate::dynamic_option_universe_runtime::resolve_runtime_option_universe;
-use crate::dynamic_plan::{build_dynamic_plan_delta, DynamicPlanDelta};
+use crate::dynamic_plan::{DynamicPlanDelta, build_dynamic_plan_delta};
 
 #[derive(Debug, Clone)]
 pub struct DynamicOptionUniverseConfig {
@@ -250,8 +251,8 @@ mod tests {
     use std::collections::BTreeSet;
 
     use catalog_capture_core::{
-        plan_instrument_ids, CapturePlan, ExpiryPolicy, IndexPriceCaptureSpec,
-        MarkPriceCaptureSpec, OptionUniverseFamily, QuoteCaptureSpec, StrikePolicy,
+        CapturePlan, ExpiryPolicy, IndexPriceCaptureSpec, MarkPriceCaptureSpec,
+        OptionUniverseFamily, QuoteCaptureSpec, StrikePolicy, plan_instrument_ids,
     };
     use nautilus_common::cache::Cache;
     use nautilus_model::{
@@ -474,9 +475,11 @@ mod tests {
             OptionUniverseVenueKind::Deribit,
         )
         .unwrap_err();
-        assert!(missing_reference_error
-            .to_string()
-            .contains("failed to determine strike reference"));
+        assert!(
+            missing_reference_error
+                .to_string()
+                .contains("failed to determine strike reference")
+        );
 
         let reference_call = InstrumentId::from("BTC-26JUN26-64000-C.DERIBIT");
         cache.add_option_greeks(make_option_greeks(reference_call, 65_000.0, None));

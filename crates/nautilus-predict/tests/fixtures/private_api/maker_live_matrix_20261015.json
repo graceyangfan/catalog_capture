@@ -1,0 +1,234 @@
+{
+  "source": "actual mainnet Rust Strategy + LiveNode maker matrix; sanitized JSON files are immutable; checks are derived and labeled",
+  "createdAtUtc": "2026-10-15T10:38:24.816206+00:00",
+  "cases": [
+    {
+      "case": "yes-gtc",
+      "directory": "live_resting_yes-gtc_20261015T102335Z",
+      "marketId": 58416,
+      "outcome": 1,
+      "timeInForce": "GTC",
+      "postOnly": true,
+      "submitted": 2,
+      "accepted": 2,
+      "modifyRejected": 2,
+      "canceled": 2,
+      "fills": 0,
+      "cashLocked": "0.00000000"
+    },
+    {
+      "case": "no-gtc",
+      "directory": "live_resting_no-gtc_20261015T102554Z",
+      "marketId": 190414,
+      "outcome": 2,
+      "timeInForce": "GTC",
+      "postOnly": true,
+      "submitted": 2,
+      "accepted": 2,
+      "modifyRejected": 2,
+      "canceled": 2,
+      "fills": 0,
+      "cashLocked": "0.00000000"
+    },
+    {
+      "case": "yes-gtd",
+      "directory": "live_resting_yes-gtd_20261015T103440Z",
+      "marketId": 58416,
+      "outcome": 1,
+      "timeInForce": "GTD",
+      "postOnly": true,
+      "submitted": 2,
+      "accepted": 2,
+      "modifyRejected": 2,
+      "canceled": 2,
+      "fills": 0,
+      "cashLocked": "0.00000000"
+    },
+    {
+      "case": "no-gtd",
+      "directory": "live_resting_no-gtd_20261015T103652Z",
+      "marketId": 190414,
+      "outcome": 2,
+      "timeInForce": "GTD",
+      "postOnly": true,
+      "submitted": 2,
+      "accepted": 2,
+      "modifyRejected": 2,
+      "canceled": 2,
+      "fills": 0,
+      "cashLocked": "0.00000000"
+    }
+  ],
+  "totals": {
+    "submitted": 9,
+    "accepted": 8,
+    "rejected": 1,
+    "modifyRejected": 8,
+    "canceled": 8,
+    "fills": 0,
+    "cashWeiBefore": "48379150000000000001",
+    "cashWeiAfter": "48379150000000000001",
+    "newMatches": 0,
+    "finalOpenOrders": 0
+  },
+  "actualExpiryRejectionDirectory": "live_resting_yes-gtd_expiry_rejected_20261015T102923Z",
+  "finalOpenOrdersCheck": "maker_matrix_final_open_orders_20261015.json",
+  "files": [
+    {
+      "path": "maker_matrix_final_open_orders_20261015.json",
+      "sha256": "39b25ec00129218913ec85ec5251230694003678611e5006bbaa586f864c2146"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261015T102335Z/calibration.json",
+      "sha256": "5ec65b9fe0e4e967cdc4776ef68ddf8845e1d4a7fa23e02f6b8057bc370d16d9"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261015T102335Z/evidence_validation.json",
+      "sha256": "9bdcbfff135424d0ab6514d4b750ef938f5df3e1394473c4c32c06098e253074"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261015T102335Z/http_responses.json",
+      "sha256": "46c1e6a595f9269ba6a1fb9d87652e74bef0c2120c657215ed2bc3d34392d828"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261015T102335Z/native_feedback.json",
+      "sha256": "996fbcf0a4e9c7f76afc6182651763b566e05aa76c5dcc93024b4248120d5ec4"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261015T102335Z/result.json",
+      "sha256": "e9a59679a1df85d692e59e16af0d01f35c7da2de005766f695a25c23837e6b58"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261015T102335Z/submission_diagnostics.json",
+      "sha256": "2bd1df4f02c62137d8dc3fd290bf12094b4ce1cae69c7b06c5d4a0adc791f003"
+    },
+    {
+      "path": "live_resting_yes-gtc_20261015T102335Z/supervisor_cleanup.json",
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "live_resting_no-gtc_20261015T102554Z/calibration.json",
+      "sha256": "d25f5d1e25d0ac282176e6a2681cf2974d560fb9ef7ebd22fce1abc7e471dfe7"
+    },
+    {
+      "path": "live_resting_no-gtc_20261015T102554Z/evidence_validation.json",
+      "sha256": "f262b20c4a377b48d5d84df52db8517c694597aa97f98ea5bf37315403a6a5ff"
+    },
+    {
+      "path": "live_resting_no-gtc_20261015T102554Z/final_open_orders_check.json",
+      "sha256": "b79ccd85bb9332d159163053f067585c06f4b83e87954e5d28d78ab692981da3"
+    },
+    {
+      "path": "live_resting_no-gtc_20261015T102554Z/http_responses.json",
+      "sha256": "c9f5a768685e6f7a5c83d490ba043ce68fb5f12e44007276b47b0305520daa6c"
+    },
+    {
+      "path": "live_resting_no-gtc_20261015T102554Z/native_feedback.json",
+      "sha256": "f4e4c14fd6cecd5e0ed2ae1dc7f15485d6e590d7a1fd50c9a92a6dc8dce3fc0e"
+    },
+    {
+      "path": "live_resting_no-gtc_20261015T102554Z/result.json",
+      "sha256": "950c63df7b2395a22bc1dff862f08683abbc3f6edbdb59cd5414675752a76855"
+    },
+    {
+      "path": "live_resting_no-gtc_20261015T102554Z/submission_diagnostics.json",
+      "sha256": "bb93319e966fd63d5112682fbf33a9fb044985d96245f4317598aa5e6b016d96"
+    },
+    {
+      "path": "live_resting_no-gtc_20261015T102554Z/supervisor_cleanup.json",
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "live_resting_yes-gtd_20261015T103440Z/calibration.json",
+      "sha256": "aa919fe11bfd98661b7315c78eed3c95ae8482141ed22780529d45286adb2fa6"
+    },
+    {
+      "path": "live_resting_yes-gtd_20261015T103440Z/evidence_validation.json",
+      "sha256": "614cfd04bfa5da4c0a2693975775d5f8f18e6bc362b7767b43ecb55e86469a02"
+    },
+    {
+      "path": "live_resting_yes-gtd_20261015T103440Z/final_open_orders_check.json",
+      "sha256": "55c8217e460489a7f159a1cf4f9ec96c97e68dbf4f7396ae9fe281a924333300"
+    },
+    {
+      "path": "live_resting_yes-gtd_20261015T103440Z/http_responses.json",
+      "sha256": "67ec3e84a00e5c96d9fc0aefe896a4ff274ecdad7bf5a4861c6ca37f14cc27c5"
+    },
+    {
+      "path": "live_resting_yes-gtd_20261015T103440Z/native_feedback.json",
+      "sha256": "dffa3fb2eb3abc5e2c5714a682a66a712d9258810f0fc07e4a20d00e7998e1b4"
+    },
+    {
+      "path": "live_resting_yes-gtd_20261015T103440Z/result.json",
+      "sha256": "86950e1715193210b4c7686527801c9dfaaa7a410b2bf6a1b1a99d1705f1f867"
+    },
+    {
+      "path": "live_resting_yes-gtd_20261015T103440Z/submission_diagnostics.json",
+      "sha256": "525b2b2bc4fd7578c1c4a6c57932612e5a2d280f940850d4c0dc66b0f961311f"
+    },
+    {
+      "path": "live_resting_yes-gtd_20261015T103440Z/supervisor_cleanup.json",
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "live_resting_no-gtd_20261015T103652Z/calibration.json",
+      "sha256": "9d00dd0755c17749a901b3161cacd7bc9b301945acc4b045fb4217f6121c3482"
+    },
+    {
+      "path": "live_resting_no-gtd_20261015T103652Z/evidence_validation.json",
+      "sha256": "6248d158751dfdb7313ace46e1a961a566f197c5bb0b68919802910be15b7254"
+    },
+    {
+      "path": "live_resting_no-gtd_20261015T103652Z/final_open_orders_check.json",
+      "sha256": "ea27e5372265a60cdb46dde6bf6136a5294c77ac4e654c58e951b244ef9e1f28"
+    },
+    {
+      "path": "live_resting_no-gtd_20261015T103652Z/http_responses.json",
+      "sha256": "f224cdf0f1d2fc1431467dd2e4b8d554136bb3974f0b49ce171f53fc032bff46"
+    },
+    {
+      "path": "live_resting_no-gtd_20261015T103652Z/native_feedback.json",
+      "sha256": "24747543207afd6e7717e61ae610a2e7d06632355df3046a8653d37367d2e7a9"
+    },
+    {
+      "path": "live_resting_no-gtd_20261015T103652Z/result.json",
+      "sha256": "55352a4c473ff70b56a22738c00b513019036329adc740617646dd76a854123d"
+    },
+    {
+      "path": "live_resting_no-gtd_20261015T103652Z/submission_diagnostics.json",
+      "sha256": "53780fadb4270094295ce95cb5c459d91a1ced4116caf7a216f7363415c4973b"
+    },
+    {
+      "path": "live_resting_no-gtd_20261015T103652Z/supervisor_cleanup.json",
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "order_create_expiry_error_20261015.json",
+      "sha256": "ae5f98ac1cb12e56967895a0da1fe317f2429ca2032bb4d5ab8438453211f9fe"
+    },
+    {
+      "path": "live_resting_yes-gtd_expiry_rejected_20261015T102923Z/calibration.json",
+      "sha256": "562589d412c9b52f8413225cd393710d1d82a244d28aace8a2df825a589e7f38"
+    },
+    {
+      "path": "live_resting_yes-gtd_expiry_rejected_20261015T102923Z/http_responses.json",
+      "sha256": "4cd5d03f28b6a844dfd92589f9aa1e86348e16c6be6c52cce1b8f54bb98befdb"
+    },
+    {
+      "path": "live_resting_yes-gtd_expiry_rejected_20261015T102923Z/native_feedback.json",
+      "sha256": "fbd4f58d4e2af3adc22429a8bc0b6de247e548ac0f7d559e040cd6ff9bddaad1"
+    },
+    {
+      "path": "live_resting_yes-gtd_expiry_rejected_20261015T102923Z/result.json",
+      "sha256": "06d0700e9c7435bbe58b38e802358187905ea97fdb60fba1f93d8304077364aa"
+    },
+    {
+      "path": "live_resting_yes-gtd_expiry_rejected_20261015T102923Z/submission_diagnostics.json",
+      "sha256": "a5ef7a7b68d42cef5cd236406eeca452a262905e165f808a8609090e18c53ee6"
+    },
+    {
+      "path": "live_resting_yes-gtd_expiry_rejected_20261015T102923Z/supervisor_cleanup.json",
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    }
+  ]
+}

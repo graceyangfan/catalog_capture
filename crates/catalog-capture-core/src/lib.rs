@@ -36,87 +36,89 @@ pub mod predict;
 pub mod runtime;
 pub mod sink;
 
-pub use advisories::{capture_advisories, CHUNKED_CUSTOM_DATA_ADVISORY};
+pub use advisories::{CHUNKED_CUSTOM_DATA_ADVISORY, capture_advisories};
 pub use atm_reference::{
-    select_cache_atm_reference, select_cache_perp_strike_fallback,
+    AtmReferenceSource, select_cache_atm_reference, select_cache_perp_strike_fallback,
     select_http_perp_ticker_atm_reference, select_strike_reference_from_decimal_string,
-    AtmReferenceSource,
 };
 pub use background::BackgroundCaptureRuntime;
 pub use budget::{
-    estimate_peak_buffered_bytes, family_partition_counts, format_budget_warning,
-    format_buffer_estimate, validate_capture_config, BufferMemoryEstimate, FamilyBufferEstimate,
+    BufferMemoryEstimate, FamilyBufferEstimate, estimate_peak_buffered_bytes,
+    family_partition_counts, format_budget_warning, format_buffer_estimate,
+    validate_capture_config,
 };
 pub use buffer::PartitionBuffer;
 pub use capture_run::{
-    capture_run_path, new_capture_run_record, write_capture_run_record, CaptureRunInput,
-    CaptureRunPlanSummary, CaptureRunRecord, CaptureRunVenueRecord, CAPTURE_RUN_FILE,
-    CAPTURE_RUN_SCHEMA_VERSION,
+    CAPTURE_RUN_FILE, CAPTURE_RUN_SCHEMA_VERSION, CaptureRunInput, CaptureRunPlanSummary,
+    CaptureRunRecord, CaptureRunVenueRecord, capture_run_path, new_capture_run_record,
+    write_capture_run_record,
 };
 pub use catalog_layout::{
     custom_data_dir, market_data_dir, path_is_under_custom_type, path_is_under_market_family,
 };
 pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy};
 pub use flush_profile::{
-    capture_config_for_family, family_row_group_rows, family_row_threshold, CaptureFlushFamily,
+    CaptureFlushFamily, capture_config_for_family, family_row_group_rows, family_row_threshold,
 };
-pub use forward_price::{forward_price_from_option_greeks, ForwardPrice};
+pub use forward_price::{ForwardPrice, forward_price_from_option_greeks};
 pub use forward_price_metadata::{
-    append_forward_price_records, forward_price_log_path, forward_price_record_from_model,
-    ForwardPriceRecord, FORWARD_PRICES_FILE,
+    FORWARD_PRICES_FILE, ForwardPriceRecord, append_forward_price_records, forward_price_log_path,
+    forward_price_record_from_model,
 };
 pub use hip4::{
+    HIP4_UNIVERSE_RESOLUTIONS_FILE, Hip4UniverseFamily, Hip4UniverseResolutionEventKind,
+    Hip4UniverseResolutionRecord, Hip4UniverseSpec, REFRESH_ROLLOVER_REASONS,
+    ResolveHip4MarketOptions, ResolvedHip4Market, ResolvedHip4Universe,
     append_hip4_universe_resolution_records, build_resolved_hip4_universe,
     compute_hip4_refresh_rollover_reason, expand_hip4_universe, hip4_perp_instrument_id,
     hip4_refresh_resolution_record, hip4_startup_resolution_record,
     hip4_universe_resolution_log_path, instrument_ids_from_outcomes, next_rotation_delay_secs,
     parse_expiry_to_ns, resolve_hip4_market, validate_hip4_refresh_resolution_record,
-    validate_hip4_refresh_rollover_reason, Hip4UniverseFamily, Hip4UniverseResolutionEventKind,
-    Hip4UniverseResolutionRecord, Hip4UniverseSpec, ResolveHip4MarketOptions, ResolvedHip4Market,
-    ResolvedHip4Universe, HIP4_UNIVERSE_RESOLUTIONS_FILE, REFRESH_ROLLOVER_REASONS,
+    validate_hip4_refresh_rollover_reason,
 };
 pub use item::{CaptureItem, PartitionKey};
 pub use lifecycle::{
+    CLOUD_BOOK_SUMMARY_POLL_ROWS, CLOUD_BOOK_SUMMARY_ROWS_PER_SEC, CUSTOM_MEMORY_FLUSH_ROWS,
+    CUSTOM_ROW_GROUP_ROWS, DEFAULT_SEAL_INTERVAL_SECS, DurabilityConfig, LifecycleConfig,
+    LifecycleMode, PARQUET_MAX_ROW_GROUPS, ROW_GROUP_ROLL_THRESHOLD, ResolvedSealSchedule,
+    SealConfigFile, SegmentCaptureSink, SegmentCustomDataSink, SegmentLifecycleConfig,
     estimated_row_groups, min_row_group_rows_for_day, next_seal_boundary_ns, resolve_seal_schedule,
-    seconds_to_hard_limit, should_seal_at, DurabilityConfig, LifecycleConfig, LifecycleMode,
-    ResolvedSealSchedule, SealConfigFile, SegmentCaptureSink, SegmentCustomDataSink,
-    SegmentLifecycleConfig, CLOUD_BOOK_SUMMARY_POLL_ROWS, CLOUD_BOOK_SUMMARY_ROWS_PER_SEC,
-    CUSTOM_MEMORY_FLUSH_ROWS, CUSTOM_ROW_GROUP_ROWS, DEFAULT_SEAL_INTERVAL_SECS,
-    PARQUET_MAX_ROW_GROUPS, ROW_GROUP_ROLL_THRESHOLD,
+    seconds_to_hard_limit, should_seal_at,
 };
 pub use metrics::{CaptureMetrics, FlushReason, FlushReasonMetrics};
 pub use metrics_export::{
-    process_rss_bytes, render_json, render_prometheus, unix_time_ms, CaptureMetricsSnapshot,
-    CustomDataRequestJobMetrics, FamilyCaptureMetrics,
+    CaptureMetricsSnapshot, CustomDataRequestJobMetrics, FamilyCaptureMetrics, process_rss_bytes,
+    render_json, render_prometheus, unix_time_ms,
 };
 pub use option_universe::{
-    aggregate_open_interest_by_strike, append_option_universe_resolution_records,
-    catalog_root_from_uri, compute_refresh_rollover_reason, derive_perp_instrument_id,
-    expand_option_universe, merge_capture_plans, okx_instrument_family,
-    option_instrument_ids_at_selected_expiry, option_universe_resolution_log_path,
-    read_option_universe_resolution_records, refresh_resolution_record, resolve_option_universe,
-    sample_all_strikes_instrument_ids, select_nearest_expiry_reference_instrument_id,
-    should_apply_strike_change, startup_resolution_record,
-    summarize_option_universe_resolution_records, validate_option_universe_readback,
-    validate_option_universe_resolution_metadata, validate_option_universe_resolution_records,
-    BarReadbackCount, ExpiryPolicy, InstrumentReadbackCounts, OptionUniverseFamily,
-    OptionUniverseReadbackOptions, OptionUniverseReadbackReport, OptionUniverseResolutionEventKind,
+    ALL_STRIKES_MIN_SELECTED_STRIKES, ALL_STRIKES_READBACK_SAMPLE_LIMIT, BarReadbackCount,
+    ExpiryPolicy, InstrumentReadbackCounts, OptionUniverseFamily, OptionUniverseReadbackOptions,
+    OptionUniverseReadbackReport, OptionUniverseResolutionEventKind,
     OptionUniverseResolutionRecord, OptionUniverseResolutionSummary,
     OptionUniverseResolutionValidationOptions, OptionUniverseResolutionValidationReport,
     OptionUniverseResolveError, OptionUniverseSpec, OptionUniverseVenueKind,
     ResolvedOptionUniverse, StrikeChangeSmoothingState, StrikeOpenInterestByStrike, StrikePolicy,
-    StrikeSelectionProfile, ALL_STRIKES_MIN_SELECTED_STRIKES, ALL_STRIKES_READBACK_SAMPLE_LIMIT,
+    StrikeSelectionProfile, aggregate_open_interest_by_strike,
+    append_option_universe_resolution_records, catalog_root_from_uri,
+    compute_refresh_rollover_reason, derive_perp_instrument_id, expand_option_universe,
+    merge_capture_plans, okx_instrument_family, option_instrument_ids_at_selected_expiry,
+    option_universe_resolution_log_path, read_option_universe_resolution_records,
+    refresh_resolution_record, resolve_option_universe, sample_all_strikes_instrument_ids,
+    select_nearest_expiry_reference_instrument_id, should_apply_strike_change,
+    startup_resolution_record, summarize_option_universe_resolution_records,
+    validate_option_universe_readback, validate_option_universe_resolution_metadata,
+    validate_option_universe_resolution_records,
 };
-pub use order_book_validation::{validate_order_book_replay, OrderBookReplayReport};
+pub use order_book_validation::{OrderBookReplayReport, validate_order_book_replay};
 pub use plan::{
-    capture_plan_difference, instrument_id_difference, instrument_id_overlap_and_new,
-    plan_instrument_ids, BarCaptureSpec, BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags,
-    CapturePlan, CustomDataCaptureSpec, CustomDataRequestCaptureSpec, ForwardPriceCaptureSpec,
-    FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
-    InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MarkPriceCaptureSpec,
-    OptionGreeksCaptureSpec, QuoteCaptureSpec, RequestOverlapPolicy, TradeCaptureSpec,
-    DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS, DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS,
-    DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS, MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
+    BarCaptureSpec, BookDeltasCaptureSpec, CaptureFamilyRuntimeFlags, CapturePlan,
+    CustomDataCaptureSpec, CustomDataRequestCaptureSpec, DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
+    DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS, DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS,
+    ForwardPriceCaptureSpec, FundingRateCaptureSpec, IndexPriceCaptureSpec, InstrumentCaptureSpec,
+    InstrumentCloseCaptureSpec, InstrumentStatusCaptureSpec, MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
+    MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, RequestOverlapPolicy,
+    TradeCaptureSpec, capture_plan_difference, instrument_id_difference,
+    instrument_id_overlap_and_new, plan_instrument_ids,
 };
 pub use predict::{
     CryptoUpDownMarketCandidate, CryptoUpDownMarketSelector, CryptoUpDownMarketWindow,
@@ -126,6 +128,6 @@ pub use predict::{
 };
 pub use runtime::{CaptureRuntime, FlushResult};
 pub use sink::{
-    chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config, BookDeltaCatalogSink,
-    CaptureSink, CatalogSink, ChunkedCatalogSink, CustomDataCatalogSink, NautilusCatalogSink,
+    BookDeltaCatalogSink, CaptureSink, CatalogSink, ChunkedCatalogSink, CustomDataCatalogSink,
+    NautilusCatalogSink, chunked_catalog_sink_from_config, custom_data_catalog_sink_from_config,
 };

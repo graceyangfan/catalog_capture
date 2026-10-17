@@ -174,8 +174,8 @@ mod tests {
     use chrono_tz::UTC;
 
     use super::{
-        next_seal_boundary_ns, parse_seal_schedule, resolve_seal_schedule, should_seal_at,
-        SealConfigFile, NANOSECONDS_IN_SECOND,
+        NANOSECONDS_IN_SECOND, SealConfigFile, next_seal_boundary_ns, parse_seal_schedule,
+        resolve_seal_schedule, should_seal_at,
     };
 
     fn utc_ns(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> u64 {

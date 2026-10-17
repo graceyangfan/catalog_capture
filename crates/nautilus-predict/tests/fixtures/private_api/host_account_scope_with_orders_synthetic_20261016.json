@@ -1,0 +1,641 @@
+{
+  "sessions": [
+    {
+      "source": "offline synthetic product host; not actual nonempty account capture",
+      "discoveredMarketId": 42,
+      "currentHolding": {
+        "id": "holding-1",
+        "market": {
+          "id": 43,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "decimalPrecision": 3,
+          "outcomes": [
+            {
+              "name": "fixture",
+              "indexSet": 1,
+              "onChainId": "33",
+              "status": null
+            }
+          ]
+        },
+        "outcome": {
+          "name": "fixture",
+          "indexSet": 1,
+          "onChainId": "33",
+          "status": null
+        },
+        "amount": "31360000000000000000",
+        "valueUsd": "0",
+        "averageBuyPriceUsd": "0.62",
+        "pnlUsd": "-1"
+      },
+      "activeTakeProfit": null,
+      "confirmedMatch": {
+        "market": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+          "createdAt": "2026-02-26T10:39:37.847Z",
+          "decimalPrecision": 3,
+          "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+          "feeRateBps": 200,
+          "id": 43,
+          "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.04,
+                "size": 50270.79999996875
+              },
+              "bestBid": {
+                "price": 0.039,
+                "size": 2601.199417273673
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "33",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.961,
+                "size": 2601.199417273673
+              },
+              "bestBid": {
+                "price": 0.96,
+                "size": 50270.79999996875
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "44",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+          ],
+          "question": "Will the US confirm that aliens exist before 2027?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-12-31T00:00:00.000Z",
+                "hourlyRate": 180,
+                "startsAt": "2026-04-28T14:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will the US confirm that aliens exist before 2027?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "32000000000000000000",
+          "price": "40000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "33",
+            "status": null,
+            "bestBid": {
+              "price": 0.039,
+              "size": 2644.199417273673
+            },
+            "bestAsk": {
+              "price": 0.04,
+              "size": 54757.333333312505
+            },
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x1111111111111111111111111111111111111111",
+          "hash": "0x5abfc4452def8ef90aab8247a52e026d39800ab2ddd908ddc879ada9b9e35120",
+          "fee": {
+            "amount": "640000000000000000",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "32000000000000000000",
+        "priceExecuted": "40000000000000000",
+        "makers": [
+          {
+            "quoteType": "Ask",
+            "amount": "32000000000000000000",
+            "price": "40000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "33",
+              "status": null,
+              "bestBid": {
+                "price": 0.039,
+                "size": 2644.199417273673
+              },
+              "bestAsk": {
+                "price": 0.04,
+                "size": 54757.333333312505
+              },
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+            "fee": {
+              "amount": "0",
+              "type": "COLLATERAL"
+            }
+          }
+        ],
+        "transactionHash": "0xb2de2bcb4f123d138ae271f2b23f1195995b174d17c35b302a9232ecb22dd35d",
+        "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+        "executedAt": "2026-10-16T14:37:40.115974+00:00"
+      },
+      "nativeFeedback": [
+        {
+          "type": "StrategyOnStart",
+          "accountBalances": [
+            [
+              {
+                "currency": "USDT",
+                "total": "1000.00000000 USDT",
+                "locked": "0.00000000 USDT",
+                "free": "1000.00000000 USDT"
+              }
+            ]
+          ],
+          "instruments": [
+            "42-1.PREDICT",
+            "42-2.PREDICT",
+            "43-1.PREDICT",
+            "43-2.PREDICT"
+          ],
+          "openOrders": 0,
+          "positions": [
+            {
+              "instrumentId": "43-1.PREDICT",
+              "quantity": "31.3600000000000000"
+            }
+          ]
+        }
+      ],
+      "discoveryAndMarketRequests": [
+        {
+          "kind": "category",
+          "slug": "btc-updown-5m-1792161300"
+        },
+        {
+          "kind": "category",
+          "slug": "btc-updown-5m-1792161600"
+        },
+        {
+          "kind": "challenge",
+          "body": {
+            "success": true,
+            "data": {
+              "message": "offline Predict node authentication challenge"
+            }
+          }
+        },
+        {
+          "kind": "authenticate",
+          "request": {
+            "signer": "0x1111111111111111111111111111111111111111",
+            "message": "offline Predict node authentication challenge",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57f4fc5ccc8b20db917eb3015a57fdb4c0658c074d89edd4eca6709f4d624749c80eeded39868060b22fe0f47c0587e888a252745f6d0b5c869b73f455119de44a1c"
+          }
+        },
+        {
+          "kind": "market",
+          "body": {
+            "success": true,
+            "data": {
+              "id": 42,
+              "title": "Bitcoin Up or Down - October 16, 10:35AM-10:40AM ET",
+              "tradingStatus": "OPEN",
+              "status": "OPEN",
+              "createdAt": "2026-10-03T22:00:00.000Z",
+              "decimalPrecision": 3,
+              "variantData": {
+                "type": "CRYPTO_UP_DOWN",
+                "priceFeedSymbol": "BTCUSDT"
+              },
+              "outcomes": [
+                {
+                  "name": "Up",
+                  "indexSet": 1,
+                  "onChainId": "11",
+                  "status": "WON"
+                },
+                {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "22",
+                  "status": "LOST"
+                }
+              ],
+              "feeRateBps": 0,
+              "isNegRisk": false,
+              "isYieldBearing": false
+            }
+          }
+        },
+        {
+          "kind": "market",
+          "body": {
+            "success": true,
+            "data": {
+              "id": 43,
+              "title": "Bitcoin Up or Down - October 16, 10:35AM-10:40AM ET",
+              "tradingStatus": "OPEN",
+              "status": "OPEN",
+              "createdAt": "2026-10-03T22:00:00.000Z",
+              "decimalPrecision": 3,
+              "variantData": {
+                "type": "CRYPTO_UP_DOWN",
+                "priceFeedSymbol": "BTCUSDT"
+              },
+              "outcomes": [
+                {
+                  "name": "Up",
+                  "indexSet": 1,
+                  "onChainId": "33",
+                  "status": "WON"
+                },
+                {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "44",
+                  "status": "LOST"
+                }
+              ],
+              "feeRateBps": 0,
+              "isNegRisk": false,
+              "isYieldBearing": false
+            }
+          }
+        }
+      ],
+      "orderWrites": 0,
+      "removalWrites": 0
+    },
+    {
+      "source": "offline synthetic product host; not actual nonempty account capture",
+      "discoveredMarketId": 42,
+      "currentHolding": {
+        "id": "holding-1",
+        "market": {
+          "id": 43,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "decimalPrecision": 3,
+          "outcomes": [
+            {
+              "name": "fixture",
+              "indexSet": 1,
+              "onChainId": "33",
+              "status": null
+            }
+          ]
+        },
+        "outcome": {
+          "name": "fixture",
+          "indexSet": 1,
+          "onChainId": "33",
+          "status": null
+        },
+        "amount": "31360000000000000000",
+        "valueUsd": "0",
+        "averageBuyPriceUsd": "0.62",
+        "pnlUsd": "-1"
+      },
+      "activeTakeProfit": {
+        "amount": "31360000000000000000",
+        "amountFilled": "0",
+        "currency": "USDT",
+        "id": "5571059310",
+        "isNegRisk": false,
+        "isYieldBearing": true,
+        "marketId": 43,
+        "order": {
+          "expiration": 4102444800,
+          "feeRateBps": "200",
+          "hash": "0x9335265e3d9d7592c813981d99e4331bbac6cff5329f09bd0bd9662b5de1511a",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "makerAmount": "31360000000000000000",
+          "nonce": "0",
+          "salt": "1338202951",
+          "side": 1,
+          "signature": "redacted-signature",
+          "signatureType": 0,
+          "signer": "0x1111111111111111111111111111111111111111",
+          "taker": "0x0000000000000000000000000000000000000000",
+          "takerAmount": "1348480000000000000",
+          "tokenId": "33"
+        },
+        "rewardEarningRate": 0,
+        "status": "OPEN",
+        "strategy": "LIMIT"
+      },
+      "confirmedMatch": {
+        "market": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "conditionId": "0xe8bd54b20478c0c47436c271935f6fc780f0ed6410df466f1cdea06aa4e1276f",
+          "createdAt": "2026-02-26T10:39:37.847Z",
+          "decimalPrecision": 3,
+          "description": "This market will resolve to \"Yes\" if the President of the United States, any member of the Cabinet of the United States, any member of the Joint Chiefs of Staff, or any US federal agency definitively states that extraterrestrial life or technology exists by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the government of the United States, however a consensus of credible reporting will also be used.",
+          "feeRateBps": 200,
+          "id": 43,
+          "imageUrl": "https://static.predict.fun/will-the-us-confirm-that-aliens-exist-before-2027-will-the-us-confirm-that-aliens-exist-before-2027",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0x01d708819633215843cc70c06b9ef67548981ce2b2444a795d92c3c91042e83f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.04,
+                "size": 50270.79999996875
+              },
+              "bestBid": {
+                "price": 0.039,
+                "size": 2601.199417273673
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "33",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.961,
+                "size": 2601.199417273673
+              },
+              "bestBid": {
+                "price": 0.96,
+                "size": 50270.79999996875
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "44",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x747dc809fb79e1b05be09c42d6179459a58de2ef3e40f02484a4e1260f741f75"
+          ],
+          "question": "Will the US confirm that aliens exist before 2027?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x0000000000000000000000000000000000000033",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-12-31T00:00:00.000Z",
+              "hourlyRate": 180,
+              "startsAt": "2026-04-28T14:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-12-31T00:00:00.000Z",
+                "hourlyRate": 180,
+                "startsAt": "2026-04-28T14:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will the US confirm that aliens exist before 2027?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "taker": {
+          "quoteType": "Bid",
+          "amount": "32000000000000000000",
+          "price": "40000000000000000",
+          "outcome": {
+            "name": "redacted-fixture",
+            "indexSet": 1,
+            "onChainId": "33",
+            "status": null,
+            "bestBid": {
+              "price": 0.039,
+              "size": 2644.199417273673
+            },
+            "bestAsk": {
+              "price": 0.04,
+              "size": 54757.333333312505
+            },
+            "team": null,
+            "variantData": null
+          },
+          "signer": "0x1111111111111111111111111111111111111111",
+          "hash": "0x5abfc4452def8ef90aab8247a52e026d39800ab2ddd908ddc879ada9b9e35120",
+          "fee": {
+            "amount": "640000000000000000",
+            "type": "SHARES"
+          }
+        },
+        "amountFilled": "32000000000000000000",
+        "priceExecuted": "40000000000000000",
+        "makers": [
+          {
+            "quoteType": "Ask",
+            "amount": "32000000000000000000",
+            "price": "40000000000000000",
+            "outcome": {
+              "name": "redacted-fixture",
+              "indexSet": 1,
+              "onChainId": "33",
+              "status": null,
+              "bestBid": {
+                "price": 0.039,
+                "size": 2644.199417273673
+              },
+              "bestAsk": {
+                "price": 0.04,
+                "size": 54757.333333312505
+              },
+              "team": null,
+              "variantData": null
+            },
+            "signer": "0x0000000000000000000000000000000000000033",
+            "hash": "0xdb0058169dbc395194ae297f6c83cc54f5eb70b5f44bf113b673ff9b62469f2b",
+            "fee": {
+              "amount": "0",
+              "type": "COLLATERAL"
+            }
+          }
+        ],
+        "transactionHash": "0xb2de2bcb4f123d138ae271f2b23f1195995b174d17c35b302a9232ecb22dd35d",
+        "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+        "executedAt": "2026-10-16T14:37:41.257168+00:00"
+      },
+      "nativeFeedback": [
+        {
+          "type": "StrategyOnStart",
+          "accountBalances": [
+            [
+              {
+                "currency": "USDT",
+                "total": "1000.00000000 USDT",
+                "locked": "0.00000000 USDT",
+                "free": "1000.00000000 USDT"
+              }
+            ]
+          ],
+          "instruments": [
+            "42-1.PREDICT",
+            "42-2.PREDICT",
+            "43-1.PREDICT",
+            "43-2.PREDICT"
+          ],
+          "openOrders": 1,
+          "positions": [
+            {
+              "instrumentId": "43-1.PREDICT",
+              "quantity": "31.3600000000000000"
+            }
+          ]
+        }
+      ],
+      "discoveryAndMarketRequests": [
+        {
+          "kind": "category",
+          "slug": "btc-updown-5m-1792161300"
+        },
+        {
+          "kind": "category",
+          "slug": "btc-updown-5m-1792161600"
+        },
+        {
+          "kind": "challenge",
+          "body": {
+            "success": true,
+            "data": {
+              "message": "offline Predict node authentication challenge"
+            }
+          }
+        },
+        {
+          "kind": "authenticate",
+          "request": {
+            "signer": "0x1111111111111111111111111111111111111111",
+            "message": "offline Predict node authentication challenge",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57f4fc5ccc8b20db917eb3015a57fdb4c0658c074d89edd4eca6709f4d624749c80eeded39868060b22fe0f47c0587e888a252745f6d0b5c869b73f455119de44a1c"
+          }
+        },
+        {
+          "kind": "market",
+          "body": {
+            "success": true,
+            "data": {
+              "id": 42,
+              "title": "Bitcoin Up or Down - October 16, 10:35AM-10:40AM ET",
+              "tradingStatus": "OPEN",
+              "status": "OPEN",
+              "createdAt": "2026-10-03T22:00:00.000Z",
+              "decimalPrecision": 3,
+              "variantData": {
+                "type": "CRYPTO_UP_DOWN",
+                "priceFeedSymbol": "BTCUSDT"
+              },
+              "outcomes": [
+                {
+                  "name": "Up",
+                  "indexSet": 1,
+                  "onChainId": "11",
+                  "status": "WON"
+                },
+                {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "22",
+                  "status": "LOST"
+                }
+              ],
+              "feeRateBps": 0,
+              "isNegRisk": false,
+              "isYieldBearing": false
+            }
+          }
+        },
+        {
+          "kind": "market",
+          "body": {
+            "success": true,
+            "data": {
+              "id": 43,
+              "title": "Bitcoin Up or Down - October 16, 10:35AM-10:40AM ET",
+              "tradingStatus": "OPEN",
+              "status": "OPEN",
+              "createdAt": "2026-10-03T22:00:00.000Z",
+              "decimalPrecision": 3,
+              "variantData": {
+                "type": "CRYPTO_UP_DOWN",
+                "priceFeedSymbol": "BTCUSDT"
+              },
+              "outcomes": [
+                {
+                  "name": "Up",
+                  "indexSet": 1,
+                  "onChainId": "33",
+                  "status": "WON"
+                },
+                {
+                  "name": "Down",
+                  "indexSet": 2,
+                  "onChainId": "44",
+                  "status": "LOST"
+                }
+              ],
+              "feeRateBps": 0,
+              "isNegRisk": false,
+              "isYieldBearing": false
+            }
+          }
+        }
+      ],
+      "orderWrites": 0,
+      "removalWrites": 0
+    }
+  ]
+}

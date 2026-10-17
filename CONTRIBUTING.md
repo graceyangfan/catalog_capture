@@ -21,7 +21,7 @@ Contributions are accepted under **LGPL-3.0-or-later**. See `LICENSE` and `NOTIC
 ```bash
 # Prefer the CI-pinned Nautilus revision (reproducible builds)
 make bootstrap-deps
-# Power users with an existing editable ../nautilus_trader tree:
+# Power users with an existing editable ../nautilus_trader_quantity_commission tree:
 #   make bootstrap-deps-local
 
 make install-tools

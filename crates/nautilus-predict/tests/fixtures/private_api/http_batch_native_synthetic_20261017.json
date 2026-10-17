@@ -1,0 +1,2703 @@
+{
+  "sessions": [
+    {
+      "source": "offline synthetic Rust strategy + Native LiveNode; one multi-ID HTTP removal except one invalid preflight leg",
+      "mode": "removed",
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12346",
+              "12345"
+            ]
+          }
+        }
+      ],
+      "receipts": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "removed": [
+              "12346",
+              "12345"
+            ],
+            "noop": []
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "12346",
+                "12345"
+              ]
+            }
+          }
+        }
+      ],
+      "native": [
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166760002918000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "3323de8e-3747-43bb-8f1b-170680a12138",
+            "ts_accepted": 1792166760002507000,
+            "ts_last": 1792166760002507000,
+            "ts_init": 1792166760002507000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166760002949000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "ee395950-c395-4bc6-9904-79ad897f927c",
+            "ts_accepted": 1792166760002507000,
+            "ts_last": 1792166760002507000,
+            "ts_init": 1792166760002507000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760003009000,
+          "kind": "Initialized",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": null,
+          "tsEvent": 1792166760002980000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760003050000,
+          "kind": "Initialized",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": null,
+          "tsEvent": 1792166760003043001
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760003103000,
+          "kind": "Accepted",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166760002507000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760003127000,
+          "kind": "Accepted",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166760002507000
+        },
+        {
+          "type": "StrategyOnStart",
+          "existingOrders": 2,
+          "cachedOrders": 2,
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "585a2978-05ce-4120-8587-49d6b0a274ca",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760104523000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166760104471000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760104579000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166760104563000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760104682000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166760104658000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "price": "0.02",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760104729000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166760104717000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "price": "0.01",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "07c1da92-b68a-4bf1-ab5c-3b107fd2683d",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyBatchCancelOrders",
+          "clientOrderIds": [
+            "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a"
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760206090000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166760206026000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760206140000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166760206126000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760207755000,
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166760207689000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166760207799000,
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166760207712000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166760208099000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "c55b3799-4d5e-46a8-801e-b2b9101e0134",
+            "ts_accepted": 1792166760002507000,
+            "ts_last": 1792166760207000000,
+            "ts_init": 1792166760208078000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166760208128000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "0a603743-c7c5-4ca6-b8e1-8f8e96f223d0",
+            "ts_accepted": 1792166760002507000,
+            "ts_last": 1792166760207000000,
+            "ts_init": 1792166760208106000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166760208139000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "be068e26-9ab9-4803-b51a-d6acfdf89121",
+            "ts_accepted": 1792166760002507000,
+            "ts_last": 1792166760207000000,
+            "ts_init": 1792166760208118000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166760208148000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "38844462-e546-483f-958e-84077f6c16af",
+            "ts_accepted": 1792166760002507000,
+            "ts_last": 1792166760207000000,
+            "ts_init": 1792166760208131000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "bb88e128-3b81-4abd-9383-a03212896b79",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "0.00000000",
+              "free": "1000.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RecorderDetached"
+        }
+      ]
+    },
+    {
+      "source": "offline synthetic Rust strategy + Native LiveNode; one multi-ID HTTP removal except one invalid preflight leg",
+      "mode": "mixed",
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12346",
+              "12345"
+            ]
+          }
+        }
+      ],
+      "receipts": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "removed": [
+              "12346"
+            ],
+            "noop": [
+              "12345"
+            ]
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "12346",
+                "12345"
+              ]
+            }
+          }
+        }
+      ],
+      "native": [
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166761535087000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "d2656bc8-82ae-430b-8166-b8036610295e",
+            "ts_accepted": 1792166761534689000,
+            "ts_last": 1792166761534689000,
+            "ts_init": 1792166761534689000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166761535107000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "a82d96a0-eba6-4ab1-9913-d8337a5b81f0",
+            "ts_accepted": 1792166761534689000,
+            "ts_last": 1792166761534689000,
+            "ts_init": 1792166761534689000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761535149000,
+          "kind": "Initialized",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": null,
+          "tsEvent": 1792166761535130000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761535174000,
+          "kind": "Initialized",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": null,
+          "tsEvent": 1792166761535168000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761535220000,
+          "kind": "Accepted",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166761534689000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761535242000,
+          "kind": "Accepted",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166761534689000
+        },
+        {
+          "type": "StrategyOnStart",
+          "existingOrders": 2,
+          "cachedOrders": 2,
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "e982e89d-e248-4162-87c5-3ac9b2f852af",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761637725000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166761637683000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761637771000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166761637760000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761637845000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166761637823000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "price": "0.02",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761637889000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166761637876000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "price": "0.01",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "41ff3626-10b4-406b-bf0f-50b638181843",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyBatchCancelOrders",
+          "clientOrderIds": [
+            "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a"
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761737255000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166761737214000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761737292000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166761737281000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761738699000,
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166761738649000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166761738935000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "f2a15cc4-c875-4dc9-8ba2-fa509a6eaa8b",
+            "ts_accepted": 1792166761534689000,
+            "ts_last": 1792166761738916000,
+            "ts_init": 1792166761738916000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166761738980000,
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166761738916000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166761739250000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "fafad4f6-6b62-4b3c-92b3-3fef34264418",
+            "ts_accepted": 1792166761534689000,
+            "ts_last": 1792166761739000000,
+            "ts_init": 1792166761739225000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166761739262000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "768871cc-d4a7-40d5-9792-425d670c1aeb",
+            "ts_accepted": 1792166761534689000,
+            "ts_last": 1792166761739000000,
+            "ts_init": 1792166761739247000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166761739271000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "3fabb8de-5637-4d19-b0ce-55fecbc644d4",
+            "ts_accepted": 1792166761534689000,
+            "ts_last": 1792166761739000000,
+            "ts_init": 1792166761739259000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166761739280000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "98d2744e-aabf-4681-8b2d-3e326f245438",
+            "ts_accepted": 1792166761534689000,
+            "ts_last": 1792166761739000000,
+            "ts_init": 1792166761739272000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "3199cef6-e10c-4725-9bb7-3665683753b9",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "0.00000000",
+              "free": "1000.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RecorderDetached"
+        }
+      ]
+    },
+    {
+      "source": "offline synthetic Rust strategy + Native LiveNode; one multi-ID HTTP removal except one invalid preflight leg",
+      "mode": "rejected",
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12346",
+              "12345"
+            ]
+          }
+        }
+      ],
+      "receipts": [
+        {
+          "status": 400,
+          "body": {
+            "success": false,
+            "message": "fixture explicit batch rejection"
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "12346",
+                "12345"
+              ]
+            }
+          }
+        }
+      ],
+      "native": [
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166763067223000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "e1c2c8d8-02bd-4e8f-a0c5-44de80f629d1",
+            "ts_accepted": 1792166763066821000,
+            "ts_last": 1792166763066821000,
+            "ts_init": 1792166763066821000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166763067243000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "5561b2db-4e41-4583-9c00-b9e4ea0a876e",
+            "ts_accepted": 1792166763066821000,
+            "ts_last": 1792166763066821000,
+            "ts_init": 1792166763066821000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763067285000,
+          "kind": "Initialized",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": null,
+          "tsEvent": 1792166763067263000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763067309000,
+          "kind": "Initialized",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": null,
+          "tsEvent": 1792166763067305000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763067358000,
+          "kind": "Accepted",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166763066821000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763067382000,
+          "kind": "Accepted",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166763066821000
+        },
+        {
+          "type": "StrategyOnStart",
+          "existingOrders": 2,
+          "cachedOrders": 2,
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "165d8d00-7e15-4279-8e8d-bcafe0b6876d",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763169853000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166763169806000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763169899000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166763169888000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763169972000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166763169949000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "price": "0.02",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763170016000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166763170003000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "price": "0.01",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "2629a226-e26a-41ba-b907-ca431cb85ad6",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyBatchCancelOrders",
+          "clientOrderIds": [
+            "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a"
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763269626000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166763269576000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763269666000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166763269654000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763271669000,
+          "kind": "CancelRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166763271626000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "CancelRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763271704000,
+          "kind": "CancelRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166763271641000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "CancelRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166763272021000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "f470e0de-54b6-43dd-bb79-e3f8632d4f6d",
+            "ts_accepted": 1792166763066821000,
+            "ts_last": 1792166763271000000,
+            "ts_init": 1792166763271999000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763272087000,
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166763271000000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166763272104000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "e7c78d7e-f7df-4f0f-bbbc-4d41293b1eaf",
+            "ts_accepted": 1792166763066821000,
+            "ts_last": 1792166763271000000,
+            "ts_init": 1792166763272028000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166763272114000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "18de49e4-ce49-42db-a0c2-928369392d50",
+            "ts_accepted": 1792166763066821000,
+            "ts_last": 1792166763271000000,
+            "ts_init": 1792166763272040000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166763272139000,
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166763271000000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166763272152000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "0cbc8be8-918d-485f-9c8c-b936f32c4575",
+            "ts_accepted": 1792166763066821000,
+            "ts_last": 1792166763271000000,
+            "ts_init": 1792166763272052000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "b39b7ce8-aafb-4d78-81d4-3061eaec1249",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "0.00000000",
+              "free": "1000.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RecorderDetached"
+        }
+      ]
+    },
+    {
+      "source": "offline synthetic Rust strategy + Native LiveNode; one multi-ID HTTP removal except one invalid preflight leg",
+      "mode": "unknown",
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12346",
+              "12345"
+            ]
+          }
+        }
+      ],
+      "receipts": [
+        {
+          "status": 500,
+          "body": {
+            "success": false,
+            "message": "fixture unknown batch outcome"
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "12346",
+                "12345"
+              ]
+            }
+          }
+        }
+      ],
+      "native": [
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166764602166000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "2f7ae894-37c7-4aa7-b2a5-166987526c59",
+            "ts_accepted": 1792166764601659000,
+            "ts_last": 1792166764601659000,
+            "ts_init": 1792166764601659000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166764602188000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "fb2a7028-ba1c-41f3-a7cc-33b4a804f758",
+            "ts_accepted": 1792166764601659000,
+            "ts_last": 1792166764601659000,
+            "ts_init": 1792166764601659000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764602229000,
+          "kind": "Initialized",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": null,
+          "tsEvent": 1792166764602205000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764602254000,
+          "kind": "Initialized",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": null,
+          "tsEvent": 1792166764602250000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764602301000,
+          "kind": "Accepted",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166764601659000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764602328000,
+          "kind": "Accepted",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166764601659000
+        },
+        {
+          "type": "StrategyOnStart",
+          "existingOrders": 2,
+          "cachedOrders": 2,
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "4d7fcd9e-520e-4eb5-944c-019d1e767f35",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764703922000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166764703874000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764703978000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166764703966000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764704063000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166764704038000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "price": "0.02",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764704110000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166764704097000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "price": "0.01",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "859ac7db-9761-4e6f-9936-5d1c2d052d2f",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyBatchCancelOrders",
+          "clientOrderIds": [
+            "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a"
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764804024000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166764803981000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764804062000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166764804051000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "e3f2ec17-2a4d-42a0-b0eb-aefe2b376301",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166764906390000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "103fe26d-2544-4c84-9e3f-a80ed23456a1",
+            "ts_accepted": 1792166764601659000,
+            "ts_last": 1792166764905000000,
+            "ts_init": 1792166764906349000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764906476000,
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166764905000000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166764906505000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "9cdf894f-550e-486f-b01f-09b54fc1dd76",
+            "ts_accepted": 1792166764601659000,
+            "ts_last": 1792166764905000000,
+            "ts_init": 1792166764906384000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166764906518000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "bf96f0ba-a8c7-4de4-b285-31fe7771c5dd",
+            "ts_accepted": 1792166764601659000,
+            "ts_last": 1792166764906000000,
+            "ts_init": 1792166764906397000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166764906547000,
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166764906000000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166764906560000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "00e39f85-9749-4575-a0ce-cd7d9b91abd8",
+            "ts_accepted": 1792166764601659000,
+            "ts_last": 1792166764906000000,
+            "ts_init": 1792166764906410000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "28167875-871b-4e91-908e-aa9256c965bd",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "0.00000000",
+              "free": "1000.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RecorderDetached"
+        }
+      ]
+    },
+    {
+      "source": "offline synthetic Rust strategy + Native LiveNode; one multi-ID HTTP removal except one invalid preflight leg",
+      "mode": "preflight",
+      "removals": [
+        {
+          "data": {
+            "ids": [
+              "12345"
+            ]
+          }
+        }
+      ],
+      "receipts": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "removed": [
+              "12345"
+            ],
+            "noop": []
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "12345"
+              ]
+            }
+          }
+        }
+      ],
+      "native": [
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166766231080000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "ce6a84be-7965-4afd-9207-bb9d479c6d21",
+            "ts_accepted": 1792166766230690000,
+            "ts_last": 1792166766230690000,
+            "ts_init": 1792166766230690000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166766231101000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": null,
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "ACCEPTED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "1bdae334-c2d0-484c-8e72-ce171fa932d3",
+            "ts_accepted": 1792166766230690000,
+            "ts_last": 1792166766230690000,
+            "ts_init": 1792166766230690000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766231146000,
+          "kind": "Initialized",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": null,
+          "tsEvent": 1792166766231122000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766231177000,
+          "kind": "Initialized",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": null,
+          "tsEvent": 1792166766231168000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766231224000,
+          "kind": "Accepted",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166766230690000
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766231246000,
+          "kind": "Accepted",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166766230690000
+        },
+        {
+          "type": "StrategyOnStart",
+          "existingOrders": 2,
+          "cachedOrders": 2,
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "8a30f343-0f3e-4e84-94d8-80c9cabf4237",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766333551000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166766333503000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766333597000,
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166766333586000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingUpdate",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_UPDATE",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766333678000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166766333655000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "price": "0.02",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766333725000,
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166766333712000
+        },
+        {
+          "type": "ModifyTermsPreserved",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "price": "0.01",
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "ModifyRejected",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "c28c4be6-d717-44c7-9b5d-251da89821e8",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "2.00000000",
+              "free": "998.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "type": "StrategyBatchCancelOrders",
+          "clientOrderIds": [
+            "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a"
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766433462000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166766433408000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766433504000,
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166766433491000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "PendingCancel",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "PENDING_CANCEL",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766434012000,
+          "kind": "CancelRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166766433892000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "CancelRejected",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "ACCEPTED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166766434414000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "85e943c4-8671-4cab-9bde-f4ff7e221019",
+            "ts_accepted": 1792166766230690000,
+            "ts_last": 1792166766434000000,
+            "ts_init": 1792166766434391000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766434477000,
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "tsEvent": 1792166766434000000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "venueOrderId": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166766434497000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "venue_order_id": "0xd8b6a63ccd9ae67c3a7de27f00db50c0923abda5514f21f47c0531ed7000e11a",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "100.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "ca07c8fa-b980-468f-987e-a9d71274b7a9",
+            "ts_accepted": 1792166766230690000,
+            "ts_last": 1792166766434000000,
+            "ts_init": 1792166766434418000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.010",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166766434508000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "e169af50-0ba6-4e04-ac98-bb664c5f0005",
+            "ts_accepted": 1792166766230690000,
+            "ts_last": 1792166766434000000,
+            "ts_init": 1792166766434430000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "phase": "recover",
+          "type": "NativeOrderEvent",
+          "observedNs": 1792166766434539000,
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "tsEvent": 1792166766434000000
+        },
+        {
+          "type": "StrategyOrderCallback",
+          "kind": "Canceled",
+          "clientOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "venueOrderId": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+          "cachedStatus": "CANCELED",
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RawOrderStatusReport",
+          "observedNs": 1792166766434553000,
+          "report": {
+            "type": "OrderStatusReport",
+            "account_id": "PREDICT-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "venue_order_id": "0x9edc6e4a9bcd50d410138842d0ce67aee481c308001586115bea839e2e123d82",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "time_in_force": "GTD",
+            "order_status": "CANCELED",
+            "quantity": "50.0000000000000000",
+            "filled_qty": "0.0000000000000000",
+            "report_id": "01c5f144-d358-4525-9c8f-83314f9b556f",
+            "ts_accepted": 1792166766230690000,
+            "ts_last": 1792166766434000000,
+            "ts_init": 1792166766434441000,
+            "order_list_id": null,
+            "venue_position_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "expire_time": 4102444800000000000,
+            "price": "0.020",
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "avg_px": null,
+            "display_qty": null,
+            "post_only": false,
+            "reduce_only": false,
+            "cancel_reason": null,
+            "ts_triggered": null
+          }
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "600a1141-875f-4fcc-a169-d07707b479d6",
+          "balances": [
+            {
+              "total": "1000.00000000",
+              "locked": "0.00000000",
+              "free": "1000.00000000"
+            }
+          ],
+          "phase": "recover"
+        },
+        {
+          "phase": "recover",
+          "type": "RecorderDetached"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,320 @@
+{
+  "source": "actual readonly order API evidence, official SDK hash validation, and derived Rust Strategy+LiveNode nonempty cold-start replay",
+  "nativeHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "officialDevelopCompiled": false,
+  "sdk": "predict-sdk 0.0.22",
+  "contracts": {
+    "venueOnlyClientOrderId": null,
+    "nativeExternalOrClaimedOwnership": true,
+    "strategyClaimInterface": "Strategy::external_order_instrument_ids exposed before LiveNode startup; config alone is insufficient for default trait",
+    "instrumentsLoadedByNativeDataClient": true,
+    "adapterCreatesNativeOrdersOrPositions": false,
+    "supportedColdKinds": [
+      "LIMIT BUY",
+      "LIMIT SELL",
+      "MARKET SELL"
+    ],
+    "unsupported": [
+      "external MARKET BUY quantity semantics",
+      "orphan nonzero holdings lacking both cost and confirmed fill history",
+      "missing required market definitions"
+    ],
+    "strictPartialRawCumulativeEquality": true,
+    "currentHoldingsRecoverOlderFillPrefix": true,
+    "originalIntentOwner": "native persistence plus strategy on_save/on_load; no TP role inferred from a SELL row"
+  },
+  "derivedSessions": [
+    {
+      "claim": false,
+      "holdingOnly": false,
+      "initialOrders": 0,
+      "initialPositions": 0,
+      "initialInstruments": 0,
+      "onStart": {
+        "type": "StrategyOnStart",
+        "openOrders": 1,
+        "netPositions": [
+          "31.3600000000000000"
+        ],
+        "owners": [
+          "EXTERNAL"
+        ],
+        "cash": "47.01772920 USDT",
+        "locked": "0.00000000 USDT"
+      },
+      "repeatedEvents": 0,
+      "orderWrites": 0
+    },
+    {
+      "claim": true,
+      "holdingOnly": false,
+      "initialOrders": 0,
+      "initialPositions": 0,
+      "initialInstruments": 0,
+      "onStart": {
+        "type": "StrategyOnStart",
+        "openOrders": 1,
+        "netPositions": [
+          "31.3600000000000000"
+        ],
+        "owners": [
+          "COLD-001"
+        ],
+        "cash": "47.01772920 USDT",
+        "locked": "0.00000000 USDT"
+      },
+      "repeatedEvents": 0,
+      "orderWrites": 0
+    },
+    {
+      "claim": true,
+      "holdingOnly": true,
+      "initialOrders": 0,
+      "initialPositions": 0,
+      "initialInstruments": 0,
+      "onStart": {
+        "type": "StrategyOnStart",
+        "openOrders": 0,
+        "netPositions": [
+          "31.3600000000000000"
+        ],
+        "owners": [],
+        "cash": "47.01772920 USDT",
+        "locked": "0.00000000 USDT"
+      },
+      "repeatedEvents": 0,
+      "orderWrites": 0
+    }
+  ],
+  "realReadOnly": {
+    "orderHashesVerifiedBySdkBeforeRedaction": 6,
+    "historicalOrderStates": [
+      "FILLED",
+      "CANCELLED"
+    ],
+    "currentOrders": 0,
+    "currentPositions": 0,
+    "nativeCashUsdt": "48.21630840",
+    "nativeLockedUsdt": "0.00000000",
+    "newRealOrderWrites": 0,
+    "chainWrites": 0,
+    "notANonemptyRealRestart": true
+  },
+  "validation": {
+    "rustOfflinePassed": 289,
+    "rustDefaultIgnored": 59,
+    "pythonPassed": 88,
+    "newRustTests": 4,
+    "newPythonTests": 4,
+    "additionalNativeRedisTestsPassed": 3,
+    "additionalDerivedJsonCapturePassed": 1,
+    "additionalAuthorizedReadonlyLiveNodePassed": 1,
+    "adapterAllTargetClippyWarningsDenied": "passed",
+    "minimalExecutionAllTargetBuild": "passed",
+    "formatWhitespace": "passed",
+    "counterfactual": "legacy reject-unknown policy makes new Native cold-start test fail; source restored before final complete checks"
+  },
+  "redis": {
+    "ownedRandomPortChildrenTerminated": true,
+    "maxmemoryBytesEach": 33554432,
+    "rdbEnabled": false,
+    "aofEnabled": false,
+    "user6379Untouched": true
+  },
+  "normalLiveOnStopCancellationDefaultChanged": false,
+  "testOnlyRestartShutdownSimulation": "first offline node preserves venue orders to model lost connection; no OS process crash claim",
+  "limits": [
+    "Required instruments must be loaded first by native provider/DataClient; account-held old-market autoload in execution host remains follow-up",
+    "Current live positions are zero; nonempty position envelope and earlier OPEN TP state are explicitly derived",
+    "No external MARKET BUY adoption or unsupported precision guessing",
+    "Previous actual/derived evidence not overwritten",
+    "No additional reconciliation timer or independent order/position ledger"
+  ],
+  "files": [
+    {
+      "grade": "primary readonly preliminary historical orders",
+      "path": "cold_start_readonly_20261016T132812Z.json",
+      "sha256": "cbbf3b518b3f2f00f84bb91e954d94fc69a064b573ac1dde21690a0db76ac22a"
+    },
+    {
+      "grade": "primary readonly six historical order DTOs + SDK pre-redaction hash validation",
+      "path": "cold_start_readonly_20261016T133220Z.json",
+      "sha256": "46c2a8b9d8c37e1ce65b735468e35129141467e76274ea34532253e1bb65f7cd"
+    },
+    {
+      "grade": "actual readonly Native startup on flat account",
+      "path": "native_startup_readonly_20261016T134608Z_33956.json",
+      "sha256": "4dbe62f6ade1149ad9e5978e67c81df2a5964dcd23417f6a2ff4ceca3c1f1dd2"
+    },
+    {
+      "grade": "derived historical nonempty state; not raw nonempty REST observation",
+      "path": "cold_start_native_actual_derived_20261016.json",
+      "sha256": "4a892fd33ec6631cd7d76e19e4b848977644ce92bc656b2f94c52ad97850ffeb"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "crates/nautilus-predict/src/execution/external.rs",
+      "sha256": "b8eabc5ae45d4a2896963e1a0a1bd247c0c407c327bca0d40ff6453a861468ec"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/reconciliation.rs",
+      "sha256": "356c4eed5b366accc8906e878629d811b692bc8ae7724acd3c836aa27233afe0"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/mod.rs",
+      "sha256": "d01aa8a7ce53462ddabc83e1e0d4fab15ac5c15e5e6b2d6a8c7101beef06641b"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution.rs",
+      "sha256": "9705190e27d1f11767d4c4f98ef16983253fed7078c522045b0ac6dbf646a265"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/cold_start.rs",
+      "sha256": "2cad8c9b39e4d72b6bf91768dd9dcfc4b13a1a286e75ba6aa815753ee0016170"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/bulk_reports.rs",
+      "sha256": "f28925a5ff465e8c84ff394945d6364994adc04aa628aa9ced0655c20198dcd9"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/restart_live.rs",
+      "sha256": "8ad5b180c674823d2b18b7593bf94fad3ee85ebbad839692eea71fc990faf736"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/exit_strategy.rs",
+      "sha256": "fb94e81a78448e0b664ff929c2cf14b371e0234e48bf107e0e8c5126f874ed53"
+    },
+    {
+      "path": "tests/capture_predict_startup_readonly.py",
+      "sha256": "a96f08e888e4582b0047787c4573cf0eacb2265b485c62ec362079697cb3d054"
+    },
+    {
+      "path": "tests/test_predict_cold_start.py",
+      "sha256": "c0d4c82fbae42af97af18bbd82b0eefede6d40e4790ed940e00ee33b9c0ce1d0"
+    }
+  ],
+  "priorRecordedFlowFilesPreserved": 9,
+  "priorActualFillFilesPreserved": 18,
+  "previousValidationSha256": "0a54a0b212d127d5e8012fd356d3a892ac945d7d2dc7107a24f0d14e6b6a13e3",
+  "intermediateLogsRemoved": [
+    {
+      "path": ".predict-cold-start-all.log",
+      "sha256": "ec3b162f482bc346659666ac88290111d4690ebdf58ccca7cdb8b566ea953e25",
+      "bytes": 2956928
+    },
+    {
+      "path": ".predict-cold-start-capture.log",
+      "sha256": "f962f2e756737e3d288fe6834e1e7e1046487c33748bbeccf8d95f6353ca4c24",
+      "bytes": 73385
+    },
+    {
+      "path": ".predict-cold-start-clippy-final.log",
+      "sha256": "98a7ee3bd36a658c09c97bffe27a96524b699fe52c3ecc6e2e1566077713c285",
+      "bytes": 418
+    },
+    {
+      "path": ".predict-cold-start-clippy-verified.log",
+      "sha256": "e357b38d6fb56e00173a8e8058dee55c79935deddeb6fe53b82f8eb45549d700",
+      "bytes": 662
+    },
+    {
+      "path": ".predict-cold-start-clippy.log",
+      "sha256": "f32be06b48924f350b458a177812ee08280bed32cdc5c84bc6ddfac3219d9738",
+      "bytes": 1804
+    },
+    {
+      "path": ".predict-cold-start-counterfactual.log",
+      "sha256": "93dcecb1eb623e85ab0dd098a98e21dc4940454b285b4f1086bf618f26384023",
+      "bytes": 13635
+    },
+    {
+      "path": ".predict-cold-start-feature-check.log",
+      "sha256": "e27c52c9fd2a59056745c7ec09e12f87ba72684155a8e44052e46b3e44c8b599",
+      "bytes": 717
+    },
+    {
+      "path": ".predict-cold-start-final-complete-clippy.log",
+      "sha256": "40abbc2dbfb6e34fa145457873a2ab02c58cf818edd528c942a5d1ca9aca32f9",
+      "bytes": 662
+    },
+    {
+      "path": ".predict-cold-start-final-complete-feature.log",
+      "sha256": "5bace60ba928e451ead7402b20639ccbc31cca4588cb7bd81e3ff71f21c6298b",
+      "bytes": 716
+    },
+    {
+      "path": ".predict-cold-start-final-complete-tests.log",
+      "sha256": "f34d1d9b9ae2b1f0e2834ec91cb3365ee2ad99c9714faf8573b3e289ceba9ade",
+      "bytes": 3003649
+    },
+    {
+      "path": ".predict-cold-start-final-format.log",
+      "sha256": "2124a7ae72c8e83953118e02797383922032fce908c432f28851124659f24274",
+      "bytes": 1752
+    },
+    {
+      "path": ".predict-cold-start-final-tests.log",
+      "sha256": "58cde6f1cadc86c9eec098df4bcb1bdda56a6b21bfe1e888c9e6bcc59b614359",
+      "bytes": 2999688
+    },
+    {
+      "path": ".predict-cold-start-format.log",
+      "sha256": "2124a7ae72c8e83953118e02797383922032fce908c432f28851124659f24274",
+      "bytes": 1752
+    },
+    {
+      "path": ".predict-cold-start-live-full.log",
+      "sha256": "ee08ad1c1edf30ffb1113f7820f59adf2a90300f607b37237ff6b455aeca597c",
+      "bytes": 158
+    },
+    {
+      "path": ".predict-cold-start-live.log",
+      "sha256": "4a086e8594eeef28c406b5e80d3795bf2989cb3a503dcbe6f166497e241c8da3",
+      "bytes": 158
+    },
+    {
+      "path": ".predict-cold-start-mainnet-node.log",
+      "sha256": "9352172786f2f433ad34447eeae301ce23319022810c53688538bb217174010b",
+      "bytes": 19875
+    },
+    {
+      "path": ".predict-cold-start-native-all.log",
+      "sha256": "cdbda4a02664689c893fa979b5a3a372f7d1d92fb173423cc2538a535bedbda3",
+      "bytes": 75798
+    },
+    {
+      "path": ".predict-cold-start-native.log",
+      "sha256": "f70c31d84445e2a31a9ddab35b6b857cf0a9f72968256f74b2306b677001a9c2",
+      "bytes": 74621
+    },
+    {
+      "path": ".predict-cold-start-persistence-repaired.log",
+      "sha256": "3b72844ff56776857c6cf1d6d1c8294f99d7e6539eeb4f61ac6364f07117a1a5",
+      "bytes": 272942
+    },
+    {
+      "path": ".predict-cold-start-persistence.log",
+      "sha256": "3999284ccb64268855db7479f86ca5e9090186ba9b3c5af955c425d2084fb9b9",
+      "bytes": 208113
+    },
+    {
+      "path": ".predict-cold-start-python.log",
+      "sha256": "06d53bc8322e8baee544a06ddd5a6b7b97b191d0cb983f1598482c4b8df6d4a0",
+      "bytes": 187
+    },
+    {
+      "path": ".predict-cold-start-regression.log",
+      "sha256": "e9facf6e5f57d618476a3b47ec97cdaab6f4b2876fb8e50f5732b431dd75870c",
+      "bytes": 56643
+    },
+    {
+      "path": ".predict-cold-start-verified-tests.log",
+      "sha256": "3c647c8ef868d0a04b4bbf7bc42898f0b42c3e18568d12a111dd7b6b95b08b35",
+      "bytes": 2999686
+    }
+  ],
+  "nautilusDependencyModified": false,
+  "productionRecordingDiscoveryRotationModified": false,
+  "futureRealOrdersRequireFreshUserApproval": true
+}

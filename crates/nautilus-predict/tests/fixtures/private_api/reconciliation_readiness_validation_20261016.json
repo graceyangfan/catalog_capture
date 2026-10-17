@@ -1,0 +1,57 @@
+{
+  "verifiedAtUTC": "2026-10-16T00:30:34.570809+00:00",
+  "source": "synthetic offline loopback only",
+  "mainnetOrderWrites": 0,
+  "mainnetReads": 0,
+  "rust": {
+    "passed": 229,
+    "failed": 0,
+    "ignored": 17
+  },
+  "python": {
+    "passed": 34,
+    "failed": 0
+  },
+  "explicitCaptureRuns": 2,
+  "sdkVersion": "predict-sdk==0.0.22",
+  "newMakerRequestsCompared": 2,
+  "liveNodeResumeSessions": 2,
+  "negativeRepairSessions": 6,
+  "negativeReadinessCases": {
+    "incomplete": "holdings mismatch",
+    "conflicting": "unclaimed account history",
+    "overfill": "venue OPEN exists",
+    "unstable": "cash not yet applied",
+    "foreign": "unapplied trade",
+    "disconnect_during_check": "old generation completion cannot release gate"
+  },
+  "checks": {
+    "clippyExecutionAllTargetsDenyWarnings": true,
+    "checkNoDefaultExecutionAllTargets": true,
+    "ruff": true,
+    "diffCheck": true
+  },
+  "boundaries": [
+    "explicit reconnect only, no automatic reconnect scheduler",
+    "all cached venue orders must be terminal and venue OPEN empty",
+    "existing native reconciliation-tagged position adjustment orders are local, not Predict hashes",
+    "historical account readiness receipt is not permanent permission",
+    "unsupported external/unclaimed records preserve submission gate",
+    "no account-wide startup/import completeness claim",
+    "Nautilus dependencies and public recorder untouched"
+  ],
+  "sha256": {
+    "crates/nautilus-predict/tests/fixtures/private_api/reconciliation_ready_live_node_synthetic_20261016.json": "dd0d84474487786cfaf953525e41a551359f38c210495dd3534c34f031866cba",
+    "crates/nautilus-predict/tests/fixtures/private_api/reconciliation_checks_synthetic_20261016.json": "f090402d3faaa97d8d5d491299781b4342f077d9ebecda3e1a2a26adf617fda0",
+    "crates/nautilus-predict/src/execution/readiness.rs": "2e7b3ae339186c74373639b73fb68d6cbe3aeb0c07bfb97e7283cb022adc01dd",
+    "crates/nautilus-predict/src/execution/mod.rs": "6b5ef23888e9aaba6c55a85381b7cf97e36fcf6e78c3ba02f4375a111c900a97",
+    "crates/nautilus-predict/src/execution/account.rs": "1b34ff6bda4bb0cebc83843828107c86f038d562d7cc550cace24e5f30ed25a7",
+    "crates/nautilus-predict/src/execution/reports.rs": "30d2bac5915363243057caa33a36fdd22db5fb81dc19da7cfeb8ec507831a9d6",
+    "crates/nautilus-predict/tests/execution.rs": "59dde3d00db3a3070d3097f794baffa6d4d8ff1c90ac9ebf1ee6e3fe3bb1719a",
+    "crates/nautilus-predict/tests/execution/recovery_live.rs": "a83a96608762fdafc9915c1abf50a049cf9c7af362438b7f7f6ff718c87e85f4",
+    "crates/nautilus-predict/tests/execution/recovery_rejections.rs": "73a5f7c6e8dca14a4610a25bb555a53711d7f71094bc780982022648ef0caa10",
+    "crates/nautilus-predict/tests/support/query_strategy.rs": "404a967d9812f5047aa3195e3721f6032e44f077351de768f5bed683787a6bb4",
+    "tests/test_predict_exit_protocol.py": "d718099058c514e7084ec4c0cad63d81cdc123b9129342c63616374fc33ca9a2",
+    "docs/reference/predict-reconciliation-readiness-20261016.md": "a4569ae83df2b5d2cf6f6c3250b84afa3e7ad36a56086a0fc8752212254de545"
+  }
+}

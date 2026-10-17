@@ -1,0 +1,32 @@
+{
+  "source": "local validation summary; not a venue response",
+  "verifiedAtUtc": "2026-10-15T10:40:17.511484+00:00",
+  "rust": {
+    "command": "cargo test -p nautilus-predict --features execution --locked",
+    "passed": 198,
+    "failed": 0,
+    "ignoredExplicitLive": 8
+  },
+  "python": {
+    "modules": [
+      "test_predict_read_only_calibration",
+      "test_predict_resting_live",
+      "test_predict_private_http_recorder"
+    ],
+    "passed": 21,
+    "failed": 0
+  },
+  "clippyAllTargetsWarningsDenied": "passed",
+  "noDefaultExecutionAllTargets": "passed",
+  "pythonRuffCheckAndFormat": "passed",
+  "gitDiffCheck": "passed",
+  "privateEvidenceCredentialScan": "passed",
+  "nautilusDependencyModifiedByThisTask": false,
+  "publicRecordingModifiedByThisTask": false,
+  "cleanup": {
+    "rawLogsRemoved": 22,
+    "oneRunConfigExists": false,
+    "relayManifestExists": false,
+    "readyMarkerExists": false
+  }
+}

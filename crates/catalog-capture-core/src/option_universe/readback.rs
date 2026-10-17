@@ -14,11 +14,11 @@
 
 use std::path::Path;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use nautilus_model::{
     data::{
-        close::InstrumentClose, IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks,
-        OrderBookDelta, QuoteTick, TradeTick,
+        IndexPriceUpdate, InstrumentStatus, MarkPriceUpdate, OptionGreeks, OrderBookDelta,
+        QuoteTick, TradeTick, close::InstrumentClose,
     },
     identifiers::InstrumentId,
     instruments::Instrument,
@@ -587,8 +587,8 @@ mod tests {
         data::{FundingRateUpdate, OptionGreekValues},
         enums::GreeksConvention,
         instruments::{
-            stubs::{crypto_option_btc_deribit, crypto_perpetual_ethusdt},
             InstrumentAny,
+            stubs::{crypto_option_btc_deribit, crypto_perpetual_ethusdt},
         },
         types::{Price, Quantity},
     };

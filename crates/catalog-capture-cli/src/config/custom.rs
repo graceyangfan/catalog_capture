@@ -14,11 +14,11 @@
 
 //! TOML selectors for custom data; type knowledge lives in [`crate::custom_data`].
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use catalog_capture_core::{
-    CustomDataCaptureSpec, CustomDataRequestCaptureSpec, RequestOverlapPolicy,
-    DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS, DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS,
-    DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS, MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
+    CustomDataCaptureSpec, CustomDataRequestCaptureSpec, DEFAULT_CUSTOM_DATA_REQUEST_INTERVAL_SECS,
+    DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS, DEFAULT_MAX_AGGREGATE_CUSTOM_DATA_REQUEST_RPS,
+    MIN_CUSTOM_DATA_REQUEST_INTERVAL_SECS, RequestOverlapPolicy,
 };
 use nautilus_core::Params;
 use nautilus_model::data::DataType;

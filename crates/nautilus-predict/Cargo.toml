@@ -5,35 +5,100 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "NautilusTrader public market-data adapter primitives for Predict"
+description = "NautilusTrader Predict market-data adapter and private API primitives"
 
 [features]
-default = ["high-precision"]
+default = ["high-precision", "live"]
+# Private authentication is opt-in; capture builds retain their existing feature graph.
+execution = [
+  "live",
+  "dep:base64",
+  "dep:alloy",
+  "dep:alloy-primitives",
+  "dep:thiserror",
+  "serde_json/raw_value",
+  "dep:futures-util",
+  "dep:nautilus-execution",
+]
+# Experimental Native RFC prototype; excluded from default execution builds.
+native-quantity-commission = ["execution"]
+# Core uses common venue rules with default features disabled.
+live = [
+  "dep:ahash",
+  "dep:async-trait",
+  "dep:nautilus-common",
+  "dep:nautilus-network",
+  "dep:nautilus-live",
+  "dep:tokio",
+  "dep:tokio-util",
+  "dep:log",
+]
 high-precision = [
   "nautilus-model/high-precision",
   "nautilus-serialization/high-precision",
 ]
 
 [dependencies]
-ahash.workspace = true
+nautilus-execution = { path = "../../../nautilus_trader_quantity_commission/crates/execution", default-features = false, optional = true }
+ahash = { workspace = true, optional = true }
+alloy = { version = "2.5.0", default-features = false, features = [
+  "signer-local",
+  "sol-types",
+], optional = true }
+alloy-primitives = { version = "1.7.3", default-features = false, features = [
+  "serde",
+], optional = true }
+futures-util = { workspace = true, optional = true }
+base64 = { version = "0.22", optional = true }
 anyhow.workspace = true
-async-trait.workspace = true
+async-trait = { workspace = true, optional = true }
 arrow = "59.3.0"
-catalog-capture-core = { path = "../catalog-capture-core" }
 chrono.workspace = true
-nautilus-common.workspace = true
+chrono-tz.workspace = true
+nautilus-common = { workspace = true, optional = true }
 nautilus-core.workspace = true
 nautilus-model.workspace = true
-nautilus-network.workspace = true
+nautilus-network = { workspace = true, optional = true }
 nautilus-serialization.workspace = true
-nautilus-live.workspace = true
+nautilus-live = { workspace = true, optional = true }
 rust_decimal.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
-tokio-util.workspace = true
+thiserror = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
 ustr.workspace = true
-log.workspace = true
+log = { workspace = true, optional = true }
 
 [dev-dependencies]
+nautilus-testkit = { path = "../../../nautilus_trader_quantity_commission/crates/testkit", default-features = false, features = [
+  "testers",
+] }
+indexmap = "2"
+nautilus-infrastructure = { path = "../../../nautilus_trader_quantity_commission/crates/infrastructure", default-features = false, features = [
+  "redis",
+] }
+tokio = { workspace = true, features = ["process"] }
+nautilus-trading = { path = "../../../nautilus_trader_quantity_commission/crates/trading", default-features = false }
+nautilus-model = { workspace = true, features = ["test-support"] }
+nautilus-execution = { path = "../../../nautilus_trader_quantity_commission/crates/execution", default-features = false }
+nautilus-portfolio = { path = "../../../nautilus_trader_quantity_commission/crates/portfolio", default-features = false }
+axum.workspace = true
+criterion = { package = "codspeed-criterion-compat", version = "5.0.2", default-features = false, features = [
+  "cargo_bench_support",
+] }
+futures-util.workspace = true
+catalog-capture-core = { path = "../catalog-capture-core" }
+catalog-capture-runtime-adapter = { path = "../catalog-capture-runtime-adapter" }
 nautilus-persistence.workspace = true
+toml.workspace = true
+
+[[bench]]
+name = "auth_signing"
+harness = false
+required-features = ["execution"]
+
+[[bench]]
+name = "order_signing"
+harness = false
+required-features = ["execution"]

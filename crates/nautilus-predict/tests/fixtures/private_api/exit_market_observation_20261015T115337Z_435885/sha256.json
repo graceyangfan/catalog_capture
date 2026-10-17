@@ -1,0 +1,237 @@
+{
+  "source": "SHA-256 index of read-only public evidence and derived comparisons",
+  "files": [
+    {
+      "file": "analysis.json",
+      "sha256": "0d59540cc540c27eaf82586027df263dbd4762f8c46fdc82ebaebe7116f2ef53"
+    },
+    {
+      "file": "book_10835_initial.json",
+      "sha256": "8c0b719db67fcc0c1ec0875dfcd2f6d3aed259efc2fc4fbe318fa7ffb9cf3306"
+    },
+    {
+      "file": "book_10909_initial.json",
+      "sha256": "52bc5a359adbd57600bb5046bdb02a185d4dd78446f3544aee477cdecef4b7d5"
+    },
+    {
+      "file": "book_12742_followup_0.json",
+      "sha256": "9f213d9571b794b1cb4474a06857bdcd37b3ca527b9486b6f23f27b13d60b430"
+    },
+    {
+      "file": "book_12742_followup_1.json",
+      "sha256": "9f213d9571b794b1cb4474a06857bdcd37b3ca527b9486b6f23f27b13d60b430"
+    },
+    {
+      "file": "book_12742_followup_2.json",
+      "sha256": "b5e9b55ddcbce8874bea6d206fe5159631011095cbf5f00115c1f884a4d900a1"
+    },
+    {
+      "file": "book_12742_followup_3.json",
+      "sha256": "b5e9b55ddcbce8874bea6d206fe5159631011095cbf5f00115c1f884a4d900a1"
+    },
+    {
+      "file": "book_12742_initial.json",
+      "sha256": "9f213d9571b794b1cb4474a06857bdcd37b3ca527b9486b6f23f27b13d60b430"
+    },
+    {
+      "file": "book_12743_initial.json",
+      "sha256": "7f20f61287e00dc14e2d3daf9252716abb262867c04cd3be6908c4005bc0d041"
+    },
+    {
+      "file": "book_12744_initial.json",
+      "sha256": "722e176f14e35d571e5a8593a74cdcbbc599b7570a1c2856f38421e1adab7816"
+    },
+    {
+      "file": "book_12745_initial.json",
+      "sha256": "377b0474c12c51fd566467af4d46cca1b7da3089810e76bd899fa12ea8acaac7"
+    },
+    {
+      "file": "book_12746_initial.json",
+      "sha256": "a75736eb070f2ba5ccaa06a1bb11e2f4f3ec10df4d561329fb44e19194f2b764"
+    },
+    {
+      "file": "book_12747_initial.json",
+      "sha256": "4b419310342c21b0eee1d0b79b0c76d20def0741562d59369773218f3ff61a11"
+    },
+    {
+      "file": "book_12748_initial.json",
+      "sha256": "08e168978a4ef5656ddac6c6fb1852a6cfd14180e92d4c8d1d013dfb353f660c"
+    },
+    {
+      "file": "book_12749_initial.json",
+      "sha256": "b078c2073a206df95ddc9eb2d9c53761b67d1bfd9f80fb17dce82d5d903a424a"
+    },
+    {
+      "file": "book_12750_initial.json",
+      "sha256": "66d8409c20310b228f9f8e9f7395a70fa380bdd6e262db70a71e9aab060a5702"
+    },
+    {
+      "file": "book_12751_initial.json",
+      "sha256": "d0b5ae3dcc51763fe1c6f8720ede43b1515904c7a73d615b0f921788bcb862ee"
+    },
+    {
+      "file": "book_12752_initial.json",
+      "sha256": "f932500172ea92b80b0466970b24bb087d38a96526f2f42554880def6a57f51e"
+    },
+    {
+      "file": "book_12753_initial.json",
+      "sha256": "c36d23a3d3d7b7809a46c0527041dfa1548fb5d86c7990d5bbe4a1a4170823be"
+    },
+    {
+      "file": "book_12754_initial.json",
+      "sha256": "e931b816a2fbd35fc67f55078fd3261a46b595cf1dc27a2d2b36c08acd3e62a3"
+    },
+    {
+      "file": "book_190414_initial.json",
+      "sha256": "4a12065e7ee42086dc6d60b7e583f0a34bdf95186e1cffdfc31c0cc0744346e8"
+    },
+    {
+      "file": "book_2508071_initial.json",
+      "sha256": "639dcc57517ec17c035b57e7c0ec5a607731bfcbb3dcf1d41ca871b5d892d054"
+    },
+    {
+      "file": "book_30523_initial.json",
+      "sha256": "9be450a1f04ae06d3486f9c38abed31c4f9f57b199245d595e1701d1ce513c7c"
+    },
+    {
+      "file": "book_30524_initial.json",
+      "sha256": "661eaea144cddb521880244cbfd96070a1c54da2cfa110904936fc940c2401c5"
+    },
+    {
+      "file": "book_30525_initial.json",
+      "sha256": "479f272664bd1a109f8006e25e676b1de069dd36cf06b5c7cf6f4848cc89828d"
+    },
+    {
+      "file": "book_30526_initial.json",
+      "sha256": "ece67aa8722f744fc77f04254ffa58da052f380c0cc5ff4cd29be82ff1f05e26"
+    },
+    {
+      "file": "book_30527_initial.json",
+      "sha256": "47ed6dc7a9519f6858c49e071ba63187c41ff51fcb6ae535eac219db81f14aa2"
+    },
+    {
+      "file": "book_30528_initial.json",
+      "sha256": "8ee12175168b48920de8cf1c45158477b7bc092e36f266e7a8ee3c253aeca6f4"
+    },
+    {
+      "file": "book_30529_initial.json",
+      "sha256": "2dedf3b609b99ace82b8d276c52828cfc9cb9aa54877a6fad54c2587170b10d8"
+    },
+    {
+      "file": "book_30531_initial.json",
+      "sha256": "9d333ea32fb03c85a2afe8323e10e67a4630ca723be0d1de204cdaa00e70dd1c"
+    },
+    {
+      "file": "book_30532_initial.json",
+      "sha256": "99e467df6da519bc86d86af2ad5ca024bb8d16ce79b9eb49e378e656376ed380"
+    },
+    {
+      "file": "book_30533_initial.json",
+      "sha256": "903af57e38117b33df86f26d75b5411965b44d012f27d6c369a79a5fc354eb7b"
+    },
+    {
+      "file": "book_30534_initial.json",
+      "sha256": "c413b5c223f947bcb5a4ce08d84c12f069e229a58aa9e4c7c923faf169ca51e1"
+    },
+    {
+      "file": "book_30535_initial.json",
+      "sha256": "b366723f7ad30e5e75e4574090c3cb03b08a0d58d7f4a14068d02e28003b5de8"
+    },
+    {
+      "file": "book_30536_initial.json",
+      "sha256": "33fa93a984066ab9192dd7dc0b550f0c9306d61f9e6694ee0c0730e57f8f4ed2"
+    },
+    {
+      "file": "book_30537_initial.json",
+      "sha256": "7181725e25bd9b69aa05f7999d05b12b8c900deddd43e16be437ba9b301c6650"
+    },
+    {
+      "file": "book_30538_initial.json",
+      "sha256": "2606bb3c372d6ced61844cf85fa6c80ef1a0385181d3d8a221d6e2f6dafc1bda"
+    },
+    {
+      "file": "book_30539_initial.json",
+      "sha256": "fca7700b8a97e8952223e0f93cdc3cca6507e2e13de1e70c59002268a622f83b"
+    },
+    {
+      "file": "book_30540_initial.json",
+      "sha256": "d97a4494fb32d3375d7a6d0ba0ea5cdeb2a8895fba5a0dbb764814e47baad201"
+    },
+    {
+      "file": "book_30541_initial.json",
+      "sha256": "b1b0e88804465571b943d789f616823af22e4e35bf061ece4645faf48b217948"
+    },
+    {
+      "file": "book_30542_initial.json",
+      "sha256": "299bd365e756a63b778f6242f80cd23ca6e0079f5bf3f3c27611a8fbfc817b87"
+    },
+    {
+      "file": "book_3235724_initial.json",
+      "sha256": "7291c2b5bc1dd93993ff1d7aadb015741d6445b5586a9babb4d45a28bafd7fa1"
+    },
+    {
+      "file": "book_3235725_initial.json",
+      "sha256": "89fc08182622ecf763cedd9fa5b5cf27c054d083cf65b15ebf89cfb57a99e4e8"
+    },
+    {
+      "file": "book_3235726_initial.json",
+      "sha256": "74127e0dd98867040477bcb6e5eecc34e4b86b6e27c7358a1d7d38312d6b23de"
+    },
+    {
+      "file": "book_3235727_initial.json",
+      "sha256": "15a62154bd5c51a37c0fa346729f153ff633da30e0c2966406b44ce7255b0984"
+    },
+    {
+      "file": "book_3235728_initial.json",
+      "sha256": "9adfe0a36f86ea109437beef3254a8d4f3a85f46b5932e3f81bf071d3ba94d32"
+    },
+    {
+      "file": "book_3235729_initial.json",
+      "sha256": "a9b43eff66090c3264f96f15e4ac8fc673c30050aacb1df29a69cb2ce43d0354"
+    },
+    {
+      "file": "book_3235730_initial.json",
+      "sha256": "b99bd3f4f45e20c6d12969b5ad3a922588b9393d1d8a2ec2ff83b5d16dbcbe62"
+    },
+    {
+      "file": "book_52261_followup_0.json",
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "file": "book_52261_followup_1.json",
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "file": "book_52261_followup_2.json",
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "file": "book_52261_followup_3.json",
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "file": "book_52261_initial.json",
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "file": "book_58416_initial.json",
+      "sha256": "a66222b8efd6fe2ba2eb93188f8c20beba3d9033e1057f0c57ce6b87d687f55b"
+    },
+    {
+      "file": "decision.json",
+      "sha256": "be116a51278fa50bf014a55760f3924274c08156bf108d9db56a811a4f07558c"
+    },
+    {
+      "file": "markets_page_0.json",
+      "sha256": "4277430165d8e651db06bc9cd1a717c270d1b82df75c1ce8502c81eba500bbd7"
+    },
+    {
+      "file": "markets_page_1.json",
+      "sha256": "c920ad928cd2077c228c8376108a85183e77f9288e8bef1addec0600c8b01215"
+    },
+    {
+      "file": "markets_page_2.json",
+      "sha256": "40fcdbec2282b009f9948d8c1882a4a9e33c4546b4fcc18c697901640f9125a7"
+    }
+  ]
+}

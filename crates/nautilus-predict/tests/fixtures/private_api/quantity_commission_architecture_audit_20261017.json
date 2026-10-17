@@ -1,0 +1,32 @@
+{
+  "source": "direct Rust Native model diagnostic, synthetic; no new LiveNode or venue evidence",
+  "nativeCommit": "78bef53612b0fa2660851ee6f59a6ddd12c2d1d4",
+  "sameEconomicsDifferentRepresentation": {
+    "grossBuy": "1",
+    "buyPrice": "100",
+    "inventoryFee": "0.01",
+    "net": "0.990000",
+    "sellQty": "0.99",
+    "sellPrice": "110",
+    "cashDifference": "8.90 USDT",
+    "legacyRealized": "9.90000000 USDT",
+    "legacyCommissions": {
+      "BTC": "0.01000000 BTC",
+      "USDT": "0.00000000 USDT"
+    },
+    "quantityRealized": "8.90000000 USDT",
+    "quantityCommissions": {
+      "quantity": "0.01",
+      "cost": "1.00"
+    },
+    "meaning": "Legacy quote realized and fee-asset commission are separate; the prototype expenses disposal cost into quote realized. These are different reporting conventions."
+  },
+  "priorEpisodeDuplicate": {
+    "newEpisodeNet": "0.0990000000000000",
+    "historicalCloseQty": "0.99",
+    "error": "quantity commission requires sufficient inventory without a position flip",
+    "stateUnchanged": true,
+    "contractSatisfied": false,
+    "finding": "Inventory preflight precedes durable duplicate filtering; late historical duplicate is rejected instead of ignored."
+  }
+}

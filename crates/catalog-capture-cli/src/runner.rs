@@ -77,21 +77,21 @@ use nautilus_predict::{
 };
 
 use crate::config::{EffectiveConfig, VenueRuntimeConfig};
+use crate::credentials::api_key_secret_present;
+#[cfg(feature = "venue-binance")]
+use crate::credentials::binance_credentials;
 #[cfg(feature = "venue-binance")]
 use crate::credentials::binance_spot_sbe_credentials;
 #[cfg(feature = "venue-bybit")]
 use crate::credentials::bybit_credentials;
-#[cfg(feature = "venue-okx")]
-use crate::credentials::okx_credentials;
-#[cfg(feature = "venue-predict")]
-use crate::credentials::predict_api_key;
-use crate::credentials::api_key_secret_present;
-#[cfg(feature = "venue-binance")]
-use crate::credentials::binance_credentials;
 #[cfg(feature = "venue-deribit")]
 use crate::credentials::deribit_credentials;
 #[cfg(feature = "venue-hyperliquid")]
 use crate::credentials::hyperliquid_private_key;
+#[cfg(feature = "venue-okx")]
+use crate::credentials::okx_credentials;
+#[cfg(feature = "venue-predict")]
+use crate::credentials::predict_api_key;
 use crate::custom_data::{
     register_request_types, register_subscribe_types, validate_request_data_type,
     validate_subscribe_data_type,

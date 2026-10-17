@@ -382,9 +382,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        derive_perp_instrument_id, expand_option_universe, merge_capture_plans, ExpiryPolicy,
-        FundingRateCaptureSpec, IndexPriceCaptureSpec, OptionGreeksCaptureSpec,
+        ExpiryPolicy, FundingRateCaptureSpec, IndexPriceCaptureSpec, OptionGreeksCaptureSpec,
         OptionUniverseFamily, OptionUniverseSpec, OptionUniverseVenueKind, StrikePolicy,
+        derive_perp_instrument_id, expand_option_universe, merge_capture_plans,
     };
 
     fn make_deribit_option(
@@ -518,9 +518,11 @@ mod tests {
                 Price::from("66000")
             ]
         );
-        assert!(resolved
-            .all_instrument_ids
-            .contains(&InstrumentId::from("BTC-PERPETUAL.DERIBIT")));
+        assert!(
+            resolved
+                .all_instrument_ids
+                .contains(&InstrumentId::from("BTC-PERPETUAL.DERIBIT"))
+        );
         assert_eq!(resolved.option_instrument_ids.len(), 6);
     }
 

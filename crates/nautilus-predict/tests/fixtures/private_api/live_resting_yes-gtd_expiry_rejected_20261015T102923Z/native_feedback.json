@@ -1,0 +1,105 @@
+[
+  {
+    "type": "AccountStateApplied",
+    "eventId": "e798df0e-a798-4331-a269-cfd7495da9cc",
+    "tsEvent": 1792060037928678000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "48.37915000",
+        "locked": "0.00000000"
+      }
+    ]
+  },
+  {
+    "type": "SubmissionDecision",
+    "marketId": 58416,
+    "bookTsEvent": 1792060025289000000,
+    "observedNs": 1792060038089505000,
+    "bestBid": "0.40",
+    "bestAsk": "0.42",
+    "restConfirmed": true,
+    "timeInForce": "GTD",
+    "price": "0.01",
+    "quantity": "100.00000",
+    "cost": "1.0000000"
+  },
+  {
+    "type": "Initialized",
+    "clientOrderId": "O-20261015-102718-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792060038089526000,
+    "cachedOrder": {
+      "status": "INITIALIZED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTD",
+      "expireTimeNs": 1792060158000000000
+    },
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "Submitted",
+    "clientOrderId": "O-20261015-102718-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792060038090408000,
+    "cachedOrder": {
+      "status": "SUBMITTED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTD",
+      "expireTimeNs": 1792060158000000000
+    },
+    "rejectionReason": null,
+    "duePostOnly": null
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "cfcd84ef-f31d-49f7-82be-16e9b4a87bfa",
+    "tsEvent": 1792060040915028000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "47.37915000",
+        "locked": "1.00000000"
+      }
+    ]
+  },
+  {
+    "type": "Rejected",
+    "clientOrderId": "O-20261015-102718-001-001-1",
+    "venueOrderId": null,
+    "tsEvent": 1792060041259046000,
+    "cachedOrder": {
+      "status": "REJECTED",
+      "quantity": "100.00000",
+      "filledQuantity": "0.00000",
+      "price": "0.01",
+      "postOnly": true,
+      "timeInForce": "GTD",
+      "expireTimeNs": 1792060158000000000
+    },
+    "rejectionReason": "HTTP 400 at /v1/orders: Unknown, API code Some(400), reason Unknown",
+    "duePostOnly": false
+  },
+  {
+    "type": "AccountStateApplied",
+    "eventId": "d43293ab-cddb-4e31-8622-6e9d51379ea3",
+    "tsEvent": 1792060043988747000,
+    "balances": [
+      {
+        "currency": "USDT",
+        "total": "48.37915000",
+        "free": "48.37915000",
+        "locked": "0.00000000"
+      }
+    ]
+  }
+]

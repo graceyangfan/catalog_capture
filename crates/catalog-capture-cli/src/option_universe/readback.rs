@@ -14,12 +14,11 @@
 
 use std::path::Path;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use catalog_capture_core::{
-    read_option_universe_resolution_records, sample_all_strikes_instrument_ids,
+    ALL_STRIKES_READBACK_SAMPLE_LIMIT, OptionUniverseReadbackOptions, OptionUniverseReadbackReport,
+    StrikePolicy, read_option_universe_resolution_records, sample_all_strikes_instrument_ids,
     summarize_option_universe_resolution_records, validate_option_universe_readback,
-    OptionUniverseReadbackOptions, OptionUniverseReadbackReport, StrikePolicy,
-    ALL_STRIKES_READBACK_SAMPLE_LIMIT,
 };
 
 use crate::config::EffectiveConfig;

@@ -1,0 +1,116 @@
+{
+  "sdk": "PredictDotFun/sdk-python",
+  "version": "0.0.22",
+  "key_origin": "public Hardhat development key; offline fixture only",
+  "sdk_clock_epoch_secs": 0,
+  "vectors": [
+    {
+      "time_in_force": "GTC",
+      "fee_bps": 0,
+      "body": {
+        "data": {
+          "strategy": "LIMIT",
+          "isPostOnly": true,
+          "pricePerShare": "1000000000000000",
+          "order": {
+            "salt": "1",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "1000000000000000000000",
+            "expiration": 4102444800,
+            "nonce": "7",
+            "feeRateBps": "0",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x3ccc2134d1184c4690ad7ac4e53c5ff2020b0e6b467ca2df6093eab3897831f9",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce572624bbbee6153df495512654a7c6d5cef5b0588ce30b2732ab990247ab3b40c83ce0cf54239a6dc2495a1631cf07fa4cd321a27d3fb6435628fa0133bca601a71b"
+          }
+        }
+      }
+    },
+    {
+      "time_in_force": "GTD",
+      "fee_bps": 0,
+      "body": {
+        "data": {
+          "strategy": "LIMIT",
+          "isPostOnly": true,
+          "pricePerShare": "1000000000000000",
+          "order": {
+            "salt": "1",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "1000000000000000000000",
+            "expiration": 300,
+            "nonce": "7",
+            "feeRateBps": "0",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x181c6dba007c9ea935241a40225466d46d176ba60f1465689882b277556954b4",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5798697710218c8059842c1a44bceaa392b246a1bc6ccd78e1464755e7841cc9af0666ba1d8469421a32541bf5a722f598824bad2af0c2935685e37d250b469c731b"
+          }
+        }
+      }
+    },
+    {
+      "time_in_force": "GTC",
+      "fee_bps": 200,
+      "body": {
+        "data": {
+          "strategy": "LIMIT",
+          "isPostOnly": true,
+          "pricePerShare": "1000000000000000",
+          "order": {
+            "salt": "1",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "1000000000000000000000",
+            "expiration": 4102444800,
+            "nonce": "7",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0xa545e38a1065b71bf56ba118aa574b2d9ab1caca75d388dbe478b1c588a55d4e",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce574d972d4e4caf4e2d212de582961c8db3d6481aa66444ca7a119dcedd5d74f6d926acc43ac93650f5c64e7bbb2c9d0cf007f86ebe97e7a5a226edc80df852ccf61b"
+          }
+        }
+      }
+    },
+    {
+      "time_in_force": "GTD",
+      "fee_bps": 200,
+      "body": {
+        "data": {
+          "strategy": "LIMIT",
+          "isPostOnly": true,
+          "pricePerShare": "1000000000000000",
+          "order": {
+            "salt": "1",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "1000000000000000000000",
+            "expiration": 300,
+            "nonce": "7",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x3a3cb6a7e8d498efc9e8094f4345a453d2edbd7b52eecd8f05975ffdaaa37a9f",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce573ee45d69fabe6b044ce673f4e865388ae16fca3b0e2fa08994867f02fdd6b30502370ff456cb6032917884ca77064c5c237222dabc4d902dbb1e6423f2beb15c1c"
+          }
+        }
+      }
+    }
+  ]
+}

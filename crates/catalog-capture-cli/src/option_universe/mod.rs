@@ -24,39 +24,39 @@ mod validate;
 mod validate_suite;
 
 use anyhow::Result;
-use catalog_capture_core::{expand_option_universe, CapturePlan};
+use catalog_capture_core::{CapturePlan, expand_option_universe};
 
 use crate::config::EffectiveConfig;
 use crate::universe_materialize::UniverseMaterialization;
 
 pub use catalog::{
-    render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
-    validate_option_universe_catalog, OptionUniverseCatalogValidationReport,
+    OptionUniverseCatalogValidationReport, render_option_universe_catalog_validation_json,
+    render_option_universe_catalog_validation_text, validate_option_universe_catalog,
 };
 pub use catalog_presets::{
-    merge_validation_options, validation_options_for_preset,
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
+    merge_validation_options, validation_options_for_preset,
 };
 pub use discovery::resolve_option_universe_spec;
 pub use metadata::{
-    render_option_universe_metadata_validation_json,
+    StrikeModeArg, render_option_universe_metadata_validation_json,
     render_option_universe_metadata_validation_text, validate_option_universe_metadata,
-    validation_options_from_cli, StrikeModeArg,
+    validation_options_from_cli,
 };
 pub use readback::{
     readback_options_for_config, readback_options_from_cli, render_option_universe_readback_json,
     render_option_universe_readback_text, run_option_universe_readback_validation,
 };
 pub use report::{
-    build_option_universe_resolution_report, load_option_universe_summaries,
-    render_option_universe_reports_json, render_option_universe_reports_text,
-    render_option_universe_summaries_json, render_option_universe_summaries_text,
-    startup_resolution_record_from_report, OptionUniverseResolutionReport,
+    OptionUniverseResolutionReport, build_option_universe_resolution_report,
+    load_option_universe_summaries, render_option_universe_reports_json,
+    render_option_universe_reports_text, render_option_universe_summaries_json,
+    render_option_universe_summaries_text, startup_resolution_record_from_report,
 };
 pub use validate::validate_option_universes;
 pub use validate_suite::{
-    run_option_universe_post_run_report, run_option_universe_validation_suite,
     OptionUniverseOutputFormat, OptionUniverseValidationSuiteOptions, PostRunReportOptions,
+    run_option_universe_post_run_report, run_option_universe_validation_suite,
 };
 
 #[derive(Debug, Clone)]

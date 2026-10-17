@@ -1,0 +1,83 @@
+{
+  "source": "product execution host account-market bootstrap; actual readonly feedback separated from offline derived snapshots",
+  "offlineRust": {
+    "passed": 292,
+    "ignored": 61
+  },
+  "additionalHeldAndActiveOrderCasesPassed": true,
+  "adapterClippyAllTargetsDenyWarnings": true,
+  "productCliSlimCheck": true,
+  "cliExistingWarnings": 14,
+  "realReadOnly": {
+    "productHost": true,
+    "nativeStartupReconciliation": true,
+    "strategyCustomSnapshot": true,
+    "cashUSDT": "48.21630840",
+    "openOrders": 0,
+    "openPositions": 0
+  },
+  "scope": {
+    "expiredRecoveryAdded": false,
+    "historyUniverseScanAdded": false,
+    "customRecoveryTimerAdded": false,
+    "nativeDependencyModified": false,
+    "recordingDiscoveryRotationModified": false,
+    "realOrderWrites": 0,
+    "realRemovalWrites": 0,
+    "redisTouched": false
+  },
+  "files": [
+    {
+      "path": "host_account_scope_with_orders_synthetic_20261016.json",
+      "sha256": "ba6de2ecb59b03db824ba5f4dfe86e9aca028c4e2f234a74c045ced3e0d8b4af"
+    },
+    {
+      "path": "product_host_readonly_20261016T143833Z_38237.json",
+      "sha256": "68d76ec11b1b7b705119b72832a3d8222391d0ca01b30f4edda6d0bfa16537ae"
+    }
+  ],
+  "priorColdStartFilesPreserved": 4,
+  "priorManifestSha256": "87d680e0291cc8110f95d113c5e8301b97ac95ca00f3d9e497f3b76de29fbbee",
+  "logsRemoved": [
+    {
+      "path": ".predict-host-scope-all.log",
+      "sha256": "a91fb2e47dd170ec4da1a3562ab4984c578799e4102b2e2b9149f6d2f35f7478"
+    },
+    {
+      "path": ".predict-host-scope-baseline.log",
+      "sha256": "133d943a45e9f7d9420f0031863cdffb30ad568b1d8a3d037fb9918b9808334a"
+    },
+    {
+      "path": ".predict-host-scope-capture-orders.log",
+      "sha256": "28a48c46227c21bacdfae7848f23ce2e6fb09a39e276221c8031cd5ff08056f7"
+    },
+    {
+      "path": ".predict-host-scope-capture.log",
+      "sha256": "7fe36b8c4dc2698c600e56ec5f362bcac563dd59d5c7306ed87b52640e7e7d0c"
+    },
+    {
+      "path": ".predict-host-scope-cli.log",
+      "sha256": "345ace3ae3c071130a4d8662590b9b0d5bc1733327a28c36fa4863b4eddd3601"
+    },
+    {
+      "path": ".predict-host-scope-clippy.log",
+      "sha256": "378c157abfc3fd2ff823ff4e90abb920d37bd1286c04f22d8df305029867443e"
+    },
+    {
+      "path": ".predict-host-scope-held.log",
+      "sha256": "1b1e150533b66151f2c19fb8d84d31e60138549ec4cbe7afc59e5be51e68d2a2"
+    },
+    {
+      "path": ".predict-host-scope-live-build.log",
+      "sha256": "f5466354c7b93a956d291f6354824702e644af96ad8d004eaa5e21634422b159"
+    },
+    {
+      "path": ".predict-host-scope-live.log",
+      "sha256": "0adc2813e47f801dbe5f0369a38b0489ac8ad34b8277ff1c77a029f250c51eee"
+    },
+    {
+      "path": ".predict-host-scope-tests.log",
+      "sha256": "d3687b2b7c45c35704b3de4e0532f177bd1e042bbef5ef6248c71ad30882cfa8"
+    }
+  ]
+}

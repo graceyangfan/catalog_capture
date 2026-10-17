@@ -22,14 +22,14 @@ pub(crate) mod segment_support;
 mod integration;
 
 pub use row_group_capacity::{
-    estimated_row_groups, min_row_group_rows_for_day, seconds_to_hard_limit,
     CLOUD_BOOK_SUMMARY_POLL_ROWS, CLOUD_BOOK_SUMMARY_ROWS_PER_SEC, CUSTOM_MEMORY_FLUSH_ROWS,
     CUSTOM_ROW_GROUP_ROWS, DEFAULT_SEAL_INTERVAL_SECS, PARQUET_MAX_ROW_GROUPS,
-    ROW_GROUP_ROLL_THRESHOLD,
+    ROW_GROUP_ROLL_THRESHOLD, estimated_row_groups, min_row_group_rows_for_day,
+    seconds_to_hard_limit,
 };
 pub use seal::{
-    next_seal_boundary_ns, parse_seal_schedule, parse_seal_timezone, resolve_seal_schedule,
-    should_seal_at, ResolvedSealSchedule, SealConfigFile,
+    ResolvedSealSchedule, SealConfigFile, next_seal_boundary_ns, parse_seal_schedule,
+    parse_seal_timezone, resolve_seal_schedule, should_seal_at,
 };
 pub use segment::SegmentCaptureSink;
 pub use segment_custom::SegmentCustomDataSink;

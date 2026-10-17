@@ -16,10 +16,10 @@ use std::collections::BTreeSet;
 
 use anyhow::Result;
 use catalog_capture_core::{
+    OptionUniverseResolutionEventKind, OptionUniverseResolutionRecord,
+    OptionUniverseResolutionSummary, OptionUniverseSpec, ResolvedOptionUniverse,
     instrument_id_overlap_and_new, read_option_universe_resolution_records,
-    summarize_option_universe_resolution_records, OptionUniverseResolutionEventKind,
-    OptionUniverseResolutionRecord, OptionUniverseResolutionSummary, OptionUniverseSpec,
-    ResolvedOptionUniverse,
+    summarize_option_universe_resolution_records,
 };
 use nautilus_model::identifiers::InstrumentId;
 use serde::Serialize;

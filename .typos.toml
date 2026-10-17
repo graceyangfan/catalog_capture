@@ -1,0 +1,3 @@
+[default]
+# Preserve financial notation and Git revision IDs in the execution evidence.
+extend-ignore-re = ["PnL", "[0-9a-f]{7,40}"]

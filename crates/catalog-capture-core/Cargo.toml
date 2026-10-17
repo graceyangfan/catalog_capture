@@ -10,6 +10,7 @@ publish.workspace = true
 default = ["high-precision"]
 high-precision = [
   "nautilus-model/high-precision",
+  "nautilus-predict/high-precision",
   "nautilus-persistence/high-precision",
   "nautilus-serialization/high-precision",
 ]
@@ -21,6 +22,7 @@ arrow = "59.3.0"
 chrono.workspace = true
 chrono-tz.workspace = true
 nautilus-core.workspace = true
+nautilus-predict = { workspace = true, default-features = false }
 nautilus-model.workspace = true
 nautilus-persistence.workspace = true
 nautilus-serialization.workspace = true

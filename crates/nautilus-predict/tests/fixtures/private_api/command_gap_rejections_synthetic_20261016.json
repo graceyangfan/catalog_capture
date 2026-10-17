@@ -1,0 +1,182 @@
+{
+  "source": "synthetic offline Rust strategy + LiveNode; wallet epoch gap; not mainnet",
+  "sessions": [
+    {
+      "case": "DisconnectedPreflight",
+      "mainnetReads": 0,
+      "mainnetWrites": 0,
+      "feedback": [
+        {
+          "type": "Initialized",
+          "id": "63fcd4d3-01e9-4435-80b5-84e0fb33f6b8",
+          "reason": null,
+          "status": "INITIALIZED",
+          "price": "0.010",
+          "filled": "0"
+        },
+        {
+          "type": "Submitted",
+          "id": "63fcd4d3-01e9-4435-80b5-84e0fb33f6b8",
+          "reason": null,
+          "status": "SUBMITTED",
+          "price": "0.010",
+          "filled": "0"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000 USDT",
+              "locked": "1.00000000 USDT",
+              "free": "999.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "Accepted",
+          "id": "63fcd4d3-01e9-4435-80b5-84e0fb33f6b8",
+          "reason": null,
+          "status": "ACCEPTED",
+          "price": "0.010",
+          "filled": "0"
+        },
+        {
+          "type": "CommandDispatch",
+          "case": "DisconnectedPreflight"
+        },
+        {
+          "type": "PendingUpdate",
+          "id": "63fcd4d3-01e9-4435-80b5-84e0fb33f6b8",
+          "reason": null,
+          "status": "PENDING_UPDATE",
+          "price": "0.010",
+          "filled": "0"
+        },
+        {
+          "type": "ModifyRejectedCallback",
+          "status": "ACCEPTED"
+        },
+        {
+          "type": "ModifyRejected",
+          "id": "63fcd4d3-01e9-4435-80b5-84e0fb33f6b8",
+          "reason": "Predict execution session is not connected",
+          "status": "ACCEPTED",
+          "price": "0.010",
+          "filled": "0"
+        },
+        {
+          "type": "PendingCancel",
+          "id": "63fcd4d3-01e9-4435-80b5-84e0fb33f6b8",
+          "reason": null,
+          "status": "PENDING_CANCEL",
+          "price": "0.010",
+          "filled": "0"
+        },
+        {
+          "type": "CancelRejected",
+          "id": "63fcd4d3-01e9-4435-80b5-84e0fb33f6b8",
+          "reason": "Predict reported execution session is not connected",
+          "status": "ACCEPTED",
+          "price": "0.010",
+          "filled": "0"
+        },
+        {
+          "type": "AccountState",
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000 USDT",
+              "locked": "1.00000000 USDT",
+              "free": "999.00000000 USDT"
+            }
+          ]
+        },
+        {
+          "type": "Canceled",
+          "id": "63fcd4d3-01e9-4435-80b5-84e0fb33f6b8",
+          "reason": null,
+          "status": "CANCELED",
+          "price": "0.010",
+          "filled": "0"
+        }
+      ],
+      "initialCachedOrders": [],
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "314227063",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0xfc07b02b26831e51103fbc84b82cc7cccf4bfb24f4f17f153b20dc8bc92f86d0",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce572634526d5781fe38e9a4de5aed5e34cf009d059d686c7b5102c699bfafaa4fde277c7745efb42ed20c191c1958ac111d0d52b4b9c6a8a075a547865bf33e3d6d1c"
+            }
+          }
+        }
+      ],
+      "removals": [],
+      "removalResponses": [],
+      "wallet": [
+        {
+          "type": "orderAccepted",
+          "orderId": "12345",
+          "orderHash": "0xfc07b02b26831e51103fbc84b82cc7cccf4bfb24f4f17f153b20dc8bc92f86d0",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792127430142,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderCancelled",
+          "orderId": "12345",
+          "orderHash": "0xfc07b02b26831e51103fbc84b82cc7cccf4bfb24f4f17f153b20dc8bc92f86d0",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792127430142,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        }
+      ],
+      "finalOpenOrders": 0,
+      "finalPositions": 0,
+      "finalCash": "1000",
+      "finalLocked": "0"
+    }
+  ]
+}

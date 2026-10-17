@@ -1,0 +1,85 @@
+{
+  "verifiedAtUTC": "2026-10-16T02:29:30.774627+00:00",
+  "source": "synthetic offline loopback; Rust strategy with native LiveNode reconciliation",
+  "mainnetReads": 0,
+  "mainnetOrderWrites": 0,
+  "rust": {
+    "passed": 235,
+    "failed": 0,
+    "ignored": 20
+  },
+  "python": {
+    "passed": 37,
+    "failed": 0
+  },
+  "explicitCaptureRuns": 2,
+  "sdkVersion": "predict-sdk==0.0.22",
+  "newRequestsCompared": 13,
+  "reportContractSessions": 11,
+  "negativeRepairSessions": 10,
+  "liveNodeSessions": 2,
+  "nativeCheckStages": [
+    [
+      "startupMassStatus",
+      "inflight",
+      "fullOrders"
+    ],
+    [
+      "startupMassStatus",
+      "inflight",
+      "fullOrders",
+      "positions"
+    ]
+  ],
+  "strategyOrderQueriesEnabled": false,
+  "customRecoveryTimerEnabledInNativeCases": false,
+  "nativeSessionChecks": {
+    "uniqueRealFills": 2,
+    "grossFilled": "100",
+    "netPosition": "100",
+    "reportedCash": "938",
+    "lockedCash": "0",
+    "simulatedSubmitPOSTs": 1
+  },
+  "checks": {
+    "clippyExecutionAllTargetsDenyWarnings": true,
+    "noDefaultExecutionAllTargets": true,
+    "targetedRustfmt": true,
+    "ruff": true,
+    "diffCheck": true
+  },
+  "consolidated": [
+    "account and bulk reports share order pagination",
+    "QueryOrder, single reports and bulk reports share status/hash validation",
+    "QueryOrder and bulk collection share order fences",
+    "native inflight/full-order/position scheduling replaces custom order queries in these LiveNode sessions"
+  ],
+  "boundaries": [
+    "existing locally owned orders only; no process restart takeover",
+    "order time filters and bounded mass lookbacks explicitly rejected",
+    "open_check_open_only=false and open_check_lookback_mins=None for full native recovery",
+    "unapplied true fills queued as OrderWithFills; status-only cycle deferred to prevent inferred duplicates",
+    "mass reports return no partial success when a source fails",
+    "stream-gap write readiness remains gated pending QueryAccount verification",
+    "JWT auto renewal deferred",
+    "Nautilus dependencies and public recorder/discovery/rotation untouched"
+  ],
+  "protocolSources": [
+    "https://dev.predict.fun/get-orders-25326902e0",
+    "https://dev.predict.fun/get-order-match-events-25663812e0",
+    "https://github.com/PredictDotFun/sdk"
+  ],
+  "sha256": {
+    "crates/nautilus-predict/tests/fixtures/private_api/bulk_mass_reports_synthetic_20261016.json": "620ca62f36ab449986b75cd551b223c57107e6d769f3cd349110db49fcb7f3c3",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_reconciliation_live_node_synthetic_20261016.json": "bc5bdcaa2ac27d65ebde7b70190574380402f89c852597b0524738f9d5836d57",
+    "crates/nautilus-predict/src/execution/mod.rs": "705fbb4fb362e150cbcb0103e04f10dcf457f0e0a2358b9e247323302b25aa48",
+    "crates/nautilus-predict/src/execution/account.rs": "927f2667ec23cbc9b00d10b87c96d66468e5a45b50b01893f95062c6a44f740c",
+    "crates/nautilus-predict/src/execution/reports.rs": "772681d7879f9d3a67830409bf5f51fc3abef3de73b2b8a805d53ec53171ce7c",
+    "crates/nautilus-predict/src/execution/reconciliation.rs": "033ec12bb700375967f8a02f9ee09d7e25d03b29914e44667be5b68bd1707aa0",
+    "crates/nautilus-predict/tests/execution.rs": "6817a156d04be340c57a14106ebd3784845954ef52ed9263e53cfeef2d3d4be8",
+    "crates/nautilus-predict/tests/execution/bulk_reports.rs": "af25701425c8030cb6d319b146557233847a9fc88212bc78806a4382f4880484",
+    "crates/nautilus-predict/tests/execution/recovery_live.rs": "8170edb87050a6ccaeae842f2723992737f44d6500177d363905b7b2ed3da97a",
+    "tests/test_predict_exit_protocol.py": "6154691dcc3ae5b3f82eb33e1e851791817b3d5bc81e1b1d14cd644a5fb99a5b",
+    "docs/reference/predict-native-reconciliation-20261016.md": "c28fae267efbe30f66ce7080e66b574477626d4bb9474871acd6f1bbe4204dc3"
+  }
+}

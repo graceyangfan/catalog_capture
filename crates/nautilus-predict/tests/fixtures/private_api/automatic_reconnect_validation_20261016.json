@@ -1,0 +1,100 @@
+{
+  "verifiedAtUTC": "2026-10-16T01:01:29.856868+00:00",
+  "source": "synthetic offline Rust Strategy + LiveNode; loopback only",
+  "mainnetReads": 0,
+  "mainnetOrderWrites": 0,
+  "dependencyEdits": false,
+  "publicRecorderEdits": false,
+  "rust": {
+    "passed": 231,
+    "failed": 0,
+    "ignored": 18
+  },
+  "python": {
+    "passed": 35,
+    "failed": 0
+  },
+  "sdkVersion": "predict-sdk==0.0.22",
+  "newRequestsCompared": 6,
+  "explicitCaptureRuns": 1,
+  "liveNodeSessions": 2,
+  "checks": {
+    "clippyExecutionAllTargetsDenyWarnings": true,
+    "noDefaultExecutionAllTargets": true,
+    "targetedRustfmt": true,
+    "ruff": true,
+    "diffCheck": true
+  },
+  "scenarios": [
+    {
+      "case": "reconnect_active_take_profit",
+      "originalMakerRestoredWithoutReplacement": true,
+      "offChainOrderMayPostdateCanonicalCashBlock": true
+    },
+    {
+      "case": "reconnect_cancel_fill_race",
+      "missingMakerFillRecoveredFromMatches": "46",
+      "makerCancellationRecoveredFromREST": true,
+      "lateOriginalAcceptanceIgnored": true,
+      "removeRetransmissions": 0
+    }
+  ],
+  "perSession": {
+    "createdOrders": 3,
+    "removeRequests": 2,
+    "uniqueNativeFillCallbacks": 5,
+    "marketStopShares": "154",
+    "partialMarketFills": [
+      "54",
+      "100"
+    ],
+    "positionsOpened": 1,
+    "positionsClosed": 1,
+    "finalOpenOrders": 0,
+    "finalNetPosition": "0",
+    "finalLockedUSDT": "0",
+    "syntheticFinalCashUSDT": "999.80536"
+  },
+  "boundaries": [
+    "wallet ACK is not completeness of order or fill state",
+    "verified current epoch and complete native state comparison required before submission",
+    "active recovery permits acknowledged post-only LIMIT SELL only",
+    "unknown writes never automatically retransmitted",
+    "no general process-restart reconstruction or adoption of external account history",
+    "no automatic JWT renewal or mainnet acceptance claims",
+    "prior SHARES net-position fixtures remain covered; these new exit sessions use COLLATERAL fees",
+    "Nautilus dependency and public recorder, discovery and rotation not edited"
+  ],
+  "protocolSources": [
+    "https://dev.predict.fun/subscription-topics-1915507m0",
+    "https://dev.predict.fun/get-order-by-hash-25326901e0",
+    "https://dev.predict.fun/get-order-match-events-25663812e0",
+    "https://github.com/PredictDotFun/sdk"
+  ],
+  "siblingReferences": [
+    "crates/adapters/polymarket/src/execution/lifecycle.rs: Reconnected",
+    "crates/adapters/sandbox/src/execution.rs: expiry sweep timer"
+  ],
+  "sha256": {
+    "crates/nautilus-predict/tests/fixtures/private_api/automatic_reconnect_exit_synthetic_20261016.json": "1314b5caaaa0ac881eeb5581ac3972af345b5eb31aa80027da408f343640623a",
+    "crates/nautilus-predict/src/config/execution.rs": "1444e67e5c4097099425749ef4da56c8f865ebe0fa1503bbc43d200bd951556a",
+    "crates/nautilus-predict/src/execution/mod.rs": "71f78fbf332a20d8832b46c4847354ac31670e60f0fac6e800e335018cc13204",
+    "crates/nautilus-predict/src/execution/account.rs": "dc2c9f5af5a4805a10981b30df8892214a67afc9326f6602e44052776660425b",
+    "crates/nautilus-predict/src/execution/cancellations.rs": "6b07c7c7b1d894e951d5d721648e3ac65bc4ab724be3c735476647c2858f3e7b",
+    "crates/nautilus-predict/src/execution/factory.rs": "6c2924a59e3a27dcb954ba3fd3cbfba37bd26ea1b6a7e27797485662370517f9",
+    "crates/nautilus-predict/src/execution/orders.rs": "133cef43956ee25e98bf45f89f4d34611ba33d2c73726160fc938a6e2290fbc9",
+    "crates/nautilus-predict/src/execution/parse.rs": "e35cc49b1638cf9582c7a479647dc279eb58b734035168968957ade52404053c",
+    "crates/nautilus-predict/src/execution/readiness.rs": "f35517900c5d9bb8fd066bf3fb1566b6992a544ecca686c8a7ca2cb6c46c4ee6",
+    "crates/nautilus-predict/src/execution/reconnect.rs": "a59a5266658bc57919f63c47d3a57d9062ae4267dddd3a197039786f345988be",
+    "crates/nautilus-predict/src/execution/reports.rs": "11c7a8f31012072fff4233e2680dc1350cddf408399a68fe2ed6a2c931e4167a",
+    "crates/nautilus-predict/src/execution/runtime.rs": "fe8428b00d34449eac0739e698eb88b7b80c7a7159f70b6aafc2a039ec3c98bf",
+    "crates/nautilus-predict/src/execution/submitter.rs": "847591b7cf0bc719c52538e920f1ba846d4d63f8746b6e055aaf5620493b830f",
+    "crates/nautilus-predict/tests/execution.rs": "c842e57126501da3ff77be590d6d0b25adf93b2f68c1251d0ee78ffef5ac702e",
+    "crates/nautilus-predict/tests/execution/strategy_lifecycle.rs": "81a0933a27d97372fa7ffe1146a4df82da6a7f8678ecc463a3d13779c6ded661",
+    "crates/nautilus-predict/tests/support/exit_strategy.rs": "c406f6852bb6d2c7eb693c97311fe7e0139a46ddf4d0ee2f2dd7b02d595ff943",
+    "crates/nautilus-predict/tests/private_api_live.rs": "2b0e4771f4329f6c16e100625398a9e74be4055b0367377a8eb14b05294feff6",
+    "crates/nautilus-predict/tests/support/node.rs": "3128cd9905829a9feb68207803ae29b8905b84783a50f5e335a2dc88a86d1cad",
+    "tests/test_predict_exit_protocol.py": "632dcdda46bb73a708617a0d2a6d6fb5f10b626594280bc1a1bc414f6cb63c9c",
+    "docs/reference/predict-automatic-reconnect-exits-20261016.md": "232e72e3b6df063cbcdb8f2f7ccb55e03874457cf680ac7ab6ac1833c6611683"
+  }
+}

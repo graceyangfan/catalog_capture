@@ -14,7 +14,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use nautilus_core::UnixNanos;
 use serde::{Deserialize, Serialize};
 

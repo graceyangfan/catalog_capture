@@ -84,7 +84,7 @@ fn read_linux_rss_bytes() -> Option<u64> {
 fn read_macos_rss_bytes() -> Option<u64> {
     use std::mem::MaybeUninit;
 
-    use libc::{getrusage, rusage, RUSAGE_SELF};
+    use libc::{RUSAGE_SELF, getrusage, rusage};
 
     let mut usage = MaybeUninit::<rusage>::uninit();
     if unsafe { getrusage(RUSAGE_SELF, usage.as_mut_ptr()) } != 0 {

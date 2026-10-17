@@ -1,0 +1,29 @@
+{
+  "source": "actual mainnet HTTP rejection; sanitized projection; request was not accepted; no retry",
+  "evidenceDirectory": "live_resting_yes-gtd_expiry_rejected_20261015T102923Z",
+  "response": {
+    "observedAtUtc": "2026-10-15T10:27:21.255578+00:00",
+    "method": "POST",
+    "path": "/v1/orders",
+    "status": 400,
+    "errorBody": {
+      "code": 400,
+      "error": "create_order_expiry_too_soon",
+      "message": "expiry is too soon (minimum 2 minutes from now)",
+      "success": false
+    },
+    "responseBody": {
+      "success": false,
+      "code": 400
+    },
+    "requestTerms": {
+      "salt": "1489728200",
+      "nonce": "0",
+      "expiration": 1792060158,
+      "feeRateBps": "200",
+      "makerAmount": "1000000000000000000",
+      "takerAmount": "100000000000000000000",
+      "hash": "0x4f217d8d545c71d382bdc125f38885e70bf9be6ffc59abaca2a176fb20d35d51"
+    }
+  }
+}

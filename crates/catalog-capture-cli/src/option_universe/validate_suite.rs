@@ -27,8 +27,8 @@ use super::catalog::{
     validate_option_universe_catalog,
 };
 use super::catalog_presets::{
-    merge_validation_options, validation_options_for_config, validation_options_for_preset,
     OptionUniverseCatalogValidationOverrides, OptionUniverseCatalogValidationPreset,
+    merge_validation_options, validation_options_for_config, validation_options_for_preset,
 };
 use super::metadata::{metadata_validation_options_for_config, strike_profile_from_spec};
 use super::metadata::{

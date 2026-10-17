@@ -1,0 +1,2123 @@
+{
+  "source": "offline Rust Strategy + LiveNode and Native model validation; no real order writes",
+  "mainnetReads": 0,
+  "mainnetWrites": 0,
+  "nativeQuantityPrecision": 16,
+  "rawEvidencePrecision": 18,
+  "walletPrecision": {
+    "source": "synthetic 18-decimal wallet partial-fill Rust Strategy + LiveNode replay",
+    "walletFrames": [
+      {
+        "type": "orderTransactionSuccess",
+        "orderId": "12345",
+        "orderHash": "0xeb013260517b98967c7fff0341874ce8fc2148d967a4b0d9b5f3947a43175469",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "timestamp": 1792206668538,
+        "details": {
+          "marketId": 42,
+          "outcomeIndex": 1,
+          "marketQuestion": "fixture",
+          "outcome": "YES",
+          "quoteType": "BID",
+          "quantity": "100",
+          "quantityFilled": "0",
+          "price": "0.01",
+          "value": "1.00",
+          "valueFilled": "0",
+          "strategyType": "LIMIT",
+          "categorySlug": "fixture"
+        },
+        "settlementId": "wallet-precision-1",
+        "isMaker": false,
+        "fee": {
+          "type": "SHARES",
+          "amountWei": "340000000000000001"
+        },
+        "fill": {
+          "executedPriceWei": "10000000000000000",
+          "executedSizeWei": "17000000000000000099",
+          "executedValueWei": "170000000000000000"
+        }
+      },
+      {
+        "type": "orderTransactionSuccess",
+        "orderId": "12345",
+        "orderHash": "0xeb013260517b98967c7fff0341874ce8fc2148d967a4b0d9b5f3947a43175469",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "timestamp": 1792206668538,
+        "details": {
+          "marketId": 42,
+          "outcomeIndex": 1,
+          "marketQuestion": "fixture",
+          "outcome": "YES",
+          "quoteType": "BID",
+          "quantity": "100",
+          "quantityFilled": "0",
+          "price": "0.01",
+          "value": "1.00",
+          "valueFilled": "0",
+          "strategyType": "LIMIT",
+          "categorySlug": "fixture"
+        },
+        "settlementId": "wallet-precision-1",
+        "isMaker": false,
+        "fee": {
+          "type": "SHARES",
+          "amountWei": "340000000000000001"
+        },
+        "fill": {
+          "executedPriceWei": "10000000000000000",
+          "executedSizeWei": "17000000000000000099",
+          "executedValueWei": "170000000000000000"
+        }
+      },
+      {
+        "type": "orderTransactionSuccess",
+        "orderId": "12345",
+        "orderHash": "0xeb013260517b98967c7fff0341874ce8fc2148d967a4b0d9b5f3947a43175469",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "timestamp": 1792206668538,
+        "details": {
+          "marketId": 42,
+          "outcomeIndex": 1,
+          "marketQuestion": "fixture",
+          "outcome": "YES",
+          "quoteType": "BID",
+          "quantity": "100",
+          "quantityFilled": "0",
+          "price": "0.01",
+          "value": "1.00",
+          "valueFilled": "0",
+          "strategyType": "LIMIT",
+          "categorySlug": "fixture"
+        },
+        "settlementId": "wallet-precision-2",
+        "isMaker": false,
+        "fee": {
+          "type": "SHARES",
+          "amountWei": "1659999999999999998"
+        },
+        "fill": {
+          "executedPriceWei": "10000000000000000",
+          "executedSizeWei": "82999999999999999901",
+          "executedValueWei": "829999999999999999"
+        }
+      },
+      {
+        "type": "orderTransactionSuccess",
+        "orderId": "12345",
+        "orderHash": "0xeb013260517b98967c7fff0341874ce8fc2148d967a4b0d9b5f3947a43175469",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "timestamp": 1792206668538,
+        "details": {
+          "marketId": 42,
+          "outcomeIndex": 1,
+          "marketQuestion": "fixture",
+          "outcome": "YES",
+          "quoteType": "BID",
+          "quantity": "100",
+          "quantityFilled": "0",
+          "price": "0.01",
+          "value": "1.00",
+          "valueFilled": "0",
+          "strategyType": "LIMIT",
+          "categorySlug": "fixture"
+        },
+        "settlementId": "wallet-precision-2",
+        "isMaker": false,
+        "fee": {
+          "type": "SHARES",
+          "amountWei": "1659999999999999998"
+        },
+        "fill": {
+          "executedPriceWei": "10000000000000000",
+          "executedSizeWei": "82999999999999999901",
+          "executedValueWei": "829999999999999999"
+        }
+      }
+    ],
+    "nativeFeedback": [
+      {
+        "type": "AccountStateApplied",
+        "eventId": "4528aa75-e750-4301-9b3c-c50ef01d8b1d",
+        "tsEvent": 1792206668461959000,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "1000.00000000",
+            "free": "1000.00000000",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "AccountStateApplied",
+        "eventId": "b2aacbde-1d57-4976-9a1b-74a34d746b20",
+        "tsEvent": 1792206668475500000,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "1000.00000000",
+            "free": "1000.00000000",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "SubmissionDecision",
+        "marketId": 42,
+        "bookTsEvent": 1792206668534000000,
+        "observedNs": 1792206668534908000,
+        "bestBid": "0.007",
+        "bestAsk": "0.010",
+        "restConfirmed": false,
+        "timeInForce": "GTC",
+        "price": "0.010",
+        "quantity": "100",
+        "cost": "1.000"
+      },
+      {
+        "type": "Initialized",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": null,
+        "tsEvent": 1792206668534925000,
+        "cachedOrder": {
+          "status": "INITIALIZED",
+          "quantity": "100",
+          "filledQuantity": "0",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": null,
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "Submitted",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": null,
+        "tsEvent": 1792206668535144000,
+        "cachedOrder": {
+          "status": "SUBMITTED",
+          "quantity": "100",
+          "filledQuantity": "0",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": null,
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "Accepted",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": "0xeb013260517b98967c7fff0341874ce8fc2148d967a4b0d9b5f3947a43175469",
+        "tsEvent": 1792206668538000000,
+        "cachedOrder": {
+          "status": "ACCEPTED",
+          "quantity": "100",
+          "filledQuantity": "0",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": null,
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "Filled",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": "0xeb013260517b98967c7fff0341874ce8fc2148d967a4b0d9b5f3947a43175469",
+        "tsEvent": 1792206668538000000,
+        "cachedOrder": {
+          "status": "PARTIALLY_FILLED",
+          "quantity": "100",
+          "filledQuantity": "17.0000000000000000",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": {
+          "tradeId": "PF-cb04ed0e56bf5dfcfb4eb50066ce9b54",
+          "quantity": "17.0000000000000000",
+          "price": "0.010",
+          "commission": "0.00000000 USDT",
+          "liquiditySide": "TAKER",
+          "orderSide": "BUY"
+        },
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "PositionStateApplied",
+        "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+        "quantity": "16.6599999999999999",
+        "realizedPnl": "-0.00340000 USDT"
+      },
+      {
+        "type": "Filled",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": "0xeb013260517b98967c7fff0341874ce8fc2148d967a4b0d9b5f3947a43175469",
+        "tsEvent": 1792206668538000000,
+        "cachedOrder": {
+          "status": "FILLED",
+          "quantity": "100",
+          "filledQuantity": "100.0000000000000000",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": {
+          "tradeId": "PF-dd9715341ae912fa5bf1ed966d095991",
+          "quantity": "83.0000000000000000",
+          "price": "0.010",
+          "commission": "0.00000000 USDT",
+          "liquiditySide": "TAKER",
+          "orderSide": "BUY"
+        },
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "PositionStateApplied",
+        "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+        "quantity": "98.0000000000000000",
+        "realizedPnl": "-0.02000000 USDT"
+      },
+      {
+        "type": "AccountStateApplied",
+        "eventId": "113a5e5f-22bb-4ea3-b688-4db1c1886990",
+        "tsEvent": 1792206668556867000,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "999.00000000",
+            "free": "999.00000000",
+            "locked": "0.00000000"
+          }
+        ]
+      }
+    ],
+    "duplicateWalletPackets": true,
+    "grossFilled": "100",
+    "feeSummaries": [
+      {
+        "nativeQuantity": "98.0000000000000000",
+        "signedDecimalQuantity": "98.0000000000000000",
+        "fees": {
+          "quantity": "1.999999999999999999",
+          "cost": "0.01999999999999999999"
+        },
+        "quantityResidual": "0.000000000000000001",
+        "costResidual": "-0.00000000000000000001",
+        "realizedPnl": "-0.02000000 USDT"
+      }
+    ],
+    "orderQuantityCommissions": [
+      "1.999999999999999999"
+    ]
+  },
+  "multiplePrices": {
+    "source": "synthetic different-price partial-fill Rust Strategy + LiveNode replay; not actual venue fills",
+    "outcome": 1,
+    "submittedQuantity": 100,
+    "grossFilled": 32,
+    "netPosition": "31.36",
+    "nativeFilledQuantity": "32.0000000000000000",
+    "nativeOrderStatus": "CANCELED",
+    "nativeAveragePrice": "0.00946875",
+    "cashDebit": "0.303",
+    "commissionUSDT": "0.00606000 USDT",
+    "strategyFilledCallbacks": 2,
+    "interleavedFeeCorrection": true,
+    "positionAverage": "0.00947378395451674",
+    "positionBasisPlusCommission": "0.3030000048136449664",
+    "basisResidualUSDT": "0.0000000048136449664",
+    "basisMatchesCash": true,
+    "positionOnlyExitProbe": {
+      "source": "offline cloned Native Position close; not a strategy or venue SELL",
+      "sellPrice": "0.010",
+      "sellFee": "0",
+      "expectedCashPnL": "0.0106",
+      "nativeRealizedPnL": "0.01060000",
+      "pnlMatchesCash": true
+    },
+    "walletFrames": [
+      {
+        "type": "orderTransactionSuccess",
+        "orderId": "12345",
+        "orderHash": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "timestamp": 1792206668873,
+        "details": {
+          "marketId": 42,
+          "outcomeIndex": 1,
+          "marketQuestion": "fixture",
+          "outcome": "YES",
+          "quoteType": "BID",
+          "quantity": "100",
+          "quantityFilled": "0",
+          "price": "0.01",
+          "value": "1.00",
+          "valueFilled": "0",
+          "strategyType": "LIMIT",
+          "categorySlug": "fixture"
+        },
+        "settlementId": "wallet-precision-1",
+        "isMaker": false,
+        "fee": {
+          "type": "SHARES",
+          "amountWei": "340000000000000000"
+        },
+        "fill": {
+          "executedPriceWei": "9000000000000000",
+          "executedSizeWei": "17000000000000000000",
+          "executedValueWei": "153000000000000000"
+        }
+      },
+      {
+        "type": "orderTransactionSuccess",
+        "orderId": "12345",
+        "orderHash": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "timestamp": 1792206668873,
+        "details": {
+          "marketId": 42,
+          "outcomeIndex": 1,
+          "marketQuestion": "fixture",
+          "outcome": "YES",
+          "quoteType": "BID",
+          "quantity": "100",
+          "quantityFilled": "0",
+          "price": "0.01",
+          "value": "1.00",
+          "valueFilled": "0",
+          "strategyType": "LIMIT",
+          "categorySlug": "fixture"
+        },
+        "settlementId": "wallet-precision-1",
+        "isMaker": false,
+        "fee": {
+          "type": "SHARES",
+          "amountWei": "340000000000000000"
+        },
+        "fill": {
+          "executedPriceWei": "9000000000000000",
+          "executedSizeWei": "17000000000000000000",
+          "executedValueWei": "153000000000000000"
+        }
+      },
+      {
+        "type": "orderTransactionSuccess",
+        "orderId": "12345",
+        "orderHash": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "timestamp": 1792206668873,
+        "details": {
+          "marketId": 42,
+          "outcomeIndex": 1,
+          "marketQuestion": "fixture",
+          "outcome": "YES",
+          "quoteType": "BID",
+          "quantity": "100",
+          "quantityFilled": "0",
+          "price": "0.01",
+          "value": "1.00",
+          "valueFilled": "0",
+          "strategyType": "LIMIT",
+          "categorySlug": "fixture"
+        },
+        "settlementId": "wallet-precision-2",
+        "isMaker": false,
+        "fee": {
+          "type": "SHARES",
+          "amountWei": "300000000000000000"
+        },
+        "fill": {
+          "executedPriceWei": "10000000000000000",
+          "executedSizeWei": "15000000000000000000",
+          "executedValueWei": "150000000000000000"
+        }
+      },
+      {
+        "type": "orderTransactionSuccess",
+        "orderId": "12345",
+        "orderHash": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "timestamp": 1792206668873,
+        "details": {
+          "marketId": 42,
+          "outcomeIndex": 1,
+          "marketQuestion": "fixture",
+          "outcome": "YES",
+          "quoteType": "BID",
+          "quantity": "100",
+          "quantityFilled": "0",
+          "price": "0.01",
+          "value": "1.00",
+          "valueFilled": "0",
+          "strategyType": "LIMIT",
+          "categorySlug": "fixture"
+        },
+        "settlementId": "wallet-precision-2",
+        "isMaker": false,
+        "fee": {
+          "type": "SHARES",
+          "amountWei": "300000000000000000"
+        },
+        "fill": {
+          "executedPriceWei": "10000000000000000",
+          "executedSizeWei": "15000000000000000000",
+          "executedValueWei": "150000000000000000"
+        }
+      }
+    ],
+    "matchesResponses": [],
+    "positionResponses": [
+      {
+        "success": true,
+        "data": [
+          {
+            "id": "holding-1",
+            "market": {
+              "id": 42,
+              "isNegRisk": false,
+              "isYieldBearing": false,
+              "decimalPrecision": 3,
+              "outcomes": [
+                {
+                  "name": "fixture",
+                  "indexSet": 1,
+                  "onChainId": "11",
+                  "status": "LOST"
+                }
+              ]
+            },
+            "outcome": {
+              "name": "fixture",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": "LOST"
+            },
+            "amount": "31360000000000000000",
+            "valueUsd": "0",
+            "averageBuyPriceUsd": "0.62",
+            "pnlUsd": "-1"
+          }
+        ]
+      }
+    ],
+    "fills": [
+      {
+        "tradeId": "PF-05e4b7445e97d657f5bda5dc6efa143f",
+        "quantity": "17.0000000000000000",
+        "price": "0.009",
+        "commission": "0.00000000 USDT"
+      },
+      {
+        "tradeId": "PF-90b3ab138bab76b6723ae9c42647add2",
+        "quantity": "15.0000000000000000",
+        "price": "0.010",
+        "commission": "0.00000000 USDT"
+      }
+    ],
+    "nativeFeedback": [
+      {
+        "type": "AccountStateApplied",
+        "eventId": "c47e9d8b-c7a5-40b9-bc7e-ab6dc6348e94",
+        "tsEvent": 1792206668796323000,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "1000.00000000",
+            "free": "1000.00000000",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "AccountStateApplied",
+        "eventId": "f7a3f7ec-bc5f-48a0-bfcf-332c5a58eec8",
+        "tsEvent": 1792206668809006000,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "1000.00000000",
+            "free": "1000.00000000",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "SubmissionDecision",
+        "marketId": 42,
+        "bookTsEvent": 1792206668869000000,
+        "observedNs": 1792206668869864000,
+        "bestBid": "0.007",
+        "bestAsk": "0.010",
+        "restConfirmed": false,
+        "timeInForce": "GTC",
+        "price": "0.010",
+        "quantity": "100",
+        "cost": "1.000"
+      },
+      {
+        "type": "Initialized",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": null,
+        "tsEvent": 1792206668869875000,
+        "cachedOrder": {
+          "status": "INITIALIZED",
+          "quantity": "100",
+          "filledQuantity": "0",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": null,
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "Submitted",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": null,
+        "tsEvent": 1792206668870026000,
+        "cachedOrder": {
+          "status": "SUBMITTED",
+          "quantity": "100",
+          "filledQuantity": "0",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": null,
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "Accepted",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "tsEvent": 1792206668872000000,
+        "cachedOrder": {
+          "status": "ACCEPTED",
+          "quantity": "100",
+          "filledQuantity": "0",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": null,
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "Filled",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "tsEvent": 1792206668873000000,
+        "cachedOrder": {
+          "status": "PARTIALLY_FILLED",
+          "quantity": "100",
+          "filledQuantity": "17.0000000000000000",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": {
+          "tradeId": "PF-05e4b7445e97d657f5bda5dc6efa143f",
+          "quantity": "17.0000000000000000",
+          "price": "0.009",
+          "commission": "0.00000000 USDT",
+          "liquiditySide": "TAKER",
+          "orderSide": "BUY"
+        },
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "PositionStateApplied",
+        "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+        "quantity": "16.6600000000000000",
+        "realizedPnl": "-0.00306000 USDT"
+      },
+      {
+        "type": "PendingCancel",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "tsEvent": 1792206668887298000,
+        "cachedOrder": {
+          "status": "PENDING_CANCEL",
+          "quantity": "100",
+          "filledQuantity": "32.0000000000000000",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": null,
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "Filled",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "tsEvent": 1792206668873000000,
+        "cachedOrder": {
+          "status": "PENDING_CANCEL",
+          "quantity": "100",
+          "filledQuantity": "32.0000000000000000",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": {
+          "tradeId": "PF-90b3ab138bab76b6723ae9c42647add2",
+          "quantity": "15.0000000000000000",
+          "price": "0.010",
+          "commission": "0.00000000 USDT",
+          "liquiditySide": "TAKER",
+          "orderSide": "BUY"
+        },
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "PositionStateApplied",
+        "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+        "quantity": "31.3600000000000000",
+        "realizedPnl": "-0.00590214 USDT"
+      },
+      {
+        "type": "Canceled",
+        "clientOrderId": "O-20261017-031108-001-001-1",
+        "venueOrderId": "0x5f02a8f9fadd37577b8769dbccec4d7570cf7875eedb6305d4e3b6b1282818b5",
+        "tsEvent": 1792206668888712000,
+        "cachedOrder": {
+          "status": "CANCELED",
+          "quantity": "100",
+          "filledQuantity": "32.0000000000000000",
+          "price": "0.010",
+          "postOnly": false,
+          "timeInForce": "GTC",
+          "expireTimeNs": null
+        },
+        "fill": null,
+        "rejectionReason": null,
+        "duePostOnly": null
+      },
+      {
+        "type": "AccountStateApplied",
+        "eventId": "3077c34c-6044-4002-be03-d35c7085df78",
+        "tsEvent": 1792206668890283000,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "999.69700000",
+            "free": "999.69700000",
+            "locked": "0.00000000"
+          }
+        ]
+      }
+    ],
+    "duplicateWalletPackets": true,
+    "duplicateRestRows": true,
+    "feeSummaries": [
+      {
+        "nativeQuantity": "31.3600000000000000",
+        "signedDecimalQuantity": "31.3600000000000000",
+        "fees": {
+          "quantity": "0.64",
+          "cost": "0.005902135186355022"
+        },
+        "quantityResidual": "0.00",
+        "costResidual": "-0.000000004813644978",
+        "realizedPnl": "-0.00590214 USDT"
+      }
+    ],
+    "orderQuantityCommissions": [
+      "0.64"
+    ]
+  },
+  "recordedEconomicsRoundTrip": {
+    "source": "offline Rust Strategy + LiveNode replay derived from actual recorded economic facts; no real order writes",
+    "primaryEvidence": "live_fill_20261016T123240Z_independent/calibration.json",
+    "transforms": [
+      "account/token/market identifiers and signed hashes rebound to loopback signer",
+      "event times rebound to causal receipt times",
+      "recorded exit decision injected after TP acceptance, without waiting wall-clock hold duration",
+      "REST book wrapped in WS test envelope; orderCount unavailable -> 0",
+      "historical match times shifted together, preserving ages"
+    ],
+    "marketFlags": {
+      "isNegRisk": false,
+      "isYieldBearing": true
+    },
+    "reconciliation": true,
+    "reconciliationLookbackMins": null,
+    "positionCheckLookbackMins": 60,
+    "requests": [
+      {
+        "data": {
+          "pricePerShare": "40000000000000000",
+          "strategy": "LIMIT",
+          "isPostOnly": false,
+          "order": {
+            "salt": "1747948806",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "1280000000000000000",
+            "takerAmount": "32000000000000000000",
+            "expiration": 4102444800,
+            "nonce": "7",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x16a0ed946ae27b1cce2b6651b892d9f2cef7e28e12ff77f1cd40f7b5b76da183",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5729ef5a387d95d797e255e0c16ff3e5e5b51e3a0f03adbb4686de1c19b32ee89e6e4a1b2b102dc1b6ea2bdad71afd777a571260211c206f74e30ad1e17b99c2c61c"
+          }
+        }
+      },
+      {
+        "data": {
+          "pricePerShare": "43000000000000000",
+          "strategy": "LIMIT",
+          "isPostOnly": true,
+          "order": {
+            "salt": "869493484",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "31360000000000000000",
+            "takerAmount": "1348480000000000000",
+            "expiration": 4102444800,
+            "nonce": "7",
+            "feeRateBps": "200",
+            "side": 1,
+            "signatureType": 0,
+            "hash": "0xf02cd2f4b100cc354d4c09816bf3e98b88dcb915e49952df13fbc58cffd2ee7c",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5706bc58a7ba71be2ce0a3d9e3760c31084998bc8da4a5fdb4a7d06addcd299b5d27599d1c2ec50aea847487a466ef2f61e249ad56c387c77a64d9cf6aa152cde31c"
+          }
+        }
+      },
+      {
+        "data": {
+          "pricePerShare": "39000000000000000",
+          "strategy": "MARKET",
+          "slippageBps": 100,
+          "order": {
+            "salt": "2064000771",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "signer": "0x1111111111111111111111111111111111111111",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "11",
+            "makerAmount": "31360000000000000000",
+            "takerAmount": "1210809600000000000",
+            "expiration": 1792206969,
+            "nonce": "7",
+            "feeRateBps": "200",
+            "side": 1,
+            "signatureType": 0,
+            "hash": "0xa4882a2ad851f6ce750b1c06e3a32785ea4ef2bf4278f89cae748682686e7e47",
+            "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce570b7bd3e9222ab5588ac6ef9ae49c851ee87438a31b59f7be4d714b8aec0bd7934a2723a30aa8f44623d13ae981a767b00fcbf73e045e41bbf526a44a0b8d07471b"
+          }
+        }
+      }
+    ],
+    "walletEvents": [
+      {
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.040",
+          "quantity": "32.000",
+          "quantityFilled": "0.000",
+          "quoteType": "BID",
+          "strategyType": "LIMIT",
+          "value": "1.28",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0x16a0ed946ae27b1cce2b6651b892d9f2cef7e28e12ff77f1cd40f7b5b76da183",
+        "orderId": "12345",
+        "timestamp": 1792206669167,
+        "type": "orderAccepted",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.040",
+          "quantity": "32.000",
+          "quantityFilled": "0.000",
+          "quoteType": "BID",
+          "strategyType": "LIMIT",
+          "value": "1.28",
+          "valueFilled": "0.00"
+        },
+        "fill": {
+          "executedPriceWei": "40000000000000000",
+          "executedSizeWei": "32000000000000000000",
+          "executedValueWei": "1280000000000000000"
+        },
+        "isMaker": false,
+        "kind": "PURCHASE",
+        "orderHash": "0x16a0ed946ae27b1cce2b6651b892d9f2cef7e28e12ff77f1cd40f7b5b76da183",
+        "orderId": "12345",
+        "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+        "timestamp": 1792206669167,
+        "type": "orderTransactionSubmitted",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.040",
+          "quantity": "32.000",
+          "quantityFilled": "32.000",
+          "quoteType": "BID",
+          "strategyType": "LIMIT",
+          "value": "1.28",
+          "valueFilled": "1.28"
+        },
+        "fee": {
+          "amountWei": "640000000000000000",
+          "type": "SHARES"
+        },
+        "fill": {
+          "executedPriceWei": "40000000000000000",
+          "executedSizeWei": "32000000000000000000",
+          "executedValueWei": "1280000000000000000"
+        },
+        "isMaker": false,
+        "orderHash": "0x16a0ed946ae27b1cce2b6651b892d9f2cef7e28e12ff77f1cd40f7b5b76da183",
+        "orderId": "12345",
+        "settlementId": "01a144b4-49e0-7d12-aa2e-ea09ad145a95",
+        "timestamp": 1792206669167,
+        "type": "orderTransactionSuccess",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.043",
+          "quantity": "31.360",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "LIMIT",
+          "value": "1.35",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0xf02cd2f4b100cc354d4c09816bf3e98b88dcb915e49952df13fbc58cffd2ee7c",
+        "orderId": "12345",
+        "timestamp": 1792206669170,
+        "type": "orderAccepted",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.043",
+          "quantity": "31.360",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "LIMIT",
+          "value": "1.35",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0xf02cd2f4b100cc354d4c09816bf3e98b88dcb915e49952df13fbc58cffd2ee7c",
+        "orderId": "12345",
+        "timestamp": 1792206669185,
+        "type": "orderCancelled",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.039",
+          "quantity": "31.360",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "1.22",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0xa4882a2ad851f6ce750b1c06e3a32785ea4ef2bf4278f89cae748682686e7e47",
+        "orderId": "12345",
+        "timestamp": 1792206669188,
+        "type": "orderAccepted",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "amount": "31360000000000000000",
+        "amountFilled": "0",
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.039",
+          "quantity": "31.360",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "1.22",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0xa4882a2ad851f6ce750b1c06e3a32785ea4ef2bf4278f89cae748682686e7e47",
+        "orderId": "12345",
+        "plannedFill": "31360000000000000000",
+        "remainderCancelled": "0",
+        "settlementIds": [
+          "01a144b5-8e9b-7e90-af96-b3f51996a669"
+        ],
+        "timestamp": 1792206669188,
+        "type": "orderMarketMatchPlan",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.039",
+          "quantity": "31.360",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "1.22",
+          "valueFilled": "0.00"
+        },
+        "fill": {
+          "executedPriceWei": "39000000000000000",
+          "executedSizeWei": "31360000000000000000",
+          "executedValueWei": "1223040000000000000"
+        },
+        "isMaker": false,
+        "kind": "SALE",
+        "orderHash": "0xa4882a2ad851f6ce750b1c06e3a32785ea4ef2bf4278f89cae748682686e7e47",
+        "orderId": "12345",
+        "settlementId": "01a144b5-8e9b-7e90-af96-b3f51996a669",
+        "timestamp": 1792206669188,
+        "type": "orderTransactionSubmitted",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "will-the-us-confirm-that-aliens-exist-before-2027",
+          "marketId": 42,
+          "marketQuestion": "Will the US confirm that aliens exist before 2027?",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Yes",
+          "price": "0.039",
+          "quantity": "31.360",
+          "quantityFilled": "31.360",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "1.22",
+          "valueFilled": "1.22"
+        },
+        "fee": {
+          "amountWei": "24460800000000000",
+          "type": "COLLATERAL"
+        },
+        "fill": {
+          "executedPriceWei": "39000000000000000",
+          "executedSizeWei": "31360000000000000000",
+          "executedValueWei": "1223040000000000000"
+        },
+        "isMaker": false,
+        "orderHash": "0xa4882a2ad851f6ce750b1c06e3a32785ea4ef2bf4278f89cae748682686e7e47",
+        "orderId": "12345",
+        "settlementId": "01a144b5-8e9b-7e90-af96-b3f51996a669",
+        "timestamp": 1792206669188,
+        "type": "orderTransactionSuccess",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      }
+    ],
+    "nativeFeedback": [
+      {
+        "type": "NativeAccountSnapshot",
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "48.29772920",
+            "free": "48.29772920",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "NativeQuoteObserved",
+        "instrumentId": "42-1.PREDICT",
+        "bid": "0.039",
+        "ask": "0.040",
+        "bidSize": "2675.5594172736733000",
+        "askSize": "54789.3333333125050000",
+        "tsEvent": 1792206669144000000
+      },
+      {
+        "type": "NativeAccountSnapshot",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "48.29772920",
+            "free": "48.29772920",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "NativeEntrySubmitted",
+        "clientOrderId": "EXIT-ENTRY-001"
+      },
+      {
+        "type": "Initialized",
+        "clientOrderId": "EXIT-ENTRY-001",
+        "quantity": "0",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "INITIALIZED"
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_submitted",
+        "clientOrderId": "EXIT-ENTRY-001",
+        "cachedStatus": "SUBMITTED",
+        "cachedNetQuantity": "0",
+        "quantity": "32",
+        "filledQuantity": "0",
+        "leavesQuantity": "32",
+        "price": "0.040"
+      },
+      {
+        "type": "Submitted",
+        "clientOrderId": "EXIT-ENTRY-001",
+        "quantity": "0",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "SUBMITTED"
+      },
+      {
+        "type": "NativeAccountReported",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "48.29772920",
+            "free": "47.01772920",
+            "locked": "1.28000000"
+          }
+        ]
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_accepted",
+        "clientOrderId": "EXIT-ENTRY-001",
+        "cachedStatus": "ACCEPTED",
+        "cachedNetQuantity": "0",
+        "quantity": "32",
+        "filledQuantity": "0",
+        "leavesQuantity": "32",
+        "price": "0.040"
+      },
+      {
+        "type": "Accepted",
+        "clientOrderId": "EXIT-ENTRY-001",
+        "quantity": "0",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "ACCEPTED"
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_filled",
+        "clientOrderId": "EXIT-ENTRY-001",
+        "cachedStatus": "FILLED",
+        "cachedNetQuantity": "31.3600000000000000",
+        "quantity": "32",
+        "filledQuantity": "32.0000000000000000",
+        "leavesQuantity": "0.0000000000000000",
+        "price": "0.040"
+      },
+      {
+        "type": "Filled",
+        "clientOrderId": "EXIT-ENTRY-001",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": {
+          "quantity": "32.0000000000000000",
+          "price": "0.040",
+          "commission": "0.00000000 USDT",
+          "quantityCommission": "0.64",
+          "liquidity": "TAKER"
+        },
+        "cachedStatus": "FILLED"
+      },
+      {
+        "type": "EntryHoldingDeadline",
+        "deadlineNs": 1792206729167935000
+      },
+      {
+        "type": "MakerTakeProfitSubmitted",
+        "price": "0.043",
+        "quantity": "31.3600000000000000",
+        "entryAverage": "0.040"
+      },
+      {
+        "type": "Initialized",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "INITIALIZED"
+      },
+      {
+        "type": "NativeAccountReported",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "48.29772920",
+            "free": "47.01772920",
+            "locked": "1.28000000"
+          }
+        ]
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_position_opened",
+        "eventQuantity": "31.3600000000000000",
+        "cachedNetQuantity": "31.3600000000000000"
+      },
+      {
+        "type": "NativePositionApplied",
+        "quantity": "31.3600000000000000",
+        "realizedPnl": "-0.02560000 USDT"
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_submitted",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "cachedStatus": "SUBMITTED",
+        "cachedNetQuantity": "31.3600000000000000",
+        "quantity": "31.3600000000000000",
+        "filledQuantity": "0.0000000000000000",
+        "leavesQuantity": "31.3600000000000000",
+        "price": "0.043"
+      },
+      {
+        "type": "Submitted",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "SUBMITTED"
+      },
+      {
+        "type": "NativeAccountReported",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "47.01772920",
+            "free": "47.01772920",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_accepted",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "cachedStatus": "ACCEPTED",
+        "cachedNetQuantity": "31.3600000000000000",
+        "quantity": "31.3600000000000000",
+        "filledQuantity": "0.0000000000000000",
+        "leavesQuantity": "31.3600000000000000",
+        "price": "0.043"
+      },
+      {
+        "type": "Accepted",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "ACCEPTED"
+      },
+      {
+        "type": "NativeQuoteObserved",
+        "instrumentId": "42-1.PREDICT",
+        "bid": "0.039",
+        "ask": "0.040",
+        "bidSize": "2675.5594172736733000",
+        "askSize": "54789.3333333125050000",
+        "tsEvent": 1792206669170000000
+      },
+      {
+        "type": "NativeAccountSnapshot",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "47.01772920",
+            "free": "47.01772920",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "StopTriggered",
+        "netQuantity": "31.3600000000000000",
+        "estimatedProceeds": "1.198579200000000000000",
+        "entryCost": "1.2800000000000000000",
+        "realizedProceeds": "0",
+        "estimatedRoundPnl": "-0.081420800000000000000"
+      },
+      {
+        "type": "CancelTakeProfitRequested"
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_pending_cancel",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "cachedStatus": "PENDING_CANCEL",
+        "cachedNetQuantity": "31.3600000000000000",
+        "quantity": "31.3600000000000000",
+        "filledQuantity": "0.0000000000000000",
+        "leavesQuantity": "31.3600000000000000",
+        "price": "0.043"
+      },
+      {
+        "type": "PendingCancel",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "PENDING_CANCEL"
+      },
+      {
+        "type": "NativeAccountReported",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "47.01772920",
+            "free": "47.01772920",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_canceled",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "cachedStatus": "CANCELED",
+        "cachedNetQuantity": "31.3600000000000000",
+        "quantity": "31.3600000000000000",
+        "filledQuantity": "0.0000000000000000",
+        "leavesQuantity": "31.3600000000000000",
+        "price": "0.043"
+      },
+      {
+        "type": "Canceled",
+        "clientOrderId": "O-20261017-031109-001-001-1",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "CANCELED"
+      },
+      {
+        "type": "TakerStopSubmitted",
+        "quantity": "31.3600000000000000"
+      },
+      {
+        "type": "Initialized",
+        "clientOrderId": "O-20261017-031109-001-001-2",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "INITIALIZED"
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_submitted",
+        "clientOrderId": "O-20261017-031109-001-001-2",
+        "cachedStatus": "SUBMITTED",
+        "cachedNetQuantity": "31.3600000000000000",
+        "quantity": "31.3600000000000000",
+        "filledQuantity": "0.0000000000000000",
+        "leavesQuantity": "31.3600000000000000",
+        "price": null
+      },
+      {
+        "type": "Submitted",
+        "clientOrderId": "O-20261017-031109-001-001-2",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "SUBMITTED"
+      },
+      {
+        "type": "NativeAccountReported",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "47.01772920",
+            "free": "47.01772920",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_accepted",
+        "clientOrderId": "O-20261017-031109-001-001-2",
+        "cachedStatus": "ACCEPTED",
+        "cachedNetQuantity": "31.3600000000000000",
+        "quantity": "31.3600000000000000",
+        "filledQuantity": "0.0000000000000000",
+        "leavesQuantity": "31.3600000000000000",
+        "price": null
+      },
+      {
+        "type": "Accepted",
+        "clientOrderId": "O-20261017-031109-001-001-2",
+        "quantity": "31.3600000000000000",
+        "reason": null,
+        "fill": null,
+        "cachedStatus": "ACCEPTED"
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_order_filled",
+        "clientOrderId": "O-20261017-031109-001-001-2",
+        "cachedStatus": "FILLED",
+        "cachedNetQuantity": "0",
+        "quantity": "31.3600000000000000",
+        "filledQuantity": "31.3600000000000000",
+        "leavesQuantity": "0.0000000000000000",
+        "price": null
+      },
+      {
+        "type": "Filled",
+        "clientOrderId": "O-20261017-031109-001-001-2",
+        "quantity": "0",
+        "reason": null,
+        "fill": {
+          "quantity": "31.3600000000000000",
+          "price": "0.039",
+          "commission": "0.02446080 USDT",
+          "quantityCommission": null,
+          "liquidity": "TAKER"
+        },
+        "cachedStatus": "FILLED"
+      },
+      {
+        "type": "NativeAccountReported",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "47.01772920",
+            "free": "47.01772920",
+            "locked": "0.00000000"
+          }
+        ]
+      },
+      {
+        "type": "StrategyCallback",
+        "callback": "on_position_closed",
+        "eventQuantity": "0.0000000000000000",
+        "cachedNetQuantity": "0"
+      },
+      {
+        "type": "NativePositionApplied",
+        "quantity": "0",
+        "realizedPnl": "-0.08142080 USDT"
+      },
+      {
+        "type": "NativeAccountSnapshot",
+        "reconciliationReady": null,
+        "connectionEpoch": null,
+        "balances": [
+          {
+            "currency": "USDT",
+            "total": "48.21630840",
+            "free": "48.21630840",
+            "locked": "0.00000000"
+          }
+        ]
+      }
+    ],
+    "finalCash": "48.21630840",
+    "cycleRealizedPnl": "-0.08142080 USDT",
+    "netSharesBeforeSell": "31.36",
+    "finalOpenOrders": 0,
+    "finalPositions": 0,
+    "quantityCommissionPrototype": true,
+    "periodicPositionChecks": null,
+    "nativeCurrencyCommissions": "0.02446080",
+    "nativeFills": [
+      {
+        "type": "OrderFilled",
+        "trader_id": "TESTER-001",
+        "strategy_id": "PREDICT-EXIT-001",
+        "instrument_id": "42-1.PREDICT",
+        "client_order_id": "EXIT-ENTRY-001",
+        "venue_order_id": "0x16a0ed946ae27b1cce2b6651b892d9f2cef7e28e12ff77f1cd40f7b5b76da183",
+        "account_id": "PREDICT-fixture",
+        "trade_id": "PF-2f58ce6eecf85b415b362f06f5f7ac62",
+        "order_side": "BUY",
+        "order_type": "LIMIT",
+        "last_qty": "32.0000000000000000",
+        "last_px": "0.040",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "fb604199-5aa3-457d-92cc-ae578bcf882b",
+        "ts_event": 1792206669167000000,
+        "ts_init": 1792206669167848000,
+        "reconciliation": true,
+        "position_id": "42-1.PREDICT-PREDICT-EXIT-001",
+        "commission": "0.00000000 USDT",
+        "quantity_commission": "0.64",
+        "info": null
+      },
+      {
+        "type": "OrderFilled",
+        "trader_id": "TESTER-001",
+        "strategy_id": "PREDICT-EXIT-001",
+        "instrument_id": "42-1.PREDICT",
+        "client_order_id": "O-20261017-031109-001-001-2",
+        "venue_order_id": "0xa4882a2ad851f6ce750b1c06e3a32785ea4ef2bf4278f89cae748682686e7e47",
+        "account_id": "PREDICT-fixture",
+        "trade_id": "PF-ef0e46d6389841acde5ad4aa332c485f",
+        "order_side": "SELL",
+        "order_type": "MARKET",
+        "last_qty": "31.3600000000000000",
+        "last_px": "0.039",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "d7ca5971-77d0-4739-b4b3-7d29bb99a23a",
+        "ts_event": 1792206669188000000,
+        "ts_init": 1792206669189235000,
+        "reconciliation": true,
+        "position_id": "42-1.PREDICT-PREDICT-EXIT-001",
+        "commission": "0.02446080 USDT",
+        "info": null
+      }
+    ],
+    "feeSummaries": [
+      {
+        "fees": {
+          "quantity": "0.64",
+          "cost": "0.0256"
+        },
+        "quantityResidual": "0.00",
+        "costResidual": "0.00000000",
+        "realizedPnl": "-0.08142080 USDT"
+      }
+    ]
+  },
+  "mixedNativeCycle": {
+    "source": "synthetic Native Position mixed-price BUY/SELL accounting; not a strategy or venue execution",
+    "rawBuyQuantities": [
+      "17.000000000000000099",
+      "14.999999999999999901"
+    ],
+    "rawQuantitySum": "32",
+    "fills": [
+      {
+        "type": "OrderFilled",
+        "trader_id": "TESTER-001",
+        "strategy_id": "S-001",
+        "instrument_id": "42-1.PREDICT",
+        "client_order_id": "FEE-PROBE-1",
+        "venue_order_id": "001",
+        "account_id": "PREDICT-fixture",
+        "trade_id": "FEE-PROBE-1",
+        "order_side": "BUY",
+        "order_type": "LIMIT",
+        "last_qty": "17",
+        "last_px": "0.009",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "bdd73226-2feb-4e95-a8ef-e333b266f103",
+        "ts_event": 1000,
+        "ts_init": 1000,
+        "reconciliation": false,
+        "position_id": "P-FEE-PROBE",
+        "commission": "0.00000000 USDT",
+        "quantity_commission": "0.340000000000000001",
+        "info": null
+      },
+      {
+        "type": "OrderFilled",
+        "trader_id": "TESTER-001",
+        "strategy_id": "S-001",
+        "instrument_id": "42-1.PREDICT",
+        "client_order_id": "FEE-PROBE-1",
+        "venue_order_id": "001",
+        "account_id": "PREDICT-fixture",
+        "trade_id": "FEE-PROBE-2",
+        "order_side": "BUY",
+        "order_type": "LIMIT",
+        "last_qty": "15",
+        "last_px": "0.010",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "47526757-130f-4f52-981c-e1ff0e4ae394",
+        "ts_event": 2000,
+        "ts_init": 2000,
+        "reconciliation": false,
+        "position_id": "P-FEE-PROBE",
+        "commission": "0.00000000 USDT",
+        "quantity_commission": "0.299999999999999998",
+        "info": null
+      },
+      {
+        "type": "OrderFilled",
+        "trader_id": "TESTER-001",
+        "strategy_id": "S-001",
+        "instrument_id": "42-1.PREDICT",
+        "client_order_id": "FEE-PROBE-3",
+        "venue_order_id": "001",
+        "account_id": "PREDICT-fixture",
+        "trade_id": "FEE-PROBE-3",
+        "order_side": "SELL",
+        "order_type": "LIMIT",
+        "last_qty": "10",
+        "last_px": "0.011",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "09bc585a-2448-43f2-9e44-31fa3c80db06",
+        "ts_event": 3000,
+        "ts_init": 3000,
+        "reconciliation": false,
+        "position_id": "P-FEE-PROBE",
+        "commission": "0.00220000 USDT",
+        "info": null
+      },
+      {
+        "type": "OrderFilled",
+        "trader_id": "TESTER-001",
+        "strategy_id": "S-001",
+        "instrument_id": "42-1.PREDICT",
+        "client_order_id": "FEE-PROBE-4",
+        "venue_order_id": "001",
+        "account_id": "PREDICT-fixture",
+        "trade_id": "FEE-PROBE-4",
+        "order_side": "BUY",
+        "order_type": "LIMIT",
+        "last_qty": "5",
+        "last_px": "0.008",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "37e9671c-4537-4d5d-8cf6-35ee9e9e2fa4",
+        "ts_event": 4000,
+        "ts_init": 4000,
+        "reconciliation": false,
+        "position_id": "P-FEE-PROBE",
+        "commission": "0.00000000 USDT",
+        "info": null
+      },
+      {
+        "type": "OrderFilled",
+        "trader_id": "TESTER-001",
+        "strategy_id": "S-001",
+        "instrument_id": "42-1.PREDICT",
+        "client_order_id": "FEE-PROBE-5",
+        "venue_order_id": "001",
+        "account_id": "PREDICT-fixture",
+        "trade_id": "FEE-PROBE-5",
+        "order_side": "SELL",
+        "order_type": "LIMIT",
+        "last_qty": "26.36",
+        "last_px": "0.012",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "5705b877-0b3d-4dd5-9e54-d738297f77ae",
+        "ts_event": 5000,
+        "ts_init": 5000,
+        "reconciliation": false,
+        "position_id": "P-FEE-PROBE",
+        "commission": "0.00632640 USDT",
+        "info": null
+      }
+    ],
+    "states": [
+      {
+        "nativeQuantity": "16.6599999999999999",
+        "fees": {
+          "quantity": "0.340000000000000001",
+          "cost": "0.003060000000000000009"
+        }
+      },
+      {
+        "quantity": "21.3600000000000000",
+        "fees": {
+          "quantity": "0.639999999999999999",
+          "cost": "0.0059021351863550219900524321"
+        },
+        "pnl": "0.00716002 USDT",
+        "nativeFloatPnl": 0.007160020454832598,
+        "commissions": [
+          "0.00220000 USDT"
+        ]
+      },
+      {
+        "quantity": "26.3600000000000000",
+        "fees": {
+          "quantity": "0.639999999999999999",
+          "cost": "0.0059021351863550219900524321"
+        },
+        "pnl": "0.00716002 USDT",
+        "nativeFloatPnl": null,
+        "commissions": [
+          "0.00220000 USDT"
+        ]
+      },
+      {
+        "quantity": "0.0000000000000000",
+        "fees": {
+          "quantity": "0.639999999999999999",
+          "cost": "0.0059021351863550219900524321"
+        },
+        "pnl": "0.07479359 USDT",
+        "nativeFloatPnl": 0.07479359473152249,
+        "commissions": [
+          "0.00852640 USDT"
+        ]
+      }
+    ],
+    "snapshot": {
+      "trader_id": "TESTER-001",
+      "strategy_id": "S-001",
+      "instrument_id": "42-1.PREDICT",
+      "position_id": "P-FEE-PROBE",
+      "account_id": "PREDICT-fixture",
+      "opening_order_id": "FEE-PROBE-1",
+      "closing_order_id": "FEE-PROBE-5",
+      "entry": "BUY",
+      "side": "FLAT",
+      "signed_qty": 0.0,
+      "quantity": "0.0000000000000000",
+      "peak_qty": "31.3600000000000000",
+      "quote_currency": "USDT",
+      "base_currency": null,
+      "settlement_currency": "USDT",
+      "avg_px_open": 0.009194234645996871,
+      "avg_px_close": 0.011724972497249724,
+      "realized_return": 0.2752526935294962,
+      "realized_pnl": "0.07479359 USDT",
+      "unrealized_pnl": null,
+      "commissions": [
+        "0.00852640 USDT"
+      ],
+      "duration_ns": 4000,
+      "ts_opened": 1000,
+      "ts_closed": 5000,
+      "ts_init": 1000,
+      "ts_last": 5000,
+      "replay_state": {
+        "events": [
+          {
+            "type": "OrderFilled",
+            "trader_id": "TESTER-001",
+            "strategy_id": "S-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "FEE-PROBE-1",
+            "venue_order_id": "001",
+            "account_id": "PREDICT-fixture",
+            "trade_id": "FEE-PROBE-1",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "last_qty": "17",
+            "last_px": "0.009",
+            "currency": "USDT",
+            "liquidity_side": "TAKER",
+            "event_id": "bdd73226-2feb-4e95-a8ef-e333b266f103",
+            "ts_event": 1000,
+            "ts_init": 1000,
+            "reconciliation": false,
+            "position_id": "P-FEE-PROBE",
+            "commission": "0.00000000 USDT",
+            "quantity_commission": "0.340000000000000001",
+            "info": null
+          },
+          {
+            "type": "OrderFilled",
+            "trader_id": "TESTER-001",
+            "strategy_id": "S-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "FEE-PROBE-1",
+            "venue_order_id": "001",
+            "account_id": "PREDICT-fixture",
+            "trade_id": "FEE-PROBE-2",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "last_qty": "15",
+            "last_px": "0.010",
+            "currency": "USDT",
+            "liquidity_side": "TAKER",
+            "event_id": "47526757-130f-4f52-981c-e1ff0e4ae394",
+            "ts_event": 2000,
+            "ts_init": 2000,
+            "reconciliation": false,
+            "position_id": "P-FEE-PROBE",
+            "commission": "0.00000000 USDT",
+            "quantity_commission": "0.299999999999999998",
+            "info": null
+          },
+          {
+            "type": "OrderFilled",
+            "trader_id": "TESTER-001",
+            "strategy_id": "S-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "FEE-PROBE-3",
+            "venue_order_id": "001",
+            "account_id": "PREDICT-fixture",
+            "trade_id": "FEE-PROBE-3",
+            "order_side": "SELL",
+            "order_type": "LIMIT",
+            "last_qty": "10",
+            "last_px": "0.011",
+            "currency": "USDT",
+            "liquidity_side": "TAKER",
+            "event_id": "09bc585a-2448-43f2-9e44-31fa3c80db06",
+            "ts_event": 3000,
+            "ts_init": 3000,
+            "reconciliation": false,
+            "position_id": "P-FEE-PROBE",
+            "commission": "0.00220000 USDT",
+            "info": null
+          },
+          {
+            "type": "OrderFilled",
+            "trader_id": "TESTER-001",
+            "strategy_id": "S-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "FEE-PROBE-4",
+            "venue_order_id": "001",
+            "account_id": "PREDICT-fixture",
+            "trade_id": "FEE-PROBE-4",
+            "order_side": "BUY",
+            "order_type": "LIMIT",
+            "last_qty": "5",
+            "last_px": "0.008",
+            "currency": "USDT",
+            "liquidity_side": "TAKER",
+            "event_id": "37e9671c-4537-4d5d-8cf6-35ee9e9e2fa4",
+            "ts_event": 4000,
+            "ts_init": 4000,
+            "reconciliation": false,
+            "position_id": "P-FEE-PROBE",
+            "commission": "0.00000000 USDT",
+            "info": null
+          },
+          {
+            "type": "OrderFilled",
+            "trader_id": "TESTER-001",
+            "strategy_id": "S-001",
+            "instrument_id": "42-1.PREDICT",
+            "client_order_id": "FEE-PROBE-5",
+            "venue_order_id": "001",
+            "account_id": "PREDICT-fixture",
+            "trade_id": "FEE-PROBE-5",
+            "order_side": "SELL",
+            "order_type": "LIMIT",
+            "last_qty": "26.36",
+            "last_px": "0.012",
+            "currency": "USDT",
+            "liquidity_side": "TAKER",
+            "event_id": "5705b877-0b3d-4dd5-9e54-d738297f77ae",
+            "ts_event": 5000,
+            "ts_init": 5000,
+            "reconciliation": false,
+            "position_id": "P-FEE-PROBE",
+            "commission": "0.00632640 USDT",
+            "info": null
+          }
+        ],
+        "adjustments": [
+          {
+            "type": "PositionAdjusted",
+            "trader_id": "TESTER-001",
+            "strategy_id": "S-001",
+            "instrument_id": "42-1.PREDICT",
+            "position_id": "P-FEE-PROBE",
+            "account_id": "PREDICT-fixture",
+            "adjustment_type": "COMMISSION",
+            "quantity_change": "-0.3400000000000001",
+            "pnl_change": "-0.00306000 USDT",
+            "reason": "FEE-PROBE-1",
+            "event_id": "bdd73226-2feb-4e95-a8ef-e333b266f102",
+            "ts_event": 1000,
+            "ts_init": 1000
+          },
+          {
+            "type": "PositionAdjusted",
+            "trader_id": "TESTER-001",
+            "strategy_id": "S-001",
+            "instrument_id": "42-1.PREDICT",
+            "position_id": "P-FEE-PROBE",
+            "account_id": "PREDICT-fixture",
+            "adjustment_type": "COMMISSION",
+            "quantity_change": "-0.2999999999999999",
+            "pnl_change": "-0.00284214 USDT",
+            "reason": "FEE-PROBE-1",
+            "event_id": "47526757-130f-4f52-981c-e1ff0e4ae395",
+            "ts_event": 2000,
+            "ts_init": 2000
+          }
+        ],
+        "replay_events": [
+          {
+            "Filled": {
+              "type": "OrderFilled",
+              "trader_id": "TESTER-001",
+              "strategy_id": "S-001",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "FEE-PROBE-1",
+              "venue_order_id": "001",
+              "account_id": "PREDICT-fixture",
+              "trade_id": "FEE-PROBE-1",
+              "order_side": "BUY",
+              "order_type": "LIMIT",
+              "last_qty": "17",
+              "last_px": "0.009",
+              "currency": "USDT",
+              "liquidity_side": "TAKER",
+              "event_id": "bdd73226-2feb-4e95-a8ef-e333b266f103",
+              "ts_event": 1000,
+              "ts_init": 1000,
+              "reconciliation": false,
+              "position_id": "P-FEE-PROBE",
+              "commission": "0.00000000 USDT",
+              "quantity_commission": "0.340000000000000001",
+              "info": null
+            }
+          },
+          {
+            "Filled": {
+              "type": "OrderFilled",
+              "trader_id": "TESTER-001",
+              "strategy_id": "S-001",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "FEE-PROBE-1",
+              "venue_order_id": "001",
+              "account_id": "PREDICT-fixture",
+              "trade_id": "FEE-PROBE-2",
+              "order_side": "BUY",
+              "order_type": "LIMIT",
+              "last_qty": "15",
+              "last_px": "0.010",
+              "currency": "USDT",
+              "liquidity_side": "TAKER",
+              "event_id": "47526757-130f-4f52-981c-e1ff0e4ae394",
+              "ts_event": 2000,
+              "ts_init": 2000,
+              "reconciliation": false,
+              "position_id": "P-FEE-PROBE",
+              "commission": "0.00000000 USDT",
+              "quantity_commission": "0.299999999999999998",
+              "info": null
+            }
+          },
+          {
+            "Filled": {
+              "type": "OrderFilled",
+              "trader_id": "TESTER-001",
+              "strategy_id": "S-001",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "FEE-PROBE-3",
+              "venue_order_id": "001",
+              "account_id": "PREDICT-fixture",
+              "trade_id": "FEE-PROBE-3",
+              "order_side": "SELL",
+              "order_type": "LIMIT",
+              "last_qty": "10",
+              "last_px": "0.011",
+              "currency": "USDT",
+              "liquidity_side": "TAKER",
+              "event_id": "09bc585a-2448-43f2-9e44-31fa3c80db06",
+              "ts_event": 3000,
+              "ts_init": 3000,
+              "reconciliation": false,
+              "position_id": "P-FEE-PROBE",
+              "commission": "0.00220000 USDT",
+              "info": null
+            }
+          },
+          {
+            "Filled": {
+              "type": "OrderFilled",
+              "trader_id": "TESTER-001",
+              "strategy_id": "S-001",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "FEE-PROBE-4",
+              "venue_order_id": "001",
+              "account_id": "PREDICT-fixture",
+              "trade_id": "FEE-PROBE-4",
+              "order_side": "BUY",
+              "order_type": "LIMIT",
+              "last_qty": "5",
+              "last_px": "0.008",
+              "currency": "USDT",
+              "liquidity_side": "TAKER",
+              "event_id": "37e9671c-4537-4d5d-8cf6-35ee9e9e2fa4",
+              "ts_event": 4000,
+              "ts_init": 4000,
+              "reconciliation": false,
+              "position_id": "P-FEE-PROBE",
+              "commission": "0.00000000 USDT",
+              "info": null
+            }
+          },
+          {
+            "Filled": {
+              "type": "OrderFilled",
+              "trader_id": "TESTER-001",
+              "strategy_id": "S-001",
+              "instrument_id": "42-1.PREDICT",
+              "client_order_id": "FEE-PROBE-5",
+              "venue_order_id": "001",
+              "account_id": "PREDICT-fixture",
+              "trade_id": "FEE-PROBE-5",
+              "order_side": "SELL",
+              "order_type": "LIMIT",
+              "last_qty": "26.36",
+              "last_px": "0.012",
+              "currency": "USDT",
+              "liquidity_side": "TAKER",
+              "event_id": "5705b877-0b3d-4dd5-9e54-d738297f77ae",
+              "ts_event": 5000,
+              "ts_init": 5000,
+              "reconciliation": false,
+              "position_id": "P-FEE-PROBE",
+              "commission": "0.00632640 USDT",
+              "info": null
+            }
+          }
+        ],
+        "fill_voids": [],
+        "trader_id": "TESTER-001",
+        "strategy_id": "S-001",
+        "instrument_id": "42-1.PREDICT",
+        "id": "P-FEE-PROBE",
+        "account_id": "PREDICT-fixture",
+        "opening_order_id": "FEE-PROBE-1",
+        "closing_order_id": "FEE-PROBE-5",
+        "entry": "BUY",
+        "side": "FLAT",
+        "signed_qty": 0.0,
+        "quantity": "0.0000000000000000",
+        "peak_qty": "31.3600000000000000",
+        "price_precision": 3,
+        "size_precision": 16,
+        "multiplier": "1",
+        "is_inverse": false,
+        "is_currency_pair": false,
+        "instrument_class": "BINARY_OPTION",
+        "base_currency": null,
+        "quote_currency": "USDT",
+        "settlement_currency": "USDT",
+        "ts_init": 1000,
+        "ts_opened": 1000,
+        "ts_last": 5000,
+        "ts_closed": 5000,
+        "duration_ns": 4000,
+        "avg_px_open": 0.009194234645996871,
+        "avg_px_close": 0.011724972497249724,
+        "realized_return": 0.2752526935294962,
+        "realized_pnl": "0.07479359 USDT",
+        "trade_ids": [
+          "FEE-PROBE-1",
+          "FEE-PROBE-2",
+          "FEE-PROBE-3",
+          "FEE-PROBE-4",
+          "FEE-PROBE-5"
+        ],
+        "buy_qty": "37.0000000000000000",
+        "sell_qty": "36.3600000000000000",
+        "commissions": {
+          "USDT": "0.00852640 USDT"
+        },
+        "quantity_commission_totals": {
+          "quantity": "0.639999999999999999",
+          "cost": "0.0059021351863550219900524321"
+        }
+      }
+    },
+    "cashPnl": "0.07479360",
+    "feeSummary": {
+      "quantity": "0.639999999999999999",
+      "cost": "0.0059021351863550219900524321"
+    },
+    "quantityResidual": "0.000000000000000001",
+    "nativePnl": "0.07479359 USDT",
+    "duplicateReplayUnchanged": true
+  }
+}

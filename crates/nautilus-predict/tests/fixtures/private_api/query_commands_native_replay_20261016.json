@@ -1,0 +1,50 @@
+{
+  "source": "offline Native QueryOrder + ExecutionEngine replay of actual read-only CANCELLED response",
+  "primarySource": "query_commands_readonly_20261016T145520Z_41000.json",
+  "transforms": [
+    "market/token/wallet rebound; SDK-compatible hash recalculated",
+    "local Accepted context simulates missing cancellation receipt",
+    "RPC balance value from actual capture; block identity synthetic"
+  ],
+  "derivedOrder": {
+    "amount": "31360000000000000000",
+    "amountFilled": "0",
+    "currency": "USDT",
+    "id": "5571059310",
+    "isNegRisk": false,
+    "isYieldBearing": true,
+    "marketId": 42,
+    "order": {
+      "expiration": 4102444800,
+      "feeRateBps": "200",
+      "hash": "0xee74227a3f8e607232ee521c61de4040cb0c0626b8b58184bfcfb3ab44ce632b",
+      "maker": "0x1111111111111111111111111111111111111111",
+      "makerAmount": "31360000000000000000",
+      "nonce": "0",
+      "salt": "1338202951",
+      "side": 1,
+      "signature": "redacted-signature",
+      "signatureType": 0,
+      "signer": "0x1111111111111111111111111111111111111111",
+      "taker": "0x0000000000000000000000000000000000000000",
+      "takerAmount": "1348480000000000000",
+      "tokenId": "11"
+    },
+    "rewardEarningRate": 0,
+    "status": "CANCELLED",
+    "strategy": "LIMIT"
+  },
+  "nativeFeedback": [
+    {
+      "status": "CANCELED",
+      "events": 4,
+      "filledQty": "0.0000000000000000"
+    },
+    {
+      "status": "CANCELED",
+      "events": 4,
+      "filledQty": "0.0000000000000000"
+    }
+  ],
+  "orderWrites": 0
+}

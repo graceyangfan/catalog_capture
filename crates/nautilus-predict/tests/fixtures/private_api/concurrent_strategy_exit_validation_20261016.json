@@ -1,0 +1,105 @@
+{
+  "verifiedAtUTC": "2026-10-16T05:50:10.300546+00:00",
+  "source": "synthetic offline Rust two-strategy LiveNode with loopback HTTP/WS/RPC, not mainnet evidence",
+  "productionFilesChangedThisStage": [],
+  "nativeDependencyHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "nativeDependencySourceVersionAndLockChanged": false,
+  "productionRecorderDiscoveryRotationChanged": false,
+  "mainnetAccountReads": 0,
+  "mainnetOrderWrites": 0,
+  "ownership": {
+    "strategy": "entry, maker TP, stop threshold, cancel terminal barrier, taker stop; strategy-only cleanup",
+    "nautilus": "risk reservations, command routing, Cache, order/position transitions, Portfolio, strategy callback routing",
+    "adapter": "existing protocol admission/signature/HTTP/WS/report mapping; no new production mechanism"
+  },
+  "newTest": "strategy_lifecycle::concurrent_strategy_buy_remains_owned_while_tp_cancel_race_and_taker_stop_close_position",
+  "replay": {
+    "file": "crates/nautilus-predict/tests/fixtures/private_api/concurrent_strategy_exit_synthetic_20261016.json",
+    "rustUsesSavedWalletAndBooks": true,
+    "rebinding": [
+      "orderHash",
+      "orderId",
+      "timestamp"
+    ],
+    "postRequests": 4,
+    "removalRequests": 3,
+    "walletRowsSentTwiceEach": 9,
+    "primaryFillCallbacks": 5,
+    "primaryPositionOpened": 1,
+    "primaryPositionClosed": 1,
+    "passiveFillCallbacks": 0,
+    "passiveStatusDuringStop": "ACCEPTED",
+    "stopQuantity": "154",
+    "partialStopQuantity": "54",
+    "partialRemainingNativePosition": "100",
+    "finalNetPosition": "0",
+    "finalCash": "999.80536",
+    "finalLocked": "0",
+    "finalOpenOrders": 0,
+    "finalInflightOrders": 0,
+    "configuredMaxOrderUsdt": "3",
+    "configuredMaxTotalUsdt": "4"
+  },
+  "harness": "Separate decimal order IDs for concurrently active orders; stage-controlled second strategy uses native custom data and commands, no private HTTP or recovery timer",
+  "rustNormal": {
+    "passed": 253,
+    "failed": 0,
+    "ignored": 35
+  },
+  "redisIntegration": {
+    "passed": 3,
+    "scenarios": 5,
+    "serial": true,
+    "persistence": "disabled",
+    "temporaryServersRemaining": 0,
+    "existingUserRedisTouched": false
+  },
+  "python": {
+    "passed": 47,
+    "failed": 0,
+    "officialSdk": "predict-sdk==0.0.22",
+    "newPayloadsCompared": 4
+  },
+  "checks": {
+    "clippyAllTargetsDenyWarnings": true,
+    "noDefaultFeaturesExecutionAllTargets": true,
+    "targetedRustfmt": true,
+    "ruffCheckAndFormat": true,
+    "gitDiffCheck": true
+  },
+  "boundaries": [
+    "One account and client, two strategies, one active BUY and one filled-position exit chain",
+    "Not two concurrent filled-position exit chains",
+    "No new native reconciliation or process crash recovery proof",
+    "No live venue data or profitability claim",
+    "No production fixes required by this reproduced scenario"
+  ],
+  "priorStageFilesUnchanged": {
+    "Cargo.lock": "85405759e32fc3fee05937c59061f8b2732053e0ccbc7ecfe1f641793db258af",
+    "crates/nautilus-predict/Cargo.toml": "ddb8b478dfd50b94d038ad421951d46ad8407b4a7e5488c57697201c5c5095c8",
+    "crates/nautilus-predict/src/execution/mod.rs": "5dc6d02e149a2f8458bad755ae1960f8c35339234f1fa6b46804538b458abf4d",
+    "crates/nautilus-predict/src/execution/orders.rs": "1a17526bf4247995f1730429a854167a8d5acce1acfc1418680c162f4752b217",
+    "crates/nautilus-predict/src/execution/submitter.rs": "2435d9fa4f89c78b4b4d2485a045cd52523337a0d048e39cc9731ed17f59a63a",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_submission_native_synthetic_20261016.json": "f3307e7d1af01b4731bae0c20cb5635f2f09209aa6ebcc7cc083fcde97744678",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_admission_synthetic_20261016.json": "d72ef22f37e594a269843740f872e44d3ef4674510d16a4c88c7d686645aee67",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_admission_exit_replay_synthetic_20261016.json": "e4ed67d1183d3c66721e8f1134858d414a9ba89f9605010da03b0c80d66c3c1a",
+    "crates/nautilus-predict/tests/fixtures/private_api/command_alignment_synthetic_20261016.json": "1065bc1720b3c0908ec70970a341b71be860d9793c6d5c784fedbb5f6da3005b",
+    "crates/nautilus-predict/tests/fixtures/private_api/command_gap_rejections_synthetic_20261016.json": "5a36887ab7f6322e9baf5db864947c175ff316f69117ed16d42d540ba1e00533",
+    "crates/nautilus-predict/tests/fixtures/private_api/readonly_share_recovery_synthetic_20261016.json": "3a678b869174a5e01ae4d103168231aaab64553b4b420cb588b73689ae89e86b",
+    "crates/nautilus-predict/tests/fixtures/private_api/readonly_native_restart_synthetic_20261016.json": "80af82abe9cd8dfba721b4e2a2a1be5d421a8a330b62dcf0ef16bfc8baaccd0e",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_strategy_restart_synthetic_20261016.json": "a55303b502eda5936ac87cf25fd309da9682cbfa988a975ffc0cef2bb0f9c2b7",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_submission_retention_synthetic_20261016.json": "5a7377f7e25ed1657a0eebf0d2af655a5ea0a2ad37dffd15bb8fb1ed69569ca5"
+  },
+  "previousValidationSha256": {
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_submission_validation_20261016.json": "f7e16c82b00ea993d827464ba1b51386918186b3a8ba5d895291ebb0bcd72379"
+  },
+  "sha256": {
+    "crates/nautilus-predict/tests/execution.rs": "e104ebcdeb89605437b1a0358a9f6c7488500eb2ab163c433f2fec392c94b2ee",
+    "crates/nautilus-predict/tests/execution/submissions.rs": "ac9170a1313880cf0be4c1c653ca763677b277e4050adbd3f6e2be64f84e0d9c",
+    "crates/nautilus-predict/tests/execution/strategy_lifecycle.rs": "93a69586a4f2e1b8e4c43cd6a331d188ad59450b5c66020abb1f886b6c98b51e",
+    "crates/nautilus-predict/tests/execution/passive_strategy.rs": "821b504875a04b95753e6ba3b05601cce676a89b2bf8019b235813bbbdb22d48",
+    "tests/test_predict_exit_protocol.py": "9666266d0784c4c0f51b3a29b2984c26b4daae1eb692a13a6d7946fb998a8705",
+    "docs/predict-execution-integration-progress.md": "5b41bd4918272f3bbd5b9be100208248ab5bd29d26a11b4f66e8d78fe9439337",
+    "crates/nautilus-predict/tests/fixtures/private_api/concurrent_strategy_exit_synthetic_20261016.json": "c625bd1aff46799d7907125ae67f702ee573ba3d5b78aa4f8f2f774ae6a9029b"
+  }
+}

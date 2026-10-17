@@ -9,15 +9,16 @@ if ! command -v cargo > /dev/null 2>&1; then
   exit 0
 fi
 
-if [[ ! -d ../nautilus_trader ]]; then
-  echo "Skipping clippy: sibling dependency checkout not found at ../nautilus_trader"
+if [[ ! -d ../nautilus_trader_quantity_commission ]]; then
+  echo "Skipping clippy: sibling dependency checkout not found at ../nautilus_trader_quantity_commission"
   exit 0
 fi
 
 export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.0}"
 
-# Product crates only (matches Makefile / CI).
+# Product crates and the Predict adapter (matches Makefile / CI).
 cargo clippy \
+  -p nautilus-predict \
   -p catalog-capture-core \
   -p catalog-capture-runtime-adapter \
   -p catalog-capture-cli \

@@ -1,0 +1,2 @@
+WARN `--no-project` was provided, but no project was found
+{"file": "crates/nautilus-predict/tests/fixtures/private_api/fill_preflight_readonly_20261017T041816Z_65566.json", "openOrders": 0, "positions": 0, "cashUSDT": "48.216308400000000001", "marketId": 10835, "eligible": true, "discoveryFailure": null}

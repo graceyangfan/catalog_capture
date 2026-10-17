@@ -1,0 +1,95 @@
+{
+  "source": "actual read-only mainnet Rust Strategy/LiveNode query verification and independent market/account preflight, followed by offline eligibility correction",
+  "files": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/query_commands_readonly_20261017T041540Z_65186.json",
+      "sha256": "7668cca8e99166be973a6197f10bcf500167522dde3a10096bb7f360f34b7ddd"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/fill_preflight_readonly_20261017T041816Z_65566.json",
+      "sha256": "666d8c1924579208804523a33f1a6776ef9fcedb084dc7d4c1dfd2d116a19dd3"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/fill_preflight_readonly_20261017T041816Z_65566.responses.jsonl",
+      "sha256": "8952f1a1e3aa121f9fea703c1365100d80600903e981faa17e95330bbdec23d1"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/fill_preflight_review_20261017.json",
+      "sha256": "8973f8c6d0cb5a13806572f86463962e69b8829e1a43f51aeb03f3a37e5c24b2"
+    },
+    {
+      "path": "tests/predict_fill_preflight.py",
+      "sha256": "ef2ab5f91b1cb2d557a2a462342f637ef282decc7ad17eae7ce494b06c207bab"
+    },
+    {
+      "path": "tests/test_predict_fill_preflight.py",
+      "sha256": "d379c512b4b0ac389664ab852af5bc16548271b309214f044af3b37fa8486eb3"
+    },
+    {
+      "path": "docs/reference/predict-live-readonly-preflight-20261017.md",
+      "sha256": "11b94f5e4fb5892ecf86fc72b87b83742c81da798eda431c03db1c8a294f4960"
+    },
+    {
+      "path": "docs/predict-execution-work-plan.md",
+      "sha256": "b2beead533c1ff35552517c9e8b836bac39f871c58bc8fa65a7acb8a730182ea"
+    }
+  ],
+  "validation": {
+    "python": {
+      "passed": 42,
+      "path": "/tmp/predict-readonly-preflight-validation-20261017.log",
+      "sha256": "d352a8c5e170ed96bfcc7fb8aaec79a601c43d8871a431a3344877e4be503428"
+    },
+    "rustLiveQuery": {
+      "passed": 1,
+      "path": "/tmp/predict-preflight-query-20261017.log",
+      "sha256": "92a38b87adbb793351d5b0d7e276f4abb8fa97073c8e006fe816f7cd9ab81732"
+    },
+    "formatAndSyntaxChecks": true
+  },
+  "account": {
+    "openOrders": 0,
+    "positions": 0,
+    "rawCashUSDT": "48.216308400000000001",
+    "nativeCashUSDT": "48.21630840",
+    "lockedUSDT": "0",
+    "buyAllowanceSufficient": true,
+    "sellApproved": true
+  },
+  "queryEvidence": {
+    "RESTandRPCRequests": 49,
+    "newAccountReportApplied": true,
+    "queryOrderAttempts": 2,
+    "historicalCancelCallbacks": 1,
+    "acceptedContextIsLocalDerived": true,
+    "newFills": 0
+  },
+  "marketEvidence": {
+    "GETResponses": 64,
+    "marketDiscoveryExhaustive": false,
+    "candidateId": 10835,
+    "hasReversalEvidence": false,
+    "capitalCostUSDT": "1.28",
+    "prospectiveMakerCashProfitUSDT": "0.06848",
+    "prospectiveProfitIsNotActualProfit": true
+  },
+  "admission": {
+    "initialRawFlag": true,
+    "correctedReady": false,
+    "cause": "current adapter MARKET guard rejects venue update age 103712ms > 5000ms; timestamp meaning needs calibration with REST response freshness",
+    "productionPolicyChanged": false
+  },
+  "nativeWorktreeClean": true,
+  "nativeCommit": "587e1065efde08db19016a8eab921c1605d5d2a4",
+  "orderCreates": 0,
+  "orderCancels": 0,
+  "chainTransactions": 0,
+  "redisOperations": 0,
+  "productionRecordingChanged": false,
+  "officialSources": [
+    "https://docs.predict.fun/the-basics/predict-fees-and-limits",
+    "https://dev.predict.fun/get-the-orderbook-for-a-market-25326908e0",
+    "https://dev.predict.fun/subscription-topics-1915507m0",
+    "https://github.com/PredictDotFun/sdk-python"
+  ]
+}

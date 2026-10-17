@@ -1,0 +1,219 @@
+{
+  "source": "actual mainnet small-fill calibration, with explicit review failures and subsequent offline corrections",
+  "nativeHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "officialDevelopCompiled": false,
+  "sdk": "predict-sdk 0.0.22",
+  "cycles": [
+    {
+      "directory": "live_fill_20261016T122233Z",
+      "lossUsdt": "0.0814208",
+      "orderFillPositionClosed": true,
+      "nativeAccountMatch": false,
+      "complete": false,
+      "review": "account_consistency_review.json"
+    },
+    {
+      "directory": "live_fill_20261016T123240Z",
+      "lossUsdt": "0.0814208",
+      "makerTakeProfitAcceptedCanceled": true,
+      "takerSellFilled": true,
+      "nativeAccountMatch": true,
+      "nativePnlScopeCorrect": false,
+      "complete": false,
+      "review": "pnl_scope_review.json"
+    }
+  ],
+  "final": {
+    "cashUsdt": "48.2163084",
+    "totalCashLossUsdt": "0.1628416",
+    "openOrders": 0,
+    "positions": 0,
+    "nativeAccountMatchesChain": true
+  },
+  "offlineFix": {
+    "nativePositionLookbackMins": 1,
+    "requiresInitialFlatAndOldSettlementsOutsideLookback": true,
+    "liveRetested": false,
+    "counterfactual60MinuteLookbackFails": true,
+    "replayJson": "live_fill_scope_synthetic_20261016.json"
+  },
+  "validation": {
+    "rustPassed": 282,
+    "pythonPassed": 80,
+    "clippyAllTargets": true,
+    "noDefaultExecutionAllTargets": true,
+    "ruff": true,
+    "finalReadOnlyRustLiveNodePassed": true
+  },
+  "files": [
+    {
+      "path": "fill_roundtrip_readonly_scan_20261016.json",
+      "sha256": "cb6fb545941b7a078a450c92a2f1c5e730961b10a8fa6a36fa5372d2835ffa40"
+    },
+    {
+      "path": "final_readonly_filled_checks_20261016.json",
+      "sha256": "85bd2bf8caf54576801d995e9dff8c6aee6dcf65c4d1b199a049c728903ddc66"
+    },
+    {
+      "path": "live_fill_20261016T122233Z/account_consistency_review.json",
+      "sha256": "4af2642a2ab4a8c8f2ec958abd6f7eea399f11062464faf4ccdc3d5c738978a1"
+    },
+    {
+      "path": "live_fill_20261016T122233Z/admission.json",
+      "sha256": "e7acc44a48628f75717ae0a83259d1f170d29ea7b3b6e83e8b4a36e60f9e241a"
+    },
+    {
+      "path": "live_fill_20261016T122233Z/final_verification.json",
+      "sha256": "9f26350f5cd0367aba4a7a2152fdbd7f0f9ec59fbd1cd1b855281361d9cceb52"
+    },
+    {
+      "path": "live_fill_20261016T122233Z/http_responses.json",
+      "sha256": "2a79264d72ed5c06f031de2537095c9a8c7ea7c6b433f62642ee8f4d9de99125"
+    },
+    {
+      "path": "live_fill_20261016T122233Z/native_roundtrip.json",
+      "sha256": "552250f54ca08aa3a1a19ecd3fabd9ccf2e4f2c43fac7ba5c058a0a19b55e34b"
+    },
+    {
+      "path": "live_fill_20261016T122233Z/supervisor_cleanup.json",
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "live_fill_20261016T122233Z_independent/calibration.json",
+      "sha256": "af10545545cedcd489d156f724b1f89ff6aaba22f36220550d1c168741142b76"
+    },
+    {
+      "path": "live_fill_20261016T123240Z/admission.json",
+      "sha256": "469e6572ae817d2c892e76e0811714dfd59f07b0f7558a97061e55df7fb4f8d4"
+    },
+    {
+      "path": "live_fill_20261016T123240Z/final_verification.json",
+      "sha256": "b777051663eced3305c764a648bf2e1fe0de84b712007848c0c7671be64de864"
+    },
+    {
+      "path": "live_fill_20261016T123240Z/http_responses.json",
+      "sha256": "0ae3f8ee0c992006fbd81740073b6742db21bfb3b73c73b3c17e55cd89950460"
+    },
+    {
+      "path": "live_fill_20261016T123240Z/native_roundtrip.json",
+      "sha256": "93a6fbbfba86c9f3b6aad84c8b0ce55536c811358e5e31ea9b1f210cc1234905"
+    },
+    {
+      "path": "live_fill_20261016T123240Z/pnl_scope_review.json",
+      "sha256": "6543ac05da6a48034423046833bfc2b01added387df4eae6bfae2daca4053447"
+    },
+    {
+      "path": "live_fill_20261016T123240Z/supervisor_cleanup.json",
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "live_fill_20261016T123240Z_independent/calibration.json",
+      "sha256": "eb6e342a831c183ec7d0b8d0b9c172212053857d9b7908c500b509bdc0dc18b5"
+    },
+    {
+      "path": "live_fill_scope_synthetic_20261016.json",
+      "sha256": "63d579ae10aae7ec9d9e71cc1d454714040cc709ae178bad29a5ef57454860da"
+    },
+    {
+      "path": "read_only_livenode_20261016T124310Z_29991.json",
+      "sha256": "57585991ec6184f509473c60ce10bebafaeba669a1e5757f9f7ca6413db93a2c"
+    }
+  ],
+  "productionFilesChanged": [
+    "src/websocket/private_messages.rs",
+    "src/websocket/private_parse.rs",
+    "src/execution/parse.rs",
+    "src/execution/runtime.rs"
+  ],
+  "nautilusDependencyModified": false,
+  "productionCaptureModified": false,
+  "recordingDiscoveryRolloverModified": false,
+  "intermediateLogsRemoved": [
+    {
+      "path": ".predict-fill-roundtrip-python-2.log",
+      "sha256": "b2a3f0175f8b21ab479aad63766302aa6fb5981cda01d0b2e9636d4703e2e762"
+    },
+    {
+      "path": ".predict-fill-roundtrip-rust-2.log",
+      "sha256": "90d5770cfcc9208af213a4908367c8e3c1722baba500bc0b7e077d06e3a9d688"
+    },
+    {
+      "path": ".predict-fill-roundtrip-python.log",
+      "sha256": "8fe4920e7dfea61c8fc9e7805f2c80811c948c1ea7e0bcbcf1373ce39b9d8896"
+    },
+    {
+      "path": ".predict-fill-roundtrip-rust.log",
+      "sha256": "83082d15794549e21d4875951c3e04e685933746bab4fe218c64ffb9b614a936"
+    },
+    {
+      "path": ".predict-fill-roundtrip-python-final.log",
+      "sha256": "d9703b31402716f523319632b39142231214adfa8c7dbee0f317d5e625e39a2d"
+    },
+    {
+      "path": ".predict-fill-roundtrip-rust-final.log",
+      "sha256": "64525eac48d0d7fe1c36b8b1a42ef30a55e9f2751e25b898b8ce43e19cf1c108"
+    },
+    {
+      "path": ".predict-fill-roundtrip-clippy-2.log",
+      "sha256": "6448af88029c7c9ab9af8ac5aa7e46b617a435b96a8825b2276fdb5feb5f480f"
+    },
+    {
+      "path": ".predict-fill-roundtrip-readonly-final.log",
+      "sha256": "b47dcc48b69de9b29163c4ad5a3a18c29bfe2b6c1796595940332b9d736b7d15"
+    },
+    {
+      "path": ".predict-fill-roundtrip-clippy.log",
+      "sha256": "898ba8c1fdd0278eb951867a85572b3b3670e4b7bfcd2a434b709a5e66e9536f"
+    },
+    {
+      "path": ".predict-fill-roundtrip-feature.log",
+      "sha256": "0557e46ab32e3990213fe830f903d965e7e2219c6b923d86f480aa81f486a731"
+    },
+    {
+      "path": ".predict-fill-roundtrip-clippy-final.log",
+      "sha256": "eb18b83a46aab51672a08d3dcce1811c696c43e46b003ad55a3a5176b01cb020"
+    },
+    {
+      "path": ".predict-fill-roundtrip-scope-single.log",
+      "sha256": "66da47bb2f3c8d592c3d157a187025ea30f55257148ee26053efa1822a2499c8"
+    },
+    {
+      "path": ".predict-fill-roundtrip-counterfactual.log",
+      "sha256": "62ead5c8b424386e14fe746f1a1837f8d6c4715b9684caceb14fa925da3a84e9"
+    },
+    {
+      "path": ".predict-fill-roundtrip-feature-final.log",
+      "sha256": "e2f0c2182ed7d96fc6558d31f7d4a5bcf59dd7a8103abb8402d7e68b80c95b36"
+    },
+    {
+      "path": ".predict-fill-roundtrip-scope.log",
+      "sha256": "817d3a4cd66b799f71b4c687b93623e2bae5d065ee27cf4424feb87affdbe699"
+    },
+    {
+      "path": ".predict-fill-roundtrip-scope-capture.log",
+      "sha256": "6665ac4a0cfa3b35c9c84779d7dc4a7a6847ffb002ac353c31d1d90d2c9c4999"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261016T122233Z/node.log",
+      "sha256": "7c1851f2fcda6fae36814cf9b3fe2b0dbcabe2c94a9b4e20f7262e5c606a355b"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261016T122233Z/collector.log",
+      "sha256": "a9cf215efdcad9c32b2a28bcf4cff6ef1effd673fa306d50166edd23bef263cf"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261016T123240Z/node.log",
+      "sha256": "1d5d9ee522d3c5039e69985e35469b5457bee1286f4ea80ac7ed082c7625fb09"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261016T123240Z/collector.log",
+      "sha256": "f9ff9345905cbc8ce2fe52562dd9c252e360b6b42342a17ed6b59a4d5832ac91"
+    }
+  ],
+  "limits": [
+    "No profitable fill or actual loss-threshold crossing observed; second exit uses hold deadline",
+    "No further mainnet orders after correcting native history scope",
+    "Original early complete flags are superseded by review JSON",
+    "Full startup history mass status/restart adoption remains outside this isolated flat-account calibration"
+  ]
+}

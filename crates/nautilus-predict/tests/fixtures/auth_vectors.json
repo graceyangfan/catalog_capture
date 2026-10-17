@@ -1,0 +1,120 @@
+{
+  "sdk": "PredictDotFun/sdk-python",
+  "version": "0.0.22",
+  "commit": "6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1",
+  "key_origin": "Hardhat public development key #0; never fund this wallet",
+  "vectors": [
+    {
+      "chain_id": 56,
+      "predict_account": null,
+      "message": "",
+      "signer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "signature": "0xc1977b761f1dd36c29795783460d241885c8e7f9d962dbe7bba2753fd94e89b444a1cd9ed855dd09afa3b73f7c2bd097ec9abc2d2775d737505a02d3f0cafa591b"
+    },
+    {
+      "chain_id": 56,
+      "predict_account": null,
+      "message": "Predict.fun authentication\n nonce: offline-fixture ",
+      "signer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "signature": "0x8c35a6d9263d9c675192ba5ef114dc3b071d4d5f46376928424882267f60176574c7c0bb3bf8d356b7e0c67944d4ea040bb28d416f278e97aedf54166f73ea541c"
+    },
+    {
+      "chain_id": 56,
+      "predict_account": null,
+      "message": "Sign in: \u03c0 / \u4ea4\u6613 \ud83d\udd11",
+      "signer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "signature": "0x7b086e650184b2aeeacd155b0951c680d34f28d1f469e76b31b657065eaaf7f97c75d5e69f4fe7d0aee33b4103a2aa2b08ce66bbe11764b44f089d88235a64891b"
+    },
+    {
+      "chain_id": 56,
+      "predict_account": null,
+      "message": "0x1234",
+      "signer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "signature": "0x2d22d2ef4a14507f1b1c42d786fdd924cfaa3e3274b869d2ea58ff0afdedbd9b40bb0647224b373bc9dfac19f5261ac45dc9999a7f93e0118dc1f1aecea219d11b"
+    },
+    {
+      "chain_id": 56,
+      "predict_account": "0x1111111111111111111111111111111111111111",
+      "message": "",
+      "signer": "0x1111111111111111111111111111111111111111",
+      "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce578989c067f45686bf90ace36a82aaeb3509e1ed8362cbddc7f2dc450e29fdcc9e2fdae575c556871405ce5b007b066d263d191e9e16c7e785dd0f0f21728085181c"
+    },
+    {
+      "chain_id": 56,
+      "predict_account": "0x1111111111111111111111111111111111111111",
+      "message": "Predict.fun authentication\n nonce: offline-fixture ",
+      "signer": "0x1111111111111111111111111111111111111111",
+      "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57429801fd5562ab4bf4ee0f2f1e01ed14643ac479b0e1e8469f580d03306f2d9a48e5221e73974564d5ebb29d79802785705bb5731af7f5fc8deeabe4c2a0530f1c"
+    },
+    {
+      "chain_id": 56,
+      "predict_account": "0x1111111111111111111111111111111111111111",
+      "message": "Sign in: \u03c0 / \u4ea4\u6613 \ud83d\udd11",
+      "signer": "0x1111111111111111111111111111111111111111",
+      "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57da457769863de4fe35c8404ddd407edfe7aff9b58c10d48a9131715eb3cef5943c375e2f9a52b766c22c023cccab017d0ab33460575d6325d77132556a20234d1c"
+    },
+    {
+      "chain_id": 56,
+      "predict_account": "0x1111111111111111111111111111111111111111",
+      "message": "0x1234",
+      "signer": "0x1111111111111111111111111111111111111111",
+      "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce574aff3ef877293a65fca84e04ea8132e949fcbcc902cd2e6e9adfe5b6677a5558394b769d9957a7fd632f1d8199394f3ab569dcfab3587d03658416f5e057166d1c"
+    },
+    {
+      "chain_id": 97,
+      "predict_account": null,
+      "message": "",
+      "signer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "signature": "0xc1977b761f1dd36c29795783460d241885c8e7f9d962dbe7bba2753fd94e89b444a1cd9ed855dd09afa3b73f7c2bd097ec9abc2d2775d737505a02d3f0cafa591b"
+    },
+    {
+      "chain_id": 97,
+      "predict_account": null,
+      "message": "Predict.fun authentication\n nonce: offline-fixture ",
+      "signer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "signature": "0x8c35a6d9263d9c675192ba5ef114dc3b071d4d5f46376928424882267f60176574c7c0bb3bf8d356b7e0c67944d4ea040bb28d416f278e97aedf54166f73ea541c"
+    },
+    {
+      "chain_id": 97,
+      "predict_account": null,
+      "message": "Sign in: \u03c0 / \u4ea4\u6613 \ud83d\udd11",
+      "signer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "signature": "0x7b086e650184b2aeeacd155b0951c680d34f28d1f469e76b31b657065eaaf7f97c75d5e69f4fe7d0aee33b4103a2aa2b08ce66bbe11764b44f089d88235a64891b"
+    },
+    {
+      "chain_id": 97,
+      "predict_account": null,
+      "message": "0x1234",
+      "signer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "signature": "0x2d22d2ef4a14507f1b1c42d786fdd924cfaa3e3274b869d2ea58ff0afdedbd9b40bb0647224b373bc9dfac19f5261ac45dc9999a7f93e0118dc1f1aecea219d11b"
+    },
+    {
+      "chain_id": 97,
+      "predict_account": "0x1111111111111111111111111111111111111111",
+      "message": "",
+      "signer": "0x1111111111111111111111111111111111111111",
+      "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce574fe57c655aa82aa63d58faf0b6408dfc93a4c9be2b456d54a81b1797e8f57e032189fa7f1684c576a90001b8825152f36ecd0fb984f9d8650344870754baf7841b"
+    },
+    {
+      "chain_id": 97,
+      "predict_account": "0x1111111111111111111111111111111111111111",
+      "message": "Predict.fun authentication\n nonce: offline-fixture ",
+      "signer": "0x1111111111111111111111111111111111111111",
+      "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce572f87faec0eeed2d728c9416e390b76d20d8ae4bf9595317d1ed931d65b5de1342fceca4f438fd197625566a2cc449f7f195df03e365279ea883895c26e7d6e8f1b"
+    },
+    {
+      "chain_id": 97,
+      "predict_account": "0x1111111111111111111111111111111111111111",
+      "message": "Sign in: \u03c0 / \u4ea4\u6613 \ud83d\udd11",
+      "signer": "0x1111111111111111111111111111111111111111",
+      "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57699cd2d835059961e0e7cd0072a6bc3b2e79e70b3909851bb9f8fcd5d6add217554d25f022ca3f12cb2ed891219ac16961dad9131d65db4c0750d7f328c80cee1c"
+    },
+    {
+      "chain_id": 97,
+      "predict_account": "0x1111111111111111111111111111111111111111",
+      "message": "0x1234",
+      "signer": "0x1111111111111111111111111111111111111111",
+      "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57243b7ed6ca237eb71db6fce11ede56d6a3d299eb917717f44e31ddf340fc32b10925961bc275181b2e330d0649aadb888f94a08d97c61c85f5f556ae44838f3f1b"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "source": "derived local validation and evidence index; not a venue response",
+  "verifiedAtUtc": "2026-10-15T11:16:04.102616+00:00",
+  "nativeMarketAndSellSubmissionEnabled": false,
+  "nativeProtectiveExitsImplemented": false,
+  "mainnetNewOrderPosts": 0,
+  "sdkVectors": 64,
+  "rustTests": {
+    "passed": 206,
+    "failed": 0,
+    "ignoredExplicitTests": 10
+  },
+  "pythonTests": {
+    "passed": 27,
+    "failed": 0
+  },
+  "clippyAllTargetsWarningsDenied": "passed",
+  "noDefaultExecutionAllTargets": "passed",
+  "ruffAndDiffChecks": "passed",
+  "historicalMakerEvidenceUnchanged": true,
+  "privateMaterialScan": "passed",
+  "ordinaryOrderWrites": false,
+  "liveReadOnlyNode": "passed",
+  "independentReadOnlyCapture": "passed",
+  "files": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/market_requests.json",
+      "sha256": "ee22503827605fdf7b32a4ab20a98f1067d64e3fd80412999d453aabb41c4439"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/market_recovery_synthetic_20261015.json",
+      "sha256": "6e2e09d121ce909c9f364e73fd9b3a886b969bca0e804389fa4020cf551c60f2"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/market_read_only_livenode_20261015.json",
+      "sha256": "5c47e9f6ace0532453dda4b60a38c94e5002954f46a18c457bb202a85ddd6dc2"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/market_read_only_20261015/calibration.json",
+      "sha256": "be5d4a713dfe7aeb7d2d27a34850b7d9452ffe380a99b2dbfe0a285ec7d9989d"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/market_live_snapshot_sdk_quotes_20261015.json",
+      "sha256": "f48210c96af8584187794341c22cac3fb7c06a0fa115d10843b7a2cd88bde6dd"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/market_final_read_only_check_20261015.json",
+      "sha256": "33d5842a5d0dd3a3a5dbb5b64801d73cad855ee4e4169085548209e66d01bf20"
+    }
+  ],
+  "rawLogsRemoved": 9
+}

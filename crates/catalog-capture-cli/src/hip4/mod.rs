@@ -17,16 +17,16 @@ mod report;
 mod validate;
 
 use anyhow::Result;
-use catalog_capture_core::{expand_hip4_universe, CapturePlan};
+use catalog_capture_core::{CapturePlan, expand_hip4_universe};
 
 use crate::config::EffectiveConfig;
 use crate::universe_materialize::UniverseMaterialization;
 
 pub use discovery::resolve_hip4_universe_spec;
 pub use report::{
-    build_hip4_universe_resolution_report, render_hip4_universe_reports_json,
-    render_hip4_universe_reports_text, startup_resolution_record_from_report,
-    Hip4UniverseResolutionReport,
+    Hip4UniverseResolutionReport, build_hip4_universe_resolution_report,
+    render_hip4_universe_reports_json, render_hip4_universe_reports_text,
+    startup_resolution_record_from_report,
 };
 pub use validate::validate_hip4_universes;
 

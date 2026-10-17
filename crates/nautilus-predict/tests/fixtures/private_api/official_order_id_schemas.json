@@ -1,0 +1,77 @@
+{
+  "source": "official public documentation embedded OpenAPI schemas; not a live API response",
+  "capturedDate": "2026-10-15",
+  "schemas": {
+    "createReceipt": {
+      "sourceUrl": "https://dev.predict.fun/create-an-order-32534694e0",
+      "required": [
+        "code",
+        "orderId",
+        "orderHash"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "orderId": {
+          "type": "string"
+        },
+        "orderHash": {
+          "type": "string"
+        },
+        "removalLockedUntil": {
+          "type": "string",
+          "description": "RFC 3339 timestamp before which this order cannot be removed."
+        }
+      }
+    },
+    "removeReceipt": {
+      "sourceUrl": "https://dev.predict.fun/remove-orders-from-the-orderbook-25326904e0",
+      "required": [
+        "success",
+        "removed",
+        "noop"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "description": "a boolean"
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "a string to be decoded into a bigint"
+          },
+          "description": "Orders that were successfully removed"
+        },
+        "noop": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "a string to be decoded into a bigint"
+          },
+          "description": "Orders that were not removed because they were already filled, removed or cancelled previously"
+        }
+      }
+    },
+    "removeData": {
+      "sourceUrl": "https://dev.predict.fun/remove-orders-from-the-orderbook-25326904e0",
+      "required": [
+        "ids"
+      ],
+      "properties": {
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "a string to be decoded into a bigint"
+          },
+          "maxItems": 100,
+          "description": "an array of at least 1 item(s)",
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

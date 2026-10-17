@@ -1,0 +1,10 @@
+{
+  "verifiedAtUtc": "2026-10-16T15:37:45.754497+00:00",
+  "case": "batch-restart",
+  "createdOrders": 2,
+  "walletAcceptedAndCanceled": 2,
+  "cashWeiUnchanged": true,
+  "positionsAndTokenBalancesUnchanged": true,
+  "newMatches": 0,
+  "finalOpenOrders": 0
+}

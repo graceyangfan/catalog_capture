@@ -1,0 +1,234 @@
+{
+  "kind": "independent audit of actual readonly JWT/WS/Native run and offline regressions",
+  "generatedAtUtc": "2026-10-17T05:01:33.612032+00:00",
+  "attempts": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/session_readonly_20261017T044945Z_68737.json",
+      "sha256": "695bfea3bfc0ca19887f33f1b15ba53437bbb72620d0c6cc89b7b987f8b33f77",
+      "passed": false,
+      "requests": 7,
+      "localDiagnosis": "test relay URL path missing"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/session_readonly_20261017T045007Z_68829.json",
+      "sha256": "a4780d74936352534ece9c2c8ff6c68c23062c19dc33dc1c0784f25a8ff37862",
+      "passed": false,
+      "requests": 7,
+      "localDiagnosis": "test refresh interval exceeded validated bound"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/session_readonly_20261017T045044Z_68958.json",
+      "sha256": "b6dbb242a0abf6d2cbc02e3c480fdd25dfb214cc8bc79aef76ee6a892d4bed0f",
+      "passed": false,
+      "requests": 53,
+      "localDiagnosis": "actual old-history readiness and Native periodic report failures; now regression input"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/session_readonly_20261017T045625Z_69675.json",
+      "sha256": "c8e74017efe0b099a7ef88bff8ce67635ddd8d9e2f065371ae56b8c60685abeb",
+      "passed": true,
+      "requests": 101,
+      "localDiagnosis": "two real early-renewal cycles passed"
+    }
+  ],
+  "liveSuccess": {
+    "durationSeconds": "68.30",
+    "responses": 101,
+    "httpStatuses": {
+      "200": 101
+    },
+    "walletJsonFrames": 10,
+    "realAuthenticationExchanges": 3,
+    "acknowledgedConnections": [
+      0,
+      1,
+      2
+    ],
+    "nativeHeartbeatEchoConnections": [
+      1,
+      2
+    ],
+    "readyEpochs": [
+      1,
+      2
+    ],
+    "strategyQueryAccountCommands": 2,
+    "orderEvents": 0,
+    "ordersAndPositionsAtEnd": [
+      0,
+      0
+    ],
+    "nativeCash": [
+      {
+        "currency": "USDT",
+        "total": "48.21630840 USDT",
+        "locked": "0.00000000 USDT",
+        "free": "48.21630840 USDT"
+      }
+    ],
+    "adapterRecoveryTimerEnabled": false,
+    "nativeReconciliationEnabled": true,
+    "renewalTrigger": "explicit early production session.renew, not token expiry or an accelerated expiry schedule",
+    "naturalExpiryTested": false,
+    "orderWrites": 0,
+    "chainWrites": 0
+  },
+  "nativeLogObservations": [
+    "2026-10-17T04:56:37.192312000Z [INFO] SESSION-001.nautilus_live::node: Requesting mass status from PREDICT...",
+    "2026-10-17T04:56:40.381180000Z [INFO] SESSION-001.nautilus_live::node: Reconciling ExecutionMassStatus for PREDICT",
+    "2026-10-17T04:56:40.381258000Z [INFO] SESSION-001.nautilus_live::execution::manager: Reconciling ExecutionMassStatus for PREDICT",
+    "2026-10-17T04:56:40.381336000Z [INFO] SESSION-001.nautilus_live::node: Reconciliation for PREDICT succeeded",
+    "2026-10-17T04:56:40.381380000Z [INFO] SESSION-001.nautilus_live::node: Startup reconciliation completed in 3.19s",
+    "2026-10-17T04:56:41.630347000Z [WARN] SESSION-001.nautilus_predict::execution::account: Predict account refresh failed; retaining the last reported state: Predict wallet connection changed during account collection",
+    "2026-10-17T04:56:42.360370000Z [INFO] SESSION-001.nautilus_predict::execution::runtime: Predict wallet resubscribed; submissions remain gated pending REST reconciliation",
+    "2026-10-17T04:57:09.045832000Z [INFO] SESSION-001.nautilus_predict::execution::readiness: Predict applied native state verified; stream-gap submission gate released",
+    "2026-10-17T04:57:11.872341000Z [INFO] SESSION-001.nautilus_predict::execution::runtime: Predict wallet resubscribed; submissions remain gated pending REST reconciliation",
+    "2026-10-17T04:57:36.391308000Z [INFO] SESSION-001.nautilus_predict::execution::readiness: Predict applied native state verified; stream-gap submission gate released"
+  ],
+  "checks": [
+    {
+      "feature": "execution",
+      "commandTargets": [
+        "lib",
+        "execution",
+        "private_api_live"
+      ],
+      "results": [
+        {
+          "passed": 51,
+          "failed": 0,
+          "ignored": 2
+        },
+        {
+          "passed": 188,
+          "failed": 0,
+          "ignored": 54
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 14
+        }
+      ]
+    },
+    {
+      "feature": "native-quantity-commission",
+      "commandTargets": [
+        "lib",
+        "execution",
+        "private_api_live",
+        "private_http",
+        "private_ws"
+      ],
+      "results": [
+        {
+          "passed": 52,
+          "failed": 0,
+          "ignored": 2
+        },
+        {
+          "passed": 197,
+          "failed": 0,
+          "ignored": 61
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 15
+        },
+        {
+          "passed": 33,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "suite": "session_relay_and_actual_json",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "suite": "http_readonly_relay",
+      "passed": 8,
+      "failed": 0
+    },
+    {
+      "suite": "clippy",
+      "passed": true
+    },
+    {
+      "suite": "product_host_check",
+      "passed": true
+    },
+    {
+      "suite": "rustfmt",
+      "passed": true
+    }
+  ],
+  "redactionScanPassed": true,
+  "nativeWorkingTreeClean": true,
+  "nativeHead": "587e1065efde08db19016a8eab921c1605d5d2a4",
+  "recordingLogicChanged": false,
+  "redisUsed": false,
+  "sources": [
+    {
+      "path": "crates/nautilus-predict/src/execution/matches.rs",
+      "sha256": "52598333f0c81b76d1e670408b08645bb9afa74a61c251633ac02f5b9c0ef330"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/readiness.rs",
+      "sha256": "158aa8433709222939ad618a76ddb2c1396387134a6660c1d0c23c5ef1811001"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/reconciliation.rs",
+      "sha256": "41cd918cc3e42df91e73c0445bc114e8f53c07a82b705a45088208ed751c1329"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/session_readonly.rs",
+      "sha256": "92376ff1960b4211ebf087b14f60910c68fed4db7f23106a2344de92d75aa06c"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/account_recovery_timer.rs",
+      "sha256": "ab960694c67847207e7cb50ff591806305829ff5b3f61d80a9bb12c99b47d47e"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/bulk_reports.rs",
+      "sha256": "94f8146e9cad9fda2c66a034b1c54936e9ed081e8b2b16d779173f66e336ef21"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/strategy_lifecycle.rs",
+      "sha256": "80f557cb6861460db85c5427ae83e980a56844e0bff08e00344778462fd4d7b5"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution.rs",
+      "sha256": "fa0d0b14dd7a6a2530de06c4f45109775db31b4a1920098659fbe017e1462409"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/private_api_live.rs",
+      "sha256": "2f74c47fcf4301e3ef91c1f714088b51d11070571bcff70df9f48de4621799a2"
+    },
+    {
+      "path": "tests/run_predict_session_readonly.py",
+      "sha256": "fe13a248455f936f8511ab4ad7c8dd887e6ec740aa5a4064bdc6ee4f2173e999"
+    },
+    {
+      "path": "tests/test_predict_session_readonly.py",
+      "sha256": "91c36b8e6ab795fdba20896cb2107184ad7355dff092230b490b93bbecd699f2"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "491b1fa65a6535df4dc5a272ef190529a88c2e1d4632db78c3ef6637518546da"
+    }
+  ],
+  "limits": [
+    "24-hour natural expiry was not awaited",
+    "No extended internet outage or non-empty account rotation in this run",
+    "Historical order timestamp filtering is unavailable: current snapshot plus known hashes is used; fill time filters are unchanged"
+  ]
+}

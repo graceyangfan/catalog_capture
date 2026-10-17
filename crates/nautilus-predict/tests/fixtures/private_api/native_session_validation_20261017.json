@@ -1,0 +1,230 @@
+{
+  "kind": "offline validation manifest; not newly captured venue data",
+  "generatedAtUtc": "2026-10-17T04:44:40.415393+00:00",
+  "nativeHead": "587e1065efde08db19016a8eab921c1605d5d2a4",
+  "nativeWorkingTreeClean": true,
+  "liveConnections": 0,
+  "orderWrites": 0,
+  "chainWrites": 0,
+  "redisUsed": false,
+  "checks": [
+    {
+      "command": "cargo test -p nautilus-predict --features execution --lib --test execution --test private_http --test private_ws --locked",
+      "results": {
+        "lib": {
+          "passed": 51,
+          "failed": 0,
+          "ignored": 2,
+          "measured": 0,
+          "filteredOut": 0
+        },
+        "execution": {
+          "passed": 187,
+          "failed": 0,
+          "ignored": 54,
+          "measured": 0,
+          "filteredOut": 0
+        },
+        "private_http": {
+          "passed": 33,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filteredOut": 0
+        },
+        "private_ws": {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filteredOut": 0
+        }
+      },
+      "logSha256": "72a82ff55614055a50b17ba82d1a088a9cb4205060a7b4a5ebc5ff26998b1546"
+    },
+    {
+      "command": "cargo test -p nautilus-predict --features native-quantity-commission --lib --test execution --test private_http --test private_ws --locked",
+      "results": {
+        "lib": {
+          "passed": 52,
+          "failed": 0,
+          "ignored": 2,
+          "measured": 0,
+          "filteredOut": 0
+        },
+        "execution": {
+          "passed": 196,
+          "failed": 0,
+          "ignored": 61,
+          "measured": 0,
+          "filteredOut": 0
+        },
+        "private_http": {
+          "passed": 33,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filteredOut": 0
+        },
+        "private_ws": {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filteredOut": 0
+        }
+      },
+      "logSha256": "08de4e1ec49ea8d56a04d07bc94bc94972baa07f2494b138caa0556f99ba888a"
+    },
+    {
+      "suite": "preflight",
+      "passed": 8,
+      "failed": 0
+    },
+    {
+      "suite": "continuous_host",
+      "passed": 10,
+      "failed": 0
+    },
+    {
+      "suite": "exit_protocol",
+      "passed": 33,
+      "failed": 0
+    },
+    {
+      "suite": "fill_plan",
+      "passed": 8,
+      "failed": 0
+    },
+    {
+      "suite": "clippy",
+      "passed": true
+    },
+    {
+      "suite": "product_host_check",
+      "passed": true
+    },
+    {
+      "suite": "rustfmt_changed_files",
+      "passed": true
+    }
+  ],
+  "sources": [
+    {
+      "path": "crates/nautilus-predict/src/websocket/private_handler.rs",
+      "sha256": "9d198a2c22932f98edecea9a8c0cfc936264777945054381f8367ae7e6039966"
+    },
+    {
+      "path": "crates/nautilus-predict/src/websocket/private_client.rs",
+      "sha256": "ccc42061fd87dfaa1b63a670a2ce1c6e0ae75c670df6cee8ae066a50393791b8"
+    },
+    {
+      "path": "crates/nautilus-predict/src/http/private_client.rs",
+      "sha256": "00add96cae2ea152a6a5df55817cdc28f70c51075009602f0c1f05945debf8e3"
+    },
+    {
+      "path": "crates/nautilus-predict/src/common/credential.rs",
+      "sha256": "eb50703b7f33d434a1bda5cb24a28a8c7e9909a6b03ff9cfa962b283e1637d16"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/authentication.rs",
+      "sha256": "921e34c567c55417667003020b2979d8b1b511da0fdba1fe232b0d7c7fd28a0c"
+    },
+    {
+      "path": "crates/nautilus-predict/src/config/execution.rs",
+      "sha256": "25ec12152d473235cb8721162c50789a680a811fd9e0c8794ac1a9db29eea6c7"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/mod.rs",
+      "sha256": "444e1eaeb40891f7f9d65216c192da76e90bdb2791275be6f86b6fb4150100ab"
+    },
+    {
+      "path": "crates/nautilus-predict/src/execution/submitter.rs",
+      "sha256": "17decdc8e499c57584ce80733bdb2a56369306a58840eb90b34faae219f408c4"
+    },
+    {
+      "path": "crates/catalog-capture-cli/src/predict_node.rs",
+      "sha256": "262e2d07ee1f67f4c6fd04d8d25732e6cbfc28661703c5a7de4bab5a9eb0036f"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/private_http.rs",
+      "sha256": "41a681274bf1253705a04c268789cb34ff810ffff8bc7b493458c032247a3a3c"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/private_ws.rs",
+      "sha256": "0643177403239cda19258bfe0b7e64f2508aaf88912e2b8aa71dd7ea723f60b6"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/exit_orders.rs",
+      "sha256": "04666e12f963d59070398cc6342a488fb8f7ae213b0e347b0919678d3806ee63"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/fill_live.rs",
+      "sha256": "89b3ba031176b4a3952584eba3cd00ec6879d49240b7b00f63471c3fdae18ab7"
+    },
+    {
+      "path": "tests/predict_fill_preflight.py",
+      "sha256": "b44007a9753e91a1a8640bf6724df94f43b2e90825eb76c61a57f5e6e8fdacb4"
+    },
+    {
+      "path": "tests/test_predict_fill_preflight.py",
+      "sha256": "3d032d108000eface22c839c37c3eb9a9a76aa9b14e21443da78df3389135238"
+    }
+  ],
+  "recordedInputs": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/fill_preflight_readonly_20261017T041816Z_65566.json",
+      "sha256": "666d8c1924579208804523a33f1a6776ef9fcedb084dc7d4c1dfd2d116a19dd3"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/fill_preflight_readonly_20261017T041816Z_65566.responses.jsonl",
+      "sha256": "8952f1a1e3aa121f9fea703c1365100d80600903e981faa17e95330bbdec23d1"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/jwt_timing_readonly_20261017T042433Z.json",
+      "sha256": "cdf0ff430f8296b9e5d954af9303b4d0c3addfb68cac2b9efe6427e5640d5a07"
+    }
+  ],
+  "quietBookReview": {
+    "venueBookAgeMs": 103712,
+    "legacyFiveSecondGuardAllows": false,
+    "currentGuardAllows": true,
+    "nativeLoopbackControl": "exit_orders::native_sell_limit_market_inventory_approval_reservations_and_minimum; quiet case has the same timestamp age; future/depth controls still reject",
+    "strategyFreshnessPolicyChanged": false,
+    "historicalReviewPreserved": true,
+    "liveTradingApprovedOrExecuted": false
+  },
+  "authentication": {
+    "delayFractionOfRemainingLifetime": "0.8",
+    "transportOwner": "Native epoch handler",
+    "taskOwner": "execution TaskGroup",
+    "authenticationIndependentOfSubmissionPermission": true,
+    "newBearerAccountVerifiedBeforePublication": true,
+    "oldBearerPreservedOnFailure": true,
+    "independentSessionsRemainIsolated": true,
+    "newAckInsufficientForNativeTradingReadiness": true,
+    "staleEpochMessagesDiscarded": true,
+    "jwtWrittenToEvidence": false,
+    "automaticCycleTest": "execution_lifecycle_renews_readonly_authentication_and_cancels_its_worker"
+  },
+  "limits": [
+    "Mainnet 24-hour renewal and extended outage not observed in this run",
+    "Independent Python live observer does not yet follow Rust token rotation",
+    "Opaque externally managed tokens without expiry or auth signer require manual renewal",
+    "JWT lifecycle test verifies the readiness gate stays closed after ACK; account verification reuses existing QueryAccount path, not newly captured mainnet reconciliation"
+  ],
+  "buildInputs": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "5e3cca3a69fea7396c6f1e8e6139430c232990a92d66783a1d6bdf4510fb1b13"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "491b1fa65a6535df4dc5a272ef190529a88c2e1d4632db78c3ef6637518546da"
+    },
+    {
+      "path": "crates/nautilus-predict/Cargo.toml",
+      "sha256": "8d55d5ed5d02fc5e0ccca32913e90d6c19f0369b4dd1b41bf89bd822a9ccb441"
+    }
+  ]
+}

@@ -14,16 +14,16 @@
 
 //! Build `DataType` values for request-style custom data from TOML metadata.
 
-use anyhow::{bail, Result};
 #[cfg(feature = "venue-deribit")]
 use anyhow::anyhow;
+use anyhow::{Result, bail};
 #[cfg(feature = "venue-deribit")]
 use nautilus_core::Params;
 use nautilus_model::data::DataType;
 #[cfg(feature = "venue-deribit")]
 use serde_json::Value as JsonValue;
 
-use super::{supported_request_csv, KnownCustomDataType};
+use super::{KnownCustomDataType, supported_request_csv};
 
 /// Builds a request `DataType` and optional default client id for config parse.
 ///

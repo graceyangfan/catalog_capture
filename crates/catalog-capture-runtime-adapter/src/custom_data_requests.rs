@@ -25,7 +25,7 @@
 //! and rate limits stay in the Nautilus adapter client.
 
 use catalog_capture_core::{
-    CustomDataRequestCaptureSpec, RequestOverlapPolicy, DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS,
+    CustomDataRequestCaptureSpec, DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS, RequestOverlapPolicy,
 };
 use nautilus_model::data::DataType;
 

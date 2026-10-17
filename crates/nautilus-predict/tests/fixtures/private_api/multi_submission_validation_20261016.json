@@ -1,0 +1,137 @@
+{
+  "verifiedAtUTC": "2026-10-16T05:40:31.712392+00:00",
+  "source": "synthetic offline Rust Strategy + LiveNode, adapter admission, native engine/portfolio, loopback HTTP/WS/RPC and isolated native Redis tests; not mainnet",
+  "nativeDependencyHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "nativeDependencySourceVersionAndLockChanged": false,
+  "productionRecorderDiscoveryRotationChanged": false,
+  "mainnetAccountReads": 0,
+  "mainnetOrderWrites": 0,
+  "productionExecutionFilesChanged": 3,
+  "ownership": {
+    "strategy": "custom snapshots, entry/TP/SL intent and role IDs; maker TP at actual entry VWAP + delta; cancel TP then taker remaining net inventory on stop",
+    "native": "RiskEngine checks/unreflected Reservations; ExecutionEngine routing/OMS/fills/positions; Cache/Portfolio/account events; LiveNode persistence and reconciliation",
+    "adapter": "protocol identity/signatures/wei, fresh venue and RPC facts, per-attempt admission, hash correlation, bounded calibration budget and standard events/reports"
+  },
+  "admission": {
+    "activeOrderGlobalExclusionRemoved": true,
+    "sameClientOrderDuplicateProtectionRetained": true,
+    "criticalSection": "fresh preflight through signed-hash registration and attempted-BUY cap charge; released before awaiting POST response",
+    "reservations": "per-check union of venue OPEN and unrepresented locally transmitted native order snapshots by hash; not an additional balance/position ledger",
+    "buyScope": "account-wide USDT",
+    "sellScope": "actual outcome token from retained native instrument metadata",
+    "buyCaps": "per-order and per-client-lifetime attempted BUY; unknown outcomes consume budget, no cancellation rebate",
+    "nativeRiskBypassedInLiveNode": false,
+    "autoPostRetry": false
+  },
+  "rustNormal": {
+    "passed": 252,
+    "failed": 0,
+    "ignored": 34,
+    "suites": 13
+  },
+  "redisIntegration": {
+    "passed": 3,
+    "failed": 0,
+    "scenarios": 5
+  },
+  "python": {
+    "passed": 46,
+    "failed": 0,
+    "sdk": "predict-sdk==0.0.22",
+    "newComparedPayloads": 31
+  },
+  "checks": {
+    "clippyAllTargetsDenyWarnings": true,
+    "noDefaultExecutionAllTargets": true,
+    "targetedRustfmt": true,
+    "ruffCheckAndFormat": true,
+    "gitDiffCheck": true
+  },
+  "differentialRegression": {
+    "test": "rust_strategy_submits_two_active_orders_then_cancel_all",
+    "before": "legacy global activity check denies the second order even with sufficient 1000 USDT synthetic cash; causal submit barrier fails",
+    "after": "two actual strategy submissions with only 2 USDT total, each 1 USDT, then CancelAll succeeds"
+  },
+  "liveNodeCases": {
+    "count": 3,
+    "preloadedOrders": 0,
+    "cases": [
+      "two active orders using exactly 2 USDT",
+      "unknown first POST remains Submitted while second POST proceeds",
+      "native RiskEngine denies second pending order before adapter submission"
+    ],
+    "finalOpenOrders": 0,
+    "finalPositions": 0,
+    "finalLocked": 0
+  },
+  "adapterBoundaryCases": {
+    "count": 10,
+    "bypassesRiskIntentionally": true,
+    "cases": [
+      "queued_buy_funds",
+      "unknown_buy_funds",
+      "queued_lifetime_cap",
+      "represented_buy",
+      "unrepresented_buy",
+      "queued_sell_inventory",
+      "represented_sell",
+      "other_token_sell",
+      "unknown_buy_then_sell",
+      "pending_buy_then_sell"
+    ],
+    "finalOpenOrders": 0,
+    "finalInflightOrders": 0
+  },
+  "exitReplayCases": {
+    "count": 3,
+    "separateFromMultiOrderCases": true,
+    "cases": [
+      "reconnect_cancel_fill_race",
+      "partial_market_stop",
+      "unknown_then_late_wallet"
+    ],
+    "marketSellQuantity": "154",
+    "finalNetPosition": "0",
+    "finalCash": "999.80536"
+  },
+  "boundaries": [
+    "Existing wallet-gap/readiness gate remains; multiple accepted orders do not waive connection verification",
+    "Native reported-lock plus unreflected Reservation may conservatively deny during Submitted; do not falsify account state or override native risk",
+    "Adapter tests intentionally bypass RiskEngine only to isolate protocol safety; separate LiveNode tests exercise actual native risk",
+    "One execution client manages this account; no cross-process shared cumulative budget guarantee",
+    "No new OMS, balance ledger, persistence layer, reconciliation timer or production strategy module"
+  ],
+  "redisResources": {
+    "temporaryInstancesRemaining": 0,
+    "existing6379Untouched": true,
+    "maxMemoryBytes": 33554432,
+    "serial": true,
+    "rdb": false,
+    "aof": false
+  },
+  "historicalJsonUnchanged": {
+    "crates/nautilus-predict/tests/fixtures/private_api/command_alignment_synthetic_20261016.json": "1065bc1720b3c0908ec70970a341b71be860d9793c6d5c784fedbb5f6da3005b",
+    "crates/nautilus-predict/tests/fixtures/private_api/command_gap_rejections_synthetic_20261016.json": "5a36887ab7f6322e9baf5db864947c175ff316f69117ed16d42d540ba1e00533",
+    "crates/nautilus-predict/tests/fixtures/private_api/readonly_share_recovery_synthetic_20261016.json": "3a678b869174a5e01ae4d103168231aaab64553b4b420cb588b73689ae89e86b",
+    "crates/nautilus-predict/tests/fixtures/private_api/readonly_native_restart_synthetic_20261016.json": "80af82abe9cd8dfba721b4e2a2a1be5d421a8a330b62dcf0ef16bfc8baaccd0e",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_strategy_restart_synthetic_20261016.json": "a55303b502eda5936ac87cf25fd309da9682cbfa988a975ffc0cef2bb0f9c2b7",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_submission_retention_synthetic_20261016.json": "5a7377f7e25ed1657a0eebf0d2af655a5ea0a2ad37dffd15bb8fb1ed69569ca5"
+  },
+  "sha256": {
+    "Cargo.lock": "85405759e32fc3fee05937c59061f8b2732053e0ccbc7ecfe1f641793db258af",
+    "crates/nautilus-predict/Cargo.toml": "ddb8b478dfd50b94d038ad421951d46ad8407b4a7e5488c57697201c5c5095c8",
+    "crates/nautilus-predict/src/execution/mod.rs": "5dc6d02e149a2f8458bad755ae1960f8c35339234f1fa6b46804538b458abf4d",
+    "crates/nautilus-predict/src/execution/orders.rs": "1a17526bf4247995f1730429a854167a8d5acce1acfc1418680c162f4752b217",
+    "crates/nautilus-predict/src/execution/submitter.rs": "2435d9fa4f89c78b4b4d2485a045cd52523337a0d048e39cc9731ed17f59a63a",
+    "crates/nautilus-predict/tests/execution.rs": "355582ea52d496eaeea41a673c1fe469c7475712fc447607205287a4de34c1ed",
+    "crates/nautilus-predict/tests/execution/command_alignment.rs": "45b2fb65284fb2d54240b8f6c67afc0f62caacfeed690015d5d205f255605092",
+    "crates/nautilus-predict/tests/execution/multi_admission.rs": "f98d68a160f30cc91e0d3f0c52246ff223e2d64bdbba37934db610b9a7fb2ccf",
+    "crates/nautilus-predict/tests/execution/strategy_lifecycle.rs": "ceaa893167d704f40705e8c4da48f9e8331beb12b184db0d76c77afb3c15b975",
+    "tests/test_predict_exit_protocol.py": "381e25eec62f7f2674344faa002421522fa2088243e590a57aa569720ae89a60",
+    "crates/nautilus-predict/README.md": "b4eab4204192a7e5fe1c54aba4936b45f305c833292ab236e9e6217d6748b3ef",
+    "docs/predict-execution-integration-progress.md": "958222b9919cc2645d89466e0c56644ae3c1d537064c37821dad36875c671dcb",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_submission_native_synthetic_20261016.json": "f3307e7d1af01b4731bae0c20cb5635f2f09209aa6ebcc7cc083fcde97744678",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_admission_synthetic_20261016.json": "d72ef22f37e594a269843740f872e44d3ef4674510d16a4c88c7d686645aee67",
+    "crates/nautilus-predict/tests/fixtures/private_api/multi_admission_exit_replay_synthetic_20261016.json": "e4ed67d1183d3c66721e8f1134858d414a9ba89f9605010da03b0c80d66c3c1a"
+  }
+}

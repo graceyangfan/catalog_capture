@@ -1,0 +1,36 @@
+{
+  "kind": "local offline regression after actual mainnet restart/exit",
+  "nativeForkRevision": "587e1065efde08db19016a8eab921c1605d5d2a4",
+  "rust": {
+    "native": {
+      "passed": 340,
+      "failed": 0,
+      "ignored": 83,
+      "suites": 13
+    },
+    "default": {
+      "passed": 329,
+      "failed": 0,
+      "ignored": 73,
+      "suites": 13
+    }
+  },
+  "python": {
+    "passed": 150,
+    "failed": 0
+  },
+  "nativeFeatureAllTargetsClippy": "passed",
+  "liveEvidence": "exit_only_live_validation_20261017.json",
+  "newVenueWritesInThisAudit": 0,
+  "knownOperatorSecretsInStagedFiles": 0,
+  "knownOperatorJWTsInStagedFiles": 0,
+  "scope": "controlled-use baseline; not exhaustive live fault coverage",
+  "defaultFeatureCliUnitTests": {
+    "passed": 110,
+    "failed": 0
+  },
+  "slimPredictHostCompilation": "passed",
+  "slimCliFullSuiteProbe": "28 passed, 8 unrelated multi-venue example tests failed because Bybit/Deribit features were disabled; rerun with default features passed all 110",
+  "domainNoDefaultFeaturesCheck": "passed",
+  "preCommit": "all hooks passed; archived patch whitespace and complete live transcript have scoped exceptions"
+}

@@ -1,0 +1,225 @@
+{
+  "source": "offline Native core necessity audit, differential regressions and Rust Strategy + LiveNode loopback; no new venue evidence",
+  "nativeBase": "7b6e2c27b86bd1688fde49bcf6e81d7a89560b05",
+  "nativeCommit": "587e1065efde08db19016a8eab921c1605d5d2a4",
+  "compare": "https://github.com/graceyangfan/nautilus_trader/compare/7b6e2c27b86bd1688fde49bcf6e81d7a89560b05...587e1065efde08db19016a8eab921c1605d5d2a4",
+  "productionFix": "Reuse existing apply_position boundary to skip inventory preflight for order-only reconciliation projections",
+  "nativeChange": {
+    "filesThisCommit": 4,
+    "insertions": 167,
+    "deletions": 6,
+    "productionBehavior": "one existing-call condition; other changes are regression tests and documentation"
+  },
+  "fullDiffRelativeToDevelop": {
+    "files": 12,
+    "insertions": 1074,
+    "deletions": 81
+  },
+  "controlledRemovalResults": [
+    {
+      "case": "discard-cumulative-fees",
+      "runtimeFailureConfirmed": true,
+      "logSha256": "80c4f2fb49506db6d884dc430c6b2d3288654ff492259653dfcf8100c7983f5a"
+    },
+    {
+      "case": "remove-canonical-projection",
+      "runtimeFailureConfirmed": true,
+      "logSha256": "aa0fd29bff39b8412c6ee84de3047c0b215ad869cccf46e08aeb3067b3fec7ac"
+    },
+    {
+      "case": "remove-inventory-preflight",
+      "runtimeFailureConfirmed": true,
+      "logSha256": "fd31c86db18c9c8aac2525aa155f25b23e3178261a7129c9dc4057fe2b54bbdf"
+    }
+  ],
+  "projectionRegression": {
+    "historicalSellBeforeFix": "Accepted instead of Filled",
+    "nonemptyHistoricalBuyControl": "passed before and after",
+    "afterFix": "both Filled with gross100 and average1; entire current Position unchanged; one order callback despite duplicate; zero position/portfolio economic callbacks"
+  },
+  "accountTestBarrier": {
+    "initialFailures": 2,
+    "cause": "node stopped after unlock/completion before updated actual balance was observed",
+    "expectedCashTotals": [
+      "999",
+      "999.017"
+    ],
+    "fixLocation": "Predict tests only; no production account code change",
+    "finalExecutionMatrixPassed": 190
+  },
+  "finalLoopbackExit": {
+    "openOrders": 0,
+    "openPositions": 0,
+    "cash": "48.23330840",
+    "nativeQuoteRealizedPnl": "-0.03931866 USDT",
+    "rawInventoryFee": [
+      {
+        "fees": "0.639999999999999999",
+        "quantityResidual": "0.000000000000000001",
+        "realizedPnl": "-0.03931866 USDT"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/quantity_commission_core_necessity_probes_20261017.json",
+      "sha256": "b427dee9eff9fb677498a6e28ada937fe26fb9902ce69c977d0909bdb1b7d125"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/quantity_commission_core_review_livenode_20261017.json",
+      "sha256": "fd24a537821336cbbb6b4656691d94dea4201d302e3d48a5ed9e8a287ae05e59"
+    }
+  ],
+  "logs": [
+    {
+      "label": "projection-red",
+      "path": "/tmp/qty-core-projection-red.log",
+      "sha256": "dded4ded16c1c923b16d49d6924b9e06ad0b7f3e45a3ebbe33e05edcae16057a",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 13.88s",
+        "test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 1887 filtered out; finished in 0.01s"
+      ],
+      "expectedInitialFailure": true
+    },
+    {
+      "label": "projection-green",
+      "path": "/tmp/qty-core-projection-green.log",
+      "sha256": "dd212e735ed6d9d2c82696eea8f75141cc38349e5b44d947e66d7fd1e09bdacf",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 4.25s",
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1887 filtered out; finished in 0.01s"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "model-final",
+      "path": "/tmp/qty-core-model-final.log",
+      "sha256": "25530e28f0d68a0d7587d23d2efd896518eec05cbc08fe8e957b860c9f8b60db",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 7.14s",
+        "test result: ok. 3996 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.59s"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "engine-final",
+      "path": "/tmp/qty-core-engine-final.log",
+      "sha256": "eff5d7d9f2f74b8eb1a5376b44638bb0caf6aafb53c6cd567b6ec308a41076e3",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 23.00s",
+        "test result: ok. 704 passed; 0 failed; 0 ignored; 0 measured; 1185 filtered out; finished in 0.03s"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "serialization-final",
+      "path": "/tmp/qty-core-serialization-final.log",
+      "sha256": "8f826f89d72d2b4bb747acd2775bb84205a39e6b591cb911457f5ca49734e856",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 5.89s",
+        "test result: ok. 431 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "predict-experimental",
+      "path": "/tmp/qty-core-predict-experimental.log",
+      "sha256": "80d27e82a4be608083fbb0e187a48d7fb6f20e060c64b8e735105df510acda4a",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 20.31s",
+        "test result: ok. 50 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: FAILED. 188 passed; 2 failed; 59 ignored; 0 measured; 0 filtered out; finished in 19.79s"
+      ],
+      "expectedInitialFailure": true
+    },
+    {
+      "label": "predict-experimental-final",
+      "path": "/tmp/qty-core-predict-experimental-final.log",
+      "sha256": "f4b2c2db5d1bb47fe3afa719c23a199391b6b71c341f499f973996c9f9b0e399",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 3.72s",
+        "test result: ok. 50 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 190 passed; 0 failed; 59 ignored; 0 measured; 0 filtered out; finished in 19.80s"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "livenode-capture",
+      "path": "/tmp/qty-core-livenode-capture.log",
+      "sha256": "a89c3bb565d32d2f909124edf88e4cd56771d8a263fa2fc681000edffb156873",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 0.31s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 248 filtered out; finished in 0.28s"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "predict-default",
+      "path": "/tmp/qty-core-predict-default.log",
+      "sha256": "e742cecd33716eef32ebe9db6fe13bf3632165ae5bf69857b1b01181902d5ee4",
+      "resultLines": [
+        "    Finished `test` profile [unoptimized] target(s) in 6.17s",
+        "test result: ok. 49 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 182 passed; 0 failed; 54 ignored; 0 measured; 0 filtered out; finished in 19.89s"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "format",
+      "path": "/tmp/qty-core-format.log",
+      "sha256": "18b73725b2a314f4e98392d3428a90a09d68ba3a87f5516602d8e7696890dda8",
+      "resultLines": [],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "hooks",
+      "path": "/tmp/qty-core-hooks.log",
+      "sha256": "a6bbcf77620c2eb0c48290193136adc4fe3273e698d2923e28a41e5016c37d97",
+      "resultLines": [
+        "Pre-commit time: 0:01:53"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "clippy",
+      "path": "/tmp/qty-core-clippy.log",
+      "sha256": "a959f6d84be86a19c5ae0998d5e6d009489d42b1edd1402082f0f00aaceba9d6",
+      "resultLines": [
+        "    Finished `dev` profile [unoptimized] target(s) in 9.67s"
+      ],
+      "expectedInitialFailure": false
+    },
+    {
+      "label": "cli",
+      "path": "/tmp/qty-core-cli.log",
+      "sha256": "15ca3743e1fd00780aead04900c06dd178e6ba517e77201ae7eafc0aa4406a67",
+      "resultLines": [
+        "    Finished `dev` profile [unoptimized] target(s) in 8.51s"
+      ],
+      "expectedInitialFailure": false
+    }
+  ],
+  "patch": {
+    "path": "docs/reference/patches/nautilus-inventory-core-review-7b6e2c27b8.patch",
+    "sha256": "94b2356ff79439f789fff091ebcfe52ae252d0f03ccd1eaa9477091ab8b5754d",
+    "reverseApplyCheck": true
+  },
+  "filesMatchingDevelopExactly": [
+    "crates/model/src/orders/mod.rs",
+    "crates/model/src/events/position/snapshot.rs",
+    "crates/serialization/src/arrow/snapshot.rs"
+  ],
+  "limitations": [
+    "necessary under demonstrated contract, not proof of universal minimal design",
+    "reported Cash, long linear unit inventory prototype only",
+    "public bindings and general correction semantics remain incomplete",
+    "quote realized PnL is not all-in cash PnL"
+  ],
+  "closedPrNotReopened": 2,
+  "liveOrders": 0,
+  "privateReads": 0,
+  "redisOperations": 0,
+  "recordingLogicUnchanged": true,
+  "ownForkHeadVerified": true,
+  "ownRfcComment": "https://github.com/graceyangfan/nautilus_trader/issues/1#issuecomment-6229230822"
+}

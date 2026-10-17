@@ -1,0 +1,14 @@
+{
+  "provenance": {
+    "kind": "derived from operator-provided confirmed transaction receipt",
+    "captured_at": "2026-10-14",
+    "decoder": "official PredictDotFun/sdk CTFExchange ABI; ERC1155 TransferSingle",
+    "privacy": "addresses, order hashes, token IDs and transaction hash omitted",
+    "scope": "on-chain settlement and transfer only; not evidence of WebSocket executedSizeWei semantics"
+  },
+  "gross_shares_wei": "28241892307692307693",
+  "fee_shares_wei": "564837846153846153",
+  "received_shares_wei": "27677054461538461540",
+  "collateral_paid_wei": "3671446000000000000",
+  "inferred_base_fee_bps": 200
+}

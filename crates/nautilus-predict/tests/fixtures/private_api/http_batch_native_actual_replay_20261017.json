@@ -1,0 +1,51 @@
+{
+  "source": "derived offline unmodified Native engine replay of actual Native reports; duplicate messages and reverse arrival order injected",
+  "primarySource": "live_resting_http-batch_20261016T160926Z/native_input_and_callbacks.json",
+  "transforms": [
+    "local account and instrument routing rebound; economic terms/hash/timestamps preserved",
+    "both arrival orders injected using recorded Native cancellation event time; not evidence of actual REST timing; late REST skipped by closed-order guard"
+  ],
+  "sessions": [
+    {
+      "restFirst": true,
+      "orders": [
+        {
+          "hash": "0x490edcb66860c654beab4c0653c8100d7a76927a4da23af34d9396164185ebe8",
+          "canceledEvents": 1,
+          "replayedWalletReports": 3,
+          "quantity": "100.0000000000000000",
+          "filledQty": "0.0000000000000000"
+        },
+        {
+          "hash": "0xd16d1a86a63badb634a31edc69879678c87b229dd7a5c768e851cdb5faea1c6b",
+          "canceledEvents": 1,
+          "replayedWalletReports": 3,
+          "quantity": "50.0000000000000000",
+          "filledQty": "0.0000000000000000"
+        }
+      ],
+      "positions": 0
+    },
+    {
+      "restFirst": false,
+      "orders": [
+        {
+          "hash": "0x490edcb66860c654beab4c0653c8100d7a76927a4da23af34d9396164185ebe8",
+          "canceledEvents": 1,
+          "replayedWalletReports": 3,
+          "quantity": "100.0000000000000000",
+          "filledQty": "0.0000000000000000"
+        },
+        {
+          "hash": "0xd16d1a86a63badb634a31edc69879678c87b229dd7a5c768e851cdb5faea1c6b",
+          "canceledEvents": 1,
+          "replayedWalletReports": 3,
+          "quantity": "50.0000000000000000",
+          "filledQty": "0.0000000000000000"
+        }
+      ],
+      "positions": 0
+    }
+  ],
+  "networkCalls": 0
+}

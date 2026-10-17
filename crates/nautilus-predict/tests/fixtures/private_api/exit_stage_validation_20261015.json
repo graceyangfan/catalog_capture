@@ -1,0 +1,51 @@
+{
+  "source": "Derived offline SELL exit validation; synthetic loopback sessions only; not venue acceptance evidence",
+  "verifiedAtUtc": "2026-10-15T11:50:27.718677+00:00",
+  "mainnetOrderWrites": 0,
+  "nativeSellLimitAndMarketImplemented": true,
+  "nativeMarketBuyImplemented": false,
+  "protectiveStrategyScope": "test-only Rust Strategy + LiveNode; maker TP, cancel barrier, taker SL; normal tests read saved economic JSON",
+  "sdk": "official predict-sdk 0.0.22; six strategy-generated SELL requests: amounts, hash, full signature and expiry match",
+  "rustTests": {
+    "passed": 212,
+    "ignored": 11,
+    "failed": 0
+  },
+  "pythonTests": {
+    "passed": 30,
+    "failed": 0
+  },
+  "clippyAllTargetsWarningsDenied": true,
+  "noDefaultExecutionAllTargets": true,
+  "ruffAndDiffChecks": true,
+  "operatorMaterialScan": "PASS; no operator key, wallet/account address or configured API key in new artifacts",
+  "limits": "1 USDT documented minimum; no verified SELL full-close exemption; local MARKET SELL checks conservative slippage-floor notional",
+  "scopePreserved": [
+    "Nautilus dependencies",
+    "public recording/discovery/subscription rotation",
+    "historical live JSON"
+  ],
+  "rawLogsRemoved": 5,
+  "files": [
+    {
+      "path": "crates/nautilus-predict/tests/fixtures/private_api/exit_strategy_synthetic_20261015.json",
+      "sha256": "a775cdca38777d5f2d7d8bdf435c4f1b41f198cdb46e3e13a3426e6f803a9033"
+    },
+    {
+      "path": "tests/test_predict_exit_protocol.py",
+      "sha256": "719f2b9516a95db63aa169d3bc289367ada64d2e017acbfb110c9f19eff83109"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/exit_orders.rs",
+      "sha256": "76a4800b531b3fba8dfe72029f3a49dd547037a4da6bda3f8a70d39850768b97"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/support/exit_strategy.rs",
+      "sha256": "bdcd3cb8ab378014913f37f9048b5ae3add04e800847ca616ac8cc14efe89080"
+    },
+    {
+      "path": "examples/predict-exit-strategy.toml.example",
+      "sha256": "b82da39200b6e4c96fdefa93883b06dc7fd8c90f579eaca763435f99c91536c7"
+    }
+  ]
+}

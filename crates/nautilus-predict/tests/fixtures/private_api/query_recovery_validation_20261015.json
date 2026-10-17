@@ -1,0 +1,44 @@
+{
+  "verifiedAtUTC": "2026-10-15T12:40:11.038573+00:00",
+  "source": "offline synthetic loopback only",
+  "mainnetOrderWrites": 0,
+  "mainnetReads": 0,
+  "rust": {
+    "passed": 223,
+    "failed": 0,
+    "ignored": 13
+  },
+  "focusedSavedJsonReplay": {
+    "passed": 4,
+    "failed": 0
+  },
+  "python": {
+    "passed": 32,
+    "failed": 0
+  },
+  "officialPythonSdkVersion": "0.0.22",
+  "sdkRequestsCompared": 10,
+  "checks": {
+    "clippyExecutionAllTargetsDenyWarnings": true,
+    "checkNoDefaultExecutionAllTargets": true,
+    "ruff": true,
+    "diffCheck": true
+  },
+  "boundaries": [
+    "OPEN zero-fill missing acceptance recovery in original uninterrupted connection only",
+    "REST acceptance timestamp uses observation time",
+    "unaccepted terminal or nonzero fills stay unresolved and reserved",
+    "no bulk/startup/disconnected or process-restart recovery claim",
+    "GenerateOrderStatusReport missing-ack fallback remains unsupported"
+  ],
+  "sha256": {
+    "crates/nautilus-predict/tests/fixtures/private_api/query_recovery_synthetic_20261015.json": "67dde3b0643881ee3c816dfbae40e1df09b17b91e3c0647f1281b8327312bf5a",
+    "crates/nautilus-predict/src/execution/reports.rs": "74d40054f5f93273a7b1fbfcb64edeee4b35a862f0b4db7a80572394b787ac96",
+    "crates/nautilus-predict/src/execution/parse.rs": "9e6d329b1fc94b4d72996d04beaaf6f0024567ccebf332567b95fd09fceba231",
+    "crates/nautilus-predict/tests/execution.rs": "39719dd32aceeedf21f28999cdc838ae07981104806413945ffdfc21d704b830",
+    "crates/nautilus-predict/tests/execution/query_recovery.rs": "ccd67c2a4cccc2fae1701704bdd0b6eb698509fe7ca518d4b3a4d8733a9df793",
+    "crates/nautilus-predict/tests/support/query_strategy.rs": "00f0cc170f2c5451906f8adb1b7679e7f9bf5d99f9e7dc7af9cd2f27edf5c907",
+    "tests/test_predict_exit_protocol.py": "ff71da16252f541930dae846ae24affec49875f788197c8c6ced0e752cab6b4b",
+    "docs/reference/predict-query-order-recovery-20261015.md": "84e1c2faaebca58674c0b1c79c560110e530de8bfd6da67c8245e6ee01bb4c04"
+  }
+}

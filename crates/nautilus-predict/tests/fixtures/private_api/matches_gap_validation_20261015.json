@@ -1,0 +1,54 @@
+{
+  "verifiedAtUTC": "2026-10-15T13:11:36.778765+00:00",
+  "source": "offline loopback only; synthetic, not live venue feedback",
+  "mainnetOrderWrites": 0,
+  "mainnetReads": 0,
+  "rust": {
+    "passed": 227,
+    "failed": 0,
+    "ignored": 15
+  },
+  "explicitSyntheticCaptureRuns": 2,
+  "python": {
+    "passed": 33,
+    "failed": 0
+  },
+  "sdkVersion": "predict-sdk==0.0.22",
+  "newSdkOrdersChecked": 2,
+  "positiveNativeNodeSessions": 2,
+  "negativeBatchSessions": 5,
+  "checks": {
+    "clippyExecutionAllTargetsDenyWarnings": true,
+    "noDefaultExecutionAllTargetsCheck": true,
+    "ruff": true,
+    "diffCheck": true
+  },
+  "boundaries": [
+    "new submissions remain gated after stream gap; no automatic trading resumption",
+    "targeted QueryOrder recovery only, not bulk/startup coverage",
+    "original signer and local order ownership required",
+    "API amountFilled units not inferred; partial history relies on complete pagination and stable reads",
+    "MARKET BUY submit remains unsupported; SHARES case imports an existing native order",
+    "reported account Cache snapshots are distinguished from typed subscription callbacks",
+    "no Nautilus dependency or public recording changes"
+  ],
+  "sha256": {
+    "crates/nautilus-predict/tests/fixtures/private_api/matches_gap_native_feedback_synthetic_20261015.json": "b7c304dab73ca622ba371453ca583620080f5d511602bfbed2b564ecbaaf698b",
+    "crates/nautilus-predict/tests/fixtures/private_api/matches_gap_rejections_synthetic_20261015.json": "dde193e0f1ad61bb2430925960aec3d0ed04b6515ae2edd6d98f4b39c677fd99",
+    "crates/nautilus-predict/src/execution/recovery.rs": "baa03decce114a6081b27e9c9a16392fa5356e300a26ed8e671caf4430159666",
+    "crates/nautilus-predict/src/execution/reports.rs": "0ee317438cf8f27c7dad0b24cb31ef046f993a2ca55dc856778e6e9ad6281298",
+    "crates/nautilus-predict/src/execution/matches.rs": "349311ac534e27528d52dda1f96c11976e817278764d9cbbbb6c92eb09f4de21",
+    "crates/nautilus-predict/src/execution/precision.rs": "f7f9c4317bcc92e353f1258d51ab531b600ace543f7e0e7dcd7abce11b180bf3",
+    "crates/nautilus-predict/src/execution/parse.rs": "59edae4693a8f378b1b914d7075602f3608a42343947a421b362b5856d87d1f6",
+    "crates/nautilus-predict/src/execution/runtime.rs": "c3e9707610e227b7392091c001547259c04021219592113aff0a8f06600b542d",
+    "crates/nautilus-predict/src/execution/orders.rs": "45ab714b27fbc9cc849db1f9fb1713f7cd2aa7fb77f10046288eb47ae75d49dc",
+    "crates/nautilus-predict/src/execution/account.rs": "40536eea613681d661e1e27ac570900d6c5a3d7008c7f63cf38994b0a3aad7c0",
+    "crates/nautilus-predict/src/execution/mod.rs": "493839402053e585c7f57c23d19f919a9a74bb945dc6d83fcbe25b37d91716a0",
+    "crates/nautilus-predict/tests/execution.rs": "74baae2b235256fe65d41514b1626309b6023c849a163fd257e0cb378e210a47",
+    "crates/nautilus-predict/tests/execution/recovery_live.rs": "b7cc62909b274a55e51860dfc50fabfda3629178953878b5346ad26eb9daafdc",
+    "crates/nautilus-predict/tests/execution/recovery_rejections.rs": "25af0bb7e196e15453761d0edae0b94c6b2b453ab236b4d63e8bfb4e0c7bdeeb",
+    "crates/nautilus-predict/tests/support/query_strategy.rs": "4b1cdcb971013e6300069b145ca9eecf8896d2b9d6ce95e16d8a643929a8b5e5",
+    "tests/test_predict_exit_protocol.py": "511d779829efe51652b4c617d706dff9b855ad41c12382d425a79942be997b97",
+    "docs/reference/predict-matches-gap-recovery-20261015.md": "61b43e6212341c66b362998d0321add4f5d62cf2481a0290a941ee78793c8eee"
+  }
+}

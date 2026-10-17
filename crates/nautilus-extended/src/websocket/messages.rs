@@ -8,7 +8,7 @@
 
 use nautilus_model::identifiers::InstrumentId;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use ustr::Ustr;
 
 use crate::common::{instrument_id_from_market, market_from_instrument_id};

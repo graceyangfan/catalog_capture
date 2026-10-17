@@ -1,0 +1,2496 @@
+{
+  "version": 1,
+  "policy": "Primary captures are immutable. Derived/synthetic outputs do not establish venue behavior.",
+  "entries": [
+    {
+      "path": "test_data/market_2859346.json",
+      "tier": "primary_capture",
+      "bytes": 667,
+      "sha256": "71c68ca711736035e3f6c73c317711cc5d42408855bf6311814aa303cfd2b592"
+    },
+    {
+      "path": "test_data/orderbook_2859346.json",
+      "tier": "primary_capture",
+      "bytes": 409,
+      "sha256": "74f54b2787bb8de905bffca2db6c7241c07ad53a60a75fad891a428365ca0f01"
+    },
+    {
+      "path": "tests/fixtures/auth_vectors.json",
+      "tier": "reference",
+      "bytes": 6123,
+      "sha256": "f98350ecb7002c0cbd6f9dcf0b4343f3055c4c60959c34e852b3e5dec852bf23"
+    },
+    {
+      "path": "tests/fixtures/limit_requests.json",
+      "tier": "reference",
+      "bytes": 18431,
+      "sha256": "29793f4c58820864abf70ada9424c7457071c296547a869c0f2b280183625439"
+    },
+    {
+      "path": "tests/fixtures/market_requests.json",
+      "tier": "derived",
+      "bytes": 83742,
+      "sha256": "ee22503827605fdf7b32a4ab20a98f1067d64e3fd80412999d453aabb41c4439"
+    },
+    {
+      "path": "tests/fixtures/order_vectors.json",
+      "tier": "reference",
+      "bytes": 36047,
+      "sha256": "7e85a9c35fc2a52bae24645f5bccc175a24fd4fddaa542020ecf780a4bb95e1f"
+    },
+    {
+      "path": "tests/fixtures/private_api/account.json",
+      "tier": "reference",
+      "bytes": 285,
+      "sha256": "78d2a88916a02cb78d252ce636c12c35c9e066cc5fa6488c3d89a94a33ffaa3a"
+    },
+    {
+      "path": "tests/fixtures/private_api/account_readiness_scope_native_derived_20261017.json",
+      "tier": "derived",
+      "bytes": 29390,
+      "sha256": "72addb9c4279bc234b13837be57f727291652408e64ee955c7242af2456004f9"
+    },
+    {
+      "path": "tests/fixtures/private_api/actual_startup_native_replay_20261016.json",
+      "tier": "derived",
+      "bytes": 654,
+      "sha256": "3946083f991776abb4432d70392851356ed20f4b3bbe80c1cdb5dc5d928b66f1"
+    },
+    {
+      "path": "tests/fixtures/private_api/actual_startup_native_replay_20261016_v2.json",
+      "tier": "derived",
+      "bytes": 741,
+      "sha256": "7ce9c210231bfdf27028ec966f493db35ffb063cb5b337ea8f043de1b5308a55"
+    },
+    {
+      "path": "tests/fixtures/private_api/actual_trade_flow_native_replay_20261016.json",
+      "tier": "derived",
+      "bytes": 25536,
+      "sha256": "d77d1798a8c394e51ce7c2fa27ef0a03f11f356c407fb7486b322b4f76978d9d"
+    },
+    {
+      "path": "tests/fixtures/private_api/actual_trade_flow_native_replay_20261016_v2.json",
+      "tier": "derived",
+      "bytes": 25674,
+      "sha256": "c22507e2bf9c7c8a1b3f92600da3ebc9e7068cc73f17737ebede1ef451c6276c"
+    },
+    {
+      "path": "tests/fixtures/private_api/actual_trade_flow_native_replay_20261017_v3.json",
+      "tier": "derived",
+      "bytes": 25712,
+      "sha256": "5b52d38b1fd89ef3bfa68cf967d8c819bc067499e6505d68f10d2510c1978f34"
+    },
+    {
+      "path": "tests/fixtures/private_api/automatic_reconnect_exit_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 107479,
+      "sha256": "1314b5caaaa0ac881eeb5581ac3972af345b5eb31aa80027da408f343640623a"
+    },
+    {
+      "path": "tests/fixtures/private_api/automatic_reconnect_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 5096,
+      "sha256": "243b9bb5f8e143ae2919b0e0dcb5071e31e498fe09dae9b2860d522ee47cae18"
+    },
+    {
+      "path": "tests/fixtures/private_api/balance.json",
+      "tier": "reference",
+      "bytes": 201,
+      "sha256": "d46b7a4a46fa79304337345908a81f0f7da18e963a2c12a64c319a9a608846a2"
+    },
+    {
+      "path": "tests/fixtures/private_api/batch_api_mapping_audit_20261016.json",
+      "tier": "derived",
+      "bytes": 1458,
+      "sha256": "d94fb5687b03a5003632a34db77dd1715fc9e73a9d2e2d9aa94399c76e0166e4"
+    },
+    {
+      "path": "tests/fixtures/private_api/batch_live_validation_20261016.json",
+      "tier": "derived",
+      "bytes": 9683,
+      "sha256": "2e30b793a12470d2c6c1b42ca74c36254c08aa0f42032f705a57494fdd6cac71"
+    },
+    {
+      "path": "tests/fixtures/private_api/batch_native_replay_20261016.json",
+      "tier": "derived",
+      "bytes": 1762,
+      "sha256": "7955e23a81415df81bb2f73d1eb21db5063b1071b2a2758b6c3f264698dd9dce"
+    },
+    {
+      "path": "tests/fixtures/private_api/bulk_mass_reports_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 349245,
+      "sha256": "620ca62f36ab449986b75cd551b223c57107e6d769f3cd349110db49fcb7f3c3"
+    },
+    {
+      "path": "tests/fixtures/private_api/cold_start_native_actual_derived_20261016.json",
+      "tier": "derived",
+      "bytes": 53481,
+      "sha256": "4a892fd33ec6631cd7d76e19e4b848977644ce92bc656b2f94c52ad97850ffeb"
+    },
+    {
+      "path": "tests/fixtures/private_api/cold_start_nonempty_validation_20261016.json",
+      "tier": "derived",
+      "bytes": 11267,
+      "sha256": "87d680e0291cc8110f95d113c5e8301b97ac95ca00f3d9e497f3b76de29fbbee"
+    },
+    {
+      "path": "tests/fixtures/private_api/cold_start_readonly_20261016T132812Z.json",
+      "tier": "primary_capture",
+      "bytes": 48068,
+      "sha256": "cbbf3b518b3f2f00f84bb91e954d94fc69a064b573ac1dde21690a0db76ac22a"
+    },
+    {
+      "path": "tests/fixtures/private_api/cold_start_readonly_20261016T133220Z.json",
+      "tier": "primary_capture",
+      "bytes": 49215,
+      "sha256": "46c2a8b9d8c37e1ce65b735468e35129141467e76274ea34532253e1bb65f7cd"
+    },
+    {
+      "path": "tests/fixtures/private_api/command_alignment_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 21359,
+      "sha256": "1065bc1720b3c0908ec70970a341b71be860d9793c6d5c784fedbb5f6da3005b"
+    },
+    {
+      "path": "tests/fixtures/private_api/command_alignment_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 6993,
+      "sha256": "381b036dd8becaa5a4645287274d086a7f03533440b50f399a3867180b2f404a"
+    },
+    {
+      "path": "tests/fixtures/private_api/command_gap_rejections_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 5595,
+      "sha256": "5a36887ab7f6322e9baf5db864947c175ff316f69117ed16d42d540ba1e00533"
+    },
+    {
+      "path": "tests/fixtures/private_api/concurrent_native_reconciliation_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 215408,
+      "sha256": "6336d1ad1a40ba02f71f499921a7d6e46733e3446ff09061572d5d7846f618a4"
+    },
+    {
+      "path": "tests/fixtures/private_api/concurrent_native_reconciliation_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 8092,
+      "sha256": "06bcb0a6d3f9bdf8b424a36ff2e92703e85e1b4d7c85d42d23d7685fe214b2f7"
+    },
+    {
+      "path": "tests/fixtures/private_api/concurrent_partial_buy_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 346834,
+      "sha256": "aa399037adb7a3796fec00894965d6b8f85289035d5216ab0b533fec5e600d4a"
+    },
+    {
+      "path": "tests/fixtures/private_api/concurrent_partial_buy_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 8218,
+      "sha256": "7adeb73258f3c20846a37ab23c35fa0359c0421853063691addde7dbde18e8a5"
+    },
+    {
+      "path": "tests/fixtures/private_api/concurrent_strategy_exit_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 61711,
+      "sha256": "c625bd1aff46799d7907125ae67f702ee573ba3d5b78aa4f8f2f774ae6a9029b"
+    },
+    {
+      "path": "tests/fixtures/private_api/concurrent_strategy_exit_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 6189,
+      "sha256": "626a40cedfb03dcb8266ab1da75ecf088af52b0df3282d4cd8250a83625e45c5"
+    },
+    {
+      "path": "tests/fixtures/private_api/continuous_host_recorded_lifecycle_20261017.json",
+      "tier": "synthetic",
+      "bytes": 44557,
+      "sha256": "e7b8ff2fafedb4166e6ff655aa7bebd24afc06f29764caa917683c3808a062ef"
+    },
+    {
+      "path": "tests/fixtures/private_api/continuous_host_validation_20261017.json",
+      "tier": "synthetic",
+      "bytes": 5996,
+      "sha256": "ba2ab591ee313fea2d918758c102552172abc4c17492228ffdfb62228e8681ee"
+    },
+    {
+      "path": "tests/fixtures/private_api/current_inventory_history_scope_native_derived_20261017.json",
+      "tier": "derived",
+      "bytes": 47744,
+      "sha256": "70947e355f797721eb45248f2fb853bafc88edc49d92049d3efeda47e34d258c"
+    },
+    {
+      "path": "tests/fixtures/private_api/current_inventory_scope_validation_20261017.json",
+      "tier": "derived",
+      "bytes": 1549,
+      "sha256": "e8bf97f440007c3b0c044817e15419b8f8d84c5cf77416c137e76f16708dc07f"
+    },
+    {
+      "path": "tests/fixtures/private_api/diagnostics_20261017/predict-current-fill-preflight.log",
+      "tier": "reference",
+      "bytes": 248,
+      "sha256": "5f120c7cfcef31bc41358558bf610c0092a5937b645c4c12906c4ab60a7a661b"
+    },
+    {
+      "path": "tests/fixtures/private_api/diagnostics_20261017/predict-readonly-market-preflight-20261017.log",
+      "tier": "reference",
+      "bytes": 102,
+      "sha256": "455fda48a35f18d17df5983867c462824174b15faa80e1f859f157bef109edfe"
+    },
+    {
+      "path": "tests/fixtures/private_api/diagnostics_20261017/predict-readonly-market-preflight-verified-20261017.log",
+      "tier": "reference",
+      "bytes": 307,
+      "sha256": "aa6f0df3ca82b2c87a1f783dbe30de8b6ab0b9b89fa816e0261a44f9850c87f9"
+    },
+    {
+      "path": "tests/fixtures/private_api/diagnostics_20261017/predict-readonly-preflight-validation-20261017.log",
+      "tier": "review",
+      "bytes": 7700,
+      "sha256": "d352a8c5e170ed96bfcc7fb8aaec79a601c43d8871a431a3344877e4be503428"
+    },
+    {
+      "path": "tests/fixtures/private_api/different_price_partial_share_fees_native_synthetic_20261017_v2.json",
+      "tier": "synthetic",
+      "bytes": 147002,
+      "sha256": "6a6c7313c34c7e512d8595d68d079d6cbea5d2642fa1e7ea76db84d8571fc850"
+    },
+    {
+      "path": "tests/fixtures/private_api/dynamic_quote_lifecycle_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 69123,
+      "sha256": "2457f650c68b3a19060639b40ee1fbc8b7aa98f374b180c28b7d99957742f829"
+    },
+    {
+      "path": "tests/fixtures/private_api/dynamic_quotes_strategy_rollover_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 52641,
+      "sha256": "2d2b66ba1b5da44567ad0e1108a61fb2aea3114aa1a8fa0752509f13c5a63f47"
+    },
+    {
+      "path": "tests/fixtures/private_api/early_cancel_native_feedback_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 36541,
+      "sha256": "6adc4d1f944de7ba54711d55197158e5ca16ae5a65880b03f6ae9bab71dd58b0"
+    },
+    {
+      "path": "tests/fixtures/private_api/early_cancel_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 115434,
+      "sha256": "47c66ec2885e96bb339a17fd8c462c013651a40e80a44634ebcf143b76706a4c"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/analysis.json",
+      "tier": "derived",
+      "bytes": 62019,
+      "sha256": "0d59540cc540c27eaf82586027df263dbd4762f8c46fdc82ebaebe7116f2ef53"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_10835_initial.json",
+      "tier": "reference",
+      "bytes": 1442,
+      "sha256": "8c0b719db67fcc0c1ec0875dfcd2f6d3aed259efc2fc4fbe318fa7ffb9cf3306"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_10909_initial.json",
+      "tier": "reference",
+      "bytes": 919,
+      "sha256": "52bc5a359adbd57600bb5046bdb02a185d4dd78446f3544aee477cdecef4b7d5"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12742_followup_0.json",
+      "tier": "reference",
+      "bytes": 898,
+      "sha256": "9f213d9571b794b1cb4474a06857bdcd37b3ca527b9486b6f23f27b13d60b430"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12742_followup_1.json",
+      "tier": "reference",
+      "bytes": 898,
+      "sha256": "9f213d9571b794b1cb4474a06857bdcd37b3ca527b9486b6f23f27b13d60b430"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12742_followup_2.json",
+      "tier": "reference",
+      "bytes": 898,
+      "sha256": "b5e9b55ddcbce8874bea6d206fe5159631011095cbf5f00115c1f884a4d900a1"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12742_followup_3.json",
+      "tier": "reference",
+      "bytes": 898,
+      "sha256": "b5e9b55ddcbce8874bea6d206fe5159631011095cbf5f00115c1f884a4d900a1"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12742_initial.json",
+      "tier": "reference",
+      "bytes": 898,
+      "sha256": "9f213d9571b794b1cb4474a06857bdcd37b3ca527b9486b6f23f27b13d60b430"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12743_initial.json",
+      "tier": "reference",
+      "bytes": 777,
+      "sha256": "7f20f61287e00dc14e2d3daf9252716abb262867c04cd3be6908c4005bc0d041"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12744_initial.json",
+      "tier": "reference",
+      "bytes": 691,
+      "sha256": "722e176f14e35d571e5a8593a74cdcbbc599b7570a1c2856f38421e1adab7816"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12745_initial.json",
+      "tier": "reference",
+      "bytes": 811,
+      "sha256": "377b0474c12c51fd566467af4d46cca1b7da3089810e76bd899fa12ea8acaac7"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12746_initial.json",
+      "tier": "reference",
+      "bytes": 382,
+      "sha256": "a75736eb070f2ba5ccaa06a1bb11e2f4f3ec10df4d561329fb44e19194f2b764"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12747_initial.json",
+      "tier": "reference",
+      "bytes": 383,
+      "sha256": "4b419310342c21b0eee1d0b79b0c76d20def0741562d59369773218f3ff61a11"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12748_initial.json",
+      "tier": "reference",
+      "bytes": 362,
+      "sha256": "08e168978a4ef5656ddac6c6fb1852a6cfd14180e92d4c8d1d013dfb353f660c"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12749_initial.json",
+      "tier": "reference",
+      "bytes": 398,
+      "sha256": "b078c2073a206df95ddc9eb2d9c53761b67d1bfd9f80fb17dce82d5d903a424a"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12750_initial.json",
+      "tier": "reference",
+      "bytes": 341,
+      "sha256": "66d8409c20310b228f9f8e9f7395a70fa380bdd6e262db70a71e9aab060a5702"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12751_initial.json",
+      "tier": "reference",
+      "bytes": 381,
+      "sha256": "d0b5ae3dcc51763fe1c6f8720ede43b1515904c7a73d615b0f921788bcb862ee"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12752_initial.json",
+      "tier": "reference",
+      "bytes": 381,
+      "sha256": "f932500172ea92b80b0466970b24bb087d38a96526f2f42554880def6a57f51e"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12753_initial.json",
+      "tier": "reference",
+      "bytes": 357,
+      "sha256": "c36d23a3d3d7b7809a46c0527041dfa1548fb5d86c7990d5bbe4a1a4170823be"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_12754_initial.json",
+      "tier": "reference",
+      "bytes": 366,
+      "sha256": "e931b816a2fbd35fc67f55078fd3261a46b595cf1dc27a2d2b36c08acd3e62a3"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_190414_initial.json",
+      "tier": "reference",
+      "bytes": 300,
+      "sha256": "4a12065e7ee42086dc6d60b7e583f0a34bdf95186e1cffdfc31c0cc0744346e8"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_2508071_initial.json",
+      "tier": "reference",
+      "bytes": 391,
+      "sha256": "639dcc57517ec17c035b57e7c0ec5a607731bfcbb3dcf1d41ca871b5d892d054"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30523_initial.json",
+      "tier": "reference",
+      "bytes": 301,
+      "sha256": "9be450a1f04ae06d3486f9c38abed31c4f9f57b199245d595e1701d1ce513c7c"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30524_initial.json",
+      "tier": "reference",
+      "bytes": 377,
+      "sha256": "661eaea144cddb521880244cbfd96070a1c54da2cfa110904936fc940c2401c5"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30525_initial.json",
+      "tier": "reference",
+      "bytes": 355,
+      "sha256": "479f272664bd1a109f8006e25e676b1de069dd36cf06b5c7cf6f4848cc89828d"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30526_initial.json",
+      "tier": "reference",
+      "bytes": 288,
+      "sha256": "ece67aa8722f744fc77f04254ffa58da052f380c0cc5ff4cd29be82ff1f05e26"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30527_initial.json",
+      "tier": "reference",
+      "bytes": 319,
+      "sha256": "47ed6dc7a9519f6858c49e071ba63187c41ff51fcb6ae535eac219db81f14aa2"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30528_initial.json",
+      "tier": "reference",
+      "bytes": 308,
+      "sha256": "8ee12175168b48920de8cf1c45158477b7bc092e36f266e7a8ee3c253aeca6f4"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30529_initial.json",
+      "tier": "reference",
+      "bytes": 340,
+      "sha256": "2dedf3b609b99ace82b8d276c52828cfc9cb9aa54877a6fad54c2587170b10d8"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30531_initial.json",
+      "tier": "reference",
+      "bytes": 547,
+      "sha256": "9d333ea32fb03c85a2afe8323e10e67a4630ca723be0d1de204cdaa00e70dd1c"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30532_initial.json",
+      "tier": "reference",
+      "bytes": 466,
+      "sha256": "99e467df6da519bc86d86af2ad5ca024bb8d16ce79b9eb49e378e656376ed380"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30533_initial.json",
+      "tier": "reference",
+      "bytes": 353,
+      "sha256": "903af57e38117b33df86f26d75b5411965b44d012f27d6c369a79a5fc354eb7b"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30534_initial.json",
+      "tier": "reference",
+      "bytes": 300,
+      "sha256": "c413b5c223f947bcb5a4ce08d84c12f069e229a58aa9e4c7c923faf169ca51e1"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30535_initial.json",
+      "tier": "reference",
+      "bytes": 454,
+      "sha256": "b366723f7ad30e5e75e4574090c3cb03b08a0d58d7f4a14068d02e28003b5de8"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30536_initial.json",
+      "tier": "reference",
+      "bytes": 305,
+      "sha256": "33fa93a984066ab9192dd7dc0b550f0c9306d61f9e6694ee0c0730e57f8f4ed2"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30537_initial.json",
+      "tier": "reference",
+      "bytes": 329,
+      "sha256": "7181725e25bd9b69aa05f7999d05b12b8c900deddd43e16be437ba9b301c6650"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30538_initial.json",
+      "tier": "reference",
+      "bytes": 320,
+      "sha256": "2606bb3c372d6ced61844cf85fa6c80ef1a0385181d3d8a221d6e2f6dafc1bda"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30539_initial.json",
+      "tier": "reference",
+      "bytes": 315,
+      "sha256": "fca7700b8a97e8952223e0f93cdc3cca6507e2e13de1e70c59002268a622f83b"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30540_initial.json",
+      "tier": "reference",
+      "bytes": 318,
+      "sha256": "d97a4494fb32d3375d7a6d0ba0ea5cdeb2a8895fba5a0dbb764814e47baad201"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30541_initial.json",
+      "tier": "reference",
+      "bytes": 591,
+      "sha256": "b1b0e88804465571b943d789f616823af22e4e35bf061ece4645faf48b217948"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_30542_initial.json",
+      "tier": "reference",
+      "bytes": 599,
+      "sha256": "299bd365e756a63b778f6242f80cd23ca6e0079f5bf3f3c27611a8fbfc817b87"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_3235724_initial.json",
+      "tier": "reference",
+      "bytes": 133,
+      "sha256": "7291c2b5bc1dd93993ff1d7aadb015741d6445b5586a9babb4d45a28bafd7fa1"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_3235725_initial.json",
+      "tier": "reference",
+      "bytes": 132,
+      "sha256": "89fc08182622ecf763cedd9fa5b5cf27c054d083cf65b15ebf89cfb57a99e4e8"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_3235726_initial.json",
+      "tier": "reference",
+      "bytes": 142,
+      "sha256": "74127e0dd98867040477bcb6e5eecc34e4b86b6e27c7358a1d7d38312d6b23de"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_3235727_initial.json",
+      "tier": "reference",
+      "bytes": 142,
+      "sha256": "15a62154bd5c51a37c0fa346729f153ff633da30e0c2966406b44ce7255b0984"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_3235728_initial.json",
+      "tier": "reference",
+      "bytes": 142,
+      "sha256": "9adfe0a36f86ea109437beef3254a8d4f3a85f46b5932e3f81bf071d3ba94d32"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_3235729_initial.json",
+      "tier": "reference",
+      "bytes": 142,
+      "sha256": "a9b43eff66090c3264f96f15e4ac8fc673c30050aacb1df29a69cb2ce43d0354"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_3235730_initial.json",
+      "tier": "reference",
+      "bytes": 133,
+      "sha256": "b99bd3f4f45e20c6d12969b5ad3a922588b9393d1d8a2ec2ff83b5d16dbcbe62"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_52261_followup_0.json",
+      "tier": "reference",
+      "bytes": 534,
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_52261_followup_1.json",
+      "tier": "reference",
+      "bytes": 534,
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_52261_followup_2.json",
+      "tier": "reference",
+      "bytes": 534,
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_52261_followup_3.json",
+      "tier": "reference",
+      "bytes": 534,
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_52261_initial.json",
+      "tier": "reference",
+      "bytes": 534,
+      "sha256": "f233d2ce021cba5b537f57bdf7770ee7292f6e6ad05a86683ff1c93b10146e44"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/book_58416_initial.json",
+      "tier": "reference",
+      "bytes": 596,
+      "sha256": "a66222b8efd6fe2ba2eb93188f8c20beba3d9033e1057f0c57ce6b87d687f55b"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/decision.json",
+      "tier": "derived",
+      "bytes": 4142,
+      "sha256": "be116a51278fa50bf014a55760f3924274c08156bf108d9db56a811a4f07558c"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/markets_page_0.json",
+      "tier": "reference",
+      "bytes": 264953,
+      "sha256": "4277430165d8e651db06bc9cd1a717c270d1b82df75c1ce8502c81eba500bbd7"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/markets_page_1.json",
+      "tier": "reference",
+      "bytes": 232385,
+      "sha256": "c920ad928cd2077c228c8376108a85183e77f9288e8bef1addec0600c8b01215"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/markets_page_2.json",
+      "tier": "reference",
+      "bytes": 252884,
+      "sha256": "40fcdbec2282b009f9948d8c1882a4a9e33c4546b4fcc18c697901640f9125a7"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_market_observation_20261015T115337Z_435885/sha256.json",
+      "tier": "derived",
+      "bytes": 8057,
+      "sha256": "220fa5e97353c8043b9c70d632f9b71682f904795da7941bf530a2815a2b67cd"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_cold_start_offline_20261017.json",
+      "tier": "derived",
+      "bytes": 27659,
+      "sha256": "f13d14554040af284dfa40db47703754df0af5ab578c170bbe4fc57639ae01b7"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_live_validation_20261017.json",
+      "tier": "review",
+      "bytes": 2411,
+      "sha256": "4d1647defa641bdb507150716d7bbfe7ce67f0236fcda5d59d5038ff766deb57"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/after.json",
+      "tier": "primary_capture",
+      "bytes": 4719,
+      "sha256": "6d7aeb66a9539a0756a8653a77b4d587debf5fd109adfe4dbc3685cc828c08af"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/before.json",
+      "tier": "primary_capture",
+      "bytes": 4688,
+      "sha256": "092044010006a474e3b3ba7945620318a440c998f989557456e4689e7911f2d3"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/collector.log",
+      "tier": "primary_capture",
+      "bytes": 302,
+      "sha256": "ddc3e119c72188201045b2bf6fa3be87b376c81440fac47d20b8be371c446c25"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 342917,
+      "sha256": "66d02d9cbb6cbd83d65dd54c6d87324b615c671f7e4b58573af7c587d2176cb2"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/native_checkpoint.json",
+      "tier": "primary_capture",
+      "bytes": 13003,
+      "sha256": "af5361de5260444df3857a9547d828aff9b6af05c4fdf59efcb0d2231841218b"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/native_roundtrip.json",
+      "tier": "primary_capture",
+      "bytes": 13002,
+      "sha256": "a9db153c668f5cbba3dabc9dbd764d49c28e01806eef41648230214aafda40e9"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/node.log",
+      "tier": "primary_capture",
+      "bytes": 39781,
+      "sha256": "f9b6540204547269403ba0755b811cb3c745666790001719c6054c0583d67401"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/previous_manifest.json",
+      "tier": "primary_capture",
+      "bytes": 5824,
+      "sha256": "de6a91db57944e8c61d3b18bdbd28a4377b56a3601da7d169f46c72685990758"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/supervisor.log",
+      "tier": "primary_capture",
+      "bytes": 271,
+      "sha256": "4bf0f3fe27826eabb1a687fc48d3c4b5abdd97a934d6700e60e4874c5fdb1df0"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z_independent/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 100388,
+      "sha256": "85cea113695e9759e7c15ea04eb609b28c980747b35a48fb1e4c01bc240375e8"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z_independent/wallet_events.jsonl",
+      "tier": "primary_capture",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/after.json",
+      "tier": "primary_capture",
+      "bytes": 89,
+      "sha256": "2e1830a0452f6463f5b766b02c8b38287a195f49a9458a825c1909c15925d31e"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/before.json",
+      "tier": "primary_capture",
+      "bytes": 4688,
+      "sha256": "cb7b045b76002d10181635abf5187c0730ed305f7876641f909425f05dd3e413"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/collector.log",
+      "tier": "primary_capture",
+      "bytes": 303,
+      "sha256": "2569dad10309361ab30e4f82157c6d8e782509080bde2b66d889593a084438bb"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/finished_manifest.json",
+      "tier": "primary_capture",
+      "bytes": 5879,
+      "sha256": "26307bbc21f0a6bf7f6cc165cd115926afa8ced28afc63abdda56bc57ae51ca1"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 116102,
+      "sha256": "1ca8bc465106ff0e6f0284cc68429c3100e58f72830aabc3577cd3ebf2ad0100"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/native_checkpoint.json",
+      "tier": "primary_capture",
+      "bytes": 8597,
+      "sha256": "4bf738f3070a88abc51d4bee7a78509f81638a5d8e9147ee357c57a35f6d0034"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/native_roundtrip.json",
+      "tier": "primary_capture",
+      "bytes": 8596,
+      "sha256": "311ce0dc8f8db1ae99373e358c7573a6dd32347c0cb8ce7ebbc618981bc58ab1"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/node.log",
+      "tier": "primary_capture",
+      "bytes": 33027,
+      "sha256": "ed84c3142a053fa20cccf823aa46460896c5c75475eaca5d2cbbe767002ecc44"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/previous_manifest.json",
+      "tier": "primary_capture",
+      "bytes": 5852,
+      "sha256": "06bbb75c6085130d5bacc73502060854f175fc9eed69d2a4a99d268cfbcff182"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/supervisor.log",
+      "tier": "primary_capture",
+      "bytes": 210,
+      "sha256": "249574f421c2aa2c2a566cfecb7f8afe211e4932415392f27c694e1802cbdf1d"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z_independent/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 106375,
+      "sha256": "be6f21e88aea0e471e8b8f35e0b7ab1b2067445f03d4799e629c9c43579415cd"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z_independent/wallet_events.jsonl",
+      "tier": "primary_capture",
+      "bytes": 3643,
+      "sha256": "690c50329e23508c07b72f42b89d992faddd79d5619baad9f94f18c1bc3b6242"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_stage_validation_20261015.json",
+      "tier": "synthetic",
+      "bytes": 2081,
+      "sha256": "66bd1e484623f1cf66f471ab3b5b60efdd25b0b732d5092f710726f449ecd373"
+    },
+    {
+      "path": "tests/fixtures/private_api/exit_strategy_synthetic_20261015.json",
+      "tier": "synthetic",
+      "bytes": 65669,
+      "sha256": "a775cdca38777d5f2d7d8bdf435c4f1b41f198cdb46e3e13a3426e6f803a9033"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_callback_flow_review_20261017.json",
+      "tier": "synthetic",
+      "bytes": 3379,
+      "sha256": "fce1610e33613d92a46d3bd3b637019ae33f6107e6088399d77992d61f85a08f"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_callback_flow_validation_20261017.json",
+      "tier": "derived",
+      "bytes": 582,
+      "sha256": "2ac8a96e38380edbcde246c855777d799f665c0197014c082c6cb87547c8acc6"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_preflight_readonly_20261017T041816Z_65566.json",
+      "tier": "primary_capture",
+      "bytes": 499376,
+      "sha256": "666d8c1924579208804523a33f1a6776ef9fcedb084dc7d4c1dfd2d116a19dd3"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_preflight_readonly_20261017T041816Z_65566.responses.jsonl",
+      "tier": "reference",
+      "bytes": 305350,
+      "sha256": "8952f1a1e3aa121f9fea703c1365100d80600903e981faa17e95330bbdec23d1"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_preflight_readonly_20261017T051501Z_71734.json",
+      "tier": "primary_capture",
+      "bytes": 500167,
+      "sha256": "ef90e43f7b7917241c895c876163a3411ea8568cb0df820495333bc981bb353d"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_preflight_readonly_20261017T051501Z_71734.responses.jsonl",
+      "tier": "reference",
+      "bytes": 305399,
+      "sha256": "e1eeff931f501a818216c3ef2fc32f3163e5a780b8401082945fd0611b945ef7"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_preflight_review_20261017.json",
+      "tier": "derived",
+      "bytes": 3211,
+      "sha256": "8973f8c6d0cb5a13806572f86463962e69b8829e1a43f51aeb03f3a37e5c24b2"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_preflight_validation_20261017.json",
+      "tier": "derived",
+      "bytes": 3605,
+      "sha256": "4bf71a64322cafd2a54875cfd8028e65c1b424b46e88e7d2c53e7cf468e77308"
+    },
+    {
+      "path": "tests/fixtures/private_api/fill_roundtrip_readonly_scan_20261016.json",
+      "tier": "primary_capture",
+      "bytes": 156285,
+      "sha256": "cb6fb545941b7a078a450c92a2f1c5e730961b10a8fa6a36fa5372d2835ffa40"
+    },
+    {
+      "path": "tests/fixtures/private_api/filled_live_validation_20261016.json",
+      "tier": "derived",
+      "bytes": 8306,
+      "sha256": "a39bf60ee3a7bd80b75f1122f656fb1aaf8c61a9152a349627d4191cf2d01f0e"
+    },
+    {
+      "path": "tests/fixtures/private_api/filled_orders.json",
+      "tier": "reference",
+      "bytes": 138,
+      "sha256": "eb728cae7896a146162cdaf5d2033a7f56ccd7ed76f81bf48b98b8bc2b13730a"
+    },
+    {
+      "path": "tests/fixtures/private_api/final_readonly_filled_checks_20261016.json",
+      "tier": "reference",
+      "bytes": 398,
+      "sha256": "85bd2bf8caf54576801d995e9dff8c6aee6dcf65c4d1b199a049c728903ddc66"
+    },
+    {
+      "path": "tests/fixtures/private_api/host_account_scope_validation_20261016.json",
+      "tier": "derived",
+      "bytes": 2798,
+      "sha256": "212c301af7a0bbd416e43bc9cab74202710714658df56961f3ff2391b34fc82c"
+    },
+    {
+      "path": "tests/fixtures/private_api/host_account_scope_with_orders_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 21140,
+      "sha256": "ba6de2ecb59b03db824ba5f4dfe86e9aca028c4e2f234a74c045ced3e0d8b4af"
+    },
+    {
+      "path": "tests/fixtures/private_api/http_batch_native_actual_replay_20261017.json",
+      "tier": "derived",
+      "bytes": 1797,
+      "sha256": "d81910823684229fed2cb6635bcff2f359a86006edd5a2071b0cc3b3a615e9e8"
+    },
+    {
+      "path": "tests/fixtures/private_api/http_batch_native_synthetic_20261017.json",
+      "tier": "synthetic",
+      "bytes": 104684,
+      "sha256": "b378a7e915347c939cf011526b02e0c0b8d9f1bc1fb5d726e7f9ff6d19b9436f"
+    },
+    {
+      "path": "tests/fixtures/private_api/http_batch_validation_20261017.json",
+      "tier": "derived",
+      "bytes": 9780,
+      "sha256": "85440b2b085483e40ad32e08bc9cf7d1b88efda09c8954b7051e647abc91ba00"
+    },
+    {
+      "path": "tests/fixtures/private_api/jwt_readonly_recovery_validation_20261017.json",
+      "tier": "review",
+      "bytes": 7932,
+      "sha256": "b5d8e39c6cc51a1aea34a9ade9fda4bed403bad416eec1f131ef4332c8650a53"
+    },
+    {
+      "path": "tests/fixtures/private_api/jwt_timing_readonly_20261017T042433Z.json",
+      "tier": "reference",
+      "bytes": 482,
+      "sha256": "cdf0ff430f8296b9e5d954af9303b4d0c3addfb68cac2b9efe6427e5640d5a07"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T122233Z/account_consistency_review.json",
+      "tier": "review",
+      "bytes": 488,
+      "sha256": "4af2642a2ab4a8c8f2ec958abd6f7eea399f11062464faf4ccdc3d5c738978a1"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T122233Z/admission.json",
+      "tier": "primary_capture",
+      "bytes": 5766,
+      "sha256": "e7acc44a48628f75717ae0a83259d1f170d29ea7b3b6e83e8b4a36e60f9e241a"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T122233Z/final_verification.json",
+      "tier": "primary_capture",
+      "bytes": 441,
+      "sha256": "9f26350f5cd0367aba4a7a2152fdbd7f0f9ec59fbd1cd1b855281361d9cceb52"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T122233Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 38962,
+      "sha256": "2a79264d72ed5c06f031de2537095c9a8c7ea7c6b433f62642ee8f4d9de99125"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T122233Z/native_roundtrip.json",
+      "tier": "primary_capture",
+      "bytes": 22706,
+      "sha256": "552250f54ca08aa3a1a19ecd3fabd9ccf2e4f2c43fac7ba5c058a0a19b55e34b"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T122233Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 116,
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T122233Z_independent/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 49148,
+      "sha256": "af10545545cedcd489d156f724b1f89ff6aaba22f36220550d1c168741142b76"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T123240Z/admission.json",
+      "tier": "primary_capture",
+      "bytes": 5818,
+      "sha256": "469e6572ae817d2c892e76e0811714dfd59f07b0f7558a97061e55df7fb4f8d4"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T123240Z/final_verification.json",
+      "tier": "primary_capture",
+      "bytes": 479,
+      "sha256": "b777051663eced3305c764a648bf2e1fe0de84b712007848c0c7671be64de864"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T123240Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 41310,
+      "sha256": "0ae3f8ee0c992006fbd81740073b6742db21bfb3b73c73b3c17e55cd89950460"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T123240Z/native_roundtrip.json",
+      "tier": "primary_capture",
+      "bytes": 32376,
+      "sha256": "93a6fbbfba86c9f3b6aad84c8b0ce55536c811358e5e31ea9b1f210cc1234905"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T123240Z/pnl_scope_review.json",
+      "tier": "review",
+      "bytes": 512,
+      "sha256": "6543ac05da6a48034423046833bfc2b01added387df4eae6bfae2daca4053447"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T123240Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 116,
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261016T123240Z_independent/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 75306,
+      "sha256": "eb6e342a831c183ec7d0b8d0b9c172212053857d9b7908c500b509bdc0dc18b5"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/active_account_crosscheck.json",
+      "tier": "primary_capture",
+      "bytes": 6032,
+      "sha256": "a5ac50e0197325fa46dab73034c128b382f6cda59aef9dff4257cd4f444c7c4a"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/admission.json",
+      "tier": "primary_capture",
+      "bytes": 5698,
+      "sha256": "00f19277cffdbb5aedbc196ae2759ba6283203b3be867229fe06ff9a9cc1a50a"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/after_interruption.json",
+      "tier": "primary_capture",
+      "bytes": 4691,
+      "sha256": "eb95951797224c4ca19d198437bfd00cb24cbcddec45cf3e0eb7e8b95e8664e9"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/collector.log",
+      "tier": "primary_capture",
+      "bytes": 304,
+      "sha256": "cba07ff6ee68de5d28c4d82d5de0febea9d66cda08e15e6d57e1a02aabb34c91"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/entry_native_observation.json",
+      "tier": "primary_capture",
+      "bytes": 42458,
+      "sha256": "d89243d12350ce3fa1e0879930bb9bc83b79c012d0df35863ca0e4cf5b60d3b8"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/entry_validation.json",
+      "tier": "review",
+      "bytes": 5398,
+      "sha256": "77d9d2f2858ddd75bd9a3513086704c2f705d3e6f5a915931d387b57a26830be"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/entry_wallet_observation.json",
+      "tier": "primary_capture",
+      "bytes": 3428,
+      "sha256": "53bffe881bd24998ad001f3bf6fe2c57711331e63d325d447d466b44f31b0b48"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 1779771,
+      "sha256": "251383bb73f8a927a63cfda0c4913960b3c32f92226d511f194cfdf304f387f9"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/interruption.json",
+      "tier": "primary_capture",
+      "bytes": 300,
+      "sha256": "d8e7e63b976c638fd1b0b6e485e2658e1a977cd9be6c8cbb60bf914503c5a5ba"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/native_checkpoint.json",
+      "tier": "primary_capture",
+      "bytes": 95947,
+      "sha256": "5847f3736f59ed3b95fbbdc5fcd85a142c96c910b90f24fadead93fc6c4c2c5c"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/node.log",
+      "tier": "primary_capture",
+      "bytes": 116289,
+      "sha256": "cd31e3fd9eebcefe17f67b97cf160e2653052664cf7be1586182118044a4d98d"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/supervisor.log",
+      "tier": "primary_capture",
+      "bytes": 278,
+      "sha256": "07c3e9ca0caa98fce3940da57f2f77cae65ae811c79afa4c378ec530ce9efec8"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z_independent/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 93258,
+      "sha256": "d93cee695d5806c2f87ba9341cb6229473eaeea154e0e1b3f833a92f63503181"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z_independent/wallet_events.jsonl",
+      "tier": "primary_capture",
+      "bytes": 2867,
+      "sha256": "c9cec05a205fc495a27078da1765f66d925c22645369db44b849c9c70239b469"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_fill_scope_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 56637,
+      "sha256": "63d579ae10aae7ec9d9e71cc1d454714040cc709ae178bad29a5ef57454860da"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_queries_readonly_20261017/node.log",
+      "tier": "primary_capture",
+      "bytes": 22157,
+      "sha256": "92a38b87adbb793351d5b0d7e276f4abb8fa97073c8e006fe816f7cd9ab81732"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_readonly_resources_20261017T100325Z/query_commands_readonly_20261017T100503Z_11303.json",
+      "tier": "primary_capture",
+      "bytes": 186013,
+      "sha256": "83f90f58e8bf6041ff248ec968bb4b9e49345296f0767ae387dd027b3f1c456f"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_readonly_resources_20261017T100325Z/session_readonly_20261017T100325Z_10109.json",
+      "tier": "primary_capture",
+      "bytes": 470057,
+      "sha256": "9b183aba900ef2f83d534058e68b7cf4d7c5a38316e413a43d74f5baf0812e2e"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/batch_native_validation.json",
+      "tier": "derived",
+      "bytes": 811,
+      "sha256": "8ea3e4767e7f4f34d16d199962e13f59e00c761531f0b3cf5cae34f39242fa6b"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 80988,
+      "sha256": "1f9b9133bd34afcae173b505c177cc6774cfbee3dbf058aa9438048d75aee197"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/evidence_validation.json",
+      "tier": "review",
+      "bytes": 258,
+      "sha256": "81dc2b3a2c94ac0da1060cad3530e981c0d66629edba8223367fa8355ab8fa5b"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/final_open_orders_check.json",
+      "tier": "primary_capture",
+      "bytes": 165,
+      "sha256": "d00f10a48dcba36e51fe5f1f6eec35e9bf8ac224b2a34aab2dbb7413ab9d8e6d"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 148776,
+      "sha256": "7cc4a62bd585676c0c6cf1c1752a3d85f094cff1a151de06fcf757085ebe3175"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/native_input_and_callbacks.json",
+      "tier": "primary_capture",
+      "bytes": 28882,
+      "sha256": "2f5a108e8d8b88e3ad03b9b43d030cd1819c1297b647f6d9a7c4094c33950f24"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/official_sdk_validation.json",
+      "tier": "derived",
+      "bytes": 1108,
+      "sha256": "72781d1ade8800ee5b68238da436b8a5f4645a66f59d47945094b3cbd1c6a6f4"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/post_review_open_orders_check.json",
+      "tier": "derived",
+      "bytes": 353,
+      "sha256": "f8d311ae89ffe1da80612a4bbb1a71641e765592a32077df8a0eafc68941fa70"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/result.json",
+      "tier": "primary_capture",
+      "bytes": 515,
+      "sha256": "7c8ae6c091786d6ad9679c4e4d68516f65ce237d08325ac9a2a113d3c2759bbe"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/runtime_diagnostics.json",
+      "tier": "derived",
+      "bytes": 1730,
+      "sha256": "7d5b219bc89e74b3afb0c8d7522b7f23a1a7aabf6b9ae1e24a69a3275db3cb85"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 75,
+      "sha256": "7e9e7038bd4d0919545a0f60e7f9e63628c9c2fcccdf89081497b6f911d99fe7"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_batch-restart_20261016T153745Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 116,
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_fixed_20261015/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 31932,
+      "sha256": "e039a8459dbcc01c981056559b663f48e837ab3356429324eead092d5ca45783"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_fixed_20261015/final_open_orders_check.json",
+      "tier": "primary_capture",
+      "bytes": 338,
+      "sha256": "19aeb4ef30179749b6643f7c108849b7170f1967b5210ed655457524bae8f7ba"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_fixed_20261015/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 6559,
+      "sha256": "2af9dbd112b6a74c987dc7e029942fd114a1d52ba4022e5094f53354a5bf6d97"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_fixed_20261015/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 7686,
+      "sha256": "acec4a73a9f84d25f6fd7fa452cba48245f5502a53621046c3c70cc6d14816e6"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_fixed_20261015/result.json",
+      "tier": "primary_capture",
+      "bytes": 558,
+      "sha256": "c6f5b7a1dd5540e8079bc60a996256578a99ac829350cab58a2bd33b290465cb"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_fixed_20261015/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 607,
+      "sha256": "49a89a57a74a24450751c14e2431b6501b4e3b9684cacdcacb8230cd9032999a"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_fixed_20261015/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_fixed_20261015/validation.json",
+      "tier": "review",
+      "bytes": 480,
+      "sha256": "e65227440c96d54cf167e15dc6d6eeda6c5b325c5442c79c5149de49f852a864"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/batch_native_validation.json",
+      "tier": "derived",
+      "bytes": 952,
+      "sha256": "21835779979c508c894c029b2b9aee284f339c801a15d925a6af56c9552b4aec"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 81036,
+      "sha256": "cc7290838121c00a1f016771c94e54299d59a5cdc9c27dba4bc7cef6f0140675"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/evidence_validation.json",
+      "tier": "review",
+      "bytes": 255,
+      "sha256": "170c91490f445502e1de7ceeeafc17463df0df8f42a2181e6007119ebcbf4752"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/final_open_orders_check.json",
+      "tier": "primary_capture",
+      "bytes": 165,
+      "sha256": "19fa15e7e6c816869802e2a7a919b989698ec31282ac436b2d8331d7eb7466c7"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 151139,
+      "sha256": "c2cfa4f2b9c613f38589c74bee78ac632422be67d7d56a8f4159cfcdc265ac49"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/native_input_and_callbacks.json",
+      "tier": "primary_capture",
+      "bytes": 27646,
+      "sha256": "da1a2ba8f3652846d417630a0c93e3c0e0d13370ecbe954818603d6a0f920f82"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/official_sdk_validation.json",
+      "tier": "derived",
+      "bytes": 1108,
+      "sha256": "f5e00889715f8bfcb29c456f0c4c7f8d3bbeff57886a998cc96f3481a7bd7ff1"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/post_review_open_orders_check.json",
+      "tier": "derived",
+      "bytes": 325,
+      "sha256": "5b4444a6b0663a77faa14a0e2f1bab3e4f523aa9fdbc3434174523b61a825b55"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/result.json",
+      "tier": "primary_capture",
+      "bytes": 512,
+      "sha256": "924b7816ef937068415f3ca207d8f3dde1065eec15aa2617a99faac24b74b7cb"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/runtime_diagnostics.json",
+      "tier": "derived",
+      "bytes": 1883,
+      "sha256": "51b71ea33426c32a20962904b1707c7b94ad07d011bef88519ba227dae06646a"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 75,
+      "sha256": "7e9e7038bd4d0919545a0f60e7f9e63628c9c2fcccdf89081497b6f911d99fe7"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http-batch_20261016T160926Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 116,
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_body_20261015/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 28612,
+      "sha256": "48582c6c7915ac96660dbc17f5b965c6ecda077ae67cd22dec3cf00884556e9b"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_body_20261015/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 6127,
+      "sha256": "9620ad236fcf05ae4fbdc7f283d862b386f1e99df1d05e205989050e758aff8e"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_body_20261015/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 4661,
+      "sha256": "82b36faf70b278db2605509bd1b4ae7873fbdb77b8367042b2bf8a8ea302e52e"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_body_20261015/result.json",
+      "tier": "primary_capture",
+      "bytes": 525,
+      "sha256": "8c9ce259c9af6a010811d1ab3bc5353cc5542e8d7308f4649d659731da7cf250"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_body_20261015/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 581,
+      "sha256": "48255652d91289299d87e720bdd0d33ce5eabc29fc9d6d7145d902610a0270a0"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_body_20261015/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_status_20261015/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 28610,
+      "sha256": "58bcaf88fc26625f710ccaa6ed674d51964c66ff18afe90f47945137d88f4869"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_status_20261015/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 5552,
+      "sha256": "45103869c6d4242ee2827eca4a9ea3d831e1d018ab5bdae5159fd39e45b13d2d"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_status_20261015/result.json",
+      "tier": "primary_capture",
+      "bytes": 525,
+      "sha256": "a692da33ab2fee353cb0d30ea49f2f1ac356bb381a243660c63f6b69b3b53864"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_status_20261015/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 581,
+      "sha256": "546d0d1210f7fc302d33b457f914cc73af2cfc6b8e416c647b51d38233fe59fa"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_http500_status_20261015/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtc_20261015T102554Z/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 31932,
+      "sha256": "d25f5d1e25d0ac282176e6a2681cf2974d560fb9ef7ebd22fce1abc7e471dfe7"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtc_20261015T102554Z/evidence_validation.json",
+      "tier": "review",
+      "bytes": 251,
+      "sha256": "f262b20c4a377b48d5d84df52db8517c694597aa97f98ea5bf37315403a6a5ff"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtc_20261015T102554Z/final_open_orders_check.json",
+      "tier": "primary_capture",
+      "bytes": 165,
+      "sha256": "b79ccd85bb9332d159163053f067585c06f4b83e87954e5d28d78ab692981da3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtc_20261015T102554Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 7663,
+      "sha256": "c9f5a768685e6f7a5c83d490ba043ce68fb5f12e44007276b47b0305520daa6c"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtc_20261015T102554Z/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 8541,
+      "sha256": "f4e4c14fd6cecd5e0ed2ae1dc7f15485d6e590d7a1fd50c9a92a6dc8dce3fc0e"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtc_20261015T102554Z/result.json",
+      "tier": "primary_capture",
+      "bytes": 622,
+      "sha256": "950c63df7b2395a22bc1dff862f08683abbc3f6edbdb59cd5414675752a76855"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtc_20261015T102554Z/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 607,
+      "sha256": "bb93319e966fd63d5112682fbf33a9fb044985d96245f4317598aa5e6b016d96"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtc_20261015T102554Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtd_20261015T103652Z/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 31932,
+      "sha256": "9d00dd0755c17749a901b3161cacd7bc9b301945acc4b045fb4217f6121c3482"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtd_20261015T103652Z/evidence_validation.json",
+      "tier": "review",
+      "bytes": 251,
+      "sha256": "6248d158751dfdb7313ace46e1a961a566f197c5bb0b68919802910be15b7254"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtd_20261015T103652Z/final_open_orders_check.json",
+      "tier": "primary_capture",
+      "bytes": 165,
+      "sha256": "ea27e5372265a60cdb46dde6bf6136a5294c77ac4e654c58e951b244ef9e1f28"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtd_20261015T103652Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 7948,
+      "sha256": "f224cdf0f1d2fc1431467dd2e4b8d554136bb3974f0b49ce171f53fc032bff46"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtd_20261015T103652Z/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 9440,
+      "sha256": "24747543207afd6e7717e61ae610a2e7d06632355df3046a8653d37367d2e7a9"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtd_20261015T103652Z/result.json",
+      "tier": "primary_capture",
+      "bytes": 699,
+      "sha256": "55352a4c473ff70b56a22738c00b513019036329adc740617646dd76a854123d"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtd_20261015T103652Z/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 607,
+      "sha256": "53780fadb4270094295ce95cb5c459d91a1ced4116caf7a216f7363415c4973b"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_no-gtd_20261015T103652Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_one_based_index_failure_20261015/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 30275,
+      "sha256": "04c6e524ef4f4adfb57d15e57a0e33a5c5261b98e23b20b58fbd3d021a9fc7d3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_one_based_index_failure_20261015/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 3569,
+      "sha256": "a6a3889ac47c959903b44addd2b30363e6254586ca5dca79d06252b8bfc61dda"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_one_based_index_failure_20261015/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 1691,
+      "sha256": "c2a6cfc8e661e82e7f670ebc28524914f068c4cc734a19a2e0be29ca179b0014"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_one_based_index_failure_20261015/result.json",
+      "tier": "primary_capture",
+      "bytes": 549,
+      "sha256": "1e8bf57e6f6a52a5bc0816c8d5452a75729ea175b5bbc8c56e92301762735479"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_one_based_index_failure_20261015/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 342,
+      "sha256": "d96f36a71a9cac6eb83278780e732d13396700c9814e4165d275b26ab00f4d86"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_one_based_index_failure_20261015/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_stale_book_20261015/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 28612,
+      "sha256": "baa9dfa03a5b1fb9689eebd498e7d757d3c0bb685b7030f0e081d3fff3f5fb9c"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_stale_book_20261015/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 5051,
+      "sha256": "028625cc39e9009004228f04e0e217ab5bdaffce48eb1c99cc466cb535a48241"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_stale_book_20261015/result.json",
+      "tier": "primary_capture",
+      "bytes": 624,
+      "sha256": "890477f85e4c0747ab5e9ca3c4e8f018d696ace1928cab09eff6fb5ac6ea2e63"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_stale_book_20261015/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_unresolved_20261015/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 28612,
+      "sha256": "b43380ef030fd10d7b700d7e567f875487f05c2fca30fd9b89c6bfe506246bb2"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_unresolved_20261015/final_open_orders_check.json",
+      "tier": "primary_capture",
+      "bytes": 147,
+      "sha256": "8eafd70706853e05c5ca6390b7b6596b8de90341e323d3afe624276818cbc628"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_unresolved_20261015/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 6630,
+      "sha256": "14d225a067c66c4be03bd6ec43598a8626bfe330a249cc80507c818bac8bfda8"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_unresolved_20261015/result.json",
+      "tier": "primary_capture",
+      "bytes": 525,
+      "sha256": "7d2ded952ca5377db3fbb9d64d11c9b377bd32f97f1ae0b1867c12b2ef313cea"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_unresolved_20261015/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 324,
+      "sha256": "269fc1936a5e1412b2a8e603b8703d0679940e648d64c68b2d968d64c92792e6"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_unresolved_20261015/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261015T102335Z/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 31732,
+      "sha256": "5ec65b9fe0e4e967cdc4776ef68ddf8845e1d4a7fa23e02f6b8057bc370d16d9"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261015T102335Z/evidence_validation.json",
+      "tier": "review",
+      "bytes": 252,
+      "sha256": "9bdcbfff135424d0ab6514d4b750ef938f5df3e1394473c4c32c06098e253074"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261015T102335Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 7660,
+      "sha256": "46c1e6a595f9269ba6a1fb9d87652e74bef0c2120c657215ed2bc3d34392d828"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261015T102335Z/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 8242,
+      "sha256": "996fbcf0a4e9c7f76afc6182651763b566e05aa76c5dcc93024b4248120d5ec4"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261015T102335Z/result.json",
+      "tier": "primary_capture",
+      "bytes": 622,
+      "sha256": "e9a59679a1df85d692e59e16af0d01f35c7da2de005766f695a25c23837e6b58"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261015T102335Z/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 607,
+      "sha256": "2bd1df4f02c62137d8dc3fd290bf12094b4ce1cae69c7b06c5d4a0adc791f003"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261015T102335Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 31704,
+      "sha256": "2e35b8f41c62679bd3ebb5323213cf70f242ce6604a8014994884953f3083d1a"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/evidence_validation.json",
+      "tier": "review",
+      "bytes": 252,
+      "sha256": "ff661fc36c57bdc111117c0fa7e26e4d34373cfbc329bf3938792322a3bf6759"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/final_open_orders_check.json",
+      "tier": "primary_capture",
+      "bytes": 165,
+      "sha256": "2bade8193cea2fd353a26a0bfb09b5ee472d5eaa9c3d020dbaaa5acc7e1d9edc"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 7377,
+      "sha256": "6535f8d4dccf09480fa5ab1a2a2e73cdfe5dccdde5ad621e3f2c68b846d35378"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 8890,
+      "sha256": "d2c50bb32594b1ab360763633846fea826212725e54330451b2a82d36a2ef712"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/result.json",
+      "tier": "primary_capture",
+      "bytes": 763,
+      "sha256": "e72c55a0b527283938bbd17db355146c7d38ac816366f1a8af993fbf76a005d3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 75,
+      "sha256": "7e9e7038bd4d0919545a0f60e7f9e63628c9c2fcccdf89081497b6f911d99fe7"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtc_20261016T120218Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 116,
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_20261015T103440Z/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 31732,
+      "sha256": "aa919fe11bfd98661b7315c78eed3c95ae8482141ed22780529d45286adb2fa6"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_20261015T103440Z/evidence_validation.json",
+      "tier": "review",
+      "bytes": 252,
+      "sha256": "614cfd04bfa5da4c0a2693975775d5f8f18e6bc362b7767b43ecb55e86469a02"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_20261015T103440Z/final_open_orders_check.json",
+      "tier": "primary_capture",
+      "bytes": 165,
+      "sha256": "55c8217e460489a7f159a1cf4f9ec96c97e68dbf4f7396ae9fe281a924333300"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_20261015T103440Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 6799,
+      "sha256": "67ec3e84a00e5c96d9fc0aefe896a4ff274ecdad7bf5a4861c6ca37f14cc27c5"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_20261015T103440Z/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 8547,
+      "sha256": "dffa3fb2eb3abc5e2c5714a682a66a712d9258810f0fc07e4a20d00e7998e1b4"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_20261015T103440Z/result.json",
+      "tier": "primary_capture",
+      "bytes": 699,
+      "sha256": "86950e1715193210b4c7686527801c9dfaaa7a410b2bf6a1b1a99d1705f1f867"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_20261015T103440Z/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 607,
+      "sha256": "525b2b2bc4fd7578c1c4a6c57932612e5a2d280f940850d4c0dc66b0f961311f"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_20261015T103440Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_expiry_rejected_20261015T102923Z/calibration.json",
+      "tier": "primary_capture",
+      "bytes": 28612,
+      "sha256": "562589d412c9b52f8413225cd393710d1d82a244d28aace8a2df825a589e7f38"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_expiry_rejected_20261015T102923Z/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 3770,
+      "sha256": "4cd5d03f28b6a844dfd92589f9aa1e86348e16c6be6c52cce1b8f54bb98befdb"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_expiry_rejected_20261015T102923Z/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 2602,
+      "sha256": "fbd4f58d4e2af3adc22429a8bc0b6de247e548ac0f7d559e040cd6ff9bddaad1"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_expiry_rejected_20261015T102923Z/result.json",
+      "tier": "primary_capture",
+      "bytes": 698,
+      "sha256": "06d0700e9c7435bbe58b38e802358187905ea97fdb60fba1f93d8304077364aa"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_expiry_rejected_20261015T102923Z/submission_diagnostics.json",
+      "tier": "primary_capture",
+      "bytes": 342,
+      "sha256": "a5ef7a7b68d42cef5cd236406eeca452a262905e165f808a8609090e18c53ee6"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_resting_yes-gtd_expiry_rejected_20261015T102923Z/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 58,
+      "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_session_readonly_20261017/node.log",
+      "tier": "primary_capture",
+      "bytes": 20309,
+      "sha256": "dccb8fdb7d7ad355ba3d4054f758e7dbfda6f1aca80c24893def2ef79dfc2a0a"
+    },
+    {
+      "path": "tests/fixtures/private_api/maker_evidence_manifest_20261015.json",
+      "tier": "primary_capture",
+      "bytes": 1810,
+      "sha256": "2828e12f07ff492f1a8a41f8aceb0da4cd2b51504e5d281e085f2887efad300c"
+    },
+    {
+      "path": "tests/fixtures/private_api/maker_live_matrix_20261015.json",
+      "tier": "derived",
+      "bytes": 8787,
+      "sha256": "54021e0c437e2cec290d6d22bb97c61a8cdb9258954547316329c97d47194336"
+    },
+    {
+      "path": "tests/fixtures/private_api/maker_matrix_final_open_orders_20261015.json",
+      "tier": "reference",
+      "bytes": 396,
+      "sha256": "39b25ec00129218913ec85ec5251230694003678611e5006bbaa586f864c2146"
+    },
+    {
+      "path": "tests/fixtures/private_api/maker_matrix_validation_20261015.json",
+      "tier": "review",
+      "bytes": 922,
+      "sha256": "deb3004073aebe52f99beb7b5d3cb9ece9b3aef8bee5e98553277a2f45eb870f"
+    },
+    {
+      "path": "tests/fixtures/private_api/maker_read_only_check_20261015.json",
+      "tier": "primary_capture",
+      "bytes": 306,
+      "sha256": "417726c2efb899eae87cad1fdff3f1872ac360b60b5a5648aba328997ec2cb9f"
+    },
+    {
+      "path": "tests/fixtures/private_api/maker_validation_20261015.json",
+      "tier": "derived",
+      "bytes": 971,
+      "sha256": "e5cb5c3c2b7e13f2a104521a7606515ed11f19d5ba75010e5d394df446e3028e"
+    },
+    {
+      "path": "tests/fixtures/private_api/market_final_read_only_check_20261015.json",
+      "tier": "reference",
+      "bytes": 195,
+      "sha256": "33d5842a5d0dd3a3a5dbb5b64801d73cad855ee4e4169085548209e66d01bf20"
+    },
+    {
+      "path": "tests/fixtures/private_api/market_live_snapshot_sdk_quotes_20261015.json",
+      "tier": "derived",
+      "bytes": 10164,
+      "sha256": "f48210c96af8584187794341c22cac3fb7c06a0fa115d10843b7a2cd88bde6dd"
+    },
+    {
+      "path": "tests/fixtures/private_api/market_read_only_20261015/calibration.json",
+      "tier": "reference",
+      "bytes": 28610,
+      "sha256": "be5d4a713dfe7aeb7d2d27a34850b7d9452ffe380a99b2dbfe0a285ec7d9989d"
+    },
+    {
+      "path": "tests/fixtures/private_api/market_read_only_livenode_20261015.json",
+      "tier": "primary_capture",
+      "bytes": 6295,
+      "sha256": "5c47e9f6ace0532453dda4b60a38c94e5002954f46a18c457bb202a85ddd6dc2"
+    },
+    {
+      "path": "tests/fixtures/private_api/market_recovery_synthetic_20261015.json",
+      "tier": "synthetic",
+      "bytes": 39995,
+      "sha256": "6e2e09d121ce909c9f364e73fd9b3a886b969bca0e804389fa4020cf551c60f2"
+    },
+    {
+      "path": "tests/fixtures/private_api/market_stage_validation_20261015.json",
+      "tier": "derived",
+      "bytes": 1982,
+      "sha256": "e211878bbe7c5b11b4551fb45371f42bbe5ea84916efdefabaca1d1e21234af3"
+    },
+    {
+      "path": "tests/fixtures/private_api/matches.json",
+      "tier": "reference",
+      "bytes": 12105,
+      "sha256": "9470e5eee2e04057d8c0427b381786a31e0a1a9a66ca9e34366b8a250a16dc91"
+    },
+    {
+      "path": "tests/fixtures/private_api/matches_gap_native_feedback_synthetic_20261015.json",
+      "tier": "synthetic",
+      "bytes": 37748,
+      "sha256": "b7c304dab73ca622ba371453ca583620080f5d511602bfbed2b564ecbaaf698b"
+    },
+    {
+      "path": "tests/fixtures/private_api/matches_gap_rejections_synthetic_20261015.json",
+      "tier": "synthetic",
+      "bytes": 76989,
+      "sha256": "dde193e0f1ad61bb2430925960aec3d0ed04b6515ae2edd6d98f4b39c677fd99"
+    },
+    {
+      "path": "tests/fixtures/private_api/matches_gap_validation_20261015.json",
+      "tier": "synthetic",
+      "bytes": 3453,
+      "sha256": "be10e16b35fbe43b2953d347b23bad663fd94a1227e5b8172fa586eb40493d57"
+    },
+    {
+      "path": "tests/fixtures/private_api/multi_admission_exit_replay_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 221245,
+      "sha256": "e4ed67d1183d3c66721e8f1134858d414a9ba89f9605010da03b0c80d66c3c1a"
+    },
+    {
+      "path": "tests/fixtures/private_api/multi_admission_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 33575,
+      "sha256": "d72ef22f37e594a269843740f872e44d3ef4674510d16a4c88c7d686645aee67"
+    },
+    {
+      "path": "tests/fixtures/private_api/multi_submission_native_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 20215,
+      "sha256": "f3307e7d1af01b4731bae0c20cb5635f2f09209aa6ebcc7cc083fcde97744678"
+    },
+    {
+      "path": "tests/fixtures/private_api/multi_submission_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 7594,
+      "sha256": "f7e16c82b00ea993d827464ba1b51386918186b3a8ba5d895291ebb0bcd72379"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_account_exits_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 222299,
+      "sha256": "053149cb391dfa2aefd9cffb7361676d7d011112a54448207afabbbdb5abcad0"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_account_resume_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 164168,
+      "sha256": "9d15bf163a2e0178eda640f8da254cfa69b13a015b52110982a33bfc3901bb41"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_account_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 3917,
+      "sha256": "e0aef3a1415fd282b25e899385a815fec62cfac0720b3da56bc86bb2db3c428d"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_cache_retirement_derived_20261017.json",
+      "tier": "derived",
+      "bytes": 35991,
+      "sha256": "0dfd553d0ae6e10625b7fc02dbc2c7b095f52683f058b47807999601ecb08641"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_close_boundaries_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 143066,
+      "sha256": "62b985d296539a4c78a07ae59625f3b2da7f609a4940d415cf20ffa9070844a7"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_close_boundaries_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 67069,
+      "sha256": "6e93e888ac29f780197e6a354682a15d39aa094cbfd455726ebd77f4a9b7ab1f"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_close_fee_cycle_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 90676,
+      "sha256": "6b5ffc3946f1a2bb33a33e12d2791398f1a918841c5ca9e1a059ff3d2437b56e"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_close_fee_cycle_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 10932,
+      "sha256": "1cd87a8568e589461ad8c5f452bef60c95e2047aeb4042b83b623c61a244a00f"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_exec_tester_profile_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 76087,
+      "sha256": "2fab542478681827cf171e63f7fbbf5ac4c5e9e89f7952807dea9941b5b56b86"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_exec_tester_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 119306,
+      "sha256": "13c9fd7e44d20a8296d3c92b384fcce131c81686a8b66ed08a11ede5561431e5"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_fee_path_model_synthetic_20261017.json",
+      "tier": "synthetic",
+      "bytes": 1921,
+      "sha256": "170e9ca9a093661b61c7e53cb73aec2f5b54a81cd1a21cdc289e576a660440de"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_partial_exit_live_node_20261017.json",
+      "tier": "synthetic",
+      "bytes": 29952,
+      "sha256": "6d9b227087f8c72e5a906ef7bdab68c8c0962447167e5eb94b1a3a89ce4ab533"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_partial_exit_live_node_20261017_v3.json",
+      "tier": "synthetic",
+      "bytes": 37768,
+      "sha256": "76eb9c579feeec0480d3aa3b69f9947ca08269861ccccff497f2d4cbd456333e"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_partial_exit_live_node_minimal_20261017.json",
+      "tier": "synthetic",
+      "bytes": 37767,
+      "sha256": "a66e954f77ea2f8eba48c5b386dbdd3c446a6fef139d14686d9729eee1bbf2c1"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_partial_exit_live_node_replay_fixed_20261017.json",
+      "tier": "synthetic",
+      "bytes": 38062,
+      "sha256": "daba73cac65fb1b71317fc2705bdd09fd407d729df823f35adff33102bdf1c00"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_quantity_only_live_node_20261017.json",
+      "tier": "derived",
+      "bytes": 68305,
+      "sha256": "3d8f451496cc720d1350595024cc345ea85b96417f5d122a2ee5e61ab03d9452"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_quantity_only_partial_exit_20261017.json",
+      "tier": "synthetic",
+      "bytes": 38349,
+      "sha256": "ff57316365e7acb9d62f82fbeb844752c8d3a823e7e0d94d3958ab9ffb881431"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_reconnect_20261017.json",
+      "tier": "synthetic",
+      "bytes": 136564,
+      "sha256": "cf3b2d49d012edd1ffd0563887a7a18ee4b9dd67de5c37a7c2a2d28aece844b3"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_recorded_flow_20261017.json",
+      "tier": "derived",
+      "bytes": 25418,
+      "sha256": "b0142590d8e9632dcf026863fdc16deb3364bd6c78b9cb8e943e02f1035018dc"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_residual_live_node_20261017.json",
+      "tier": "derived",
+      "bytes": 68820,
+      "sha256": "c49ab3d4a2b05b845d3185ca02f9bc4a2560aeeccf4b36c2dcf8aaac2a424b02"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_residual_live_node_20261017_v2.json",
+      "tier": "derived",
+      "bytes": 68112,
+      "sha256": "260123848792abda7d6daf085ef5fe338ab96c6ce0197dd7f842fb5d9d025d42"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_residual_live_node_minimal_20261017.json",
+      "tier": "derived",
+      "bytes": 68853,
+      "sha256": "c0bb95a13106f97f05107e3e0d7e7a58423f50bdb1d2af7fdf07dec29bdd0ea4"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_residual_validation_20261017.json",
+      "tier": "derived",
+      "bytes": 6177,
+      "sha256": "5964d083b2b6089565a166bd6410ebeb2b144d40feaeeca31841b5fd965ede2a"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_review_validation_20261017.json",
+      "tier": "review",
+      "bytes": 10013,
+      "sha256": "cba6066bd3b5cf7da9733a4b68700e5591a0e06fb7139fe0dde54e22580def60"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quantity_commission_validation_20261017.json",
+      "tier": "review",
+      "bytes": 4826,
+      "sha256": "af92a66b6e2c613e738de00895197e468d13638433c30dd0b1e5751166ba02b0"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quotes_shared_exit_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 49802,
+      "sha256": "0efca98097bc89811f52c219919fd5eac62fa9c25e9ed63c7042f7da49af2ad7"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_quotes_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 68239,
+      "sha256": "561082097a1d30925a6846bf06d17e6cddf1ca5110edce6f7fa3ba2520fa23e1"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_reconciliation_live_node_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 106485,
+      "sha256": "bc5bdcaa2ac27d65ebde7b70190574380402f89c852597b0524738f9d5836d57"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_reconciliation_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 3810,
+      "sha256": "a5699d8a92ec6b699385c0274ab91a021cfe30b04e3d860035ac65481d0b5762"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_restart_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 5789,
+      "sha256": "b7f3cf7c1d2be53e62cf2a7416a9026748a59f642330374417aa13c4465f91d5"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_session_validation_20261017.json",
+      "tier": "review",
+      "bytes": 7689,
+      "sha256": "bd422ea03f5802d38df5d3ed2c529a3fe4269fbff0997012a24647617b6fab33"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_startup_readonly_20261016T130830Z_31130.json",
+      "tier": "primary_capture",
+      "bytes": 6001,
+      "sha256": "9b8bf3a65fa1eab656c20f502d9794221d24c5a450c57bd8b050034c908d5d4a"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_startup_readonly_20261016T134608Z_33956.json",
+      "tier": "primary_capture",
+      "bytes": 5606,
+      "sha256": "4dbe62f6ade1149ad9e5978e67c81df2a5964dcd23417f6a2ff4ceca3c1f1dd2"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_strategy_restart_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 312946,
+      "sha256": "a55303b502eda5936ac87cf25fd309da9682cbfa988a975ffc0cef2bb0f9c2b7"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_submission_retention_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 43866,
+      "sha256": "5a7377f7e25ed1657a0eebf0d2af655a5ea0a2ad37dffd15bb8fb1ed69569ca5"
+    },
+    {
+      "path": "tests/fixtures/private_api/official_order_id_schemas.json",
+      "tier": "reference",
+      "bytes": 2076,
+      "sha256": "c15814ea0597f5f733e33b1bfcffa6b0392be8a39d53b663e47ed1faa88a9120"
+    },
+    {
+      "path": "tests/fixtures/private_api/order_create_expiry_error_20261015.json",
+      "tier": "primary_capture",
+      "bytes": 893,
+      "sha256": "ae5f98ac1cb12e56967895a0da1fe317f2429ca2032bb4d5ab8438453211f9fe"
+    },
+    {
+      "path": "tests/fixtures/private_api/order_create_internal_error_20261015.json",
+      "tier": "primary_capture",
+      "bytes": 753,
+      "sha256": "e5206f2ccc37cf0e8b7d4c1a23bb9e929cd7e6139c0874e578f19115d43aa8aa"
+    },
+    {
+      "path": "tests/fixtures/private_api/orders.json",
+      "tier": "reference",
+      "bytes": 54,
+      "sha256": "c01b144c5164dfc3a23d622480d4ff59b36713e8ea3d5980861f730bc78c0cc2"
+    },
+    {
+      "path": "tests/fixtures/private_api/positions.json",
+      "tier": "reference",
+      "bytes": 54,
+      "sha256": "c01b144c5164dfc3a23d622480d4ff59b36713e8ea3d5980861f730bc78c0cc2"
+    },
+    {
+      "path": "tests/fixtures/private_api/private_fill_evidence_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 1665,
+      "sha256": "c27870c3571332926d195c62a2b09087ad7a95e56d686bfac966c3a9653d2db6"
+    },
+    {
+      "path": "tests/fixtures/private_api/private_fill_evidence_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 69419,
+      "sha256": "152232bca8646e66eb91bd27a49818726c0bbe031f2adee5e8b611aa3bc24489"
+    },
+    {
+      "path": "tests/fixtures/private_api/private_fill_native_livenode_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 50391,
+      "sha256": "6b17be85d01ddc0c5a40669347f5c179fb6bab0bf6da5e82316d14ea26bb273e"
+    },
+    {
+      "path": "tests/fixtures/private_api/product_host_readonly_20261016T143833Z_38237.json",
+      "tier": "primary_capture",
+      "bytes": 1040,
+      "sha256": "68d76ec11b1b7b705119b72832a3d8222391d0ca01b30f4edda6d0bfa16537ae"
+    },
+    {
+      "path": "tests/fixtures/private_api/public_snapshots.json",
+      "tier": "primary_capture",
+      "bytes": 3611,
+      "sha256": "4fc1c1109cc78679777fab7d8ec32c3e4ce123dd647ccfcd2d29a84eb43091e9"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_architecture_audit_20261017.json",
+      "tier": "synthetic",
+      "bytes": 1224,
+      "sha256": "3010800087225fdcf37076a9dab114a3f11a64f8662515b0e086822575ede9c5"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_architecture_audit_fixed_20261017.json",
+      "tier": "synthetic",
+      "bytes": 1222,
+      "sha256": "63f86a57ee3b0730ad3cfae1f303f71986ab05308af4ac3c60025cf47b2c4f04"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_architecture_audit_validation_20261017.json",
+      "tier": "review",
+      "bytes": 1358,
+      "sha256": "7f581c5fdd8d1928c272e42f8884abd6c7cae1baeaf13b14c8f5a9ae630e4591"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_base_convention_validation_20261017.json",
+      "tier": "derived",
+      "bytes": 9652,
+      "sha256": "eed72b3f5b243c9d057bee9201b555b8ef5d4e7f6b088a9ccf389b8a9fe1db25"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_base_parity_audit_20261017.json",
+      "tier": "synthetic",
+      "bytes": 1180,
+      "sha256": "4efe5e298bac843bc08b164481aa3ad8c6c36784677d2abfba791af399b87983"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_core_necessity_probes_20261017.json",
+      "tier": "derived",
+      "bytes": 3578,
+      "sha256": "b427dee9eff9fb677498a6e28ada937fe26fb9902ce69c977d0909bdb1b7d125"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_core_review_livenode_20261017.json",
+      "tier": "synthetic",
+      "bytes": 63072,
+      "sha256": "fd24a537821336cbbb6b4656691d94dea4201d302e3d48a5ed9e8a287ae05e59"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_core_review_validation_20261017.json",
+      "tier": "synthetic",
+      "bytes": 9187,
+      "sha256": "942e0ee32dd472b34c1eb3144a5636a73a79601b1b4ea0c7506570a37b50028c"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_minimal_surface_audit_20261017.json",
+      "tier": "synthetic",
+      "bytes": 1236,
+      "sha256": "86c9d0bfb4b41132dab546373e3fc98292085adf07130e9203a76c52ccf69429"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_minimal_upstream_validation_20261017.json",
+      "tier": "review",
+      "bytes": 7364,
+      "sha256": "81f84d5b90c73e0c7ad414aefc96c48b66bacc7ff9250a1de239077a79850058"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_commission_replay_fix_validation_20261017.json",
+      "tier": "synthetic",
+      "bytes": 5085,
+      "sha256": "a5fe3fbfb881812089bff72c9493379d678754e453c8375c7ebf28fb24ad2667"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_fee_account_precision_research_20261017.json",
+      "tier": "derived",
+      "bytes": 1341,
+      "sha256": "ad67a8260327e299c5b68f627cc1f36ca97efa4e31377060f0936b52825412a7"
+    },
+    {
+      "path": "tests/fixtures/private_api/quantity_precision.json",
+      "tier": "reference",
+      "bytes": 1550,
+      "sha256": "3126803d7f59d74acd2ed10ca5a485d5f9c81003ecb1658cfc7d6e1995a85966"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_commands_native_replay_20261016.json",
+      "tier": "derived",
+      "bytes": 1537,
+      "sha256": "fc91255de1b9548c4c80202f5d31a1eb309ac9499a0a0f6fcb076fb8a6799061"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_commands_readonly_20261016T145051Z_40290.json",
+      "tier": "reference",
+      "bytes": 154900,
+      "sha256": "b9fee2790f5eef1de73ecccc6cb1cd9388d69c54b6fc0d540a6a17bad2402ecb"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_commands_readonly_20261016T145331Z_40524.json",
+      "tier": "reference",
+      "bytes": 145213,
+      "sha256": "230ad78b42e4ee7e756317e40eb5e21b6594917532284804fc9da8f24e8524f6"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_commands_readonly_20261016T145520Z_41000.json",
+      "tier": "reference",
+      "bytes": 174429,
+      "sha256": "91ef549fd498f95802abde3bb0c769f1d6dc65b6a40c194bc2f4f7837c841ff6"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_commands_readonly_20261017T041540Z_65186.json",
+      "tier": "reference",
+      "bytes": 151138,
+      "sha256": "7668cca8e99166be973a6197f10bcf500167522dde3a10096bb7f360f34b7ddd"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_commands_redaction_audit_20261016.json",
+      "tier": "review",
+      "bytes": 1504,
+      "sha256": "1306c5d626477089041b20b1872c61a962acbd92ce894ab94cc78dc3718d114a"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_commands_validation_20261016.json",
+      "tier": "review",
+      "bytes": 6502,
+      "sha256": "3fb56d24772afd6a039844d6bd7528b7e259e9282cb7d9f5a6dd72940e52f2eb"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_recovery_synthetic_20261015.json",
+      "tier": "synthetic",
+      "bytes": 26458,
+      "sha256": "67dde3b0643881ee3c816dfbae40e1df09b17b91e3c0647f1281b8327312bf5a"
+    },
+    {
+      "path": "tests/fixtures/private_api/query_recovery_validation_20261015.json",
+      "tier": "synthetic",
+      "bytes": 2010,
+      "sha256": "0c1fb0843e9c917a1459b1dd845ecaa6f4bdea1c4ef505f6c5f308318ca3adf7"
+    },
+    {
+      "path": "tests/fixtures/private_api/quiet_resting_preflight.json",
+      "tier": "primary_capture",
+      "bytes": 385,
+      "sha256": "183093f51d6974f0a8d3ed49d99c734699e155099ce51c6edead51062e923ebc"
+    },
+    {
+      "path": "tests/fixtures/private_api/quote_send_failures_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 6416,
+      "sha256": "23056b3a551d43de780cd01b5080e267515f38666c1d65a3a24c32432e7d4cb2"
+    },
+    {
+      "path": "tests/fixtures/private_api/read_only_calibration/calibration.json",
+      "tier": "reference",
+      "bytes": 28610,
+      "sha256": "c777898174b57abd80f0229c2c52203d4aee55ea81f8e3c94a2a97785ad209bc"
+    },
+    {
+      "path": "tests/fixtures/private_api/read_only_livenode_20261016T115842Z_26677.json",
+      "tier": "primary_capture",
+      "bytes": 5824,
+      "sha256": "192c8ad262d402068b0b8f662d42e1fab7399d4734a39e2c1a78329c55c4ca46"
+    },
+    {
+      "path": "tests/fixtures/private_api/read_only_livenode_20261016T124310Z_29991.json",
+      "tier": "primary_capture",
+      "bytes": 5824,
+      "sha256": "57585991ec6184f509473c60ce10bebafaeba669a1e5757f9f7ca6413db93a2c"
+    },
+    {
+      "path": "tests/fixtures/private_api/readonly_20261016_strategy_preflight/calibration.json",
+      "tier": "reference",
+      "bytes": 28611,
+      "sha256": "2dd582889e79d5aa8d7136cd7e503993815c33115b6acfe15b623fc16fdf171e"
+    },
+    {
+      "path": "tests/fixtures/private_api/readonly_native_restart_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 64005,
+      "sha256": "80af82abe9cd8dfba721b4e2a2a1be5d421a8a330b62dcf0ef16bfc8baaccd0e"
+    },
+    {
+      "path": "tests/fixtures/private_api/readonly_share_recovery_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 60859,
+      "sha256": "3a678b869174a5e01ae4d103168231aaab64553b4b420cb588b73689ae89e86b"
+    },
+    {
+      "path": "tests/fixtures/private_api/reconciliation_checks_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 106745,
+      "sha256": "f090402d3faaa97d8d5d491299781b4342f077d9ebecda3e1a2a26adf617fda0"
+    },
+    {
+      "path": "tests/fixtures/private_api/reconciliation_readiness_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 3055,
+      "sha256": "8cfe051cad6803d8ad196d2c4caa768e5c1f54cc4fa642e6c61863fbc884be6f"
+    },
+    {
+      "path": "tests/fixtures/private_api/reconciliation_ready_live_node_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 49831,
+      "sha256": "dd0d84474487786cfaf953525e41a551359f38c210495dd3534c34f031866cba"
+    },
+    {
+      "path": "tests/fixtures/private_api/recorded_flow_startup_validation_20261016.json",
+      "tier": "derived",
+      "bytes": 11289,
+      "sha256": "0a54a0b212d127d5e8012fd356d3a892ac945d7d2dc7107a24f0d14e6b6a13e3"
+    },
+    {
+      "path": "tests/fixtures/private_api/recorded_lifecycle_fee_profit_audit_20261017.json",
+      "tier": "synthetic",
+      "bytes": 44274,
+      "sha256": "4c653104d61a477cf4fa635a0dd447a15f71f59e26a2abf4099d002184f21167"
+    },
+    {
+      "path": "tests/fixtures/private_api/recorded_lifecycle_fee_profit_validation_20261017.json",
+      "tier": "derived",
+      "bytes": 5251,
+      "sha256": "b3da4fc3c9467cdce5990cd37d32189b22f8b967ab032beaa12ea901ec37e49f"
+    },
+    {
+      "path": "tests/fixtures/private_api/sdk_audit_open_orders_check_20261015.json",
+      "tier": "review",
+      "bytes": 237,
+      "sha256": "fabf29812305ab574cd87b5ad316bc61824b75a35bca7d6ab64ec37360dbcf8a"
+    },
+    {
+      "path": "tests/fixtures/private_api/session_readonly_20261017T044945Z_68737.json",
+      "tier": "reference",
+      "bytes": 21478,
+      "sha256": "695bfea3bfc0ca19887f33f1b15ba53437bbb72620d0c6cc89b7b987f8b33f77"
+    },
+    {
+      "path": "tests/fixtures/private_api/session_readonly_20261017T045007Z_68829.json",
+      "tier": "reference",
+      "bytes": 21468,
+      "sha256": "a4780d74936352534ece9c2c8ff6c68c23062c19dc33dc1c0784f25a8ff37862"
+    },
+    {
+      "path": "tests/fixtures/private_api/session_readonly_20261017T045044Z_68958.json",
+      "tier": "reference",
+      "bytes": 190943,
+      "sha256": "b6dbb242a0abf6d2cbc02e3c480fdd25dfb214cc8bc79aef76ee6a892d4bed0f"
+    },
+    {
+      "path": "tests/fixtures/private_api/session_readonly_20261017T045625Z_69675.json",
+      "tier": "reference",
+      "bytes": 400418,
+      "sha256": "c8e74017efe0b099a7ef88bff8ce67635ddd8d9e2f065371ae56b8c60685abeb"
+    },
+    {
+      "path": "tests/fixtures/private_api/share_fee_settlement.json",
+      "tier": "reference",
+      "bytes": 625,
+      "sha256": "95a799ca4d15d31b8fed811f2ba0f465d7127521316e6e36df59d2253c416d60"
+    },
+    {
+      "path": "tests/fixtures/private_api/snapshot_modify_cancel_replace_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 14781,
+      "sha256": "6da6caafca0c82d6409812c4811886df596b4569d1bc9b9cda9e7334de1f9105"
+    },
+    {
+      "path": "tests/fixtures/private_api/snapshot_modify_cancel_replace_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 42324,
+      "sha256": "b0fc09c5dbec773713fbf91854dde274443045f33289b4ed927e4a5f8db99d6e"
+    },
+    {
+      "path": "tests/fixtures/private_api/snapshot_multi_native_reservations_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 33998,
+      "sha256": "0d7e5c788170319a48d859deab283f036a69a3944f7c3fc48fec06649e9033b2"
+    },
+    {
+      "path": "tests/fixtures/private_api/snapshot_multi_reservations_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 42294,
+      "sha256": "efd6083d49e56e624560de5be8f311104c2622f30a1846f917e72770e77d6de6"
+    },
+    {
+      "path": "tests/fixtures/private_api/snapshot_strategy_account_feedback_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 7321,
+      "sha256": "1a3a69050eed5916eed0b36c7835e6161581fdc835eb37c2852bd22d1f1e1331"
+    },
+    {
+      "path": "tests/fixtures/private_api/snapshot_strategy_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 5059,
+      "sha256": "372ae914f0d14f175887bf2999e0b26bfabdd166684f9c0ceeaf5f63e38f5850"
+    },
+    {
+      "path": "tests/fixtures/private_api/startup_callback_gate_native_derived_20261017.json",
+      "tier": "derived",
+      "bytes": 53521,
+      "sha256": "29769ac5a83b8296924e4509b1c7308bedf69f5fa79fa16753331d0f924dd81c"
+    },
+    {
+      "path": "tests/fixtures/private_api/startup_partial_fill_validation_20261017.json",
+      "tier": "derived",
+      "bytes": 1155,
+      "sha256": "673b199aafe5a1dc2796807f1d6779baab94d506339183bb8a84cd1198c71413"
+    },
+    {
+      "path": "tests/fixtures/private_api/startup_readonly_20261016_v1/calibration.json",
+      "tier": "reference",
+      "bytes": 77650,
+      "sha256": "0b14ddd75f83d06871a2fc71751dc41351379984fa6ee19046ed725c92b4577e"
+    },
+    {
+      "path": "tests/fixtures/private_api/strategy_command_validation_20261015.json",
+      "tier": "synthetic",
+      "bytes": 1923,
+      "sha256": "057da10a4e1f96d9cf162e77036b99caf79095c56eb97decb72b3fda059b5e51"
+    },
+    {
+      "path": "tests/fixtures/private_api/strategy_commands_synthetic_20261015.json",
+      "tier": "synthetic",
+      "bytes": 154191,
+      "sha256": "9ec5847748e03b2e09a16d2ed14d1bb3d8533b007036a1a5bf6137dceab543d6"
+    },
+    {
+      "path": "tests/fixtures/private_api/strategy_live_calibration_20261016.json",
+      "tier": "synthetic",
+      "bytes": 4536,
+      "sha256": "59a0b52682189090b57e667f005c9761d9d20d82cdbcbbbdac882d1271e88c8c"
+    },
+    {
+      "path": "tests/fixtures/private_api/thin_node_native_bootstrap_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 11530,
+      "sha256": "f694918ce4de08e8c36b042691f720017b49f95997c4c19c75ccb54d436af820"
+    },
+    {
+      "path": "tests/fixtures/private_api/thin_node_native_cli_synthetic_20261016.json",
+      "tier": "synthetic",
+      "bytes": 4043,
+      "sha256": "b71553c71f15d353c619f59b75c6af56ccb6b030a590e8de080cf6228663b015"
+    },
+    {
+      "path": "tests/fixtures/private_api/thin_node_validation_20261016.json",
+      "tier": "synthetic",
+      "bytes": 132424,
+      "sha256": "89120e0eb54c2e40329ea1947e4769426b3343788019916bf530489ca44f28ed"
+    },
+    {
+      "path": "tests/fixtures/private_api/usability_baseline_validation_20261017.json",
+      "tier": "review",
+      "bytes": 1164,
+      "sha256": "b2267f3987e5430064b68ce50fb638ce7e7777e151f7f0dfbee58e7529976757"
+    },
+    {
+      "path": "tests/fixtures/private_api/wallet_lifecycle.json",
+      "tier": "synthetic",
+      "bytes": 1634,
+      "sha256": "03f21c7b2f59a246870c4bb7c422c91b806dbefefe4d1f25716cf7326a4a3079"
+    },
+    {
+      "path": "tests/fixtures/private_api/wallet_resting_actual_20261015.json",
+      "tier": "primary_capture",
+      "bytes": 1723,
+      "sha256": "39e7ff31aeb72c51a4b4b9741e55f77e2a27bcdd11ace826e768faae5ec154f3"
+    },
+    {
+      "path": "tests/fixtures/runtime_limit_requests.json",
+      "tier": "reference",
+      "bytes": 59454,
+      "sha256": "0874a9412b2a162292d247e567bd129572ccb196402f852720029183c3a10a9b"
+    },
+    {
+      "path": "tests/fixtures/submission_matrix.json",
+      "tier": "reference",
+      "bytes": 4405,
+      "sha256": "68e4607dc33ede1798a4b89368b91734656bd7d2f069357087727f23f9da1a8a"
+    }
+  ]
+}

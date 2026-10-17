@@ -1,0 +1,61 @@
+{
+  "source": "synthetic private adapter fill evidence replay; not mainnet",
+  "nativeReports": [
+    {
+      "type": "FillReport",
+      "account_id": "PREDICT-fixture",
+      "instrument_id": "42-1.PREDICT",
+      "venue_order_id": "ORDER-1",
+      "trade_id": "T-1",
+      "order_side": "BUY",
+      "last_qty": "17.0000000000000000",
+      "last_px": "0.130",
+      "commission": "0.04420000 USDT",
+      "liquidity_side": "TAKER",
+      "avg_px": null,
+      "venue_position_id": null,
+      "ts_event": 0,
+      "ts_init": 0,
+      "client_order_id": null
+    },
+    {
+      "type": "FillReport",
+      "account_id": "PREDICT-fixture",
+      "instrument_id": "42-1.PREDICT",
+      "venue_order_id": "ORDER-1",
+      "trade_id": "T-2",
+      "order_side": "BUY",
+      "last_qty": "83.0000000000000000",
+      "last_px": "0.130",
+      "commission": "0.21580000 USDT",
+      "liquidity_side": "TAKER",
+      "avg_px": null,
+      "venue_position_id": null,
+      "ts_event": 0,
+      "ts_init": 0,
+      "client_order_id": null
+    }
+  ],
+  "privateEvidence": [
+    {
+      "tradeId": "T-1",
+      "settlementId": "precision",
+      "grossSharesWei": "17000000000000000099",
+      "priceWei": "130000000000000000",
+      "feeWei": "340000000000000001",
+      "feeAsset": "SHARES"
+    },
+    {
+      "tradeId": "T-2",
+      "settlementId": "precision",
+      "grossSharesWei": "82999999999999999901",
+      "priceWei": "130000000000000000",
+      "feeWei": "1659999999999999998",
+      "feeAsset": "SHARES"
+    }
+  ],
+  "duplicateReplayAllocationsUnchanged": true,
+  "rawGrossSumWei": "100000000000000000000",
+  "nativeGrossSum": "100",
+  "evidenceEntries": 2
+}

@@ -1,0 +1,44 @@
+{
+  "source": "offline current inventory scope validation and unresolved interleaved quantity-fee cost evidence",
+  "historyScopeFixedForCoveredCases": true,
+  "interleavedCostFixed": false,
+  "nativePositionOnlyExitProbe": {
+    "source": "offline cloned Native Position close; not a strategy or venue SELL",
+    "sellPrice": "0.010",
+    "sellFee": "0",
+    "expectedCashPnL": "0.0106",
+    "nativeRealizedPnL": "0.01044214",
+    "pnlMatchesCash": false
+  },
+  "checks": {
+    "packageRustPassed": 300,
+    "packageRustIgnored": 70,
+    "finalExecutionRustPassed": 170,
+    "finalExecutionRustIgnored": 52,
+    "inventoryScopeUnit": "passed",
+    "pythonEvidencePassed": 8,
+    "clippyAllTargets": "passed",
+    "ruff_F_E9": "passed",
+    "historyScopeNegativeControl": "fails when all old owned hashes are restored",
+    "priorRetainedDigests": "unchanged"
+  },
+  "newVenuePrivateApiCalls": 0,
+  "newRealOrders": 0,
+  "nativeDependencyModified": false,
+  "recordingLogicModified": false,
+  "redisUsed": false,
+  "files": [
+    {
+      "path": "current_inventory_history_scope_native_derived_20261017.json",
+      "sha256": "70947e355f797721eb45248f2fb853bafc88edc49d92049d3efeda47e34d258c"
+    },
+    {
+      "path": "actual_trade_flow_native_replay_20261017_v3.json",
+      "sha256": "5b52d38b1fd89ef3bfa68cf967d8c819bc067499e6505d68f10d2510c1978f34"
+    },
+    {
+      "path": "different_price_partial_share_fees_native_synthetic_20261017_v2.json",
+      "sha256": "6a6c7313c34c7e512d8595d68d079d6cbea5d2642fa1e7ea76db84d8571fc850"
+    }
+  ]
+}

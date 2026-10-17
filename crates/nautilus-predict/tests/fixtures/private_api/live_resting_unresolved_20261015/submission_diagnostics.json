@@ -1,0 +1,8 @@
+{
+  "source": "original live log; underlying reason was not retained by that version",
+  "lines": [
+    "2026-10-15T05:30:56.868206000Z [WARN] PREDICT-CALIBRATION-001.nautilus_predict::execution::orders: Predict submission outcome is unresolved; do not resubmit"
+  ],
+  "httpStatus": null,
+  "httpResponseCaptured": false
+}

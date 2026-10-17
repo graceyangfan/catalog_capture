@@ -1,0 +1,15 @@
+{
+  "source": "offline validation of retained actual mainnet evidence and derived Rust LiveNode replay",
+  "review": "fill_callback_flow_review_20261017.json",
+  "checks": {
+    "recorded_startup_rust_passed": 3,
+    "recorded_startup_recorders_ignored": 2,
+    "share_fee_rust_passed": 12,
+    "recorded_evidence_python_passed": 5,
+    "ruff_F_E9": "passed",
+    "retained_source_digests": "unchanged"
+  },
+  "newExchangeConnections": 0,
+  "newOrders": 0,
+  "scope": "test audit and documentation only; no Native dependency, adapter production, recording logic or Redis changes"
+}

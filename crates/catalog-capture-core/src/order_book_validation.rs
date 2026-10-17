@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use nautilus_model::{
     data::OrderBookDeltas,
     enums::{BookType, RecordFlag},
@@ -126,7 +126,7 @@ mod tests {
 
     use nautilus_core::UnixNanos;
     use nautilus_model::{
-        data::{stubs::stub_deltas, BookOrder, OrderBookDelta, OrderBookDeltas},
+        data::{BookOrder, OrderBookDelta, OrderBookDeltas, stubs::stub_deltas},
         enums::{BookAction, BookType, OrderSide, RecordFlag},
         identifiers::InstrumentId,
         orderbook::OrderBook,

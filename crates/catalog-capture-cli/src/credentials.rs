@@ -70,11 +70,7 @@ fn read_pair(venue_id: &str, kind: &str) -> ApiKeySecret {
     read_pair_with_value_name(venue_id, kind, "API_SECRET")
 }
 
-fn read_pair_with_value_name(
-    venue_id: &str,
-    kind: &str,
-    value_name: &str,
-) -> ApiKeySecret {
+fn read_pair_with_value_name(venue_id: &str, kind: &str, value_name: &str) -> ApiKeySecret {
     let kind = kind.to_ascii_uppercase();
     let key = env_nonempty(&scoped(venue_id, "API_KEY"))
         .or_else(|| env_nonempty(&format!("{kind}_API_KEY")));
@@ -385,10 +381,7 @@ mod tests {
             "catalog-capture-binance-sbe-credentials-{}.toml",
             std::process::id()
         ));
-        fs::write(
-            &path,
-            "api_key = \"key\"\nprivate_key = \"private-key\"\n",
-        )
+        fs::write(&path, "api_key = \"key\"\nprivate_key = \"private-key\"\n")
             .expect("credential fixture");
         #[cfg(unix)]
         {

@@ -1,0 +1,87 @@
+{
+  "source": "offline review of newly recorded mainnet preflight; raw economic observations unchanged",
+  "input": {
+    "path": "crates/nautilus-predict/tests/fixtures/private_api/fill_preflight_readonly_20261017T041816Z_65566.json",
+    "sha256": "666d8c1924579208804523a33f1a6776ef9fcedb084dc7d4c1dfd2d116a19dd3"
+  },
+  "observedAtUtc": "2026-10-17T04:18:24.703555+00:00",
+  "account": {
+    "openOrders": 0,
+    "positions": 0,
+    "blockNumber": 128105043,
+    "blockHash": "4ef6066b983a222a2b9ebfe3bfc9b592669f09e95f74947a8a971ea06b3ec5a4",
+    "cashWei": "48216308400000000001",
+    "cashUSDT": "48.216308400000000001",
+    "buyAllowanceWei": "115792089237316195423570985008687907853269984665640564039455024007913129639935",
+    "sellApproved": true,
+    "cashSufficient": true,
+    "allowanceSufficient": true
+  },
+  "candidate": {
+    "marketId": 10835,
+    "title": "Will the US confirm that aliens exist before 2027?",
+    "outcome": 1,
+    "feeRateBps": 200,
+    "plan": {
+      "entryPrice": "0.04",
+      "grossQuantity": "32",
+      "entryCost": "1.28",
+      "conservativeNetQuantity": "31.36000",
+      "bid": "0.039",
+      "ask": "0.04",
+      "immediateNetProceeds": "1.1985792000",
+      "estimatedRoundTripLoss": "0.0814208000",
+      "stressBid": "0.03421683673469387755102040816",
+      "signedExitFloor": "1.062309600000000000000000000",
+      "netExitFloor": "1.040848800000000000000000000",
+      "maxLoss": "0.15"
+    },
+    "takeProfit": {
+      "price": "0.043",
+      "quantity": "31.36000",
+      "expectedMakerFeeUSDT": "0",
+      "expectedCashProfitUSDT": "0.06848000",
+      "tick": "0.001"
+    },
+    "sdkAmounts": {
+      "entry": {
+        "makerAmountWei": "1280000000000000000",
+        "takerAmountWei": "32000000000000000000"
+      },
+      "makerProfit": {
+        "makerAmountWei": "31360000000000000000",
+        "takerAmountWei": "1348480000000000000"
+      },
+      "currentTakerExit": {
+        "makerAmountWei": "31360000000000000000",
+        "takerAmountWei": "1210809600000000000"
+      }
+    }
+  },
+  "currentAdapterMarketExitGate": {
+    "marketIdMatches": true,
+    "venueBookAgeMs": 103712,
+    "allowedByCurrentAdapter": false,
+    "policySource": "crates/nautilus-predict/src/execution/submitter.rs MARKET guard; 5 seconds since venue update"
+  },
+  "queueObservation": {
+    "askSharesAtBetterPrices": "66424.20999996875",
+    "askSharesAtTargetPrice": "522",
+    "notAQueuePositionGuarantee": true,
+    "noProvenReversalSignal": true
+  },
+  "eligibleForLiveProposal": false,
+  "supersedesInitialEligibility": {
+    "rawFileFlag": true,
+    "correctedFlag": false,
+    "reason": "initial preflight covered funds/approvals/amounts but omitted current adapter MARKET freshness guard; immutable original retained"
+  },
+  "nextStep": "reproduce and review venue update time vs fresh REST observation in adapter and strategy before proposing real orders; no arbitrary timer workaround",
+  "officialSources": [
+    "https://dev.predict.fun/get-the-orderbook-for-a-market-25326908e0",
+    "https://dev.predict.fun/subscription-topics-1915507m0",
+    "https://docs.predict.fun/the-basics/predict-fees-and-limits"
+  ],
+  "orderWrites": 0,
+  "chainWrites": 0
+}

@@ -1,0 +1,2 @@
+Saved 1 sanitized read-only fixtures; no authentication material or wallet addresses.
+{"cashUnchanged": false, "cashWeiAfter": "46936308400000000001", "cashWeiBefore": "48216308400000000001", "chainVerifiedOwnFills": 7, "heartbeats": 37, "matches": 7, "openOrders": 1, "positions": 1, "walletEvents": 4}

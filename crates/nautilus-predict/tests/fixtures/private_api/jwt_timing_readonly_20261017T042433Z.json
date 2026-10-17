@@ -1,0 +1,13 @@
+{
+  "source": "fresh official auth response accepted by GET /account; only non-secret timing claims retained; JWT signature not locally verified",
+  "observedAtUtc": "2026-10-17T04:24:33.627641+00:00",
+  "iat": 1792211072,
+  "exp": 1792297472,
+  "issuedAtUtc": "2026-10-17T04:24:32+00:00",
+  "expiresAtUtc": "2026-10-18T04:24:32+00:00",
+  "lifetimeSeconds": 86400,
+  "remainingSecondsObserved": 86398,
+  "orderWrites": 0,
+  "chainWrites": 0,
+  "credentialMaterialRetained": false
+}

@@ -1,0 +1,152 @@
+WARN `--no-project` was provided, but no project was found
+   Compiling nautilus-predict v0.1.0 (/Users/yfclark/nautilus_catalog_capture/crates/nautilus-predict)
+    Finished `test` profile [unoptimized] target(s) in 3.70s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running tests/private_api_live.rs (target/debug/deps/private_api_live-64c1b300f7724b82)
+
+running 1 test
+[1m2026-10-17T04:15:49.168726000Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168811000Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode:  NAUTILUS TRADER - Automated Algorithmic Trading Platform[0m
+[1m2026-10-17T04:15:49.168812000Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode:  by Nautech Systems Pty Ltd.[0m
+[1m2026-10-17T04:15:49.168812001Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode:  Copyright (C) 2015-2026. All rights reserved.[0m
+[1m2026-10-17T04:15:49.168812002Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168813000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⡤⠤⠤⠤⠤⠤⠤⠤⢤⡀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168827000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠖⠚⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⠁⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168827001Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠀⠀⠀⢀⣠⠖⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡴⠚⠁⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168827002Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠀⢀⡴⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168827003Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⣠⠏⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠖⠒⠒⠒⠒⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168827004Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⢀⡖⠋⣠⢴⢪⠞⣩⢟⡭⠵⢤⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168828000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⣦⡙⠦⣄⡀⠀⢀⣠⠴⠋⢠⡐⣇⢸⡘⢦⡇⣏⡴⣋⡭⠖⠮⢥⡀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168828001Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⢸⡉⠓⠦⠭⠭⠭⠴⣺⠃⠸⣷⢬⣓⣛⠒⠩⣌⢡⡷⢒⣫⠭⣝⡛⠆⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168828002Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠙⠦⢤⣀⣠⠤⠞⣡⠞⡆⠺⣭⣭⡷⢇⣷⡻⠡⠾⣛⣒⠦⢤⡙⡆⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168828003Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠈⠳⣖⠒⠒⠒⠋⠁⣠⠇⡼⢦⠀⣌⡉⢥⣄⣛⡻⢥⡈⠉⢳⡙⠇⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168828004Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠀⠀⠈⠙⣒⣒⣒⣋⡥⠞⠁⣸⠃⡇⠙⢦⢹⠀⠙⡆⢳⢀⡴⠃⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168828005Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠀⠀⠀⠀⠈⠙⠒⠦⠤⠴⣚⣡⠞⠁⣠⠏⡼⢀⣠⠇⠞⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168828006Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠉⠑⠚⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[0m
+[1m2026-10-17T04:15:49.168828007Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168829000Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode:  SYSTEM SPECIFICATION[0m
+[1m2026-10-17T04:15:49.168829001Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168829002Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: CPU architecture: Apple M3 Max[0m
+[1m2026-10-17T04:15:49.168830000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: CPU(s): 16 @ 4056 MHz[0m
+[1m2026-10-17T04:15:49.168831000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: OS: kernel-25.4.0 macOS 26.4.1 Tahoe[0m
+[1m2026-10-17T04:15:49.168849000Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168850000Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode:  MEMORY USAGE[0m
+[1m2026-10-17T04:15:49.168850001Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168853000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: RAM-Total: 64.00 GiB[0m
+[1m2026-10-17T04:15:49.168854000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: RAM-Used: 22.79 GiB (35.60%)[0m
+[1m2026-10-17T04:15:49.168855000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: RAM-Avail: 41.21 GiB (64.40%)[0m
+[1m2026-10-17T04:15:49.168855001Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: Swap: disabled[0m
+[1m2026-10-17T04:15:49.168858000Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168859000Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode:  IDENTIFIERS[0m
+[1m2026-10-17T04:15:49.168859001Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168859002Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: trader_id: PREDICT-NODE-001[0m
+[1m2026-10-17T04:15:49.168860000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: machine_id: yfclark.local[0m
+[1m2026-10-17T04:15:49.168861000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: instance_id: d3f23c77-e5b9-42d2-9aef-7ae77b8949cc[0m
+[1m2026-10-17T04:15:49.168862000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: PID: 65231[0m
+[1m2026-10-17T04:15:49.168862001Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168862002Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode:  VERSIONING[0m
+[1m2026-10-17T04:15:49.168862003Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168863000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: nautilus_trader: 0.67.0[0m
+[1m2026-10-17T04:15:49.168866000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: rustc: 1.99.0 (b940084d7 2026-09-28)[0m
+[1m2026-10-17T04:15:49.168867000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: target: aarch64-apple-darwin[0m
+[1m2026-10-17T04:15:49.168867001Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: profile: debug[0m
+[1m2026-10-17T04:15:49.168868000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: panic: unwind[0m
+[1m2026-10-17T04:15:49.168868001Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: precision: high (128-bit, 16 dp)[0m
+[1m2026-10-17T04:15:49.168869000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: allocator: system[0m
+[1m2026-10-17T04:15:49.168869001Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: cargo_lock: a0c38730[0m
+[1m2026-10-17T04:15:49.168869002Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: rust_decimal: 1.43.0[0m
+[1m2026-10-17T04:15:49.168870000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: rustls: 0.23.46[0m
+[1m2026-10-17T04:15:49.168870001Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: aws_lc_rs: 1.18.1[0m
+[1m2026-10-17T04:15:49.168871000Z[0m [INFO] PREDICT-NODE-001.PredictLiveNode: tokio: 1.53.2[0m
+[1m2026-10-17T04:15:49.168871001Z[0m [36m[INFO] PREDICT-NODE-001.PredictLiveNode: =================================================================[0m
+[1m2026-10-17T04:15:49.168887000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Building system kernel[0m
+[1m2026-10-17T04:15:49.171125000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node::builder: Registered DataClient-PREDICT[0m
+[1m2026-10-17T04:15:49.171471000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node::builder: Registered ExecutionClient-PREDICT[0m
+[1m2026-10-17T04:15:49.171503000Z[0m [INFO] PREDICT-NODE-001.nautilus_execution::engine: Set client PREDICT routing for PREDICT[0m
+[1m2026-10-17T04:15:49.171579000Z[0m [INFO] PREDICT-NODE-001.nautilus_execution::engine: Subscribed to instrument updates for venue PREDICT[0m
+[1m2026-10-17T04:15:49.171612000Z[0m [INFO] PREDICT-NODE-001.nautilus_execution::engine: Subscribed to instrument closes for venue PREDICT[0m
+[1m2026-10-17T04:15:49.171762000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node::builder: Built successfully[0m
+[1m2026-10-17T04:15:49.171991000Z[0m [INFO] PREDICT-NODE-001.PREDICT-QUOTES: Ready[0m
+[1m2026-10-17T04:15:49.172248000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::trader: Registered actor PREDICT-QUOTES with trader PREDICT-NODE-001[0m
+[1m2026-10-17T04:15:49.549866000Z[0m [INFO] PREDICT-NODE-001.QUERY-READONLY-001: Ready[0m
+[1m2026-10-17T04:15:49.550073000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::trader: Registered strategy QUERY-READONLY-001 with trader PREDICT-NODE-001[0m
+[1m2026-10-17T04:15:49.550631000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node: Event loop starting[0m
+[1m2026-10-17T04:15:49.550688000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Starting[0m
+[1m2026-10-17T04:15:49.550692000Z[0m [INFO] PREDICT-NODE-001.nautilus_predict::data::lifecycle: Starting Predict data client: client_id=PREDICT[0m
+[1m2026-10-17T04:15:49.550763000Z[0m [INFO] PREDICT-NODE-001.nautilus_execution::engine: Started[0m
+[1m2026-10-17T04:15:49.550764000Z[0m [INFO] PREDICT-NODE-001.nautilus_risk::engine: Started[0m
+[1m2026-10-17T04:15:49.550767000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Initializing trader[0m
+[1m2026-10-17T04:15:49.550768001Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Started[0m
+[1m2026-10-17T04:15:49.550855000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Connecting data clients...[0m
+[1m2026-10-17T04:15:50.892284000Z[0m [INFO] PREDICT-NODE-001.nautilus_predict::data::lifecycle: Connected: client_id=PREDICT[0m
+[1m2026-10-17T04:15:50.892584000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Connecting execution clients...[0m
+[1m2026-10-17T04:15:58.915219000Z[0m [INFO] PREDICT-NODE-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=660fc4b3-6aad-44c4-ab20-9f32eaabe7dc)[0m
+[1m2026-10-17T04:15:58.926817000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node: Awaiting engine connections (60s timeout)...[0m
+[1m2026-10-17T04:15:58.926865000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node: All engine clients connected[0m
+[1m2026-10-17T04:15:58.926875000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_live::node: Starting execution state reconciliation...[0m
+[1m2026-10-17T04:15:58.926911000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_live::node: Requesting mass status from PREDICT...[0m
+[1m2026-10-17T04:16:03.347706000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_live::node: Reconciling ExecutionMassStatus for PREDICT[0m
+[1m2026-10-17T04:16:03.347865000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_live::execution::manager: Reconciling ExecutionMassStatus for PREDICT[0m
+[1m2026-10-17T04:16:03.347870000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_live::execution::manager: Received 0 order(s), 0 fill(s), 0 position(s)[0m
+[1m2026-10-17T04:16:03.347950000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_live::execution::manager: Reconciliation complete for PREDICT: reconciled=0, external=0, open=0, fills=0, positions=0, skipped=0, filtered=0[0m
+[1m2026-10-17T04:16:03.347965000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_live::node: Reconciliation for PREDICT succeeded[0m
+[1m2026-10-17T04:16:03.347974000Z[0m [INFO] PREDICT-NODE-001.nautilus_portfolio::portfolio: Initialized 0 open orders[0m
+[1m2026-10-17T04:16:03.347980000Z[0m [INFO] PREDICT-NODE-001.nautilus_portfolio::portfolio: Initialized 0 open positions[0m
+[1m2026-10-17T04:16:03.348016000Z[0m [INFO] PREDICT-NODE-001.nautilus_portfolio::portfolio: Initialized 0 Wallet reservations[0m
+[1m2026-10-17T04:16:03.348020000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_live::node: Startup reconciliation completed in 4.42s[0m
+[1m2026-10-17T04:16:03.348025000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Starting trader...[0m
+[1m2026-10-17T04:16:03.348061000Z[0m [INFO] PREDICT-NODE-001.nautilus_execution::order_emulator::emulator: Started[0m
+[1m2026-10-17T04:16:03.348067000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::trader: Starting[0m
+[1m2026-10-17T04:16:03.348106000Z[0m [INFO] PREDICT-NODE-001.PREDICT-QUOTES: Starting[0m
+[1m2026-10-17T04:16:03.348183000Z[0m [INFO] PREDICT-NODE-001.nautilus_common::actor::data_actor: [CMD]--> Subscribe(Quotes(SubscribeQuotes { instrument_id: "3395587-1.PREDICT", client_id: Some("PREDICT"), venue: Some("PREDICT"), command_id: UUID4(20992117-b87b-49f7-a09e-fab903c7924d), ts_init: UnixNanos(1792210563348136000), correlation_id: None, params: None }))[0m
+[1m2026-10-17T04:16:03.348299000Z[0m [INFO] PREDICT-NODE-001.nautilus_common::actor::data_actor: [CMD]--> Subscribe(Quotes(SubscribeQuotes { instrument_id: "3395587-2.PREDICT", client_id: Some("PREDICT"), venue: Some("PREDICT"), command_id: UUID4(11dce69e-482f-4658-a0d4-7177fac4dab4), ts_init: UnixNanos(1792210563348297000), correlation_id: None, params: None }))[0m
+[1m2026-10-17T04:16:03.348305000Z[0m [INFO] PREDICT-NODE-001.PREDICT-QUOTES: Running[0m
+[1m2026-10-17T04:16:03.348311000Z[0m [INFO] PREDICT-NODE-001.QUERY-READONLY-001: Starting[0m
+[1m2026-10-17T04:16:03.348382000Z[0m [INFO] PREDICT-NODE-001.nautilus_common::actor::data_actor: [CMD]--> Subscribe(Data(SubscribeCustomData { client_id: Some("PREDICT"), venue: None, data_type: DataType(type_name=PredictOrderbookSnapshot, metadata=None, identifier=Some("3395587")), command_id: UUID4(6f69fda2-3b86-4ee7-9681-ef26d4013b57), ts_init: UnixNanos(1792210563348377000), correlation_id: None, params: None }))[0m
+[1m2026-10-17T04:16:03.348395000Z[0m [INFO] PREDICT-NODE-001.QUERY-READONLY-001: Running[0m
+[1m2026-10-17T04:16:03.348398001Z[0m [INFO] PREDICT-NODE-001.nautilus_system::trader: Running[0m
+[1m2026-10-17T04:16:03.348399000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Trader started[0m
+[1m2026-10-17T04:16:03.348696000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_data::client: Subscribed 3395587-1.PREDICT quotes[0m
+[1m2026-10-17T04:16:03.348922000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_data::client: Subscribed 3395587-2.PREDICT quotes[0m
+[1m2026-10-17T04:16:03.349026000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_data::client: Subscribed PredictOrderbookSnapshot.identifier=3395587[0m
+[1m2026-10-17T04:16:04.664896000Z[0m [INFO] PREDICT-NODE-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=e71b6f96-a9b4-48e3-a790-2876cb2b636b)[0m
+[1m2026-10-17T04:16:05.336024000Z[0m [INFO] PREDICT-NODE-001.nautilus_trading::strategy: [CMD]--> QueryAccount(client_id=Some("PREDICT"), account_id=PREDICT-001)[0m
+[1m2026-10-17T04:16:05.336152000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_execution::engine: Query PREDICT-001[0m
+[1m2026-10-17T04:16:09.506689000Z[0m [INFO] PREDICT-NODE-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=5d3e22ee-1cc5-4591-80f5-4989ab5fd619)[0m
+[1m2026-10-17T04:16:09.656725000Z[0m [INFO] PREDICT-NODE-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=5d3e22ee-1cc5-4591-80f5-4989ab5fd619)[0m
+[1m2026-10-17T04:16:09.656908000Z[0m [INFO] PREDICT-NODE-001.nautilus_trading::strategy: QUERY-READONLY-001 <--[EVT] OrderAccepted(instrument_id=10835-1.PREDICT, client_order_id=READONLY-HISTORICAL-CONTEXT, venue_order_id=0x02b9af2471d1dc82449ad73115eaea0d1d5e5141f6a6b437af65c74bd6088be6, account_id=PREDICT-001, ts_event=1792210549549462000)[0m
+[1m2026-10-17T04:16:09.819510000Z[0m [INFO] PREDICT-NODE-001.nautilus_trading::strategy: QUERY-READONLY-001 [CMD]--> QueryOrder(instrument_id=10835-1.PREDICT, client_order_id=READONLY-HISTORICAL-CONTEXT, venue_order_id=Some("0x02b9af2471d1dc82449ad73115eaea0d1d5e5141f6a6b437af65c74bd6088be6"))[0m
+[1m2026-10-17T04:16:09.819563000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_execution::engine: Query READONLY-HISTORICAL-CONTEXT[0m
+[1m2026-10-17T04:16:10.621535000Z[0m [INFO] PREDICT-NODE-001.nautilus_portfolio::portfolio: Updated AccountState(account_id=PREDICT-001, account_type=CASH, base_currency=None, is_reported=true, balances=[AccountBalance(total=48.21630840 USDT, locked=0.00000000 USDT, free=48.21630840 USDT)], margins=[], event_id=5d3e22ee-1cc5-4591-80f5-4989ab5fd619)[0m
+[1m2026-10-17T04:16:10.621561000Z[0m [INFO] PREDICT-NODE-001.nautilus_trading::strategy: QUERY-READONLY-001 <--[EVT] OrderCanceled(instrument_id=10835-1.PREDICT, client_order_id=READONLY-HISTORICAL-CONTEXT, venue_order_id=0x02b9af2471d1dc82449ad73115eaea0d1d5e5141f6a6b437af65c74bd6088be6, account_id=PREDICT-001, reason=None, ts_event=1792210570621291000)[0m
+[1m2026-10-17T04:16:10.836976000Z[0m [INFO] PREDICT-NODE-001.nautilus_trading::strategy: QUERY-READONLY-001 [CMD]--> QueryOrder(instrument_id=10835-1.PREDICT, client_order_id=READONLY-HISTORICAL-CONTEXT, venue_order_id=Some("0x02b9af2471d1dc82449ad73115eaea0d1d5e5141f6a6b437af65c74bd6088be6"))[0m
+[1m2026-10-17T04:16:10.837000000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_execution::engine: Query READONLY-HISTORICAL-CONTEXT[0m
+[1m2026-10-17T04:16:11.650457000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node: Received stop signal from handle[0m
+[1m2026-10-17T04:16:11.650485000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Stopping trader...[0m
+[1m2026-10-17T04:16:11.650495000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::trader: Stopping[0m
+[1m2026-10-17T04:16:11.650505000Z[0m [INFO] PREDICT-NODE-001.PREDICT-QUOTES: Stopping[0m
+[1m2026-10-17T04:16:11.650522000Z[0m [INFO] PREDICT-NODE-001.nautilus_common::actor::data_actor: [CMD]--> Unsubscribe(Quotes(UnsubscribeQuotes { instrument_id: "3395587-1.PREDICT", client_id: Some("PREDICT"), venue: Some("PREDICT"), command_id: UUID4(aa13a953-12dc-4b53-ab6b-4a5711d28099), ts_init: UnixNanos(1792210571650520000), correlation_id: None, params: None }))[0m
+[1m2026-10-17T04:16:11.650549002Z[0m [INFO] PREDICT-NODE-001.nautilus_common::actor::data_actor: [CMD]--> Unsubscribe(Quotes(UnsubscribeQuotes { instrument_id: "3395587-2.PREDICT", client_id: Some("PREDICT"), venue: Some("PREDICT"), command_id: UUID4(11f1da45-9986-4e96-9320-2ea525d5727b), ts_init: UnixNanos(1792210571650549001), correlation_id: None, params: None }))[0m
+[1m2026-10-17T04:16:11.650553000Z[0m [INFO] PREDICT-NODE-001.PREDICT-QUOTES: Stopped[0m
+[1m2026-10-17T04:16:11.650563000Z[0m [INFO] PREDICT-NODE-001.QUERY-READONLY-001: Stopping[0m
+[1m2026-10-17T04:16:11.650568000Z[0m [1;33m[WARN] PREDICT-NODE-001.nautilus_common::actor::data_actor: The `on_stop` handler was called when not overridden, it's expected that any actions required when stopping the actor occur here, such as unsubscribing from data[0m
+[1m2026-10-17T04:16:11.650570000Z[0m [INFO] PREDICT-NODE-001.QUERY-READONLY-001: Stopped[0m
+[1m2026-10-17T04:16:11.650571001Z[0m [INFO] PREDICT-NODE-001.nautilus_system::trader: Stopped[0m
+[1m2026-10-17T04:16:11.650573000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node: Awaiting residual events (1s)...[0m
+[1m2026-10-17T04:16:11.650617000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_data::client: Unsubscribed 3395587-1.PREDICT quotes[0m
+[1m2026-10-17T04:16:11.650632000Z[0m [94m[INFO] PREDICT-NODE-001.nautilus_data::client: Unsubscribed 3395587-2.PREDICT quotes[0m
+[1m2026-10-17T04:16:12.652192000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Disconnecting clients...[0m
+[1m2026-10-17T04:16:12.760227000Z[0m [INFO] PREDICT-NODE-001.nautilus_predict::data::lifecycle: Disconnected: client_id=PREDICT[0m
+[1m2026-10-17T04:16:12.760296000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node: Awaiting engine disconnections (10s timeout)...[0m
+[1m2026-10-17T04:16:12.760310000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node: All engine clients disconnected[0m
+[1m2026-10-17T04:16:12.760480000Z[0m [INFO] PREDICT-NODE-001.nautilus_execution::engine: Stopped[0m
+[1m2026-10-17T04:16:12.760487000Z[0m [INFO] PREDICT-NODE-001.nautilus_risk::engine: Stopped[0m
+[1m2026-10-17T04:16:12.760499000Z[0m [INFO] PREDICT-NODE-001.nautilus_execution::order_emulator::emulator: Stopped[0m
+[1m2026-10-17T04:16:12.760505000Z[0m [INFO] PREDICT-NODE-001.nautilus_system::kernel: Stopped[0m
+[1m2026-10-17T04:16:12.760520000Z[0m [INFO] PREDICT-NODE-001.nautilus_live::node: Event loop stopped[0m
+test mainnet_strategy_query_commands_readonly ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 27.69s
+
+{"file": "crates/nautilus-predict/tests/fixtures/private_api/query_commands_readonly_20261017T041540Z_65186.json", "passed": true, "requests": 49, "orderWrites": 0, "chainWrites": 0}

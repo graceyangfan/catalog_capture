@@ -1,0 +1,49 @@
+{
+  "source": "actual mainnet wallet acceptance and cancellation, independent subscriber; identity sanitized; no fabricated events",
+  "events": [
+    {
+      "details": {
+        "categorySlug": "will-justin-sun-address-no-be-blacklisted-by-2027",
+        "marketId": 190414,
+        "marketQuestion": "Will Justin Sun's address no longer be blacklisted by WLFI by 2027?",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "No",
+        "price": "0.010",
+        "quantity": "100.000",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "LIMIT",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x793058895728999cfed7ccd8670f4464c3717ed6ed5ffed25448ec3e1dfe27d1",
+      "orderId": "5468024121",
+      "timestamp": 1792045281337,
+      "type": "orderAccepted",
+      "walletAddress": "0x0000000000000000000000000000000000000022"
+    },
+    {
+      "details": {
+        "categorySlug": "will-justin-sun-address-no-be-blacklisted-by-2027",
+        "marketId": 190414,
+        "marketQuestion": "Will Justin Sun's address no longer be blacklisted by WLFI by 2027?",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "No",
+        "price": "0.010",
+        "quantity": "100.000",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "LIMIT",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x793058895728999cfed7ccd8670f4464c3717ed6ed5ffed25448ec3e1dfe27d1",
+      "orderId": "5468024121",
+      "timestamp": 1792045306664,
+      "type": "orderCancelled",
+      "walletAddress": "0x0000000000000000000000000000000000000022"
+    }
+  ]
+}

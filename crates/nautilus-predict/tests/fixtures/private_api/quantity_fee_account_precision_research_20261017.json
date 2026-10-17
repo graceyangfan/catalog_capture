@@ -1,0 +1,34 @@
+{
+  "source": "independent analytical Decimal examples, not venue data or a Native test",
+  "moneyFees100": {
+    "raw": "4.90000000100E-7",
+    "sumOfIndividuallyRounded": "0E-8",
+    "roundedCumulative": "4.9E-7",
+    "rawMinusProjected": "1.00E-16"
+  },
+  "tinySharesFees100": {
+    "raw": "1.00E-16",
+    "sumOfIndividualCeilings": "1.00E-14",
+    "cumulativeCeiling": "1E-16"
+  },
+  "nonCommutingGrossAndFeeProjection": {
+    "rawNet": "16.660000000000000098",
+    "separateConservativeNet": "16.6599999999999999",
+    "singleNetFloor": "16.6600000000000000",
+    "separateNetResidual": "1.98E-16",
+    "singleNetResidual": "9.8E-17",
+    "warning": "Single-net projection cannot replace gross last_qty in OrderFilled."
+  },
+  "f64UlpAt32": "7.10542735760100185871124267578125E-15",
+  "quantum16": "0.0000000000000001",
+  "quantum18": "0.000000000000000001",
+  "precisionIsNotOrderIncrement": true,
+  "rfcComment": "https://github.com/graceyangfan/nautilus_trader/issues/1#issuecomment-6228653277",
+  "nativeCommit": "78bef53612b0fa2660851ee6f59a6ddd12c2d1d4",
+  "testScript": "tests/test_predict_precision_projection_research.py",
+  "testScriptSha256": "82aea2f60c3d919e6d7a92f10839b228e0d6463f7caa6bc2c70f182c596eebd0",
+  "testsPassed": 4,
+  "nativeCodeChanged": false,
+  "privateExchangeRequests": false,
+  "orderSubmitted": false
+}

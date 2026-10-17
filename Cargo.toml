@@ -59,32 +59,32 @@ tokio = { version = "1", features = [
 tokio-util = "0.7"
 toml = "0.8"
 ustr = "1.1.0"
-nautilus-binance = { path = "../nautilus_trader/crates/adapters/binance" }
-nautilus-bybit = { path = "../nautilus_trader/crates/adapters/bybit" }
-nautilus-deribit = { path = "../nautilus_trader/crates/adapters/deribit", features = [
+nautilus-binance = { path = "../nautilus_trader_quantity_commission/crates/adapters/binance" }
+nautilus-bybit = { path = "../nautilus_trader_quantity_commission/crates/adapters/bybit" }
+nautilus-deribit = { path = "../nautilus_trader_quantity_commission/crates/adapters/deribit", features = [
   "arrow",
 ] }
-nautilus-okx = { path = "../nautilus_trader/crates/adapters/okx" }
-nautilus-common = { path = "../nautilus_trader/crates/common" }
-nautilus-core = { path = "../nautilus_trader/crates/core" }
+nautilus-okx = { path = "../nautilus_trader_quantity_commission/crates/adapters/okx" }
+nautilus-common = { path = "../nautilus_trader_quantity_commission/crates/common" }
+nautilus-core = { path = "../nautilus_trader_quantity_commission/crates/core" }
 # Capture path does not need Hyperliquid Python bindings (keeps the graph lighter).
-nautilus-hyperliquid = { path = "../nautilus_trader/crates/adapters/hyperliquid", features = [
+nautilus-hyperliquid = { path = "../nautilus_trader_quantity_commission/crates/adapters/hyperliquid", features = [
   "arrow",
 ] }
-nautilus-lighter = { path = "../nautilus_trader/crates/adapters/lighter" }
-nautilus-live = { path = "../nautilus_trader/crates/live", default-features = false, features = [
+nautilus-lighter = { path = "../nautilus_trader_quantity_commission/crates/adapters/lighter" }
+nautilus-live = { path = "../nautilus_trader_quantity_commission/crates/live", default-features = false, features = [
   "node",
 ] }
-nautilus-model = { path = "../nautilus_trader/crates/model" }
-nautilus-network = { path = "../nautilus_trader/crates/network", features = [
+nautilus-model = { path = "../nautilus_trader_quantity_commission/crates/model" }
+nautilus-network = { path = "../nautilus_trader_quantity_commission/crates/network", features = [
   "transport-sockudo",
 ] }
-nautilus-persistence = { path = "../nautilus_trader/crates/persistence" }
-nautilus-serialization = { path = "../nautilus_trader/crates/serialization", features = [
+nautilus-persistence = { path = "../nautilus_trader_quantity_commission/crates/persistence" }
+nautilus-serialization = { path = "../nautilus_trader_quantity_commission/crates/serialization", features = [
   "arrow",
 ] }
 nautilus-extended = { path = "crates/nautilus-extended" }
-nautilus-predict = { path = "crates/nautilus-predict" }
+nautilus-predict = { path = "crates/nautilus-predict", default-features = false }
 
 # -----------------------------------------------------------------------------
 # Profiles: lean artifacts (path-deps pull a large Nautilus graph into target/)

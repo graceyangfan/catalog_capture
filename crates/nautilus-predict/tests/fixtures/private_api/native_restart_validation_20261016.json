@@ -1,0 +1,154 @@
+{
+  "verifiedAtUTC": "2026-10-16T04:35:38.120619+00:00",
+  "source": "synthetic loopback Rust Strategy + fresh LiveNode/Cache lifecycles; real native Redis backing; not OS crash or mainnet evidence",
+  "nativeDependencyHead": "7932aebdc52fb86ee4ce02a19afbae69d816ef6b",
+  "nativeDependencySourceAndVersionChanged": false,
+  "adapterBehaviorChanged": false,
+  "adapterCommentClarified": true,
+  "productionRecorderDiscoveryRotationChanged": false,
+  "mainnetAccountReads": 0,
+  "mainnetOrderWrites": 0,
+  "rustNormal": {
+    "passed": 238,
+    "failed": 0,
+    "ignored": 27
+  },
+  "redisExplicitIntegration": {
+    "passed": 3,
+    "failed": 0,
+    "cases": 5,
+    "freshNodeLifecyclesPerCase": 2,
+    "freshCachesInitiallyEmpty": true,
+    "execution": "serial --test-threads=1"
+  },
+  "python": {
+    "passed": 41,
+    "failed": 0,
+    "sdkVersion": "predict-sdk==0.0.22",
+    "newRequestsCompared": 13
+  },
+  "captureEntrypointsPassed": 2,
+  "redisResources": {
+    "bind": "127.0.0.1",
+    "port": "ephemeral",
+    "maxmemoryBytes": 33554432,
+    "policy": "noeviction",
+    "databases": 1,
+    "maxclients": 32,
+    "diskRdbAndAof": false,
+    "successKillAwait": true,
+    "failureKillOnDrop": true,
+    "temporaryServersRemaining": 0,
+    "preexisting6379ServiceUntouched": true
+  },
+  "caseResults": [
+    {
+      "case": "ActiveStop",
+      "offlineFillShares": 0,
+      "posts": 3,
+      "removals": 2,
+      "net": "0",
+      "cash": "999.56800000",
+      "locked": "0.00000000",
+      "openOrders": 0,
+      "refused": false
+    },
+    {
+      "case": "PartialStop",
+      "offlineFillShares": 46,
+      "posts": 3,
+      "removals": 2,
+      "net": "0",
+      "cash": "999.80536000",
+      "locked": "0.00000000",
+      "openOrders": 0,
+      "refused": false
+    },
+    {
+      "case": "FilledOffline",
+      "offlineFillShares": 200,
+      "posts": 2,
+      "removals": 1,
+      "net": "0",
+      "cash": "1000.60000000",
+      "locked": "0.00000000",
+      "openOrders": 0,
+      "refused": false
+    },
+    {
+      "case": "MissingIntent",
+      "offlineFillShares": 0,
+      "posts": 2,
+      "removals": 1,
+      "net": "200.0000000000000000",
+      "cash": "998.00000000",
+      "locked": "0.00000000",
+      "openOrders": 1,
+      "refused": true
+    },
+    {
+      "case": "WrongRole",
+      "offlineFillShares": 0,
+      "posts": 2,
+      "removals": 1,
+      "net": "200.0000000000000000",
+      "cash": "998.00000000",
+      "locked": "0.00000000",
+      "openOrders": 1,
+      "refused": true
+    }
+  ],
+  "existingNativeRetentionVerified": {
+    "hookAlreadyPresent": true,
+    "diagnostics": [
+      {
+        "clientOrderId": "O-20261016-042557-001-001-1",
+        "source": "Inflight",
+        "retryCount": 2
+      }
+    ],
+    "unknownStatusBeforeRepair": "SUBMITTED",
+    "posts": 1,
+    "uniqueConfirmedFills": 2,
+    "netAfterEvidence": "100"
+  },
+  "checks": {
+    "clippyExecutionAllTargetsDenyWarnings": true,
+    "noDefaultExecutionAllTargets": true,
+    "targetedRustfmt": true,
+    "ruff": true,
+    "gitDiffCheck": true,
+    "historicalJsonHashReferencesUnchanged": 7
+  },
+  "boundaries": [
+    "graceful save/dispose and known owned accepted orders only",
+    "no OS kill, machine restart, Redis crash durability or concurrent takeover claim",
+    "missing or wrong strategy intent refuses to trade",
+    "unknown pre-ACK signed hash cross-crash persistence not proven",
+    "zero-fee maker BUY entry and COLLATERAL SELL fees; SHARES entry restart accounting not proven",
+    "arbitrary external-order adoption not enabled",
+    "no new adapter timers, private ledger or persistence implementation"
+  ],
+  "sha256": {
+    "Cargo.lock": "85405759e32fc3fee05937c59061f8b2732053e0ccbc7ecfe1f641793db258af",
+    "crates/nautilus-predict/Cargo.toml": "ddb8b478dfd50b94d038ad421951d46ad8407b4a7e5488c57697201c5c5095c8",
+    "crates/nautilus-predict/src/execution/mod.rs": "bc978deb6586dc3c9d84b0cda8febc35d268150871e94a9d92ba665caa811c05",
+    "crates/nautilus-predict/tests/execution.rs": "fd21a91707427a5db6c580dd69b5ae61145fc1449dce6b381c23ac3d69981f71",
+    "crates/nautilus-predict/tests/support/exit_strategy.rs": "24d5939d36c82b8c10ee914e10698b111846f772cba608e295f6cd4874c49266",
+    "crates/nautilus-predict/tests/support/exit_strategy_restart.rs": "a7682124de111d6a40dd133f5c1a2c62627adaef98b652a7d64b0f57643ad3a2",
+    "crates/nautilus-predict/tests/execution/restart_live.rs": "0ac67d94e0c054feecd6f1810193e8d04816243474ba345dfe39af0154036d2b",
+    "crates/nautilus-predict/tests/execution/strategy_lifecycle.rs": "6e42828c938bbe2f028cacd61bf2ef3532c68ad54cea2230a661b2ce036bef3b",
+    "crates/nautilus-predict/tests/execution/recovery_live.rs": "4341b900c158a5d9dd8ec747fa8c19a604e73434bcdf72a96479e701b80e70d8",
+    "tests/test_predict_exit_protocol.py": "e7d46ccf0f30b4e7080e54b1c0dd0f492799edf7692ac873baa795427c15561a",
+    "docs/reference/predict-native-architecture-restart-audit-20261016.md": "76bca8e9c543fead465b3463f94718d91c7246ea28c106abd30b86d39166e8fb",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_strategy_restart_synthetic_20261016.json": "a55303b502eda5936ac87cf25fd309da9682cbfa988a975ffc0cef2bb0f9c2b7",
+    "crates/nautilus-predict/tests/fixtures/private_api/native_submission_retention_synthetic_20261016.json": "5a7377f7e25ed1657a0eebf0d2af655a5ea0a2ad37dffd15bb8fb1ed69569ca5"
+  },
+  "postLifecycleSimplificationExecutionRegression": {
+    "passed": 119,
+    "failed": 0,
+    "ignored": 18
+  },
+  "nativeLifecycleReused": "Component::is_running; duplicated restart_ready flag removed from test strategy",
+  "identifiedReadOnlyCoupling": "filled status recovery currently requires signer from submission policy; pure hash validation does not require a private key; no signing refactor performed"
+}

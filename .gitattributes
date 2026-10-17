@@ -1,0 +1,2 @@
+# Raw Native capture logs retain their original terminal blank lines.
+crates/nautilus-predict/tests/fixtures/private_api/**/node.log whitespace=-blank-at-eof

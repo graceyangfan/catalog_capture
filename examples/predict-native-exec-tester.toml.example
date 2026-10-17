@@ -1,0 +1,34 @@
+# Offline Rust ExecTester profile, consumed by tests/execution/native_tester.rs.
+# This is not a CLI live-trading command. No credentials, market IDs or wallet addresses.
+# The fixture supplies instrument/client identity and overrides one scenario at a time.
+[node]
+delay_post_stop_secs = 1
+
+# Native LiveExecutionEngineConfig names. Omit reconciliation_lookback_mins: Predict requires None.
+[execution_engine]
+reconciliation = true
+reconciliation_startup_delay_secs = 0.0
+inflight_check_interval_ms = 50
+inflight_check_threshold_ms = 5000
+open_check_interval_secs = 10.0
+position_check_interval_secs = 30.0
+
+# Native ExecTesterConfig names. Keep the template dry; only loopback scenarios enable writes.
+[strategy]
+dry_run = true
+order_qty = "100"
+subscribe_quotes = true
+subscribe_trades = false
+subscribe_book = false
+enable_limit_buys = true
+enable_limit_sells = false
+use_post_only = true
+tob_offset_ticks = 620
+cancel_orders_on_stop = true
+close_positions_on_stop = false
+reduce_only_on_stop = false
+log_data = false
+
+[strategy.base]
+strategy_id = "NATIVE-EXEC-001"
+use_uuid_client_order_ids = true

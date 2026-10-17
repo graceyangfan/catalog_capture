@@ -15,18 +15,18 @@
 use std::collections::BTreeSet;
 
 use catalog_capture_core::{
-    derive_perp_instrument_id, expand_option_universe, ExpiryPolicy, OptionUniverseFamily,
-    OptionUniverseResolutionEventKind, OptionUniverseResolutionSummary, OptionUniverseSpec,
-    OptionUniverseVenueKind, ResolvedOptionUniverse, StrikePolicy,
+    ExpiryPolicy, OptionUniverseFamily, OptionUniverseResolutionEventKind,
+    OptionUniverseResolutionSummary, OptionUniverseSpec, OptionUniverseVenueKind,
+    ResolvedOptionUniverse, StrikePolicy, derive_perp_instrument_id, expand_option_universe,
 };
 use nautilus_model::{identifiers::InstrumentId, types::Price};
 
-use super::report::{build_option_universe_resolution_report, OptionUniverseResolutionReport};
+use super::report::{OptionUniverseResolutionReport, build_option_universe_resolution_report};
 use super::{
-    render_option_universe_catalog_validation_json, render_option_universe_catalog_validation_text,
-    render_option_universe_reports_json, render_option_universe_reports_text,
-    render_option_universe_summaries_json, render_option_universe_summaries_text,
-    OptionUniverseCatalogValidationReport,
+    OptionUniverseCatalogValidationReport, render_option_universe_catalog_validation_json,
+    render_option_universe_catalog_validation_text, render_option_universe_reports_json,
+    render_option_universe_reports_text, render_option_universe_summaries_json,
+    render_option_universe_summaries_text,
 };
 
 #[test]

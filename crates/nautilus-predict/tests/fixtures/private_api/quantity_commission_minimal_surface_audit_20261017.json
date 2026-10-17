@@ -1,0 +1,33 @@
+{
+  "source": "direct Rust Native model diagnostic, synthetic; no new LiveNode or venue evidence",
+  "nativeDevelopBase": "7b6e2c27b86bd1688fde49bcf6e81d7a89560b05",
+  "implementation": "minimal Native inventory fee surface; existing replay_state persistence",
+  "sameEconomicsDifferentRepresentation": {
+    "grossBuy": "1",
+    "buyPrice": "100",
+    "inventoryFee": "0.01",
+    "net": "0.990000",
+    "sellQty": "0.99",
+    "sellPrice": "110",
+    "cashDifference": "8.90 USDT",
+    "legacyRealized": "9.90000000 USDT",
+    "legacyCommissions": {
+      "BTC": "0.01000000 BTC",
+      "USDT": "0.00000000 USDT"
+    },
+    "quantityRealized": "8.90000000 USDT",
+    "quantityCommissions": {
+      "quantity": "0.01",
+      "cost": "1.00"
+    },
+    "meaning": "Legacy quote realized and fee-asset commission are separate; the prototype expenses disposal cost into quote realized. These are different reporting conventions."
+  },
+  "priorEpisodeDuplicate": {
+    "newEpisodeNet": "0.0990000000000000",
+    "historicalCloseQty": "0.99",
+    "error": null,
+    "stateUnchanged": true,
+    "contractSatisfied": true,
+    "finding": "Native durable identity filtering ignores the late historical duplicate before inventory preflight."
+  }
+}

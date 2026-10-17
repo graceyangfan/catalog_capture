@@ -1,0 +1,10 @@
+{
+  "source": "derived allowlisted WARN/ERROR lines from actual Native test logs; not protocol JSON",
+  "lines": [
+    "2026-10-16T15:35:41.092189000Z [WARN] PREDICT-CALIBRATION-001.nautilus_execution::engine: Error querying order: Predict order query lacks a cached or locally transmitted hash",
+    "2026-10-16T15:35:44.293810000Z [WARN] PREDICT-CALIBRATION-001.nautilus_common::cache: Residual LimitOrder(BUY 100 190414-2.PREDICT LIMIT @ 0.01 GTC, status=ACCEPTED, client_order_id=3c54bfa8-f480-44b0-87be-7499a57609b3, venue_order_id=[redacted-hex], position_id=None, exec_algorithm_id=None, exec_spawn_id=None, tags=None)",
+    "2026-10-16T15:35:44.293865000Z [WARN] PREDICT-CALIBRATION-001.nautilus_common::cache: Residual LimitOrder(BUY 50 190414-2.PREDICT LIMIT @ 0.02 GTC, status=ACCEPTED, client_order_id=6c003467-dc38-4010-bcd9-b41898b14a97, venue_order_id=[redacted-hex], position_id=None, exec_algorithm_id=None, exec_spawn_id=None, tags=None)",
+    "2026-10-16T15:35:58.159887000Z [WARN] PREDICT-CALIBRATION-001.nautilus_trading::strategy: RESTING-BATCH-001 <--[EVT] OrderModifyRejected(instrument_id=190414-2.PREDICT, client_order_id=[redacted-hex], venue_order_id=[redacted-hex], account_id=PREDICT-001, reason='Predict atomic order modification is unsupported; cancel then replace explicitly', ts_event=1792164958159854000)",
+    "2026-10-16T15:35:58.159943000Z [WARN] PREDICT-CALIBRATION-001.nautilus_trading::strategy: RESTING-BATCH-001 <--[EVT] OrderModifyRejected(instrument_id=190414-2.PREDICT, client_order_id=[redacted-hex], venue_order_id=[redacted-hex], account_id=PREDICT-001, reason='Predict atomic order modification is unsupported; cancel then replace explicitly', ts_event=1792164958159928000)"
+  ]
+}

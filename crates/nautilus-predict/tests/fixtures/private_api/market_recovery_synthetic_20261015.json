@@ -1,0 +1,1199 @@
+{
+  "source": "explicitly generated synthetic loopback sessions; not mainnet transactions",
+  "sessions": [
+    {
+      "source": "synthetic loopback Rust Strategy + LiveNode recovery; not native strategy submission, not mainnet fills",
+      "outcome": 1,
+      "entryGross": "100",
+      "entryNet": "98",
+      "entryCommissionUsdt": "0.02",
+      "exitPrice": null,
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062186787,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.010",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "17000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "170000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062186788,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.010",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "83000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "830000000000000000"
+          }
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "4beebebe-6b3e-49dd-b87d-e137f7b9d366",
+          "tsEvent": 1792062186775788000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "900.00000000",
+              "locked": "100.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-001",
+          "venueOrderId": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "tsEvent": 1792062186787000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-0f1991b6aa9fae5f95522194e28cde99",
+            "quantity": "17.0000000000000000",
+            "price": "0.010",
+            "commission": "0.00340000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-001",
+          "venueOrderId": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "tsEvent": 1792062186788000000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "100",
+            "filledQuantity": "100.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-f50291c8623f2ce34bc8de26f4d08690",
+            "quantity": "83.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01660000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "100.0000000000000000",
+          "realizedPnl": "-0.02000000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "ddd3bd61-c644-44cf-9ec1-ca466929ee19",
+          "tsEvent": 1792062186806965000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.00000000",
+              "free": "999.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "ba0f3572-e23f-5bfd-b858-4be715db8a41",
+          "venueOrderId": null,
+          "tsEvent": 1792062186891733000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "ba0f3572-e23f-5bfd-b858-4be715db8a41",
+          "venueOrderId": "ba0f3572-e23f-5bfd-b858-4be715db8a41",
+          "tsEvent": 1792062186891636000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "ba0f3572-e23f-5bfd-b858-4be715db8a41",
+          "venueOrderId": "ba0f3572-e23f-5bfd-b858-4be715db8a41",
+          "tsEvent": 1792062186891636000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "2.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "1367cb37-bc09-59ac-b527-d1370d37c898",
+            "quantity": "2.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "98.0000000000000000",
+          "realizedPnl": "-0.02000000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "763109b7-9d60-4450-a09e-f679a2b0caa1",
+          "tsEvent": 1792062186894806000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.00000000",
+              "free": "999.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "finalCashUsdt": "999",
+      "finalNetPosition": "98.0000000000000000",
+      "strategySubmissions": 0,
+      "venueCreates": 0,
+      "venueRemovals": 0
+    },
+    {
+      "source": "synthetic loopback Rust Strategy + LiveNode recovery; not native strategy submission, not mainnet fills",
+      "outcome": 2,
+      "entryGross": "100",
+      "entryNet": "98",
+      "entryCommissionUsdt": "0.02",
+      "exitPrice": null,
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062187234,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.010",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "17000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "170000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062187234,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.010",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "83000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "830000000000000000"
+          }
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "bcdfd9a5-120c-4a28-8ce9-0d0e9f56d866",
+          "tsEvent": 1792062187223476000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "900.00000000",
+              "locked": "100.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-001",
+          "venueOrderId": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "tsEvent": 1792062187234000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-0f1991b6aa9fae5f95522194e28cde99",
+            "quantity": "17.0000000000000000",
+            "price": "0.010",
+            "commission": "0.00340000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-001",
+          "venueOrderId": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "tsEvent": 1792062187234000000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "100",
+            "filledQuantity": "100.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-f50291c8623f2ce34bc8de26f4d08690",
+            "quantity": "83.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01660000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "100.0000000000000000",
+          "realizedPnl": "-0.02000000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "b11cdf6b-e756-4851-ba21-e979573b9dd2",
+          "tsEvent": 1792062187250597000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.00000000",
+              "free": "999.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "a181d1c4-0507-5243-9e74-dbebfc230f4f",
+          "venueOrderId": null,
+          "tsEvent": 1792062187338095000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "a181d1c4-0507-5243-9e74-dbebfc230f4f",
+          "venueOrderId": "a181d1c4-0507-5243-9e74-dbebfc230f4f",
+          "tsEvent": 1792062187338071000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "a181d1c4-0507-5243-9e74-dbebfc230f4f",
+          "venueOrderId": "a181d1c4-0507-5243-9e74-dbebfc230f4f",
+          "tsEvent": 1792062187338071000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "2.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "fc07ea97-183c-51f0-bd5c-d507df2e16c4",
+            "quantity": "2.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "98.0000000000000000",
+          "realizedPnl": "-0.02000000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "13225043-071e-4f51-affe-2954f0693ae7",
+          "tsEvent": 1792062187340893000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.00000000",
+              "free": "999.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "finalCashUsdt": "999",
+      "finalNetPosition": "98.0000000000000000",
+      "strategySubmissions": 0,
+      "venueCreates": 0,
+      "venueRemovals": 0
+    },
+    {
+      "source": "synthetic loopback Rust Strategy + LiveNode recovery; not native strategy submission, not mainnet fills",
+      "outcome": 1,
+      "entryGross": "100",
+      "entryNet": "98",
+      "entryCommissionUsdt": "0.02",
+      "exitPrice": "0.011",
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062187677,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.010",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "17000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "170000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062187677,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.010",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "83000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "830000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062187779,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "ASK",
+            "quantity": "98",
+            "quantityFilled": "0",
+            "price": "0.011",
+            "value": "1.078",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-exit",
+          "isMaker": false,
+          "fee": {
+            "type": "COLLATERAL",
+            "amountWei": "21560000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "98000000000000000000",
+            "executedPriceWei": "11000000000000000",
+            "executedValueWei": "1078000000000000000"
+          }
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "e341b7df-eacc-4db1-a6ac-b0458b34c8d2",
+          "tsEvent": 1792062187666678000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "900.00000000",
+              "locked": "100.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-001",
+          "venueOrderId": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "tsEvent": 1792062187677000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-0f1991b6aa9fae5f95522194e28cde99",
+            "quantity": "17.0000000000000000",
+            "price": "0.010",
+            "commission": "0.00340000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-001",
+          "venueOrderId": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "tsEvent": 1792062187677000000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "100",
+            "filledQuantity": "100.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-f50291c8623f2ce34bc8de26f4d08690",
+            "quantity": "83.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01660000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "100.0000000000000000",
+          "realizedPnl": "-0.02000000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "4cec3fe0-ffbe-4b5e-990b-219a13255faf",
+          "tsEvent": 1792062187693921000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.00000000",
+              "free": "999.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "565d418c-7607-599c-b28f-4d957996ae50",
+          "venueOrderId": null,
+          "tsEvent": 1792062187779180000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "565d418c-7607-599c-b28f-4d957996ae50",
+          "venueOrderId": "565d418c-7607-599c-b28f-4d957996ae50",
+          "tsEvent": 1792062187779155000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "565d418c-7607-599c-b28f-4d957996ae50",
+          "venueOrderId": "565d418c-7607-599c-b28f-4d957996ae50",
+          "tsEvent": 1792062187779155000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "2.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "21c78046-abc1-5b40-8906-267eb214c38c",
+            "quantity": "2.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "98.0000000000000000",
+          "realizedPnl": "-0.02000000 USDT"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "RECOVERED-MARKET-EXIT-001",
+          "venueOrderId": null,
+          "tsEvent": 1792062187779416000,
+          "cachedOrder": {
+            "status": "SUBMITTED",
+            "quantity": "98",
+            "filledQuantity": "0",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "RECOVERED-MARKET-EXIT-001",
+          "venueOrderId": "0x4444444444444444444444444444444444444444444444444444444444444444",
+          "tsEvent": 1792062187779416000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "98",
+            "filledQuantity": "0",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-EXIT-001",
+          "venueOrderId": "0x4444444444444444444444444444444444444444444444444444444444444444",
+          "tsEvent": 1792062187779000000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "98",
+            "filledQuantity": "98.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-0c3a6908fe876dd0fcbeec6ea69a7341",
+            "quantity": "98.0000000000000000",
+            "price": "0.011",
+            "commission": "0.02156000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-1.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "0.0000000000000000",
+          "realizedPnl": "0.05644000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "e3ee439c-2977-4863-8db8-3480b49dfece",
+          "tsEvent": 1792062187809249000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.05644000",
+              "free": "1000.05644000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "finalCashUsdt": "1000.05644",
+      "finalNetPosition": "0.0000000000000000",
+      "strategySubmissions": 0,
+      "venueCreates": 0,
+      "venueRemovals": 0
+    },
+    {
+      "source": "synthetic loopback Rust Strategy + LiveNode recovery; not native strategy submission, not mainnet fills",
+      "outcome": 2,
+      "entryGross": "100",
+      "entryNet": "98",
+      "entryCommissionUsdt": "0.02",
+      "exitPrice": "0.009",
+      "walletEvents": [
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062188117,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.010",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-1",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "340000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "17000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "170000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062188117,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.010",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-2",
+          "isMaker": false,
+          "fee": {
+            "type": "SHARES",
+            "amountWei": "1660000000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "83000000000000000000",
+            "executedPriceWei": "10000000000000000",
+            "executedValueWei": "830000000000000000"
+          }
+        },
+        {
+          "type": "orderTransactionSuccess",
+          "orderId": "12345",
+          "orderHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792062188220,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "ASK",
+            "quantity": "98",
+            "quantityFilled": "0",
+            "price": "0.009",
+            "value": "0.882",
+            "valueFilled": "0",
+            "strategyType": "MARKET",
+            "categorySlug": "fixture"
+          },
+          "settlementId": "market-recovery-exit",
+          "isMaker": false,
+          "fee": {
+            "type": "COLLATERAL",
+            "amountWei": "17640000000000000"
+          },
+          "fill": {
+            "executedSizeWei": "98000000000000000000",
+            "executedPriceWei": "9000000000000000",
+            "executedValueWei": "882000000000000000"
+          }
+        }
+      ],
+      "nativeFeedback": [
+        {
+          "type": "AccountStateApplied",
+          "eventId": "59caf265-158b-4142-bc43-ac310c6e6c68",
+          "tsEvent": 1792062188106234000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "1000.00000000",
+              "free": "900.00000000",
+              "locked": "100.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-001",
+          "venueOrderId": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "tsEvent": 1792062188117000000,
+          "cachedOrder": {
+            "status": "PARTIALLY_FILLED",
+            "quantity": "100",
+            "filledQuantity": "17.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-0f1991b6aa9fae5f95522194e28cde99",
+            "quantity": "17.0000000000000000",
+            "price": "0.010",
+            "commission": "0.00340000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "17.0000000000000000",
+          "realizedPnl": "-0.00340000 USDT"
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-001",
+          "venueOrderId": "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc",
+          "tsEvent": 1792062188117000000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "100",
+            "filledQuantity": "100.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-f50291c8623f2ce34bc8de26f4d08690",
+            "quantity": "83.0000000000000000",
+            "price": "0.010",
+            "commission": "0.01660000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "BUY"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "100.0000000000000000",
+          "realizedPnl": "-0.02000000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "46c0721d-d3fc-443a-b3dc-80966c6c2b0f",
+          "tsEvent": 1792062188132706000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.00000000",
+              "free": "999.00000000",
+              "locked": "0.00000000"
+            }
+          ]
+        },
+        {
+          "type": "Initialized",
+          "clientOrderId": "c7c81f65-5563-5b1f-975f-6c718fbee793",
+          "venueOrderId": null,
+          "tsEvent": 1792062188220252000,
+          "cachedOrder": {
+            "status": "INITIALIZED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "c7c81f65-5563-5b1f-975f-6c718fbee793",
+          "venueOrderId": "c7c81f65-5563-5b1f-975f-6c718fbee793",
+          "tsEvent": 1792062188220215000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "0.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "c7c81f65-5563-5b1f-975f-6c718fbee793",
+          "venueOrderId": "c7c81f65-5563-5b1f-975f-6c718fbee793",
+          "tsEvent": 1792062188220215000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "2.0000000000000000",
+            "filledQuantity": "2.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "e16dba50-3982-55c3-bbe2-9655f0fae30f",
+            "quantity": "2.0000000000000000",
+            "price": "0.010",
+            "commission": null,
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "98.0000000000000000",
+          "realizedPnl": "-0.02000000 USDT"
+        },
+        {
+          "type": "Submitted",
+          "clientOrderId": "RECOVERED-MARKET-EXIT-001",
+          "venueOrderId": null,
+          "tsEvent": 1792062188220543000,
+          "cachedOrder": {
+            "status": "SUBMITTED",
+            "quantity": "98",
+            "filledQuantity": "0",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Accepted",
+          "clientOrderId": "RECOVERED-MARKET-EXIT-001",
+          "venueOrderId": "0x4444444444444444444444444444444444444444444444444444444444444444",
+          "tsEvent": 1792062188220543000,
+          "cachedOrder": {
+            "status": "ACCEPTED",
+            "quantity": "98",
+            "filledQuantity": "0",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": null,
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "Filled",
+          "clientOrderId": "RECOVERED-MARKET-EXIT-001",
+          "venueOrderId": "0x4444444444444444444444444444444444444444444444444444444444444444",
+          "tsEvent": 1792062188220000000,
+          "cachedOrder": {
+            "status": "FILLED",
+            "quantity": "98",
+            "filledQuantity": "98.0000000000000000",
+            "price": null,
+            "postOnly": false,
+            "timeInForce": "GTC",
+            "expireTimeNs": null
+          },
+          "fill": {
+            "tradeId": "PF-0c3a6908fe876dd0fcbeec6ea69a7341",
+            "quantity": "98.0000000000000000",
+            "price": "0.009",
+            "commission": "0.01764000 USDT",
+            "liquiditySide": "TAKER",
+            "orderSide": "SELL"
+          },
+          "rejectionReason": null,
+          "duePostOnly": null
+        },
+        {
+          "type": "PositionStateApplied",
+          "positionId": "42-2.PREDICT-PREDICT-CALIBRATION-001",
+          "quantity": "0.0000000000000000",
+          "realizedPnl": "-0.13564000 USDT"
+        },
+        {
+          "type": "AccountStateApplied",
+          "eventId": "f993fba1-6a26-4631-8350-23efba59b6fa",
+          "tsEvent": 1792062188250932000,
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "999.86436000",
+              "free": "999.86436000",
+              "locked": "0.00000000"
+            }
+          ]
+        }
+      ],
+      "finalCashUsdt": "999.86436",
+      "finalNetPosition": "0.0000000000000000",
+      "strategySubmissions": 0,
+      "venueCreates": 0,
+      "venueRemovals": 0
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "source": "Actual mainnet Rust strategy + LiveNode cold start, cancel TP, MARKET SELL; REST, wallet WS, matches and chain",
+  "entryEvidence": "live_fill_20261017T051620Z",
+  "coldStartEvidence": "exit_only_restart_20261017T052850Z",
+  "exitEvidence": "exit_only_restart_20261017T053156Z",
+  "independentEvidence": "exit_only_restart_20261017T053156Z_independent",
+  "buySubmittedAfterRestart": false,
+  "finalOpenOrders": 0,
+  "finalPositions": 0,
+  "nativeNetQuantity": "0",
+  "cashMatchesChain": true,
+  "cashAfterUSDT": "48.13488760",
+  "entryCostUSDT": "1.28",
+  "entryGrossShares": "32",
+  "entrySharesFee": "0.64",
+  "entrySharesFeeCostAtEntryUSDT": "0.0256",
+  "exitFill": {
+    "side": "SELL",
+    "quantity": "31.3600000000000000",
+    "price": "0.039",
+    "commission": "0.02446080 USDT",
+    "quantityCommission": null,
+    "liquidity": "TAKER"
+  },
+  "exitNetProceedsUSDT": "1.1985792000000000000",
+  "fullCycleCashPnlUSDT": "-0.0814208000000000000",
+  "nativeQuotePositionRealizedPnl": "-0.05582080 USDT",
+  "pnlCaveat": "Native quote realized PnL does not include the historical cost of shares disposed as inventory commission; do not equate it with cash round-trip PnL",
+  "callbacksInOrder": [
+    "on_order_pending_cancel",
+    "on_order_canceled",
+    "on_order_submitted",
+    "on_order_accepted",
+    "on_order_filled",
+    "on_position_closed"
+  ],
+  "canceledCallbackCount": 1,
+  "filledCallbackCount": 1,
+  "accountObservation": "Strategy read the final reported AccountState from Native Cache; account topic notifications alone did not deliver the final changed cash event in this run",
+  "nativeDependencyModified": false,
+  "productionRecordingModified": false,
+  "liveGaps": [
+    "one complete SELL fill, not a partial SELL: no PositionChanged callback expected",
+    "no long network outage tested in this live round"
+  ],
+  "postRequests": [
+    {
+      "path": "/v1/orders/remove",
+      "status": 200,
+      "response": {
+        "noop": [],
+        "removed": [
+          "5624744546"
+        ],
+        "success": true
+      }
+    },
+    {
+      "path": "/v1/orders",
+      "status": 201,
+      "response": {
+        "data": {
+          "code": "OK",
+          "orderHash": "0xbb48ddb1b5a740e6209ae50be97f5075fbb400d3faad17def3d7ba3fa8a39d63",
+          "orderId": "5625325827",
+          "removalLockedUntil": null
+        },
+        "success": true
+      }
+    }
+  ]
+}

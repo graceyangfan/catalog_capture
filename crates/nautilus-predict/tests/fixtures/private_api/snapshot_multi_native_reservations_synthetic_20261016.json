@@ -1,0 +1,1274 @@
+{
+  "source": "synthetic loopback, no real balances/orders",
+  "sessions": [
+    {
+      "source": "synthetic two Rust snapshot strategies + actual product host + Native LiveNode; not mainnet",
+      "case": "replacement_with_other_active_order",
+      "initialCash": "3",
+      "nativeRiskBypassed": false,
+      "signalInput": "custom_snapshot",
+      "books": [
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149399460,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.630",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.640",
+                "1000"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149399469,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.630",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.640",
+                "1000"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149399471,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.631",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.641",
+                "1000"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149399478,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.631",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.641",
+                "1000"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149399478,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.632",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.642",
+                "1000"
+              ]
+            ]
+          }
+        }
+      ],
+      "wallet": [
+        {
+          "type": "orderAccepted",
+          "orderId": "10002",
+          "orderHash": "0x09bc71dc35345e4f7423b3eabf72d785b4a7134d0f0bb904be5790a4ad68a0db",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792149399467,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "10001",
+          "orderHash": "0x934e3815801b8443493271eb44457c9f028118cffed720e673a575da21265841",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792149399468,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "10001",
+          "orderHash": "0x934e3815801b8443493271eb44457c9f028118cffed720e673a575da21265841",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792149399468,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "10003",
+          "orderHash": "0x577c01a6efc30bd29b5af655ae8a9288aa50273bd21793608f599f777522f9ab",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792149399474,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.011",
+            "value": "1.100",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "2075658553",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x934e3815801b8443493271eb44457c9f028118cffed720e673a575da21265841",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce577e289a40fd075d168c294f201c750139168371d5d2acb30b81a58b15b4fb9294636d219d14dc9af1311f7471911c82bb74976de6c151454f9c3751574d9970681c"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1587970813",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "22",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x09bc71dc35345e4f7423b3eabf72d785b4a7134d0f0bb904be5790a4ad68a0db",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5717f8faa8b84550cd2721292c2461fbb8274d37c44fd73cb2740a1d466b90bfa33911596ccf40c17535d6005798cf83190ced25c97e978ab06b902d1460ce03e41c"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "11000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "447566837",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1100000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x577c01a6efc30bd29b5af655ae8a9288aa50273bd21793608f599f777522f9ab",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce574e8cdc3f1fff0dc779d92df5064c98b53771896ee1e4c39dcf1657514a91543f1faec9ad3721c0b9882dfebf95b907a15b6a722f0a930bac009e59a4bc5a83a21c"
+            }
+          }
+        }
+      ],
+      "removalResponses": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "removed": [
+              "10001"
+            ],
+            "noop": []
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "10001"
+              ]
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "removed": [
+              "10003"
+            ],
+            "noop": []
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "10003"
+              ]
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "removed": [
+              "10002"
+            ],
+            "noop": []
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "10002"
+              ]
+            }
+          }
+        }
+      ],
+      "feedback": [
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Initialized"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "Initialized"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Submitted"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "Submitted"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "Accepted"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Accepted"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "PendingUpdate"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "ModifyRejected"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "PendingCancel"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Canceled"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Initialized"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Submitted"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Accepted"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "PendingCancel"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Canceled"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "PendingCancel"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "Canceled"
+        }
+      ],
+      "targetCallbacks": [
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "submit_order",
+          "price": "0.010",
+          "quantity": "100",
+          "signal": "custom_snapshot"
+        },
+        {
+          "callback": "OrderIntent",
+          "round": 0,
+          "account": {
+            "total": "3.00000000",
+            "free": "3.00000000",
+            "locked": "0.00000000",
+            "block": 1,
+            "open": 0
+          },
+          "price": "0.010"
+        },
+        {
+          "callback": "on_order_accepted"
+        },
+        {
+          "callback": "AccountAtAccepted",
+          "account": {
+            "total": "3.00000000",
+            "free": "1.00000000",
+            "locked": "2.00000000",
+            "block": 1,
+            "open": 2
+          }
+        },
+        {
+          "callback": "modify_order",
+          "requestedPrice": "0.011"
+        },
+        {
+          "callback": "on_order_modify_rejected",
+          "reason": "Predict atomic order modification is unsupported; cancel then replace explicitly",
+          "cachedPrice": "0.010",
+          "cachedQuantity": "100",
+          "cachedStatus": "Accepted"
+        },
+        {
+          "callback": "on_order_canceled"
+        },
+        {
+          "callback": "query_account",
+          "source": "native_strategy_command",
+          "accountBeforeQuery": {
+            "total": "3.00000000",
+            "free": "1.00000000",
+            "locked": "2.00000000",
+            "block": 1,
+            "open": 1
+          }
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "ReplacementDeferred",
+          "account": {
+            "total": "3.00000000",
+            "free": "1.00000000",
+            "locked": "2.00000000",
+            "block": 1,
+            "open": 1
+          },
+          "source": "native_cache"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "ReplacementAccountReady",
+          "account": {
+            "total": "3.00000000",
+            "free": "2.00000000",
+            "locked": "1.00000000",
+            "block": 2,
+            "open": 1
+          },
+          "source": "native_cache"
+        },
+        {
+          "callback": "submit_order",
+          "price": "0.011",
+          "quantity": "100",
+          "signal": "custom_snapshot"
+        },
+        {
+          "callback": "OrderIntent",
+          "round": 1,
+          "account": {
+            "total": "3.00000000",
+            "free": "2.00000000",
+            "locked": "1.00000000",
+            "block": 2,
+            "open": 1
+          },
+          "price": "0.011"
+        },
+        {
+          "callback": "on_order_accepted"
+        },
+        {
+          "callback": "AccountAtAccepted",
+          "account": {
+            "total": "3.00000000",
+            "free": "0.90000000",
+            "locked": "2.10000000",
+            "block": 2,
+            "open": 2
+          }
+        },
+        {
+          "callback": "on_order_canceled"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        }
+      ],
+      "companionCallbacks": [
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "submit_order",
+          "price": "0.010",
+          "quantity": "100",
+          "signal": "custom_snapshot"
+        },
+        {
+          "callback": "on_order_accepted"
+        },
+        {
+          "callback": "AccountAtAccepted",
+          "account": {
+            "total": "3.00000000",
+            "free": "1.00000000",
+            "locked": "2.00000000",
+            "block": 1,
+            "open": 1
+          }
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_order_canceled"
+        }
+      ],
+      "accountTopicFeedback": [
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "3.00000000",
+              "locked": "2.00000000",
+              "free": "1.00000000"
+            }
+          ]
+        },
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "3.00000000",
+              "locked": "2.00000000",
+              "free": "1.00000000"
+            }
+          ]
+        },
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "3.00000000",
+              "locked": "2.00000000",
+              "free": "1.00000000"
+            }
+          ]
+        },
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "3.00000000",
+              "locked": "2.10000000",
+              "free": "0.90000000"
+            }
+          ]
+        },
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "3.00000000",
+              "locked": "2.10000000",
+              "free": "0.90000000"
+            }
+          ]
+        },
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "3.00000000",
+              "locked": "1.00000000",
+              "free": "2.00000000"
+            }
+          ]
+        }
+      ],
+      "checkpoints": [
+        {
+          "phase": "two_reserved",
+          "account": {
+            "total": "3.00000000",
+            "free": "1.00000000",
+            "locked": "2.00000000",
+            "open": 1
+          }
+        },
+        {
+          "phase": "before_replacement",
+          "account": {
+            "total": "3.00000000",
+            "free": "2.00000000",
+            "locked": "1.00000000",
+            "open": 1
+          }
+        },
+        {
+          "phase": "replacement_reserved",
+          "account": {
+            "total": "3.00000000",
+            "free": "0.90000000",
+            "locked": "2.10000000",
+            "open": 1
+          }
+        },
+        {
+          "phase": "companion_preserved",
+          "account": {
+            "total": "3.00000000",
+            "free": "2.00000000",
+            "locked": "1.00000000",
+            "open": 1
+          }
+        },
+        {
+          "phase": "cleanup",
+          "account": {
+            "total": "3.00000000",
+            "free": "3.00000000",
+            "locked": "0.00000000",
+            "open": 0
+          }
+        }
+      ],
+      "bothStrategiesCanceledBeforeStop": true,
+      "finalOpen": 0,
+      "finalInflight": 0,
+      "finalPositions": 0,
+      "finalLocked": "0",
+      "finalCash": "3"
+    },
+    {
+      "source": "synthetic two Rust snapshot strategies + actual product host + Native LiveNode; not mainnet",
+      "case": "native_insufficient_free_balance",
+      "initialCash": "2",
+      "nativeRiskBypassed": false,
+      "signalInput": "custom_snapshot",
+      "books": [
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149400701,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.630",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.640",
+                "1000"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149400710,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.630",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.640",
+                "1000"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149400712,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.631",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.641",
+                "1000"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149400713,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.631",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.641",
+                "1000"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "M",
+          "topic": "predictOrderbook/42",
+          "data": {
+            "marketId": 42,
+            "updateTimestampMs": 1792149400713,
+            "orderCount": 2,
+            "bids": [
+              [
+                "0.632",
+                "1000"
+              ]
+            ],
+            "asks": [
+              [
+                "0.642",
+                "1000"
+              ]
+            ]
+          }
+        }
+      ],
+      "wallet": [
+        {
+          "type": "orderAccepted",
+          "orderId": "10002",
+          "orderHash": "0x021ed8198280a5967f712690f78f822a2d2cafae48e85bb63874b87e39e9230b",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792149400708,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 2,
+            "marketQuestion": "fixture",
+            "outcome": "NO",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "10001",
+          "orderHash": "0xca3a28ae7d6913aa09a6cd977b48ad3c3ab1ba8096fdd056b74210bb2ba493d8",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792149400709,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        },
+        {
+          "type": "orderAccepted",
+          "orderId": "10001",
+          "orderHash": "0xca3a28ae7d6913aa09a6cd977b48ad3c3ab1ba8096fdd056b74210bb2ba493d8",
+          "walletAddress": "0x1111111111111111111111111111111111111111",
+          "timestamp": 1792149400709,
+          "details": {
+            "marketId": 42,
+            "outcomeIndex": 1,
+            "marketQuestion": "fixture",
+            "outcome": "YES",
+            "quoteType": "BID",
+            "quantity": "100",
+            "quantityFilled": "0",
+            "price": "0.01",
+            "value": "1.00",
+            "valueFilled": "0",
+            "strategyType": "LIMIT",
+            "categorySlug": "fixture"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1911019376",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "11",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0xca3a28ae7d6913aa09a6cd977b48ad3c3ab1ba8096fdd056b74210bb2ba493d8",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce5793edc489897c32b7b3cc107fecd0b030ded80f77dbc46491d9451a37127f673928a592079240e2565deacc2d619f84fe22151eda6d36f5deada820055982918f1b"
+            }
+          }
+        },
+        {
+          "data": {
+            "pricePerShare": "10000000000000000",
+            "strategy": "LIMIT",
+            "isPostOnly": true,
+            "order": {
+              "salt": "1305782380",
+              "maker": "0x1111111111111111111111111111111111111111",
+              "signer": "0x1111111111111111111111111111111111111111",
+              "taker": "0x0000000000000000000000000000000000000000",
+              "tokenId": "22",
+              "makerAmount": "1000000000000000000",
+              "takerAmount": "100000000000000000000",
+              "expiration": 4102444800,
+              "nonce": "7",
+              "feeRateBps": "0",
+              "side": 0,
+              "signatureType": 0,
+              "hash": "0x021ed8198280a5967f712690f78f822a2d2cafae48e85bb63874b87e39e9230b",
+              "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57f078faa0187e50f2ebbeae59842fefed4338e6858fd10c68cd411fd7dcedd9fc6b8dcf601e2ede34a2acffc9f5922028bd2cb55f568966c8c8094584e58ad6901b"
+            }
+          }
+        }
+      ],
+      "removalResponses": [
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "removed": [
+              "10001"
+            ],
+            "noop": []
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "10001"
+              ]
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "success": true,
+            "removed": [
+              "10002"
+            ],
+            "noop": []
+          },
+          "request": {
+            "data": {
+              "ids": [
+                "10002"
+              ]
+            }
+          }
+        }
+      ],
+      "feedback": [
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Initialized"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "Initialized"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Submitted"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "Submitted"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "Accepted"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Accepted"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "PendingUpdate"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "ModifyRejected"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "PendingCancel"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Canceled"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Initialized"
+        },
+        {
+          "strategy": "HOST-EXEC-001",
+          "type": "Denied"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "PendingCancel"
+        },
+        {
+          "strategy": "HOST-OTHER-002",
+          "type": "Canceled"
+        }
+      ],
+      "targetCallbacks": [
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "submit_order",
+          "price": "0.010",
+          "quantity": "100",
+          "signal": "custom_snapshot"
+        },
+        {
+          "callback": "OrderIntent",
+          "round": 0,
+          "account": {
+            "total": "2.00000000",
+            "free": "2.00000000",
+            "locked": "0.00000000",
+            "block": 1,
+            "open": 0
+          },
+          "price": "0.010"
+        },
+        {
+          "callback": "on_order_accepted"
+        },
+        {
+          "callback": "AccountAtAccepted",
+          "account": {
+            "total": "2.00000000",
+            "free": "0.00000000",
+            "locked": "2.00000000",
+            "block": 1,
+            "open": 2
+          }
+        },
+        {
+          "callback": "modify_order",
+          "requestedPrice": "0.011"
+        },
+        {
+          "callback": "on_order_modify_rejected",
+          "reason": "NOTIONAL_EXCEEDS_FREE_BALANCE: free=0.00000000 USDT, notional=1.10000000 USDT",
+          "cachedPrice": "0.010",
+          "cachedQuantity": "100",
+          "cachedStatus": "Accepted"
+        },
+        {
+          "callback": "on_order_canceled"
+        },
+        {
+          "callback": "query_account",
+          "source": "native_strategy_command",
+          "accountBeforeQuery": {
+            "total": "2.00000000",
+            "free": "0.00000000",
+            "locked": "2.00000000",
+            "block": 1,
+            "open": 1
+          }
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "ReplacementDeferred",
+          "account": {
+            "total": "2.00000000",
+            "free": "0.00000000",
+            "locked": "2.00000000",
+            "block": 1,
+            "open": 1
+          },
+          "source": "native_cache"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "ReplacementAccountReady",
+          "account": {
+            "total": "2.00000000",
+            "free": "1.00000000",
+            "locked": "1.00000000",
+            "block": 2,
+            "open": 1
+          },
+          "source": "native_cache"
+        },
+        {
+          "callback": "submit_order",
+          "price": "0.011",
+          "quantity": "100",
+          "signal": "custom_snapshot"
+        },
+        {
+          "callback": "OrderIntent",
+          "round": 1,
+          "account": {
+            "total": "2.00000000",
+            "free": "1.00000000",
+            "locked": "1.00000000",
+            "block": 2,
+            "open": 1
+          },
+          "price": "0.011"
+        },
+        {
+          "callback": "on_order_denied",
+          "reason": "NOTIONAL_EXCEEDS_FREE_BALANCE: free=1.00000000 USDT, notional=1.10000000 USDT"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        }
+      ],
+      "companionCallbacks": [
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "submit_order",
+          "price": "0.010",
+          "quantity": "100",
+          "signal": "custom_snapshot"
+        },
+        {
+          "callback": "on_order_accepted"
+        },
+        {
+          "callback": "AccountAtAccepted",
+          "account": {
+            "total": "2.00000000",
+            "free": "0.00000000",
+            "locked": "2.00000000",
+            "block": 1,
+            "open": 1
+          }
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_data",
+          "source": "PredictOrderbookSnapshot"
+        },
+        {
+          "callback": "on_order_canceled"
+        }
+      ],
+      "accountTopicFeedback": [
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000",
+              "locked": "2.00000000",
+              "free": "0.00000000"
+            }
+          ]
+        },
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000",
+              "locked": "2.00000000",
+              "free": "0.00000000"
+            }
+          ]
+        },
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000",
+              "locked": "2.00000000",
+              "free": "0.00000000"
+            }
+          ]
+        },
+        {
+          "balances": [
+            {
+              "currency": "USDT",
+              "total": "2.00000000",
+              "locked": "1.00000000",
+              "free": "1.00000000"
+            }
+          ]
+        }
+      ],
+      "checkpoints": [
+        {
+          "phase": "two_reserved",
+          "account": {
+            "total": "2.00000000",
+            "free": "0.00000000",
+            "locked": "2.00000000",
+            "open": 1
+          }
+        },
+        {
+          "phase": "before_replacement",
+          "account": {
+            "total": "2.00000000",
+            "free": "1.00000000",
+            "locked": "1.00000000",
+            "open": 1
+          }
+        },
+        {
+          "phase": "replacement_denied",
+          "account": {
+            "total": "2.00000000",
+            "free": "1.00000000",
+            "locked": "1.00000000",
+            "open": 1
+          }
+        },
+        {
+          "phase": "companion_preserved",
+          "account": {
+            "total": "2.00000000",
+            "free": "1.00000000",
+            "locked": "1.00000000",
+            "open": 1
+          }
+        },
+        {
+          "phase": "cleanup",
+          "account": {
+            "total": "2.00000000",
+            "free": "2.00000000",
+            "locked": "0.00000000",
+            "open": 0
+          }
+        }
+      ],
+      "bothStrategiesCanceledBeforeStop": true,
+      "finalOpen": 0,
+      "finalInflight": 0,
+      "finalPositions": 0,
+      "finalLocked": "0",
+      "finalCash": "2"
+    }
+  ]
+}

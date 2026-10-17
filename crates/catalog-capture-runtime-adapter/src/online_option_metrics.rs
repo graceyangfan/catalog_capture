@@ -523,22 +523,26 @@ mod tests {
             }],
         });
 
-        assert!(observer
-            .on_quote(&make_quote(
-                "BTC-PERPETUAL.DERIBIT",
-                "62454.0",
-                "62454.5",
-                1
-            ))
-            .is_empty());
-        assert!(observer
-            .on_quote(&make_quote(
-                "BTC-20JUN26-62500-C.DERIBIT",
-                "0.0060",
-                "0.0070",
-                2
-            ))
-            .is_empty());
+        assert!(
+            observer
+                .on_quote(&make_quote(
+                    "BTC-PERPETUAL.DERIBIT",
+                    "62454.0",
+                    "62454.5",
+                    1
+                ))
+                .is_empty()
+        );
+        assert!(
+            observer
+                .on_quote(&make_quote(
+                    "BTC-20JUN26-62500-C.DERIBIT",
+                    "0.0060",
+                    "0.0070",
+                    2
+                ))
+                .is_empty()
+        );
 
         let mut lines = Vec::new();
         lines.extend(observer.on_option_greeks(&make_greeks(

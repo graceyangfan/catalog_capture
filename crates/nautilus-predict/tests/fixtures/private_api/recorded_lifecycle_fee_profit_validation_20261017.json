@@ -1,0 +1,129 @@
+{
+  "source": "previous mainnet recordings validated offline; no newly submitted venue orders",
+  "nativeCommit": "587e1065efde08db19016a8eab921c1605d5d2a4",
+  "nativeWorktreeUnchanged": true,
+  "primary": {
+    "path": "crates/nautilus-predict/tests/fixtures/private_api/live_fill_20261016T123240Z_independent/calibration.json",
+    "sha256": "eb6e342a831c183ec7d0b8d0b9c172212053857d9b7908c500b509bdc0dc18b5"
+  },
+  "capture": {
+    "path": "crates/nautilus-predict/tests/fixtures/private_api/recorded_lifecycle_fee_profit_audit_20261017.json",
+    "sha256": "4c653104d61a477cf4fa635a0dd447a15f71f59e26a2abf4099d002184f21167"
+  },
+  "validation": [
+    {
+      "label": "experimental",
+      "path": "/tmp/recorded-lifecycle-experimental-complete.log",
+      "sha256": "6290b6e6a955db30860bd639f0fc8331c6177edb2262512c0e044d9f85e2d583",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 3.01s",
+        "test result: ok. 50 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 192 passed; 0 failed; 60 ignored; 0 measured; 0 filtered out; finished in 19.79s"
+      ]
+    },
+    {
+      "label": "default",
+      "path": "/tmp/recorded-lifecycle-default-complete.log",
+      "sha256": "09e25f9ebeb21354a4f1b29e6d03a75c05c3aba6613c59e590c9db43e0782381",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 2.94s",
+        "test result: ok. 49 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+        "test result: ok. 183 passed; 0 failed; 54 ignored; 0 measured; 0 filtered out; finished in 20.00s"
+      ]
+    },
+    {
+      "label": "capture",
+      "path": "/tmp/recorded-lifecycle-capture.log",
+      "sha256": "38fcb80e5ef4d364d459104813834020a1548ebe1d3537dc72be95c4b2d9febd",
+      "results": [
+        "    Finished `test` profile [unoptimized] target(s) in 3.34s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 251 filtered out; finished in 0.53s"
+      ]
+    },
+    {
+      "label": "sdk",
+      "path": "/tmp/recorded-lifecycle-sdk.log",
+      "sha256": "ba454ad94fcb6ee21c0125fb029ae755aa2c38b5f8a06316fc3a6572072eb52f",
+      "results": [
+        "Ran 8 tests in 0.038s",
+        "OK"
+      ]
+    },
+    {
+      "label": "clippy",
+      "path": "/tmp/recorded-lifecycle-clippy.log",
+      "sha256": "5ede679e79e7fadc762f9f156b9ba6483b55d9134c1a0887feb7c47657639c87",
+      "results": [
+        "    Finished `dev` profile [unoptimized] target(s) in 2.28s"
+      ]
+    },
+    {
+      "label": "cli",
+      "path": "/tmp/recorded-lifecycle-cli.log",
+      "sha256": "8a012517324abd51745cddc6ebed73074f9c5000ff8afabd205012885eeb27a6",
+      "results": [
+        "    Finished `dev` profile [unoptimized] target(s) in 0.39s"
+      ]
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "crates/nautilus-predict/tests/support/exit_strategy.rs",
+      "sha256": "f4645e5dcde1ba5f12a5c56c707c63e7ca9173170bf956459049c11bfde4b70f"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/recorded_startup.rs",
+      "sha256": "3d3be4dbe6a643a9bfb7744707c16d3aed83d4d46e6d3b938fe48347f570fdd0"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/exit_orders.rs",
+      "sha256": "706497c8a94b3f1309d0591e1e608e72b02f8b7439c504baf973dcf920d271b9"
+    },
+    {
+      "path": "crates/nautilus-predict/tests/execution/bulk_reports.rs",
+      "sha256": "7156bf21a429cdd99fedc614838f33f98bda134d0305e874446cbd95db777534"
+    },
+    {
+      "path": "examples/predict-exit-strategy.toml.example",
+      "sha256": "5e3a6ba99a36cd71a3037a7d33c84a874acf5448694ce635c2cc373172d996f0"
+    }
+  ],
+  "realRecordedFacts": {
+    "matchedRestChainComparisons": 6,
+    "walletCurrentSuccesses": 2,
+    "buyGross": "32",
+    "inventoryFee": "0.64",
+    "netInventory": "31.36",
+    "sellQuoteFee": "0.02446080",
+    "cashPnl": "-0.08142080",
+    "nativeQuoteRealizedPnl": "-0.05582080",
+    "rawMinusNativeCash": "0.000000000000000001"
+  },
+  "strategyChanges": [
+    "entry deadline applies only before entry; removed hardcoded60s forced holding exit",
+    "post-only maker take profit uses entry average plus delta with net cash break-even floor",
+    "actual entry share fee reflected in net inventory; maker exit fee0; taker stop estimates SELL fee separately",
+    "existing maker cancellation barrier and taker stop retained"
+  ],
+  "syntheticProfitControl": {
+    "expiredEntryDeadline": true,
+    "forcedTimeExit": false,
+    "finalCash": "1000.54800000",
+    "nativeOpenPositions": 0,
+    "notActualProfitEvidence": true
+  },
+  "limits": [
+    "legacy mainnet host/supervisor still time-bounded and must be replaced before waiting indefinitely",
+    "legacy live PnL comparator must separate Native quote PnL and cash PnL",
+    "public FillReport literal migration and bindings not audited by full adapter compilation",
+    "old recordings may not establish current venue behavior; next live preflight and approval required"
+  ],
+  "officialSources": [
+    "https://docs.predict.fun/the-basics/predict-fees-and-limits",
+    "https://github.com/PredictDotFun/sdk"
+  ],
+  "liveOrders": 0,
+  "privateReads": 0,
+  "redisOperations": 0,
+  "recordingLogicUnchanged": true
+}

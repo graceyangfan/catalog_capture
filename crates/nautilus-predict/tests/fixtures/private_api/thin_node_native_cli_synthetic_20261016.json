@@ -1,0 +1,186 @@
+{
+  "source": "synthetic CLI child, loopback only; no operator files/env or real accounts used",
+  "command": [
+    "catalog-capture-cli",
+    "predict-node",
+    "--config",
+    "node.toml"
+  ],
+  "environmentIsolated": true,
+  "nativeSigintShutdown": true,
+  "exitSuccess": true,
+  "quotesObserved": [
+    "42-1.PREDICT",
+    "42-2.PREDICT"
+  ],
+  "marketDefinition": {
+    "success": true,
+    "data": {
+      "id": 42,
+      "title": "Bitcoin Up or Down - October 16, 4:55AM-5:00AM ET",
+      "tradingStatus": "OPEN",
+      "status": "OPEN",
+      "createdAt": "2026-10-03T22:00:00.000Z",
+      "decimalPrecision": 3,
+      "variantData": {
+        "type": "CRYPTO_UP_DOWN",
+        "priceFeedSymbol": "BTCUSDT"
+      },
+      "outcomes": [
+        {
+          "name": "Up",
+          "indexSet": 1,
+          "onChainId": "11",
+          "status": "WON"
+        },
+        {
+          "name": "Down",
+          "indexSet": 2,
+          "onChainId": "22",
+          "status": "LOST"
+        }
+      ],
+      "feeRateBps": 0,
+      "isNegRisk": false,
+      "isYieldBearing": false
+    }
+  },
+  "discoveryAndAuth": [
+    {
+      "kind": "category",
+      "slug": "btc-updown-5m-1792140900"
+    },
+    {
+      "kind": "category",
+      "slug": "btc-updown-5m-1792141200"
+    },
+    {
+      "kind": "challenge",
+      "body": {
+        "success": true,
+        "data": {
+          "message": "offline Predict node authentication challenge"
+        }
+      }
+    },
+    {
+      "kind": "authenticate",
+      "request": {
+        "signer": "0x1111111111111111111111111111111111111111",
+        "message": "offline Predict node authentication challenge",
+        "signature": "0x01845adb2c711129d4f3966735ed98a9f09fc4ce57f4fc5ccc8b20db917eb3015a57fdb4c0658c074d89edd4eca6709f4d624749c80eeded39868060b22fe0f47c0587e888a252745f6d0b5c869b73f455119de44a1c"
+      }
+    },
+    {
+      "kind": "market",
+      "body": {
+        "success": true,
+        "data": {
+          "id": 42,
+          "title": "Bitcoin Up or Down - October 16, 4:55AM-5:00AM ET",
+          "tradingStatus": "OPEN",
+          "status": "OPEN",
+          "createdAt": "2026-10-03T22:00:00.000Z",
+          "decimalPrecision": 3,
+          "variantData": {
+            "type": "CRYPTO_UP_DOWN",
+            "priceFeedSymbol": "BTCUSDT"
+          },
+          "outcomes": [
+            {
+              "name": "Up",
+              "indexSet": 1,
+              "onChainId": "11",
+              "status": "WON"
+            },
+            {
+              "name": "Down",
+              "indexSet": 2,
+              "onChainId": "22",
+              "status": "LOST"
+            }
+          ],
+          "feeRateBps": 0,
+          "isNegRisk": false,
+          "isYieldBearing": false
+        }
+      }
+    }
+  ],
+  "book": {
+    "type": "M",
+    "topic": "predictOrderbook/42",
+    "data": {
+      "marketId": 42,
+      "updateTimestampMs": 1792141044084,
+      "orderCount": 2,
+      "bids": [
+        [
+          "0.630",
+          "1000"
+        ]
+      ],
+      "asks": [
+        [
+          "0.640",
+          "1000"
+        ]
+      ]
+    }
+  },
+  "startupOrderReports": [
+    {
+      "query": {
+        "first": "100",
+        "status": "OPEN"
+      },
+      "response": {
+        "success": true,
+        "cursor": null,
+        "data": []
+      }
+    },
+    {
+      "query": {
+        "first": "100"
+      },
+      "response": {
+        "success": true,
+        "cursor": null,
+        "data": []
+      }
+    },
+    {
+      "query": {
+        "first": "100",
+        "status": "OPEN"
+      },
+      "response": {
+        "success": true,
+        "cursor": null,
+        "data": []
+      }
+    }
+  ],
+  "positionReports": [
+    {
+      "success": true,
+      "cursor": null,
+      "data": []
+    }
+  ],
+  "rpcMethods": [
+    "eth_chainId",
+    "eth_getBlockByNumber",
+    "eth_call",
+    "eth_call",
+    "eth_getBlockByNumber",
+    "eth_chainId",
+    "eth_getBlockByNumber",
+    "eth_call",
+    "eth_call",
+    "eth_getBlockByNumber"
+  ],
+  "orderPosts": 0,
+  "removalPosts": 0
+}

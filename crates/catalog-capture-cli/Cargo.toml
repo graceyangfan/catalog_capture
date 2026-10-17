@@ -28,6 +28,8 @@ venue-hyperliquid = ["dep:nautilus-hyperliquid"]
 venue-lighter = ["dep:nautilus-lighter"]
 venue-extended = ["dep:nautilus-extended"]
 venue-predict = ["dep:nautilus-predict"]
+# Independent execution host; capture-only feature graph stays unchanged.
+predict-execution = ["venue-predict", "nautilus-predict/execution"]
 
 [dependencies]
 anyhow.workspace = true
@@ -42,7 +44,10 @@ nautilus-hyperliquid = { workspace = true, optional = true }
 nautilus-lighter = { workspace = true, optional = true }
 nautilus-extended = { workspace = true, optional = true }
 nautilus-okx = { workspace = true, optional = true }
-nautilus-predict = { workspace = true, optional = true }
+nautilus-predict = { workspace = true, optional = true, features = [
+  "live",
+  "high-precision",
+] }
 nautilus-common.workspace = true
 nautilus-core.workspace = true
 nautilus-live.workspace = true
