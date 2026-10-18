@@ -30,6 +30,9 @@ pub(crate) mod parse;
 #[cfg(feature = "execution")]
 pub(crate) mod serde;
 
+#[cfg(feature = "live")]
+pub(crate) use crypto_up_down::normalize_price_feed_symbol;
+
 use std::sync::LazyLock;
 
 use nautilus_core::Params;

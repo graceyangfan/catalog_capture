@@ -50,42 +50,42 @@ environment = "live"
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
-price_feed_symbol = "BTC/USDT"
+price_feed_symbol = "BTCUSDT"
 title_asset = "Bitcoin"
 interval_secs = "300"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
-price_feed_symbol = "BTC/USDT"
+price_feed_symbol = "BTCUSDT"
 title_asset = "Bitcoin"
 interval_secs = "900"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
-price_feed_symbol = "ETH/USDT"
+price_feed_symbol = "ETHUSDT"
 title_asset = "Ethereum"
 interval_secs = "300"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
-price_feed_symbol = "ETH/USDT"
+price_feed_symbol = "ETHUSDT"
 title_asset = "Ethereum"
 interval_secs = "900"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
-price_feed_symbol = "BNB/USDT"
+price_feed_symbol = "BNBUSDT"
 title_asset = "BNB"
 interval_secs = "300"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
-price_feed_symbol = "BNB/USDT"
+price_feed_symbol = "BNBUSDT"
 title_asset = "BNB"
 interval_secs = "900"
 

@@ -75,7 +75,7 @@ Use `PredictCryptoUpDown` when the operator knows a product, not a transient
 market ID. The full selector identity is:
 
 ```text
-price_feed_symbol  exact `variantData.priceFeedSymbol` match
+price_feed_symbol  canonical feed, e.g. `BTCUSDT`; legacy `BTC/USDT` is equivalent
 title_asset        exact title prefix, for example `Bitcoin`
 interval_secs      title-derived interval, for example `300`
 ```
@@ -85,6 +85,18 @@ operator must configure only a product currently advertised by Predict. The
 client discovers the current/next deterministic category first and uses bounded
 search only as a fallback. A selector with no live matching market is a
 configuration/data-availability error; it must not be treated as an empty book.
+
+Use uppercase, separator-free feed symbols in new capture and strategy configs.
+The Predict adapter normalizes legacy case/separator aliases and uses the same
+canonical feed for discovery, matching, and routing. Category discovery derives
+the base from the recognized quote suffixes `USDT`, `USDC`, and `USD`; unrecognized
+quotes use bounded search rather than guessing a category. Quote identities stay
+distinct: `BTCUSD` does not match `BTCUSDT`.
+
+A Predict feed is a discovery selector, not a tradable instrument or a guarantee
+that Binance Spot supplies its settlement price. Configure Binance separately
+with its native Nautilus instrument ID, e.g. `BTCUSDT.BINANCE`. Predict's discovered
+outcomes retain their market/outcome IDs, e.g. `<market_id>-1.PREDICT`.
 
 For simultaneous products, the complete selector key—not interval alone—owns
 the subscription, writer, and rollover state. BTC 5m and ETH 5m therefore have
@@ -125,8 +137,8 @@ purge.
 Normal shutdown seals all active selector writers, including a partially filled
 interval, so there are no live `.part` files after a graceful stop.
 
-For six-product validation, configure BTC/USDT (`Bitcoin`), ETH/USDT (`Ethereum`)
-and BNB/USDT (`BNB`), each with `300` and `900` seconds. A completed recording
+For six-product validation, configure BTCUSDT (`Bitcoin`), ETHUSDT (`Ethereum`)
+and BNBUSDT (`BNB`), each with `300` and `900` seconds. A completed recording
 across one common 15-minute boundary can be checked with the native catalog:
 
 ```bash
@@ -150,7 +162,7 @@ kind = "predict"
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
-price_feed_symbol = "BTC/USDT"
+price_feed_symbol = "BTCUSDT"
 title_asset = "Bitcoin"
 interval_secs = "300"
 ```

@@ -35,7 +35,8 @@ use tokio_util::sync::CancellationToken;
 use super::{instruments::PredictDynamicMarketRegistry, runtime::PredictCommand};
 use crate::{
     PredictCryptoUpDownSelector, PredictDataClientConfig, PredictHttpClient,
-    PredictInstrumentProvider, PredictMarketContext, predict_orderbook_data_type,
+    PredictInstrumentProvider, PredictMarketContext, common::normalize_price_feed_symbol,
+    predict_orderbook_data_type,
 };
 
 /// Nautilus data client which publishes Predict instruments and complete orderbook snapshots.
@@ -191,7 +192,7 @@ impl PredictDataClient {
             "PredictCryptoUpDown metadata.interval_secs must be positive"
         );
         Ok(PredictCryptoUpDownSelector {
-            price_feed_symbol: string("price_feed_symbol")?,
+            price_feed_symbol: normalize_price_feed_symbol(&string("price_feed_symbol")?),
             title_asset: string("title_asset")?,
             interval_secs,
         })
@@ -211,5 +212,30 @@ impl PredictDataClient {
             .with_context(|| format!("Predict instrument {instrument_id} is not loaded"))?;
         self.data_sender.send(DataEvent::Instrument(instrument))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nautilus_core::Params;
+
+    #[test]
+    fn control_feed_aliases_enter_the_session_as_one_canonical_feed() {
+        for feed in ["BTCUSDT", "BTC/USDT", " btc/usdt "] {
+            let mut metadata = Params::new();
+            metadata.insert("price_feed_symbol".into(), feed.into());
+            metadata.insert("title_asset".into(), "Bitcoin".into());
+            metadata.insert("interval_secs".into(), "300".into());
+            let selector = PredictDataClient::dynamic_selector(&DataType::new(
+                "PredictCryptoUpDown",
+                Some(metadata),
+                None,
+            ))
+            .unwrap();
+            assert_eq!(selector.price_feed_symbol, "BTCUSDT");
+            assert_eq!(selector.title_asset, "Bitcoin");
+            assert_eq!(selector.interval_secs, 300);
+        }
     }
 }

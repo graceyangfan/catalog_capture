@@ -255,11 +255,10 @@ pub fn resolve_crypto_up_down_market(
     Ok(window)
 }
 
-/// Predict has returned equivalent feed symbols both with and without a
-/// separator (for example `BTC/USDT` in operator config and `BTCUSDT` in the
-/// live `variantData` response). Preserve the quote asset distinction while
-/// normalizing only harmless separators and case.
-fn normalize_price_feed_symbol(value: &str) -> String {
+/// Canonicalizes operator and venue feed symbols to the venue-style `BTCUSDT`.
+/// Legacy `BTC/USDT` configuration remains equivalent. Preserve quote asset
+/// distinctions while normalizing separator and case aliases.
+pub(crate) fn normalize_price_feed_symbol(value: &str) -> String {
     value
         .chars()
         .filter(|character| character.is_ascii_alphanumeric())
@@ -299,8 +298,8 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::{
-        CryptoUpDownMarketCandidate, CryptoUpDownMarketSelector, parse_crypto_up_down_title,
-        resolve_crypto_up_down_market,
+        CryptoUpDownMarketCandidate, CryptoUpDownMarketSelector, CryptoUpDownSelectorKey,
+        parse_crypto_up_down_title, resolve_crypto_up_down_market,
     };
 
     fn five_minute_selector() -> CryptoUpDownMarketSelector {
@@ -405,6 +404,20 @@ mod tests {
             title_year: 2026,
         };
         resolve_crypto_up_down_market(candidate, &selector).expect("live Predict shape matches");
+        for feed in ["BTCUSD", "BTC/USD", "BTCUSDC", "BTC/USDC"] {
+            let other = CryptoUpDownMarketSelector {
+                price_feed_symbol: feed.into(),
+                ..selector.clone()
+            };
+            assert!(
+                resolve_crypto_up_down_market(candidate, &other).is_err(),
+                "must not match another quote: {feed}"
+            );
+            assert_ne!(
+                CryptoUpDownSelectorKey::new(feed, "Bitcoin", 300).unwrap(),
+                CryptoUpDownSelectorKey::new("BTCUSDT", "Bitcoin", 300).unwrap()
+            );
+        }
     }
 
     #[test]

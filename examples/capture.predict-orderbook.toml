@@ -39,6 +39,6 @@ type_name = "PredictCryptoUpDown"
 [capture.custom_data.metadata]
 # Exact official variantData.priceFeedSymbol; change only after observing it
 # in the official market response for the desired product.
-price_feed_symbol = "BTC/USDT"
+price_feed_symbol = "BTCUSDT"
 title_asset = "Bitcoin"
 interval_secs = "300"

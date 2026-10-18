@@ -11,7 +11,7 @@ rpc_url = "https://bsc-dataseed.bnbchain.org"
 orderbook_removal_enabled = false
 
 [discovery]
-price_feed_symbol = "BTC/USDT"
+price_feed_symbol = "BTCUSDT"
 title_asset = "Bitcoin"
 interval_secs = 300
 

@@ -167,7 +167,7 @@ fn example_predict_six_selector_cloud_config_loads_and_validates() {
                 .to_string(),
         ));
     }
-    for symbol in ["BTC/USDT", "ETH/USDT", "BNB/USDT"] {
+    for symbol in ["BTCUSDT", "ETHUSDT", "BNBUSDT"] {
         for interval in ["300", "900"] {
             assert!(selectors.contains(&(symbol.into(), interval.into())));
         }

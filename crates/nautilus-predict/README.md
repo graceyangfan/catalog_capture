@@ -39,6 +39,12 @@ keep their existing contract. Strategies can use `PredictOrderbookSnapshot`
 directly for signals; explicit Native quote subscriptions support framework
 valuation and risk without republishing custom data from a strategy.
 
+Rolling selectors use canonical feeds such as `BTCUSDT`; legacy `BTC/USDT`
+and case aliases enter the same discovery and routing path. Recognized quote
+suffixes `USDT`, `USDC`, and `USD` enable deterministic category discovery;
+other quotes retain bounded search. A feed selector is independent of Binance's
+`BTCUSDT.BINANCE` instrument and Predict's discovered market/outcome instruments.
+
 REST cancellation is orderbook removal, not on-chain signature invalidation. The
 SDK on-chain cancellation operation is not automatically sent by this adapter.
 

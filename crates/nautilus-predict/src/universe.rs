@@ -14,7 +14,7 @@ use chrono::{Datelike, Utc};
 use crate::{
     common::{
         CryptoUpDownMarketCandidate, CryptoUpDownMarketSelector, CryptoUpDownMarketWindow,
-        resolve_crypto_up_down_market,
+        normalize_price_feed_symbol, resolve_crypto_up_down_market,
     },
     http::{PredictHttpClient, models::PredictMarket},
 };
@@ -108,11 +108,15 @@ pub async fn discover_crypto_up_down_market(
 }
 
 fn crypto_category_slugs(selector: &PredictCryptoUpDownSelector, now_ns: u64) -> Vec<String> {
-    let Some(symbol) = selector
-        .price_feed_symbol
-        .split_once('/')
-        .map(|(base, _)| base.trim().to_ascii_lowercase())
-        .filter(|base| !base.is_empty() && base.chars().all(|c| c.is_ascii_alphanumeric()))
+    // Discovery and routing must agree for canonical and separator-alias feeds.
+    // Only recognized quote suffixes support category derivation; other feeds
+    // retain the bounded search fallback instead of guessing a base symbol.
+    let feed = normalize_price_feed_symbol(&selector.price_feed_symbol);
+    let Some(symbol) = ["USDT", "USDC", "USD"]
+        .into_iter()
+        .find_map(|quote| feed.strip_suffix(quote))
+        .filter(|base| !base.is_empty())
+        .map(str::to_ascii_lowercase)
     else {
         return Vec::new();
     };
@@ -275,6 +279,65 @@ mod tests {
                 "btc-updown-5m-1800000300".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn canonical_and_legacy_feeds_use_identical_category_discovery() {
+        for (base, quote, interval, slug_interval) in [
+            ("BTC", "USDT", 300, "5m"),
+            ("ETH", "USDT", 900, "15m"),
+            ("BNB", "USDT", 300, "5m"),
+            ("BTC", "USD", 300, "5m"),
+            ("BTC", "USDC", 300, "5m"),
+        ] {
+            let now = 1_800_000_000_000_000_000;
+            let expected = vec![
+                format!(
+                    "{}-updown-{slug_interval}-1800000000",
+                    base.to_ascii_lowercase()
+                ),
+                format!(
+                    "{}-updown-{slug_interval}-{}",
+                    base.to_ascii_lowercase(),
+                    1_800_000_000 + interval
+                ),
+            ];
+            for feed in [
+                format!("{base}{quote}"),
+                format!("{base}/{quote}"),
+                format!(
+                    " {}/{} ",
+                    base.to_ascii_lowercase(),
+                    quote.to_ascii_lowercase()
+                ),
+            ] {
+                let selector = super::PredictCryptoUpDownSelector {
+                    price_feed_symbol: feed.clone(),
+                    title_asset: base.into(),
+                    interval_secs: interval,
+                };
+                assert_eq!(
+                    crypto_category_slugs(&selector, now),
+                    expected,
+                    "feed={feed}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn unknown_feed_quote_uses_search_without_guessing_category() {
+        for feed in ["USDT", "BTCXYZ", "BTC/XYZ", "BTCUSDT.BINANCE"] {
+            let selector = super::PredictCryptoUpDownSelector {
+                price_feed_symbol: feed.into(),
+                title_asset: "Bitcoin".into(),
+                interval_secs: 300,
+            };
+            assert!(
+                crypto_category_slugs(&selector, 1_800_000_000_000_000_000).is_empty(),
+                "feed={feed}"
+            );
+        }
     }
 
     #[test]
