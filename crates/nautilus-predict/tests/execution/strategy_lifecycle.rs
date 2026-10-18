@@ -1703,12 +1703,6 @@ async fn run(case: Case, from_saved: bool) -> Value {
                 positions[0].realized_pnl.unwrap().as_decimal(),
                 final_cash - Decimal::from(1000)
                     + Decimal::from(case.passive_holding()) * Decimal::new(1, 2)
-                    + if cfg!(feature = "native-quantity-commission") && case.share_entry() {
-                        // 4 inventory units at the common entry price of 0.01.
-                        Decimal::new(4, 2)
-                    } else {
-                        Decimal::ZERO
-                    }
             );
         }
     } else {

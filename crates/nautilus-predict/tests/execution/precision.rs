@@ -89,12 +89,8 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
             .unwrap()
         };
         let expected_cash = money("reported_balance_usdt");
-        // Raw inventory fees remain separate from quote realized PnL, matching base commission.
-        let expected_pnl = if cfg!(feature = "native-quantity-commission") {
-            Money::zero(Currency::USDT())
-        } else {
-            money("realized_pnl_usdt")
-        };
+        // Both fee paths include incurred inventory cost in quote realized PnL.
+        let expected_pnl = money("realized_pnl_usdt");
         let one = wallet_fill(outcome, first, "precision-1");
         let two = wallet_fill(outcome, second, "precision-2");
         for (index, event) in [&one, &two].into_iter().enumerate() {

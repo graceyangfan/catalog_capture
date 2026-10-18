@@ -861,17 +861,11 @@ async fn run_lifecycle(
     let cache = live.kernel().cache.borrow();
     assert_eq!(
         cache.positions(None, None, None, None, None)[0].realized_pnl,
-        Some(if recovery == RecoveryCheck::Purge {
-            Money::from(if cfg!(feature = "native-quantity-commission") {
-                "0.06711040 USDT"
-            } else {
-                "0.04151040 USDT"
-            })
-        } else if cfg!(feature = "native-quantity-commission") {
-            Money::zero(Currency::USDT())
+        Some(Money::from(if recovery == RecoveryCheck::Purge {
+            "0.04151040 USDT"
         } else {
-            Money::from("-0.0256 USDT")
-        })
+            "-0.0256 USDT"
+        }))
     );
     json!({"source":"offline Native cold-start with actual signed order economics and confirmed match/chain transfer; derived time slice, not actual nonempty REST snapshot","olderSyntheticClosedCycle":older_cycle,"history":*private.state.match_snapshot.lock().unwrap(),"claimed":claim,"holdingOnly":holding_only,"transforms":["market/token/wallet rebind and pure SDK-compatible hash recalculation","TP CANCELLED snapshot replayed at earlier Accepted point as OPEN","position shape derived from confirmed net ERC1155 receipt; display value/cost fields unused zero placeholders","historical fill shifted to 120s before startup"],"primaryOrderSource":"cold_start_readonly_20261016T133220Z.json","buy":buy,"takeProfit":tp,"confirmedMatch":confirmed,"position":position(),"nativeFeedback":*journal.borrow(),"repeated":replayed,"initialCacheOrders":0,"initialCachePositions":0,"initialCacheInstruments":0,"finalNetShares":if recovery == RecoveryCheck::Purge { "0" } else { "31.36" },"orderWrites":usize::from(recover_and_cancel),"finalRealizedPnl":cache.positions(None, None, None, None, None)[0].realized_pnl.map(|p|p.to_string()),"finalAccount":cache.account(&account_id()).unwrap().last_event()})
 }

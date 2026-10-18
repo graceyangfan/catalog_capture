@@ -721,13 +721,17 @@ pub(super) async fn run_replay_variant(
                 );
                 assert_eq!(
                     positions[0].realized_pnl.unwrap(),
-                    Money::zero(Currency::USDT())
+                    Money::from_decimal(
+                        -positions[0].quantity_commission_cost.unwrap(),
+                        Currency::USDT()
+                    )
+                    .unwrap()
                 );
                 assert!(
                     positions[0]
                         .adjustments
                         .iter()
-                        .all(|a| a.pnl_change.is_none())
+                        .all(|a| a.pnl_change.is_some())
                 );
             } else {
                 assert_eq!(positions[0].realized_pnl.unwrap(), -fee_value);
@@ -792,7 +796,7 @@ pub(super) async fn run_replay_variant(
         // Characterize a real Native boundary, rather than claiming net quantity alone proves PnL.
         assert_eq!(
             (basis_with_fees - cash_debit).abs() > Decimal::new(1, 8),
-            quantity_mode || interleaved
+            !quantity_mode && interleaved
         );
         // A native Position-only close probe, separate from the LiveNode replay.
         // No order is submitted: measure how this basis would affect realized PnL.
@@ -824,7 +828,7 @@ pub(super) async fn run_replay_variant(
         let native_pnl = closed.realized_pnl.unwrap().as_decimal();
         assert_eq!(
             (native_pnl - expected_pnl).abs() > Decimal::new(1, 8),
-            quantity_mode || interleaved
+            !quantity_mode && interleaved
         );
         json!({"source":"synthetic different-price partial-fill Rust Strategy + LiveNode replay; not actual venue fills",
             "outcome":outcome,"submittedQuantity":quantity,"grossFilled":gross,"netPosition":net.to_string(),
@@ -834,7 +838,7 @@ pub(super) async fn run_replay_variant(
             "interleavedFeeCorrection":interleaved,"positionAverage":position_average.to_string(),
             "positionBasisPlusCommission":basis_with_fees.to_string(),
             "basisResidualUSDT":(basis_with_fees-cash_debit).to_string(),
-            "pnlConvention":if quantity_mode {"Native base commission: inventory fee is separate from quote realized"} else {"legacy quote-fee path"},
+            "pnlConvention":if quantity_mode {"Native cumulative inventory cost is included in quote realized"} else {"legacy quote-fee path"},
             "basisMatchesCash":(basis_with_fees-cash_debit).abs() <= Decimal::new(1,8),
             "positionOnlyExitProbe":{"source":"offline cloned Native Position close; not a strategy or venue SELL",
                 "sellPrice":"0.010","sellFee":"0","expectedCashPnL":expected_pnl.to_string(),
@@ -882,7 +886,7 @@ async fn rust_strategy_livenode_different_price_partial_share_fees_preserve_gros
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rust_strategy_livenode_characterizes_interleaved_share_fee_cost_basis_gap() {
+async fn rust_strategy_livenode_interleaved_share_fees_reconcile_cost_basis() {
     run_replay_variant(Phase::Fill, 1, true, Some(32), true, true, true).await;
 }
 

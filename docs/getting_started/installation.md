@@ -28,7 +28,7 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `587e1065efde08db19016a8eab921c1605d5d2a4` |
+| 0.1.x / main | `d44218eed670bf436877a0d35b7db61a4de5f6ea` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
 The workspace uses a pinned project fork. `native-quantity-commission` enables

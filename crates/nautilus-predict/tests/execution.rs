@@ -10,6 +10,10 @@
 #[path = "execution/quantity_commission.rs"]
 mod quantity_commission;
 
+#[cfg(feature = "native-quantity-commission")]
+#[path = "execution/quantity_fee_cost.rs"]
+mod quantity_fee_cost;
+
 #[path = "support/fill_session.rs"]
 mod fill_session;
 

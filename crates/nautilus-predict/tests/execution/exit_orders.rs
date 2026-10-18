@@ -816,15 +816,11 @@ pub(super) async fn run_exit_case(
         assert!(positions[0].is_closed());
         assert_eq!(
             positions[0].realized_pnl.unwrap().as_decimal(),
-            // The same 4-share entry fee is not charged again to quote realized PnL.
+            // Entry inventory cost and the actual exit commission are each included once.
             if profit || full_race {
                 Decimal::new(548, 3)
             } else {
                 Decimal::new(-226, 3)
-            } + if cfg!(feature = "native-quantity-commission") {
-                Decimal::new(4, 2)
-            } else {
-                Decimal::ZERO
             }
         );
     }

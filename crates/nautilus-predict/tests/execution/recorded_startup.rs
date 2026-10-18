@@ -758,13 +758,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         .rev()
         .find(|r| r["type"] == "NativePositionApplied" && r["quantity"] == "0")
         .unwrap();
-    let expected_pnl = if cfg!(feature = "native-quantity-commission") {
-        if partial_entry {
-            "-0.03931866 USDT"
-        } else {
-            "-0.05582080 USDT"
-        }
-    } else if partial_entry {
+    let expected_pnl = if partial_entry {
         "-0.06442080 USDT"
     } else {
         "-0.08142080 USDT"
@@ -835,7 +829,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         result["quantityCommissionPrototype"] = json!(true);
         result["cycleRealizedPnl"] = json!(expected_pnl);
         result["pnlConvention"] = json!(
-            "Native base commission: inventory fee is separate from quote realized; cash PnL is reported independently"
+            "Native inventory cost and quote fees are included in realized PnL; cash flow is independently verified"
         );
         result["periodicPositionChecks"] = Value::Null;
         let currency_fees = native
@@ -852,7 +846,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         result["feeSummaries"] = json!(cache.positions(None,None,None,None,None).iter().map(|p| {
             let totals = p.quantity_commission_total.unwrap();
             json!({"fees":totals,"quantityResidual":super::native_fee_paths::inventory_fee_residual(totals, p.size_precision),
-                "realizedPnl":p.realized_pnl})
+                "realizedPnl":p.realized_pnl,"inventoryCost":p.quantity_commission_cost.unwrap().to_string()})
         }).collect::<Vec<_>>());
     }
     if partial_entry {
@@ -1016,7 +1010,7 @@ fn recorded_settlement_truth() -> Value {
         "cashBefore":before.to_string(),"cashAfter":after.to_string(),"cashPnl":cash.to_string(),
         "buyGross":"32","buySharesFee":"0.64","buyNet":"31.36","buyPrice":"0.04",
         "sellGross":"31.36","sellPrice":"0.039","sellCollateralFee":"0.02446080",
-        "nativeQuoteRealizedPnl":"-0.05582080 USDT","inventoryFeeCostDiagnosticOnly":"0.0256"})
+        "nativeQuoteRealizedPnl":"-0.08142080 USDT","inventoryCostWrittenOff":"0.0256"})
 }
 
 #[cfg(feature = "native-quantity-commission")]
@@ -1054,6 +1048,21 @@ async fn recorded_lifecycle_audit() -> Value {
     assert_eq!(
         host_cash,
         Decimal::from_str_exact(truth["cashPnl"].as_str().unwrap()).unwrap()
+    );
+    // With this single-price BUY the removed inventory basis is fee * entry price.
+    // Do not generalize that conversion to mixed-price accumulation.
+    let position_pnl = actual["feeSummaries"][0]["realizedPnl"]
+        .as_str()
+        .unwrap()
+        .parse::<Money>()
+        .unwrap();
+    let removed_basis = buy.quantity_commission.unwrap() * buy.last_px.as_decimal();
+    assert_eq!(removed_basis, Decimal::new(256, 4));
+    assert_eq!(position_pnl.as_decimal(), host_cash);
+    assert_eq!(
+        Decimal::from_str_exact(actual["feeSummaries"][0]["inventoryCost"].as_str().unwrap())
+            .unwrap(),
+        removed_basis
     );
     let settled = super::fill_session::SessionObservation {
         entry_closed: buy.last_qty.as_decimal() == Decimal::from(32),
@@ -1098,6 +1107,8 @@ async fn recorded_lifecycle_audit() -> Value {
         "mainnetWrites":0,"privateReads":0,"recordedTruth":truth,"recordedLifecycle":actual,
         "rawMinusNativeCash":(raw_cash-native_cash).to_string(),
         "hostCashFlowUSDT":host_cash.to_string(),
+        "pnlComparison":{"nativeQuoteRealized":position_pnl,"cashProfit":host_cash.to_string(),
+            "removedInventoryBasis":removed_basis.to_string(),"nativeMinusCash":(position_pnl.as_decimal()-host_cash).to_string()},
         "hostCompletion":{"flatAndCashCurrent":true,"staleCashAccepted":false,"holdingDeadline":null},
         "expiredEntryDeadlineMakerProfitScenario":profit,
         "limits":["identities/timestamps rebound to loopback","historical exit decision injected","maker profit scenario is not actual market profit","legacy bounded mainnet supervisor is not approved for indefinite holding"]})
@@ -1114,14 +1125,21 @@ async fn recorded_wallet_rest_chain_economics_match_native_lifecycle_and_maker_p
 #[ignore = "explicit previous-mainnet JSON and loopback lifecycle audit; no network orders"]
 async fn record_recorded_lifecycle_fee_profit_json() {
     let audit = recorded_lifecycle_audit().await;
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/private_api/recorded_lifecycle_fee_profit_audit_20261017.json");
+    let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../data/predict-validation")
+        .join(UUID4::new().to_string());
+    std::fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("recorded_lifecycle_fee_profit_audit.json");
     let file = std::fs::OpenOptions::new()
         .create_new(true)
         .write(true)
-        .open(path)
+        .open(&path)
         .unwrap();
     serde_json::to_writer_pretty(file, &audit).unwrap();
+    eprintln!(
+        "Saved recorded-economics lifecycle audit: {}",
+        path.display()
+    );
 }
 
 #[cfg(feature = "native-quantity-commission")]

@@ -30,7 +30,7 @@ fn charged_fill(
 }
 
 #[test]
-fn quantity_commission_multiple_prices_replay_and_close_preserve_native_pnl() {
+fn quantity_commission_multiple_prices_replay_and_close_include_inventory_cost() {
     let instrument = InstrumentAny::BinaryOption(instrument(1));
     let first = charged_fill(1, "17", "0.009", "0.34");
     let second = charged_fill(2, "15", "0.010", "0.30");
@@ -53,12 +53,25 @@ fn quantity_commission_multiple_prices_replay_and_close_preserve_native_pnl() {
     restored.try_apply(&close).unwrap();
     assert!(restored.is_closed());
     assert!(restored.ts_closed.is_some());
-    assert_eq!(
-        restored.realized_pnl.unwrap(),
-        Money::from("0.01650214 USDT")
+    assert!(
+        (restored.realized_pnl.unwrap().as_decimal() - Decimal::new(106, 4)).abs()
+            <= Decimal::new(1, 8)
     );
-    // Inventory fees are separate from quote realized PnL, as with Native base fees.
-    assert!(restored.adjustments.iter().all(|a| a.pnl_change.is_none()));
+    // A flat cycle has an independent cash oracle. Native PnL already includes removed
+    // inventory cost; subtracting an execution-price fee estimate would charge it twice.
+    let cash = close.last_qty.as_decimal() * close.last_px.as_decimal()
+        - first.last_qty.as_decimal() * first.last_px.as_decimal()
+        - second.last_qty.as_decimal() * second.last_px.as_decimal();
+    assert_eq!(cash, Decimal::new(106, 4));
+    let execution_price_fee_value = first.quantity_commission.unwrap() * first.last_px.as_decimal()
+        + second.quantity_commission.unwrap() * second.last_px.as_decimal();
+    assert_eq!(execution_price_fee_value, Decimal::new(606, 5));
+    assert_ne!(
+        restored.realized_pnl.unwrap().as_decimal() - execution_price_fee_value,
+        cash
+    );
+    assert!((restored.realized_pnl.unwrap().as_decimal() - cash).abs() <= Decimal::new(1, 8));
+    assert!(restored.adjustments.iter().all(|a| a.pnl_change.is_some()));
     assert_eq!(restored.adjustments.len(), 2);
     assert!(
         matches!(&restored.replay_events[0], nautilus_model::position::PositionReplayEvent::Filled(fill) if fill.quantity_commission == first.quantity_commission)
@@ -113,7 +126,7 @@ fn quantity_commission_zero_fee_maker_and_quantity_fee_sell() {
     );
     position.try_apply(&sell).unwrap();
     assert!(position.is_closed());
-    assert_eq!(position.realized_pnl.unwrap(), Money::from("0.01666 USDT"));
+    assert_eq!(position.realized_pnl.unwrap(), Money::from("0.0136 USDT"));
 
     let instrument = nautilus_model::instruments::stubs::currency_pair_btcusdt().into();
     let buy = super::native_fee_paths::fill(
@@ -137,7 +150,7 @@ fn quantity_commission_zero_fee_maker_and_quantity_fee_sell() {
     position.try_apply(&sell).unwrap();
     assert!(position.is_closed());
     assert!(position.ts_closed.is_some());
-    assert_eq!(position.realized_pnl.unwrap(), Money::from("9.9 USDT"));
+    assert_eq!(position.realized_pnl.unwrap(), Money::from("8.9 USDT"));
 }
 
 #[test]
@@ -185,7 +198,7 @@ fn quantity_commission_arrow_roundtrip_retains_fee_without_info() {
         recovered.quantity_commission_total.unwrap(),
         Decimal::new(66, 2)
     );
-    assert_eq!(recovered.realized_pnl.unwrap(), Money::from("0 USDT"));
+    assert_eq!(recovered.realized_pnl.unwrap(), Money::from("-0.0264 USDT"));
 }
 
 #[tokio::test]
@@ -312,6 +325,8 @@ async fn run_reports(submitted: u32) {
         );
     }
     assert_eq!(observed.borrow().len(), 2);
+    assert_eq!(observed.borrow()[0]["pnl"], "-0.00306000 USDT");
+    assert_eq!(observed.borrow()[1]["pnl"], "-0.00590214 USDT");
     assert_eq!(
         Decimal::from_str_exact(observed.borrow()[0]["net"].as_str().unwrap()).unwrap(),
         Decimal::new(1666, 2)
@@ -352,12 +367,10 @@ fn mixed_price_cycle() -> Value {
     // projection allocates 17 then 15 while retaining the 18-decimal source quantities.
     fills[1].client_order_id = fills[0].client_order_id;
     let mut position = Position::new_checked(&instrument, fills[0].clone()).unwrap();
-    let mut fee_cost = fills[0].quantity_commission.unwrap()
-        * Decimal::from_str_exact(&position.avg_px_open.to_string()).unwrap();
+
     let first = json!({"nativeQuantity":position.quantity.as_decimal(),"fees":position.quantity_commission_total});
     position.try_apply(&fills[1]).unwrap();
-    fee_cost += fills[1].quantity_commission.unwrap()
-        * Decimal::from_str_exact(&position.avg_px_open.to_string()).unwrap();
+
     assert_eq!(position.quantity.as_decimal(), Decimal::new(3136, 2));
     let total = position.quantity_commission_total.unwrap();
     assert_eq!(
@@ -417,10 +430,8 @@ fn mixed_price_cycle() -> Value {
     }
     assert!(position.is_closed());
     assert_eq!(cash, Decimal::from_str_exact("0.0747936").unwrap());
-    assert!(
-        (position.realized_pnl.unwrap().as_decimal() - cash - fee_cost).abs() <= Decimal::new(1, 8)
-    );
-    assert!(position.adjustments.iter().all(|a| a.pnl_change.is_none()));
+    assert!((position.realized_pnl.unwrap().as_decimal() - cash).abs() <= Decimal::new(1, 8));
+    assert!(position.adjustments.iter().all(|a| a.pnl_change.is_some()));
     assert_eq!(position.quantity_commission_total, Some(total));
     assert_eq!(position.commissions()[0], Money::from("0.0085264 USDT"));
     let snapshot = nautilus_model::events::PositionSnapshot::from_replay_state(&position, None);
@@ -430,7 +441,7 @@ fn mixed_price_cycle() -> Value {
     json!({"source":"synthetic Native Position mixed-price BUY/SELL accounting; not a strategy or venue execution",
         "rawBuyQuantities":["17.000000000000000099","14.999999999999999901"],
         "rawQuantitySum":"32","fills":fills,"states":states,"snapshot":snapshot,"cashPnl":cash.to_string(),
-        "inventoryFeeCostDiagnosticOnly":fee_cost.to_string(),"nativePnlMinusCash":(position.realized_pnl.unwrap().as_decimal()-cash).to_string(),"feeSummary":total,"quantityResidual":super::native_fee_paths::inventory_fee_residual(total, 16).to_string(),"nativePnl":position.realized_pnl,
+        "inventoryFeeCost":position.quantity_commission_cost.unwrap().to_string(),"nativePnlMinusCash":(position.realized_pnl.unwrap().as_decimal()-cash).to_string(),"feeSummary":total,"quantityResidual":super::native_fee_paths::inventory_fee_residual(total, 16).to_string(),"nativePnl":position.realized_pnl,
         "duplicateReplayUnchanged":true})
 }
 
@@ -465,7 +476,7 @@ async fn record_quantity_commission_residual_validation_json() {
     serde_json::to_writer_pretty(file, &result).unwrap();
 }
 
-// Match the existing base-commission PnL convention and require duplicate replay to be a no-op.
+// Preserve legacy base-fee behavior while explicit quantity fees include inventory cost.
 fn accounting_naturality_audit() -> Value {
     let spot: InstrumentAny = nautilus_model::instruments::stubs::currency_pair_btcusdt().into();
     let base = spot.base_currency().unwrap();
@@ -484,6 +495,25 @@ fn accounting_naturality_audit() -> Value {
     let mut quantity = Position::new_checked(&spot, quantity_buy).unwrap();
     assert_eq!(legacy.quantity, quantity.quantity);
     assert_eq!(legacy.avg_px_open, quantity.avg_px_open);
+    // Position marks price movement on net inventory; it does not capitalize the
+    // base fee into avg_px_open. Even at entry price, liquidatable value is below cost.
+    let entry_mark = Price::from("100");
+    assert_eq!(legacy.total_pnl(entry_mark), Money::zero(Currency::USDT()));
+    assert_eq!(quantity.total_pnl(entry_mark), Money::from("-1 USDT"));
+    let cash_cost = Decimal::from(100);
+    assert_eq!(
+        quantity.quantity.as_decimal() * entry_mark.as_decimal() - cash_cost,
+        -Decimal::ONE
+    );
+    let small_gain_mark = Price::from("101");
+    assert_eq!(
+        quantity.total_pnl(small_gain_mark),
+        Money::from("-0.01 USDT")
+    );
+    assert_eq!(
+        quantity.quantity.as_decimal() * small_gain_mark.as_decimal() - cash_cost,
+        Decimal::new(-1, 2)
+    );
     let same_net = quantity.quantity.to_string();
     let close = super::native_fee_paths::fill(
         &spot,
@@ -497,7 +527,7 @@ fn accounting_naturality_audit() -> Value {
     quantity.try_apply(&close).unwrap();
     assert!(legacy.is_closed() && quantity.is_closed());
     assert_eq!(legacy.realized_pnl.unwrap(), Money::from("9.9 USDT"));
-    assert_eq!(quantity.realized_pnl, legacy.realized_pnl);
+    assert_eq!(quantity.realized_pnl.unwrap(), Money::from("8.9 USDT"));
 
     // A late duplicate from the previous episode should be recognized before checking
     // whether its SELL quantity can fit the new, much smaller current inventory.
@@ -523,14 +553,14 @@ fn accounting_naturality_audit() -> Value {
     json!({
         "source":"direct Rust Native model diagnostic, synthetic; no new LiveNode or venue evidence",
         "nativeDevelopBase":"7b6e2c27b86bd1688fde49bcf6e81d7a89560b05",
-        "implementation":"quantity-only Native inventory fee; existing base commission PnL convention and replay_state",
-        "sameEconomicsBaseCommissionParity":{
+        "implementation":"Native inventory fee with cumulative cost and replay_state; legacy base PnL unchanged",
+        "legacyBaseCommissionCompatibility":{
             "grossBuy":"1", "buyPrice":"100", "inventoryFee":"0.01", "net":same_net,
             "sellQty":"0.99", "sellPrice":"110", "cashDifference":"8.90 USDT",
             "legacyRealized":legacy.realized_pnl, "legacyCommissions":legacy.commissions,
             "quantityRealized":quantity.realized_pnl,
             "quantityCommissions":quantity.quantity_commission_total,
-            "meaning":"Both paths preserve Native quote realized PnL; inventory fees remain separately identifiable and quote realized is not all-in cash PnL."
+            "meaning":"Legacy base commission behavior is unchanged; the explicit quantity fee path also writes off removed inventory cost."
         },
         "priorEpisodeDuplicate":{
             "newEpisodeNet":reopened.quantity,

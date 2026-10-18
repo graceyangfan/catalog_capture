@@ -384,12 +384,6 @@ async fn run_case(outcome: u8, exit_price: Option<Decimal>, from_saved: bool) ->
         assert_eq!(
             positions[0].realized_pnl.unwrap().as_decimal(),
             final_cash - Decimal::from(1000)
-                + if cfg!(feature = "native-quantity-commission") {
-                    // Inventory fee is 2 shares at entry price 0.01; separate from quote PnL.
-                    Decimal::new(2, 2)
-                } else {
-                    Decimal::ZERO
-                }
         );
         let sell = cache
             .order(&ClientOrderId::new("RECOVERED-MARKET-EXIT-001"))
