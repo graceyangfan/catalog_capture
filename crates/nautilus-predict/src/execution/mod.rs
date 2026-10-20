@@ -32,6 +32,7 @@ mod reconnect;
 mod recovery;
 mod reports;
 mod resources;
+mod routing;
 mod runtime;
 mod submitter;
 mod types;
@@ -118,6 +119,7 @@ pub struct PredictExecutionClient {
     pending_submissions: orders::PendingSubmissions,
     submission_admission: Arc<tokio::sync::Mutex<()>>,
     fill_evidence: precision::SharedFillEvidence,
+    rest_order_ids: routing::RestOrderIds,
 }
 
 impl PredictExecutionClient {
@@ -202,6 +204,7 @@ impl PredictExecutionClient {
             pending_submissions: Default::default(),
             submission_admission: Default::default(),
             fill_evidence: Default::default(),
+            rest_order_ids: Default::default(),
         })
     }
 
@@ -342,6 +345,7 @@ impl ExecutionClient for PredictExecutionClient {
         self.stop()?;
         self.instruments.store(Default::default());
         self.orders.store(Default::default());
+        self.rest_order_ids.store(Default::default());
         self.fill_evidence = Default::default();
         self.reconciliation_required.store(false, Ordering::Release);
         self.account_orders.store(Default::default());
@@ -366,6 +370,7 @@ impl ExecutionClient for PredictExecutionClient {
     }
     fn on_instrument(&mut self, instrument: InstrumentAny) {
         if instrument.id().venue == self.core.venue {
+            self.prune_order_lookups();
             let mut sync = self
                 .account_sync
                 .state

@@ -67,7 +67,8 @@ pub struct PredictExecutionClientConfig {
     /// Order events and connected `QueryAccount` commands wake the same refresh loop;
     /// they do not create additional periodic timers.
     pub account_refresh_interval_secs: u64,
-    /// Gap account-verification cadence; order/position recovery belongs to LiveNode.
+    /// Gap account-verification cadence (default one second); Native owns order/position
+    /// application, including confirmed late fills found during verification.
     /// None requires the host to issue QueryAccount after native reconciliation settles.
     pub reconnect_reconciliation_interval_secs: Option<u64>,
     pub report_page_size: u32,
@@ -93,7 +94,7 @@ impl PredictExecutionClientConfig {
             account_state_mode: PredictAccountStateMode::Reported,
             orderbook_removal_enabled: false,
             account_refresh_interval_secs: 30,
-            reconnect_reconciliation_interval_secs: Some(5),
+            reconnect_reconciliation_interval_secs: Some(1),
             report_page_size: 100,
             max_report_pages: 100,
             report_timeout_secs: 30,

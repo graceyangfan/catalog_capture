@@ -65,6 +65,8 @@ pub(super) struct SubmitWorker {
     pub pending: PendingSubmissions,
     pub admission: Arc<tokio::sync::Mutex<()>>,
     pub orders: Arc<AtomicMap<VenueOrderId, Arc<OrderAny>>>,
+    pub rest_ids: super::routing::RestOrderIds,
+    pub reconciliation_required: Arc<AtomicBool>,
     pub account_sync: Arc<super::account::AccountSync>,
     pub instruments: Arc<AtomicMap<InstrumentId, InstrumentAny>>,
     pub healthy: Arc<AtomicBool>,
@@ -78,20 +80,21 @@ pub(super) struct SubmitWorker {
 
 impl SubmitWorker {
     pub(super) fn available(&self) -> bool {
-        self.healthy.load(Ordering::Acquire)
+        !self.reconciliation_required.load(Ordering::Acquire)
+            && self.healthy.load(Ordering::Acquire)
             && self.authentication.is_authenticated()
             && self.epoch.load(Ordering::Acquire) == self.admitted_epoch
     }
 
     async fn preflight(
         &self,
+        market: crate::http::market_models::PredictExecutionMarket,
+        rows: Vec<crate::http::account_models::PredictOrderData>,
     ) -> anyhow::Result<(
         crate::http::order_models::PredictSignedOrder,
         Option<crate::common::market::PredictMarketOrderAmounts>,
     )> {
-        self.session.request_account().await?;
         let market_id = super::parse::market_id_from_instrument(&self.instrument.id())?;
-        let market = self.session.request_execution_market(market_id).await?;
         let token: U256 = self
             .instrument
             .raw_symbol()
@@ -131,7 +134,6 @@ impl SubmitWorker {
         };
         let mut locked = Decimal::ZERO;
         let mut locked_shares = U256::ZERO;
-        let rows = super::account::collect_open_orders(&self.config).await?;
         let mut seen = std::collections::HashSet::new();
         for row in rows {
             let hash = super::resources::open_order_hash(&row)?;
@@ -230,14 +232,7 @@ impl SubmitWorker {
             .lock()
             .expect("account sync poisoned")
             .latest_fill;
-        let newest_fill = self
-            .orders
-            .load()
-            .values()
-            .map(|order| super::account::latest_venue_fill(order))
-            .max()
-            .unwrap_or_default()
-            .max(latest_fill);
+        let newest_fill = latest_fill;
         anyhow::ensure!(
             timestamp >= newest_fill,
             "Predict admission block predates confirmed native fills"
@@ -323,8 +318,27 @@ impl SubmitWorker {
     }
 
     pub(super) async fn run(&self, guard: &mut SubmissionGuard) -> Result<(), CommandFailure> {
-        // Serialize resource validation through registration, not HTTP response waiting.
-        // A slow/unknown BUY must not hold unrelated inventory-backed SELL commands.
+        if !self.available() {
+            return Err(CommandFailure::not_sent(
+                "Predict admission lost wallet continuity",
+            ));
+        }
+        let market_id = super::parse::market_id_from_instrument(&self.instrument.id())
+            .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
+        // Independent metadata and venue reservations do not hold the resource admission lock.
+        let (market, rows) = tokio::try_join!(
+            async {
+                self.session
+                    .request_execution_market(market_id)
+                    .await
+                    .map_err(anyhow::Error::from)
+            },
+            super::account::collect_open_orders(&self.config),
+        )
+        .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
+        // Under the lock, union current local claims with the venue rows, collect fresh
+        // chain resources, then sign and register atomically. Concurrent attempts cannot
+        // consume the same snapshot; external wallet orders remain part of admission.
         let admission = self.admission.lock().await;
         if !self.available() {
             return Err(CommandFailure::not_sent(
@@ -332,7 +346,7 @@ impl SubmitWorker {
             ));
         }
         let (signed, amounts) = self
-            .preflight()
+            .preflight(market, rows)
             .await
             .map_err(|error| CommandFailure::NotSent(error.to_string()))?;
         if !self.available() {
@@ -385,7 +399,7 @@ impl SubmitWorker {
             self.order.client_order_id(),
             signed.hash(),
         );
-        if let Some(amounts) = amounts {
+        let receipt = if let Some(amounts) = amounts {
             self.session
                 .request_create_market_order(&signed, &amounts)
                 .await
@@ -395,6 +409,10 @@ impl SubmitWorker {
                 .await
         }
         .map_err(|error| classify_http_command_failure(&error))?;
+        super::routing::register(&self.rest_ids, id, receipt.order_id).map_err(|error| {
+            self.reconciliation_required.store(true, Ordering::Release);
+            CommandFailure::Ambiguous(error.to_string())
+        })?;
         // The receipt's opaque code is never interpreted as native acceptance.
         Ok(())
     }

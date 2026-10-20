@@ -161,6 +161,12 @@ async fn run(scenario: Scenario) {
     );
     let count = if duplicates { 2 } else { 1 };
     for index in 0..count {
+        private
+            .state
+            .create_order_ids
+            .lock()
+            .unwrap()
+            .push_back(wallet[index * 2]["orderId"].as_str().unwrap().to_owned());
         private.state.create_replies.lock().unwrap().push_back((
             if http_rejected { 400 } else { 201 },
             0,

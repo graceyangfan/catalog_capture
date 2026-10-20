@@ -121,6 +121,7 @@ impl PredictExecutionClient {
             let orders = Arc::clone(&self.orders);
             let account_orders = Arc::clone(&self.account_orders);
             let account_sync = Arc::clone(&self.account_sync);
+            let fill_evidence = Arc::clone(&self.fill_evidence);
             let pending_cancels = Arc::clone(&self.pending_cancels);
             let deferred_cancels = Arc::clone(&self.deferred_cancels);
             let pending_submissions = Arc::clone(&self.pending_submissions);
@@ -138,6 +139,10 @@ impl PredictExecutionClient {
                         && !account::is_synthetic_order(&order)
                     {
                         sync.latest_fill = sync.latest_fill.max(fill.ts_event);
+                        fill_evidence
+                            .lock()
+                            .expect("fill evidence poisoned")
+                            .applied(fill.trade_id);
                     }
                     let order = Arc::new(order);
                     if order.is_closed() {
@@ -200,8 +205,8 @@ impl PredictExecutionClient {
     }
 
     /// Release terminal worker snapshots only after Native has purged their owners.
-    /// Called at existing core-thread report boundaries, never by a separate timer.
-    /// Raw settlement evidence remains independent of these full OrderAny clones.
+    /// Runs at core-thread report and instrument boundaries, without a separate timer.
+    /// Atomic evidence retires only with its fully applied terminal Native owner.
     pub(super) fn prune_order_lookups(&self) {
         let cache = self.core.cache();
         let account_orders = self.account_orders.load();
@@ -211,21 +216,23 @@ impl PredictExecutionClient {
             .state
             .lock()
             .expect("account sync poisoned");
-        let evidence = self.fill_evidence.lock().expect("fill evidence poisoned");
+        let mut evidence = self.fill_evidence.lock().expect("fill evidence poisoned");
         let candidates = account_orders
             .values()
             .chain(orders.values())
             .filter(|order| order.is_closed() && cache.order(&order.client_order_id()).is_none())
             .collect::<Vec<_>>();
-        if candidates.is_empty() {
-            return;
-        }
         let applied = candidates
             .iter()
             .flat_map(|order| order.trade_ids().into_iter().copied())
             .collect();
-        let unapplied = evidence.unapplied_orders(&applied);
+        let unapplied = if candidates.is_empty() {
+            HashSet::new()
+        } else {
+            evidence.unapplied_orders(&applied)
+        };
         let mut retired = HashSet::new();
+        let mut retired_hashes = HashSet::new();
         for order in candidates {
             if order
                 .venue_order_id()
@@ -237,15 +244,50 @@ impl PredictExecutionClient {
                 continue;
             }
             retired.insert(order.client_order_id());
+            if let Some(hash) = order.venue_order_id() {
+                retired_hashes.insert(hash);
+            }
             sync.latest_fill = sync.latest_fill.max(account::latest_venue_fill(order));
         }
-        if retired.is_empty() {
+        let retained_instruments = account_orders
+            .values()
+            .chain(orders.values())
+            .filter(|order| !retired.contains(&order.client_order_id()))
+            .map(|order| order.instrument_id())
+            .chain(
+                cache
+                    .positions_open(
+                        Some(&self.core.venue),
+                        None,
+                        None,
+                        Some(&self.core.account_id),
+                        None,
+                    )
+                    .into_iter()
+                    .map(|position| position.instrument_id),
+            )
+            .collect::<HashSet<_>>();
+        let stale_instruments = self
+            .instruments
+            .load()
+            .keys()
+            .filter(|id| cache.instrument(id).is_none() && !retained_instruments.contains(id))
+            .copied()
+            .collect::<HashSet<_>>();
+        if retired.is_empty() && stale_instruments.is_empty() {
             return;
         }
+        if !retired_hashes.is_empty() {
+            evidence.retire_orders(&retired_hashes);
+        }
+        self.instruments
+            .rcu(|map| map.retain(|id, _| !stale_instruments.contains(id)));
         self.account_orders
             .rcu(|map| map.retain(|id, _| !retired.contains(id)));
         self.orders
             .rcu(|map| map.retain(|_, order| !retired.contains(&order.client_order_id())));
+        self.rest_order_ids
+            .rcu(|map| map.retain(|hash, _| !retired_hashes.contains(hash)));
         // Invalidate account collection/readiness started with the previous snapshot.
         sync.revision = sync.revision.wrapping_add(1);
         drop(evidence);
@@ -272,6 +314,7 @@ impl PredictExecutionClient {
             })?,
             instruments: Arc::clone(&self.instruments),
             orders: Arc::clone(&self.account_orders),
+            rest_ids: Arc::clone(&self.rest_order_ids),
             sync: Arc::clone(&self.account_sync),
             emitter: self.emitter.clone(),
             clock: self.clock,
@@ -385,6 +428,8 @@ impl PredictExecutionClient {
                 runtime::WalletReportContext {
                     instruments: Arc::clone(&self.instruments),
                     orders: Arc::clone(&self.orders),
+                    rest_ids: Arc::clone(&self.rest_order_ids),
+                    sync: Arc::clone(&self.account_sync),
                     pending: Arc::clone(&self.pending_submissions),
                     fill_evidence: Arc::clone(&self.fill_evidence),
                     reconciliation_required: Arc::clone(&self.reconciliation_required),

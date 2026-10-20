@@ -20,13 +20,19 @@ pub(super) fn cancel(order: &OrderAny) -> CancelOrder {
 }
 
 #[tokio::test]
-async fn wallet_gap_during_cancel_preflight_rejects_known_unsent_command() {
+async fn wallet_gap_during_cancel_preflight_still_allows_authenticated_removal() {
     let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        0,
+    );
     let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
     let gate = Arc::new(tokio::sync::Notify::new());
     *server.state.order_gate.lock().unwrap() = Some(gate.clone());
     client.cancel_order(cancel(&order)).unwrap();
-    super::exit_orders::barrier("cancel read before transmission", || {
+    super::exit_orders::barrier("cancel preflight", || {
         !server.state.order_requests.lock().unwrap().is_empty()
     })
     .await;
@@ -39,29 +45,22 @@ async fn wallet_gap_during_cancel_preflight_rejects_known_unsent_command() {
         .unwrap()
         .send(Message::Close(None))
         .unwrap();
-    super::exit_orders::barrier("wallet gap before cancel transmission", || {
-        !client.is_connected()
-    })
-    .await;
+    super::exit_orders::barrier("wallet disconnected", || !client.is_connected()).await;
     gate.notify_one();
-    let result = timeout(Duration::from_secs(1), rx.recv()).await;
-    assert!(server.state.removals.lock().unwrap().is_empty());
-    client.disconnect().await.unwrap();
-    let ExecutionEvent::Order(event @ OrderEventAny::CancelRejected(_)) = result
-        .expect("known unsent cancellation must not be stranded by a stream gap")
-        .expect("native event channel")
-    else {
-        panic!("native preflight rejection")
+    let ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) = next(&mut rx).await else {
+        panic!("definitive REST cancellation")
     };
     engine(&cache).process(&event);
+    assert_eq!(server.state.removals.lock().unwrap().len(), 1);
     assert_eq!(
         cache
             .borrow()
             .order(&order.client_order_id())
             .unwrap()
             .status(),
-        OrderStatus::Accepted
+        OrderStatus::Canceled
     );
+    client.disconnect().await.unwrap();
 }
 
 async fn setup(
@@ -74,7 +73,7 @@ async fn setup(
     OrderAny,
 ) {
     let row = rest_order_data("OPEN", 1, OrderSide::Buy);
-    server.state.open_orders.lock().unwrap().push(row.clone());
+
     server
         .state
         .orders
@@ -493,7 +492,7 @@ async fn wallet_terminal_event_wins_over_late_removal_ack() {
 }
 
 #[tokio::test]
-async fn wallet_disconnect_prevents_late_removal_publication() {
+async fn wallet_disconnect_preserves_definitive_removal_publication() {
     let server = server(vec![]).await;
     removal(
         &server,
@@ -520,18 +519,17 @@ async fn wallet_disconnect_prevents_late_removal_publication() {
     })
     .await
     .unwrap();
-    assert!(
-        timeout(Duration::from_millis(350), rx.recv())
-            .await
-            .is_err()
-    );
+    let ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) = next(&mut rx).await else {
+        panic!("validated REST removal")
+    };
+    engine(&cache).process(&event);
     assert_eq!(
         cache
             .borrow()
             .order(&order.client_order_id())
             .unwrap()
             .status(),
-        OrderStatus::Accepted
+        OrderStatus::Canceled
     );
     assert_eq!(server.state.removals.lock().unwrap().len(), 1);
     client.disconnect().await.unwrap();
@@ -673,5 +671,161 @@ async fn disconnected_owned_commands_publish_rejections_without_writes() {
     );
     assert!(server.state.removals.lock().unwrap().is_empty());
     assert!(server.state.creations.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn verified_wallet_numeric_id_skips_cancel_get_and_survives_wallet_gap() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        0,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    server.wallet(fill(1));
+    let ExecutionEvent::Report(report @ ExecutionReport::Fill(_)) = next(&mut rx).await else {
+        panic!("verified wallet fill")
+    };
+    engine(&cache).reconcile_execution_report(&report);
+    // Route is registered before enqueue; a subsequent socket gap cannot invalidate REST identity.
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    super::exit_orders::barrier("wallet gap", || !client.is_connected()).await;
+    client.cancel_order(cancel(&order)).unwrap();
+    let ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) = next(&mut rx).await else {
+        panic!("REST removal")
+    };
+    engine(&cache).process(&event);
+    assert!(server.state.order_requests.lock().unwrap().is_empty());
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Canceled
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn cached_batch_leg_is_removed_while_another_leg_waits_for_its_rest_id() {
+    use nautilus_common::messages::execution::BatchCancelOrders;
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache) = reported_client_with_removal(&server, true);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let mut orders = Vec::new();
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    for (name, hash, id) in [
+        ("FAST", HASH.to_owned(), "12345"),
+        ("LOOKUP", format!("0x{}", "22".repeat(32)), "12346"),
+    ] {
+        let mut order = OrderTestBuilder::new(OrderType::Limit)
+            .trader_id(trader_id())
+            .strategy_id("CANCEL-001".into())
+            .client_order_id(name.into())
+            .instrument_id(instrument_id(1))
+            .side(OrderSide::Buy)
+            .quantity(Quantity::from(100))
+            .price(Price::from("0.620"))
+            .build();
+        order
+            .apply(factory.generate_order_submitted(&order, UnixNanos::from(1)))
+            .unwrap();
+        order
+            .apply(factory.generate_order_accepted(
+                &order,
+                hash.as_str().into(),
+                UnixNanos::from(2),
+                UnixNanos::from(2),
+            ))
+            .unwrap();
+        cache
+            .borrow_mut()
+            .add_order(order.clone(), None, Some("PREDICT".into()), false)
+            .unwrap();
+        let mut row = rest_order_data("OPEN", 1, OrderSide::Buy);
+        row["id"] = json!(id);
+        row["order"]["hash"] = json!(hash);
+        if name == "FAST" {
+            server.state.open_orders.lock().unwrap().push(row.clone());
+        }
+        server
+            .state
+            .orders_by_hash
+            .lock()
+            .unwrap()
+            .insert(hash, json!({"success":true,"data":row}));
+        orders.push(order);
+    }
+    connect_reported(&mut client, &mut rx).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.order_gate.lock().unwrap() = Some(gate.clone());
+    for _ in 0..2 {
+        removal(&server, 200, json!({"echoRemoved":true}), 0);
+    }
+    client
+        .batch_cancel_orders(BatchCancelOrders::new(
+            trader_id(),
+            Some("PREDICT".into()),
+            orders[0].strategy_id(),
+            instrument_id(1),
+            orders.iter().map(cancel).collect(),
+            UUID4::new(),
+            UnixNanos::from(OBSERVED),
+            None,
+            None,
+        ))
+        .unwrap();
+    let mut engine = engine(&cache);
+    // The lookup gate remains held: waiting for all preflights would strand this callback.
+    loop {
+        if let ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) = next(&mut rx).await {
+            assert_eq!(event.client_order_id(), orders[0].client_order_id());
+            engine.process(&event);
+            break;
+        }
+    }
+    assert_eq!(
+        *server.state.removals.lock().unwrap(),
+        [json!({"data":{"ids":["12345"]}})]
+    );
+    gate.notify_one();
+    loop {
+        if let ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) = next(&mut rx).await {
+            assert_eq!(event.client_order_id(), orders[1].client_order_id());
+            engine.process(&event);
+            break;
+        }
+    }
+    assert!(
+        cache
+            .borrow()
+            .orders_open(None, None, None, None, None)
+            .is_empty()
+    );
+    assert_eq!(server.state.removals.lock().unwrap().len(), 2);
+    assert!(
+        server
+            .state
+            .order_requests
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|path| !path.contains(HASH))
+    );
     client.disconnect().await.unwrap();
 }

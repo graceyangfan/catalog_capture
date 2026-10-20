@@ -671,9 +671,18 @@ pub(super) async fn run_exit_case(
             .await;
             cancel_gate.notify_one();
             if minimum {
-                barrier("line 252", || {
-                    journal.borrow().iter().any(|r| r["type"] == "Rejected")
-                })
+                // Native risk now owns the instrument minimum-notional check.
+                barrier(
+                    "Native denies the subminimum stop before submission",
+                    || {
+                        journal.borrow().iter().any(|r| {
+                            r["type"] == "Denied"
+                                && r["reason"]
+                                    .as_str()
+                                    .is_some_and(|reason| reason.contains("NOTIONAL_BELOW_MINIMUM"))
+                        })
+                    },
+                )
                 .await;
                 assert_eq!(private.state.creations.lock().unwrap().len(), 1);
                 assert_eq!(
@@ -837,7 +846,7 @@ pub(super) async fn run_exit_case(
         assert!(journal.borrow().iter().any(|r| {
             r["reason"]
                 .as_str()
-                .is_some_and(|v| v.contains("venue minimum of 1 USDT"))
+                .is_some_and(|v| v.contains("NOTIONAL_BELOW_MINIMUM"))
         }));
     }
     report

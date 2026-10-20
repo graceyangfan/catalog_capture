@@ -59,6 +59,7 @@ pub(super) fn order_report_task(
     let pending = client.pending_submissions.clone();
     let hasher = client.order_hasher.clone();
     let evidence = client.fill_evidence.clone();
+    let rest_ids = client.rest_order_ids.clone();
     let emitter = client.emitter.clone();
     let cancellation = client.tasks.cancellation_token();
     let target = (|| -> anyhow::Result<_> {
@@ -190,6 +191,7 @@ pub(super) fn order_report_task(
             let report = super::reconciliation::status_report(
                 &row, &order, instrument, &context, &hasher, &fills, observed,
             )?;
+            super::routing::register(&rest_ids, venue_id, super::routing::parse_id(&row.id)?)?;
             drop(cache);
             anyhow::ensure!(
                 !super::reconciliation::publish_unapplied(

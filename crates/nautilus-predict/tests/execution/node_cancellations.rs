@@ -289,9 +289,9 @@ async fn batch_probe_case(mode: &str) -> Value {
         let posted = f.backing.state.removals.lock().unwrap()[0].clone();
         assert_eq!(
             posted["data"]["ids"].as_array().unwrap().len(),
-            if mode == "preflight" || single { 1 } else { 2 }
+            if single { 1 } else { 2 }
         );
-        if mode == "removed" || mode == "mixed" {
+        if mode == "removed" || mode == "mixed" || mode == "preflight" {
             barrier("two independently resolved canceled callbacks", || {
                 rows.borrow()
                     .iter()
@@ -367,12 +367,19 @@ async fn batch_probe_case(mode: &str) -> Value {
             );
         }
         if gap {
-            assert!(
-                !rows
-                    .borrow()
+            let removed_count =
+                f.backing.state.removal_responses.lock().unwrap()[0]["body"]["removed"]
+                    .as_array()
+                    .unwrap()
+                    .len();
+            barrier("definitive removed legs apply during wallet gap", || {
+                rows.borrow()
                     .iter()
-                    .any(|r| r["type"] == "StrategyOrderCallback" && r["kind"] == "Canceled")
-            );
+                    .filter(|r| r["type"] == "StrategyOrderCallback" && r["kind"] == "Canceled")
+                    .count()
+                    == removed_count
+            })
+            .await;
             let rejected_ids =
                 f.backing.state.removal_responses.lock().unwrap()[0]["body"]["rejected"]
                     .as_array()

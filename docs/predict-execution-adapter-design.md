@@ -1,6 +1,7 @@
 # Predict adapter architecture
 
-The workspace pins Nautilus fork `587e1065efde08db19016a8eab921c1605d5d2a4`.
+The workspace pins Nautilus fork `797d98618ddbb26dd2bf843df52dd494daad8c7b`,
+which merges upstream develop `96ec148a8249eda918c9ee3219c7030755cabcf0`.
 The opt-in quantity-commission integration is a downstream extension, not an
 unmodified upstream capability. Its scope is described in
 [Inventory-unit commissions](reference/quantity-commission.md).
@@ -32,7 +33,7 @@ assumed to apply to Predict.
 | `execution/{orders,submitter,order_builder,cancellations}.rs` | Commands and bounded unknown-submission context |
 | `execution/{reports,reconciliation,matches,external,inventory_scope}.rs` | Native reports and history needed to explain current inventory |
 | `execution/{account,readiness,reconnect,authentication}.rs` | Reported cash, generation checks, QueryAccount scheduling and JWT renewal |
-| `execution/resources.rs`, `precision.rs` | Stateless resource interpretation and cumulative projection of raw fill/fee evidence |
+| `execution/resources.rs`, `precision.rs`, `routing.rs` | Resource interpretation, cumulative raw fill/fee projection and verified REST numeric IDs |
 
 Test strategies, local venues and collectors live in tests. Private unit tests
 use `cfg(test)` without expanding the production API. See the
@@ -59,6 +60,9 @@ Venue wallet/REST facts -> Native events/reports -> Order/Position/Portfolio
 ### Cancellation
 
 Single and batch cancellation share per-order preflight and outcome handling.
+Verified create receipts, wallet events and REST reports populate numeric routing
+IDs; only a missing route requires an order GET before removal. CancelAll includes
+Submitted orders and defers removal until venue acceptance supplies their identity.
 The signed hash is the Native VenueOrderId; its numeric REST ID is used only for
 [orderbook removal](https://dev.predict.fun/remove-orders-from-the-orderbook-25326904e0).
 Removal does not invalidate the signed order on-chain.
@@ -66,9 +70,9 @@ Removal does not invalidate the signed order on-chain.
 | Evidence | Adapter action |
 | --- | --- |
 | Proven not sent or explicitly rejected | Emit OrderCancelRejected; keep the order and its reservation active. A definitive rejection remains valid during a wallet gap. |
-| Requested ID in `removed`, continuous session | Emit OrderCanceled; retain command ownership until Native applies the terminal event. |
+| Requested ID in `removed`, current task generation | Emit OrderCanceled, including during a wallet gap; retain command ownership until Native applies the terminal event. |
 | Requested ID in `noop` | Query the hash. A validated zero-fill CANCELLED/EXPIRED snapshot produces an OrderStatusReport; OPEN or unresolved fills do not establish cancellation. |
-| Timeout, 5xx, malformed receipt or lost wallet continuity after transmission | Retain the unknown outcome for WS, Native QueryOrder and periodic reconciliation. Do not automatically repeat the removal write. |
+| Timeout, 5xx, malformed receipt or stopped task generation after transmission | Retain the unknown outcome for WS, Native QueryOrder and periodic reconciliation. Do not automatically repeat the removal write. |
 
 The [receipt schema](https://dev.predict.fun/removeordersresponse-14037528d0)
 partitions IDs into `removed`, `noop` and `rejected`; batch success is not atomic.
@@ -217,15 +221,17 @@ failed command is not automatically retried.
 ### Retention and accounting
 
 Complete terminal-order mirrors become eligible for lazy release only after
-Native Cache has actually purged them. Existing report/account entry points do
+Native Cache has actually purged them. Report/command boundaries and instrument events do
 the work. Active, unresolved or unapplied-fill contexts remain retained; the
 adapter does not introduce another retention timer or tombstone table.
 
-Raw 18-decimal fill/fee evidence and the last-applied-fill time watermark survive
-mirror release. The watermark constrains chain-balance freshness. Late/duplicate
-facts within Native retention follow normal report/trade-ID handling. Facts
-outside retention that cannot be attributed stop that consumer and retain the
-reconciliation gate; arbitrary external writers are not automatically adopted.
+Fully applied raw 18-decimal fill/fee evidence and numeric routes are released
+with the purged terminal order. Unapplied evidence remains available. The incremental
+last-applied-fill watermark survives pruning and constrains chain-balance freshness.
+Late/duplicate facts within Native retention follow normal report/trade-ID handling.
+Unattributed or contradictory wallet facts gate new submissions while the consumer
+continues handling subsequent events. Existing recovery checks run only when gated;
+arbitrary external writers are not automatically adopted.
 
 Orders complete on gross execution. BUY SHARES fees reduce received inventory;
 SELL COLLATERAL fees reduce proceeds. Reported fee asset, amount and liquidity

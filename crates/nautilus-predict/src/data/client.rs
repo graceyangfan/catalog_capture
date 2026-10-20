@@ -16,18 +16,17 @@
 
 use std::sync::{Arc, RwLock, atomic::AtomicBool};
 
-use ahash::AHashMap;
 use anyhow::Context;
 use nautilus_common::{
     live::{runner::get_data_event_sender, sender::EventSender},
     messages::DataEvent,
+    providers::InstrumentProvider,
 };
 use nautilus_core::time::{AtomicTime, get_atomic_clock_realtime};
 use nautilus_live::task::TaskGroup;
 use nautilus_model::{
     data::DataType,
     identifiers::{ClientId, InstrumentId},
-    instruments::{Instrument, InstrumentAny},
 };
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -35,8 +34,7 @@ use tokio_util::sync::CancellationToken;
 use super::{instruments::PredictDynamicMarketRegistry, runtime::PredictCommand};
 use crate::{
     PredictCryptoUpDownSelector, PredictDataClientConfig, PredictHttpClient,
-    PredictInstrumentProvider, PredictMarketContext, common::normalize_price_feed_symbol,
-    predict_orderbook_data_type,
+    PredictInstrumentProvider, common::normalize_price_feed_symbol, predict_orderbook_data_type,
 };
 
 /// Nautilus data client which publishes Predict instruments and complete orderbook snapshots.
@@ -47,8 +45,6 @@ pub struct PredictDataClient {
     pub(super) config: PredictDataClientConfig,
     pub(super) provider: PredictInstrumentProvider,
     pub(super) data_sender: EventSender<DataEvent>,
-    pub(super) instruments: AHashMap<InstrumentId, InstrumentAny>,
-    pub(super) contexts: AHashMap<u64, PredictMarketContext>,
     pub(super) dynamic_registry: Arc<RwLock<PredictDynamicMarketRegistry>>,
     pub(super) command_tx: Option<mpsc::Sender<PredictCommand>>,
     pub(super) tasks: TaskGroup,
@@ -85,8 +81,6 @@ impl PredictDataClient {
             client_id,
             provider: PredictInstrumentProvider::new(http_client),
             data_sender: get_data_event_sender(),
-            instruments: AHashMap::new(),
-            contexts: AHashMap::new(),
             dynamic_registry: Arc::new(RwLock::new(PredictDynamicMarketRegistry::default())),
             command_tx: None,
             cancellation: tasks.cancellation_token(),
@@ -97,20 +91,17 @@ impl PredictDataClient {
     }
 
     pub(super) async fn bootstrap_markets(&mut self) -> anyhow::Result<()> {
-        let mut contexts = AHashMap::new();
+        self.provider.clear();
         for market_id in &self.config.market_ids {
-            let (context, definitions) = self
+            let (_, definitions) = self
                 .provider
                 .load_market_with_definitions(*market_id, self.clock.get_time_ns())
                 .await
                 .with_context(|| format!("failed to load Predict market {market_id}"))?;
             for instrument in definitions {
-                self.instruments.insert(instrument.id(), instrument.clone());
                 self.data_sender.send(DataEvent::Instrument(instrument))?;
             }
-            contexts.insert(*market_id, context);
         }
-        self.contexts = contexts;
         Ok(())
     }
 
@@ -149,7 +140,7 @@ impl PredictDataClient {
             "PredictOrderbookSnapshot identifier must be the canonical decimal market ID"
         );
         anyhow::ensure!(
-            self.contexts.contains_key(&market_id)
+            self.provider.context(market_id).is_some()
                 || self
                     .dynamic_registry
                     .read()
@@ -200,8 +191,9 @@ impl PredictDataClient {
 
     pub(super) fn publish_instrument(&self, instrument_id: InstrumentId) -> anyhow::Result<()> {
         let instrument = self
-            .instruments
-            .get(&instrument_id)
+            .provider
+            .store()
+            .find(&instrument_id)
             .cloned()
             .or_else(|| {
                 self.dynamic_registry

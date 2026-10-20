@@ -254,10 +254,9 @@ pub(super) fn parse_wallet_report_with_registration(
             );
             if !normalize && fee_type == PredictFeeType::Collateral {
                 let value = exact_wei(fee_amount)?;
-                anyhow::ensure!(
-                    value.round_dp(u32::from(Currency::USDT().precision)) == value,
-                    "Predict commission requires rounding at currency precision"
-                );
+                Money::from_decimal_exact(value, Currency::USDT()).map_err(|_| {
+                    anyhow::anyhow!("Predict commission requires rounding at native precision")
+                })?;
             }
             let commission = fill_commission(
                 fee_amount,
@@ -750,5 +749,7 @@ pub(super) fn fill_commission(
     } else {
         fee
     };
-    Ok(Money::from_decimal(exact_wei(value)?, Currency::USDT())?)
+    let amount =
+        exact_wei(value)?.round_dp(u32::from(nautilus_model::types::fixed::FIXED_PRECISION));
+    Ok(Money::from_decimal_exact(amount, Currency::USDT())?)
 }

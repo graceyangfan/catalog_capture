@@ -102,7 +102,7 @@ fn collateral_atomic_fees_accumulate_and_duplicate_replay_keeps_allocations() {
             .iter()
             .map(|fill| fill.report.commission.as_decimal())
             .sum::<Decimal>(),
-        Decimal::from_str_exact("0.00000049").unwrap()
+        Decimal::from_str_exact("0.0000004900000001").unwrap()
     );
     assert_eq!(
         reports.iter().map(|fill| fill.raw.fee).sum::<U256>(),
@@ -330,4 +330,91 @@ fn record_private_fill_evidence_json() {
         &result,
     )
     .unwrap();
+}
+
+#[test]
+fn retired_order_evidence_releases_capacity_without_eviction_of_other_orders() {
+    let mut evidence = FillEvidence::default();
+    let scale = U256::from(1_000_000_000_000_000_000u64);
+    let batch = (0..10000)
+        .map(|id| report(scale, id, 16))
+        .collect::<Vec<_>>();
+    evidence.commit(&batch).unwrap();
+    let mut other = report(scale, 10000, 16);
+    other.report.venue_order_id = "ORDER-2".into();
+    assert!(evidence.commit(std::slice::from_ref(&other)).is_err());
+    evidence.retire_orders(&HashSet::from(["unrelated".into()]));
+    assert_eq!(evidence.entries.len(), 10000);
+    evidence.retire_orders(&HashSet::from(["ORDER-1".into()]));
+    evidence.commit(std::slice::from_ref(&other)).unwrap();
+    evidence.retire_orders(&HashSet::from(["ORDER-1".into()]));
+    assert_eq!(evidence.entries.len(), 1);
+    assert!(evidence.entries.contains_key(&other.report.trade_id));
+}
+
+#[cfg(feature = "native-quantity-commission")]
+#[test]
+fn representable_subcurrency_fees_use_native_exact_money_without_currency_rounding() {
+    let scale = U256::from(1_000_000_000_000_000_000u64);
+    let mut fill = report(scale, 1, 16);
+    fill.raw.fee = U256::from(4_900_000_000u64);
+    let mut evidence = FillEvidence::default();
+    evidence
+        .prepare(
+            std::slice::from_mut(&mut fill),
+            &HashMap::new(),
+            &[],
+            |_| 16,
+        )
+        .unwrap();
+    assert_eq!(
+        fill.report.commission.as_decimal(),
+        Decimal::from_str_exact("0.0000000049").unwrap()
+    );
+    evidence.commit(std::slice::from_ref(&fill)).unwrap();
+    assert_eq!(evidence.by_order.len(), 1);
+    evidence.retire_orders(&HashSet::from([fill.report.venue_order_id]));
+    assert!(evidence.by_order.is_empty() && evidence.entries.is_empty());
+}
+
+#[test]
+fn collecting_raw_evidence_does_not_mark_a_fill_as_queued_to_native() {
+    use nautilus_model::{enums::OrderType, orders::builder::OrderTestBuilder};
+    let fill = report(U256::from(1_000_000_000_000_000_000u64), 1, 16);
+    let order = OrderTestBuilder::new(OrderType::Limit)
+        .instrument_id(fill.report.instrument_id)
+        .side(OrderSide::Buy)
+        .quantity(Quantity::from(2))
+        .price(fill.report.last_px)
+        .build();
+    let mut evidence = FillEvidence::default();
+    evidence.commit(std::slice::from_ref(&fill)).unwrap();
+    assert!(
+        evidence
+            .pending_for(&order, fill.report.venue_order_id)
+            .is_empty()
+    );
+    evidence.queue(std::slice::from_ref(&fill)).unwrap();
+    assert_eq!(
+        evidence
+            .pending_for(&order, fill.report.venue_order_id)
+            .as_slice(),
+        std::slice::from_ref(&fill)
+    );
+    evidence.queue_wallet(&fill).unwrap();
+    evidence.validate_wallet_timestamp(&fill).unwrap();
+    let mut changed = fill.clone();
+    changed.report.ts_event = UnixNanos::from(1);
+    assert!(evidence.validate_wallet_timestamp(&changed).is_err());
+    evidence.applied(fill.report.trade_id);
+    assert!(
+        evidence
+            .pending_for(&order, fill.report.venue_order_id)
+            .is_empty()
+    );
+    assert_eq!(
+        evidence.entries.len(),
+        1,
+        "retain raw prefix until Native retirement"
+    );
 }

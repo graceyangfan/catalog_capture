@@ -23,6 +23,7 @@ use super::*;
 struct EarlyCancelStrategy {
     core: StrategyCore,
     submitted: bool,
+    cancel_all: bool,
     journal: Rc<RefCell<Vec<Value>>>,
     account_handler: Option<TypedHandler<AccountState>>,
 }
@@ -94,8 +95,19 @@ nautilus_strategy!(EarlyCancelStrategy, {
         self.journal
             .borrow_mut()
             .push(json!({"callback":"cancel_before_accepted"}));
-        self.cancel_order(event.client_order_id, Some(ClientId::new("PREDICT")), None)
+        if self.cancel_all {
+            self.cancel_all_orders(
+                event.instrument_id,
+                None,
+                Some(ClientId::new("PREDICT")),
+                false,
+                None,
+            )
             .unwrap();
+        } else {
+            self.cancel_order(event.client_order_id, Some(ClientId::new("PREDICT")), None)
+                .unwrap();
+        }
         // Native Strategy suppresses a second cancel while PendingCancel.
         self.cancel_order(event.client_order_id, Some(ClientId::new("PREDICT")), None)
             .unwrap();
@@ -209,6 +221,7 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
             ..Default::default()
         }),
         submitted: false,
+        cancel_all: mode == "cancel_all",
         journal: journal.clone(),
         account_handler: None,
     })
@@ -299,7 +312,7 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
             private.state.open_orders.lock().unwrap().push(row);
         }
         gate.notify_one();
-        if mode == "wallet" {
+        if mode == "wallet" || mode == "cancel_all" {
             let mut accepted = exit_orders::wire_event(&body, "orderAccepted", 1, Decimal::ZERO);
             if let Some(saved) = saved {
                 let mut replay = saved["wallet"][0].clone();
@@ -323,6 +336,7 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
         exit_orders::barrier("native funds unlocked", || {
             cache.borrow().account(&account_id()).is_some_and(|a| {
                 a.balance_locked(Some(Currency::USDT())) == Some(Money::from("0 USDT"))
+                    && a.balance_total(Some(Currency::USDT())) == Some(expected_cash)
             })
         })
         .await;
@@ -515,4 +529,18 @@ async fn untracked_submitted_order_is_rejected_instead_of_retaining_foreign_canc
         OrderStatus::Submitted
     );
     client.disconnect().await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn strategy_cancel_all_includes_submitted_orders_and_defers_until_accepted() {
+    let result = run("cancel_all", None).await;
+    assert_eq!(result["finalOpen"], 0);
+    assert_eq!(result["finalInflight"], 0);
+    assert!(
+        result["feedback"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["type"] == "Canceled")
+    );
 }

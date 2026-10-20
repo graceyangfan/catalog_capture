@@ -14,8 +14,14 @@ and [live evidence](../../docs/reference/predict-live-evidence.md).
 - `execution`: Private REST/wallet WS, signing, reports and bounded native commands.
   SubmitOrder and REST removal remain explicit opt-ins; a signer is not inferred.
 - `native-quantity-commission`: The inventory-fee mapping actually used by the
-  recorded mainnet fill/restart/exit. Requires the project Nautilus fork pinned in
-  CI/bootstrap at `587e1065efde08db19016a8eab921c1605d5d2a4`.
+  recorded mainnet fill/restart/exit. Requires the project Nautilus quantity-fee fork.
+  Historical captures used `587e1065efde08db19016a8eab921c1605d5d2a4`.
+
+The current monetary conversion also requires Native `Money::from_decimal_exact`
+from upstream develop `96ec148a8249eda918c9ee3219c7030755cabcf0` or newer.
+CI, bootstrap and local verification use fork `797d98618ddbb26dd2bf843df52dd494daad8c7b`,
+which includes that upstream revision. Balances and collateral fees use upstream
+exact Money conversion with the canonical USDT currency.
 
 The default execution reconciliation mapping is not the same live-tested fee path.
 Native quote position PnL and cash round-trip PnL have different inventory-fee
@@ -47,6 +53,55 @@ other quotes retain bounded search. A feed selector is independent of Binance's
 
 REST cancellation is orderbook removal, not on-chain signature invalidation. The
 SDK on-chain cancellation operation is not automatically sent by this adapter.
+
+Crypto Up/Down definitions carry the title-derived trading window, anchored to
+market creation metadata for historical loads, and a 1 USDT minimum notional.
+Their price bounds remain 0..1; executable prices must be positive. An ended
+trading window does not prove that holdings have settled or can be deleted.
+
+The provider owns static definitions; data-client stop/reset releases that store.
+Rolling definitions belong to the subscription registry. Execution worker snapshots
+follow Native retention: report/command boundaries and new instrument events release
+purged terminal orders, their fully applied atomic fill evidence, and instrument
+snapshots no longer held by Native, retained orders or open positions. Unapplied
+settlements pin their context and require reconciliation. Configure Native closed
+order/position/account-event purging; no second TTL timer or parallel ledger is used.
+The 10,000-entry atomic evidence safety cap still applies to retained orders.
+The private trading template retains Native instrument metadata while any associated
+order remains in Native's closed-order buffer, so a late confirmed fill still has its
+instrument. Books and subscriptions retire normally; no-order capture stays immediate.
+
+Cancellation keeps the decimal-ID endpoint's explicit per-order result partition;
+the currently documented hash-removal endpoint does not specify an equivalent
+receipt contract. HTTP success alone is not converted into an order cancellation.
+Numeric routing IDs from validated create receipts, wallet events, account snapshots
+and Native reports are reused. Hashes remain the Native venue IDs; conflicting numeric
+IDs never replace an existing binding. Missing IDs alone require a GET. CancelAll
+covers owned open/inflight orders, defers pre-acceptance cancellation, and reuses the
+100-ID batch endpoint. Ready cancellations do not wait for missing-ID preflights;
+slow noop follow-ups do not block all subsequent chunks. Only an explicit new command
+can retry an ambiguous write.
+
+REST removal remains available during a WS gap in the active client generation.
+Definitive removed/rejected results reach Native normally; noop is not proof of
+cancellation. Unknown/context-error wallet events gate submissions while the consumer
+continues. Recovery reuses confirmed REST fills for already-canceled orders, then waits
+for Native application. The existing gap verification timer defaults to one second;
+healthy sessions do not perform recovery queries on its ticks.
+
+Independent market/open-order reads occur outside the admission lock. Current local
+claims, fresh chain resources, signing and registration remain serialized. Chain ID
+and token decimals are verified once per chain-client lifetime. After connection
+bootstrap, BUY and SELL admission each use five RPC calls, including one final
+canonical-block check. BUY reads only its exchange allowance; SELL reads ERC-1155
+inventory/approval/nonce. The full collateral diagnostic still queries all allowances.
+
+Native exact Money retains representable collateral/fees below USDT's display scale.
+Sub-native wei residuals use the existing atomic-prefix allocation; historical applied
+allocations stay immutable. Wallet and REST share raw evidence indexed by order, with
+separate pending-publication IDs. Read-only collection never counts as a queued fill.
+Native application clears pending IDs, and Native order retirement releases routing
+and raw evidence. Native price-PnL rounding remains owned by the framework.
 
 ## Source layout
 

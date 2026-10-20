@@ -7,8 +7,8 @@ supersedes the staged prototypes and local patch exports. It is not an upstream
 approval or a claim that all account/product combinations are supported.
 
 - [Own-fork RFC](https://github.com/graceyangfan/nautilus_trader/issues/1).
-- [Pinned baseline](https://github.com/graceyangfan/nautilus_trader/commit/d44218eed670bf436877a0d35b7db61a4de5f6ea).
-- [Fixed comparison with its upstream baseline](https://github.com/graceyangfan/nautilus_trader/compare/779b4b7e00575d38f75e0e7769000f81655abf61...d44218eed670bf436877a0d35b7db61a4de5f6ea).
+- [Pinned baseline](https://github.com/graceyangfan/nautilus_trader/commit/797d98618ddbb26dd2bf843df52dd494daad8c7b).
+- [Fixed comparison with its upstream baseline](https://github.com/graceyangfan/nautilus_trader/compare/96ec148a8249eda918c9ee3219c7030755cabcf0...797d98618ddbb26dd2bf843df52dd494daad8c7b).
 
 The earlier own-fork draft PR was closed without merging. Use the pinned source
 and comparison, not the frozen PR diff. The workspace bootstrap and CI pin the
@@ -97,7 +97,7 @@ fees. Whole-account balance changes are not a per-strategy profit calculation.
 
 Native Position retains one additional optional Decimal cost total. Only the
 change between cumulative Money projections is booked; no separate projected
-balance is persisted. This retains expenses below one Money quantum without an
+balance is persisted. This retains expenses below one currency display quantum without an
 adapter ledger. Cost inherits the existing floating-point moving-average precision.
 
 Ordinary Redis/SQL fill persistence rebuilds quantity and cost totals without forcing
@@ -119,8 +119,17 @@ Money precision distinct. The adapter retains 18-decimal integer/Decimal facts
 for cumulative projection and deduplication. Native `defi` storage support alone
 does not make float-based Position/Portfolio operations exact at 18 decimals.
 
+Reported balances and collateral fees use upstream `Money::from_decimal_exact`.
+USDT keeps its canonical currency identity and 8-decimal display precision, while
+amounts can retain the Native fixed-point precision (16 decimals in this workspace).
+Raw 18-decimal chain facts remain available; reported balances round down only at
+that Native boundary. There is no custom USDT currency or downstream Money patch.
+Position moving-average and realized PnL calculations retain upstream currency
+rounding; replacing only the inventory-cost projection would lose tails on the
+next BUY/SELL recomputation.
+
 At Predict prices bounded by 1 and unit multiplier, one 16-decimal inventory
-quantum has value at most 1e-16 collateral units, below the pinned USDT Money
+quantum has value at most 1e-16 collateral units, below the Position PnL currency
 quantum of 1e-8. This bound does not generalize to higher-priced or multiplied
 products. A sellable order size is determined at submission; accounting must not
 round away an actual residual merely to meet a venue step size.

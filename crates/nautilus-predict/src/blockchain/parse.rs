@@ -82,11 +82,12 @@ fn parse_balance(
         locked.as_decimal() >= rust_decimal::Decimal::ZERO && locked.as_decimal() <= total,
         "Predict reservations are negative or exceed collateral"
     );
-    anyhow::ensure!(
-        total.round_dp(u32::from(locked.currency.precision)) == total,
-        "Predict collateral balance requires monetary rounding"
-    );
-    AccountBalance::from_total_and_locked(total, locked.as_decimal(), locked.currency).map_err(
-        |_| anyhow::anyhow!("Predict collateral balance exceeds Nautilus range or reservations"),
-    )
+    let total = Money::from_decimal_exact(total, locked.currency)
+        .map_err(|_| anyhow::anyhow!("Predict collateral balance requires monetary rounding"))?;
+    let free = total
+        .checked_sub(locked)
+        .ok_or_else(|| anyhow::anyhow!("Predict collateral free balance exceeds Nautilus range"))?;
+    AccountBalance::new_checked(total, locked, free).map_err(|_| {
+        anyhow::anyhow!("Predict collateral balance exceeds Nautilus range or reservations")
+    })
 }

@@ -268,7 +268,6 @@ impl ReadinessCheck {
                 <= usize::try_from(cfg.report_page_size)? * cfg.max_report_pages,
             "Predict readiness order scope exceeds configured bound"
         );
-        cfg.session.request_account().await?;
         let open = super::account::collect_open_orders(cfg).await?;
         self.verify_open(&open)?;
         let rows = super::matches::collect_matches(cfg, None).await?;
@@ -284,6 +283,51 @@ impl ReadinessCheck {
         let scope = GenerateFillReports::new(UUID4::new(), now, None, None, None, None, None, None);
         let fills =
             super::matches::parse_cached_match_reports(rows, now, &self.context, &scope, &staged)?;
+        let unapplied = fills
+            .iter()
+            .filter_map(|fill| {
+                match super::parse::validate_applied_fill(
+                    &fill.report,
+                    &self.context.orders[&fill.report.venue_order_id],
+                ) {
+                    Ok(true) => None,
+                    Ok(false) => Some(Ok(fill.clone())),
+                    Err(error) => Some(Err(error)),
+                }
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        if !unapplied.is_empty() {
+            // A definitive REST cancellation can close an order during a WS gap before
+            // its settlement arrives. Native inflight checks no longer cover that order.
+            // Reuse the confirmed match facts already collected here; Native still owns
+            // applying late fills, positions, deduplication and strategy callbacks.
+            let state = self
+                .reporter
+                .sync
+                .state
+                .lock()
+                .expect("account sync poisoned");
+            anyhow::ensure!(
+                state.revision == self.revision
+                    && self.healthy.load(Ordering::Acquire)
+                    && self.reporter.authentication.is_authenticated()
+                    && self.reporter.connection_epoch.load(Ordering::Acquire) == self.epoch,
+                "Predict readiness changed before settlement publication"
+            );
+            let mut facts = self
+                .evidence
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Predict evidence poisoned"))?;
+            let mut staged = facts.clone();
+            staged.commit(&unapplied)?;
+            for fill in &unapplied {
+                self.reporter.emitter.try_send_execution_report(
+                    nautilus_common::messages::ExecutionReport::Fill(Box::new(fill.report.clone())),
+                )?;
+                facts.queue(std::slice::from_ref(fill))?;
+            }
+            anyhow::bail!("Predict confirmed settlements queued; wait for Native application");
+        }
         let mut applied_quantities: HashMap<VenueOrderId, Decimal> = HashMap::new();
         for fill in &fills {
             anyhow::ensure!(
@@ -403,7 +447,15 @@ impl ReadinessCheck {
         anyhow::ensure!(
             self.account.balance_total(Some(Currency::USDT())) == Some(expected.total)
                 && self.account.balance_locked(Some(Currency::USDT())) == Some(expected.locked),
-            "Predict readiness cash differs from applied native account"
+            "Predict readiness cash differs from applied native account: actual={:?}/{:?}, expected={}/{}",
+            self.account
+                .balance_total(Some(Currency::USDT()))
+                .map(|m| m.as_decimal()),
+            self.account
+                .balance_locked(Some(Currency::USDT()))
+                .map(|m| m.as_decimal()),
+            expected.total.as_decimal(),
+            expected.locked.as_decimal()
         );
         let latest_fill = self
             .reporter

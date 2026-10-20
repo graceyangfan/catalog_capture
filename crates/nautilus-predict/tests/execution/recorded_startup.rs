@@ -415,6 +415,14 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
     let current = source["wallet"]["events"].as_array().unwrap();
     // The collector retains successful cancel status and canceled WS state, not its body.
     // Supply the documented removed shape with the loopback venue identity.
+    if partial_entry {
+        private
+            .state
+            .remove_replies
+            .lock()
+            .unwrap()
+            .push_back((200, json!({"echoNoop":true}), 0));
+    }
     private.state.remove_replies.lock().unwrap().push_back((
         200,
         json!({"success":true,"removed":["12345"],"noop":[]}),
@@ -586,15 +594,9 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
                         },
                     )
                     .await;
-                    barrier(
-                        "cancel loses to settlement and strategy requests native resolution",
-                        || {
-                            journal
-                                .borrow()
-                                .iter()
-                                .any(|row| row["type"] == "AwaitEntryResolutionAfterCancelRejected")
-                        },
-                    )
+                    barrier("entry removal noop awaits confirmed settlement", || {
+                        !private.state.removals.lock().unwrap().is_empty()
+                    })
                     .await;
                 }
             }
@@ -644,7 +646,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         exit.set(true);
         push_book(&private, &public);
         barrier("recorded exit decision cancels maker", || {
-            !private.state.removals.lock().unwrap().is_empty()
+            private.state.removals.lock().unwrap().len() == if partial_entry { 2 } else { 1 }
         })
         .await;
         rest_state(&private, &maker, "CANCELLED", "0");
@@ -687,17 +689,23 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
                 );
                 recorded.push(wallet(&private, &event, &sell));
                 if index == 1 {
-                    barrier("two small SELL fees reach one native Money quantum", || {
-                        cache
-                            .borrow()
-                            .orders(None, None, None, None, None)
-                            .iter()
-                            .any(|order| {
-                                order.order_side() == OrderSide::Sell
-                                    && order.commissions().get(&Currency::USDT())
-                                        == Some(&Money::from("0.00000001 USDT"))
-                            })
-                    })
+                    barrier(
+                        "small SELL fees retain Native fixed-point precision",
+                        || {
+                            cache
+                                .borrow()
+                                .orders(None, None, None, None, None)
+                                .iter()
+                                .any(|order| {
+                                    order.order_side() == OrderSide::Sell
+                                        && order.commissions().get(&Currency::USDT())
+                                            == Some(
+                                                &Money::from_str_exact("0.0000000098 USDT")
+                                                    .unwrap(),
+                                            )
+                                })
+                        },
+                    )
                     .await;
                 }
             }
@@ -719,23 +727,46 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
                 .unwrap()
                 .push(match_receipt(original, &sell, &sell_event));
         }
-        barrier("closed callback and final Native account", || {
-            super::strategy_lifecycle::callback(&journal, "on_position_closed")
-                && cache
-                    .borrow()
-                    .account(&account_id())
-                    .and_then(|a| a.last_event())
-                    .is_some_and(|s| {
-                        s.balances[0].total.as_decimal()
-                            == Decimal::from_str_exact(if partial_entry {
-                                "48.23330840"
-                            } else {
-                                "48.21630840"
-                            })
-                            .unwrap()
-                    })
+        let finished = timeout(Duration::from_secs(6), async {
+            loop {
+                if super::strategy_lifecycle::callback(&journal, "on_position_closed")
+                    && cache
+                        .borrow()
+                        .account(&account_id())
+                        .and_then(|a| a.last_event())
+                        .is_some_and(|s| {
+                            s.balances[0].total.as_decimal()
+                                == Decimal::from_str_exact(if partial_entry {
+                                    "48.23330840"
+                                } else {
+                                    "48.21630840"
+                                })
+                                .unwrap()
+                        })
+                {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
         })
         .await;
+        assert!(
+            finished.is_ok(),
+            "callback={}, balance={:?}, positions={:?}",
+            super::strategy_lifecycle::callback(&journal, "on_position_closed"),
+            cache
+                .borrow()
+                .account(&account_id())
+                .unwrap()
+                .balance_total(Some(Currency::USDT()))
+                .map(|m| m.as_decimal()),
+            cache
+                .borrow()
+                .positions(None, None, None, None, None)
+                .iter()
+                .map(|p| (p.side, p.quantity, p.signed_qty))
+                .collect::<Vec<_>>()
+        );
         handle.stop();
     };
     timeout(Duration::from_secs(12), async {
@@ -763,7 +794,16 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
     } else {
         "-0.08142080 USDT"
     };
-    assert_eq!(final_position["realizedPnl"], expected_pnl);
+    if partial_entry {
+        // Native Position rounds price PnL per fill at the currency scale. Exact
+        // subcurrency fees must not be rounded away to force the old PnL string.
+        let actual =
+            Money::from_str_exact(final_position["realizedPnl"].as_str().unwrap()).unwrap();
+        let expected = Money::from_str_exact(expected_pnl).unwrap();
+        assert!((actual.as_decimal() - expected.as_decimal()).abs() <= Decimal::new(1, 8));
+    } else {
+        assert_eq!(final_position["realizedPnl"], expected_pnl);
+    }
     assert_eq!(
         events
             .iter()
@@ -827,7 +867,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         );
 
         result["quantityCommissionPrototype"] = json!(true);
-        result["cycleRealizedPnl"] = json!(expected_pnl);
+        result["cycleRealizedPnl"] = final_position["realizedPnl"].clone();
         result["pnlConvention"] = json!(
             "Native inventory cost and quote fees are included in realized PnL; cash flow is independently verified"
         );
@@ -859,7 +899,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         result["rawMinusNativeCollateralFee"] = json!("-0.000000000000000001");
         result["duplicateWalletPackets"] = json!(true);
         result["finalCash"] = json!("48.23330840");
-        result["cycleRealizedPnl"] = json!(expected_pnl);
+        result["cycleRealizedPnl"] = final_position["realizedPnl"].clone();
         result["venueResidualSharesWei"] = json!("1");
         result["matchesCoverage"] = json!(
             "synthetic entry and exit partials tested through wallet WS; complete REST matches replay covered by separate LiveNode cases"
@@ -870,7 +910,10 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         "documented removed fixture shape rebound to recorded successful HTTP cancel status and WS terminal state"
     );
     result["cancelRequests"] = json!(*private.state.removals.lock().unwrap());
-    assert_eq!(private.state.removals.lock().unwrap().len(), 1);
+    assert_eq!(
+        private.state.removals.lock().unwrap().len(),
+        if partial_entry { 2 } else { 1 }
+    );
     result
 }
 #[tokio::test(flavor = "current_thread")]

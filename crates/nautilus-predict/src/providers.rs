@@ -16,13 +16,14 @@ use std::collections::HashMap;
 
 use ahash::AHashMap;
 use async_trait::async_trait;
+use chrono::{DateTime, Datelike, Utc};
 use nautilus_common::providers::{InstrumentProvider, InstrumentStore};
 use nautilus_core::{Params, UnixNanos};
 use nautilus_model::{
     enums::AssetClass,
     identifiers::{InstrumentId, Symbol},
     instruments::{BinaryOption, InstrumentAny},
-    types::{Currency, Price, Quantity, fixed::FIXED_PRECISION},
+    types::{Currency, Money, Price, Quantity, fixed::FIXED_PRECISION},
 };
 use rust_decimal::Decimal;
 use ustr::Ustr;
@@ -58,6 +59,16 @@ impl PredictInstrumentProvider {
 
     pub fn context(&self, market_id: u64) -> Option<&PredictMarketContext> {
         self.contexts.get(&market_id)
+    }
+
+    pub(crate) fn contexts(&self) -> &AHashMap<u64, PredictMarketContext> {
+        &self.contexts
+    }
+
+    /// Release bootstrap definitions when their data-client generation stops.
+    pub fn clear(&mut self) {
+        self.store.clear();
+        self.contexts.clear();
     }
 
     pub(crate) fn http_client(&self) -> &PredictHttpClient {
@@ -130,7 +141,11 @@ impl InstrumentProvider for PredictInstrumentProvider {
         market_ids.dedup();
         for market_id in market_ids {
             if !self.contexts.contains_key(&market_id) {
-                self.load_market(market_id, UnixNanos::default()).await?;
+                self.load_market(
+                    market_id,
+                    nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+                )
+                .await?;
             }
         }
         for instrument_id in instrument_ids {
@@ -199,6 +214,42 @@ pub(crate) fn instruments_from_market(
             info.insert("start_price".into(), price.to_string().into());
             info
         });
+    let window = if market
+        .variant_data
+        .as_ref()
+        .is_some_and(|v| v.variant_type == "CRYPTO_UP_DOWN")
+    {
+        // Titles omit the year. Creation metadata anchors historical loads too;
+        // neighbouring years resolve markets advertised across New Year.
+        let anchor = market
+            .created_at
+            .as_deref()
+            .map(DateTime::parse_from_rfc3339)
+            .transpose()?
+            .map(|date| date.with_timezone(&Utc))
+            .unwrap_or(DateTime::<Utc>::from_timestamp_nanos(i64::try_from(
+                ts_init.as_u64(),
+            )?));
+        let anchor_ns = anchor
+            .timestamp_nanos_opt()
+            .and_then(|value| u64::try_from(value).ok())
+            .ok_or_else(|| anyhow::anyhow!("Predict market creation timestamp is out of range"))?;
+        // Do not reinterpret an invalid/ambiguous local time as another year's market.
+        crate::common::parse_crypto_up_down_title(&market.title, anchor.year())?;
+        Some(
+            [anchor.year() - 1, anchor.year(), anchor.year() + 1]
+                .into_iter()
+                .filter_map(|year| {
+                    crate::common::parse_crypto_up_down_title(&market.title, year).ok()
+                })
+                .min_by_key(|window| window.start_ns.abs_diff(anchor_ns))
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Predict crypto market lacks a valid trading window")
+                })?,
+        )
+    } else {
+        None
+    };
     let instruments = [yes, no]
         .into_iter()
         .map(|outcome| {
@@ -208,14 +259,16 @@ pub(crate) fn instruments_from_market(
                 .raw_symbol(Symbol::new(outcome.on_chain_id.as_str()))
                 .asset_class(AssetClass::Alternative)
                 .currency(currency)
-                .activation_ns(UnixNanos::default())
-                // REST market metadata does not expose an expiry. Keep the definition
-                // Arrow-serializable; the Crypto Up/Down universe manager owns actual rotation.
-                .expiration_ns(UnixNanos::from(i64::MAX as u64))
+                .activation_ns(UnixNanos::from(window.as_ref().map_or(0, |w| w.start_ns)))
+                // Unknown expiry is retained only for non-crypto event markets.
+                .expiration_ns(UnixNanos::from(
+                    window.as_ref().map_or(i64::MAX as u64, |w| w.end_ns),
+                ))
                 .price_precision(market.decimal_precision)
                 .size_precision(SNAPSHOT_SIZE_PRECISION)
                 .price_increment(price_increment)
                 .size_increment(size_increment)
+                .min_notional(Money::from_decimal(Decimal::ONE, currency)?)
                 .min_price(min_price)
                 .max_price(max_price)
                 .outcome(Ustr::from(outcome.name.as_str()))
@@ -311,6 +364,80 @@ mod tests {
             instruments[0].raw_symbol().as_str(),
             response.data.outcomes[0].on_chain_id
         );
+    }
+
+    #[test]
+    fn crypto_definitions_preserve_price_bounds_notional_and_historical_window() {
+        use chrono::{TimeZone, Utc};
+        use nautilus_model::types::{Money, Price};
+        let response: PredictResponse<PredictMarket> =
+            serde_json::from_str(include_str!("../test_data/market_2859346.json")).unwrap();
+        let (_, definitions) = instruments_from_market(&response.data, 1.into()).unwrap();
+        for instrument in definitions {
+            assert_eq!(instrument.min_price(), Some(Price::from("0.00")));
+            assert_eq!(instrument.max_price(), Some(Price::from("1.00")));
+            assert_eq!(instrument.min_notional(), Some(Money::from("1 USDT")));
+            let nautilus_model::instruments::InstrumentAny::BinaryOption(binary) = instrument
+            else {
+                unreachable!()
+            };
+            assert_eq!(
+                binary.activation_ns.as_u64(),
+                Utc.with_ymd_and_hms(2026, 10, 3, 22, 0, 0)
+                    .unwrap()
+                    .timestamp_nanos_opt()
+                    .unwrap() as u64
+            );
+            assert_eq!(
+                binary.expiration_ns.as_u64(),
+                binary.activation_ns.as_u64() + 300_000_000_000
+            );
+        }
+        let mut market = response.data;
+        market.title = "Bitcoin Up or Down - January 1, 12AM-12:15AM ET".into();
+        market.created_at = Some("2026-12-31T23:00:00Z".into());
+        let (_, definitions) = instruments_from_market(&market, 1.into()).unwrap();
+        let nautilus_model::instruments::InstrumentAny::BinaryOption(binary) = &definitions[0]
+        else {
+            unreachable!()
+        };
+        assert_eq!(
+            binary.expiration_ns.as_u64(),
+            Utc.with_ymd_and_hms(2027, 1, 1, 5, 15, 0)
+                .unwrap()
+                .timestamp_nanos_opt()
+                .unwrap() as u64
+        );
+        market.title = "Bitcoin Up or Down - November 1, 1AM-1:05AM ET".into();
+        market.created_at = Some("2026-11-01T04:00:00Z".into());
+        assert!(instruments_from_market(&market, 1.into()).is_err());
+        market.title = "Invalid crypto window".into();
+        assert!(instruments_from_market(&market, 1.into()).is_err());
+        market.variant_data = None;
+        let (_, definitions) = instruments_from_market(&market, 1.into()).unwrap();
+        let nautilus_model::instruments::InstrumentAny::BinaryOption(binary) = &definitions[0]
+        else {
+            unreachable!()
+        };
+        assert_eq!(binary.expiration_ns.as_u64(), i64::MAX as u64);
+    }
+
+    #[test]
+    fn clearing_provider_releases_both_definitions_and_contexts() {
+        let response: PredictResponse<PredictMarket> =
+            serde_json::from_str(include_str!("../test_data/market_2859346.json")).unwrap();
+        let (context, definitions) = instruments_from_market(&response.data, 1.into()).unwrap();
+        let mut provider = super::PredictInstrumentProvider::new(
+            crate::PredictHttpClient::new("offline", None, 30).unwrap(),
+        );
+        provider.store.add_bulk(definitions);
+        provider.contexts.insert(context.market_id, context.clone());
+        assert_eq!(provider.store.get_all().len(), 2);
+        assert!(provider.context(context.market_id).is_some());
+        provider.clear();
+        assert!(provider.store.get_all().is_empty());
+        assert!(provider.context(context.market_id).is_none());
+        provider.clear();
     }
 
     #[test]

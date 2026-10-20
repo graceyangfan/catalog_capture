@@ -18,14 +18,14 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
 
 use alloy::primitives::{B256, U256};
+use futures_util::StreamExt;
 use nautilus_common::{
-    clients::ExecutionClient,
     factories::OrderEventFactory,
     messages::{
         ExecutionReport,
@@ -39,7 +39,6 @@ use nautilus_model::{
     instruments::{BinaryOption, InstrumentAny},
     orders::{Order, OrderAny},
 };
-use nautilus_network::websocket::AuthTracker;
 use tokio_util::sync::CancellationToken;
 
 use super::{
@@ -99,10 +98,14 @@ impl PredictExecutionClient {
                     && cancel.instrument_id == cmd.instrument_id),
             "Predict batch cancel child differs from command scope"
         );
+        self.dispatch_cancels(&cmd.cancels)
+    }
+
+    fn dispatch_cancels(&self, cancels: &[CancelOrder]) -> anyhow::Result<()> {
         let mut seen = HashSet::new();
         let mut errors = Vec::new();
         let mut entries = Vec::new();
-        for cancel in &cmd.cancels {
+        for cancel in cancels {
             if !seen.insert(cancel.client_order_id) {
                 continue;
             }
@@ -143,12 +146,22 @@ impl PredictExecutionClient {
                     Some(&self.core.venue),
                     Some(&cmd.instrument_id),
                     None,
-                    Some(&self.core.account_id),
+                    None,
                     cmd.order_side,
                 )
                 .into_iter()
+                .chain(cache.orders_inflight(
+                    Some(&self.core.venue),
+                    Some(&cmd.instrument_id),
+                    None,
+                    None,
+                    cmd.order_side,
+                ))
                 .filter(|order| {
                     order.trader_id() == self.core.trader_id
+                        && order
+                            .account_id()
+                            .is_none_or(|id| id == self.core.account_id)
                         && cache
                             .client_id(&order.client_order_id())
                             .is_none_or(|id| *id == self.core.client_id)
@@ -156,8 +169,12 @@ impl PredictExecutionClient {
                 .map(|order| order.clone())
                 .collect::<Vec<_>>()
         };
-        let mut errors = Vec::new();
+        let mut seen = HashSet::new();
+        let mut cancels = Vec::new();
         for order in orders {
+            if !seen.insert(order.client_order_id()) {
+                continue;
+            }
             // CancelAll intentionally spans strategies for this client/account/instrument;
             // strategy_only is expanded into explicit commands by the native Strategy API.
             let mut cancel = CancelOrder::new(
@@ -173,16 +190,9 @@ impl PredictExecutionClient {
                 cmd.correlation_id,
             );
             cancel.causation_id = cmd.causation_id;
-            if let Err(error) = self.cancel_order_command(&cancel) {
-                errors.push(format!("{}: {error}", order.client_order_id()));
-            }
+            cancels.push(cancel);
         }
-        anyhow::ensure!(
-            errors.is_empty(),
-            "Predict cancel-all dispatch failures: {}",
-            errors.join("; ")
-        );
-        Ok(())
+        self.dispatch_cancels(&cancels)
     }
 
     pub(super) fn cancel_order_command(&self, cmd: &CancelOrder) -> anyhow::Result<()> {
@@ -220,7 +230,9 @@ impl PredictExecutionClient {
                     || cmd.client_id.is_some_and(|id| id != self.core.client_id)
                     || cmd.strategy_id != order.strategy_id()
                     || cmd.instrument_id != order.instrument_id()
-                    || order.account_id() != Some(self.core.account_id)
+                    || order
+                        .account_id()
+                        .is_some_and(|id| id != self.core.account_id)
                     || cache
                         .client_id(&cmd.client_order_id)
                         .is_some_and(|id| *id != self.core.client_id)
@@ -267,7 +279,8 @@ impl PredictExecutionClient {
         );
         anyhow::ensure!(
             self.config.account_state_mode == PredictAccountStateMode::Reported
-                && self.is_connected(),
+                && self.core.is_connected()
+                && !self.tasks.cancellation_token().is_cancelled(),
             "Predict reported execution session is not connected"
         );
         let cache = self.core.cache();
@@ -280,7 +293,9 @@ impl PredictExecutionClient {
                 && cmd.client_id.is_none_or(|id| id == self.core.client_id)
                 && cmd.strategy_id == order.strategy_id()
                 && cmd.instrument_id == order.instrument_id()
-                && order.account_id() == Some(self.core.account_id)
+                && order
+                    .account_id()
+                    .is_none_or(|id| id == self.core.account_id)
                 && cache
                     .client_id(&cmd.client_order_id)
                     .is_none_or(|id| *id == self.core.client_id)
@@ -325,14 +340,6 @@ impl PredictExecutionClient {
         };
         let instrument = instrument.clone();
         drop(cache);
-        let authentication = self
-            .wallet_auth
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("Predict cancel has no wallet authentication"))?;
-        let epoch = self
-            .wallet_epoch
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("Predict cancel has no wallet connection identity"))?;
         anyhow::ensure!(
             self.pending_cancels
                 .lock()
@@ -348,13 +355,11 @@ impl PredictExecutionClient {
         let worker = CancelWorker {
             session: self.config.session.clone(),
             orders: Arc::clone(&self.orders),
-            order: Arc::new(order),
+            client_order_id: order.client_order_id(),
             instrument,
             venue_id,
             hash,
-            authentication,
-            admitted_epoch: self.verified_epoch.load(Ordering::Acquire),
-            epoch,
+            rest_ids: Arc::clone(&self.rest_order_ids),
             healthy: Arc::clone(&self.healthy),
             factory: OrderEventFactory::new(
                 self.core.trader_id,
@@ -374,13 +379,11 @@ impl PredictExecutionClient {
 struct CancelWorker {
     session: PredictAuthenticatedHttpClient,
     orders: Arc<AtomicMap<VenueOrderId, Arc<OrderAny>>>,
-    order: Arc<OrderAny>,
+    client_order_id: ClientOrderId,
     instrument: BinaryOption,
     venue_id: VenueOrderId,
     hash: B256,
-    authentication: AuthTracker,
-    epoch: Arc<AtomicU64>,
-    admitted_epoch: u64,
+    rest_ids: super::routing::RestOrderIds,
     healthy: Arc<AtomicBool>,
     factory: OrderEventFactory,
     emitter: ExecutionEventEmitter,
@@ -391,14 +394,11 @@ struct CancelWorker {
 
 impl CancelWorker {
     fn session_active(&self) -> bool {
-        self.healthy.load(Ordering::Acquire)
-            && self.authentication.is_authenticated()
-            && self.epoch.load(Ordering::Acquire) == self.admitted_epoch
+        !self.cancellation.is_cancelled()
     }
     fn reject(&self, reason: &str) {
         // A proven not-sent/definitively rejected command can resolve PendingCancel
-        // during a wallet gap. Only shutdown of its owning generation suppresses it;
-        // continuity remains required for writes and successful removal acknowledgements.
+        // during a wallet gap. Only shutdown of its owning generation suppresses it.
         if !self.cancellation.is_cancelled()
             && let Some(order) = self.current_order()
             && !order.is_closed()
@@ -419,7 +419,7 @@ impl CancelWorker {
     fn current_order(&self) -> Option<Arc<OrderAny>> {
         self.orders
             .get_cloned(&self.venue_id)
-            .filter(|order| order.client_order_id() == self.order.client_order_id())
+            .filter(|order| order.client_order_id() == self.client_order_id)
     }
     fn resolve(
         &self,
@@ -454,6 +454,20 @@ impl CancelWorker {
     }
 
     async fn preflight(&self) -> Result<Option<U256>, CommandFailure> {
+        if !self.session_active() {
+            return Err(CommandFailure::not_sent(
+                "Predict cancellation generation stopped",
+            ));
+        }
+        let order = self
+            .current_order()
+            .ok_or_else(|| CommandFailure::not_sent("Predict cancel lost native context"))?;
+        if order.is_closed() {
+            return Ok(None);
+        }
+        if let Some(id) = self.rest_ids.get_cloned(&self.venue_id) {
+            return Ok(Some(id));
+        }
         let row = self
             .session
             .request_order(self.hash)
@@ -480,15 +494,15 @@ impl CancelWorker {
         }
         if !self.session_active() {
             return Err(CommandFailure::not_sent(
-                "Predict cancel session lost wallet continuity",
+                "Predict cancellation generation stopped",
             ));
         }
         // REST IDs are a routing detail fetched by hash. They never replace VenueOrderId in OMS.
-        let id: U256 = serde_json::from_value::<DecimalId>(serde_json::Value::String(row.id))
-            .map_err(|_| {
-                CommandFailure::not_sent("Predict cancel preflight ID is not a decimal uint256")
-            })?
-            .0;
+        let id = super::routing::parse_id(&row.id).map_err(|_| {
+            CommandFailure::not_sent("Predict cancel preflight ID is not a decimal uint256")
+        })?;
+        super::routing::register(&self.rest_ids, self.venue_id, id)
+            .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
         Ok(Some(id))
     }
 
@@ -524,12 +538,11 @@ impl CancelWorker {
                 "Predict removal rejected during the market removal lock window".into(),
             ));
         }
-        // A validated rejection is definitive even if wallet continuity was lost.
-        // Successful/unknown outcomes keep the existing continuity requirements;
-        // resolve/reject still enforce task ownership and the current native order.
+        // REST receipts are valid during a WS gap. Only the owning task generation
+        // and current Native order constrain publication of a definitive result.
         if !self.session_active() {
             return Err(CommandFailure::ambiguous(
-                "Predict cancel session lost wallet continuity after transmission",
+                "Predict cancellation generation stopped after transmission",
             ));
         }
         if receipt.removed.contains(&id) {
@@ -556,7 +569,7 @@ impl CancelWorker {
                 .map_err(|e| CommandFailure::Ambiguous(e.to_string()))?;
             if !self.session_active() {
                 return Err(CommandFailure::ambiguous(
-                    "Predict cancel reconciliation lost wallet continuity",
+                    "Predict cancellation generation stopped during reconciliation",
                 ));
             }
             let order = self.current_order().ok_or_else(|| {
@@ -596,8 +609,8 @@ impl CancelWorker {
 
 /// Preparation retains individual failure boundaries; only proven, active IDs share a write.
 async fn execute_batch(entries: Vec<(CancelWorker, CancelGuard)>) {
-    let ready =
-        futures_util::future::join_all(entries.into_iter().map(|(worker, mut guard)| async move {
+    futures_util::stream::iter(entries)
+        .map(|(worker, mut guard)| async move {
             match tokio::time::timeout(worker.timeout, worker.preflight()).await {
                 Ok(Ok(Some(id))) => Some((worker, guard, id)),
                 Ok(Ok(None)) => None,
@@ -606,70 +619,63 @@ async fn execute_batch(entries: Vec<(CancelWorker, CancelGuard)>) {
                     None
                 }
             }
-        }))
-        .await
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-    // Match the HTTP client's bound, without introducing a second source of order state.
-    let mut ready = ready.into_iter();
-    loop {
-        let chunk = ready.by_ref().take(100).collect::<Vec<_>>();
-        if chunk.is_empty() {
-            break;
-        }
-        let mut active = Vec::new();
-        for (worker, guard, id) in chunk {
-            let Some(order) = worker.current_order() else {
-                worker.reject("Predict batch cancel lost native context before transmission");
-                continue;
-            };
-            if order.is_closed() {
-                continue;
+        })
+        .buffer_unordered(100)
+        .filter_map(|entry| async { entry })
+        .ready_chunks(100)
+        .for_each_concurrent(4, |chunk| async move {
+            let mut active = Vec::new();
+            for (worker, guard, id) in chunk {
+                let Some(order) = worker.current_order() else {
+                    worker.reject("Predict batch cancel lost native context before transmission");
+                    continue;
+                };
+                if order.is_closed() {
+                    continue;
+                }
+                if !worker.session_active() {
+                    worker.reject(
+                        "Predict batch cancellation generation stopped before transmission",
+                    );
+                    continue;
+                }
+                active.push((worker, guard, id));
             }
-            if !worker.session_active() {
-                worker.reject("Predict batch cancel lost wallet continuity before transmission");
-                continue;
+            if active.is_empty() {
+                return;
             }
-            active.push((worker, guard, id));
-        }
-        if active.is_empty() {
-            continue;
-        }
-        let ids = active.iter().map(|(_, _, id)| *id).collect::<Vec<_>>();
-        let session = active[0].0.session.clone();
-        let timeout = active[0].0.timeout;
-        for (_, guard, _) in &mut active {
-            guard.retain = true;
-        }
-        match tokio::time::timeout(timeout, session.request_remove_orders(&ids)).await {
-            Ok(Ok(receipt)) => {
-                let receipt = &receipt;
-                futures_util::future::join_all(active.into_iter().map(
-                    |(worker, mut guard, id)| async move {
-                        let result = tokio::time::timeout(
-                            worker.timeout,
-                            worker.complete(&mut guard, receipt, id),
-                        )
-                        .await;
-                        worker.resolve(&mut guard, result);
-                    },
-                ))
-                .await;
+            let ids = active.iter().map(|(_, _, id)| *id).collect::<Vec<_>>();
+            let session = active[0].0.session.clone();
+            let timeout = active[0].0.timeout;
+            for (_, guard, _) in &mut active {
+                guard.retain = true;
             }
-            Ok(Err(error)) => {
-                for (worker, mut guard, _) in active {
-                    worker.resolve(&mut guard, Ok(Err(classify_http_command_failure(&error))));
+            match tokio::time::timeout(timeout, session.request_remove_orders(&ids)).await {
+                Ok(Ok(receipt)) => {
+                    let receipt = &receipt;
+                    futures_util::future::join_all(active.into_iter().map(
+                        |(worker, mut guard, id)| async move {
+                            let result = tokio::time::timeout(
+                                worker.timeout,
+                                worker.complete(&mut guard, receipt, id),
+                            )
+                            .await;
+                            worker.resolve(&mut guard, result);
+                        },
+                    ))
+                    .await;
+                }
+                Ok(Err(error)) => {
+                    for (worker, mut guard, _) in active {
+                        worker.resolve(&mut guard, Ok(Err(classify_http_command_failure(&error))));
+                    }
+                }
+                Err(_) => {
+                    for (worker, guard, _) in active {
+                        worker.resolve_timeout(&guard);
+                    }
                 }
             }
-            Err(_) => {
-                for (worker, guard, _) in active {
-                    worker.resolve_timeout(&guard);
-                }
-            }
-        }
-    }
+        })
+        .await;
 }
-
-#[derive(serde::Deserialize)]
-struct DecimalId(#[serde(with = "crate::common::serde::decimal_u256")] U256);

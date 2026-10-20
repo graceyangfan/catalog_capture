@@ -633,8 +633,9 @@ async fn run_lifecycle(
                     Decimal::from_str_exact(tp["order"]["takerAmount"].as_str().unwrap()).unwrap();
                 let body = json!({"data":{"order":tp["order"],"strategy":tp["strategy"],
                     "pricePerShare":(value / quantity * Decimal::from(1_000_000_000_000_000_000u64)).normalize().to_string()}});
-                let duplicate =
+                let mut duplicate =
                     super::exit_orders::wire_event(&body, "orderCancelled", 1, Decimal::ZERO);
+                duplicate["orderId"] = tp["id"].clone();
                 // Retained closed orders must still accept a real late settlement.
                 // Queue duplicate cancellation first, then a full SELL and its replay.
                 // Observing the fill/position callbacks is the causal processing barrier.
@@ -644,6 +645,7 @@ async fn run_lifecycle(
                 let size = quantity / scale;
                 let mut late =
                     super::exit_orders::wire_event(&body, "orderTransactionSuccess", 1, size);
+                late["orderId"] = tp["id"].clone();
                 late["settlementId"] = json!("derived-late-retained-tp");
                 late["isMaker"] = json!(false);
                 late["fee"] = json!({"type":"COLLATERAL","amountWei":(value / Decimal::from(50)).normalize().to_string()});
@@ -752,11 +754,12 @@ async fn run_lifecycle(
                 barrier(
                     "purged unknown wallet identity gates rather than resurrecting order",
                     || {
-                        !engine
+                        engine
                             .borrow()
                             .get_client(&ClientId::new("PREDICT"))
                             .unwrap()
-                            .is_connected()
+                            .submit_order(submissions::submit(&order(1)))
+                            .is_err_and(|e| e.to_string().contains("stream gap"))
                     },
                 )
                 .await;

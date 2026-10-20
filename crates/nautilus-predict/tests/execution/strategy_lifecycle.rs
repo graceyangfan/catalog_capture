@@ -1378,8 +1378,17 @@ async fn run(case: Case, from_saved: bool) -> Value {
                                 wire_event(&stop, "orderCancelled", 1, Decimal::from(first)),
                                 saved.as_ref(),
                             );
-                            barrier("residual below minimum reported", || {
-                                callback(&journal, "on_order_rejected")
+                            barrier("residual minimum reaches the owning rejection path", || {
+                                // 100 shares are below Native's notional minimum;
+                                // 126 pass it but fail the venue slippage-floor minimum.
+                                callback(
+                                    &journal,
+                                    if case == Case::TerminalStop {
+                                        "on_order_denied"
+                                    } else {
+                                        "on_order_rejected"
+                                    },
+                                )
                             })
                             .await;
                             assert_eq!(exit_requests(&private, case).len(), 3);

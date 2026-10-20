@@ -57,6 +57,7 @@ impl DataClient for PredictDataClient {
     fn stop(&mut self) -> anyhow::Result<()> {
         self.tasks.begin_shutdown();
         self.command_tx = None;
+        self.provider.clear();
         self.dynamic_registry
             .write()
             .expect("Predict dynamic registry lock poisoned")
@@ -99,7 +100,7 @@ impl DataClient for PredictDataClient {
         let (command_tx, session) = PredictDataSession::connect(
             &self.config,
             PredictSessionInputs {
-                contexts: self.contexts.clone(),
+                contexts: self.provider.contexts().clone(),
                 dynamic_registry: Arc::clone(&self.dynamic_registry),
                 dynamic_generation,
                 data_sender: self.data_sender.clone(),
@@ -129,8 +130,7 @@ impl DataClient for PredictDataClient {
             .finish_shutdown(Duration::from_secs(1), DISCONNECT_TIMEOUT)
             .await
             .context("failed to stop Predict tasks")?;
-        self.instruments.clear();
-        self.contexts.clear();
+        self.provider.clear();
         self.dynamic_registry
             .write()
             .expect("Predict dynamic registry lock poisoned")
@@ -172,7 +172,8 @@ impl DataClient for PredictDataClient {
     fn subscribe_quotes(&mut self, command: SubscribeQuotes) -> anyhow::Result<()> {
         let id = command.instrument_id;
         let context = self
-            .contexts
+            .provider
+            .contexts()
             .values()
             .find(|c| c.yes_instrument_id == id || c.no_instrument_id == id)
             .cloned()

@@ -170,6 +170,7 @@ pub(super) fn bulk_task(
     let emitter = client.emitter.clone();
     let pending = client.pending_submissions.clone();
     let evidence = client.fill_evidence.clone();
+    let rest_ids = client.rest_order_ids.clone();
     let epoch = client.wallet_epoch.clone();
     let expected_epoch = epoch.as_ref().map(|e| e.load(Ordering::Acquire));
     let cancellation = client.tasks.cancellation_token();
@@ -378,6 +379,20 @@ pub(super) fn bulk_task(
                     .collect(),
             };
             drop(cache);
+            let routes = rows
+                .iter()
+                .map(|row| {
+                    Ok((
+                        VenueOrderId::new(format!(
+                            "{:#x}",
+                            row.order
+                                .hash
+                                .ok_or_else(|| anyhow::anyhow!("Predict route lacks hash"))?
+                        )),
+                        super::routing::parse_id(&row.id)?,
+                    ))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
             let result = finish(
                 rows,
                 matches,
@@ -389,6 +404,16 @@ pub(super) fn bulk_task(
                 fill_start,
                 bundle_fills,
             )?;
+            let reported = result
+                .0
+                .iter()
+                .map(|report| report.venue_order_id)
+                .collect::<HashSet<_>>();
+            let routes = routes
+                .into_iter()
+                .filter(|(hash, _)| reported.contains(hash))
+                .collect::<Vec<_>>();
+            super::routing::register_many(&rest_ids, &routes)?;
             if !bundle_fills
                 && publish_unapplied(&result.0, &result.1, &context, &evidence, &emitter)?
             {
@@ -561,7 +586,7 @@ pub(super) fn publish_unapplied(
                 own.iter().map(|f| f.report.clone()).collect(),
             ),
         )?;
-        facts.commit(&own)?;
+        facts.queue(&own)?;
     }
     Ok(true)
 }

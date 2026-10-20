@@ -218,7 +218,16 @@ async fn run(case: &str) -> Value {
     assert_eq!(requests.len(), expected);
     let before_cleanup=orders.iter().map(|order|json!({"id":order.client_order_id().to_string(),"status":cache.borrow().order(&order.client_order_id()).unwrap().status().to_string()})).collect::<Vec<_>>();
     if unknown {
-        assert_eq!(before_cleanup[0]["status"], "SUBMITTED");
+        // Independent preflights may complete out of dispatch order. Every transmitted
+        // ambiguous attempt stays Submitted; only unsent competing attempts may reject.
+        assert_eq!(
+            before_cleanup
+                .iter()
+                .filter(|row| row["status"] == "SUBMITTED")
+                .count(),
+            expected,
+            "{case}: {before_cleanup:?}"
+        );
     }
     if case == "queued_lifetime_cap" {
         assert!(journal.iter().any(|row| {

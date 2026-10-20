@@ -88,7 +88,6 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
             )
             .unwrap()
         };
-        let expected_cash = money("reported_balance_usdt");
         // Both fee paths include incurred inventory cost in quote realized PnL.
         let expected_pnl = money("realized_pnl_usdt");
         let one = wallet_fill(outcome, first, "precision-1");
@@ -105,6 +104,21 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
         let cash = U256::from(1_000_000_000_000_000_000_000u128)
             - first * px / scale
             - second * px / scale;
+        let cash_decimal = Decimal::from_i128_with_scale(cash.to::<u128>() as i128, 18);
+        // The retained fixture describes the former currency-scale floor. Native now
+        // preserves every representable digit while raw wei remains in account info.
+        assert_eq!(
+            cash_decimal.round_dp_with_strategy(8, rust_decimal::RoundingStrategy::ToZero),
+            money("reported_balance_usdt").as_decimal()
+        );
+        let expected_cash = Money::from_decimal_exact(
+            cash_decimal.round_dp_with_strategy(
+                u32::from(FIXED_PRECISION),
+                rust_decimal::RoundingStrategy::ToZero,
+            ),
+            Currency::USDT(),
+        )
+        .unwrap();
         *server.state.rpc_frame.lock().unwrap() = (cash.to::<u128>(), 2, 2);
         // Queue both without applying the first to Cache, then replay both before application.
         server.wallet(one.clone());
@@ -389,7 +403,7 @@ async fn missing_raw_partial_prefix_stops_wallet_until_complete_rest_rebuilds_ev
     let second = U256::from(100_000_000_000_000_000_000u128) - first;
     server.wallet(wallet_fill(1, second, "prefix-2"));
     timeout(Duration::from_secs(2), async {
-        while client.is_connected() {
+        while !super::requires_reconciliation(&client) {
             tokio::task::yield_now().await;
         }
     })
@@ -501,7 +515,7 @@ async fn wallet_replay_rejects_one_wei_fee_conflicts_even_when_money_rounding_is
         json!((raw * U256::from(2) / U256::from(100) + U256::from(1)).to_string());
     server.wallet(bad);
     timeout(Duration::from_secs(2), async {
-        while client.is_connected() {
+        while !super::requires_reconciliation(&client) {
             tokio::task::yield_now().await;
         }
     })

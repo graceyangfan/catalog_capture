@@ -33,6 +33,7 @@ pub(super) struct VenueState {
     pub(super) ws_requests: Arc<Mutex<Vec<Value>>>,
     pub(super) open_orders: Arc<Mutex<Vec<Value>>>,
     pub(super) open_pages: Arc<Mutex<VecDeque<Value>>>,
+    pub(super) open_pagination_fault: Arc<Mutex<Option<&'static str>>>,
     pub(super) order_list_log: Arc<Mutex<Vec<Value>>>,
     pub(super) rpc_frame: Arc<Mutex<(u128, u64, u64)>>,
     pub(super) rpc_methods: Arc<Mutex<Vec<String>>>,
@@ -220,6 +221,20 @@ pub(super) async fn open_orders(
         .collect();
     assert!(query.get("status").is_none_or(|status| status == "OPEN"));
     state.requests.lock().unwrap().push(query.clone());
+    let fault = *state.open_pagination_fault.lock().unwrap();
+    if let Some(fault) = fault {
+        let cursor = if fault == "cycle" {
+            "same".to_owned()
+        } else {
+            let page = query
+                .get("after")
+                .and_then(|s| s.strip_prefix("page-"))
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(0);
+            format!("page-{}", page + 1)
+        };
+        return json_response(json!({"success":true,"cursor":cursor,"data":[]}));
+    }
     let reply = state
         .open_pages
         .lock()
@@ -434,6 +449,7 @@ pub(super) async fn server(pages: Vec<Value>) -> Server {
         ws_requests: Default::default(),
         open_orders: Arc::new(Mutex::new(vec![])),
         open_pages: Arc::new(Mutex::new(VecDeque::new())),
+        open_pagination_fault: Default::default(),
         order_list_log: Default::default(),
         rpc_frame: Arc::new(Mutex::new((1_000_000_000_000_000_000_000u128, 1, 2))),
         rpc_methods: Arc::new(Mutex::new(vec![])),

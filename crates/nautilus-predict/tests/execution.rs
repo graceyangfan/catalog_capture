@@ -596,14 +596,17 @@ async fn ambiguous_wallet_evidence_faults_the_client_without_publishing_a_fill()
     data.as_object_mut().unwrap().remove("isMaker");
     server.wallet(data);
     timeout(Duration::from_secs(3), async {
-        while client.is_connected() {
+        while !requires_reconciliation(&client) {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
     .await
     .unwrap();
     assert!(rx.try_recv().is_err());
-    assert!(client.connect().await.is_err()); // Old task ownership must drain first.
+    assert!(
+        client.is_connected(),
+        "the consumer must remain alive for recovery"
+    );
     client.disconnect().await.unwrap();
 }
 
@@ -694,7 +697,11 @@ async fn conflicting_settlement_replay_and_connection_gaps_invalidate_execution_
             server.wallet(conflict);
         }
         timeout(Duration::from_secs(3), async {
-            while client.is_connected() {
+            while if gap {
+                client.is_connected()
+            } else {
+                !requires_reconciliation(&client)
+            } {
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })
@@ -1510,15 +1517,18 @@ async fn normal_execution_rejects_missing_balance_source_and_calculated_cash_acc
 }
 
 #[tokio::test]
-async fn reported_account_keeps_raw_chain_balance_and_floors_subprecision_cash() {
+async fn reported_account_preserves_native_exact_cash_and_raw_chain_balance() {
     let server = server(vec![]).await;
     let raw = 1_000_000_000_009_000_000_000u128;
     server.state.rpc_frame.lock().unwrap().0 = raw;
     let (mut client, mut rx, cache) = reported_client(&server);
     let _portfolio = portfolio(&cache);
     let state = connect_reported(&mut client, &mut rx).await;
-    assert_eq!(state.balances[0].total, Money::from("1000 USDT"));
-    assert_eq!(state.balances[0].free, Money::from("1000 USDT"));
+    assert_eq!(
+        state.balances[0].total,
+        Money::from_str_exact("1000.000000009 USDT").unwrap()
+    );
+    assert_eq!(state.balances[0].free, state.balances[0].total);
     assert_eq!(
         state.info.as_ref().unwrap()["predict_balance_wei"],
         json!(raw.to_string())
@@ -1885,3 +1895,39 @@ mod query_recorded;
 
 #[path = "execution/batch_recorded.rs"]
 mod batch_recorded;
+
+#[tokio::test]
+async fn unknown_wallet_order_gates_new_submissions_but_keeps_consuming_owned_fills() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache) = client(&server);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    cache
+        .borrow_mut()
+        .add_order(order(1), None, None, false)
+        .unwrap();
+    seed_account(&cache);
+    client.connect().await.unwrap();
+    let mut unknown = fill(1);
+    unknown["orderHash"] = json!(format!("0x{}", "77".repeat(32)));
+    server.wallet(unknown);
+    server.wallet(fill(1));
+    let ExecutionEvent::Report(ExecutionReport::Fill(fill)) = next(&mut rx).await else {
+        panic!("owned fill must still arrive")
+    };
+    assert_eq!(fill.last_qty, Quantity::from(17));
+    assert!(requires_reconciliation(&client));
+    assert!(
+        client.is_connected(),
+        "transport remains available for Native recovery"
+    );
+    client.disconnect().await.unwrap();
+}
+
+fn requires_reconciliation(client: &PredictExecutionClient) -> bool {
+    client
+        .submit_order(submissions::submit(&order(1)))
+        .is_err_and(|error| error.to_string().contains("stream gap"))
+}

@@ -415,10 +415,7 @@ async fn match_reports_validate_native_order_context_and_cumulative_size_before_
             .to_string();
         let expected = match case {
             "overfill" => "exceed cached",
-            "duplicate_applied" if cfg!(feature = "native-quantity-commission") => {
-                "applied currency fee lies outside"
-            }
-            "duplicate_applied" => "already applied native fill",
+            "duplicate_applied" => "applied currency fee lies outside",
             _ => "native order context",
         };
         assert!(error.contains(expected), "{case}: {error}");

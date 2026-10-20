@@ -14,7 +14,7 @@
 
 //! JSON-RPC protocol over Nautilus HTTP; Alloy supplies ABI codecs, not another transport.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use alloy::{
     primitives::{Address, B256, U256},
@@ -54,14 +54,20 @@ struct Block {
     timestamp: Option<String>,
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("Predict RPC block is no longer canonical")]
+pub(crate) struct PredictBlockChanged;
+
 #[derive(Clone, Debug)]
 pub struct PredictChainClient {
     config: PredictChainClientConfig,
     client: HttpClient,
+    verified: Arc<tokio::sync::OnceCell<()>>,
 }
 
 impl PredictChainClient {
-    /// Reads balance, allowances and the selected exchange's current nonce at one block hash.
+    /// Reads balance, selected exchange allowance and nonce at one block hash.
+    /// Other allowance entries remain zero (unqueried); the full diagnostic queries all four.
     /// This never approves tokens or submits a transaction.
     ///
     /// # Errors
@@ -75,7 +81,8 @@ impl PredictChainClient {
         tokio::time::timeout(
             std::time::Duration::from_secs(self.config.timeout_secs),
             async {
-                let (snapshot, timestamp) = self.collect(account, clock, true).await?;
+                let (snapshot, timestamp) =
+                    self.collect(account, clock, &[exchange], false).await?;
                 let timestamp = timestamp.ok_or_else(|| {
                     anyhow::anyhow!("Predict admission block timestamp is missing")
                 })?;
@@ -95,7 +102,7 @@ impl PredictChainClient {
                 anyhow::ensure!(
                     current.hash == snapshot.block_hash
                         && quantity(&current.number)? == snapshot.block_number,
-                    "Predict admission block is no longer canonical"
+                    PredictBlockChanged
                 );
                 Ok((snapshot, nonce, timestamp))
             },
@@ -114,52 +121,49 @@ impl PredictChainClient {
         account: Address,
         exchange: PredictExchangeType,
         token: U256,
-        clock: &'static AtomicTime,
+        _clock: &'static AtomicTime,
     ) -> anyhow::Result<(U256, bool, U256, nautilus_core::UnixNanos)> {
         tokio::time::timeout(
             std::time::Duration::from_secs(self.config.timeout_secs),
             async {
-                let (snapshot, timestamp) = self.collect(account, clock, false).await?;
-                let timestamp = timestamp
+                anyhow::ensure!(!account.is_zero(), "Predict SELL account cannot be zero");
+                let block = self.read_block().await?;
+                let timestamp = block_timestamp(&block)?
                     .ok_or_else(|| anyhow::anyhow!("Predict SELL block timestamp is missing"))?;
                 let ctf = exchange.conditional_tokens(self.environment());
-                let balance = self
-                    .call(
+                let (balance, approved, nonce) = tokio::try_join!(
+                    self.call(
                         ctf,
                         balanceOf_1Call {
                             owner: account,
-                            id: token,
+                            id: token
                         },
-                        snapshot.block_hash,
-                    )
-                    .await?;
-                let approved = self
-                    .call(
+                        block.hash
+                    ),
+                    self.call(
                         ctf,
                         isApprovedForAllCall {
                             owner: account,
-                            operator: exchange.contract(self.environment()),
+                            operator: exchange.contract(self.environment())
                         },
-                        snapshot.block_hash,
-                    )
-                    .await?;
-                let nonce = self
-                    .call(
+                        block.hash
+                    ),
+                    self.call(
                         exchange.contract(self.environment()),
                         noncesCall { owner: account },
-                        snapshot.block_hash,
-                    )
-                    .await?;
+                        block.hash
+                    ),
+                )?;
                 let current: Block = self
                     .request(
                         "eth_getBlockByNumber",
-                        json!([format!("0x{:x}", snapshot.block_number), false]),
+                        json!([format!("0x{:x}", quantity(&block.number)?), false]),
                     )
                     .await?;
                 anyhow::ensure!(
-                    current.hash == snapshot.block_hash
-                        && quantity(&current.number)? == snapshot.block_number,
-                    "Predict SELL block is no longer canonical"
+                    current.hash == block.hash
+                        && quantity(&current.number)? == quantity(&block.number)?,
+                    PredictBlockChanged
                 );
                 Ok((balance, approved, nonce, timestamp))
             },
@@ -180,7 +184,11 @@ impl PredictChainClient {
             .timeout_secs(config.timeout_secs)
             .build()
             .map_err(|_| anyhow::anyhow!("Predict RPC HTTP initialization failed"))?;
-        Ok(Self { config, client })
+        Ok(Self {
+            config,
+            client,
+            verified: Default::default(),
+        })
     }
 
     #[must_use]
@@ -199,7 +207,7 @@ impl PredictChainClient {
         account: Address,
         clock: &'static AtomicTime,
     ) -> anyhow::Result<PredictCollateralSnapshot> {
-        self.collect(account, clock, true)
+        self.collect(account, clock, &ALL_EXCHANGES, true)
             .await
             .map(|(snapshot, _)| snapshot)
     }
@@ -213,7 +221,7 @@ impl PredictChainClient {
         account: Address,
         clock: &'static AtomicTime,
     ) -> anyhow::Result<PredictBalanceSnapshot> {
-        let (snapshot, timestamp) = self.collect(account, clock, false).await?;
+        let (snapshot, timestamp) = self.collect(account, clock, &[], true).await?;
         let block_timestamp = timestamp
             .ok_or_else(|| anyhow::anyhow!("Predict balance block timestamp is missing"))?;
         Ok(PredictBalanceSnapshot {
@@ -233,7 +241,8 @@ impl PredictChainClient {
         &self,
         account: Address,
         clock: &'static AtomicTime,
-        include_allowances: bool,
+        exchanges: &[PredictExchangeType],
+        verify_final: bool,
     ) -> anyhow::Result<(PredictCollateralSnapshot, Option<nautilus_core::UnixNanos>)> {
         anyhow::ensure!(
             !account.is_zero(),
@@ -242,50 +251,17 @@ impl PredictChainClient {
         tokio::time::timeout(
             std::time::Duration::from_secs(self.config.timeout_secs),
             async {
-                let chain: String = self.request("eth_chainId", json!([])).await?;
-                anyhow::ensure!(
-                    quantity(&chain)? == self.environment().chain_id(),
-                    "Predict RPC chain differs from configured environment"
-                );
-                let block: Block = self
-                    .request("eth_getBlockByNumber", json!(["latest", false]))
-                    .await?;
+                let block = self.read_block().await?;
                 let block_number = quantity(&block.number)?;
-                let block_timestamp = block
-                    .timestamp
-                    .as_deref()
-                    .map(|value| {
-                        quantity(value)?
-                            .checked_mul(1_000_000_000)
-                            .map(nautilus_core::UnixNanos::from)
-                            .ok_or_else(|| {
-                                anyhow::anyhow!("Predict block timestamp exceeds nanosecond range")
-                            })
-                    })
-                    .transpose()?;
-                anyhow::ensure!(
-                    !block.hash.is_zero(),
-                    "Predict RPC returned an unmined block"
-                );
+                let block_timestamp = block_timestamp(&block)?;
                 let collateral = collateral_contract(self.environment());
-                let token_decimals = self.call(collateral, decimalsCall {}, block.hash).await?;
-                anyhow::ensure!(
-                    token_decimals == 18,
-                    "Predict collateral token decimals differ from the SDK"
-                );
                 let balance_wei = self
                     .call(collateral, balanceOf_0Call { owner: account }, block.hash)
                     .await?;
-                let exchanges = [
-                    PredictExchangeType::Standard,
-                    PredictExchangeType::NegRisk,
-                    PredictExchangeType::YieldBearing,
-                    PredictExchangeType::YieldBearingNegRisk,
-                ];
-                let mut allowances = exchanges.map(|exchange| (exchange, U256::ZERO));
+                let mut allowances = ALL_EXCHANGES.map(|exchange| (exchange, U256::ZERO));
                 for (exchange, value) in &mut allowances {
-                    if !include_allowances {
-                        break;
+                    if !exchanges.contains(exchange) {
+                        continue;
                     }
                     *value = self
                         .call(
@@ -298,13 +274,15 @@ impl PredictChainClient {
                         )
                         .await?;
                 }
-                let current: Block = self
-                    .request("eth_getBlockByNumber", json!([block.number, false]))
-                    .await?;
-                anyhow::ensure!(
-                    current.hash == block.hash && quantity(&current.number)? == block_number,
-                    "Predict collateral snapshot block is no longer canonical"
-                );
+                if verify_final {
+                    let current: Block = self
+                        .request("eth_getBlockByNumber", json!([block.number, false]))
+                        .await?;
+                    anyhow::ensure!(
+                        current.hash == block.hash && quantity(&current.number)? == block_number,
+                        PredictBlockChanged
+                    );
+                }
                 Ok((
                     PredictCollateralSnapshot {
                         environment: self.environment(),
@@ -312,7 +290,7 @@ impl PredictChainClient {
                         collateral,
                         block_number,
                         block_hash: block.hash,
-                        decimals: token_decimals,
+                        decimals: 18,
                         balance_wei,
                         allowances,
                         ts_observed: clock.get_time_ns(),
@@ -323,6 +301,38 @@ impl PredictChainClient {
         )
         .await
         .map_err(|_| anyhow::anyhow!("Predict collateral snapshot timed out"))?
+    }
+
+    async fn read_block(&self) -> anyhow::Result<Block> {
+        let block: Block = self
+            .request("eth_getBlockByNumber", json!(["latest", false]))
+            .await?;
+        anyhow::ensure!(
+            !block.hash.is_zero(),
+            "Predict RPC returned an unmined block"
+        );
+        self.verified
+            .get_or_try_init(|| async {
+                let chain: String = self.request("eth_chainId", json!([])).await?;
+                anyhow::ensure!(
+                    quantity(&chain)? == self.environment().chain_id(),
+                    "Predict RPC chain differs from configured environment"
+                );
+                let decimals = self
+                    .call(
+                        collateral_contract(self.environment()),
+                        decimalsCall {},
+                        block.hash,
+                    )
+                    .await?;
+                anyhow::ensure!(
+                    decimals == 18,
+                    "Predict collateral token decimals differ from the SDK"
+                );
+                Ok::<(), anyhow::Error>(())
+            })
+            .await?;
+        Ok(block)
     }
 
     async fn call<C: SolCall>(
@@ -383,6 +393,26 @@ impl PredictChainClient {
         serde_json::from_value(value["result"].clone())
             .map_err(|_| anyhow::anyhow!("Predict RPC result has an invalid shape"))
     }
+}
+
+const ALL_EXCHANGES: [PredictExchangeType; 4] = [
+    PredictExchangeType::Standard,
+    PredictExchangeType::NegRisk,
+    PredictExchangeType::YieldBearing,
+    PredictExchangeType::YieldBearingNegRisk,
+];
+
+fn block_timestamp(block: &Block) -> anyhow::Result<Option<nautilus_core::UnixNanos>> {
+    block
+        .timestamp
+        .as_deref()
+        .map(|value| {
+            quantity(value)?
+                .checked_mul(1_000_000_000)
+                .map(nautilus_core::UnixNanos::from)
+                .ok_or_else(|| anyhow::anyhow!("Predict block timestamp exceeds nanosecond range"))
+        })
+        .transpose()
 }
 
 fn quantity(value: &str) -> anyhow::Result<u64> {

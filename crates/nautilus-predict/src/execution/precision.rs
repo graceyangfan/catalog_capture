@@ -98,6 +98,8 @@ impl BufferedFill {
 pub(super) struct FillEvidence {
     // No balances/statuses: native orders own applied allocations; this bounded map retains facts.
     entries: HashMap<TradeId, BufferedFill>,
+    by_order: HashMap<VenueOrderId, HashSet<TradeId>>,
+    queued: HashMap<TradeId, Option<nautilus_core::UnixNanos>>,
 }
 
 fn same_facts(left: &BufferedFill, right: &BufferedFill) -> bool {
@@ -108,8 +110,7 @@ fn same_facts(left: &BufferedFill, right: &BufferedFill) -> bool {
         && a.order_side == b.order_side
         && a.last_px == b.last_px
         && (a.commission == b.commission
-            || (cfg!(feature = "native-quantity-commission")
-                && left.raw.fee_type == PredictFeeType::Collateral
+            || (left.raw.fee_type == PredictFeeType::Collateral
                 && right.raw.fee_type == PredictFeeType::Collateral))
         && a.quantity_commission == b.quantity_commission
         && a.liquidity_side == b.liquidity_side
@@ -120,6 +121,68 @@ fn same_facts(left: &BufferedFill, right: &BufferedFill) -> bool {
 }
 
 impl FillEvidence {
+    /// Native has purged these terminal orders and every retained fill was applied.
+    /// Other orders keep their full atomic prefix, including queued settlements.
+    pub fn retire_orders(&mut self, retired: &HashSet<VenueOrderId>) {
+        for hash in retired {
+            if let Some(ids) = self.by_order.remove(hash) {
+                for id in ids {
+                    self.entries.remove(&id);
+                    self.queued.remove(&id);
+                }
+            }
+        }
+    }
+
+    /// Only queued facts for this order; Native trade IDs own applied progress.
+    pub fn pending_for(&mut self, order: &OrderAny, hash: VenueOrderId) -> Vec<BufferedFill> {
+        let applied = order
+            .trade_ids()
+            .into_iter()
+            .copied()
+            .collect::<HashSet<_>>();
+        for id in &applied {
+            self.queued.remove(id);
+        }
+        self.by_order
+            .get(&hash)
+            .into_iter()
+            .flatten()
+            .filter(|id| self.queued.contains_key(id))
+            .filter_map(|id| self.entries.get(id).cloned())
+            .collect()
+    }
+
+    /// Mark only successfully published reports, never a read-only REST collection.
+    pub fn queue(&mut self, fills: &[BufferedFill]) -> anyhow::Result<()> {
+        self.commit(fills)?;
+        for fill in fills {
+            self.queued.entry(fill.report.trade_id).or_insert(None);
+        }
+        Ok(())
+    }
+
+    pub fn queue_wallet(&mut self, fill: &BufferedFill) -> anyhow::Result<()> {
+        self.queue(std::slice::from_ref(fill))?;
+        self.queued
+            .insert(fill.report.trade_id, Some(fill.report.ts_event));
+        Ok(())
+    }
+
+    pub fn validate_wallet_timestamp(&self, fill: &BufferedFill) -> anyhow::Result<()> {
+        if let Some(Some(timestamp)) = self.queued.get(&fill.report.trade_id) {
+            anyhow::ensure!(
+                *timestamp == fill.report.ts_event,
+                "Predict wallet settlement replay timestamp changed"
+            );
+        }
+        Ok(())
+    }
+
+    pub fn applied(&mut self, trade_id: TradeId) {
+        self.queued.remove(&trade_id);
+    }
+
     /// Identify retained settlements not covered by the supplied Native trade IDs.
     /// Used only for a Cache-retirement sweep; this is not another applied-ID registry.
     pub fn unapplied_orders(&self, applied: &HashSet<TradeId>) -> HashSet<VenueOrderId> {
@@ -143,14 +206,10 @@ impl FillEvidence {
             .iter()
             .map(|r| (r.report.trade_id, r.raw.gross_shares))
             .collect::<HashMap<_, _>>();
-        let incoming_facts = if cfg!(feature = "native-quantity-commission") {
-            reports
-                .iter()
-                .map(|fill| (fill.report.trade_id, fill.raw.clone()))
-                .collect::<HashMap<_, _>>()
-        } else {
-            HashMap::new()
-        };
+        let incoming_facts = reports
+            .iter()
+            .map(|fill| (fill.report.trade_id, fill.raw.clone()))
+            .collect::<HashMap<_, _>>();
         let mut planned: Vec<BufferedFill> = Vec::new();
         for report in reports.iter_mut() {
             let dp = precision(report.report.venue_order_id);
@@ -273,9 +332,7 @@ impl FillEvidence {
                 );
                 report.report.last_qty = Quantity::from_decimal_dp(delta, dp)?;
             }
-            if cfg!(feature = "native-quantity-commission")
-                && report.raw.fee_type == PredictFeeType::Collateral
-            {
+            if report.raw.fee_type == PredictFeeType::Collateral {
                 self.normalize_collateral_commission(
                     report,
                     order,
@@ -408,21 +465,22 @@ impl FillEvidence {
             fill.report.commission = allocated;
             return Ok(());
         }
+        if let Ok(exact) =
+            Money::from_decimal_exact(crate::common::parse::exact_wei(fill.raw.fee)?, currency)
+        {
+            fill.report.commission = exact;
+            return Ok(());
+        }
         let mut ids: HashSet<_> = order.map_or_else(HashSet::new, |order| {
             order.trade_ids().into_iter().copied().collect()
         });
-        let mut allocated = order
-            .and_then(|order| order.commissions().get(&currency).copied())
-            .unwrap_or_else(|| Money::zero(currency));
-        for previous in queued
-            .iter()
-            .chain(planned)
-            .filter(|previous| previous.report.venue_order_id == fill.report.venue_order_id)
-        {
-            if ids.insert(previous.report.trade_id) {
-                allocated = allocated + previous.report.commission;
-            }
-        }
+        ids.extend(
+            queued
+                .iter()
+                .chain(planned)
+                .filter(|previous| previous.report.venue_order_id == fill.report.venue_order_id)
+                .map(|previous| previous.report.trade_id),
+        );
         let mut raw = U256::ZERO;
         let mut complete = true;
         for id in ids {
@@ -446,24 +504,25 @@ impl FillEvidence {
             }
         }
         if !complete {
-            let amount = crate::common::parse::exact_wei(fill.raw.fee)?;
-            anyhow::ensure!(
-                amount.round_dp(u32::from(currency.precision)) == amount,
-                "Predict subprecision collateral fee requires complete raw settlement prefix; reconcile REST history"
-            );
-            fill.report.commission = Money::from_decimal(amount, currency)?;
+            fill.report.commission = Money::from_decimal_exact(
+                crate::common::parse::exact_wei(fill.raw.fee)?, currency
+            ).map_err(|_| anyhow::anyhow!("Predict subprecision collateral fee requires complete raw settlement prefix; reconcile REST history"))?;
             return Ok(());
         }
-        let prefix = Money::from_decimal(crate::common::parse::exact_wei(raw)?, currency)?;
-        anyhow::ensure!(
-            prefix == allocated,
-            "Predict applied currency fees differ from complete atomic prefix"
-        );
+        let native_money = |amount| {
+            Money::from_decimal_exact(
+                crate::common::parse::exact_wei(amount)?
+                    .round_dp(u32::from(nautilus_model::types::fixed::FIXED_PRECISION)),
+                currency,
+            )
+            .map_err(anyhow::Error::from)
+        };
         let total = raw
             .checked_add(fill.raw.fee)
             .ok_or_else(|| anyhow::anyhow!("Predict raw currency fee overflow"))?;
-        fill.report.commission =
-            Money::from_decimal(crate::common::parse::exact_wei(total)?, currency)? - allocated;
+        // Carry only the Native fixed-point residual. Historical applied allocations
+        // remain immutable even if an older session used currency-default precision.
+        fill.report.commission = native_money(total)? - native_money(raw)?;
         anyhow::ensure!(
             fill.report.commission.as_decimal() >= Decimal::ZERO,
             "Predict normalized fee is negative"
@@ -535,6 +594,10 @@ impl FillEvidence {
             seen.insert(report.report.trade_id, report);
         }
         for report in reports {
+            self.by_order
+                .entry(report.report.venue_order_id)
+                .or_default()
+                .insert(report.report.trade_id);
             self.entries
                 .entry(report.report.trade_id)
                 .or_insert_with(|| report.clone());

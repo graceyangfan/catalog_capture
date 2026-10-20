@@ -132,10 +132,7 @@ async fn run(case: &str) -> Value {
             .lock()
             .unwrap()
             .extend([row.clone(), row.clone()]),
-        "cursor_cycle" => private.state.open_pages.lock().unwrap().extend([
-            json!({"success":true,"cursor":"same","data":[]}),
-            json!({"success":true,"cursor":"same","data":[]}),
-        ]),
+        "cursor_cycle" => *private.state.open_pagination_fault.lock().unwrap() = Some("cycle"),
         "page_failure" => {
             private
                 .state
@@ -144,16 +141,7 @@ async fn run(case: &str) -> Value {
                 .unwrap()
                 .push_back((503, json!({"success":false}), 0))
         }
-        "page_cap" => {
-            for i in 0..100 {
-                private
-                    .state
-                    .open_pages
-                    .lock()
-                    .unwrap()
-                    .push_back(json!({"success":true,"cursor":format!("page-{i}"),"data":[]}));
-            }
-        }
+        "page_cap" => *private.state.open_pagination_fault.lock().unwrap() = Some("cap"),
         "holdings_duplicate" => {
             let mut entries = private.state.position_snapshot.lock().unwrap();
             let rows = entries.as_mut().unwrap();
@@ -352,6 +340,7 @@ async fn run(case: &str) -> Value {
         );
         *private.state.match_snapshot.lock().unwrap() = Some(good_matches);
         private.state.open_pages.lock().unwrap().clear();
+        *private.state.open_pagination_fault.lock().unwrap() = None;
         private.state.open_orders.lock().unwrap().clear();
         private.state.orders.lock().unwrap().clear();
         let mut repaired_holding = holding(1);

@@ -160,6 +160,7 @@ impl PredictExecutionClient {
     }
 
     pub(super) fn submit_order_command(&self, cmd: &SubmitOrder) -> anyhow::Result<()> {
+        self.prune_order_lookups();
         anyhow::ensure!(
             !self
                 .reconciliation_required
@@ -301,6 +302,8 @@ impl PredictExecutionClient {
             pending: Arc::clone(&self.pending_submissions),
             admission: Arc::clone(&self.submission_admission),
             orders: Arc::clone(&self.orders),
+            rest_ids: Arc::clone(&self.rest_order_ids),
+            reconciliation_required: Arc::clone(&self.reconciliation_required),
             account_sync: Arc::clone(&self.account_sync),
             instruments: Arc::clone(&self.instruments),
             healthy: Arc::clone(&self.healthy),

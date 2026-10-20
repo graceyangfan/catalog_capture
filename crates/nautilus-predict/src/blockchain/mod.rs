@@ -16,6 +16,6 @@
 
 pub mod models;
 pub mod parse;
-mod rpc;
+pub(crate) mod rpc;
 
 pub use rpc::PredictChainClient;

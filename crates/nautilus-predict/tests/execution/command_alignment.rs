@@ -277,7 +277,7 @@ async fn run_with_saved(case: Case, saved: Option<&Value>) -> Value {
         PredictEnvironment::BnbMainnet,
         format!("{}/rpc", private.http).into(),
     ));
-    exec.orderbook_removal_enabled = case != Case::PreflightRejected;
+    exec.orderbook_removal_enabled = !case.is_preflight();
     exec.account_refresh_interval_secs = 1;
     exec.submission = Some(PredictSubmissionConfig {
         signer: Arc::new(
@@ -462,6 +462,9 @@ async fn run_with_saved(case: Case, saved: Option<&Value>) -> Value {
     } else {
         usize::from(case.is_preflight())
     };
+    *private.state.create_order_ids.lock().unwrap() = (0..expected_posts)
+        .map(|n| (12345 + n).to_string())
+        .collect();
     let mut wallet = vec![];
     let driver = async {
         for n in 0..expected_posts {
@@ -679,13 +682,7 @@ async fn run_with_saved(case: Case, saved: Option<&Value>) -> Value {
     } else {
         assert_eq!(
             private.state.removals.lock().unwrap().len(),
-            if case == Case::BatchMixed {
-                3
-            } else if matches!(case, Case::LiveRiskDenied | Case::BatchUnknown) {
-                1
-            } else {
-                2
-            }
+            if case == Case::BatchMixed { 2 } else { 1 }
         );
     }
     assert_eq!(
@@ -814,7 +811,15 @@ async fn saved_command_json_replays_native_strategy_outcomes() {
         }
         assert_eq!(
             actual["removals"].as_array().unwrap().len(),
-            session["removals"].as_array().unwrap().len() - usize::from(case == Case::BatchUnknown)
+            session["removals"].as_array().unwrap().len()
+                - usize::from(matches!(
+                    case,
+                    Case::BatchUnknown
+                        | Case::BatchMixed
+                        | Case::CancelAll
+                        | Case::LiveMultiple
+                        | Case::LiveUnknown
+                ))
         );
         for (actual, saved) in actual["requests"]
             .as_array()

@@ -33,7 +33,7 @@ use nautilus_model::{
     accounts::cash::CashAccount,
     enums::AccountType,
     events::OrderEventAny,
-    identifiers::{ClientOrderId, InstrumentId},
+    identifiers::{ClientOrderId, InstrumentId, VenueOrderId},
     instruments::InstrumentAny,
     orders::{Order, OrderAny},
     types::{Currency, Money},
@@ -98,6 +98,7 @@ pub(super) struct AccountReporter {
     pub chain: PredictChainClient,
     pub instruments: Arc<AtomicMap<InstrumentId, InstrumentAny>>,
     pub orders: Arc<AtomicMap<ClientOrderId, Arc<OrderAny>>>,
+    pub rest_ids: super::routing::RestOrderIds,
     pub sync: Arc<AccountSync>,
     pub emitter: ExecutionEventEmitter,
     pub clock: &'static AtomicTime,
@@ -126,7 +127,6 @@ impl AccountReporter {
         let (rows, snapshot) = tokio::time::timeout(
             Duration::from_secs(self.config.report_timeout_secs),
             async {
-                self.config.session.request_account().await?;
                 let rows = collect_open_orders(&self.config).await?;
                 let snapshot = self
                     .chain
@@ -139,12 +139,7 @@ impl AccountReporter {
         .map_err(|_| anyhow::anyhow!("Predict account collection timed out"))??;
 
         // A lagging RPC block must not undo collateral changes of already confirmed native fills.
-        let newest_fill = orders
-            .values()
-            .map(|order| latest_venue_fill(order))
-            .max()
-            .unwrap_or_default()
-            .max(latest_fill);
+        let newest_fill = latest_fill;
         if snapshot.block_timestamp < newest_fill {
             return Err(BalanceBlockLag.into());
         }
@@ -179,6 +174,7 @@ impl AccountReporter {
             }
         }
         let mut locked = Money::zero(currency);
+        let mut routes = Vec::new();
         let mut represented = HashSet::new();
         for row in rows {
             let hash = super::resources::open_order_hash(&row)?;
@@ -203,6 +199,10 @@ impl AccountReporter {
                     self.config.account_id,
                     self.config.session.account_address(),
                 )?;
+                routes.push((
+                    VenueOrderId::new(format!("{hash:#x}")),
+                    super::routing::parse_id(&row.id)?,
+                ));
                 if order.order_type() == nautilus_model::enums::OrderType::Market {
                     super::resources::reported_signed_reservation(&row)?
                 } else {
@@ -290,6 +290,7 @@ impl AccountReporter {
                 "Predict account snapshot block regressed or changed at the same height"
             );
         }
+        super::routing::register_many(&self.rest_ids, &routes)?;
         self.emitter.try_send_account_state(event.clone())?;
         state.last_event = Some(event.event_id);
         state.block = Some((snapshot.block_number, snapshot.block_hash));
@@ -297,14 +298,14 @@ impl AccountReporter {
     }
 }
 
-// On-chain USDT has 18 decimals; canonical Nautilus USDT has fewer. Floor total at the
+// On-chain USDT has 18 decimals; Native fixed-point may have fewer. Floor total at the
 // account boundary so representable free funds never exceed the chain balance. Keep the full
 // raw amount in AccountState info; the strict standalone conversion API remains unchanged.
 pub(super) fn reported_balance(
     snapshot: &crate::blockchain::models::PredictBalanceSnapshot,
     locked: Money,
 ) -> anyhow::Result<nautilus_model::types::AccountBalance> {
-    let precision = u32::from(Currency::USDT().precision);
+    let precision = u32::from(nautilus_model::types::fixed::FIXED_PRECISION);
     anyhow::ensure!(precision <= 18, "unsupported native USDT precision");
     let unit = alloy::primitives::U256::from(10u64.pow(18 - precision));
     let mut represented = snapshot.clone();
@@ -312,12 +313,13 @@ pub(super) fn reported_balance(
     let total = parse_balance_snapshot(&represented, Money::zero(Currency::USDT()))?;
     // Native cash clamps overcommitted capacity to total and reports zero free funds. Preserve
     // the uncapped request in event info instead of rejecting otherwise valid funding snapshots.
-    nautilus_model::types::AccountBalance::from_total_and_locked(
-        total.total.as_decimal(),
-        locked.as_decimal(),
-        Currency::USDT(),
-    )
-    .map_err(|_| anyhow::anyhow!("Predict reported balance exceeds native monetary range"))
+    let locked = locked.clamp(Money::zero(Currency::USDT()), total.total);
+    let free = total
+        .total
+        .checked_sub(locked)
+        .ok_or_else(|| anyhow::anyhow!("Predict reported free balance exceeds native range"))?;
+    nautilus_model::types::AccountBalance::new_checked(total.total, locked, free)
+        .map_err(|_| anyhow::anyhow!("Predict reported balance exceeds native monetary range"))
 }
 
 pub(super) async fn collect_open_orders(
@@ -350,7 +352,11 @@ pub(super) async fn run(reporter: AccountReporter, cancellation: CancellationTok
                 result = reporter.refresh() => result,
             };
             match result {
-                Err(error) if error.is::<BalanceBlockLag>() && attempt < 4 => {
+                Err(error)
+                    if (error.is::<BalanceBlockLag>()
+                        || error.is::<crate::blockchain::rpc::PredictBlockChanged>())
+                        && attempt < 4 =>
+                {
                     tokio::select! { biased;
                         _ = cancellation.cancelled() => return,
                         _ = tokio::time::sleep(Duration::from_secs(1)) => {},
