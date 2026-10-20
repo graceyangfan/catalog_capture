@@ -23,6 +23,7 @@ allow = [
   "Unicode-3.0",
   "0BSD",
   "LGPL-3.0-or-later",
+  "LGPL-3.0-only",
   "Unlicense",
   "bzip2-1.0.6",
 ]
@@ -32,7 +33,7 @@ confidence-threshold = 0.8
 name = "implied-vol"
 version = "*"
 expression = "MIT"
-license-files = [{ path = "LICENSE", hash = 0xb0803f0e }]
+license-files = [{ path = "LICENSE", hash = 0x526ab6d5 }]
 
 [licenses.private]
 ignore = true
