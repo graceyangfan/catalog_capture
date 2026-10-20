@@ -1,19 +1,16 @@
-# Continuous public 15m binary recording; no market IDs to edit.
-# cargo run -p catalog-capture-cli --no-default-features --features venue-lighter-ext -- run --config examples/capture.lighter-updown-15m.toml
+# Automatic Lighter BTC/ETH 15m recording. Run from the repository root.
+# ./target/debug/catalog-capture-cli run --config examples/capture.lighter-updown-15m.toml
+# Market IDs, subscriptions and expiry rotation are managed automatically.
 [runtime]
 capture_seconds = 0
 shutdown_timeout_secs = 20
-delay_post_stop_secs = 2
 node_name = "LIGHTER-UPDOWN-15M"
 
 [output]
 catalog_uri = "file://./data/lighter-updown-15m"
-compression = "snappy"
-layout_compatibility = "rust_canonical_only"
-flush_rows = 5000
-flush_interval_ms = 1000
 queue_capacity = 50000
 overflow_policy = "fail_fast"
+# Defaults: Snappy, Rust catalog layout, 5000-row / 1-second flush.
 
 [output.lifecycle]
 mode = "segment"
@@ -23,14 +20,12 @@ id = "LIGHTER"
 kind = "lighter_binary"
 environment = "mainnet"
 
-# Each selector records instrument, TradeTick, full OrderBookDeltas,
-# LighterOpenInterest, and 16-decimal-place IndexPriceUpdate oracle.
-[[capture.lighter_updown]]
-tag = "eth-updown-15m"
-refresh_secs = 10
-prefetch_secs = 30
-
+# Select series only; no capture.instruments/trades/book_deltas entries needed.
+# Each series records Instrument, TradeTick, full OrderBookDeltas, OI and 16dp oracle.
+# Defaults: refresh_secs = 10, prefetch_secs = 30; override within a selector if needed.
+# Remove a selector to record only the remaining series. Currently 15m only.
 [[capture.lighter_updown]]
 tag = "btc-updown-15m"
-refresh_secs = 10
-prefetch_secs = 30
+
+[[capture.lighter_updown]]
+tag = "eth-updown-15m"

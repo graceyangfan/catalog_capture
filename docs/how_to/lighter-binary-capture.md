@@ -18,15 +18,28 @@ cargo build -p catalog-capture-cli --no-default-features --features venue-lighte
 ./target/debug/catalog-capture-cli run --config examples/capture.lighter-updown-15m.toml
 ```
 
-The [rolling profile](../../examples/capture.lighter-updown-15m.toml) discovers
-market IDs automatically and runs until Ctrl+C or SIGTERM. It uses segment mode,
-refreshes discovery every 10 seconds and preloads successors 30 seconds before
-their observation window. Each selector enables all five data families below.
+The [automatic recording profile](../../examples/capture.lighter-updown-15m.toml)
+records BTC and ETH without instrument IDs. It runs until Ctrl+C or SIGTERM and
+uses segment mode. Select series with `tag` only:
 
-For [fixed-market recording](../../examples/capture.lighter-binary-fixed.toml),
-replace the example's historical market ID in every selector with a currently
-observing market from `/api/v1/events`. Its exact start-price observation must
-already be available. Fixed-market mode does not automatically replace the ID.
+```toml
+[[capture.lighter_updown]]
+tag = "btc-updown-15m"
+
+[[capture.lighter_updown]]
+tag = "eth-updown-15m"
+```
+
+Each entry automatically records all five data families below. No
+`capture.instruments`, `capture.trades`, `capture.book_deltas`,
+`capture.index_prices` or OI `capture.custom_data` entries are needed.
+Remove either selector to record just BTC or ETH.
+
+Discovery defaults to `refresh_secs = 10` and `prefetch_secs = 30`. Set these
+fields inside a selector only when changing that cadence. The recorder derives
+market IDs and expiry from venue responses, subscribes successors, seals old
+partitions and releases expired runtime state. Currently only 15m series are
+supported; changing a tag to `btc-updown-5m` is not supported.
 
 Use `kind = "lighter_binary"`, `id = "LIGHTER"`, `environment = "mainnet"`.
 The original `lighter` client and `lighter_binary` cannot share one node because
@@ -148,6 +161,16 @@ missing at source, and its last second arrived after expiry and was present in
 the successor. Observed start-price publication delays were 1.2 and 11.2 seconds.
 This covers two boundaries, not a multi-hour soak or forced live disconnect.
 Raw catalogs, logs and machine-specific paths are not committed.
+
+## Fixed-market diagnostics
+
+Explicit instrument selectors remain supported for targeted diagnostics. The
+[static-selector test fixture](../../crates/catalog-capture-cli/test_data/lighter_binary_fixed.toml)
+contains historical IDs solely for configuration regression tests; it is not an
+operator recording profile. A diagnostic run requires replacing every ID with a
+currently observing market from `/api/v1/events` whose exact start-price
+observation is available. Fixed-market mode does not automatically replace IDs.
+Use the automatic profile above for continuous recording.
 
 ## Protocol references
 

@@ -1796,8 +1796,8 @@ fn example_hyperliquid_perp_daily_segment_lifecycle_loads() {
 
 #[cfg(feature = "venue-lighter-ext")]
 #[test]
-fn lighter_binary_example_resolves_all_five_families() {
-    let path = repo_root().join("examples/capture.lighter-binary-fixed.toml");
+fn lighter_binary_fixed_fixture_resolves_all_five_families() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/lighter_binary_fixed.toml");
     let config = resolve_config(load_config(&path).unwrap()).unwrap();
     validate_runtime(&config).unwrap();
     assert!(
@@ -1838,6 +1838,12 @@ fn lighter_rolling_profile_resolves_without_manual_market_ids() {
     let effective = resolve_config(file).unwrap();
     assert!(effective.plan.is_empty());
     assert_eq!(effective.lighter_updown.len(), 2);
+    assert!(
+        effective
+            .lighter_updown
+            .iter()
+            .all(|selector| selector.refresh_secs == 10 && selector.prefetch_secs == 30)
+    );
     validate_runtime(&effective).unwrap();
     let duplicate = profile.replace("btc-updown-15m", "eth-updown-15m");
     assert!(resolve_config(toml::from_str(&duplicate).unwrap()).is_err());

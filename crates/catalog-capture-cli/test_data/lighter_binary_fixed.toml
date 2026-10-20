@@ -1,7 +1,5 @@
-# Public Lighter mainnet, fixed market only. Replace every 4255 selector with
-# a currently observing market ID from /api/v1/events. Its precise start oracle
-# must already be available. This historical ID documents the naming contract.
-# cargo run -p catalog-capture-cli --no-default-features --features venue-lighter-ext -- run --config examples/capture.lighter-binary-fixed.toml
+# Static-selector regression fixture; historical IDs are intentional.
+# For recording, use examples/capture.lighter-updown-15m.toml.
 [runtime]
 capture_seconds = 60
 shutdown_timeout_secs = 15
