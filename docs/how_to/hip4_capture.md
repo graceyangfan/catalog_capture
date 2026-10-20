@@ -62,15 +62,15 @@ updates outside the first 50 levels, and the managed Nautilus book may grow.
 
 When `[runtime.hip4_universe_refresh]` is enabled:
 
-1. Poll Hyperliquid `outcomeMeta` on an adaptive schedule  
-   (idle far from expiry, faster near expiry).  
-2. Resolve the next matching market (e.g. BTC `priceBinary` `1d`).  
-3. **Unsubscribe** the previous plan, **bootstrap** new instruments.  
+1. Poll Hyperliquid `outcomeMeta` on an adaptive schedule
+   (idle far from expiry, faster near expiry).
+2. Resolve the next matching market (e.g. BTC `priceBinary` `1d`).
+3. **Unsubscribe** the previous plan, **bootstrap** new instruments.
 4. **Ready-then-subscribe** for quotes/trades/…: only after the new instrument is in
    the actor cache (`on_instrument`). If not ready yet, the id stays **pending** and
    we re-request with adaptive backoff (1s→…→60s poll only) until cache-ready or the
    next roll clears it — **no fixed wait-before-subscribe and no total-wait cap**.
-   Work runs only while pending is non-empty (not all day).  
+   Work runs only while pending is non-empty (not all day).
 5. **Purge expired outcomes** when `purge_removed_instruments = true` (default): call
    Nautilus `Cache::purge_instrument`, which drops the definition **and** cache-owned
    quotes/trades/books/marks/… so RSS does not grow across daily rolls. Perp reference

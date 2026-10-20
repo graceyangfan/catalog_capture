@@ -117,7 +117,7 @@ install -m 755 \
   scripts/optional-user-service.sh \
   "$STAGE/scripts/"
 
-COMMIT="$(git rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+COMMIT="$(git rev-parse --short HEAD 2> /dev/null || printf 'unknown')"
 cat > "$STAGE/MANIFEST" << EOF
 package=$PACKAGE_NAME
 build_host=${OS}-${ARCH}
@@ -156,7 +156,7 @@ EOF
 ARCHIVE="$OUTPUT_DIR/${PACKAGE_NAME}.tar.gz"
 CHECKSUM="$ARCHIVE.sha256"
 tar -C "$OUTPUT_DIR" -czf "$ARCHIVE" -C "$STAGE_ROOT" "$PACKAGE_NAME"
-if command -v sha256sum >/dev/null 2>&1; then
+if command -v sha256sum > /dev/null 2>&1; then
   sha256sum "$ARCHIVE" > "$CHECKSUM"
 else
   shasum -a 256 "$ARCHIVE" > "$CHECKSUM"

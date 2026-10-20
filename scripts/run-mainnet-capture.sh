@@ -50,7 +50,7 @@ RUN_CONFIG="$CONFIG"
 if [[ -n "${CAPTURE_SECONDS:-}" ]]; then
   RUN_CONFIG="$(mktemp "${TMPDIR:-/tmp}/capture-mainnet.XXXXXX.toml")"
   # shellcheck disable=SC2016
-  sed -E "s/^capture_seconds = .*/capture_seconds = ${CAPTURE_SECONDS}/" "$CONFIG" >"$RUN_CONFIG"
+  sed -E "s/^capture_seconds = .*/capture_seconds = ${CAPTURE_SECONDS}/" "$CONFIG" > "$RUN_CONFIG"
   echo "temporary config (capture_seconds=${CAPTURE_SECONDS}): $RUN_CONFIG"
 fi
 

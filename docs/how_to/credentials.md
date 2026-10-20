@@ -81,12 +81,10 @@ Ed25519 `private_key` in `env/binance-spot-sbe.toml`:
 
 ```toml
 api_key = "the-api-key-id-returned-by-binance"
-private_key = '''
------BEGIN PRIVATE KEY-----
-the-complete-local-ed25519-private-key
------END PRIVATE KEY-----
-'''
+private_key = """<complete local Ed25519 private key in PKCS#8 PEM format>"""
 ```
+
+Retain the PEM header, footer and embedded newlines when pasting the local key.
 
 The private key is mapped internally to NautilusTrader's generic
 `BinanceDataClientConfig.api_secret` field because that upstream field carries

@@ -4,7 +4,7 @@ Status: implemented public-data adapter; this document records its protocol
 evidence, invariants, and acceptance boundary.
 
 This integration is implemented inside this repository. The legacy
-`extened_exchange` workspace is protocol reference material only; this project
+Extended workspace is protocol reference material only; this project
 will not depend on that workspace or link its crate.
 
 The venue crate is named `nautilus-extended`. It is a long-lived Nautilus
@@ -60,7 +60,7 @@ all SDKs as interchangeable:
 | Official API documentation | v1 URLs, message types, payload field semantics, cadence and book reconnect rules | Authoritative payload contract |
 | Official Python SDK (`x10xchange/python_sdk`) | RPC v2 endpoint, selectors, envelopes, lifecycle intent and REST models | Authoritative v2 wire reference; its lifecycle implementation and convenience order-book helper are not copied |
 | Official TypeScript examples (`x10xchange/examples`) | REST market schemas, order construction and signing examples | No complete public market-data WebSocket client; not a streaming adapter dependency |
-| Legacy local Rust workspace (`extened_exchange`) | Cross-check REST naming and old protocol assumptions | REST-only reference; never a crate dependency |
+| Legacy local Rust Extended workspace | Cross-check REST naming and old protocol assumptions | REST-only reference; never a crate dependency |
 
 The official Python SDK is useful for comparing lifecycle behavior. Its v1
 client opens one connection per topic and leaves reconnect ownership to the

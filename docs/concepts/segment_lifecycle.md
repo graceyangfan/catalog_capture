@@ -12,8 +12,8 @@ boundary into Nautilus catalog-readable parquet names.
 
 Implementation:
 
-- `lifecycle/segment_support` — `ActivePart` (open/write/tick/seal), orphan recovery, path helpers  
-- `SegmentCaptureSink` — market encode (`EncodeToRecordBatch`)  
+- `lifecycle/segment_support` — `ActivePart` (open/write/tick/seal), orphan recovery, path helpers
+- `SegmentCaptureSink` — market encode (`EncodeToRecordBatch`)
 - `SegmentCustomDataSink` — custom encode (`prepare_custom_data_batch`)
 
 ## What uses segment when `mode = segment`
@@ -91,11 +91,11 @@ UTC day may contain multiple catalog parquets).
 
 Keep a single stable `catalog_uri` for the job. Examples:
 
-- `examples/capture.hyperliquid-perp-daily.toml` — perp day files at 06:00 UTC  
+- `examples/capture.hyperliquid-perp-daily.toml` — perp day files at 06:00 UTC
 - `examples/capture.hyperliquid-hip4-btc-daily.toml` — **HIP-4 daily** instrument
-  refresh + **same 06:00 UTC seal** as contract day boundary  
-- `examples/capture.multi-venue-mainnet.toml` — HL + Binance L2 + Deribit BookSummary day segments  
-- `examples/operator/*-unattended.toml` — long option-universe runs  
+  refresh + **same 06:00 UTC seal** as contract day boundary
+- `examples/capture.multi-venue-mainnet.toml` — HL + Binance L2 + Deribit BookSummary day segments
+- `examples/operator/*-unattended.toml` — long option-universe runs
 
 HIP-4: universe poll (which YES/NO) is separate from seal (file day). See
 [HIP-4 capture](../how_to/hip4_capture.md).
