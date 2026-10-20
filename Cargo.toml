@@ -5,6 +5,7 @@ members = [
   "crates/catalog-capture-runtime-adapter",
   "crates/catalog-capture-cli",
   "crates/nautilus-extended",
+  "crates/nautilus-lighter-ext",
   "crates/nautilus-predict",
 ]
 resolver = "2"
@@ -83,6 +84,7 @@ nautilus-persistence = { path = "../nautilus_trader_quantity_commission/crates/p
 nautilus-serialization = { path = "../nautilus_trader_quantity_commission/crates/serialization", features = [
   "arrow",
 ] }
+nautilus-lighter-ext = { path = "crates/nautilus-lighter-ext" }
 nautilus-extended = { path = "crates/nautilus-extended" }
 nautilus-predict = { path = "crates/nautilus-predict", default-features = false }
 

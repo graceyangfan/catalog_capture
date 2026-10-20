@@ -65,7 +65,7 @@ make build-release-small
 ```
 
 Venue features: `venue-binance`, `venue-bybit`, `venue-deribit`, `venue-okx`,
-`venue-hyperliquid`, `venue-lighter`, `venue-extended`, `venue-predict`, or
+`venue-hyperliquid`, `venue-lighter`, `venue-lighter-ext`, `venue-extended`, `venue-predict`, or
 `all-venues`. A slim binary must include every venue referenced by its TOML:
 
 ```bash

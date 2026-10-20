@@ -13,6 +13,7 @@
 // -------------------------------------------------------------------------------------------------
 
 mod lifecycle;
+mod lighter;
 mod submit;
 
 use std::{
@@ -85,6 +86,7 @@ pub struct CatalogCaptureActorConfig {
     pub online_option_metrics: Option<OnlineOptionMetricsConfig>,
     pub dynamic_option_universe: Option<DynamicOptionUniverseConfig>,
     pub dynamic_hip4_universe: Option<DynamicHip4UniverseConfig>,
+    pub lighter_updown: Vec<crate::LighterUpDownCaptureConfig>,
     /// Explicit routes needed when Binance products share venue `BINANCE`.
     ///
     /// The config resolver owns this map: the actor must never infer product
@@ -107,6 +109,7 @@ impl CatalogCaptureActorConfig {
             online_option_metrics: None,
             dynamic_option_universe: None,
             dynamic_hip4_universe: None,
+            lighter_updown: Vec::new(),
             binance_client_routes: BTreeMap::new(),
             binance_futures_client_id: None,
             metrics_snapshot: None,
@@ -117,6 +120,7 @@ impl CatalogCaptureActorConfig {
 
 pub struct CatalogCaptureActor {
     core: DataActorCore,
+    lighter: crate::lighter_updown::LighterCaptureState,
     capture: CaptureConfig,
     /// Startup materialized plan (static TOML + one-shot universe expansion).
     initial_materialized_plan: CapturePlan,
@@ -184,6 +188,28 @@ impl CatalogCaptureActor {
             ..Default::default()
         };
 
+        for selector in &config.lighter_updown {
+            selector.validate()?;
+        }
+        anyhow::ensure!(
+            config
+                .lighter_updown
+                .iter()
+                .map(|c| &c.tag)
+                .collect::<BTreeSet<_>>()
+                .len()
+                == config.lighter_updown.len(),
+            "duplicate Lighter series"
+        );
+        anyhow::ensure!(
+            config.lighter_updown.len() <= 2,
+            "at most two Lighter series supported"
+        );
+        anyhow::ensure!(
+            config.lighter_updown.is_empty() || config.capture.lifecycle.is_segment_mode(),
+            "rolling Lighter capture requires segment mode"
+        );
+        let rolling_lighter = !config.lighter_updown.is_empty();
         let flags = config.plan.family_runtime_flags();
         let predict_selectors = predict_selector_keys(&config.plan)?;
         // A rolling Predict selector discovers both BinaryOption definitions at runtime.
@@ -191,7 +217,16 @@ impl CatalogCaptureActor {
         // for replay before the first orderbook snapshot is written.
         let captures_dynamic_predict_instruments = !predict_selectors.is_empty();
         let worker_count = config.plan.enabled_background_worker_count()
-            + usize::from(captures_dynamic_predict_instruments && !flags.instruments);
+            + usize::from(captures_dynamic_predict_instruments && !flags.instruments)
+            + if rolling_lighter {
+                usize::from(!flags.instruments && !captures_dynamic_predict_instruments)
+                    + usize::from(!flags.trades)
+                    + usize::from(!flags.book_deltas)
+                    + usize::from(!flags.index_prices)
+                    + usize::from(!flags.custom_data && !flags.custom_data_requests)
+            } else {
+                0
+            };
         log::info!("Capture background workers: {worker_count} enabled for plan");
 
         // Instruments: always chunked. Custom: segment when mode=segment (shared for
@@ -199,13 +234,13 @@ impl CatalogCaptureActor {
         let capture = config.capture.clone();
 
         let instrument_runtime = maybe_family_runtime(
-            flags.instruments || captures_dynamic_predict_instruments,
+            flags.instruments || captures_dynamic_predict_instruments || rolling_lighter,
             CaptureFlushFamily::Instruments,
             &capture,
             chunked_catalog_sink_from_config,
         )?;
         let custom_data_runtime = maybe_family_runtime(
-            needs_generic_custom_data_writer(&config.plan),
+            needs_generic_custom_data_writer(&config.plan) || rolling_lighter,
             CaptureFlushFamily::CustomData,
             &capture,
             custom_data_catalog_sink_from_config,
@@ -239,7 +274,7 @@ impl CatalogCaptureActor {
             CatalogSink::<MarkPriceUpdate>::from_config,
         )?;
         let index_price_runtime = maybe_family_runtime(
-            flags.index_prices,
+            flags.index_prices || rolling_lighter,
             CaptureFlushFamily::IndexPrices,
             &capture,
             CatalogSink::<IndexPriceUpdate>::from_config,
@@ -275,7 +310,7 @@ impl CatalogCaptureActor {
             CatalogSink::<QuoteTick>::from_config,
         )?;
         let trade_runtime = maybe_family_runtime(
-            flags.trades,
+            flags.trades || rolling_lighter,
             CaptureFlushFamily::Trades,
             &capture,
             CatalogSink::<TradeTick>::from_config,
@@ -287,7 +322,7 @@ impl CatalogCaptureActor {
             CatalogSink::<Bar>::from_config,
         )?;
         let book_delta_runtime = maybe_family_runtime(
-            flags.book_deltas,
+            flags.book_deltas || rolling_lighter,
             CaptureFlushFamily::BookDeltas,
             &capture,
             BookDeltaCatalogSink::from_config,
@@ -307,6 +342,10 @@ impl CatalogCaptureActor {
 
         Ok(Self {
             core: DataActorCore::new(actor_config),
+            lighter: crate::lighter_updown::LighterCaptureState {
+                configs: config.lighter_updown,
+                ..Default::default()
+            },
             capture: config.capture.clone(),
             initial_materialized_plan,
             supplemental_plan,
@@ -494,12 +533,13 @@ impl CatalogCaptureActor {
     }
 
     fn effective_capture_plan(&self) -> CapturePlan {
-        effective_capture_plan(
+        let base = effective_capture_plan(
             &self.initial_materialized_plan,
             &self.supplemental_plan,
             self.dynamic_option_universe.as_ref(),
             self.dynamic_hip4_universe.as_ref(),
-        )
+        );
+        catalog_capture_core::merge_capture_plans(&base, &self.lighter.plan())
     }
 
     fn sync_plan_state(&mut self) {
@@ -1507,5 +1547,72 @@ mod tests {
 
         let _ = actor.shutdown_all().expect("shutdown");
         let _ = fs::remove_dir_all(&catalog_dir);
+    }
+
+    #[test]
+    fn lighter_retirement_preserves_another_owner_and_purges_unowned_cache() {
+        use nautilus_common::msgbus::{self, switchboard, typed_handler::ShareableMessageHandler};
+        let root = std::env::temp_dir().join(format!(
+            "lighter-other-owner-{}",
+            nautilus_core::UUID4::new()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut config = CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan::default(),
+        );
+        config
+            .lighter_updown
+            .push(crate::LighterUpDownCaptureConfig {
+                tag: "eth-updown-15m".into(),
+                client_id: "LIGHTER".into(),
+                refresh_secs: 10,
+                prefetch_secs: 30,
+            });
+        let mut actor = CatalogCaptureActor::new(config).unwrap();
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        actor
+            .register(TraderId::test_default(), clock, cache.clone())
+            .unwrap();
+        let mut retired = Vec::new();
+        for market in [98001, 98002] {
+            let InstrumentAny::BinaryOption(mut binary) = test_predict_outcome(market, 1) else {
+                unreachable!()
+            };
+            binary.id = InstrumentId::from(format!("{market}-BINARY.LIGHTER").as_str());
+            binary.expiration_ns = UnixNanos::from(1);
+            let mut info = Params::new();
+            info.insert("market_id".into(), serde_json::json!(market));
+            binary.info = Some(info);
+            let instrument = InstrumentAny::BinaryOption(binary);
+            cache
+                .borrow_mut()
+                .add_instrument(instrument.clone())
+                .unwrap();
+            retired.push(instrument.clone());
+            actor.lighter.retiring.insert(instrument.id(), instrument);
+        }
+        let protected = retired[0].id();
+        let unowned = retired[1].id();
+        let topic = switchboard::get_instrument_topic(protected);
+        let handler = ShareableMessageHandler::from_any(|_| {});
+        msgbus::subscribe_any(topic.as_str().into(), handler.clone(), None);
+        actor.lighter.next_refresh_ns = u64::MAX;
+        actor.refresh_lighter().unwrap();
+        assert!(
+            cache.borrow().instrument(&protected).is_some(),
+            "other instrument subscriber owns its cache"
+        );
+        assert!(
+            cache.borrow().instrument(&unowned).is_none(),
+            "unowned retired instrument must be purged"
+        );
+        msgbus::unsubscribe_any(topic.as_str().into(), &handler);
+        actor.shutdown_all().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

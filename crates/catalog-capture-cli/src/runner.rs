@@ -65,6 +65,8 @@ use nautilus_hyperliquid::{
 };
 #[cfg(feature = "venue-lighter")]
 use nautilus_lighter::{config::LighterDataClientConfig, factories::LighterDataClientFactory};
+#[cfg(feature = "venue-lighter-ext")]
+use nautilus_lighter_ext::{LighterBinaryDataClientConfig, LighterBinaryDataClientFactory};
 use nautilus_live::node::LiveNode;
 #[cfg(feature = "venue-binance")]
 use nautilus_model::identifiers::InstrumentId;
@@ -161,12 +163,16 @@ pub async fn run_capture_with_plan_and_reports(
         hip4_resolved,
     )?;
 
-    if plan.is_empty() {
+    if plan.is_empty() && config.lighter_updown.is_empty() {
         bail!("capture plan is empty after universe expansion");
     }
 
     log_capture_buffer_estimate(&config, &plan);
 
+    #[cfg(feature = "venue-lighter-ext")]
+    if !config.lighter_updown.is_empty() {
+        nautilus_lighter_ext::register_lighter_ext_custom_data();
+    }
     register_subscribe_types(&plan.custom_data);
     register_request_types(&plan.custom_data_requests);
 
@@ -367,6 +373,18 @@ pub async fn run_capture_with_plan_and_reports(
                         update_instruments_interval_mins: 1,
                         stale_stream_receive_timeout_secs: 90,
                         stream_health_check_interval_secs: 15,
+                        ..Default::default()
+                    }),
+                )?;
+            }
+            #[cfg(feature = "venue-lighter-ext")]
+            VenueRuntimeConfig::LighterBinary { id } => {
+                let market_ids = lighter_binary_market_ids(&plan)?;
+                builder = builder.add_data_client(
+                    Some(id.clone()),
+                    Box::new(LighterBinaryDataClientFactory::new()),
+                    Box::new(LighterBinaryDataClientConfig {
+                        market_ids,
                         ..Default::default()
                     }),
                 )?;
@@ -632,6 +650,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
         VenueRuntimeConfig::Hyperliquid { .. } => "hyperliquid",
         #[cfg(feature = "venue-lighter")]
         VenueRuntimeConfig::Lighter { .. } => "lighter",
+        #[cfg(feature = "venue-lighter-ext")]
+        VenueRuntimeConfig::LighterBinary { .. } => "lighter_binary",
         #[cfg(feature = "venue-extended")]
         VenueRuntimeConfig::Extended { .. } => "extended",
         #[cfg(feature = "venue-okx")]
@@ -655,6 +675,8 @@ fn compiled_venue_features() -> Vec<String> {
         "venue-hyperliquid",
         #[cfg(feature = "venue-lighter")]
         "venue-lighter",
+        #[cfg(feature = "venue-lighter-ext")]
+        "venue-lighter-ext",
         #[cfg(feature = "venue-extended")]
         "venue-extended",
         #[cfg(feature = "venue-predict")]
@@ -741,6 +763,7 @@ fn build_capture_actor_config(
             hip4_reports,
             hip4_resolved,
         )?,
+        lighter_updown: config.lighter_updown.clone(),
         binance_client_routes,
         binance_futures_client_id,
         metrics_snapshot,
@@ -840,9 +863,103 @@ fn validate_runtime_switches(config: &EffectiveConfig) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "venue-lighter-ext")]
+fn lighter_binary_market_ids(plan: &CapturePlan) -> Result<Vec<u64>> {
+    let instrument_ids = plan_instrument_ids(plan);
+    let mut market_ids = instrument_ids
+        .iter()
+        .copied()
+        .filter(|id| id.venue.as_str() == "LIGHTER")
+        .map(nautilus_lighter_ext::common::market_id)
+        .collect::<Result<Vec<_>>>()?;
+    for spec in &plan.custom_data {
+        if spec.data_type.type_name() == "LighterOpenInterest" {
+            let market = nautilus_lighter_ext::common::open_interest_market(&spec.data_type)?;
+            anyhow::ensure!(
+                instrument_ids.contains(&nautilus_lighter_ext::common::instrument_id(market)?),
+                "LighterOpenInterest requires an instrument-scoped capture selector for its market"
+            );
+            market_ids.push(market);
+        }
+    }
+    market_ids.sort_unstable();
+    market_ids.dedup();
+    LighterBinaryDataClientConfig {
+        market_ids: market_ids.clone(),
+        ..Default::default()
+    }
+    .validate()?;
+    Ok(market_ids)
+}
+
 fn validate_runtime_dependencies(config: &EffectiveConfig) -> Result<()> {
     if config.venues.is_empty() {
         bail!("at least one venue is required");
+    }
+    #[cfg(feature = "venue-lighter-ext")]
+    if config
+        .venues
+        .iter()
+        .any(|v| matches!(v, VenueRuntimeConfig::LighterBinary { .. }))
+    {
+        let ids = lighter_binary_market_ids(&config.plan)?;
+        anyhow::ensure!(
+            !ids.is_empty() || !config.lighter_updown.is_empty(),
+            "lighter_binary requires fixed markets or a rolling selector"
+        );
+        anyhow::ensure!(
+            config.capture.lifecycle.is_segment_mode(),
+            "lighter_binary capture requires segment mode to preserve batched receive timestamps"
+        );
+        let plan = &config.plan;
+        let lighter =
+            |id: nautilus_model::identifiers::InstrumentId| id.venue.as_str() == "LIGHTER";
+        let unsupported = plan.quotes.iter().any(|s| lighter(s.instrument_id))
+            || plan.mark_prices.iter().any(|s| lighter(s.instrument_id))
+            || plan.funding_rates.iter().any(|s| lighter(s.instrument_id))
+            || plan
+                .instrument_statuses
+                .iter()
+                .any(|s| lighter(s.instrument_id))
+            || plan
+                .instrument_closes
+                .iter()
+                .any(|s| lighter(s.instrument_id))
+            || plan.option_greeks.iter().any(|s| lighter(s.instrument_id))
+            || plan.forward_prices.iter().any(|s| lighter(s.instrument_id))
+            || plan
+                .bars
+                .iter()
+                .any(|s| lighter(s.bar_type.instrument_id()));
+        anyhow::ensure!(
+            !unsupported,
+            "lighter_binary supports instruments, trades, full L2 book_deltas, index_prices and LighterOpenInterest only"
+        );
+        for spec in &plan.book_deltas {
+            if lighter(spec.instrument_id) {
+                anyhow::ensure!(
+                    spec.book_type == nautilus_model::enums::BookType::L2_MBP
+                        && spec.depth.is_none(),
+                    "lighter_binary requires full L2_MBP with no depth selector"
+                );
+            }
+        }
+    }
+    if !config.lighter_updown.is_empty() {
+        #[cfg(not(feature = "venue-lighter-ext"))]
+        anyhow::bail!("Lighter rolling capture requires venue-lighter-ext");
+        #[cfg(feature = "venue-lighter-ext")]
+        anyhow::ensure!(
+            config
+                .venues
+                .iter()
+                .any(|v| matches!(v, VenueRuntimeConfig::LighterBinary { .. })),
+            "Lighter rolling selector requires a lighter_binary venue"
+        );
+        anyhow::ensure!(
+            config.option_universes.is_empty() && config.hip4_universes.is_empty(),
+            "Lighter rolling capture currently uses a dedicated universe node"
+        );
     }
     validate_option_universes(&config.option_universes, &config.venues)?;
     validate_hip4_universes(&config.hip4_universes, &config.venues)?;
@@ -1420,6 +1537,7 @@ mod tests {
             plan: plan.clone(),
             option_universes: Vec::new(),
             hip4_universes: Vec::new(),
+            lighter_updown: Vec::new(),
             venues: vec![
                 VenueRuntimeConfig::BinanceSpot {
                     id: "binance_spot".to_string(),

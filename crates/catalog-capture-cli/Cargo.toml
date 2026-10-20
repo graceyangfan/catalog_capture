@@ -17,6 +17,7 @@ all-venues = [
   "venue-okx",
   "venue-hyperliquid",
   "venue-lighter",
+  "venue-lighter-ext",
   "venue-extended",
   "venue-predict",
 ]
@@ -26,6 +27,7 @@ venue-deribit = ["dep:nautilus-deribit"]
 venue-okx = ["dep:nautilus-okx"]
 venue-hyperliquid = ["dep:nautilus-hyperliquid"]
 venue-lighter = ["dep:nautilus-lighter"]
+venue-lighter-ext = ["venue-lighter", "dep:nautilus-lighter-ext"]
 venue-extended = ["dep:nautilus-extended"]
 venue-predict = ["dep:nautilus-predict"]
 # Independent execution host; capture-only feature graph stays unchanged.
@@ -42,6 +44,7 @@ nautilus-bybit = { workspace = true, optional = true }
 nautilus-deribit = { workspace = true, optional = true }
 nautilus-hyperliquid = { workspace = true, optional = true }
 nautilus-lighter = { workspace = true, optional = true }
+nautilus-lighter-ext = { workspace = true, optional = true }
 nautilus-extended = { workspace = true, optional = true }
 nautilus-okx = { workspace = true, optional = true }
 nautilus-predict = { workspace = true, optional = true, features = [

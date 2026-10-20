@@ -89,6 +89,14 @@ jobs:
         working-directory: catalog_capture
         run: cargo test --workspace --lib --bins
 
+      - name: Run Lighter extension offline integration tests
+        working-directory: catalog_capture
+        run: cargo test -p nautilus-lighter-ext --locked
+
+      - name: Check slim Lighter binary CLI
+        working-directory: catalog_capture
+        run: cargo check -p catalog-capture-cli --no-default-features --features venue-lighter-ext --locked
+
       - name: Run Predict adapter tests
         working-directory: catalog_capture
         run: cargo test -p nautilus-predict --lib --tests --locked
@@ -119,7 +127,7 @@ jobs:
 
       - name: Run clippy
         working-directory: catalog_capture
-        run: cargo clippy -p nautilus-predict -p catalog-capture-core -p catalog-capture-runtime-adapter -p catalog-capture-cli --all-targets -- -D warnings
+        run: cargo clippy -p nautilus-lighter-ext -p nautilus-predict -p catalog-capture-core -p catalog-capture-runtime-adapter -p catalog-capture-cli --all-targets -- -D warnings
 
   cargo-deny:
     runs-on: ubuntu-latest

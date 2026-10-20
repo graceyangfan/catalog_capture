@@ -80,7 +80,7 @@ fmt:
 	$(CARGO_TOOL) fmt --all
 
 clippy:
-	$(CARGO_TOOL) clippy -p nautilus-predict -p catalog-capture-core -p catalog-capture-runtime-adapter -p $(CLI_PKG) --all-targets -- -D warnings
+	$(CARGO_TOOL) clippy -p nautilus-lighter-ext -p nautilus-predict -p catalog-capture-core -p catalog-capture-runtime-adapter -p $(CLI_PKG) --all-targets -- -D warnings
 
 clean:
 	$(CARGO_TOOL) clean

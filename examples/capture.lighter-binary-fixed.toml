@@ -1,0 +1,44 @@
+# Public Lighter mainnet, fixed market only. Replace every 4255 selector with
+# a currently observing market ID from /api/v1/events. Its precise start oracle
+# must already be available. This historical ID documents the naming contract.
+# cargo run -p catalog-capture-cli --no-default-features --features venue-lighter-ext -- run --config examples/capture.lighter-binary-fixed.toml
+[runtime]
+capture_seconds = 60
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "LIGHTER-BINARY-FIXED"
+
+[output]
+catalog_uri = "file://./data/lighter-binary-fixed"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+queue_capacity = 50000
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[[venues]]
+id = "LIGHTER"
+kind = "lighter_binary"
+environment = "mainnet"
+
+[[capture.instruments]]
+instrument_id = "4255-BINARY.LIGHTER"
+
+[[capture.trades]]
+instrument_id = "4255-BINARY.LIGHTER"
+
+[[capture.book_deltas]]
+instrument_id = "4255-BINARY.LIGHTER"
+book_type = "L2_MBP"
+
+# Native IndexPriceUpdate carries the underlying USD oracle, precision 16.
+[[capture.index_prices]]
+instrument_id = "4255-BINARY.LIGHTER"
+
+[[capture.custom_data]]
+type_name = "LighterOpenInterest"
+identifier = "4255"

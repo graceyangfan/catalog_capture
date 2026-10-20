@@ -1,0 +1,58 @@
+{
+  "channel": "order_book:4255",
+  "last_updated_at": 1792480927728496,
+  "offset": 5580,
+  "order_book": {
+    "code": 0,
+    "asks": [
+      {
+        "price": "0.41",
+        "size": "14.2328"
+      },
+      {
+        "price": "0.42",
+        "size": "904.8092"
+      },
+      {
+        "price": "0.48",
+        "size": "100.0000"
+      },
+      {
+        "price": "0.51",
+        "size": "4858.0000"
+      },
+      {
+        "price": "0.53",
+        "size": "100.0000"
+      },
+      {
+        "price": "0.63",
+        "size": "100.0000"
+      }
+    ],
+    "bids": [
+      {
+        "price": "0.39",
+        "size": "987.0000"
+      },
+      {
+        "price": "0.35",
+        "size": "100.0000"
+      },
+      {
+        "price": "0.30",
+        "size": "1084.0000"
+      },
+      {
+        "price": "0.20",
+        "size": "100.0000"
+      }
+    ],
+    "offset": 5580,
+    "nonce": 25175485011,
+    "last_updated_at": 1792480927728496,
+    "begin_nonce": 0
+  },
+  "timestamp": 1792480927776,
+  "type": "subscribed/order_book"
+}

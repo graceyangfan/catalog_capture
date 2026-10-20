@@ -1,0 +1,81 @@
+{
+  "code": 200,
+  "events": [
+    {
+      "event_id": 156,
+      "title": "ETH Up or Down",
+      "description": "Up if the chainlink ETH price at the end of the 15m window is at least the one at its start.",
+      "creator_account_index": 761897,
+      "created_at": 1792409464720,
+      "tag": "eth-updown-15m",
+      "event_kind": "recurrent",
+      "recurrence_period_seconds": 900,
+      "start_at": 1792480500000,
+      "end_at": 1792481400000,
+      "metadata": {
+        "duration": "15m",
+        "feed_id": "0x0002fbf9f58ef89c93385770d289d7c10c01c250641daa811063e303ee095593",
+        "market_id": 4255,
+        "provider": "chainlink",
+        "symbol": "eth",
+        "type": "updown",
+        "underlying_market_id": 0
+      },
+      "order_books": [
+        {
+          "symbol": "ETH-UPDOWN-15M-1792480500",
+          "market_id": 4255,
+          "market_type": "binary_options",
+          "base_asset_id": 3,
+          "quote_asset_id": 3,
+          "status": "active",
+          "taker_fee": "1.0000",
+          "is_taker_fee_enabled": true,
+          "maker_fee": "0.0000",
+          "is_maker_fee_enabled": false,
+          "liquidation_fee": "0.0000",
+          "min_base_amount": "5.0000",
+          "min_quote_amount": "0.000001",
+          "order_quote_limit": "281474976.710655",
+          "supported_size_decimals": 4,
+          "supported_price_decimals": 2,
+          "supported_quote_decimals": 6,
+          "created_at": "1792409464581",
+          "multiplier": "1.000000000000000000",
+          "start_timestamp": 1792473300000,
+          "end_timestamp": 1792481400000,
+          "open_interest": "440.8476",
+          "outcome": 0,
+          "operator_account_index": 761897,
+          "settlement_cap": 100,
+          "settlement_type": 0,
+          "settlement_price": 0,
+          "default_price": 50,
+          "is_frozen": false,
+          "market_deployer": "lighter",
+          "size_decimals": 4,
+          "price_decimals": 2,
+          "stats": {
+            "symbol": "ETH-UPDOWN-15M-1792480500",
+            "market_id": 4255,
+            "mid_price": "0.40",
+            "best_ask_price": "0.41",
+            "best_bid_price": "0.39",
+            "last_trade_price": "0.16",
+            "daily_base_token_volume": 631.3423,
+            "daily_quote_token_volume": 203.087683,
+            "daily_price_low": 0.13,
+            "daily_price_high": 0.56,
+            "daily_price_change": 0,
+            "lifetime_quote_token_volume": 203.087683,
+            "lifetime_base_token_volume": 631.3423,
+            "open_interest": "440.8476",
+            "status": "active",
+            "outcome": 0
+          }
+        }
+      ],
+      "lifetime_quote_token_volume": 203.087683
+    }
+  ]
+}

@@ -54,6 +54,8 @@ pub struct VenueConfig {
 
 #[derive(Debug, Clone)]
 pub enum VenueRuntimeConfig {
+    #[cfg(feature = "venue-lighter-ext")]
+    LighterBinary { id: String },
     #[cfg(feature = "venue-binance")]
     BinanceFutures {
         id: String,
@@ -108,6 +110,8 @@ pub enum VenueRuntimeConfig {
 impl VenueRuntimeConfig {
     pub fn id(&self) -> &str {
         match self {
+            #[cfg(feature = "venue-lighter-ext")]
+            Self::LighterBinary { id } => id,
             #[cfg(feature = "venue-binance")]
             Self::BinanceFutures { id, .. } => id,
             #[cfg(feature = "venue-binance")]
@@ -221,6 +225,25 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
                 venue_feature_required("hyperliquid", "venue-hyperliquid")
             }
         }
+        "lighter_binary" => {
+            #[cfg(feature = "venue-lighter-ext")]
+            {
+                anyhow::ensure!(
+                    matches!(venue.environment.as_str(), "live" | "mainnet")
+                        && venue.deployment == "lighter",
+                    "lighter_binary currently supports Lighter mainnet only"
+                );
+                anyhow::ensure!(
+                    venue.id == "LIGHTER",
+                    "lighter_binary client id must be LIGHTER"
+                );
+                Ok(VenueRuntimeConfig::LighterBinary { id: venue.id })
+            }
+            #[cfg(not(feature = "venue-lighter-ext"))]
+            {
+                venue_feature_required("lighter_binary", "venue-lighter-ext")
+            }
+        }
         "lighter" => {
             #[cfg(feature = "venue-lighter")]
             {
@@ -286,7 +309,7 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             }
         }
         other => bail!(
-            "unsupported venue kind {other}; known kinds: binance_futures, binance_spot, deribit, bybit, hyperliquid, lighter, extended, okx, predict \
+            "unsupported venue kind {other}; known kinds: binance_futures, binance_spot, deribit, bybit, hyperliquid, lighter, lighter_binary, extended, okx, predict \
              (enabled at build time via cargo features venue-* / all-venues)"
         ),
     }
@@ -329,6 +352,18 @@ pub(crate) fn validate_unique_venue_ids(venues: &[VenueRuntimeConfig]) -> Result
         anyhow::ensure!(
             binance_futures_count <= 1,
             "only one binance_futures data client is supported per capture"
+        );
+    }
+    #[cfg(feature = "venue-lighter-ext")]
+    if venues
+        .iter()
+        .any(|v| matches!(v, VenueRuntimeConfig::LighterBinary { .. }))
+    {
+        anyhow::ensure!(
+            !venues
+                .iter()
+                .any(|v| matches!(v, VenueRuntimeConfig::Lighter { .. })),
+            "fixed binary capture currently requires a dedicated Lighter client; do not combine lighter and lighter_binary in one node"
         );
     }
     Ok(())

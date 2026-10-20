@@ -1196,6 +1196,7 @@ dependencies = [
  "axum-core",
  "base64 0.22.1",
  "bytes",
+ "form_urlencoded",
  "futures-util",
  "http",
  "http-body",
@@ -1209,6 +1210,8 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "serde_core",
+ "serde_path_to_error",
+ "serde_urlencoded",
  "sha1 0.10.6",
  "sync_wrapper",
  "tokio",
@@ -1516,6 +1519,7 @@ dependencies = [
  "nautilus-extended",
  "nautilus-hyperliquid",
  "nautilus-lighter",
+ "nautilus-lighter-ext",
  "nautilus-live",
  "nautilus-model",
  "nautilus-okx",
@@ -1565,6 +1569,7 @@ dependencies = [
  "nautilus-model",
  "nautilus-persistence",
  "rust_decimal",
+ "serde",
  "serde_json",
  "tokio",
  "ustr",
@@ -4566,6 +4571,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "nautilus-lighter-ext"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "arrow",
+ "async-trait",
+ "axum",
+ "bon",
+ "catalog-capture-core",
+ "catalog-capture-runtime-adapter",
+ "futures-util",
+ "log",
+ "nautilus-common",
+ "nautilus-core",
+ "nautilus-lighter",
+ "nautilus-live",
+ "nautilus-model",
+ "nautilus-network",
+ "nautilus-persistence",
+ "nautilus-serialization",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "ustr",
+]
+
+[[package]]
 name = "nautilus-live"
 version = "0.67.0"
 dependencies = [
@@ -6120,6 +6155,17 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_path_to_error"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10a9ff822e371bb5403e391ecd83e182e0e77ba7f6fe0160b795797109d1b457"
+dependencies = [
+ "itoa",
+ "serde",
+ "serde_core",
 ]
 
 [[package]]

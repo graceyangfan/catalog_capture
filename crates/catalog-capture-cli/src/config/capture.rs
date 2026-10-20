@@ -56,6 +56,8 @@ pub struct CaptureConfigFile {
     pub option_universe: Vec<OptionUniverseSelector>,
     #[serde(default)]
     pub hip4_universe: Vec<Hip4UniverseSelector>,
+    #[serde(default)]
+    pub lighter_updown: Vec<catalog_capture_runtime_adapter::LighterUpDownCaptureConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

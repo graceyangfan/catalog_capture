@@ -83,6 +83,7 @@ pub struct EffectiveConfig {
     pub plan: CapturePlan,
     pub option_universes: Vec<OptionUniverseSpec>,
     pub hip4_universes: Vec<Hip4UniverseSpec>,
+    pub lighter_updown: Vec<catalog_capture_runtime_adapter::LighterUpDownCaptureConfig>,
     pub venues: Vec<VenueRuntimeConfig>,
 }
 
@@ -141,7 +142,24 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
     let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
     let hip4_universes = parse_hip4_universe_specs(&config.capture.hip4_universe)?;
 
-    if plan.is_empty() && option_universes.is_empty() && hip4_universes.is_empty() {
+    for selector in &config.capture.lighter_updown {
+        selector.validate()?;
+    }
+    let tags = config
+        .capture
+        .lighter_updown
+        .iter()
+        .map(|s| &s.tag)
+        .collect::<std::collections::BTreeSet<_>>();
+    anyhow::ensure!(
+        tags.len() == config.capture.lighter_updown.len() && tags.len() <= 2,
+        "duplicate or too many Lighter selectors"
+    );
+    if plan.is_empty()
+        && option_universes.is_empty()
+        && hip4_universes.is_empty()
+        && config.capture.lighter_updown.is_empty()
+    {
         bail!("capture plan is empty; enable at least one capture family");
     }
 
@@ -151,6 +169,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         plan,
         option_universes,
         hip4_universes,
+        lighter_updown: config.capture.lighter_updown,
         venues,
     })
 }

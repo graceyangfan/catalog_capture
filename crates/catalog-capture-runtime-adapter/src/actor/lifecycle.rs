@@ -82,7 +82,7 @@ impl CatalogCaptureActor {
     /// `pending_market_data` and are completed on `on_instrument` (or by a backup
     /// re-request loop that runs **only while pending is non-empty** — not all day).
     /// Request-style jobs (`custom_data_requests`) must NOT be subscribed here.
-    fn subscribe_plan(&mut self, plan: &CapturePlan) -> Result<()> {
+    pub(super) fn subscribe_plan(&mut self, plan: &CapturePlan) -> Result<()> {
         for spec in &plan.custom_data {
             self.subscribe_data(
                 spec.data_type.clone(),
@@ -271,7 +271,7 @@ impl CatalogCaptureActor {
         Ok(())
     }
 
-    fn unsubscribe_plan(&mut self, plan: &CapturePlan) {
+    pub(super) fn unsubscribe_plan(&mut self, plan: &CapturePlan) {
         // Subscribe path only — request jobs have no subscription to tear down.
         for spec in &plan.custom_data {
             self.unsubscribe_data(
@@ -451,13 +451,16 @@ impl CatalogCaptureActor {
         instrument_id: InstrumentId,
         configured: impl FnOnce() -> bool,
     ) -> bool {
+        if self.lighter.enabled() && instrument_id.venue.as_str() == "LIGHTER" {
+            return self.market_data_live.contains(&instrument_id) && configured();
+        }
         self.dynamic_hip4_universe.is_none()
             || !is_hip4_outcome(instrument_id)
             || (self.market_data_live.contains(&instrument_id) && configured())
     }
 
     /// Drop actor-side market-data bookkeeping for an instrument (pending + live + timer).
-    fn forget_instrument_runtime_state(&mut self, instrument_id: InstrumentId) {
+    pub(super) fn forget_instrument_runtime_state(&mut self, instrument_id: InstrumentId) {
         self.pending_market_data.remove(&instrument_id);
         self.market_data_live.remove(&instrument_id);
         if self.pending_market_data.is_empty() {
@@ -471,7 +474,7 @@ impl CatalogCaptureActor {
     /// NT removes the definition **and** cache-owned per-instrument market data
     /// (quotes, trades, books, mark/index/funding, statuses, greeks, bar types).
     /// Capture has no open orders/positions, so the standard purge path is correct.
-    fn purge_instrument_from_cache(&mut self, instrument_id: InstrumentId) {
+    pub(super) fn purge_instrument_from_cache(&mut self, instrument_id: InstrumentId) {
         self.forget_instrument_runtime_state(instrument_id);
         let cache = self.cache_rc();
         let mut cache = cache.borrow_mut();
@@ -1017,6 +1020,8 @@ impl DataActor for CatalogCaptureActor {
             )?;
         }
         self.schedule_hip4_universe_refresh()?;
+        self.refresh_lighter()?;
+        self.schedule_lighter()?;
         self.schedule_segment_seal()?;
         self.publish_metrics_snapshot();
         self.schedule_metrics_export()?;
@@ -1025,6 +1030,8 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_stop(&mut self) -> Result<()> {
+        self.clock().cancel_timer(super::lighter::LIGHTER_TIMER);
+        self.lighter.pending = None;
         self.clock().cancel_timer(OPTION_UNIVERSE_REFRESH_TIMER);
         self.clock().cancel_timer(HIP4_UNIVERSE_REFRESH_TIMER);
         self.clock().cancel_timer(SEGMENT_SEAL_TIMER);
@@ -1037,6 +1044,10 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_time_event(&mut self, event: &TimeEvent) -> Result<()> {
+        if event.name == super::lighter::LIGHTER_TIMER {
+            self.refresh_lighter()?;
+            self.schedule_lighter()?;
+        }
         if event.name == OPTION_UNIVERSE_REFRESH_TIMER {
             self.apply_dynamic_option_universe_refresh()?;
         }
@@ -1060,6 +1071,27 @@ impl DataActor for CatalogCaptureActor {
             self.fire_custom_data_request(index)?;
         }
         Ok(())
+    }
+
+    fn handle_instruments_response(
+        &mut self,
+        response: &nautilus_common::messages::data::InstrumentsResponse,
+    ) {
+        if self.lighter.pending == Some(response.correlation_id) {
+            if let Err(error) = self.apply_lighter_response(response) {
+                log::error!("Lighter universe response failed: {error:#}");
+            }
+        } else if response
+            .params
+            .as_ref()
+            .is_none_or(|params| !params.contains_key("updown_tags"))
+        {
+            for instrument in &response.data {
+                if let Err(error) = self.on_instrument(instrument) {
+                    log::error!("Instrument response failed: {error:#}");
+                }
+            }
+        }
     }
 
     fn on_instrument(&mut self, instrument: &InstrumentAny) -> Result<()> {

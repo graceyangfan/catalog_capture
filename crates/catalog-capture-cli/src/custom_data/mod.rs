@@ -45,6 +45,8 @@ pub enum CustomDataChannel {
 /// Venue class required in `[[venues]]` for a known custom type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CustomDataVenue {
+    #[cfg(feature = "venue-lighter-ext")]
+    LighterBinary,
     #[cfg(feature = "venue-binance")]
     BinanceFutures,
     #[cfg(feature = "venue-deribit")]
@@ -61,6 +63,8 @@ pub enum CustomDataVenue {
 /// variant, with a fixed channel and venue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KnownCustomDataType {
+    #[cfg(feature = "venue-lighter-ext")]
+    LighterOpenInterest,
     #[cfg(feature = "venue-binance")]
     BinanceFuturesLiquidation,
     #[cfg(feature = "venue-binance")]
@@ -80,6 +84,8 @@ pub enum KnownCustomDataType {
 impl KnownCustomDataType {
     pub const fn type_name(self) -> &'static str {
         match self {
+            #[cfg(feature = "venue-lighter-ext")]
+            Self::LighterOpenInterest => "LighterOpenInterest",
             #[cfg(feature = "venue-binance")]
             Self::BinanceFuturesLiquidation => "BinanceFuturesLiquidation",
             #[cfg(feature = "venue-binance")]
@@ -99,6 +105,8 @@ impl KnownCustomDataType {
 
     pub const fn channel(self) -> CustomDataChannel {
         match self {
+            #[cfg(feature = "venue-lighter-ext")]
+            Self::LighterOpenInterest => CustomDataChannel::Subscribe,
             #[cfg(feature = "venue-binance")]
             Self::BinanceFuturesLiquidation | Self::BinanceFuturesTicker => {
                 CustomDataChannel::Subscribe
@@ -118,6 +126,8 @@ impl KnownCustomDataType {
 
     pub const fn venue(self) -> CustomDataVenue {
         match self {
+            #[cfg(feature = "venue-lighter-ext")]
+            Self::LighterOpenInterest => CustomDataVenue::LighterBinary,
             #[cfg(feature = "venue-binance")]
             Self::BinanceFuturesLiquidation | Self::BinanceFuturesTicker => {
                 CustomDataVenue::BinanceFutures
@@ -148,6 +158,8 @@ impl KnownCustomDataType {
 
 /// All known types enabled in this build (order is stable for error messages).
 pub const ALL: &[KnownCustomDataType] = &[
+    #[cfg(feature = "venue-lighter-ext")]
+    KnownCustomDataType::LighterOpenInterest,
     #[cfg(feature = "venue-binance")]
     KnownCustomDataType::BinanceFuturesLiquidation,
     #[cfg(feature = "venue-binance")]
@@ -200,6 +212,8 @@ pub(crate) fn require_venue(
 
 fn venue_matches(venue: &VenueRuntimeConfig, requirement: CustomDataVenue) -> bool {
     match (requirement, venue) {
+        #[cfg(feature = "venue-lighter-ext")]
+        (CustomDataVenue::LighterBinary, VenueRuntimeConfig::LighterBinary { .. }) => true,
         #[cfg(feature = "venue-binance")]
         (CustomDataVenue::BinanceFutures, VenueRuntimeConfig::BinanceFutures { .. }) => true,
         #[cfg(feature = "venue-deribit")]

@@ -1,0 +1,20 @@
+{
+  "candles": [
+    {
+      "symbol": "eth",
+      "duration": "15m",
+      "resolution": "1s",
+      "timestamp": 1792480927,
+      "open": "2392.668573089160757248",
+      "high": "2392.668573089160757248",
+      "low": "2392.668573089160757248",
+      "close": "2392.668573089160757248",
+      "provider": "chainlink",
+      "feed_id": "0x0002fbf9f58ef89c93385770d289d7c10c01c250641daa811063e303ee095593"
+    }
+  ],
+  "channel": "up_down_candle:eth:15m:1s",
+  "timestamp": 1792480927979,
+  "type": "update/up_down_candle",
+  "observed_candle_count": 1
+}

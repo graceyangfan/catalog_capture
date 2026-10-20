@@ -162,6 +162,7 @@ pub fn custom_data_client_id(data_type: &DataType) -> Option<&'static str> {
         "BinanceFuturesLiquidation" | "BinanceFuturesTicker" => Some("BINANCE"),
         "DeribitVolatilityIndex" => Some("DERIBIT"),
         "HyperliquidOpenInterest" => Some("HYPERLIQUID"),
+        "LighterOpenInterest" => Some("LIGHTER"),
         "PredictOrderbookSnapshot" | "PredictCryptoUpDown" => Some("PREDICT"),
         _ => None,
     }

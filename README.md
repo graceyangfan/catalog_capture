@@ -29,6 +29,10 @@ venues → catalog-capture-cli + TOML
 - **Rust catalog layout only** — `rust_canonical_only` (Nautilus `ParquetDataCatalog`)
 - **Venue adapters** — Binance Futures/Spot SBE, Bybit, Deribit, OKX,
   Hyperliquid, Lighter/Robinhood Chain, Extended, and Predict (`venue-*` features)
+- **Lighter binary options** — fixed markets and automatic 15m capture via
+  [nautilus-lighter-ext](crates/nautilus-lighter-ext/README.md) (`venue-lighter-ext`);
+  [operator guide](docs/how_to/lighter-binary-capture.md) and
+  [rolling profile](examples/capture.lighter-updown-15m.toml)
 - **Dynamic products** — option universes, Hyperliquid HIP-4, and Predict
   crypto Up/Down selectors discover and rotate instruments without restarting
 - **Order book checkpoints** — managed Nautilus books checkpointed hourly and at

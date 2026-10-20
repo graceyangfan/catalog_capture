@@ -48,6 +48,8 @@ pub fn register_request_types(requests: &[CustomDataRequestCaptureSpec]) {
 impl KnownCustomDataType {
     fn register(self) {
         match self {
+            #[cfg(feature = "venue-lighter-ext")]
+            Self::LighterOpenInterest => nautilus_lighter_ext::register_lighter_ext_custom_data(),
             #[cfg(feature = "venue-binance")]
             Self::BinanceFuturesLiquidation | Self::BinanceFuturesTicker => {
                 register_binance_custom_data();

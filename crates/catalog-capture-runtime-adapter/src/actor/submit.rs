@@ -62,6 +62,16 @@ impl CatalogCaptureActor {
 
     pub(super) fn submit_custom_data(&mut self, data: CustomData) -> Result<()> {
         let data_type = data.data_type.clone();
+        if self.lighter.enabled()
+            && data_type.type_name() == "LighterOpenInterest"
+            && !self
+                .plan
+                .custom_data
+                .iter()
+                .any(|s| s.data_type == data_type)
+        {
+            return Ok(());
+        }
         let ts_init = data.data.ts_init().as_u64();
         let event_ts = data.data.ts_event().as_u64();
         let mut retired_predict_market_id = None;

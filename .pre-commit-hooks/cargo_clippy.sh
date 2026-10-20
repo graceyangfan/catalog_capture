@@ -16,8 +16,9 @@ fi
 
 export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.0}"
 
-# Product crates and the Predict adapter (matches Makefile / CI).
+# Product crates and local adapters (matches Makefile / CI).
 cargo clippy \
+  -p nautilus-lighter-ext \
   -p nautilus-predict \
   -p catalog-capture-core \
   -p catalog-capture-runtime-adapter \

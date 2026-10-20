@@ -71,6 +71,16 @@ pub fn validate_request_data_type(
 impl KnownCustomDataType {
     fn validate_payload(self, data_type: &DataType, venues: &[VenueRuntimeConfig]) -> Result<()> {
         match self {
+            #[cfg(feature = "venue-lighter-ext")]
+            Self::LighterOpenInterest => {
+                require_venue(
+                    venues,
+                    self.venue(),
+                    "LighterOpenInterest requires lighter_binary venue",
+                )?;
+                nautilus_lighter_ext::common::open_interest_market(data_type)?;
+                Ok(())
+            }
             #[cfg(feature = "venue-binance")]
             Self::BinanceFuturesLiquidation => {
                 require_venue(

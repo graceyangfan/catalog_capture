@@ -1793,3 +1793,52 @@ fn example_hyperliquid_perp_daily_segment_lifecycle_loads() {
     ));
     assert!(effective.capture.lifecycle.seal.enabled);
 }
+
+#[cfg(feature = "venue-lighter-ext")]
+#[test]
+fn lighter_binary_example_resolves_all_five_families() {
+    let path = repo_root().join("examples/capture.lighter-binary-fixed.toml");
+    let config = resolve_config(load_config(&path).unwrap()).unwrap();
+    validate_runtime(&config).unwrap();
+    assert!(
+        matches!(&config.venues[..], [VenueRuntimeConfig::LighterBinary { id }] if id == "LIGHTER")
+    );
+    assert_eq!(config.plan.instruments.len(), 1);
+    assert_eq!(config.plan.trades.len(), 1);
+    assert_eq!(config.plan.book_deltas.len(), 1);
+    assert_eq!(config.plan.index_prices.len(), 1);
+    assert_eq!(
+        config.plan.custom_data[0].data_type,
+        nautilus_lighter_ext::common::open_interest_data_type(4255)
+    );
+    let mut invalid = load_config(&path).unwrap();
+    invalid.venues[0].environment = "testnet".into();
+    assert!(resolve_config(invalid).is_err());
+    let mut invalid = load_config(&path).unwrap();
+    invalid.capture.custom_data[0].identifier = Some("04255".into());
+    assert!(validate_runtime(&resolve_config(invalid).unwrap()).is_err());
+    let mut invalid = load_config(&path).unwrap();
+    invalid.output.lifecycle.mode = catalog_capture_core::lifecycle::LifecycleMode::Chunked;
+    assert!(validate_runtime(&resolve_config(invalid).unwrap()).is_err());
+    let mut invalid = load_config(&path).unwrap();
+    invalid.capture.book_deltas[0].depth = Some(20);
+    assert!(validate_runtime(&resolve_config(invalid).unwrap()).is_err());
+    let mut invalid = load_config(&path).unwrap();
+    invalid.capture.quotes.push(InstrumentSelector {
+        instrument_id: "4255-BINARY.LIGHTER".into(),
+    });
+    assert!(validate_runtime(&resolve_config(invalid).unwrap()).is_err());
+}
+
+#[cfg(feature = "venue-lighter-ext")]
+#[test]
+fn lighter_rolling_profile_resolves_without_manual_market_ids() {
+    let profile = include_str!("../../../../examples/capture.lighter-updown-15m.toml");
+    let file: CliConfigFile = toml::from_str(profile).unwrap();
+    let effective = resolve_config(file).unwrap();
+    assert!(effective.plan.is_empty());
+    assert_eq!(effective.lighter_updown.len(), 2);
+    validate_runtime(&effective).unwrap();
+    let duplicate = profile.replace("btc-updown-15m", "eth-updown-15m");
+    assert!(resolve_config(toml::from_str(&duplicate).unwrap()).is_err());
+}

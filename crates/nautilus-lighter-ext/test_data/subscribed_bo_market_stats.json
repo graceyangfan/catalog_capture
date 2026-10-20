@@ -1,0 +1,23 @@
+{
+  "bo_market_stats": {
+    "symbol": "ETH-UPDOWN-15M-1792480500",
+    "market_id": 4255,
+    "mid_price": "0.40",
+    "best_ask_price": "0.41",
+    "best_bid_price": "0.38",
+    "last_trade_price": "0.16",
+    "daily_base_token_volume": 631.3423,
+    "daily_quote_token_volume": 203.087683,
+    "daily_price_low": 0.13,
+    "daily_price_high": 0.56,
+    "daily_price_change": 0,
+    "lifetime_quote_token_volume": 203.087683,
+    "lifetime_base_token_volume": 631.3423,
+    "open_interest": "440.8476",
+    "status": "active",
+    "outcome": 0
+  },
+  "channel": "bo_market_stats:4255",
+  "timestamp": 1792480927783,
+  "type": "subscribed/bo_market_stats"
+}

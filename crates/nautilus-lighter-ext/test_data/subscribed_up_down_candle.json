@@ -1,0 +1,32 @@
+{
+  "candles": [
+    {
+      "symbol": "eth",
+      "duration": "15m",
+      "resolution": "1s",
+      "timestamp": 1792480925,
+      "open": "2392.641853126338412544",
+      "high": "2392.641853126338412544",
+      "low": "2392.641853126338412544",
+      "close": "2392.641853126338412544",
+      "provider": "chainlink",
+      "feed_id": "0x0002fbf9f58ef89c93385770d289d7c10c01c250641daa811063e303ee095593"
+    },
+    {
+      "symbol": "eth",
+      "duration": "15m",
+      "resolution": "1s",
+      "timestamp": 1792480926,
+      "open": "2392.641853126338412544",
+      "high": "2392.641853126338412544",
+      "low": "2392.641853126338412544",
+      "close": "2392.641853126338412544",
+      "provider": "chainlink",
+      "feed_id": "0x0002fbf9f58ef89c93385770d289d7c10c01c250641daa811063e303ee095593"
+    }
+  ],
+  "channel": "up_down_candle:eth:15m:1s",
+  "timestamp": 1792480927807,
+  "type": "subscribed/up_down_candle",
+  "observed_candle_count": 300
+}

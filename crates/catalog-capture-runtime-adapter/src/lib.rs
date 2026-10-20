@@ -22,6 +22,8 @@ mod dynamic_option_universe_runtime;
 mod dynamic_plan;
 mod online_option_metrics;
 
+pub mod lighter_updown;
+
 pub use actor::{CatalogCaptureActor, CatalogCaptureActorConfig, RuntimeCaptureAdapter};
 pub use dynamic_hip4_universe::{
     DynamicHip4UniverseChange, DynamicHip4UniverseConfig, DynamicHip4UniverseDelta,
@@ -37,3 +39,5 @@ pub use dynamic_option_universe_runtime::{
 pub use online_option_metrics::{
     OnlineOptionMetricsConfig, OnlineOptionMetricsObserver, OnlineOptionMetricsUniverseConfig,
 };
+
+pub use lighter_updown::LighterUpDownCaptureConfig;
