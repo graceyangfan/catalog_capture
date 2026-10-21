@@ -37,7 +37,6 @@ use nautilus_predict::{
     discover_crypto_up_down_market, http::PredictPrivateHttpClient, instrument_id_from_outcome,
     signing::PredictAuthSigner,
 };
-use rust_decimal::Decimal;
 use serde::Deserialize;
 
 /// Native node fields are deserialized directly, without another engine/risk/cache schema.
@@ -63,7 +62,7 @@ pub struct PredictSettings {
     pub timeout_secs: u64,
     #[serde(default)]
     pub orderbook_removal_enabled: bool,
-    pub submission: Option<SubmissionLimits>,
+    pub submission: Option<SubmissionSettings>,
 }
 fn timeout() -> u64 {
     15
@@ -83,13 +82,10 @@ impl PredictSettings {
         }
     }
 }
-/// Only the non-serializable adapter signer is injected; Native venue admission stays in the adapter.
+/// Protocol defaults; Native node risk configuration owns order limits.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SubmissionLimits {
-    pub max_order_usdt: Decimal,
-    pub max_total_usdt: Decimal,
-    pub require_post_only: bool,
+pub struct SubmissionSettings {
     pub market_slippage_bps: u32,
 }
 #[derive(Deserialize)]
@@ -274,12 +270,9 @@ pub async fn prepare(
     execution.submission = profile
         .predict
         .submission
-        .map(|limits| PredictSubmissionConfig {
+        .map(|settings| PredictSubmissionConfig {
             signer,
-            max_order_usdt: limits.max_order_usdt,
-            max_total_usdt: limits.max_total_usdt,
-            require_post_only: limits.require_post_only,
-            market_slippage_bps: limits.market_slippage_bps,
+            market_slippage_bps: settings.market_slippage_bps,
         });
     let mut node = builder
         .with_name("PredictLiveNode")

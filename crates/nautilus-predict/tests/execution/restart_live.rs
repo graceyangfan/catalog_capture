@@ -124,9 +124,7 @@ fn node(private: &Server, public_port: u16, redis_port: u16, read_only: bool) ->
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::from(3),
-        max_total_usdt: Decimal::from(3),
-        require_post_only: false,
+
         market_slippage_bps: 100,
     });
     LiveNode::builder(trader_id(), Environment::Live)

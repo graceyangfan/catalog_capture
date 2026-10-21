@@ -213,6 +213,7 @@ async fn mainnet_rust_strategy_quiet_resting_cancel_replace() -> anyhow::Result<
         root().join("logs/predict-private-http-proxy.json"),
     )?)?;
     let case = manifest["case"].as_str().unwrap_or("auto");
+    let measure_latency = manifest["measureLatency"].as_bool().unwrap_or(false);
     let (outcome, time_in_force) = match case {
         "auto" => (None, TimeInForce::Gtc),
         "yes-gtc" => (Some(1), TimeInForce::Gtc),
@@ -264,15 +265,24 @@ async fn mainnet_rust_strategy_quiet_resting_cancel_replace() -> anyhow::Result<
         session.clone(),
         settings.websocket_config()?,
     );
+    let (latency, mut collector) = if measure_latency {
+        let (probe, collector) = nautilus_predict::latency::PredictLatency::channel(
+            TraderId::new("PREDICT-CALIBRATION-001"),
+            AccountId::new("PREDICT-calibration"),
+            4096,
+        )?;
+        (Some(probe), Some(collector))
+    } else {
+        (None, None)
+    };
+    execution.latency = latency.clone();
     execution.chain = Some(settings.chain_config());
     execution.account_refresh_interval_secs = 1;
     execution.report_timeout_secs = settings.network.timeout_secs;
     execution.orderbook_removal_enabled = true;
     execution.submission = Some(PredictSubmissionConfig {
         signer,
-        max_order_usdt: Decimal::ONE,
-        max_total_usdt: Decimal::from(2),
-        require_post_only: true,
+
         market_slippage_bps: 100,
     });
     let key = settings
@@ -325,6 +335,7 @@ async fn mainnet_rust_strategy_quiet_resting_cancel_replace() -> anyhow::Result<
             observations.clone(),
             handle.clone(),
         )
+        .with_latency(latency)
         .with_live_feedback(output.join("native_feedback.json"), candidate.price)
         .with_resting_time_in_force(time_in_force)
         .with_resting_confirmation(confirmation.clone()),
@@ -359,6 +370,33 @@ async fn mainnet_rust_strategy_quiet_resting_cancel_replace() -> anyhow::Result<
     // Never return/assert on node failure before attempting final independently verified cleanup.
     let cleanup_result = cleanup(&session, &candidate).await;
     let observed = observations.borrow();
+    if let Some(collector) = collector.as_mut() {
+        // No monitor runs on the LiveNode executor. This bounded run drains only after shutdown.
+        let metrics = handle.metrics_snapshot();
+        std::fs::write(
+            output.join("latency.json"),
+            serde_json::to_vec_pretty(&json!({
+                "source":"mainnet LiveNode; explicit typed strategy callback hooks; test HTTP relay",
+                "profile":if cfg!(debug_assertions) {"debug"} else {"release"},
+                "units":"nanoseconds; local monotonic clock",
+                "commandPath":"venue_validated",
+                "snapshot":collector.snapshot(),
+                "nativeRunner":{"execEventQueueDepth":metrics.exec_events.queue_depth,
+                    "execCommandQueueDepth":metrics.exec_commands.queue_depth,
+                    "execEventsDispatched":metrics.exec_events.dispatched,
+                    "execCommandsDispatched":metrics.exec_commands.dispatched,
+                    "dispatchBusyNs":metrics.dispatch_busy_ns,"elapsedNs":metrics.elapsed_ns},
+                "limitations":["two orders only; p95/p99 are sample maxima, not stable tail estimates",
+                    "HTTP client intervals include the recording relay; compare its separately measured upstream intervals",
+                    "RPC counters include startup and background account work; there is no per-order funds/OPEN query",
+                    "REST-confirmed cancellations need not have a matching WS-origin callback"]
+            }))?,
+        )?;
+        std::fs::write(
+            output.join("native_feedback.json"),
+            serde_json::to_vec_pretty(&observed.recorded_feedback)?,
+        )?;
+    }
     let report = json!({"source":"mainnet Rust Strategy + LiveNode; write-enabled test, see submitted count", "case":case,
         "timeInForce":time_in_force.to_string(),"postOnly":true,"marketId":candidate.market.id,
         "outcome":candidate.outcome,"price":candidate.price.to_string(),"quantity":candidate.quantity.to_string(),

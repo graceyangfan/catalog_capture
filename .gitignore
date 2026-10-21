@@ -9,6 +9,8 @@ config.json
 config.*.json
 !config.*.example.json
 .DS_Store
+# AppleDouble metadata created when copying files across filesystems.
+._*
 *.swp
 *.swo
 __pycache__/
@@ -19,4 +21,7 @@ env/
 .idea/
 .vscode/
 *.log
+# Transient staging shared by the Rust resting probe and Python collector.
+# Completed operational runs are archived under data/predict-validation/.
+/crates/nautilus-predict/tests/fixtures/private_api/live_resting/
 .direnv/

@@ -224,6 +224,10 @@ fn normalize_price(
 /// Registration is idempotent.
 pub fn register_predict_custom_data() {
     nautilus_serialization::ensure_custom_data_registered::<PredictOrderbookSnapshot>();
+    #[cfg(feature = "execution")]
+    let _ = nautilus_model::data::ensure_custom_data_json_registered::<
+        crate::PredictSettlementUpdate,
+    >();
 }
 
 fn normalize_levels(

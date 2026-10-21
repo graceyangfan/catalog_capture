@@ -28,11 +28,9 @@ use nautilus_common::{
 };
 use nautilus_live::execution::failure::CommandFailure;
 use nautilus_model::{
-    accounts::Account,
     identifiers::{ClientOrderId, VenueOrderId},
     instruments::{Instrument, InstrumentAny},
     orders::Order,
-    types::Currency,
 };
 use rust_decimal::Decimal;
 
@@ -41,9 +39,16 @@ use crate::config::PredictAccountStateMode;
 
 #[derive(Debug, Default)]
 pub(super) struct SubmissionRegistry {
-    pub entries: HashMap<ClientOrderId, Option<VenueOrderId>>,
-    /// Worst-case collateral of every write attempted by this client lifetime, including ambiguous writes.
-    pub attempted_usdt: Decimal,
+    /// Active submissions by this client; Native terminal events remove entries.
+    pub entries: HashMap<ClientOrderId, Submission>,
+}
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Submission {
+    pub venue_id: Option<VenueOrderId>,
+    // Direct live feedback is scoped to this transport epoch. Setup invalidates old entries.
+    pub wallet_epoch: Option<u64>,
+    // Immutable signed budget, not a balance/reservation ledger. Retired with this entry.
+    pub market_buy_collateral: Option<Decimal>,
 }
 pub(super) type PendingSubmissions = Arc<Mutex<SubmissionRegistry>>;
 
@@ -52,6 +57,7 @@ pub(super) struct SubmissionGuard {
     pub id: ClientOrderId,
     pub retain: bool,
     pub transmitted: bool,
+    pub venue_id: Option<nautilus_model::identifiers::VenueOrderId>,
 }
 impl Drop for SubmissionGuard {
     fn drop(&mut self) {
@@ -160,13 +166,35 @@ impl PredictExecutionClient {
     }
 
     pub(super) fn submit_order_command(&self, cmd: &SubmitOrder) -> anyhow::Result<()> {
-        self.prune_order_lookups();
+        let command_started = self
+            .config
+            .latency
+            .as_ref()
+            .map(|_| std::time::Instant::now());
         anyhow::ensure!(
             !self
                 .reconciliation_required
                 .load(std::sync::atomic::Ordering::Acquire),
             "Predict stream gap requires reconciliation before new submissions"
         );
+        // A purged Native owner cannot apply a queued settlement. Check only
+        // unconsumed reports, never all retained orders/fill history on each command.
+        {
+            let cache = self.core.cache();
+            let missing = self
+                .fill_evidence
+                .lock()
+                .expect("fill evidence poisoned")
+                .queued_client_order_ids()
+                .any(|id| id.is_none_or(|id| cache.order(&id).is_none()));
+            if missing {
+                self.reconciliation_required
+                    .store(true, std::sync::atomic::Ordering::Release);
+                anyhow::bail!(
+                    "Predict queued settlement lost its native owner; reconciliation required"
+                );
+            }
+        }
         let policy = self
             .config
             .submission
@@ -203,13 +231,18 @@ impl PredictExecutionClient {
             "Predict cannot resubmit an active or terminal native order"
         );
         let instrument = instrument.clone();
-        let validated = terms(
-            &order,
-            &instrument,
-            &policy,
-            self.clock.get_time_ns().as_u64(),
-        );
-        let (cost, price, shares, expiry) = match validated {
+        let validated = (|| -> anyhow::Result<_> {
+            let market_price = super::order_builder::market_price(cmd.params.as_ref(), &order)?;
+            let values = terms(
+                &order,
+                &instrument,
+                &policy,
+                self.clock.get_time_ns().as_u64(),
+                market_price,
+            )?;
+            Ok(values)
+        })();
+        let terms = match validated {
             Ok(terms) => terms,
             Err(reason) => {
                 let factory = OrderEventFactory::new(
@@ -227,17 +260,6 @@ impl PredictExecutionClient {
                 return Ok(());
             }
         };
-        let account = cache
-            .account_owned(&self.core.account_id)
-            .ok_or_else(|| anyhow::anyhow!("Predict cash account is not registered"))?;
-        let free = account
-            .balance_free(Some(Currency::USDT()))
-            .ok_or_else(|| anyhow::anyhow!("Predict free collateral is unavailable"))?
-            .as_decimal();
-        anyhow::ensure!(
-            order.order_side() == nautilus_model::enums::OrderSide::Sell || cost <= free,
-            "Predict native account has insufficient free collateral"
-        );
         drop(cache);
         let mut registry = self
             .pending_submissions
@@ -247,21 +269,26 @@ impl PredictExecutionClient {
             !registry.entries.contains_key(&cmd.client_order_id),
             "Predict submission for this client order is already active or unresolved"
         );
-        anyhow::ensure!(
-            order.order_side() == nautilus_model::enums::OrderSide::Sell
-                || registry
-                    .attempted_usdt
-                    .checked_add(cost)
-                    .is_some_and(|v| v <= policy.max_total_usdt),
-            "Predict client lifetime collateral cap is exhausted"
+        registry.entries.insert(
+            cmd.client_order_id,
+            Submission {
+                venue_id: None,
+                wallet_epoch: Some(
+                    self.verified_epoch
+                        .load(std::sync::atomic::Ordering::Acquire),
+                ),
+                market_buy_collateral: (terms.market.is_some()
+                    && order.order_side() == nautilus_model::enums::OrderSide::Buy)
+                    .then_some(terms.cost),
+            },
         );
-        registry.entries.insert(cmd.client_order_id, None);
         drop(registry);
         let mut guard = SubmissionGuard {
             registry: Arc::clone(&self.pending_submissions),
             id: cmd.client_order_id,
             retain: false,
             transmitted: false,
+            venue_id: None,
         };
         let factory = OrderEventFactory::new(
             self.core.trader_id,
@@ -273,34 +300,42 @@ impl PredictExecutionClient {
             factory.generate_order_submitted(&order, self.clock.get_time_ns()),
         )?;
         guard.retain = true; // A queued native Submitted event must retain ownership through shutdown.
-        self.instruments.insert(
-            instrument.id(),
-            InstrumentAny::BinaryOption(instrument.clone()),
-        );
+        // Native callbacks replace this view. Avoid rebuilding the read-heavy map and
+        // discarding fresh protocol metadata on every command for the same definition.
+        let current = self.instruments.get_cloned(&instrument.id());
+        if !current.as_ref().is_some_and(|entry| {
+            matches!(&entry.instrument, InstrumentAny::BinaryOption(old)
+                if old.event_id == instrument.event_id && old.ts_init == instrument.ts_init
+                    && old.raw_symbol == instrument.raw_symbol
+                    && old.price_precision == instrument.price_precision
+                    && old.expiration_ns == instrument.expiration_ns)
+        }) {
+            self.instruments.rcu(|map| {
+                super::types::upsert_instrument(
+                    map,
+                    InstrumentAny::BinaryOption(instrument.clone()),
+                )
+            });
+        }
+        let metadata = self
+            .instruments
+            .get_cloned(&instrument.id())
+            .expect("instrument installed");
         let worker = SubmitWorker {
+            command_started,
             signer: Arc::clone(
                 self.order_signer
                     .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("Predict order signer is not configured"))?,
             ),
-            session: self.config.session.clone(),
-            chain: self
-                .chain
-                .clone()
-                .ok_or_else(|| anyhow::anyhow!("Predict admission RPC is missing"))?,
-            policy,
             order: Arc::new(order),
-            instrument,
-            price,
-            shares,
-            expiry,
-            cost,
-            free,
+            definition: metadata,
+            metadata_notify: Arc::clone(&self.metadata_notify),
+            terms,
             // Match the official SDK's default salt range while retaining the complete
             // native command UUID for ownership and duplicate-command protection.
             salt: U256::from(u128::from_be_bytes(cmd.command_id.as_bytes()) % 2_147_483_648),
             pending: Arc::clone(&self.pending_submissions),
-            admission: Arc::clone(&self.submission_admission),
             orders: Arc::clone(&self.orders),
             rest_ids: Arc::clone(&self.rest_order_ids),
             reconciliation_required: Arc::clone(&self.reconciliation_required),
@@ -340,9 +375,10 @@ impl PredictExecutionClient {
                     CommandFailure::NotSent(reason) | CommandFailure::VenueRejected(reason),
                 )) => {
                     // Native state published before an HTTP reply takes precedence.
-                    let terminal = worker.orders.load().values().any(|o| {
-                        o.client_order_id() == worker.order.client_order_id()
-                            && (o.is_closed() || o.ts_accepted().is_some())
+                    let terminal = guard.venue_id.is_some_and(|id| {
+                        worker.orders.lock().expect("order snapshots poisoned").get(&id)
+                            .is_some_and(|o| o.client_order_id() == worker.order.client_order_id()
+                                && (o.is_closed() || o.ts_accepted().is_some()))
                     });
                     if !terminal {
                         let event = worker.factory.generate_order_rejected(

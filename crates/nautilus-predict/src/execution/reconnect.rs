@@ -51,6 +51,15 @@ impl PredictExecutionClient {
         let healthy = self.healthy.clone();
         let cancellation = self.tasks.cancellation_token();
         let clock = self.clock;
+        let lookups = self.order_lookups();
+        let core = self.core.clone();
+        let pending = self.pending_submissions.clone();
+        let cancels = self.pending_cancels.clone();
+        let cleanup_interval = self
+            .config
+            .account_refresh_interval_secs
+            .saturating_mul(1_000_000_000);
+        let next_cleanup = std::cell::Cell::new(0u64);
         let timer = self.recovery_clock.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
                 "Predict automatic recovery requires the factory-provided Nautilus clock"
@@ -61,9 +70,21 @@ impl PredictExecutionClient {
             DurationNanos::from_secs(secs),
             None,
             None,
-            Some(TimeEventCallback::RustLocal(Rc::new(move |_| {
+            Some(TimeEventCallback::RustLocal(Rc::new(move |event| {
                 if cancellation.is_cancelled() || !healthy.load(Ordering::Acquire) {
                     return;
+                }
+                // Retire mirrors after Native purges, independent of incoming commands.
+                // Reuse this lifecycle timer; no extra REST query or timer is created.
+                if event.ts_event.as_u64() >= next_cleanup.get() {
+                    let more = lookups.prune();
+                    // Continue a sweep on the next existing timer tick, then return
+                    // to the normal cleanup cadence. Never drain it in one callback.
+                    next_cleanup.set(if more {
+                        event.ts_event.as_u64()
+                    } else {
+                        event.ts_event.as_u64().saturating_add(cleanup_interval)
+                    });
                 }
                 if !auth.is_authenticated()
                     || epoch.load(Ordering::Acquire) != verified.load(Ordering::Acquire)
@@ -73,6 +94,9 @@ impl PredictExecutionClient {
                 if !required.load(Ordering::Acquire)
                     || !auth.is_authenticated()
                     || checking.load(Ordering::Acquire)
+                    || !super::readiness::ReadinessCheck::commands_resolved(
+                        &core, &pending, &cancels,
+                    )
                 {
                     return;
                 }

@@ -1,6 +1,7 @@
 // Copyright (C) 2026 yfclark and contributors. Licensed under LGPL-3.0.
 //! Rejected recovery batches leave no acceptance, fill or reservation side effects.
 use nautilus_common::messages::execution::QueryOrder;
+use nautilus_model::events::OrderEventAny;
 
 use super::*;
 
@@ -216,7 +217,7 @@ async fn run_rejections() -> Vec<Value> {
                 .balance_locked(Some(Currency::USDT()))
                 .unwrap()
                 .as_decimal(),
-            Decimal::from(62)
+            Decimal::ZERO // Submitted is held by Native Cash risk, not reported twice.
         );
         // The rejected batch must not poison atomic fill evidence for a later valid read.
         if matches!(case, "incomplete" | "missing_prefix") {
@@ -375,4 +376,418 @@ async fn record_readiness_json() {
         )
         .unwrap();
     serde_json::to_writer_pretty(file,&json!({"source":"synthetic offline readiness mismatches and successful repair; no mainnet writes","sessions":sessions})).unwrap();
+}
+
+#[tokio::test]
+async fn cleanup_backlog_does_not_gate_recovery_or_invalidate_an_inflight_check() {
+    run_cleanup_recovery(true).await;
+    run_cleanup_recovery(false).await;
+}
+
+async fn run_cleanup_recovery(purge: bool) {
+    let server = server(vec![]).await;
+    *server.state.match_snapshot.lock().unwrap() = Some(Vec::new());
+    *server.state.position_snapshot.lock().unwrap() = Some(Vec::new());
+    let (mut client, mut rx, cache, _) = submissions::setup_client_with_clock(&server, OBSERVED);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    let retained = if purge { 1000 } else { 10017 };
+    for index in 0..retained {
+        let mut retired = OrderTestBuilder::new(OrderType::Limit)
+            .trader_id(trader_id())
+            .client_order_id(format!("RECOVERY-RETIRED-{index}").into())
+            .instrument_id(instrument_id(1))
+            .side(OrderSide::Buy)
+            .quantity(Quantity::from(100))
+            .price(Price::from("0.010"))
+            .build();
+        let hash = VenueOrderId::new(format!("0x{:064x}", index + 1));
+        retired
+            .apply(factory.generate_order_submitted(&retired, 1.into()))
+            .unwrap();
+        retired
+            .apply(factory.generate_order_accepted(&retired, hash, 2.into(), 2.into()))
+            .unwrap();
+        retired
+            .apply(factory.generate_order_canceled(&retired, Some(hash), 3.into(), 3.into()))
+            .unwrap();
+        cache
+            .borrow_mut()
+            .add_order(retired, None, None, false)
+            .unwrap();
+    }
+    cache.borrow_mut().build_index();
+    connect_reported(&mut client, &mut rx).await;
+    let sockets_before = server.state.sockets.lock().unwrap().len();
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    timeout(Duration::from_secs(3), async {
+        while client.is_submission_ready()
+            || server.state.sockets.lock().unwrap().len() == sockets_before
+        {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    // Follow the existing recovery tests: restart the drained execution consumer
+    // and await its authenticated subscription before taking a recovery snapshot.
+    client.disconnect().await.unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    assert!(!client.is_submission_ready());
+    if purge {
+        cache
+            .borrow_mut()
+            .purge_closed_orders(UnixNanos::from(10_000_000_000), 0);
+    }
+    assert_eq!(
+        cache
+            .borrow()
+            .orders_total_count(None, None, None, None, None),
+        if purge { 0 } else { retained }
+    );
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.match_gate.lock().unwrap() = Some(gate.clone());
+    let query = || {
+        QueryAccount::new(
+            trader_id(),
+            Some(ClientId::from("PREDICT")),
+            account_id(),
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        )
+    };
+    let mut engine = submissions::engine(&cache);
+    let mut ready_published = false;
+    let matches_before = server.state.match_requests.lock().unwrap().len();
+    client.query_account(query()).unwrap();
+    timeout(Duration::from_secs(3), async {
+        while server.state.match_requests.lock().unwrap().len() == matches_before {
+            if let Ok(Some(event)) = timeout(Duration::from_millis(1), rx.recv()).await {
+                if let ExecutionEvent::Account(state) = &event {
+                    ready_published |= state.info.as_ref().is_some_and(|info| {
+                        info.get("predict_reconciliation_ready")
+                            .is_some_and(|value| value == true)
+                    });
+                }
+                submissions::apply(&mut engine, &event);
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert!(!client.is_submission_ready());
+    // QueryAccount shares the existing guard; these calls only advance bounded
+    // cleanup while the first readiness collection is suspended across IO.
+    for _ in 0..8 {
+        client.query_account(query()).unwrap();
+    }
+    *server.state.match_gate.lock().unwrap() = None;
+    gate.notify_waiters();
+    timeout(Duration::from_secs(3), async {
+        while !client.is_submission_ready() {
+            let event = next(&mut rx).await;
+            if let ExecutionEvent::Account(state) = &event {
+                ready_published |= state.info.as_ref().is_some_and(|info| {
+                    info.get("predict_reconciliation_ready")
+                        .is_some_and(|value| value == true)
+                });
+            }
+            submissions::apply(&mut engine, &event);
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        server.state.match_requests.lock().unwrap().len() - matches_before,
+        2,
+        "one recovery collection and its fence, without cleanup-induced retries"
+    );
+    assert!(server.state.creations.lock().unwrap().is_empty());
+    while let Ok(event) = rx.try_recv() {
+        if let ExecutionEvent::Account(state) = &event {
+            ready_published |= state.info.as_ref().is_some_and(|info| {
+                info.get("predict_reconciliation_ready")
+                    .is_some_and(|value| value == true)
+            });
+        }
+        submissions::apply(&mut engine, &event);
+    }
+    assert!(
+        ready_published,
+        "subscriber must receive recovery-ready AccountState"
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn ready_publication_reuses_open_and_keeps_next_cancel_projection_synchronous() {
+    run_ready_projection(false).await;
+    run_ready_projection(true).await;
+}
+
+async fn run_ready_projection(clamped: bool) {
+    let server = server(vec![]).await;
+    *server.state.match_snapshot.lock().unwrap() = Some(vec![]);
+    *server.state.position_snapshot.lock().unwrap() = Some(vec![]);
+    server
+        .state
+        .create_order_ids
+        .lock()
+        .unwrap()
+        .push_back("12345".into());
+    let (mut client, mut rx, cache, _portfolio, original) =
+        submissions::connected(&server, 1).await;
+    let mut engine = submissions::engine(&cache);
+    client.submit_order(submissions::submit(&original)).unwrap();
+    submissions::apply(&mut engine, &next(&mut rx).await);
+    exit_orders::barrier("one signed order POST", || {
+        server.state.creations.lock().unwrap().len() == 1
+    })
+    .await;
+    let body = server.state.creations.lock().unwrap()[0].clone();
+    let mut accepted = event("orderAccepted", 1);
+    accepted["orderHash"] = body["data"]["order"]["hash"].clone();
+    server.wallet(accepted.clone());
+    timeout(Duration::from_secs(3), async {
+        while cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_locked(Some(Currency::USDT()))
+            != Some(Money::from("62 USDT"))
+        {
+            submissions::apply(&mut engine, &next(&mut rx).await);
+        }
+    })
+    .await
+    .unwrap();
+    if clamped {
+        server
+            .state
+            .create_order_ids
+            .lock()
+            .unwrap()
+            .push_back("12346".into());
+        let second = OrderTestBuilder::new(OrderType::Limit)
+            .trader_id(trader_id())
+            .client_order_id("SECOND-BUY".into())
+            .instrument_id(instrument_id(1))
+            .side(OrderSide::Buy)
+            .quantity(Quantity::from(100))
+            .price(Price::from("0.620"))
+            .post_only(true)
+            .build();
+        cache
+            .borrow_mut()
+            .add_order(second.clone(), None, None, false)
+            .unwrap();
+        client.submit_order(submissions::submit(&second)).unwrap();
+        submissions::apply(&mut engine, &next(&mut rx).await);
+        exit_orders::barrier("second signed order POST", || {
+            server.state.creations.lock().unwrap().len() == 2
+        })
+        .await;
+        let second_body = server.state.creations.lock().unwrap()[1].clone();
+        let mut second_ack = accepted.clone();
+        second_ack["orderHash"] = second_body["data"]["order"]["hash"].clone();
+        second_ack["orderId"] = json!("12346");
+        server.wallet(second_ack);
+        timeout(Duration::from_secs(3), async {
+            while cache
+                .borrow()
+                .account(&account_id())
+                .unwrap()
+                .balance_locked(Some(Currency::USDT()))
+                != Some(Money::from("124 USDT"))
+            {
+                submissions::apply(&mut engine, &next(&mut rx).await);
+            }
+        })
+        .await
+        .unwrap();
+        let mut second_row = live_node::rest_row(&second_body, "OPEN");
+        second_row["id"] = json!("12346");
+        server.state.open_orders.lock().unwrap().push(second_row);
+        server.state.rpc_frame.lock().unwrap().0 = 100_000_000_000_000_000_000;
+    }
+    let mut row = live_node::rest_row(&body, "OPEN");
+    row["id"] = json!("12345");
+    server.state.open_orders.lock().unwrap().push(row);
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    exit_orders::barrier("wallet gap", || !client.is_submission_ready()).await;
+    client.disconnect().await.unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    if clamped {
+        // Equal clamped balances can hide older uncapped Native account metadata.
+        let mut stale = cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .last_event()
+            .unwrap();
+        stale.event_id = UUID4::new();
+        stale
+            .info
+            .as_mut()
+            .unwrap()
+            .insert("predict_requested_lock".into(), json!("100"));
+        submissions::apply(&mut engine, &ExecutionEvent::Account(stale));
+    }
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.match_gate.lock().unwrap() = Some(gate.clone());
+    let matches = server.state.match_requests.lock().unwrap().len();
+    let open_reads = server.state.order_list_log.lock().unwrap().len();
+    client
+        .query_account(QueryAccount::new(
+            trader_id(),
+            Some(ClientId::from("PREDICT")),
+            account_id(),
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        ))
+        .unwrap();
+    timeout(Duration::from_secs(3), async {
+        while server.state.match_requests.lock().unwrap().len() == matches {
+            if let Ok(Some(event)) = timeout(Duration::from_millis(1), rx.recv()).await {
+                submissions::apply(&mut engine, &event);
+            }
+        }
+    })
+    .await
+    .unwrap();
+    // Readiness must retain its fresher post-holdings cash block, rather than
+    // the first refresh's block, for subsequent local reservation projections.
+    *server.state.rpc_frame.lock().unwrap() = (
+        if clamped {
+            100_000_000_000_000_000_000
+        } else {
+            1_000_000_000_000_000_000_000
+        },
+        2,
+        2,
+    );
+    *server.state.match_gate.lock().unwrap() = None;
+    gate.notify_waiters();
+    loop {
+        let event = next(&mut rx).await;
+        let ready = matches!(&event, ExecutionEvent::Account(state) if state.info.as_ref().is_some_and(|info| info.get("predict_reconciliation_ready") == Some(&json!(true))));
+        if ready {
+            let ExecutionEvent::Account(ref state) = event else {
+                unreachable!()
+            };
+            assert_eq!(
+                Decimal::from_str_exact(
+                    state.info.as_ref().unwrap()["predict_requested_lock"]
+                        .as_str()
+                        .unwrap()
+                )
+                .unwrap(),
+                Decimal::from(if clamped { 124 } else { 62 })
+            );
+        }
+        submissions::apply(&mut engine, &event);
+        if ready {
+            break;
+        }
+    }
+    assert!(client.is_submission_ready());
+    assert_eq!(
+        server.state.order_list_log.lock().unwrap().len() - open_reads,
+        2,
+        "one shared OPEN collection plus one cross-IO fence"
+    );
+    assert_eq!(
+        server.state.match_requests.lock().unwrap().len() - matches,
+        2
+    );
+    while let Ok(event) = rx.try_recv() {
+        submissions::apply(&mut engine, &event);
+    }
+    let rpc_before = server.state.rpc_methods.lock().unwrap().len();
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_gate.lock().unwrap() = Some(gate.clone());
+    server
+        .state
+        .open_orders
+        .lock()
+        .unwrap()
+        .retain(|row| row["order"]["hash"] != body["data"]["order"]["hash"]);
+    accepted["type"] = json!("orderCancelled");
+    accepted["timestamp"] = json!(2);
+    server.wallet(accepted);
+    let cancel = next(&mut rx).await;
+    assert!(matches!(
+        cancel,
+        ExecutionEvent::Order(OrderEventAny::Canceled(_))
+    ));
+    submissions::apply(&mut engine, &cancel);
+    let local = rx
+        .try_recv()
+        .expect("confirmed cancellation projects cash without yielding to a funding task");
+    let ExecutionEvent::Account(ref state) = local else {
+        panic!("expected local account child");
+    };
+    assert_eq!(
+        state.balances[0].locked,
+        Money::from(if clamped { "62 USDT" } else { "0 USDT" })
+    );
+    assert_eq!(
+        Decimal::from_str_exact(
+            state.info.as_ref().unwrap()["predict_requested_lock"]
+                .as_str()
+                .unwrap()
+        )
+        .unwrap(),
+        Decimal::from(if clamped { 62 } else { 0 })
+    );
+    assert_eq!(state.info.as_ref().unwrap()["predict_block_number"], 2);
+    submissions::apply(&mut engine, &local);
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_free(Some(Currency::USDT())),
+        Some(Money::from(if clamped { "38 USDT" } else { "1000 USDT" }))
+    );
+    assert_eq!(
+        server.state.open_orders.lock().unwrap().len(),
+        usize::from(clamped),
+        "another venue OPEN order must remain live"
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .orders_open(None, None, None, None, None)
+            .len(),
+        usize::from(clamped)
+    );
+    assert_eq!(server.state.rpc_methods.lock().unwrap().len(), rpc_before);
+    *server.state.rpc_gate.lock().unwrap() = None;
+    gate.notify_waiters();
+    client.disconnect().await.unwrap();
 }

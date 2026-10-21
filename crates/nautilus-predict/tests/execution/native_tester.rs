@@ -123,9 +123,7 @@ async fn run(case: &str, saved: Option<&Value>) -> Value {
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::new(12, 1),
-        max_total_usdt: Decimal::from(3),
-        require_post_only: true,
+
         market_slippage_bps: 100,
     });
     let public = PublicState(Arc::new(Mutex::new(vec![])));

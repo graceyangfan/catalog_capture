@@ -469,10 +469,10 @@ async fn wallet_terminal_event_wins_over_late_removal_ack() {
     client.cancel_order(cancel(&order)).unwrap();
     wait_for_post(&server).await;
     server.wallet(event("orderCancelled", 1));
-    let ExecutionEvent::Report(report) = next(&mut rx).await else {
-        panic!("wallet cancel report");
+    let ExecutionEvent::Order(event @ OrderEventAny::Canceled(_)) = next(&mut rx).await else {
+        panic!("native wallet cancellation");
     };
-    engine(&cache).reconcile_execution_report(&report);
+    engine(&cache).process(&event);
     apply_account(&mut rx).await;
     assert!(
         timeout(Duration::from_millis(350), rx.recv())
@@ -827,5 +827,54 @@ async fn cached_batch_leg_is_removed_while_another_leg_waits_for_its_rest_id() {
             .iter()
             .all(|path| !path.contains(HASH))
     );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn late_removed_ack_releases_native_only_cancellation_without_another_account_read() {
+    let server = server(vec![]).await;
+    server
+        .state
+        .open_orders
+        .lock()
+        .unwrap()
+        .push(rest_order_data("OPEN", 1, OrderSide::Buy));
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        0,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.remove_gate.lock().unwrap() = Some(gate.clone());
+    client.cancel_order(cancel(&order)).unwrap();
+    wait_for_post(&server).await;
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    let synthetic =
+        factory.generate_order_canceled(&order, order.venue_order_id(), 400.into(), 400.into());
+    engine(&cache).process(&synthetic);
+    let uncertain = apply_account(&mut rx).await;
+    assert_eq!(
+        uncertain.balances[0].locked,
+        Money::from("62 USDT"),
+        "Native-only Canceled does not establish removal"
+    );
+    let rpc = server.state.rpc_methods.lock().unwrap().len();
+    let open = server.state.requests.lock().unwrap().len();
+    gate.notify_one();
+    let confirmed = apply_account(&mut rx).await;
+    assert_eq!(confirmed.balances[0].free, Money::from("1000 USDT"));
+    assert_eq!(server.state.rpc_methods.lock().unwrap().len(), rpc);
+    assert_eq!(server.state.requests.lock().unwrap().len(), open);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Canceled
+    );
+    // apply_account rejects any duplicate order event before the account publication.
     client.disconnect().await.unwrap();
 }

@@ -46,6 +46,7 @@ struct RpcState {
     environment: PredictEnvironment,
     fault: &'static str,
     requests: Arc<Mutex<Vec<Value>>>,
+    admission_barrier: Arc<tokio::sync::Barrier>,
 }
 struct Server {
     url: String,
@@ -97,6 +98,14 @@ async fn rpc(
         }
         "eth_call" => {
             let data = request["params"][0]["data"].as_str().unwrap();
+            if state.fault == "parallel_buy"
+                && ["0x70a08231", "0xdd62ed3e", "0x7ecebe00"]
+                    .iter()
+                    .any(|selector| data.starts_with(selector))
+            {
+                // No resource reply until all three independent reads have arrived.
+                state.admission_barrier.wait().await;
+            }
             if data.starts_with("0x7ecebe00") {
                 assert_eq!(
                     request["params"][0]["to"],
@@ -168,6 +177,7 @@ async fn server(environment: PredictEnvironment, fault: &'static str) -> Server 
         environment,
         fault,
         requests: Arc::new(Mutex::new(vec![])),
+        admission_barrier: Arc::new(tokio::sync::Barrier::new(3)),
     };
     let router = Router::new().fallback(rpc).with_state(state.clone());
     let task = tokio::spawn(async move {
@@ -411,13 +421,21 @@ async fn buy_admission_reads_full_nonce_on_selected_exchange_and_rechecks_canoni
         assert_eq!(server.state.requests.lock().unwrap().len() - first_len, 5);
         let requests = server.state.requests.lock().unwrap();
         assert_eq!(requests.len(), 12);
-        assert_eq!(requests[5]["method"], "eth_call");
+        let nonce_request = requests
+            .iter()
+            .find(|request| {
+                request["params"][0]["data"]
+                    .as_str()
+                    .is_some_and(|data| data.starts_with("0x7ecebe00"))
+            })
+            .unwrap();
+        assert_eq!(nonce_request["method"], "eth_call");
         assert_eq!(
-            requests[5]["params"][0]["to"],
+            nonce_request["params"][0]["to"],
             format!("{:#x}", PredictExchangeType::NegRisk.contract(environment))
         );
         assert_eq!(
-            requests[5]["params"][1],
+            nonce_request["params"][1],
             json!({"blockHash":BLOCK,"requireCanonical":true})
         );
     }
@@ -437,6 +455,41 @@ async fn buy_admission_reads_full_nonce_on_selected_exchange_and_rechecks_canoni
             .await
             .is_err()
     );
+}
+
+#[tokio::test]
+async fn buy_admission_collects_resources_concurrently_at_one_canonical_block() {
+    let server = server(PredictEnvironment::BnbMainnet, "parallel_buy").await;
+    let client = PredictChainClient::new(PredictChainClientConfig::new(
+        PredictEnvironment::BnbMainnet,
+        server.url.clone().into(),
+    ))
+    .unwrap();
+    let (snapshot, nonce, timestamp) = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        client.request_buy_admission(
+            ACCOUNT.parse().unwrap(),
+            PredictExchangeType::NegRisk,
+            clock(),
+        ),
+    )
+    .await
+    .expect("BUY reads must all start before any resource response")
+    .unwrap();
+    assert_eq!(
+        snapshot.balance_wei,
+        U256::from(123_450_000_000_000_000_000u128)
+    );
+    assert_eq!(nonce, U256::MAX - U256::from(1));
+    assert_eq!(timestamp.as_u64(), 2_000_000_000);
+    assert_eq!(
+        snapshot.allowances[1],
+        (PredictExchangeType::NegRisk, U256::MAX)
+    );
+    let requests = server.state.requests.lock().unwrap();
+    assert_eq!(requests.len(), 7);
+    assert_eq!(requests.last().unwrap()["method"], "eth_getBlockByNumber");
+    assert_eq!(requests.last().unwrap()["params"][0], "0x123");
 }
 
 #[tokio::test]

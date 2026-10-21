@@ -99,9 +99,7 @@ async fn run(scenario: Scenario) {
     execution.orderbook_removal_enabled = true;
     execution.submission = Some(PredictSubmissionConfig {
         signer,
-        max_order_usdt: Decimal::ONE,
-        max_total_usdt: Decimal::from(2),
-        require_post_only: true,
+
         market_slippage_bps: 100,
     });
     let (http, ws, public_task) = captured_resting_public_server().await;
@@ -200,7 +198,9 @@ async fn run(scenario: Scenario) {
             }
             if http_rejected {
                 timeout(Duration::from_secs(3), async {
-                    while observed.borrow().last_cash_locked != Some(Decimal::ONE) {
+                    while observed.borrow().submitted == 0
+                        || observed.borrow().last_cash_locked != Some(Decimal::ZERO)
+                    {
                         tokio::task::yield_now().await;
                     }
                 })
@@ -224,7 +224,9 @@ async fn run(scenario: Scenario) {
             assert_eq!(accepted["details"]["outcomeIndex"], 2);
             if scenario == Scenario::WalletRejected {
                 timeout(Duration::from_secs(3), async {
-                    while observed.borrow().last_cash_locked != Some(Decimal::ONE) {
+                    while observed.borrow().submitted == 0
+                        || observed.borrow().last_cash_locked != Some(Decimal::ZERO)
+                    {
                         tokio::task::yield_now().await;
                     }
                 })

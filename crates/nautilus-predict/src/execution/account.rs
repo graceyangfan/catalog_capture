@@ -24,53 +24,71 @@ use std::{
     time::Duration,
 };
 
+use ahash::AHashMap;
 use alloy::primitives::B256;
 use nautilus_common::factories::OrderEventFactory;
 use nautilus_core::{AtomicMap, Params, UUID4, UnixNanos, time::AtomicTime};
-use nautilus_execution::reconciliation::RECONCILIATION_ORDER_TAG;
 use nautilus_live::ExecutionEventEmitter;
 use nautilus_model::{
-    accounts::cash::CashAccount,
+    accounts::{Account, AccountAny, cash::CashAccount},
     enums::AccountType,
-    events::OrderEventAny,
+    events::AccountState,
     identifiers::{ClientOrderId, InstrumentId, VenueOrderId},
     instruments::InstrumentAny,
-    orders::{Order, OrderAny},
     types::{Currency, Money},
 };
 use nautilus_network::websocket::AuthTracker;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
-use super::parse::validate_rest_order_terms;
 use crate::{
     blockchain::{PredictChainClient, parse::parse_balance_snapshot},
     config::PredictExecutionClientConfig,
     http::account_models::PredictOrderData,
 };
 
-// Native position adjustments change cached holdings, not venue settlement or chain cash.
-// The reconciliation event flag alone also marks real fills recovered through REST.
-pub(super) fn is_synthetic_order(order: &OrderAny) -> bool {
-    order.tags().is_some_and(|tags| {
-        tags.iter()
-            .any(|tag| tag.as_str() == RECONCILIATION_ORDER_TAG)
-    })
+#[cfg(test)]
+thread_local! {
+    static FULL_ORDER_READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-pub(super) fn latest_venue_fill(order: &OrderAny) -> UnixNanos {
+// Native position adjustments change cached holdings, not venue settlement or chain cash.
+// The reconciliation event flag alone also marks real fills recovered through REST.
+pub(super) fn is_synthetic_order(order: &impl super::context::OrderView) -> bool {
+    order.is_synthetic()
+}
+
+pub(super) fn latest_venue_fill(order: &impl super::context::OrderView) -> UnixNanos {
     if is_synthetic_order(order) {
-        return UnixNanos::default();
+        UnixNanos::default()
+    } else {
+        order.latest_fill()
     }
-    order
-        .events()
-        .into_iter()
-        .filter_map(|event| match event {
-            OrderEventAny::Filled(fill) => Some(fill.ts_event),
-            _ => None,
-        })
-        .max()
-        .unwrap_or_default()
+}
+
+// Reservation inputs only; transient status still advances the full readiness revision.
+pub(super) fn order_resources_changed<
+    O: super::context::OrderView,
+    P: super::context::OrderView,
+>(
+    previous: Option<&P>,
+    current: &O,
+) -> bool {
+    // Submitted capacity belongs to Native RiskEngine. Only OPEN reservations
+    // affect reported locked cash; ordinary in-flight transitions need no projection.
+    let Some(previous) = previous else {
+        return current.is_open();
+    };
+    (previous.is_open() || current.is_open())
+        && (previous.account_id() != current.account_id()
+            || previous.instrument_id() != current.instrument_id()
+            || previous.order_side() != current.order_side()
+            || previous.order_type() != current.order_type()
+            || previous.venue_order_id() != current.venue_order_id()
+            || previous.quantity() != current.quantity()
+            || previous.filled_qty() != current.filled_qty()
+            || previous.price() != current.price()
+            || previous.is_open() != current.is_open())
 }
 
 #[derive(Debug, Default)]
@@ -82,10 +100,124 @@ pub(super) struct AccountSync {
 #[derive(Debug, Default)]
 pub(super) struct AccountSyncState {
     pub revision: u64,
+    // Local projection depends on reservation inputs, not transient command statuses.
+    pub resource_revision: u64,
+    // Epoch-scoped exchange nonces prepared by account initialization/recovery/refresh.
+    // Funds, approvals and inventory remain venue-authoritative for command admission.
+    pub signing_nonces: Option<(u64, [alloy::primitives::U256; 4])>,
+    // An index into Native worker snapshots, not a second order or balance model.
+    pub active_orders: HashMap<ClientOrderId, Option<VenueOrderId>>,
     // Chain freshness must outlive Native's retention of individual settled orders.
     pub latest_fill: UnixNanos,
     pub last_event: Option<UUID4>,
-    block: Option<(u64, B256)>,
+    pub block: Option<(u64, B256)>,
+    remote_requested: u64,
+    remote_collected: u64,
+    open_requested: u64,
+    open_collected: u64,
+    confirmed: Option<Arc<ConfirmedAccount>>,
+    projected_revision: Option<u64>,
+    // Venue facts only: Native can synthesize Canceled on retry exhaustion.
+    pub confirmed_terminal: HashSet<VenueOrderId>,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct ConfirmedAccount {
+    pub epoch: u64,
+    pub rows: Arc<AHashMap<B256, Arc<PredictOrderData>>>,
+    pub balance: crate::blockchain::models::PredictBalanceSnapshot,
+}
+
+impl AccountSync {
+    pub fn request_remote(&self) {
+        let mut state = self.state.lock().expect("account sync poisoned");
+        state.request_cash();
+        state.open_requested = state.open_requested.wrapping_add(1);
+        drop(state);
+        self.notify.notify_one();
+    }
+
+    pub fn confirm_terminal(&self, id: VenueOrderId, client: Option<ClientOrderId>) {
+        let mut state = self.state.lock().expect("account sync poisoned");
+        if state.confirmed_terminal.insert(id)
+            && client.is_none_or(|id| !state.active_orders.contains_key(&id))
+        {
+            state.resource_revision = state.resource_revision.wrapping_add(1);
+            drop(state);
+            self.notify.notify_one();
+        }
+    }
+
+    pub fn confirm_report(&self, report: &nautilus_model::reports::OrderStatusReport) {
+        use nautilus_model::enums::OrderStatus;
+        // Unclaimed external reports have no Native retention owner. Periodic
+        // OPEN collection, rather than an unbounded terminal registry, covers them.
+        if report.client_order_id.is_none() {
+            return;
+        }
+        if matches!(
+            report.order_status,
+            OrderStatus::Canceled
+                | OrderStatus::Expired
+                | OrderStatus::Filled
+                | OrderStatus::Rejected
+        ) {
+            self.confirm_terminal(report.venue_order_id, report.client_order_id);
+        }
+    }
+}
+
+impl AccountSyncState {
+    pub fn record_projection(&mut self, base: Arc<ConfirmedAccount>, event_id: UUID4) {
+        self.block = Some((base.balance.block_number, base.balance.block_hash));
+        self.confirmed = Some(base);
+        self.projected_revision = Some(self.resource_revision);
+        self.last_event = Some(event_id);
+    }
+
+    pub fn request_cash(&mut self) {
+        self.remote_requested = self.remote_requested.wrapping_add(1);
+    }
+
+    pub fn retire_orders(&mut self, hashes: &HashSet<VenueOrderId>) {
+        if hashes.is_empty() {
+            return;
+        }
+        if let Some(base) = &mut self.confirmed
+            && hashes.iter().any(|id| {
+                self.confirmed_terminal.contains(id)
+                    && id
+                        .as_str()
+                        .parse::<B256>()
+                        .is_ok_and(|hash| base.rows.contains_key(&hash))
+            })
+        {
+            let rows = Arc::make_mut(&mut Arc::make_mut(base).rows);
+            for id in hashes {
+                if self.confirmed_terminal.contains(id)
+                    && let Ok(hash) = id.as_str().parse::<B256>()
+                {
+                    rows.remove(&hash);
+                }
+            }
+        }
+        for hash in hashes {
+            self.confirmed_terminal.remove(hash);
+        }
+    }
+
+    pub fn invalidate_cash(&mut self) {
+        self.confirmed = None;
+        self.projected_revision = None;
+        self.request_cash();
+    }
+
+    pub fn clear_connection(&mut self) {
+        self.signing_nonces = None;
+        self.confirmed = None;
+        self.projected_revision = None;
+        self.confirmed_terminal.clear();
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -96,8 +228,9 @@ struct BalanceBlockLag;
 pub(super) struct AccountReporter {
     pub config: PredictExecutionClientConfig,
     pub chain: PredictChainClient,
-    pub instruments: Arc<AtomicMap<InstrumentId, InstrumentAny>>,
-    pub orders: Arc<AtomicMap<ClientOrderId, Arc<OrderAny>>>,
+    pub instruments: Arc<AtomicMap<InstrumentId, super::types::ExecutionInstrument>>,
+    pub orders: super::types::OrderSnapshots<ClientOrderId>,
+    pub pending: super::orders::PendingSubmissions,
     pub rest_ids: super::routing::RestOrderIds,
     pub sync: Arc<AccountSync>,
     pub emitter: ExecutionEventEmitter,
@@ -108,35 +241,425 @@ pub(super) struct AccountReporter {
 }
 
 impl AccountReporter {
-    /// Returns false when native context changed during collection. Only a fresh source may emit.
+    /// Explicit initialization/recovery reads. Ordinary order events only reproject
+    /// the last confirmed remote snapshot with current Native reservations.
     pub async fn refresh(&self) -> anyhow::Result<bool> {
+        self.refresh_account(false).await
+    }
+
+    async fn refresh_account(&self, periodic: bool) -> anyhow::Result<bool> {
+        Ok(self.collect_account(periodic).await?.is_some())
+    }
+
+    /// Return this collection's immutable OPEN view, not whichever periodic
+    /// refresh happens to occupy the shared slot when recovery starts.
+    pub async fn refresh_for_readiness(&self) -> anyhow::Result<Option<Arc<ConfirmedAccount>>> {
+        self.collect_account(false).await
+    }
+
+    async fn collect_account(
+        &self,
+        periodic: bool,
+    ) -> anyhow::Result<Option<Arc<ConfirmedAccount>>> {
         let epoch = self.connection_epoch.load(Ordering::Acquire);
         anyhow::ensure!(
             self.allow_stream_gap || self.authentication.is_authenticated(),
             "Predict account reporting requires an acknowledged wallet connection"
         );
-        let (revision, latest_fill, instruments, orders) = {
+        let (prepared, requested, open_requested, verify_open) = {
             let state = self.sync.state.lock().expect("account sync poisoned");
             (
-                state.revision,
-                state.latest_fill,
-                self.instruments.load(),
-                self.orders.load(),
+                state.signing_nonces,
+                state.remote_requested,
+                state.open_requested,
+                periodic
+                    || self.allow_stream_gap
+                    || state
+                        .confirmed
+                        .as_ref()
+                        .is_none_or(|base| base.epoch != epoch)
+                    || state.open_requested != state.open_collected,
             )
         };
-        let (rows, snapshot) = tokio::time::timeout(
+        let signing = self.config.submission.is_some()
+            && (periodic
+                || self.allow_stream_gap
+                || prepared.is_none_or(|(prepared_epoch, _)| prepared_epoch != epoch));
+        let collection = tokio::time::timeout(
             Duration::from_secs(self.config.report_timeout_secs),
             async {
-                let rows = collect_open_orders(&self.config).await?;
-                let snapshot = self
-                    .chain
-                    .request_balance_snapshot(self.config.session.account_address(), self.clock)
-                    .await?;
-                Ok::<_, anyhow::Error>((rows, snapshot))
+                tokio::try_join!(
+                    async {
+                        if verify_open {
+                            collect_open_orders(&self.config).await.map(Some)
+                        } else {
+                            Ok(None)
+                        }
+                    },
+                    self.chain.request_execution_account_snapshot(
+                        self.config.session.account_address(),
+                        self.clock,
+                        signing,
+                    ),
+                )
             },
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("Predict account collection timed out"))??;
+        );
+        tokio::pin!(collection);
+        // A slow periodic/query read must not hold up a confirmed cancellation's
+        // local account publication. Explicit queries remain counted across IO.
+        let collected = loop {
+            tokio::select! { biased;
+                result = &mut collection => break result,
+                _ = self.sync.notify.notified() => {
+                    if let Err(error) = self.project() {
+                        log::debug!("Predict local account projection deferred: {error}");
+                    }
+                }
+            }
+        };
+        // Preserve a new explicit query/fill request even when this read fails.
+        if self
+            .sync
+            .state
+            .lock()
+            .expect("account sync poisoned")
+            .remote_requested
+            != requested
+        {
+            self.sync.notify.notify_one();
+        }
+        let (rows, (snapshot, nonces)) =
+            collected.map_err(|_| anyhow::anyhow!("Predict account collection timed out"))??;
+        let rows = rows
+            .map(|rows| {
+                let mut by_hash = AHashMap::with_capacity(rows.len());
+                for row in rows {
+                    let hash = super::resources::open_order_hash(&row)?;
+                    super::resources::reported_signed_reservation(&row)?;
+                    anyhow::ensure!(
+                        by_hash.insert(hash, Arc::new(row)).is_none(),
+                        "Predict duplicate OPEN hash"
+                    );
+                }
+                Ok::<_, anyhow::Error>(Arc::new(by_hash))
+            })
+            .transpose()?;
+        let collected = {
+            let mut state = self.sync.state.lock().expect("account sync poisoned");
+            anyhow::ensure!(
+                self.connection_epoch.load(Ordering::Acquire) == epoch
+                    && (self.allow_stream_gap || self.authentication.is_authenticated()),
+                "Predict wallet connection changed during account collection"
+            );
+            // A Native-only cancellation can require a newer OPEN read to resolve
+            // uncertainty. A collection already underway is not that evidence.
+            if state.confirmed.is_none() && state.remote_requested != requested {
+                self.sync.notify.notify_one();
+                return Ok(None);
+            }
+            if snapshot.block_timestamp < state.latest_fill {
+                return Err(BalanceBlockLag.into());
+            }
+            if let Some((number, hash)) = state.block {
+                anyhow::ensure!(
+                    snapshot.block_number >= number
+                        && (snapshot.block_number != number || snapshot.block_hash == hash),
+                    "Predict account snapshot block regressed or changed at the same height"
+                );
+            }
+            let rows = if let Some(rows) = rows {
+                state.open_collected = open_requested;
+                rows
+            } else {
+                // Use the latest retained OPEN view: Native purge may have trimmed it during IO.
+                state
+                    .confirmed
+                    .as_ref()
+                    .filter(|base| base.epoch == epoch)
+                    .ok_or_else(|| anyhow::anyhow!("Predict cash refresh lost its OPEN baseline"))?
+                    .rows
+                    .clone()
+            };
+            let collected = Arc::new(ConfirmedAccount {
+                epoch,
+                rows,
+                balance: snapshot,
+            });
+            state.confirmed = Some(Arc::clone(&collected));
+            state.projected_revision = None;
+            state.remote_collected = requested;
+            if let Some(values) = nonces {
+                // A rejection during IO must not restore the disproved signing nonce.
+                if state.signing_nonces == prepared {
+                    state.signing_nonces = Some((epoch, values));
+                }
+            }
+            collected
+        };
+        let result = self.project();
+        if self.needs_remote() {
+            self.sync.notify.notify_one();
+        }
+        result.map(|projected| projected.then_some(collected))
+    }
+
+    fn needs_remote(&self) -> bool {
+        let state = self.sync.state.lock().expect("account sync poisoned");
+        state
+            .confirmed
+            .as_ref()
+            .is_none_or(|base| base.epoch != self.connection_epoch.load(Ordering::Acquire))
+            || state.remote_requested != state.remote_collected
+            || state.open_requested != state.open_collected
+            || (self.config.submission.is_some() && state.signing_nonces.is_none())
+    }
+
+    fn project(&self) -> anyhow::Result<bool> {
+        self.project_with_core(None)
+    }
+
+    /// On the Native owner thread, send local locks as callback children before
+    /// strategy follow-up commands. Never overtake an older queued account snapshot.
+    pub(super) fn project_on_core(
+        &self,
+        core: &nautilus_live::ExecutionClientCore,
+    ) -> anyhow::Result<bool> {
+        self.project_with_core(Some(core))
+    }
+
+    pub(super) fn on_account_state(
+        &self,
+        core: &nautilus_live::ExecutionClientCore,
+        event: &AccountState,
+    ) -> anyhow::Result<()> {
+        if event.account_id != core.account_id {
+            return Ok(());
+        }
+        let dirty = {
+            let state = self.sync.state.lock().expect("account sync poisoned");
+            state.last_event == Some(event.event_id)
+                && state.projected_revision != Some(state.resource_revision)
+                // Portfolio can republish the previous account event after a
+                // fill. Its application is not confirmation of the new cash.
+                && state.remote_requested == state.remote_collected
+        };
+        if dirty {
+            // The existing core fence verifies Cache application; a topic alone
+            // must never release locks from an unapplied account snapshot.
+            self.project_on_core(core)?;
+        }
+        Ok(())
+    }
+
+    /// Update one reservation from the last applied Native projection. The
+    /// account remains authoritative; no per-order balance/lock cache is kept.
+    pub(super) fn project_order_on_core(
+        &self,
+        core: &nautilus_live::ExecutionClientCore,
+        previous: Option<&super::context::WorkerOrder>,
+        current: &super::context::WorkerOrder,
+        registered: Option<VenueOrderId>,
+        market_buy_collateral: Option<rust_decimal::Decimal>,
+    ) -> anyhow::Result<bool> {
+        let projection = (|| {
+            let state = self.sync.state.lock().expect("account sync poisoned");
+            let Some(base) = state.confirmed.as_ref() else {
+                return Ok(None);
+            };
+            let Some(previous) = previous else {
+                return Ok(None);
+            };
+            // A concurrent refresh or unapplied account event needs full projection.
+            if state.projected_revision != Some(state.resource_revision.wrapping_sub(1))
+                || base.epoch != self.connection_epoch.load(Ordering::Acquire)
+                || !(previous.is_open() || previous.is_inflight())
+            {
+                return Ok(None);
+            }
+            if base.balance.block_timestamp < state.latest_fill {
+                return Err(BalanceBlockLag.into());
+            }
+            let id = current.venue_order_id().or(registered);
+            if previous.venue_order_id().or(registered) != id {
+                return Ok(None);
+            }
+            let Some(id) = id else { return Ok(None) };
+            let Ok(hash) = id.as_str().parse::<B256>() else {
+                return Ok(None);
+            };
+            let cache = core.cache();
+            let Some(account) = cache.account_ref(&self.config.account_id) else {
+                return Ok(None);
+            };
+            let AccountAny::Cash(cash) = &*account else {
+                return Ok(None);
+            };
+            let Some(applied) = cash.last_event() else {
+                return Ok(None);
+            };
+            if state.last_event != Some(applied.event_id) {
+                return Ok(None);
+            }
+            let Some(requested) = applied
+                .info
+                .as_ref()
+                .and_then(|info| info.get("predict_requested_lock"))
+                .and_then(serde_json::Value::as_str)
+                .and_then(|value| rust_decimal::Decimal::from_str_exact(value).ok())
+                .and_then(|value| Money::from_decimal_exact(value, Currency::USDT()).ok())
+            else {
+                return Ok(None);
+            };
+            let instruments = self.instruments.load();
+            let Some(definition) = instruments.get(&current.instrument_id()) else {
+                return Ok(None);
+            };
+            let row = base.rows.get(&hash);
+            let terminal = state.confirmed_terminal.contains(&id);
+            if terminal && current.is_open() {
+                return Ok(None);
+            }
+            if let Some(row) =
+                row.filter(|_| !terminal && (current.is_open() || current.is_inflight()))
+            {
+                let InstrumentAny::BinaryOption(binary) = &definition.instrument else {
+                    anyhow::bail!("Predict reservations require native binary instruments");
+                };
+                super::parse::validate_rest_order_terms_for_hash(
+                    row,
+                    current,
+                    binary,
+                    self.config.account_id,
+                    self.config.session.account_address(),
+                    id,
+                )?;
+            }
+            let collateral = row
+                .map(|row| crate::common::parse::exact_wei(row.order.fields.maker_amount))
+                .transpose()?
+                .or(market_buy_collateral);
+            let before = if previous.is_open() {
+                super::resources::native_reservation(
+                    cash,
+                    previous,
+                    &definition.instrument,
+                    collateral,
+                )?
+            } else {
+                Money::zero(Currency::USDT())
+            };
+            let after = if current.is_open() {
+                super::resources::native_reservation(
+                    cash,
+                    current,
+                    &definition.instrument,
+                    collateral,
+                )?
+            } else if let Some(row) = row.filter(|_| !terminal && !current.is_inflight()) {
+                super::resources::reported_signed_reservation(row)?
+            } else {
+                Money::zero(Currency::USDT())
+            };
+            let Some(locked) = requested
+                .checked_sub(before)
+                .filter(|value| *value >= Money::zero(Currency::USDT()))
+                .and_then(|value| value.checked_add(after))
+            else {
+                return Ok(None);
+            };
+            Ok::<_, anyhow::Error>(Some((Arc::clone(base), state.resource_revision, locked)))
+        })()?;
+        if let Some((base, revision, locked)) = projection {
+            if self.publish_projection(&base, revision, locked, &[], Some(core))? {
+                Ok(true)
+            } else {
+                self.project_on_core(core)
+            }
+        } else {
+            self.project_on_core(core)
+        }
+    }
+
+    fn project_with_core(
+        &self,
+        core: Option<&nautilus_live::ExecutionClientCore>,
+    ) -> anyhow::Result<bool> {
+        // Order/definition changes during network IO do not invalidate chain cash.
+        // Compute locks from the latest Native view after collection. Confirmed fills
+        // still fence the block below, and the final revision check fences publication.
+        let (base, revision, latest_fill, instruments, mut orders, terminal) = {
+            let state = self.sync.state.lock().expect("account sync poisoned");
+            let Some(base) = state
+                .confirmed
+                .as_ref()
+                .filter(|base| base.epoch == self.connection_epoch.load(Ordering::Acquire))
+            else {
+                return Ok(false);
+            };
+            if state.projected_revision == Some(state.resource_revision) {
+                return Ok(true);
+            }
+            if let Some(core) = core {
+                let applied = core
+                    .cache()
+                    .account_ref(&self.config.account_id)
+                    .and_then(|account| account.last_event().map(|event| event.event_id));
+                // The final publish fence remains mandatory. A known pending
+                // event cannot be overtaken, so do not first rebuild all locks.
+                if state.last_event != applied {
+                    return Ok(false);
+                }
+            }
+            (
+                Arc::clone(base),
+                state.resource_revision,
+                state.latest_fill,
+                self.instruments.load(),
+                {
+                    let orders = self.orders.lock().expect("order snapshots poisoned");
+                    #[cfg(test)]
+                    FULL_ORDER_READS
+                        .with(|count| count.set(count.get() + state.active_orders.len()));
+                    state
+                        .active_orders
+                        .iter()
+                        .filter_map(|(id, registered)| {
+                            orders
+                                .get(id)
+                                .map(|order| (Arc::clone(order), *registered, None))
+                        })
+                        .collect::<Vec<_>>()
+                },
+                base.rows
+                    .keys()
+                    .copied()
+                    .filter(|hash| {
+                        state
+                            .confirmed_terminal
+                            .contains(&VenueOrderId::new(format!("{hash:#x}")))
+                    })
+                    .collect::<HashSet<_>>(),
+            )
+        };
+        // Do not wait for a command's registry while holding account sync: Native
+        // observers also need that lock before strategy callbacks. The final revision
+        // fence rejects a projection if Native reservations changed during this read.
+        {
+            let mut market_buys = orders.iter_mut().filter(|(order, _, _)| {
+                order.order_type() == nautilus_model::enums::OrderType::Market
+                    && order.order_side() == nautilus_model::enums::OrderSide::Buy
+            });
+            if let Some(first) = market_buys.next() {
+                let pending = self.pending.lock().expect("submission registry poisoned");
+                for (order, _, collateral) in std::iter::once(first).chain(market_buys) {
+                    *collateral = pending
+                        .entries
+                        .get(&order.client_order_id())
+                        .and_then(|entry| entry.market_buy_collateral);
+                }
+            }
+        }
+        let snapshot = &base.balance;
 
         // A lagging RPC block must not undo collateral changes of already confirmed native fills.
         let newest_fill = latest_fill;
@@ -144,7 +667,7 @@ impl AccountReporter {
             return Err(BalanceBlockLag.into());
         }
         let currency = Currency::USDT();
-        let balance = reported_balance(&snapshot, Money::zero(currency))?;
+        let balance = reported_balance(snapshot, Money::zero(currency))?;
         let factory = OrderEventFactory::new(
             self.emitter.trader_id(),
             self.config.account_id,
@@ -162,22 +685,28 @@ impl AccountReporter {
         // Native cash-account math only. This temporary model is never inserted into Cache.
         let cash = CashAccount::new(initial, false, false);
         let mut native_by_hash = HashMap::new();
-        for order in orders.values() {
-            if let Some(hash) = order
-                .venue_order_id()
-                .and_then(|id| id.as_str().parse::<B256>().ok())
-            {
-                anyhow::ensure!(
-                    native_by_hash.insert(hash, order).is_none(),
-                    "Predict native order context has duplicate venue hashes"
-                );
+        // Only a nonempty remote OPEN baseline needs Native hash correlation.
+        if !base.rows.is_empty() {
+            for (order, registered, _) in &orders {
+                if let Some(hash) = order
+                    .venue_order_id()
+                    .or(*registered)
+                    .and_then(|id| id.as_str().parse::<B256>().ok())
+                {
+                    anyhow::ensure!(
+                        native_by_hash.insert(hash, order).is_none(),
+                        "Predict native order context has duplicate venue hashes"
+                    );
+                }
             }
         }
         let mut locked = Money::zero(currency);
         let mut routes = Vec::new();
         let mut represented = HashSet::new();
-        for row in rows {
-            let hash = super::resources::open_order_hash(&row)?;
+        for (&hash, row) in base.rows.iter() {
+            if terminal.contains(&hash) {
+                continue;
+            }
             anyhow::ensure!(
                 represented.insert(hash),
                 "Predict open-order snapshot has an invalid status, currency or duplicate hash"
@@ -189,42 +718,54 @@ impl AccountReporter {
                 let instrument = instruments.get(&order.instrument_id()).ok_or_else(|| {
                     anyhow::anyhow!("Predict reservation instrument is absent from native context")
                 })?;
+                let instrument = &instrument.instrument;
                 let InstrumentAny::BinaryOption(binary) = instrument else {
                     anyhow::bail!("Predict reservations require native binary instruments");
                 };
-                validate_rest_order_terms(
-                    &row,
+                super::parse::validate_rest_order_terms_for_hash(
+                    row,
                     order,
                     binary,
                     self.config.account_id,
                     self.config.session.account_address(),
+                    VenueOrderId::new(format!("{hash:#x}")),
                 )?;
                 routes.push((
                     VenueOrderId::new(format!("{hash:#x}")),
                     super::routing::parse_id(&row.id)?,
                 ));
-                if order.order_type() == nautilus_model::enums::OrderType::Market {
-                    super::resources::reported_signed_reservation(&row)?
+                if order.is_open() {
+                    super::resources::native_reservation(
+                        &cash,
+                        order,
+                        instrument,
+                        Some(crate::common::parse::exact_wei(
+                            row.order.fields.maker_amount,
+                        )?),
+                    )?
                 } else {
-                    super::resources::native_reservation(&cash, order, instrument)?
+                    // Cash RiskEngine retains the local Submitted reservation until
+                    // OPEN/terminal. Reporting it locked too would deduct it twice.
+                    Money::zero(currency)
                 }
             } else {
                 // Unmanaged or stale external BUYs still consume capacity. The full signed maker
                 // budget is conservative and independent of ambiguous REST filled-amount units.
-                super::resources::reported_signed_reservation(&row)?
+                super::resources::reported_signed_reservation(row)?
             };
             locked = locked
                 .checked_add(reservation)
                 .ok_or_else(|| anyhow::anyhow!("Predict reservation aggregate overflow"))?;
         }
-        for order in orders
-            .values()
-            .filter(|order| order.is_open() || order.is_inflight())
+        for (order, registered, market_buy_collateral) in
+            orders.iter().filter(|(order, _, _)| order.is_open())
         {
-            if order
-                .venue_order_id()
-                .and_then(|id| id.as_str().parse::<B256>().ok())
-                .is_some_and(|hash| represented.contains(&hash))
+            if !represented.is_empty()
+                && order
+                    .venue_order_id()
+                    .or(*registered)
+                    .and_then(|id| id.as_str().parse::<B256>().ok())
+                    .is_some_and(|hash| represented.contains(&hash))
             {
                 continue;
             }
@@ -235,11 +776,33 @@ impl AccountReporter {
             })?;
             locked = locked
                 .checked_add(super::resources::native_reservation(
-                    &cash, order, instrument,
+                    &cash,
+                    order,
+                    &instrument.instrument,
+                    *market_buy_collateral,
                 )?)
                 .ok_or_else(|| anyhow::anyhow!("Predict reservation aggregate overflow"))?;
         }
-        let balance = reported_balance(&snapshot, locked)?;
+        self.publish_projection(&base, revision, locked, &routes, core)
+    }
+
+    fn publish_projection(
+        &self,
+        base: &Arc<ConfirmedAccount>,
+        revision: u64,
+        locked: Money,
+        routes: &[(VenueOrderId, alloy::primitives::U256)],
+        core: Option<&nautilus_live::ExecutionClientCore>,
+    ) -> anyhow::Result<bool> {
+        let snapshot = &base.balance;
+        let epoch = base.epoch;
+        let factory = OrderEventFactory::new(
+            self.emitter.trader_id(),
+            self.config.account_id,
+            AccountType::Cash,
+            None,
+        );
+        let balance = reported_balance(snapshot, locked)?;
         let mut info = Params::new();
         info.insert(
             "predict_block_number".into(),
@@ -269,7 +832,7 @@ impl AccountReporter {
             vec![balance],
             vec![],
             true,
-            snapshot.ts_observed,
+            self.clock.get_time_ns().max(snapshot.ts_observed),
             self.clock.get_time_ns(),
             Some(info),
         );
@@ -279,9 +842,17 @@ impl AccountReporter {
                 && (self.allow_stream_gap || self.authentication.is_authenticated()),
             "Predict wallet connection changed during account collection"
         );
-        if state.revision != revision {
+        if state.resource_revision != revision
+            || !state
+                .confirmed
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, base))
+        {
             self.sync.notify.notify_one();
             return Ok(false);
+        }
+        if state.projected_revision == Some(revision) {
+            return Ok(true);
         }
         if let Some((number, hash)) = state.block {
             anyhow::ensure!(
@@ -290,10 +861,19 @@ impl AccountReporter {
                 "Predict account snapshot block regressed or changed at the same height"
             );
         }
-        super::routing::register_many(&self.rest_ids, &routes)?;
-        self.emitter.try_send_account_state(event.clone())?;
-        state.last_event = Some(event.event_id);
-        state.block = Some((snapshot.block_number, snapshot.block_hash));
+        if let Some(core) = core {
+            let applied = core
+                .cache()
+                .account_ref(&self.config.account_id)
+                .and_then(|account| account.last_event().map(|event| event.event_id));
+            if state.last_event != applied {
+                return Ok(false);
+            }
+        }
+        super::routing::register_many(&self.rest_ids, routes)?;
+        let event_id = event.event_id;
+        self.emitter.try_send_account_state(event)?;
+        state.record_projection(Arc::clone(base), event_id);
         Ok(true)
     }
 }
@@ -325,7 +905,15 @@ pub(super) fn reported_balance(
 pub(super) async fn collect_open_orders(
     config: &PredictExecutionClientConfig,
 ) -> anyhow::Result<Vec<PredictOrderData>> {
-    super::reconciliation::collect_orders(config, true).await
+    let timing = config
+        .latency
+        .as_ref()
+        .map(|probe| probe.timer(crate::latency::LatencyMetric::OpenCollection));
+    let result = super::reconciliation::collect_orders(config, true).await;
+    if let Some(timing) = timing {
+        timing.finish();
+    }
+    result
 }
 
 pub(super) async fn run(reporter: AccountReporter, cancellation: CancellationToken) {
@@ -335,11 +923,11 @@ pub(super) async fn run(reporter: AccountReporter, cancellation: CancellationTok
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     interval.tick().await;
     loop {
-        tokio::select! { biased;
+        let periodic = tokio::select! { biased;
             _ = cancellation.cancelled() => break,
-            _ = reporter.sync.notify.notified() => {},
-            _ = interval.tick() => {},
-        }
+            _ = reporter.sync.notify.notified() => false,
+            _ = interval.tick() => true,
+        };
         if !reporter.authentication.is_authenticated() {
             // The private transport owns resubscription; retain this generation across gaps.
             continue;
@@ -349,7 +937,13 @@ pub(super) async fn run(reporter: AccountReporter, cancellation: CancellationTok
         for attempt in 0..5 {
             let result = tokio::select! { biased;
                 _ = cancellation.cancelled() => return,
-                result = reporter.refresh() => result,
+                result = async {
+                    if periodic || reporter.needs_remote() {
+                        reporter.refresh_account(periodic).await
+                    } else {
+                        reporter.project()
+                    }
+                } => result,
             };
             match result {
                 Err(error)
@@ -357,9 +951,18 @@ pub(super) async fn run(reporter: AccountReporter, cancellation: CancellationTok
                         || error.is::<crate::blockchain::rpc::PredictBlockChanged>())
                         && attempt < 4 =>
                 {
-                    tokio::select! { biased;
-                        _ = cancellation.cancelled() => return,
-                        _ = tokio::time::sleep(Duration::from_secs(1)) => {},
+                    let retry = tokio::time::sleep(Duration::from_secs(1));
+                    tokio::pin!(retry);
+                    loop {
+                        tokio::select! { biased;
+                            _ = cancellation.cancelled() => return,
+                            _ = &mut retry => break,
+                            _ = reporter.sync.notify.notified() => {
+                                if let Err(error) = reporter.project() {
+                                    log::debug!("Predict local account projection deferred: {error}");
+                                }
+                            }
+                        }
                     }
                 }
                 Err(error) => {
@@ -389,3 +992,7 @@ impl Drop for AccountQueryGuard {
         self.0.store(false, Ordering::Release);
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/account.rs"]
+mod tests;

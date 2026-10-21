@@ -6,13 +6,17 @@ the Rust `catalog-capture-cli`; test strategies and collectors are not adapter A
 | Tools | Purpose |
 | --- | --- |
 | `probe_*.py` | Explicit venue smokes and soaks |
-| `python_*_smoke.py`, `*_probe.py` | Optional PyO3/catalog readback |
-| `nautilus_import.py`, `*_common.py` | Shared local environment helpers |
+| `python_*_probe.py` | Optional PyO3 readback of an existing catalog |
+| `nautilus_import.py`, `catalog_probe_common.py`, `live_smoke_common.py` | Shared import, catalog assertion and capture-probe helpers |
 | `test_predict*.py` | Offline SDK, collector, recorded-evidence and safety checks |
 | `capture_predict*.py`, `predict_private_http_recorder.py` | Explicit credential-redacted protocol collection |
 | `run_predict*_readonly.py` | Explicit read-only venue checks through Rust strategy/LiveNode |
 | `run_predict*_live.py` | Separately authorized, supervised funded execution |
 | `predict_evidence.py` | Immutable capture manifest verification |
+
+Shared helpers are source modules, not generated artifacts. Catalog helpers read
+an existing catalog; live-smoke helpers assemble/run an explicitly requested capture.
+They do not expose adapter APIs.
 
 ## Offline checks
 

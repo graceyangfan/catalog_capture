@@ -179,9 +179,7 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::ONE,
-        max_total_usdt: Decimal::ONE,
-        require_post_only: true,
+
         market_slippage_bps: 100,
     });
     let mut live = node::build_node_with_engine(

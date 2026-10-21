@@ -5,11 +5,12 @@ import unittest
 from unittest.mock import patch
 
 from capture_predict_private_fixtures import CaptureError
+from predict_resting_evidence import EvidenceError, validate_evidence, analyze_latency
 from run_predict_resting_live import (
+    archive_run,
     final_cleanup,
     is_calibration_order,
     run,
-    validate_evidence,
 )
 
 IDENTITY = "0x0000000000000000000000000000000000000022"
@@ -30,11 +31,53 @@ def order():
 
 
 class CleanupTests(unittest.TestCase):
+    def test_latency_requires_gtd_before_authentication(self):
+        with patch("run_predict_resting_live.authenticated_reader") as authenticate:
+            with self.assertRaises(CaptureError):
+                run("yes-gtc", "native-quantity-commission", True)
+            authenticate.assert_not_called()
+
     def test_unknown_case_cannot_authenticate_or_write(self):
         with patch("run_predict_resting_live.authenticated_reader") as authenticate:
             with self.assertRaises(CaptureError):
                 run("market-fok")
             authenticate.assert_not_called()
+
+    def test_unknown_features_cannot_authenticate_or_write(self):
+        with patch("run_predict_resting_live.authenticated_reader") as authenticate:
+            with self.assertRaises(CaptureError):
+                run("yes-gtd", "unknown-feature")
+            authenticate.assert_not_called()
+
+    def test_archive_preserves_logs_and_refuses_to_replace_an_existing_run(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            staging, archive = root / "staging", root / "archive"
+            staging.mkdir()
+            (staging / "result.json").write_bytes(b'{"fills":0}\n')
+            with (
+                patch("run_predict_resting_live.ARCHIVE", archive),
+                patch("run_predict_resting_live.datetime") as clock,
+            ):
+                clock.now.return_value.strftime.return_value = "fixed"
+                destination = archive_run(staging, "yes-gtd")
+                self.assertEqual(
+                    (destination / "result.json").read_bytes(), b'{"fills":0}\n'
+                )
+                self.assertFalse(staging.exists())
+                staging.mkdir()
+                (staging / "result.json").write_bytes(b'{"fills":1}\n')
+                with self.assertRaises(CaptureError):
+                    archive_run(staging, "yes-gtd")
+                self.assertEqual(
+                    (staging / "result.json").read_bytes(), b'{"fills":1}\n'
+                )
+                self.assertEqual(
+                    (destination / "result.json").read_bytes(), b'{"fills":0}\n'
+                )
 
     def test_empty_account_does_not_write(self):
         calls = []
@@ -194,7 +237,7 @@ class RetainedLiveEvidenceTests(unittest.TestCase):
                     event = next(row for row in feedback if row["type"] == "Accepted")
                     event["cachedOrder"]["expireTimeNs"] += 1
                     (output / "native_feedback.json").write_text(json.dumps(feedback))
-                    with self.assertRaises(CaptureError):
+                    with self.assertRaises(EvidenceError):
                         validate_evidence(output)
 
     def test_actual_expiry_http_rejection_did_not_create_order_or_consume_cash(self):
@@ -251,7 +294,7 @@ class RetainedLiveEvidenceTests(unittest.TestCase):
                     else:
                         capture["after"]["orders"] = [order()]
                     (output / "calibration.json").write_text(json.dumps(capture))
-                    with self.assertRaises(CaptureError):
+                    with self.assertRaises(EvidenceError):
                         validate_evidence(output)
 
     def test_retained_actual_json_matches_immutable_evidence_manifest(self):
@@ -370,6 +413,103 @@ class RetainedLiveEvidenceTests(unittest.TestCase):
         self.assertEqual(capture["wallet"]["events"], [])
         self.assertEqual(capture["before"]["cashWei"], capture["after"]["cashWei"])
         self.assertEqual(capture["after"]["orders"], [])
+
+
+
+
+class LatencyAnalysisTests(unittest.TestCase):
+    def test_summary_keeps_ns_units_request_counts_and_funding_boundary(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        import json
+
+        names = (
+            "decision_to_post",
+            "command_to_post",
+            "preparation",
+            "resource_collection",
+            "admission_open_collection",
+            "create_request",
+            "cancel_request",
+            "cancel_to_strategy_callback",
+            "ws_to_strategy_callback",
+        )
+
+        def distribution(low, high):
+            return {
+                "min_ns": low,
+                "p50_ns": low,
+                "p95_ns": high,
+                "p99_ns": high,
+                "max_ns": high,
+                "completed_observations": 2,
+                "retained_observations": 2,
+            }
+
+        distributions = {name: distribution(100000000, 200000000) for name in names}
+        distributions["resource_collection"] = distribution(800000000, 1000000000)
+        distributions["preparation"] = distribution(1000000000, 1100000000)
+        snapshot = {
+            "distributions": distributions,
+            "counters": {
+                "create_calls": 2,
+                "remove_calls": 2,
+                "rpc_requests": 20,
+                "open_page_requests": 6,
+                "metadata_hit": 1,
+                "metadata_miss": 1,
+                "abandoned_timings": 0,
+            },
+            "dropped_samples": 0,
+            "pending_correlations": 2,
+            "lost_correlations": 0,
+            "invalid_intervals": 0,
+        }
+        with TemporaryDirectory() as directory:
+            path = Path(directory)
+            raw = path / "latency.json"
+            raw.write_text(json.dumps({"snapshot": snapshot}))
+            (path / "http_responses.json").write_text(
+                json.dumps(
+                    {
+                        "events": [
+                            {
+                                "method": "POST",
+                                "path": "/v1/orders",
+                                "upstreamElapsedNs": 150000000,
+                            }
+                        ]
+                    }
+                )
+            )
+            result = analyze_latency(path)
+            self.assertEqual(result["metadata"]["hitRate"], 0.5)
+            self.assertEqual(result["segments"]["resource_collection"]["p99_ms"], 1000)
+            self.assertTrue(result["nextOptimization"]["fundingDominatesPilot"])
+            self.assertEqual(result["apiRequests"]["rpc"], 20)
+            # Current command flow omits funding/OPEN spans; preserve old archives.
+            snapshot["distributions"].pop("resource_collection")
+            snapshot["distributions"].pop("admission_open_collection")
+            raw.write_text(json.dumps({"commandPath": "venue_validated", "snapshot": snapshot}))
+            current = analyze_latency(path, write=False)
+            self.assertFalse(current["nextOptimization"]["fundingDominatesPilot"])
+            self.assertIsNone(current["nextOptimization"]["minimumFundingOverMaximumPreparation"])
+            self.assertNotIn("resource_collection", current["segments"])
+            self.assertEqual(current["commandPath"], "venue_validated")
+            # Background reads must not reduce the command cache-hit rate or disappear
+            # from request totals. Old archives retain the former miss-as-GET fallback.
+            self.assertEqual(current["apiRequests"]["marketMetadataCalls"], 1)
+            self.assertIsNone(current["apiRequests"]["executionOrderbookCalls"])
+            snapshot["counters"].update(metadata_hit=2, metadata_miss=0, metadata_requests=7, orderbook_requests=0)
+            raw.write_text(json.dumps({"commandPath": "venue_validated", "snapshot": snapshot}))
+            prepared = analyze_latency(path, write=False)
+            self.assertEqual(prepared["metadata"]["hitRate"], 1.0)
+            self.assertEqual(prepared["apiRequests"]["marketMetadataCalls"], 7)
+            self.assertEqual(prepared["apiRequests"]["executionOrderbookCalls"], 0)
+            snapshot["distributions"].pop("ws_to_strategy_callback")
+            raw.write_text(json.dumps({"snapshot": snapshot}))
+            with self.assertRaises(EvidenceError):
+                analyze_latency(path, write=False)
 
 
 if __name__ == "__main__":

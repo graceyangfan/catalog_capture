@@ -17,20 +17,14 @@
 use std::sync::Arc;
 
 use nautilus_model::identifiers::AccountId;
-use rust_decimal::Decimal;
 
 use crate::signing::PredictAuthSigner;
 
-/// Bounded BUY LIMIT admission and inventory-backed LIMIT/MARKET SELL.
+/// Signing and protocol defaults for LIMIT/MARKET orders. Native owns risk policy.
 #[derive(Clone, Debug)]
 pub struct PredictSubmissionConfig {
     pub signer: Arc<PredictAuthSigner>,
-    /// Per-BUY collateral cap; SELL is bounded by fresh unreserved token inventory.
-    pub max_order_usdt: Decimal,
-    /// Lifetime attempted BUY collateral, including unresolved submissions.
-    pub max_total_usdt: Decimal,
-    pub require_post_only: bool,
-    /// SDK default quantity-based MARKET SELL slippage, in basis points.
+    /// SDK default quantity-based MARKET BUY/SELL slippage, in basis points.
     pub market_slippage_bps: u32,
 }
 
@@ -46,11 +40,13 @@ pub enum PredictAccountStateMode {
 }
 
 /// A pre-authenticated session is injected; no environment credentials are read implicitly.
-/// Strategy submission and REST removal require explicit bounded opt-in.
+/// Strategy submission and REST removal require explicit opt-in.
 #[derive(Clone, Debug)]
 pub struct PredictExecutionClientConfig {
     /// None disables SubmitOrder. No credentials are implicitly acquired by the client.
     pub submission: Option<PredictSubmissionConfig>,
+    /// Optional bounded telemetry. The host owns/drains the collector away from trading callbacks.
+    pub latency: Option<crate::latency::PredictLatency>,
     /// Optional authentication authority, independent of permission to submit orders.
     pub auth_signer: Option<Arc<PredictAuthSigner>>,
     pub account_id: AccountId,
@@ -65,19 +61,29 @@ pub struct PredictExecutionClientConfig {
     pub orderbook_removal_enabled: bool,
     /// Periodic refresh also covers deposits and withdrawals outside the wallet event stream.
     /// Order events and connected `QueryAccount` commands wake the same refresh loop;
-    /// they do not create additional periodic timers.
+    /// they do not create additional periodic timers. Signing nonces are prepared
+    /// at initialization, wallet epoch changes, nonce rejection and periodic refresh;
+    /// ordinary order events reproject local reservations without collecting cash/OPEN.
     pub account_refresh_interval_secs: u64,
     /// Gap account-verification cadence (default one second); Native owns order/position
     /// application, including confirmed late fills found during verification.
-    /// None requires the host to issue QueryAccount after native reconciliation settles.
+    /// The same Native timer retires purged worker contexts at the account-refresh cadence.
+    /// None requires host QueryAccount after reconciliation; context cleanup then runs
+    /// at instrument, report and explicit account-query boundaries.
     pub reconnect_reconciliation_interval_secs: Option<u64>,
+    /// Maximum age of strict execution-market metadata in the Native instrument worker view.
+    /// Preparation runs at connection, instrument updates and before expiry, sharing YES/NO.
+    /// Valid range 1..=300 seconds. Zero is invalid. Cold/expired commands fail promptly;
+    /// only background preparation queries market metadata.
+    /// Definition changes, recovery and wallet epoch changes invalidate it.
+    pub market_metadata_ttl_secs: u64,
     pub report_page_size: u32,
     pub max_report_pages: usize,
     pub report_timeout_secs: u64,
 }
 
 impl PredictExecutionClientConfig {
-    /// Creates bounded private integration with strategy submission and orderbook removal disabled.
+    /// Creates private integration with strategy submission and orderbook removal disabled.
     #[must_use]
     pub fn new(
         account_id: AccountId,
@@ -86,6 +92,7 @@ impl PredictExecutionClientConfig {
     ) -> Self {
         Self {
             submission: None,
+            latency: None,
             auth_signer: None,
             account_id,
             session,
@@ -95,6 +102,7 @@ impl PredictExecutionClientConfig {
             orderbook_removal_enabled: false,
             account_refresh_interval_secs: 30,
             reconnect_reconciliation_interval_secs: Some(1),
+            market_metadata_ttl_secs: 30,
             report_page_size: 100,
             max_report_pages: 100,
             report_timeout_secs: 30,
@@ -116,10 +124,8 @@ impl PredictExecutionClientConfig {
                 "Predict submission signer differs from the authenticated account/environment"
             );
             anyhow::ensure!(
-                submission.market_slippage_bps < 10_000
-                    && submission.max_order_usdt > Decimal::ZERO
-                    && submission.max_total_usdt >= submission.max_order_usdt,
-                "invalid Predict submission budget"
+                submission.market_slippage_bps < 10_000,
+                "invalid Predict market slippage"
             );
         }
         anyhow::ensure!(
@@ -138,6 +144,10 @@ impl PredictExecutionClientConfig {
                 "Predict RPC and REST environments differ"
             );
         }
+        anyhow::ensure!(
+            (1..=300).contains(&self.market_metadata_ttl_secs),
+            "Predict market metadata TTL must be 1..=300 seconds; zero is unsupported"
+        );
         anyhow::ensure!(
             self.reconnect_reconciliation_interval_secs
                 .is_none_or(|secs| (1..=300).contains(&secs))

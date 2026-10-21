@@ -8,8 +8,8 @@ use std::{
 use nautilus_common::messages::execution::GenerateFillReports;
 use nautilus_core::UUID4;
 use nautilus_model::{
-    accounts::{Account, AccountAny},
-    enums::PositionSide,
+    accounts::{Account, AccountAny, cash::CashAccount},
+    enums::{OrderStatus, OrderType, PositionSide},
     identifiers::{InstrumentId, VenueOrderId},
     instruments::{Instrument, InstrumentAny},
     orders::Order,
@@ -19,11 +19,16 @@ use rust_decimal::Decimal;
 
 use super::{PredictExecutionClient, account::AccountReporter, matches::MatchContext};
 
+#[cfg(test)]
+thread_local! {
+    pub(super) static SNAPSHOT_CAPTURES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 pub(super) struct ReadinessCheck {
     reporter: AccountReporter,
-    context: MatchContext,
+    context: MatchContext<Arc<super::context::WorkerOrder>>,
     positions: HashMap<InstrumentId, Decimal>,
-    account: AccountAny,
+    pub(super) account: CashAccount,
     revision: u64,
     epoch: u64,
     verified_epoch: Arc<std::sync::atomic::AtomicU64>,
@@ -34,41 +39,140 @@ pub(super) struct ReadinessCheck {
     evidence: super::precision::SharedFillEvidence,
     hasher: Arc<crate::signing::PredictOrderHasher>,
 }
-impl ReadinessCheck {
-    pub fn new(client: &PredictExecutionClient) -> anyhow::Result<Self> {
-        let cache = client.core.cache();
-        // A retirement sweep keeps only unresolved settlements without a Native owner.
-        // Account/holdings can lag those facts; they cannot independently clear this gate.
+// Compare two fully parsed collections by stable trade identity. Parsing and
+// Native validation still establish facts; no retained recovery cache is added.
+pub(super) fn verify_match_fence<O: super::context::OrderView>(
+    fills: &[super::precision::BufferedFill],
+    fence: &[super::precision::BufferedFill],
+    orders: &HashMap<VenueOrderId, O>,
+) -> anyhow::Result<()> {
+    let mut ids = fills
+        .iter()
+        .map(|fill| fill.report.trade_id)
+        .collect::<ahash::AHashSet<_>>();
+    anyhow::ensure!(
+        ids.len() == fills.len() && fence.len() == fills.len(),
+        "Predict readiness match fence changed"
+    );
+    for fill in fence {
+        let order = orders
+            .get(&fill.report.venue_order_id)
+            .ok_or_else(|| anyhow::anyhow!("Predict readiness match fence has new ownership"))?;
         anyhow::ensure!(
-            client
-                .orders
-                .load()
-                .values()
-                .all(|order| !order.is_closed() || cache.order(&order.client_order_id()).is_some()),
-            "Predict readiness has unapplied fills for a purged native order"
+            super::parse::validate_applied_fill(&fill.report, order)?
+                && ids.remove(&fill.report.trade_id),
+            "Predict readiness match fence changed"
         );
+    }
+    Ok(())
+}
+
+impl ReadinessCheck {
+    /// Cheap Native/local command gate, shared by automatic retries and capture.
+    /// Retained closed histories are inspected only once these commands resolve.
+    pub fn commands_resolved(
+        core: &nautilus_live::ExecutionClientCore,
+        pending: &super::orders::PendingSubmissions,
+        cancels: &super::cancellations::PendingCancels,
+    ) -> bool {
+        if !cancels.lock().expect("pending cancels poisoned").is_empty() {
+            return false;
+        }
+        let cache = core.cache();
+        if cache
+            .iter_client_order_ids_inflight(Some(&core.venue), None, None, Some(&core.account_id))
+            .next()
+            .is_some()
+        {
+            return false;
+        }
+        let acknowledged = |id| {
+            cache.order_ref(&id).is_some_and(|order| {
+                order.is_closed()
+                    || (order.ts_accepted().is_some()
+                        && matches!(
+                            order.status(),
+                            OrderStatus::Accepted | OrderStatus::PartiallyFilled
+                        )
+                        && order.order_type() == OrderType::Limit)
+            })
+        };
+        cache
+            .iter_client_order_ids_open(Some(&core.venue), None, None, Some(&core.account_id))
+            .all(acknowledged)
+            && pending
+                .lock()
+                .expect("submission registry poisoned")
+                .entries
+                .keys()
+                .copied()
+                .all(acknowledged)
+    }
+
+    pub fn new(client: &PredictExecutionClient) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            Self::commands_resolved(
+                &client.core,
+                &client.pending_submissions,
+                &client.pending_cancels
+            ),
+            "Predict readiness has unresolved commands"
+        );
+        #[cfg(test)]
+        SNAPSHOT_CAPTURES.with(|n| n.set(n.get() + 1));
+        let cache = client.core.cache();
+        // Bounded cleanup can leave ordinary retired contexts behind. Only real
+        // unapplied/undecided venue evidence can keep recovery gated.
+        {
+            let orders = client.orders.lock().expect("order snapshots poisoned");
+            let mut facts = client.fill_evidence.lock().expect("fill evidence poisoned");
+            anyhow::ensure!(
+                orders.iter().all(|(hash, order)| {
+                    !order.is_closed()
+                        || cache.order(&order.client_order_id()).is_some()
+                        || !facts.has_unapplied(*hash, order)
+                }),
+                "Predict readiness has unapplied fills for a purged native order"
+            );
+        }
         let account = cache
-            .account_owned(&client.core.account_id)
+            .account_ref(&client.core.account_id)
             .ok_or_else(|| anyhow::anyhow!("Predict readiness lacks native account"))?;
-        let orders = cache.orders_refs(
+        let AccountAny::Cash(cash) = &*account else {
+            anyhow::bail!("Predict readiness requires a native cash account");
+        };
+        let mut event = cash
+            .last_event()
+            .ok_or_else(|| anyhow::anyhow!("Predict readiness lacks account provenance"))?;
+        // Native balances may have changed without appending an AccountState.
+        // Capture current values and provenance, not the full retained event log.
+        event.balances = cash.balances().into_values().collect();
+        let snapshot =
+            CashAccount::new(event, cash.calculated_account_state(), cash.allow_borrowing);
+        drop(account);
+        let account = snapshot;
+        let orders = cache.iter_client_order_ids(
             Some(&client.core.venue),
             None,
             None,
             Some(&client.core.account_id),
-            None,
         );
         // Unknown native IDs must not disappear in a filter_map and accidentally permit trading.
         let mut by_hash = HashMap::new();
-        for order in orders {
+        let observed = client
+            .account_orders
+            .lock()
+            .expect("order snapshots poisoned");
+        for client_id in orders {
+            let order = cache.try_order_ref(&client_id)?;
             // REST cannot restore post-only intent. Both regular and post-only LIMITs
             // can remain live; unresolved MARKET executions still require reconciliation.
             anyhow::ensure!(
                 order.is_closed()
                     || (matches!(
                         order.status(),
-                        nautilus_model::enums::OrderStatus::Accepted
-                            | nautilus_model::enums::OrderStatus::PartiallyFilled
-                    ) && order.order_type() == nautilus_model::enums::OrderType::Limit),
+                        OrderStatus::Accepted | OrderStatus::PartiallyFilled
+                    ) && order.order_type() == OrderType::Limit),
                 "Predict readiness requires terminal orders or acknowledged LIMIT orders"
             );
             // Position reconciliation orders are local native adjustments, never venue orders.
@@ -79,26 +183,29 @@ impl ReadinessCheck {
             }) && order
                 .venue_order_id()
                 .is_some_and(|id| id.as_str().parse::<alloy::primitives::B256>().is_err())
-                && order.status() == nautilus_model::enums::OrderStatus::Filled
+                && order.status() == OrderStatus::Filled
             {
                 continue;
             }
             let Some(id) = order.venue_order_id() else {
                 anyhow::ensure!(
-                    matches!(
-                        order.status(),
-                        nautilus_model::enums::OrderStatus::Rejected
-                            | nautilus_model::enums::OrderStatus::Denied
-                    ) && order.filled_qty().is_zero(),
+                    matches!(order.status(), OrderStatus::Rejected | OrderStatus::Denied)
+                        && order.filled_qty().is_zero(),
                     "Predict readiness lacks native venue hash"
                 );
                 continue;
             };
             anyhow::ensure!(
-                by_hash.insert(id, (*order).clone()).is_none(),
+                by_hash
+                    .insert(
+                        id,
+                        super::context::WorkerOrder::snapshot(&order, observed.get(&client_id))
+                    )
+                    .is_none(),
                 "Predict readiness has duplicate hash ownership"
             );
         }
+        drop(observed);
         let mut positions = HashMap::new();
         for p in cache.positions_open(
             Some(&client.core.venue),
@@ -173,7 +280,8 @@ impl ReadinessCheck {
             .entries
             .iter()
             .all(|(client, hash)| {
-                hash.and_then(|id| self.context.orders.get(&id))
+                hash.venue_id
+                    .and_then(|id| self.context.orders.get(&id))
                     .is_some_and(|order| {
                         order.client_order_id() == *client
                             && !order.is_closed()
@@ -181,9 +289,9 @@ impl ReadinessCheck {
                     })
             })
     }
-    fn verify_open(
+    fn verify_open<'a>(
         &self,
-        rows: &[crate::http::account_models::PredictOrderData],
+        rows: impl Iterator<Item = &'a crate::http::account_models::PredictOrderData>,
     ) -> anyhow::Result<()> {
         let expected = self
             .context
@@ -238,15 +346,37 @@ impl ReadinessCheck {
         );
         Ok(())
     }
-    pub async fn confirm(self) -> anyhow::Result<()> {
-        tokio::time::timeout(
+    pub async fn confirm(
+        self,
+        snapshot: Arc<super::account::ConfirmedAccount>,
+    ) -> anyhow::Result<()> {
+        let stage = std::sync::atomic::AtomicUsize::new(0);
+        let result = tokio::time::timeout(
             std::time::Duration::from_secs(self.reporter.config.report_timeout_secs),
-            self.verify(),
+            self.verify(&stage, &snapshot),
         )
         .await
-        .map_err(|_| anyhow::anyhow!("Predict readiness verification timed out"))?
+        .map_err(|_| anyhow::anyhow!("Predict readiness verification timed out"))
+        .and_then(std::convert::identity);
+        result.map_err(|error| {
+            // Cold-path failure context only; preserve the original error for downcasting.
+            let (revision, latest_fill) = {
+                let sync = self.reporter.sync.state.lock().expect("account sync poisoned");
+                (sync.revision, sync.latest_fill)
+            };
+            let name = ["session", "account_identity", "open", "matches", "settlement_coverage",
+                "holdings", "balance", "open_fence", "match_fence", "native_fence"][stage.load(Ordering::Relaxed)];
+            let context = format!("Predict recovery stage={name} epoch={}/{} revision={}/{} latest_fill={} native_orders={} native_positions={}: {error:#}",
+                self.epoch, self.reporter.connection_epoch.load(Ordering::Acquire), self.revision, revision,
+                latest_fill, self.context.orders.len(), self.positions.len());
+            error.context(context)
+        })
     }
-    async fn verify(&self) -> anyhow::Result<()> {
+    async fn verify(
+        &self,
+        stage: &std::sync::atomic::AtomicUsize,
+        snapshot: &super::account::ConfirmedAccount,
+    ) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.healthy.load(Ordering::Acquire)
                 && self.reporter.authentication.is_authenticated()
@@ -263,13 +393,18 @@ impl ReadinessCheck {
             "Predict readiness has unresolved commands"
         );
         let cfg = &self.reporter.config;
+        // Pagination limits bound actual REST collections, not how many Native
+        // owners can be retained in the configured cache window.
+        stage.store(1, Ordering::Relaxed);
+        cfg.session.request_account().await?;
+        stage.store(2, Ordering::Relaxed);
         anyhow::ensure!(
-            self.context.orders.len()
-                <= usize::try_from(cfg.report_page_size)? * cfg.max_report_pages,
-            "Predict readiness order scope exceeds configured bound"
+            snapshot.epoch == self.epoch,
+            "Predict readiness OPEN belongs to another wallet epoch"
         );
-        let open = super::account::collect_open_orders(cfg).await?;
-        self.verify_open(&open)?;
+        let open = &snapshot.rows;
+        self.verify_open(open.values().map(AsRef::as_ref))?;
+        stage.store(3, Ordering::Relaxed);
         let rows = super::matches::collect_matches(cfg, None).await?;
         // Verify settlements for native-owned orders. Historical flat cycles do not
         // become new strategy activity; current OPEN orders and holdings are fenced below.
@@ -277,25 +412,30 @@ impl ReadinessCheck {
             self.evidence
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Predict evidence poisoned"))?
-                .clone(),
+                .snapshot_for_orders(self.context.orders.keys().copied()),
         ));
+        stage.store(4, Ordering::Relaxed);
         let now = self.reporter.clock.get_time_ns();
         let scope = GenerateFillReports::new(UUID4::new(), now, None, None, None, None, None, None);
         let fills =
             super::matches::parse_cached_match_reports(rows, now, &self.context, &scope, &staged)?;
-        let unapplied = fills
-            .iter()
-            .filter_map(|fill| {
-                match super::parse::validate_applied_fill(
-                    &fill.report,
-                    &self.context.orders[&fill.report.venue_order_id],
-                ) {
-                    Ok(true) => None,
-                    Ok(false) => Some(Ok(fill.clone())),
-                    Err(error) => Some(Err(error)),
-                }
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+        let mut unapplied = Vec::new();
+        let mut applied_quantities: HashMap<VenueOrderId, Decimal> = HashMap::new();
+        for fill in &fills {
+            if super::parse::validate_applied_fill(
+                &fill.report,
+                &self.context.orders[&fill.report.venue_order_id],
+            )? {
+                let quantity = applied_quantities
+                    .entry(fill.report.venue_order_id)
+                    .or_default();
+                *quantity = quantity
+                    .checked_add(fill.report.last_qty.as_decimal())
+                    .ok_or_else(|| anyhow::anyhow!("Predict readiness fill quantity overflow"))?;
+            } else {
+                unapplied.push(fill.clone());
+            }
+        }
         if !unapplied.is_empty() {
             // A definitive REST cancellation can close an order during a WS gap before
             // its settlement arrives. Native inflight checks no longer cover that order.
@@ -318,8 +458,7 @@ impl ReadinessCheck {
                 .evidence
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Predict evidence poisoned"))?;
-            let mut staged = facts.clone();
-            staged.commit(&unapplied)?;
+            facts.validate_commit(&unapplied)?;
             for fill in &unapplied {
                 self.reporter.emitter.try_send_execution_report(
                     nautilus_common::messages::ExecutionReport::Fill(Box::new(fill.report.clone())),
@@ -327,22 +466,6 @@ impl ReadinessCheck {
                 facts.queue(std::slice::from_ref(fill))?;
             }
             anyhow::bail!("Predict confirmed settlements queued; wait for Native application");
-        }
-        let mut applied_quantities: HashMap<VenueOrderId, Decimal> = HashMap::new();
-        for fill in &fills {
-            anyhow::ensure!(
-                super::parse::validate_applied_fill(
-                    &fill.report,
-                    &self.context.orders[&fill.report.venue_order_id]
-                )?,
-                "Predict readiness has unapplied settlement"
-            );
-            let quantity = applied_quantities
-                .entry(fill.report.venue_order_id)
-                .or_default();
-            *quantity = quantity
-                .checked_add(fill.report.last_qty.as_decimal())
-                .ok_or_else(|| anyhow::anyhow!("Predict readiness fill quantity overflow"))?;
         }
         // Native owns terminal order states. Confirm their complete applied settlement
         // prefix, including late fills, without querying every retained historical hash.
@@ -357,7 +480,8 @@ impl ReadinessCheck {
         // OPEN already contains the signed terms and cumulative fill quantity used by
         // single-order reports. Reuse the standard parser; the second OPEN read below
         // fences changes while matches, holdings and account state are checked.
-        for row in &open {
+        let grouped = super::reconciliation::fills_by_order(&fills);
+        for row in open.values() {
             let id = VenueOrderId::new(format!(
                 "{:#x}",
                 row.order.hash.expect("verified OPEN hash")
@@ -374,7 +498,7 @@ impl ReadinessCheck {
                 instrument,
                 &self.context,
                 &self.hasher,
-                &fills,
+                grouped.get(&id).map_or(&[], Vec::as_slice),
                 now,
             )?;
             anyhow::ensure!(
@@ -382,6 +506,7 @@ impl ReadinessCheck {
                 "Predict readiness order state differs from applied native state"
             );
         }
+        stage.store(5, Ordering::Relaxed);
         let holdings = super::reports::collect_positions(cfg, None).await?;
         let mut venue_positions = HashMap::new();
         for row in holdings {
@@ -420,14 +545,27 @@ impl ReadinessCheck {
                 "Predict readiness net position mismatch"
             );
         }
+        stage.store(6, Ordering::Relaxed);
         let balance = self
             .reporter
             .chain
             .request_balance_snapshot(self.context.wallet, self.reporter.clock)
             .await?;
-        let AccountAny::Cash(cash) = &self.account else {
-            anyhow::bail!("Predict readiness requires a native cash account");
-        };
+        let cash = &self.account;
+        // Reuse the verified OPEN response; no per-order scan or new remote read.
+        let market_budgets = open
+            .values()
+            .map(|row| {
+                let hash = row
+                    .order
+                    .hash
+                    .ok_or_else(|| anyhow::anyhow!("Predict readiness OPEN lacks hash"))?;
+                Ok((
+                    VenueOrderId::new(format!("{hash:#x}")),
+                    crate::common::parse::exact_wei(row.order.fields.maker_amount)?,
+                ))
+            })
+            .collect::<anyhow::Result<std::collections::HashMap<_, _>>>()?;
         let mut locked = Money::zero(Currency::USDT());
         for order in self.context.orders.values().filter(|o| !o.is_closed()) {
             let instrument = self
@@ -437,7 +575,20 @@ impl ReadinessCheck {
                 .ok_or_else(|| anyhow::anyhow!("Predict readiness lacks reservation instrument"))?;
             locked = locked
                 .checked_add(super::resources::native_reservation(
-                    cash, order, instrument,
+                    cash,
+                    order,
+                    instrument,
+                    order
+                        .venue_order_id()
+                        .and_then(|id| market_budgets.get(&id).copied())
+                        .or_else(|| {
+                            self.pending
+                                .lock()
+                                .expect("submission registry poisoned")
+                                .entries
+                                .get(&order.client_order_id())
+                                .and_then(|entry| entry.market_buy_collateral)
+                        }),
                 )?)
                 .ok_or_else(|| {
                     anyhow::anyhow!("Predict readiness reservation aggregate overflow")
@@ -474,24 +625,26 @@ impl ReadinessCheck {
             .max(latest_fill);
         anyhow::ensure!(
             balance.block_timestamp >= newest,
-            "Predict readiness balance block predates confirmed settlement"
+            "Predict readiness balance block predates confirmed settlement: block_time={}, newest_fill={}",
+            balance.block_timestamp,
+            newest
         );
+        stage.store(7, Ordering::Relaxed);
         let fence = super::account::collect_open_orders(cfg).await?;
-        self.verify_open(&fence)?;
+        self.verify_open(fence.iter())?;
+        let by_id = fence
+            .iter()
+            .map(|row| (row.id.as_str(), row))
+            .collect::<HashMap<_, _>>();
         anyhow::ensure!(
             open.len() == fence.len()
-                && open.iter().all(|a| fence.iter().any(|b| a.id == b.id
-                    && a.order.hash == b.order.hash
-                    && a.order.fields == b.order.fields
-                    && a.amount_filled == b.amount_filled
-                    && a.status == b.status
-                    && a.strategy == b.strategy
-                    && a.currency == b.currency
-                    && a.market_id == b.market_id
-                    && a.is_neg_risk == b.is_neg_risk
-                    && a.is_yield_bearing == b.is_yield_bearing)),
+                && by_id.len() == fence.len()
+                && open.values().all(|row| by_id
+                    .get(row.id.as_str())
+                    .is_some_and(|current| super::reconciliation::same_order(row, current))),
             "Predict readiness OPEN fence changed"
         );
+        stage.store(8, Ordering::Relaxed);
         let fence_rows = super::matches::collect_matches(cfg, None).await?;
         let fence_fills = super::matches::parse_cached_match_reports(
             fence_rows,
@@ -500,27 +653,27 @@ impl ReadinessCheck {
             &scope,
             &staged,
         )?;
-        anyhow::ensure!(
-            fence_fills.len() == fills.len(),
-            "Predict readiness match fence changed"
-        );
-        for fill in &fence_fills {
-            let order = self
-                .context
-                .orders
-                .get(&fill.report.venue_order_id)
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Predict readiness match fence has new ownership")
-                })?;
-            anyhow::ensure!(
-                super::parse::validate_applied_fill(&fill.report, order)?
-                    && fills
-                        .iter()
-                        .any(|f| f.report.trade_id == fill.report.trade_id),
-                "Predict readiness match fence changed"
-            );
-        }
-        let sync = self
+        verify_match_fence(&fills, &fence_fills, &self.context.orders)?;
+        // Recovery starts a fresh metadata lifetime even if the transport epoch did not change.
+        self.reporter.instruments.rcu(|map| {
+            let definitions = map
+                .values()
+                .map(|entry| entry.instrument.clone())
+                .collect::<Vec<_>>();
+            for instrument in definitions {
+                super::types::upsert_instrument(map, instrument);
+            }
+        });
+        // Prepare before publishing readiness; command tasks only read prepared slots.
+        super::metadata::prepare(
+            &self.reporter.config,
+            &self.reporter.instruments,
+            self.reporter.clock,
+            &self.reporter.connection_epoch,
+        )
+        .await;
+        stage.store(9, Ordering::Relaxed);
+        let mut sync = self
             .reporter
             .sync
             .state
@@ -538,6 +691,12 @@ impl ReadinessCheck {
                     .expect("pending cancels poisoned")
                     .is_empty(),
             "Predict readiness changed during verification"
+        );
+        anyhow::ensure!(
+            sync.block
+                .is_none_or(|(number, hash)| balance.block_number >= number
+                    && (balance.block_number != number || balance.block_hash == hash)),
+            "Predict readiness balance regressed during verification"
         );
         let mut state = self
             .account
@@ -567,6 +726,11 @@ impl ReadinessCheck {
             "predict_block_hash".into(),
             serde_json::json!(format!("{:#x}", balance.block_hash)),
         );
+        info.insert(
+            "predict_requested_lock".into(),
+            serde_json::json!(locked.as_decimal().to_string()),
+        );
+        let event_id = state.event_id;
         self.verified_epoch.store(self.epoch, Ordering::Release);
         self.required.store(false, Ordering::Release);
         if !self.healthy.load(Ordering::Acquire)
@@ -580,6 +744,16 @@ impl ReadinessCheck {
             self.required.store(true, Ordering::Release);
             return Err(error);
         }
+        // The readiness AccountState is the next applied Native projection too.
+        // Keep its provenance and verified cash together for callback-local deltas.
+        sync.record_projection(
+            Arc::new(super::account::ConfirmedAccount {
+                epoch: self.epoch,
+                rows: Arc::clone(open),
+                balance,
+            }),
+            event_id,
+        );
         log::info!("Predict applied native state verified; stream-gap submission gate released");
         Ok(())
     }

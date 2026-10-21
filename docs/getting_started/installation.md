@@ -28,12 +28,16 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `797d98618ddbb26dd2bf843df52dd494daad8c7b` |
+| 0.1.x / main | `edd0b0f1588f241690f578ef8b141a947997486a` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
 The workspace uses a pinned project fork. `native-quantity-commission` enables
 its experimental inventory-fee mapping; this is not an unmodified upstream
 develop build.
+
+This pin includes the Native event/history, account publication and purge repairs
+required by Predict execution. No local patch application is needed. See the
+[dependency contract](../reference/predict-execution-validation.md#two-repository-handoff).
 
 ## Toolchain
 

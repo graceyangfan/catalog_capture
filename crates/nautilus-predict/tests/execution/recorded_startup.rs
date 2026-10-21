@@ -77,8 +77,7 @@ async fn actual_flat_account_startup_scopes_history_without_loading_expired_inst
             1,
             now / 1_000_000_000,
         );
-        let (mut client, mut rx, cache) =
-            submissions::setup_client_with_policy(&private, now, false);
+        let (mut client, mut rx, cache) = submissions::setup_client(&private, now);
         let _portfolio = portfolio(&cache);
         let reported = connect_reported(&mut client, &mut rx).await;
         assert_eq!(
@@ -454,9 +453,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::new(150, 2),
-        max_total_usdt: Decimal::new(150, 2),
-        require_post_only: false,
+
         market_slippage_bps: 100,
     });
     let public = PublicState(Arc::new(Mutex::new(vec![])));
@@ -618,6 +615,24 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
                 .unwrap()
                 .push(match_receipt(original, &buy, &buy_event));
         }
+        // Position reconciliation and market delivery are independent. Under load
+        // the initial book can expire before net holdings arrive; send a fresh
+        // market observation after the explicit holdings checkpoint, as live data
+        // would, rather than depending on the removed submit-preflight delay.
+        barrier(
+            "confirmed net holdings before the next market observation",
+            || {
+                let net: Decimal = cache
+                    .borrow()
+                    .positions_open(None, Some(&instrument_id(1)), None, None, None)
+                    .iter()
+                    .map(|position| position.quantity.as_decimal())
+                    .sum();
+                (net - Decimal::new(3136, 2)).abs() <= Decimal::new(1, 12)
+            },
+        )
+        .await;
+        push_book(&private, &public);
         barrier("net position then actual-size maker TP", || {
             super::exit_orders::assert_no_submission_failure(&journal);
             private.state.creations.lock().unwrap().len() == 2

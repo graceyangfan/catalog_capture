@@ -39,9 +39,7 @@ use nautilus_model::{
 use crate::{
     common::instrument_id_from_outcome,
     config::PredictExecutionClientConfig,
-    execution::parse::{
-        market_id_from_instrument, parse_rest_order_report, parse_submitted_order_report,
-    },
+    execution::parse::{market_id_from_instrument, parse_submitted_order_report},
     http::{
         account_models::PredictPositionData, parse::parse_position_status_report,
         query::PredictPositionsQuery,
@@ -52,24 +50,23 @@ pub(super) fn order_report_task(
     client: &super::PredictExecutionClient,
     cmd: &GenerateOrderStatusReport,
 ) -> ExecutionReportTask<Option<OrderStatusReport>> {
-    client.prune_order_lookups();
     let config = client.config.clone();
     let core = client.core.clone();
+    let observed_orders = client.account_orders.clone();
     let clock = client.clock;
     let pending = client.pending_submissions.clone();
     let hasher = client.order_hasher.clone();
     let evidence = client.fill_evidence.clone();
     let rest_ids = client.rest_order_ids.clone();
+    let account_sync = client.account_sync.clone();
     let emitter = client.emitter.clone();
     let cancellation = client.tasks.cancellation_token();
     let target = (|| -> anyhow::Result<_> {
         let cache = core.cache();
         let order = if let Some(id) = cmd.client_order_id {
-            cache.order_owned(&id)
+            cache.order(&id)
         } else if let Some(id) = cmd.venue_order_id {
-            cache
-                .client_order_id(&id)
-                .and_then(|id| cache.order_owned(id))
+            cache.client_order_id(&id).and_then(|id| cache.order(id))
         } else {
             None
         }
@@ -82,8 +79,7 @@ pub(super) fn order_report_task(
                     .expect("submission registry poisoned")
                     .entries
                     .get(&order.client_order_id())
-                    .copied()
-                    .flatten()
+                    .and_then(|entry| entry.venue_id)
             })
             .ok_or_else(|| anyhow::anyhow!("Predict REST report requires a cached venue hash"))?;
         anyhow::ensure!(
@@ -109,7 +105,7 @@ pub(super) fn order_report_task(
             let (row, matches) = tokio::time::timeout(
                 std::time::Duration::from_secs(config.report_timeout_secs),
                 async {
-                    config.session.request_account().await?;
+                    config.session.ensure_account_identity().await?;
                     let row = config.session.request_order(hash).await?;
                     let matched = rust_decimal::Decimal::from_str_exact(&row.amount_filled)?;
                     let matches = if !matched.is_zero() {
@@ -138,7 +134,7 @@ pub(super) fn order_report_task(
             );
             let cache = core.cache();
             let order = cache
-                .order_owned(&client_id)
+                .order(&client_id)
                 .ok_or_else(|| anyhow::anyhow!("Predict order report lost native order context"))?;
             anyhow::ensure!(
                 order.venue_order_id() == Some(venue_id)
@@ -147,8 +143,7 @@ pub(super) fn order_report_task(
                         .expect("submission registry poisoned")
                         .entries
                         .get(&client_id)
-                        .copied()
-                        .flatten()
+                        .and_then(|entry| entry.venue_id)
                         == Some(venue_id),
                 "Predict order venue ID changed during report collection"
             );
@@ -163,19 +158,23 @@ pub(super) fn order_report_task(
                 shares_allowed: cache
                     .account(&account_id)
                     .is_some_and(|a| !a.calculated_account_state()),
-                orders: std::iter::once((venue_id, order.clone())).collect(),
+                orders: std::iter::once((
+                    venue_id,
+                    super::context::WorkerOrder::snapshot(
+                        &order,
+                        observed_orders
+                            .lock()
+                            .expect("order snapshots poisoned")
+                            .get(&client_id),
+                    ),
+                ))
+                .collect(),
                 instruments: std::iter::once((
                     instrument.id(),
                     InstrumentAny::BinaryOption(instrument.clone()),
                 ))
                 .collect(),
             };
-            let staged = Arc::new(std::sync::Mutex::new(
-                evidence
-                    .lock()
-                    .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?
-                    .clone(),
-            ));
             let scope = nautilus_common::messages::execution::GenerateFillReports::new(
                 nautilus_core::UUID4::new(),
                 observed,
@@ -186,13 +185,29 @@ pub(super) fn order_report_task(
                 None,
                 None,
             );
-            let fills =
-                super::matches::parse_match_reports(matches, observed, &context, &scope, &staged)?;
+            let fills = super::matches::prepare_match_reports(
+                matches,
+                observed,
+                &context,
+                &scope,
+                &*evidence
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?,
+                false,
+            )?;
             let report = super::reconciliation::status_report(
-                &row, &order, instrument, &context, &hasher, &fills, observed,
+                &row,
+                &*order,
+                instrument,
+                &context,
+                &hasher,
+                &fills.iter().collect::<Vec<_>>(),
+                observed,
             )?;
             super::routing::register(&rest_ids, venue_id, super::routing::parse_id(&row.id)?)?;
+            drop(order);
             drop(cache);
+            account_sync.confirm_report(&report);
             anyhow::ensure!(
                 !super::reconciliation::publish_unapplied(
                     std::slice::from_ref(&report),
@@ -229,7 +244,10 @@ pub(super) fn position_report_task(
                 .transpose()?;
             let rows = tokio::time::timeout(
                 std::time::Duration::from_secs(config.report_timeout_secs),
-                collect_positions(&config, market_id),
+                async {
+                    config.session.ensure_account_identity().await?;
+                    collect_positions(&config, market_id).await
+                },
             )
             .await
             .map_err(|_| anyhow::anyhow!("Predict position report collection timed out"))??;
@@ -262,11 +280,11 @@ pub(super) fn position_report_task(
     )
 }
 
+// The enclosing report/recovery operation validates session identity once before collection.
 pub(super) async fn collect_positions(
     config: &PredictExecutionClientConfig,
     market_id: Option<u64>,
 ) -> anyhow::Result<Vec<PredictPositionData>> {
-    config.session.request_account().await?;
     let mut rows = Vec::new();
     let mut after = None;
     let mut seen = HashSet::new();
@@ -298,14 +316,13 @@ pub(super) async fn collect_positions(
 
 impl super::PredictExecutionClient {
     pub(super) fn query_order_command(&self, cmd: &QueryOrder) -> anyhow::Result<()> {
-        self.prune_order_lookups();
         anyhow::ensure!(
             self.core.is_connected() && self.tasks.is_open(),
             "Predict order query requires an active client generation"
         );
         let cache = self.core.cache();
         let order = cache
-            .order_owned(&cmd.client_order_id)
+            .order(&cmd.client_order_id)
             .ok_or_else(|| anyhow::anyhow!("Predict order query requires a known native order"))?;
         // This registry owns transmission correlation only. Native state stays in Cache.
         let pending = Arc::clone(&self.pending_submissions);
@@ -314,8 +331,7 @@ impl super::PredictExecutionClient {
             .expect("submission registry poisoned")
             .entries
             .get(&order.client_order_id())
-            .copied()
-            .flatten();
+            .and_then(|entry| entry.venue_id);
         let venue_id = order.venue_order_id().or(registered).ok_or_else(|| {
             anyhow::anyhow!("Predict order query lacks a cached or locally transmitted hash")
         })?;
@@ -333,8 +349,11 @@ impl super::PredictExecutionClient {
             .as_str()
             .parse()
             .map_err(|_| anyhow::anyhow!("Predict order query requires an exchange hash"))?;
+        let client_id = order.client_order_id();
+        drop(order);
         drop(cache);
         let orders = Arc::clone(&self.account_orders);
+        let account_sync = Arc::clone(&self.account_sync);
         let hasher = self.order_hasher.clone();
         let instruments = Arc::clone(&self.instruments);
         let healthy = Arc::clone(&self.healthy);
@@ -360,7 +379,6 @@ impl super::PredictExecutionClient {
         let emitter = self.emitter.clone();
         let clock = self.clock;
         let cancellation = self.tasks.cancellation_token();
-        let client_id = order.client_order_id();
         if !self
             .order_queries
             .lock()
@@ -376,7 +394,7 @@ impl super::PredictExecutionClient {
         self.tasks.spawn_named("predict-query-order", async move {
             let _guard = guard;
             let collection = async {
-                config.session.request_account().await?;
+                config.session.ensure_account_identity().await?;
                 let row = config.session.request_order(hash).await?;
                 let matched = rust_decimal::Decimal::from_str_exact(&row.amount_filled)
                     .map_err(|_| anyhow::anyhow!("Predict queried filled amount is invalid"))?;
@@ -394,38 +412,44 @@ impl super::PredictExecutionClient {
             if (!recovery_read && !healthy.load(Ordering::Acquire)) || epoch.load(Ordering::Acquire) != query_epoch { return; }
             let report = (|| -> anyhow::Result<_> {
                 let (row, matches) = result.map_err(|_| anyhow::anyhow!("Predict targeted query timed out"))??;
-                let current = orders.get_cloned(&client_id)
+                let current = orders.lock().expect("order snapshots poisoned").get(&client_id).cloned()
                     .filter(|order| order.client_order_id() == client_id && order.account_id() == Some(config.account_id))
                     .ok_or_else(|| anyhow::anyhow!("Predict targeted query lost its native context"))?;
-                let Some(InstrumentAny::BinaryOption(instrument)) = instruments.get_cloned(&current.instrument_id()) else {
+                let Some(InstrumentAny::BinaryOption(instrument)) = instruments.get_cloned(&current.instrument_id()).map(|entry| entry.instrument) else {
                     anyhow::bail!("Predict targeted query instrument is missing");
                 };
                 if let Some(rows) = matches {
                     let hasher = &hasher;
                     if current.venue_order_id().is_none() {
-                        anyhow::ensure!(pending.lock().expect("submission registry poisoned").entries.get(&client_id).copied().flatten()==Some(venue_id), "Predict match recovery lost transmitted hash ownership");
+                        anyhow::ensure!(pending.lock().expect("submission registry poisoned").entries.get(&client_id).and_then(|entry| entry.venue_id)==Some(venue_id), "Predict match recovery lost transmitted hash ownership");
                     }
                     let scope = nautilus_common::messages::execution::GenerateFillReports::new(
                         nautilus_core::UUID4::new(), clock.get_time_ns(), Some(current.instrument_id()), Some(venue_id), None,None,None,None);
                     let context = super::matches::MatchContext {
                         account_id:config.account_id,wallet:config.session.account_address(),shares_allowed,
-                        instruments: instruments.load().iter().map(|(id,i)|(*id,i.clone())).collect(),
-                        orders: std::iter::once((venue_id,(*current).clone())).collect(),
+                        instruments: std::iter::once((instrument.id(), InstrumentAny::BinaryOption(instrument.clone()))).collect(),
+                        orders: std::iter::once((venue_id,Arc::clone(&current))).collect(),
                     };
                     let mut facts = evidence.lock().map_err(|_|anyhow::anyhow!("Predict evidence poisoned"))?;
-                    let staged = Arc::new(std::sync::Mutex::new(facts.clone()));
-                    let mut fills = super::matches::parse_match_reports(rows,clock.get_time_ns(),&context,&scope,&staged)?;
-                    let report = super::reconciliation::status_report(&row,&current,&instrument,&context,hasher,&fills,clock.get_time_ns())?;
-                    facts.prepare(&mut fills,&context.orders,&[],|_|nautilus_model::instruments::Instrument::size_precision(&instrument))?;
+                    let fills = super::matches::prepare_match_reports(rows,clock.get_time_ns(),&context,&scope,&facts,false)?;
+                    let report = super::reconciliation::status_report(&row,&current,&instrument,&context,hasher,&fills.iter().collect::<Vec<_>>(),clock.get_time_ns())?;
+                    facts.validate_commit(&fills)?;
+                    let terminal = matches!(report.order_status,
+                        nautilus_model::enums::OrderStatus::Canceled | nautilus_model::enums::OrderStatus::Expired
+                            | nautilus_model::enums::OrderStatus::Filled | nautilus_model::enums::OrderStatus::Rejected);
                     emitter.try_send_execution_report(ExecutionReport::OrderWithFills(Box::new(report), fills.iter().map(|f|f.report.clone()).collect()))?;
                     facts.commit(&fills)?;
+                    drop(facts);
+                    // Native observers acquire account sync before fill evidence.
+                    // Never acquire the account lock while holding fill evidence.
+                    if terminal { account_sync.confirm_terminal(venue_id, Some(client_id)); }
                     return Ok(None);
                 }
                 if current.venue_order_id() == Some(venue_id) {
-                    parse_rest_order_report(&row, &current, &instrument, config.account_id, config.session.account_address(), clock.get_time_ns()).map(Some)
+                    super::parse::rest_order_report_from_view(&row, &current, &instrument, config.account_id, config.session.account_address(), clock.get_time_ns()).map(Some)
                 } else {
                     anyhow::ensure!(
-                        pending.lock().expect("submission registry poisoned").entries.get(&client_id).copied().flatten() == Some(venue_id)
+                        pending.lock().expect("submission registry poisoned").entries.get(&client_id).and_then(|entry| entry.venue_id) == Some(venue_id)
                             && row.order.fields.maker == config.session.account_address(),
                         "Predict targeted query lost transmitted hash ownership"
                     );
@@ -434,7 +458,7 @@ impl super::PredictExecutionClient {
                 }
             })();
             match report {
-                Ok(Some(report)) => { let _ = emitter.try_send_execution_report(ExecutionReport::Order(Box::new(report))); },
+                Ok(Some(report)) => { account_sync.confirm_report(&report); let _ = emitter.try_send_execution_report(ExecutionReport::Order(Box::new(report))); },
                 Ok(None) => {},
                 Err(error) => log::warn!("Predict targeted query did not resolve the order: {error}"),
             }
@@ -469,6 +493,7 @@ pub async fn reconciliation_market_ids(
     tokio::time::timeout(
         std::time::Duration::from_secs(config.report_timeout_secs),
         async {
+            config.session.ensure_account_identity().await?;
             let orders = super::reconciliation::collect_orders(config, true).await?;
             let positions = collect_positions(config, None).await?;
             let mut ids = std::collections::BTreeSet::new();

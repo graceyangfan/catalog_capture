@@ -102,7 +102,7 @@ pub fn parse_wallet_report(
 
 pub(super) fn parse_wallet_report_with_confirmed_qty(
     event: &PredictWalletEvent,
-    order: &OrderAny,
+    order: &impl super::context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -137,7 +137,7 @@ pub(super) struct WalletReportEvidence {
 
 pub(super) fn parse_wallet_report_with_registration(
     event: &PredictWalletEvent,
-    order: &OrderAny,
+    order: &impl super::context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -209,8 +209,8 @@ pub(super) fn parse_wallet_report_with_registration(
     // An already accepted native order can receive its original ACK after REST fill recovery.
     // Identity and immutable terms above must still match; a historical ACK cannot reopen it.
     if matches!(event.kind, PredictWalletEventKind::OrderAccepted)
-        && order.ts_accepted().is_some()
-        && ts_event <= order.ts_last()
+        && order.ts_accepted().or(queued_acceptance).is_some()
+        && ts_event <= order.ts_last().max(queued_acceptance.unwrap_or_default())
         && (details.quantity_filled < confirmed_qty.as_decimal()
             || order.is_closed()
                 && order.status() != OrderStatus::Filled
@@ -221,9 +221,7 @@ pub(super) fn parse_wallet_report_with_registration(
     match &event.kind {
         PredictWalletEventKind::OrderTransactionSubmitted { .. }
         | PredictWalletEventKind::OrderMarketMatchPlan { .. } => Ok(None),
-        PredictWalletEventKind::OrderTransactionFailed { .. } => {
-            anyhow::bail!("Predict settlement failed; targeted reconciliation is required")
-        }
+        PredictWalletEventKind::OrderTransactionFailed { .. } => Ok(None),
         PredictWalletEventKind::OrderTransactionSuccess {
             settlement_id,
             fill,
@@ -469,6 +467,16 @@ pub fn parse_rest_order_report(
     wallet: Address,
     observed: UnixNanos,
 ) -> anyhow::Result<OrderStatusReport> {
+    rest_order_report_from_view(row, order, instrument, account_id, wallet, observed)
+}
+pub(super) fn rest_order_report_from_view(
+    row: &PredictOrderData,
+    order: &impl super::context::OrderView,
+    instrument: &BinaryOption,
+    account_id: AccountId,
+    wallet: Address,
+    observed: UnixNanos,
+) -> anyhow::Result<OrderStatusReport> {
     let venue_id = validate_rest_order_terms(row, order, instrument, account_id, wallet)?;
     rest_order_report(
         row, order, instrument, account_id, venue_id, observed, false,
@@ -480,7 +488,7 @@ pub fn parse_rest_order_report(
 /// time only on this path; nonzero fills and terminal states remain unresolved.
 pub(super) fn parse_submitted_order_report(
     row: &PredictOrderData,
-    order: &OrderAny,
+    order: &impl super::context::OrderView,
     instrument: &BinaryOption,
     hasher: &crate::signing::PredictOrderHasher,
     venue_id: VenueOrderId,
@@ -521,7 +529,7 @@ pub(super) fn parse_submitted_order_report(
 
 fn rest_order_report(
     row: &PredictOrderData,
-    order: &OrderAny,
+    order: &impl super::context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     venue_id: VenueOrderId,
@@ -598,7 +606,7 @@ fn rest_order_report(
 /// authenticated signed collateral is bounded to the binary range, never inferred from VWAP.
 pub(super) fn validate_rest_order_terms(
     row: &PredictOrderData,
-    order: &OrderAny,
+    order: &impl super::context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -611,7 +619,7 @@ pub(super) fn validate_rest_order_terms(
 
 pub(super) fn validate_rest_order_terms_for_hash(
     row: &PredictOrderData,
-    order: &OrderAny,
+    order: &impl super::context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -695,27 +703,36 @@ pub(super) fn validate_rest_order_terms_for_hash(
 
 /// Confirms a cross-transport replay against native applied events. REST execution time
 /// and wallet notification time can differ; identity and economic facts must agree.
-pub(super) fn validate_applied_fill(report: &FillReport, order: &OrderAny) -> anyhow::Result<bool> {
-    for event in order.events() {
-        if let nautilus_model::events::OrderEventAny::Filled(fill) = event
-            && fill.trade_id == report.trade_id
-        {
-            anyhow::ensure!(
-                fill.account_id == report.account_id
-                    && fill.instrument_id == report.instrument_id
-                    && fill.venue_order_id == report.venue_order_id
-                    && fill.last_qty == report.last_qty
-                    && fill.last_px == report.last_px
-                    && fill.commission == Some(report.commission)
-                    && fill.quantity_commission == report.quantity_commission
-                    && fill.liquidity_side == report.liquidity_side
-                    && fill.order_side == report.order_side,
-                "Predict match contradicts an already applied native fill"
-            );
+pub(super) fn validate_applied_fill(
+    report: &FillReport,
+    order: &impl super::context::OrderView,
+) -> anyhow::Result<bool> {
+    order.with_applied_fill(report.trade_id, |fill| {
+        if let Some(fill) = fill {
+            validate_native_fill(report, fill)?;
             return Ok(true);
         }
-    }
-    Ok(false)
+        Ok(false)
+    })
+}
+
+pub(super) fn validate_native_fill(
+    report: &FillReport,
+    fill: &nautilus_model::events::OrderFilled,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        fill.account_id == report.account_id
+            && fill.instrument_id == report.instrument_id
+            && fill.venue_order_id == report.venue_order_id
+            && fill.last_qty == report.last_qty
+            && fill.last_px == report.last_px
+            && fill.commission == Some(report.commission)
+            && fill.quantity_commission == report.quantity_commission
+            && fill.liquidity_side == report.liquidity_side
+            && fill.order_side == report.order_side,
+        "Predict match contradicts an already applied native fill"
+    );
+    Ok(())
 }
 
 pub(super) fn fill_commission(

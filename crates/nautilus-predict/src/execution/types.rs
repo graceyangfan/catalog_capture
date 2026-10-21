@@ -12,11 +12,67 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Predict wire failures mapped onto the shared Nautilus command outcome vocabulary.
+//! Shared worker order views and Nautilus command failure classification.
 
+use std::sync::{Arc, Mutex};
+
+use ahash::AHashMap;
+use nautilus_core::UnixNanos;
 use nautilus_live::execution::failure::CommandFailure;
+use nautilus_model::instruments::InstrumentAny;
 
-use crate::http::error::Error;
+use crate::http::{error::Error, market_models::PredictExecutionMarket};
+
+// Worker views of Native orders, not an OMS. Frequent per-order writes must not clone
+// the entire retained map. Clone Arc values only when a collector needs a stable snapshot.
+pub(super) type OrderSnapshots<K> =
+    Arc<Mutex<indexmap::IndexMap<K, Arc<super::context::WorkerOrder>, ahash::RandomState>>>;
+
+// Protocol metadata lives with the existing Native instrument worker view, so purge,
+// definition replacement and generation setup release it without another market index.
+#[derive(Clone, Debug)]
+pub(super) struct ExecutionInstrument {
+    pub instrument: InstrumentAny,
+    pub market: Arc<Mutex<Option<MarketMetadata>>>,
+    // Coalesce only this market's cold/expired GET; never block wallet delivery.
+    pub market_loading: Arc<tokio::sync::Mutex<()>>,
+}
+impl From<InstrumentAny> for ExecutionInstrument {
+    fn from(instrument: InstrumentAny) -> Self {
+        Self {
+            instrument,
+            market: Default::default(),
+            market_loading: Default::default(),
+        }
+    }
+}
+// Both outcome views share one market response. Replacing either definition detaches
+// the previous slot for both, so a delayed worker cannot reattach old metadata.
+pub(super) fn upsert_instrument(
+    map: &mut AHashMap<nautilus_model::identifiers::InstrumentId, ExecutionInstrument>,
+    instrument: InstrumentAny,
+) {
+    use nautilus_model::instruments::Instrument;
+    let entry = ExecutionInstrument::from(instrument);
+    if let Ok(market_id) = super::parse::market_id_from_instrument(&entry.instrument.id()) {
+        for outcome in [1, 2] {
+            if let Ok(id) = crate::common::instrument_id_from_outcome(market_id, outcome)
+                && let Some(existing) = map.get_mut(&id)
+            {
+                existing.market = Arc::clone(&entry.market);
+                existing.market_loading = Arc::clone(&entry.market_loading);
+            }
+        }
+    }
+    map.insert(entry.instrument.id(), entry);
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct MarketMetadata {
+    pub market: Arc<PredictExecutionMarket>,
+    pub observed: UnixNanos,
+    pub epoch: u64,
+}
 
 pub(super) fn classify_http_command_failure(error: &Error) -> CommandFailure {
     let reason = error.to_string();

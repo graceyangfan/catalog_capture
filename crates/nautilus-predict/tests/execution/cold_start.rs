@@ -306,6 +306,11 @@ async fn run_lifecycle(
     if recover_and_cancel {
         cfg.orderbook_removal_enabled = true;
         cfg.reconnect_reconciliation_interval_secs = Some(1);
+        if recovery == RecoveryCheck::Purge {
+            // This scenario uses QueryAccount as its causal retirement boundary.
+            // Automatic-mode retirement is exercised by the Native timer tests.
+            cfg.reconnect_reconciliation_interval_secs = None;
+        }
         private.state.remove_replies.lock().unwrap().push_back((
             200,
             json!({"echoRemoved":true}),
@@ -514,11 +519,24 @@ async fn run_lifecycle(
             barrier(
                 "QueryAccount verifies non-post-only LIMIT after native recovery",
                 || {
-                    engine
-                        .borrow()
-                        .get_client(&ClientId::new("PREDICT"))
-                        .unwrap()
-                        .is_connected()
+                    let engine = engine.borrow();
+                    let client = engine.get_client(&ClientId::new("PREDICT")).unwrap();
+                    if recovery == RecoveryCheck::Purge && !client.is_connected() {
+                        // Manual hosts retry after reconnect; the client coalesces
+                        // queries while collection owns the recovery snapshot.
+                        client
+                            .query_account(QueryAccount::new(
+                                trader_id(),
+                                Some(ClientId::new("PREDICT")),
+                                account_id(),
+                                UUID4::new(),
+                                get_atomic_clock_realtime().get_time_ns(),
+                                None,
+                                None,
+                            ))
+                            .unwrap();
+                    }
+                    client.is_connected()
                 },
             )
             .await;
@@ -683,6 +701,14 @@ async fn run_lifecycle(
                         .orders(None, None, None, None, None)
                         .is_empty()
                 );
+                let expected_cash = Money::from_decimal(
+                    Decimal::from_str_exact(&private.state.rpc_frame.lock().unwrap().0.to_string())
+                        .unwrap()
+                        / Decimal::from(1_000_000_000_000_000_000u64),
+                    Currency::USDT(),
+                )
+                .unwrap();
+                let expected_block = private.state.rpc_frame.lock().unwrap().1;
                 let account_before = cache
                     .borrow()
                     .account(&account_id())
@@ -707,14 +733,19 @@ async fn run_lifecycle(
                 barrier(
                     "account query remains usable after Native order purge",
                     || {
-                        cache
-                            .borrow()
-                            .account(&account_id())
-                            .unwrap()
-                            .last_event()
-                            .unwrap()
-                            .event_id
-                            != account_before
+                        let cache = cache.borrow();
+                        let account = cache.account(&account_id()).unwrap();
+                        let event = account.last_event().unwrap();
+                        // Local post-fill projection can publish another event before
+                        // QueryAccount's remote result. Wait for its actual cash/provenance.
+                        event.event_id != account_before
+                            && account.balance_total(Some(Currency::USDT())) == Some(expected_cash)
+                            && event
+                                .info
+                                .as_ref()
+                                .and_then(|info| info.get("predict_block_number"))
+                                .and_then(Value::as_u64)
+                                == Some(expected_block)
                     },
                 )
                 .await;
@@ -733,13 +764,6 @@ async fn run_lifecycle(
                         .unwrap()
                         .is_zero()
                 );
-                let expected_cash = Money::from_decimal(
-                    Decimal::from_str_exact(&private.state.rpc_frame.lock().unwrap().0.to_string())
-                        .unwrap()
-                        / Decimal::from(1_000_000_000_000_000_000u64),
-                    Currency::USDT(),
-                )
-                .unwrap();
                 assert_eq!(
                     cache
                         .borrow()
@@ -1037,11 +1061,8 @@ async fn cold_reports_validate_external_identity_terms_and_complete_fills_before
             1,
             get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000_000,
         );
-        let (mut client, mut rx, cache) = submissions::setup_client_with_policy(
-            &private,
-            get_atomic_clock_realtime().get_time_ns().as_u64(),
-            false,
-        );
+        let (mut client, mut rx, cache) =
+            submissions::setup_client(&private, get_atomic_clock_realtime().get_time_ns().as_u64());
         let _portfolio = portfolio(&cache);
         if case != "missing_instrument" {
             cache

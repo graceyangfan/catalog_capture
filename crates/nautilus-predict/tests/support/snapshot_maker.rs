@@ -23,21 +23,29 @@ use nautilus_model::{
     enums::{OrderSide, OrderStatus, TimeInForce},
     events::{
         OrderAccepted, OrderCancelRejected, OrderCanceled, OrderDenied, OrderModifyRejected,
-        OrderRejected,
+        OrderRejected, OrderSubmitted,
     },
     identifiers::{AccountId, ClientId, ClientOrderId, InstrumentId, StrategyId},
     instruments::Instrument,
     orders::Order,
-    types::{Currency, Money, Price, Quantity},
+    types::{Currency, Price, Quantity},
 };
 use nautilus_predict::{PredictOrderbookSnapshot, predict_orderbook_data_type};
 use nautilus_trading::{Strategy, StrategyConfig, StrategyCore, nautilus_strategy};
 use rust_decimal::Decimal;
 use serde_json::{Value, json};
 
+#[derive(Debug, Default)]
+pub struct FlowTiming {
+    pub canceled: Option<std::time::Instant>,
+    pub replacement: Option<std::time::Instant>,
+    pub admitted: Option<std::time::Instant>,
+}
+
 #[derive(Debug)]
 pub struct SnapshotMaker {
     core: StrategyCore,
+    timing: Option<Rc<RefCell<FlowTiming>>>,
     market_id: u64,
     instrument: InstrumentId,
     submitted: Option<ClientOrderId>,
@@ -46,6 +54,8 @@ pub struct SnapshotMaker {
     companion: bool,
     round: u8,
     account_before_query: Option<nautilus_core::UUID4>,
+    fresh_block_replace: bool,
+    block_before_query: Option<u64>,
     journal: Rc<RefCell<Vec<Value>>>,
 }
 impl SnapshotMaker {
@@ -56,6 +66,7 @@ impl SnapshotMaker {
                 use_uuid_client_order_ids: true,
                 ..Default::default()
             }),
+            timing: None,
             market_id,
             instrument,
             submitted: None,
@@ -64,11 +75,22 @@ impl SnapshotMaker {
             companion: false,
             round: 0,
             account_before_query: None,
+            fresh_block_replace: false,
+            block_before_query: None,
             journal,
         }
     }
+    pub fn with_flow_timing(mut self, timing: Rc<RefCell<FlowTiming>>) -> Self {
+        self.timing = Some(timing);
+        self
+    }
     pub fn with_cancel_replace(mut self) -> Self {
         self.replace = true;
+        self
+    }
+    /// Historical explicit-query replays deliberately wait for a new chain block.
+    pub fn with_fresh_block_replace(mut self) -> Self {
+        self.fresh_block_replace = true;
         self
     }
     pub fn with_shared_account(mut self) -> Self {
@@ -162,6 +184,11 @@ impl DataActor for SnapshotMaker {
                     && account
                         .last_event()
                         .is_some_and(|e| e.event_id != before_query)
+                    && (!self.fresh_block_replace
+                        || account
+                            .last_event()
+                            .and_then(|e| e.info.as_ref()?.get("predict_block_number")?.as_u64())
+                            > self.block_before_query)
             };
             let snapshot = self.account_snapshot();
             self.journal.borrow_mut().push(
@@ -222,26 +249,31 @@ impl DataActor for SnapshotMaker {
                 .push(json!({"callback":"OrderIntent","round":self.round,
                 "account":self.account_snapshot(),"price":price.to_string()}));
         }
+        if self.round == 1
+            && let Some(timing) = &self.timing
+        {
+            timing.borrow_mut().replacement = Some(std::time::Instant::now());
+        }
         self.submit_order(order, None, Some(ClientId::new("PREDICT")), None)
     }
 }
 nautilus_strategy!(SnapshotMaker, {
+    fn on_order_submitted(&mut self, _event: OrderSubmitted) {
+        if self.round == 1
+            && let Some(timing) = &self.timing
+        {
+            timing.borrow_mut().admitted = Some(std::time::Instant::now());
+        }
+    }
     fn on_order_accepted(&mut self, event: OrderAccepted) {
         assert_eq!(Some(event.client_order_id), self.submitted);
-        if !self.shared_account {
-            assert_eq!(
-                self.cache()
-                    .account(&AccountId::new("PREDICT-fixture"))
-                    .unwrap()
-                    .balance_locked(Some(Currency::USDT())),
-                Some(Money::from(if self.round == 0 {
-                    "1 USDT"
-                } else {
-                    "1.1 USDT"
-                })),
-                "native Portfolio reserves the maker order cost before the strategy callback"
-            );
-        }
+        // Reported cash refresh is asynchronous; strategy feedback must not wait
+        // for it. Native order state, rather than a coincidental RPC completion,
+        // must already be visible in this callback.
+        assert_eq!(
+            self.cache().order(&event.client_order_id).unwrap().status(),
+            OrderStatus::Accepted
+        );
         self.journal
             .borrow_mut()
             .push(json!({"callback":"on_order_accepted"}));
@@ -300,11 +332,17 @@ nautilus_strategy!(SnapshotMaker, {
             .unwrap();
     }
     fn on_order_canceled(&mut self, event: &OrderCanceled) {
+        if self.round == 0
+            && let Some(timing) = &self.timing
+        {
+            timing.borrow_mut().canceled = Some(std::time::Instant::now());
+        }
         assert_eq!(Some(event.client_order_id), self.submitted);
         self.journal
             .borrow_mut()
             .push(json!({"callback":"on_order_canceled"}));
         if self.replace && self.round == 0 {
+            self.block_before_query = self.account_snapshot()["block"].as_u64();
             self.account_before_query = Some(
                 self.cache()
                     .account(&AccountId::new("PREDICT-fixture"))

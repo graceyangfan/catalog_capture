@@ -15,7 +15,7 @@
 //! Venue report collection for Nautilus bulk and startup reconciliation. No cache mutation.
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex, atomic::Ordering},
+    sync::atomic::Ordering,
 };
 
 use nautilus_common::{
@@ -27,7 +27,7 @@ use nautilus_model::{
     accounts::Account,
     identifiers::VenueOrderId,
     instruments::{Instrument, InstrumentAny},
-    orders::{Order, OrderAny},
+    orders::Order,
     reports::{FillReport, OrderStatusReport},
 };
 
@@ -46,13 +46,24 @@ use crate::{
     signing::PredictOrderHasher,
 };
 
-pub(super) fn status_report(
+pub(super) fn fills_by_order(fills: &[BufferedFill]) -> HashMap<VenueOrderId, Vec<&BufferedFill>> {
+    let mut grouped = HashMap::<_, Vec<_>>::new();
+    for fill in fills {
+        grouped
+            .entry(fill.report.venue_order_id)
+            .or_default()
+            .push(fill);
+    }
+    grouped
+}
+
+pub(super) fn status_report<O: super::context::OrderView, C>(
     row: &PredictOrderData,
-    order: &OrderAny,
+    order: &O,
     instrument: &nautilus_model::instruments::BinaryOption,
-    context: &MatchContext,
+    context: &MatchContext<C>,
     hasher: &PredictOrderHasher,
-    fills: &[BufferedFill],
+    fills: &[&BufferedFill],
     now: UnixNanos,
 ) -> anyhow::Result<OrderStatusReport> {
     let id = VenueOrderId::new(format!(
@@ -76,11 +87,10 @@ pub(super) fn status_report(
         )) == id,
         "Predict report fields do not reproduce signed hash"
     );
-    let own = fills
-        .iter()
-        .filter(|f| f.report.venue_order_id == id)
-        .cloned()
-        .collect::<Vec<_>>();
+    anyhow::ensure!(
+        fills.iter().all(|fill| fill.report.venue_order_id == id),
+        "Predict report received a different order's match group"
+    );
     if !amount.is_zero() {
         return super::recovery::OrderRecovery {
             order,
@@ -90,16 +100,16 @@ pub(super) fn status_report(
             wallet: context.wallet,
             hasher,
         }
-        .report(row, &own, now);
+        .report(row, fills, now);
     }
     anyhow::ensure!(
-        own.is_empty(),
+        fills.is_empty(),
         "Predict zero REST fill contradicts confirmed matches"
     );
     if order.venue_order_id().is_none() {
         super::parse::parse_submitted_order_report(row, order, instrument, hasher, id, now)
     } else {
-        super::parse::parse_rest_order_report(
+        super::parse::rest_order_report_from_view(
             row,
             order,
             instrument,
@@ -118,6 +128,9 @@ pub(super) async fn collect_orders(
     let mut after = None;
     let mut seen = HashSet::new();
     for _ in 0..config.max_report_pages {
+        if open_only && let Some(probe) = &config.latency {
+            probe.count(crate::latency::LatencyCounter::OpenPageRequests);
+        }
         let page = config
             .session
             .request_orders(&PredictOrdersQuery {
@@ -160,9 +173,10 @@ pub(super) fn bulk_task(
     bundle_fills: bool,
     fill_start: Option<UnixNanos>,
 ) -> ExecutionReportTask<(Vec<OrderStatusReport>, Vec<FillReport>)> {
-    client.prune_order_lookups();
+    client.prune_order_lookups_on_request();
     let config = client.config.clone();
     let core = client.core.clone();
+    let observed_orders = client.account_orders.clone();
     let wallet = config.session.account_address();
     let clock = client.clock;
     let hasher = client.order_hasher.clone();
@@ -171,6 +185,7 @@ pub(super) fn bulk_task(
     let pending = client.pending_submissions.clone();
     let evidence = client.fill_evidence.clone();
     let rest_ids = client.rest_order_ids.clone();
+    let account_sync = client.account_sync.clone();
     let epoch = client.wallet_epoch.clone();
     let expected_epoch = epoch.as_ref().map(|e| e.load(Ordering::Acquire));
     let cancellation = client.tasks.cancellation_token();
@@ -193,8 +208,7 @@ pub(super) fn bulk_task(
                     .expect("submission registry poisoned")
                     .entries
                     .get(&o.client_order_id())
-                    .copied()
-                    .flatten()
+                    .and_then(|entry| entry.venue_id)
             })
         })
         .filter(|id| id.as_str().parse::<alloy::primitives::B256>().is_ok())
@@ -216,7 +230,7 @@ pub(super) fn bulk_task(
                 "Predict requested bulk instrument is absent"
             );
             let operation = async {
-                config.session.request_account().await?;
+                config.session.ensure_account_identity().await?;
                 let mut rows = collect_orders(&config, true).await?;
                 if open_only {
                     anyhow::ensure!(
@@ -346,25 +360,49 @@ pub(super) fn bulk_task(
                 "Predict bulk report generation stopped or wallet epoch changed"
             );
             let cache = core.cache();
+            let required = rows
+                .iter()
+                .filter_map(|row| row.order.hash)
+                .chain(matches.iter().flat_map(|row| {
+                    std::iter::once(&row.taker)
+                        .chain(row.makers.iter())
+                        .filter(|leg| leg.signer == wallet)
+                        .filter_map(|leg| leg.hash)
+                }))
+                .map(|hash| VenueOrderId::new(format!("{hash:#x}")))
+                .collect::<HashSet<_>>();
             let mut orders = HashMap::new();
-            for order in
-                cache.orders_refs(Some(&core.venue), None, None, Some(&core.account_id), None)
+            let observed = observed_orders.lock().expect("order snapshots poisoned");
+            for client_id in
+                cache.iter_client_order_ids(Some(&core.venue), None, None, Some(&core.account_id))
             {
+                let order = cache.try_order_ref(&client_id)?;
                 if let Some(id) = order.venue_order_id().or_else(|| {
                     pending
                         .lock()
                         .expect("submission registry poisoned")
                         .entries
                         .get(&order.client_order_id())
-                        .copied()
-                        .flatten()
+                        .and_then(|entry| entry.venue_id)
                 }) {
+                    if !required.contains(&id) {
+                        continue;
+                    }
                     anyhow::ensure!(
-                        orders.insert(id, (*order).clone()).is_none(),
+                        orders
+                            .insert(
+                                id,
+                                super::context::WorkerOrder::snapshot(
+                                    &order,
+                                    observed.get(&client_id)
+                                )
+                            )
+                            .is_none(),
                         "Predict duplicate native hash ownership"
                     );
                 }
             }
+            drop(observed);
             let context = MatchContext {
                 account_id: core.account_id,
                 wallet,
@@ -414,6 +452,9 @@ pub(super) fn bulk_task(
                 .filter(|(hash, _)| reported.contains(hash))
                 .collect::<Vec<_>>();
             super::routing::register_many(&rest_ids, &routes)?;
+            for report in &result.0 {
+                account_sync.confirm_report(report);
+            }
             if !bundle_fills
                 && publish_unapplied(&result.0, &result.1, &context, &evidence, &emitter)?
             {
@@ -431,19 +472,13 @@ fn finish(
     rows: Vec<PredictOrderData>,
     matches: Vec<PredictMatchData>,
     now: UnixNanos,
-    context: &MatchContext,
+    context: &MatchContext<impl super::context::OrderView>,
     hasher: &PredictOrderHasher,
     evidence: &SharedFillEvidence,
     instrument_id: Option<nautilus_model::identifiers::InstrumentId>,
     fill_start: Option<UnixNanos>,
     allow_external: bool,
 ) -> anyhow::Result<(Vec<OrderStatusReport>, Vec<BufferedFill>)> {
-    let staged = Arc::new(Mutex::new(
-        evidence
-            .lock()
-            .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?
-            .clone(),
-    ));
     let scope = GenerateFillReports::new(
         UUID4::new(),
         now,
@@ -483,11 +518,16 @@ fn finish(
         }
         scoped.push(row);
     }
-    let mut fills = if allow_external {
-        super::matches::parse_match_reports(scoped, now, context, &scope, &staged)?
-    } else {
-        super::matches::parse_cached_match_reports(scoped, now, context, &scope, &staged)?
-    };
+    let mut fills = super::matches::prepare_match_reports(
+        scoped,
+        now,
+        context,
+        &scope,
+        &*evidence
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?,
+        !allow_external,
+    )?;
     anyhow::ensure!(
         fills
             .iter()
@@ -495,6 +535,7 @@ fn finish(
                 || allow_external && reported_hashes.contains(&f.report.venue_order_id)),
         "Predict mass history contains unclaimed order"
     );
+    let grouped = fills_by_order(&fills);
     let mut reports = Vec::new();
     for row in rows {
         if let Some(requested) = instrument_id {
@@ -518,7 +559,11 @@ fn finish(
                 "Predict bulk report has unclaimed venue order"
             );
             reports.push(super::external::order_report(
-                &row, context, hasher, &fills, now,
+                &row,
+                context,
+                hasher,
+                grouped.get(&id).map_or(&[], Vec::as_slice),
+                now,
             )?);
             continue;
         };
@@ -530,7 +575,15 @@ fn finish(
         else {
             anyhow::bail!("Predict bulk report instrument is absent");
         };
-        let report = status_report(&row, order, instrument, context, hasher, &fills, now)?;
+        let report = status_report(
+            &row,
+            order,
+            instrument,
+            context,
+            hasher,
+            grouped.get(&id).map_or(&[], Vec::as_slice),
+            now,
+        )?;
         reports.push(report);
     }
     reports.sort_by_key(|r| r.venue_order_id);
@@ -538,6 +591,7 @@ fn finish(
         .iter()
         .map(|r| r.venue_order_id)
         .collect::<HashSet<_>>();
+    drop(grouped);
     fills.retain(|fill| reported.contains(&fill.report.venue_order_id));
     Ok((reports, fills))
 }
@@ -547,7 +601,7 @@ fn finish(
 pub(super) fn publish_unapplied(
     reports: &[OrderStatusReport],
     fills: &[BufferedFill],
-    context: &MatchContext,
+    context: &MatchContext<impl super::context::OrderView>,
     evidence: &SharedFillEvidence,
     emitter: &nautilus_live::ExecutionEventEmitter,
 ) -> anyhow::Result<bool> {
@@ -569,24 +623,24 @@ pub(super) fn publish_unapplied(
         .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?;
     // Wallet workers may have committed evidence since the staged report parse. Validate
     // every allocation against the current registry before publishing any native event.
-    let mut staged = facts.clone();
-    staged.commit(fills)?;
+    facts.validate_commit(fills)?;
+    let grouped = fills_by_order(fills);
     for report in reports
         .iter()
         .filter(|r| targets.contains(&r.venue_order_id))
     {
-        let own = fills
-            .iter()
-            .filter(|f| f.report.venue_order_id == report.venue_order_id)
-            .cloned()
-            .collect::<Vec<_>>();
+        let own = grouped
+            .get(&report.venue_order_id)
+            .expect("unapplied target has fills");
         emitter.try_send_execution_report(
             nautilus_common::messages::ExecutionReport::OrderWithFills(
                 Box::new(report.clone()),
-                own.iter().map(|f| f.report.clone()).collect(),
+                own.iter().map(|fill| fill.report.clone()).collect(),
             ),
         )?;
-        facts.queue(&own)?;
+        for fill in own {
+            facts.queue(std::slice::from_ref(*fill))?;
+        }
     }
     Ok(true)
 }

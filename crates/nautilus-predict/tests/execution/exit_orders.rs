@@ -18,9 +18,7 @@ async fn native_sell_limit_market_inventory_approval_reservations_and_minimum() 
         "approval",
         "reserved",
         "minimum",
-        "future",
         "quiet",
-        "depth",
         "reduce_only",
         "zero_cash",
     ] {
@@ -31,8 +29,7 @@ async fn native_sell_limit_market_inventory_approval_reservations_and_minimum() 
         } else {
             OBSERVED
         };
-        let (mut client, mut rx, cache) =
-            submissions::setup_client_with_policy(&private, observed, false);
+        let (mut client, mut rx, cache) = submissions::setup_client(&private, observed);
         let portfolio = portfolio(&cache);
         cache
             .borrow_mut()
@@ -50,8 +47,6 @@ async fn native_sell_limit_market_inventory_approval_reservations_and_minimum() 
                 * U256::from(1_000_000_000_000_000_000u64);
         *private.state.sell_approved.lock().unwrap() = case != "approval";
         *private.state.market_fee.lock().unwrap() = 200;
-        *private.state.execution_book.lock().unwrap() = json!({"marketId":42,"updateTimestampMs":if case == "future" {99} else {2},
-            "bids":[[if case == "minimum" {"0.009"} else {"0.020"},if case == "depth" {"99"} else {"1000"}]],"asks":[["0.980","1000"]]});
         if case == "reserved" {
             let mut reserved = rest_order_data("OPEN", outcome, OrderSide::Sell);
             reserved["order"]["makerAmount"] = json!("201000000000000000000");
@@ -76,9 +71,29 @@ async fn native_sell_limit_market_inventory_approval_reservations_and_minimum() 
             .borrow_mut()
             .add_order(order.clone(), None, None, false)
             .unwrap();
-        client.submit_order(submissions::submit(&order)).unwrap();
+        let command = if kind == OrderType::Market {
+            market_preparation::priced(
+                &order,
+                json!(if case == "minimum" { "0.009" } else { "0.020" }),
+            )
+        } else {
+            submissions::submit(&order)
+        };
+        client.submit_order(command).unwrap();
         let mut engine = submissions::engine(&cache);
-        let success = matches!(case, "limit" | "market" | "no" | "zero_cash" | "quiet");
+        // Direct client commands bypass Native risk. Funding, inventory and
+        // approval failures are tested as venue responses, not RPC preflight.
+        let success = matches!(
+            case,
+            "limit"
+                | "market"
+                | "no"
+                | "zero_cash"
+                | "quiet"
+                | "inventory"
+                | "approval"
+                | "reserved"
+        );
         timeout(Duration::from_secs(3), async {
             loop {
                 if let Ok(event) = rx.try_recv() {
@@ -132,6 +147,7 @@ async fn native_sell_limit_market_inventory_approval_reservations_and_minimum() 
                 }
             );
         }
+        assert_eq!(*private.state.book_requests.lock().unwrap(), 0);
         client.disconnect().await.unwrap();
         drop(portfolio);
     }
@@ -388,9 +404,7 @@ pub(super) async fn run_exit_case(
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::from(2),
-        max_total_usdt: Decimal::from(2),
-        require_post_only: false,
+
         market_slippage_bps: 100,
     });
     let public = PublicState(Arc::new(Mutex::new(vec![])));

@@ -126,9 +126,7 @@ async fn run_round_trip(wait_for_exit: bool, exit_only: bool) -> anyhow::Result<
     exec.report_timeout_secs = settings.network.timeout_secs;
     exec.submission = Some(PredictSubmissionConfig {
         signer,
-        max_order_usdt: Decimal::new(150, 2),
-        max_total_usdt: Decimal::new(150, 2),
-        require_post_only: false,
+
         market_slippage_bps: 100,
     });
     let mut live = node::build_node_with_engine_and_stop_delay(

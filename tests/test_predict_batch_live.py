@@ -5,9 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from capture_predict_private_fixtures import CaptureError
 from predict_private_http_recorder import read_response_evidence
-from run_predict_resting_live import validate_batch_feedback
+from predict_resting_evidence import (
+    EvidenceError,
+    validate_batch_feedback,
+    validate_http_batch_removal,
+)
 
 
 class BatchEvidenceTests(unittest.TestCase):
@@ -104,7 +107,7 @@ class BatchEvidenceTests(unittest.TestCase):
                 next(r for r in rows if r["type"] == "StrategyOrderCallback").copy()
             )
             source.write_text(json.dumps(rows))
-            with self.assertRaises(CaptureError):
+            with self.assertRaises(EvidenceError):
                 validate_batch_feedback(output, {}, capture, hashes)
 
     def test_actual_native_wallet_rest_and_funds_agree_and_intent_loss_is_explicit(
@@ -178,7 +181,6 @@ class BatchEvidenceTests(unittest.TestCase):
 
     def test_http_batch_proof_requires_one_request_and_exact_two_ids(self):
         import copy
-        from run_predict_resting_live import validate_http_batch_removal
 
         http = {
             "events": [
@@ -218,5 +220,5 @@ class BatchEvidenceTests(unittest.TestCase):
                 }
             else:
                 bad["events"][-1]["requestIds"] = ["1", "1"]
-            with self.assertRaises(CaptureError):
+            with self.assertRaises(EvidenceError):
                 validate_http_batch_removal(bad)

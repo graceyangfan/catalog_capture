@@ -4,6 +4,7 @@ import json
 import os
 import re
 import threading
+from time import perf_counter_ns
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
@@ -106,16 +107,34 @@ def read_response_evidence(payload, secrets):
 class PrivateHttpRecorder:
     """Forwards unchanged requests once to a fixed HTTPS origin; never retries POST."""
 
-    def __init__(self, output, submission_policy=None, record_reads=False):
+    def __init__(
+        self, output, submission_policy=None, record_reads=False, measure_latency=False
+    ):
         if output.exists():
             raise FileExistsError("refusing to replace retained HTTP evidence")
         self.output = output
         self.events = []
         self.lock = threading.Lock()
         self.submissions = 0
+        self.measure_latency = measure_latency
         recorder = self
 
         class Handler(BaseHTTPRequestHandler):
+            # Preserve pooled upstream connections in measurement mode. No POST retries.
+            protocol_version = "HTTP/1.1" if measure_latency else "HTTP/1.0"
+            disable_nagle_algorithm = measure_latency
+
+            def setup(self):
+                super().setup()
+                self.upstream = requests.Session() if measure_latency else None
+
+            def finish(self):
+                try:
+                    super().finish()
+                finally:
+                    if self.upstream is not None:
+                        self.upstream.close()
+
             def log_message(self, *args):
                 pass
 
@@ -126,6 +145,7 @@ class PrivateHttpRecorder:
                 self.forward()
 
             def forward(self):
+                started = perf_counter_ns() if measure_latency else None
                 path = urlsplit(self.path).path
                 allowed = (self.command == "GET" and path.startswith("/v1/")) or (
                     self.command == "POST"
@@ -214,7 +234,13 @@ class PrivateHttpRecorder:
                     str(parsed.get("data", {}).get("order", {}).get("signature", ""))
                 )
                 try:
-                    response = requests.request(
+                    upstream_started = perf_counter_ns() if measure_latency else None
+                    send = (
+                        self.upstream.request
+                        if self.upstream is not None
+                        else requests.request
+                    )
+                    response = send(
                         self.command,
                         "https://api.predict.fun" + self.path,
                         data=body or None,
@@ -222,12 +248,17 @@ class PrivateHttpRecorder:
                         timeout=15,
                         allow_redirects=False,
                     )
+                    if measure_latency:
+                        event["upstreamElapsedNs"] = (
+                            perf_counter_ns() - upstream_started
+                        )
                 except requests.RequestException:
                     with recorder.lock:
                         event["transportError"] = True
                         if "requestTerms" not in event:
                             recorder.events.append(event)
-                        recorder.persist()
+                        if not measure_latency:
+                            recorder.persist()
                     self.send_error(502)
                     return
                 event["status"] = response.status_code
@@ -254,7 +285,10 @@ class PrivateHttpRecorder:
                 with recorder.lock:
                     if "requestTerms" not in event:
                         recorder.events.append(event)
-                    recorder.persist()
+                    if measure_latency:
+                        event["relayBeforeResponseNs"] = perf_counter_ns() - started
+                    else:
+                        recorder.persist()
                 self.send_response(response.status_code)
                 self.send_header(
                     "Content-Type",
@@ -306,3 +340,6 @@ class PrivateHttpRecorder:
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
+        if self.measure_latency:
+            with self.lock:
+                self.persist()

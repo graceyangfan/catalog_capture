@@ -24,29 +24,32 @@ async fn replay_cancel_reports(
     fixture: &HostFixture,
     rows: &Rc<RefCell<Vec<Value>>>,
     wire: &[Value],
+    engine: &Rc<RefCell<ExecutionEngine>>,
 ) {
-    let count = |event: &Value| {
-        rows.borrow()
-            .iter()
-            .filter(|row| {
-                row["type"] == "RawOrderStatusReport"
-                    && row["report"]["venue_order_id"] == event["orderHash"]
-                    && row["report"]["order_status"] == "CANCELED"
-            })
-            .count()
-    };
-    let before = wire.iter().map(&count).collect::<Vec<_>>();
     for event in wire {
         let mut event = event.clone();
         event["timestamp"] = json!(get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000);
         fixture.backing.wallet(event.clone());
         fixture.backing.wallet(event);
     }
-    barrier("both wallet duplicates observed for each order", || {
-        wire.iter()
-            .zip(&before)
-            .all(|(event, before)| count(event) >= before + 2)
-    })
+    let Some(reference) = wire.first() else {
+        return;
+    };
+    let mut reference = reference.clone();
+    reference["timestamp"] = json!(get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000);
+    let (hash, control) =
+        super::super::wallet_lifecycle::control(&mut engine.borrow_mut(), &reference);
+    fixture.backing.wallet(control);
+    barrier(
+        "wallet replay consumed before distinct control event",
+        || {
+            rows.borrow().iter().any(|row| {
+                row["type"] == "NativeOrderEvent"
+                    && row["kind"] == "Canceled"
+                    && row["venueOrderId"] == hash.as_str()
+            })
+        },
+    )
     .await;
 }
 
@@ -261,7 +264,7 @@ async fn batch_probe_case(mode: &str) -> Value {
             }
         }
         if batch_timeout {
-            recover_batch_timeout_probe(&f, &rows, &wire).await;
+            recover_batch_timeout_probe(&f, &rows, &wire, &engine).await;
             barrier("Native account unlocked after batch timeout", || {
                 complete.get()
             })
@@ -270,7 +273,7 @@ async fn batch_probe_case(mode: &str) -> Value {
             return;
         }
         if recovery {
-            recover_cancel_probe(&f, mode, &rows, &resume, &wire, || {
+            recover_cancel_probe(&f, mode, &rows, &resume, &wire, &engine, || {
                 engine
                     .borrow_mut()
                     .get_client_adapter_mut(&"PREDICT".into())
@@ -416,7 +419,7 @@ async fn batch_probe_case(mode: &str) -> Value {
                 .filter(|event| removed.contains(&event["orderId"]))
                 .cloned()
                 .collect::<Vec<_>>();
-            replay_cancel_reports(&f, &rows, &removed_events).await;
+            replay_cancel_reports(&f, &rows, &removed_events, &engine).await;
             barrier("Native account recovery permits a new command", || {
                 engine
                     .borrow_mut()
@@ -455,7 +458,7 @@ async fn batch_probe_case(mode: &str) -> Value {
             .await;
         }
         f.backing.state.open_orders.lock().unwrap().clear();
-        replay_cancel_reports(&f, &rows, &wire).await;
+        replay_cancel_reports(&f, &rows, &wire, &engine).await;
         barrier("Native account unlocked after batch", || complete.get()).await;
         handle.stop();
     };
@@ -507,6 +510,7 @@ async fn recover_batch_timeout_probe(
     fixture: &HostFixture,
     rows: &Rc<RefCell<Vec<Value>>>,
     wire: &[Value],
+    engine: &Rc<RefCell<ExecutionEngine>>,
 ) {
     let state = &fixture.backing.state;
     barrier("two-ID removal reached venue", || {
@@ -619,7 +623,7 @@ async fn recover_batch_timeout_probe(
             assert_eq!(state.open_orders.lock().unwrap().len(), 1);
             rows.borrow_mut().push(json!({"type":"BatchTimeoutOneOrderResolved","venueOrderId":hash,"otherPendingOrder":other,"lockedUSDT":"1"}));
         }
-        replay_cancel_reports(fixture, rows, std::slice::from_ref(event)).await;
+        replay_cancel_reports(fixture, rows, std::slice::from_ref(event), engine).await;
     }
     assert!(
         wire.iter()
@@ -646,6 +650,7 @@ async fn recover_cancel_probe(
     rows: &Rc<RefCell<Vec<Value>>>,
     resume: &std::cell::Cell<bool>,
     wire: &[Value],
+    engine: &Rc<RefCell<ExecutionEngine>>,
     ready: impl Fn() -> bool,
 ) {
     let state = &fixture.backing.state;
@@ -1004,7 +1009,7 @@ async fn recover_cancel_probe(
             .iter()
             .any(|row| row["type"] == "StrategyOrderCallback" && row["kind"] == "CancelRejected")
     );
-    replay_cancel_reports(fixture, rows, wire).await;
+    replay_cancel_reports(fixture, rows, wire, engine).await;
 }
 
 const CANCEL_RECOVERY_MODES: &[&str] = &[

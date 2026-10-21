@@ -48,6 +48,7 @@ pub(super) fn fill_report_task(
     core: ExecutionClientCore,
     clock: &'static AtomicTime,
     evidence: SharedFillEvidence,
+    observed_orders: super::types::OrderSnapshots<nautilus_model::identifiers::ClientOrderId>,
     cmd: &GenerateFillReports,
 ) -> ExecutionReportTask<Vec<FillReport>> {
     let cmd = cmd.clone();
@@ -58,13 +59,16 @@ pub(super) fn fill_report_task(
     // order queries and unbounded history queries retain their original scope.
     let inventory_recovery =
         reported && cmd.start.is_some() && cmd.end.is_some() && cmd.venue_order_id.is_none();
-    let known = core
-        .cache()
-        .orders_refs(Some(&core.venue), None, None, Some(&core.account_id), None)
-        .into_iter()
-        .filter_map(|o| o.venue_order_id())
-        .filter_map(|id| id.as_str().parse().ok())
-        .collect::<HashSet<B256>>();
+    let known = if inventory_recovery {
+        core.cache()
+            .orders_refs(Some(&core.venue), None, None, Some(&core.account_id), None)
+            .into_iter()
+            .filter_map(|order| order.venue_order_id())
+            .filter_map(|id| id.as_str().parse().ok())
+            .collect::<HashSet<B256>>()
+    } else {
+        HashSet::new()
+    };
     ExecutionReportTask::new(
         async move {
             anyhow::ensure!(
@@ -90,6 +94,7 @@ pub(super) fn fill_report_task(
             let rows = tokio::time::timeout(
                 std::time::Duration::from_secs(config.report_timeout_secs),
                 async {
+                    config.session.ensure_account_identity().await?;
                     let mut rows = collect_matches(&config, market_id).await?;
                     if inventory_recovery {
                         let holdings =
@@ -115,15 +120,57 @@ pub(super) fn fill_report_task(
         },
         move |(rows, ts_init)| {
             let cache = core.cache();
+            let mut orders = HashMap::new();
+            let mut instruments = HashMap::new();
+            let observed = observed_orders.lock().expect("order snapshots poisoned");
+            for row in &rows {
+                for leg in std::iter::once(&row.taker)
+                    .chain(&row.makers)
+                    .filter(|leg| leg.signer == wallet)
+                {
+                    let id = crate::common::instrument_id_from_outcome(
+                        row.market.id,
+                        u8::try_from(leg.outcome.index_set)?,
+                    )?;
+                    if scope.instrument_id.is_some_and(|requested| requested != id) {
+                        continue;
+                    }
+                    let hash = leg
+                        .hash
+                        .ok_or_else(|| anyhow::anyhow!("Predict match leg lacks order hash"))?;
+                    let venue_id = VenueOrderId::new(format!("{hash:#x}"));
+                    if scope
+                        .venue_order_id
+                        .is_some_and(|requested| requested != venue_id)
+                    {
+                        continue;
+                    }
+                    if let std::collections::hash_map::Entry::Vacant(entry) = instruments.entry(id)
+                        && let Some(instrument) = cache.instrument(&id)
+                    {
+                        entry.insert(instrument.clone());
+                    }
+                    if let std::collections::hash_map::Entry::Vacant(entry) = orders.entry(venue_id)
+                        && let Some(client_id) = cache.client_order_id(&venue_id)
+                        && let Some(order) = cache.order(client_id)
+                        && order.account_id() == Some(core.account_id)
+                    {
+                        entry.insert(super::context::WorkerOrder::snapshot(
+                            &order,
+                            observed.get(client_id),
+                        ));
+                    }
+                }
+            }
+            drop(observed);
             let context = MatchContext {
                 account_id: core.account_id,
                 wallet,
                 shares_allowed: reported && cache.account(&core.account_id).is_some_and(|account| {
                     matches!(&*account, AccountAny::Cash(cash) if !cash.base.calculate_account_state)
                 }),
-                instruments: cache.instruments(&core.venue, None).into_iter().map(|i| (i.id(), i.clone())).collect(),
-                orders: cache.orders_refs(Some(&core.venue), None, None, Some(&core.account_id), None)
-                    .into_iter().filter_map(|o| o.venue_order_id().map(|id| (id, (*o).clone()))).collect(),
+                instruments,
+                orders,
             };
             Ok(
                 parse_match_reports(rows, ts_init, &context, &scope, &evidence)?
@@ -153,11 +200,11 @@ pub(super) fn match_timestamp(value: &str) -> anyhow::Result<UnixNanos> {
     Ok(UnixNanos::from(nanos as u64))
 }
 
+// The enclosing report/recovery operation validates session identity once before collection.
 pub(super) async fn collect_matches(
     config: &PredictExecutionClientConfig,
     market_id: Option<u64>,
 ) -> anyhow::Result<Vec<PredictMatchData>> {
-    config.session.request_account().await?;
     let mut rows = Vec::new();
     let mut after = None;
     let mut seen = HashSet::new();
@@ -187,44 +234,59 @@ pub(super) async fn collect_matches(
 }
 
 /// Immutable native context; no worker may mutate Cache or adopt an arbitrary venue order.
-pub(super) struct MatchContext {
+pub(super) struct MatchContext<O = OrderAny> {
     pub account_id: AccountId,
     pub wallet: Address,
     pub shares_allowed: bool,
     pub instruments: HashMap<InstrumentId, InstrumentAny>,
-    pub orders: HashMap<VenueOrderId, OrderAny>,
+    pub orders: HashMap<VenueOrderId, O>,
 }
 
-pub(super) fn parse_match_reports(
+pub(super) fn parse_match_reports<O: super::context::OrderView>(
     rows: Vec<PredictMatchData>,
     ts_init: UnixNanos,
-    context: &MatchContext,
+    context: &MatchContext<O>,
     scope: &GenerateFillReports,
     evidence: &SharedFillEvidence,
 ) -> anyhow::Result<Vec<BufferedFill>> {
-    parse_match_reports_with_filter(rows, ts_init, context, scope, evidence, |_| true)
+    let mut facts = evidence
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?;
+    let mut reports = prepare_match_reports(rows, ts_init, context, scope, &facts, false)?;
+    // Retain complete raw prefixes even when the caller requested a time window.
+    facts.commit(&reports)?;
+    filter_report_window(&mut reports, scope);
+    Ok(reports)
 }
 
-pub(super) fn parse_cached_match_reports(
+pub(super) fn parse_cached_match_reports<O: super::context::OrderView>(
     rows: Vec<PredictMatchData>,
     ts_init: UnixNanos,
-    context: &MatchContext,
+    context: &MatchContext<O>,
     scope: &GenerateFillReports,
     evidence: &SharedFillEvidence,
 ) -> anyhow::Result<Vec<BufferedFill>> {
-    parse_match_reports_with_filter(rows, ts_init, context, scope, evidence, |id| {
-        context.orders.contains_key(&id)
-    })
+    let mut facts = evidence
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?;
+    let mut reports = prepare_match_reports(rows, ts_init, context, scope, &facts, true)?;
+    facts.commit(&reports)?;
+    filter_report_window(&mut reports, scope);
+    Ok(reports)
 }
 
-fn parse_match_reports_with_filter(
+/// Validate and normalize without committing. Target/bulk report finalizers first
+/// validate status, then publish/commit; no clone of the account's evidence is needed.
+/// Time filtering belongs after commit so raw cumulative prefixes remain complete.
+pub(super) fn prepare_match_reports<O: super::context::OrderView>(
     rows: Vec<PredictMatchData>,
     ts_init: UnixNanos,
-    context: &MatchContext,
+    context: &MatchContext<O>,
     scope: &GenerateFillReports,
-    evidence: &SharedFillEvidence,
-    accept: impl Fn(VenueOrderId) -> bool,
+    evidence: &super::precision::FillEvidence,
+    cached_only: bool,
 ) -> anyhow::Result<Vec<BufferedFill>> {
+    let accept = |id| !cached_only || context.orders.contains_key(&id);
     let account_id = context.account_id;
     let wallet = context.wallet;
     let mut reports: HashMap<TradeId, BufferedFill> = HashMap::new();
@@ -326,6 +388,9 @@ fn parse_match_reports_with_filter(
             let order = context.orders.get(&venue_id);
             let client_id = order.map(|o| o.client_order_id());
             if let Some(order) = order {
+                // The hash and immutable terms identify this order. Venue timestamps
+                // can be millisecond-rounded or precede the local submission clock;
+                // they are not an ownership check (as in Binance/Polymarket dispatch).
                 anyhow::ensure!(
                     order.account_id() == Some(account_id)
                         && (order.venue_order_id() == Some(venue_id)
@@ -342,9 +407,6 @@ fn parse_match_reports_with_filter(
                         && !order.is_quote_quantity()
                         && last_qty <= order.quantity()
                         && (!order.is_post_only() || liquidity == LiquiditySide::Maker)
-                        && order
-                            .ts_submitted()
-                            .is_none_or(|submitted| ts_event >= submitted)
                         && order.price().is_none_or(|limit| match side {
                             OrderSide::Buy => last_px <= limit,
                             _ => last_px >= limit,
@@ -374,7 +436,7 @@ fn parse_match_reports_with_filter(
             {
                 report.quantity_commission = Some(crate::common::parse::exact_wei(leg.fee.amount)?);
             }
-            let report = BufferedFill {
+            let mut report = BufferedFill {
                 report,
                 raw: RawFillFacts {
                     settlement_id: settlement.to_owned(),
@@ -386,10 +448,9 @@ fn parse_match_reports_with_filter(
                 },
             };
             if let Some(previous) = reports.get(&report.report.trade_id) {
-                let mut comparison = report.clone();
-                comparison.report.report_id = previous.report.report_id;
+                report.report.report_id = previous.report.report_id;
                 anyhow::ensure!(
-                    previous == &comparison,
+                    previous == &report,
                     "Predict duplicate match contains contradictory fill facts"
                 );
             } else {
@@ -399,36 +460,23 @@ fn parse_match_reports_with_filter(
     }
     let mut reports = reports.into_values().collect::<Vec<_>>();
     reports.sort_by_key(|report| (report.report.ts_event, report.report.trade_id));
-    let orders = reports
-        .iter()
-        .filter_map(|report| {
-            context
-                .orders
-                .get(&report.report.venue_order_id)
-                .cloned()
-                .map(|order| (report.report.venue_order_id, order))
-        })
-        .collect();
-    let precisions: HashMap<_, _> = reports
-        .iter()
-        .map(|report| {
-            let instrument = context
-                .instruments
-                .get(&report.report.instrument_id)
-                .expect("validated instrument");
-            (report.report.venue_order_id, instrument.size_precision())
-        })
-        .collect();
-    let mut facts = evidence
-        .lock()
-        .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?;
-    facts.prepare(&mut reports, &orders, &[], |id| precisions[&id])?;
-    facts.commit(&reports)?;
+    evidence.prepare_with_orders(
+        &mut reports,
+        |id| context.orders.get(&id),
+        identities
+            .keys()
+            .filter_map(|id| context.orders.get(id).map(|order| (*id, order))),
+        &[],
+        |id| context.instruments[&identities[&id].0].size_precision(),
+    )?;
+    Ok(reports)
+}
+
+fn filter_report_window(reports: &mut Vec<BufferedFill>, scope: &GenerateFillReports) {
     reports.retain(|report| {
         scope
             .start
             .is_none_or(|start| report.report.ts_event >= start)
             && scope.end.is_none_or(|end| report.report.ts_event <= end)
     });
-    Ok(reports)
 }

@@ -212,6 +212,33 @@ pub(super) async fn run_replay_variant(
     multiple_prices: bool,
     interleaved: bool,
 ) -> Value {
+    run_replay_with_latency(
+        phase,
+        outcome,
+        reconcile,
+        recovered_quantity,
+        wallet_precision,
+        multiple_prices,
+        interleaved,
+        None,
+    )
+    .await
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "shared replay variant plus optional latency probe"
+)]
+async fn run_replay_with_latency(
+    phase: Phase,
+    outcome: u8,
+    reconcile: bool,
+    recovered_quantity: Option<u32>,
+    wallet_precision: bool,
+    multiple_prices: bool,
+    interleaved: bool,
+    latency: Option<nautilus_predict::latency::PredictLatency>,
+) -> Value {
     let quantity_mode = cfg!(feature = "native-quantity-commission");
     let history = recovered_quantity.is_some();
     let gross = recovered_quantity.unwrap_or(17);
@@ -251,6 +278,7 @@ pub(super) async fn run_replay_variant(
         (100, Decimal::ONE, Decimal::from(2))
     };
     let mut exec = config(&private);
+    exec.latency = latency.clone();
     exec.account_state_mode = PredictAccountStateMode::Reported;
     exec.chain = Some(PredictChainClientConfig::new(
         PredictEnvironment::BnbMainnet,
@@ -266,9 +294,7 @@ pub(super) async fn run_replay_variant(
             )
             .unwrap(),
         ),
-        max_order_usdt: order_cap,
-        max_total_usdt: total_cap,
-        require_post_only: phase == Phase::Resting,
+
         market_slippage_bps: 100,
     });
     let mut node = LiveNode::builder(trader_id(), Environment::Live)
@@ -332,7 +358,8 @@ pub(super) async fn run_replay_variant(
         execution_enabled: true,
         fee_rate_bps: if phase == Phase::Resting { 200 } else { 0 },
     };
-    let strategy = CalibrationStrategy::new(inputs, observations.clone(), handle.clone());
+    let strategy = CalibrationStrategy::new(inputs, observations.clone(), handle.clone())
+        .with_latency(latency);
     let strategy = if phase == Phase::Fill {
         strategy.with_expected_cash_total(Decimal::from(1000) - cash_debit)
     } else {
@@ -905,4 +932,167 @@ async fn record_different_price_partial_share_fees_json() {
             "tests/fixtures/private_api/different_price_partial_share_fees_native_synthetic_20261017_v2.json"
         )).unwrap();
     serde_json::to_writer_pretty(file, &json!({"source":"offline synthetic scenarios; no exchange calls or real orders","sessions":sessions})).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn latency_probe_measures_native_strategy_callbacks_without_a_running_collector() {
+    use nautilus_predict::latency::{LatencyMetric, PredictLatency};
+    for (phase, capacity) in [
+        (Phase::Fill, 4096),
+        (Phase::Fill, 1),
+        (Phase::Resting, 4096),
+    ] {
+        let (probe, mut collector) =
+            PredictLatency::channel(trader_id(), account_id(), capacity).unwrap();
+        // Deliberately stall collection for the entire run. Trading must still complete.
+        run_replay_with_latency(phase, 1, false, None, false, false, false, Some(probe)).await;
+        let snapshot = collector.snapshot();
+        if capacity == 1 {
+            assert!(snapshot.dropped_samples > 0);
+        } else {
+            assert_eq!(snapshot.dropped_samples, 0);
+            assert_eq!(snapshot.invalid_intervals, 0);
+            for metric in [
+                LatencyMetric::CommandToPost,
+                LatencyMetric::DecisionToPost,
+                LatencyMetric::Preparation,
+                LatencyMetric::MarketGet,
+                LatencyMetric::OpenCollection,
+                LatencyMetric::RpcHttp,
+                LatencyMetric::CreateRequest,
+                LatencyMetric::CancelRequest,
+                LatencyMetric::CancelToStrategyCallback,
+                LatencyMetric::WsToNativeSend,
+                LatencyMetric::WsToStrategyCallback,
+                LatencyMetric::NativeSendToStrategyCallback,
+            ] {
+                assert!(
+                    snapshot
+                        .distributions
+                        .get(&metric)
+                        .is_some_and(|v| v.completed_observations > 0),
+                    "missing interval {metric:?}: {snapshot:?}"
+                );
+            }
+            for removed in [
+                LatencyMetric::AdmissionWait,
+                LatencyMetric::AdmissionOpenCollection,
+                LatencyMetric::ResourceCollection,
+            ] {
+                assert!(!snapshot.distributions.contains_key(&removed));
+            }
+            let creates = if phase == Phase::Resting { 2 } else { 1 };
+            assert_eq!(snapshot.counters["create_calls"], creates);
+            assert_eq!(snapshot.counters["metadata_miss"], 0);
+            assert_eq!(snapshot.counters["metadata_requests"], 1);
+            assert_eq!(snapshot.counters["metadata_hit"], creates);
+            // Fill replay: native Accepted + native Filled; resting replay: two native Accepted events.
+            // Definitive REST removals have no wire counterpart; never fabricate WS timing.
+            assert_eq!(
+                snapshot.distributions[&LatencyMetric::WsToStrategyCallback].completed_observations,
+                2,
+                "callback correlations: {snapshot:?}"
+            );
+            assert_eq!(snapshot.pending_correlations as u64, creates);
+            assert!(snapshot.counters["rpc_requests"] >= 5);
+        }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "explicit loopback latency capture; PREDICT_CALLBACK_BENCH_PATH writes create_new JSON"]
+async fn benchmark_actual_ws_fill_strategy_callback() {
+    use nautilus_predict::latency::{LatencyMetric, PredictLatency};
+    let (probe, mut collector) = PredictLatency::channel(trader_id(), account_id(), 4096).unwrap();
+    for _ in 0..100 {
+        run_replay_with_latency(
+            Phase::Fill,
+            1,
+            false,
+            None,
+            false,
+            false,
+            false,
+            Some(probe.clone()),
+        )
+        .await;
+        // Drain between sessions, never in the WS path.
+        collector.snapshot();
+    }
+    let snapshot = collector.snapshot();
+    for metric in [
+        LatencyMetric::WsFillToNativeSend,
+        LatencyMetric::NativeFillSendToStrategyCallback,
+        LatencyMetric::WsFillToStrategyCallback,
+    ] {
+        assert_eq!(snapshot.distributions[&metric].completed_observations, 100);
+    }
+    assert_eq!(snapshot.dropped_samples, 0);
+    assert_eq!(snapshot.invalid_intervals, 0);
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(std::env::var("PREDICT_CALLBACK_BENCH_PATH").unwrap())
+        .unwrap();
+    serde_json::to_writer_pretty(file, &snapshot).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "explicit independent-session audit; PREDICT_CALLBACK_AUDIT_PATH writes create_new JSON"]
+async fn benchmark_independent_ws_fill_callback_samples() {
+    use nautilus_predict::latency::{LatencyMetric, PredictLatency};
+    let count = std::env::var("PREDICT_CALLBACK_AUDIT_SAMPLES")
+        .map(|value| value.parse::<usize>().unwrap())
+        .unwrap_or(100);
+    assert!((1..=1000).contains(&count));
+    let mut rows = Vec::new();
+    for index in 0..count + 5 {
+        // Each node restarts its order-ID generator. A collector shared across
+        // nodes aliases command IDs; isolate sessions and retain each fill span.
+        let (probe, mut collector) =
+            PredictLatency::channel(trader_id(), account_id(), 4096).unwrap();
+        run_replay_with_latency(
+            Phase::Fill,
+            1,
+            false,
+            None,
+            false,
+            false,
+            false,
+            Some(probe),
+        )
+        .await;
+        let snapshot = collector.snapshot();
+        for metric in [
+            LatencyMetric::DecisionToPost,
+            LatencyMetric::CancelToStrategyCallback,
+            LatencyMetric::WsFillToNativeSend,
+            LatencyMetric::NativeFillSendToStrategyCallback,
+            LatencyMetric::WsFillToStrategyCallback,
+        ] {
+            assert_eq!(snapshot.distributions[&metric].completed_observations, 1);
+        }
+        assert_eq!(snapshot.dropped_samples, 0);
+        assert_eq!(snapshot.invalid_intervals, 0);
+        let span = |metric| snapshot.distributions[&metric].min_ns;
+        assert_eq!(
+            span(LatencyMetric::WsFillToNativeSend)
+                + span(LatencyMetric::NativeFillSendToStrategyCallback),
+            span(LatencyMetric::WsFillToStrategyCallback),
+            "paired per-fill monotonic intervals must add exactly"
+        );
+        if index >= 5 {
+            rows.push(snapshot);
+        }
+    }
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(std::env::var("PREDICT_CALLBACK_AUDIT_PATH").unwrap())
+        .unwrap();
+    serde_json::to_writer_pretty(file, &json!({
+        "source":"independent synthetic LiveNode sessions; first partial BUY LIMIT fill; no funded venue",
+        "warmup_sessions":5,"samples":rows,
+    }))
+    .unwrap();
 }

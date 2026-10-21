@@ -209,8 +209,9 @@ impl PredictDataClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nautilus_core::Params;
+
+    use super::*;
 
     #[test]
     fn control_feed_aliases_enter_the_session_as_one_canonical_feed() {

@@ -17,11 +17,13 @@
 mod account;
 mod authentication;
 mod cancellations;
+mod context;
 mod external;
 pub mod factory;
 mod inventory_scope;
 mod lifecycle;
 mod matches;
+mod metadata;
 mod order_builder;
 mod orders;
 pub mod parse;
@@ -34,10 +36,9 @@ mod reports;
 mod resources;
 mod routing;
 mod runtime;
+pub mod settlement;
 mod submitter;
 mod types;
-
-pub use reports::reconciliation_market_ids;
 
 use std::sync::{
     Arc,
@@ -66,14 +67,14 @@ use nautilus_live::{
 use nautilus_model::{
     accounts::AccountAny,
     enums::{AccountType, OmsType},
-    events::OrderEventAny,
+    events::{AccountState, OrderEventAny},
     identifiers::{AccountId, ClientId, ClientOrderId, InstrumentId, Venue, VenueOrderId},
     instruments::{Instrument, InstrumentAny},
-    orders::OrderAny,
     reports::{ExecutionMassStatus, FillReport, OrderStatusReport, PositionStatusReport},
     types::{AccountBalance, MarginBalance},
 };
 use nautilus_network::websocket::AuthTracker;
+pub use reports::reconciliation_market_ids;
 use reports::{order_report_task, position_report_task};
 use rust_decimal::Decimal;
 
@@ -98,12 +99,14 @@ pub struct PredictExecutionClient {
     chain: Option<crate::blockchain::PredictChainClient>,
     clock: &'static AtomicTime,
     emitter: ExecutionEventEmitter,
+    settlement_sender:
+        Option<nautilus_common::live::sender::EventSender<nautilus_common::messages::DataEvent>>,
     tasks: TaskGroup,
     stream_task: Option<TaskRef>,
     account_task: Option<TaskRef>,
     account_query_active: Arc<AtomicBool>,
     order_queries: Arc<std::sync::Mutex<std::collections::HashSet<ClientOrderId>>>,
-    account_orders: Arc<AtomicMap<ClientOrderId, Arc<OrderAny>>>,
+    account_orders: types::OrderSnapshots<ClientOrderId>,
     account_sync: Arc<account::AccountSync>,
     healthy: Arc<AtomicBool>,
     reconciliation_required: Arc<AtomicBool>,
@@ -111,13 +114,15 @@ pub struct PredictExecutionClient {
     wallet_epoch: Option<Arc<AtomicU64>>,
     verified_epoch: Arc<AtomicU64>,
     recovery_clock: Option<std::rc::Rc<std::cell::RefCell<dyn nautilus_common::clock::Clock>>>,
-    instruments: Arc<AtomicMap<InstrumentId, InstrumentAny>>,
-    orders: Arc<AtomicMap<VenueOrderId, Arc<OrderAny>>>,
+    instruments: Arc<AtomicMap<InstrumentId, types::ExecutionInstrument>>,
+    orders: types::OrderSnapshots<VenueOrderId>,
     order_observer: Option<TypedHandler<OrderEventAny>>,
+    account_observer: Option<TypedHandler<AccountState>>,
+    cleanup_cursor: std::rc::Rc<std::cell::Cell<(usize, usize)>>,
+    metadata_notify: Arc<tokio::sync::Notify>,
     pending_cancels: cancellations::PendingCancels,
     deferred_cancels: cancellations::DeferredCancels,
     pending_submissions: orders::PendingSubmissions,
-    submission_admission: Arc<tokio::sync::Mutex<()>>,
     fill_evidence: precision::SharedFillEvidence,
     rest_order_ids: routing::RestOrderIds,
 }
@@ -144,6 +149,9 @@ impl PredictExecutionClient {
         clock: &'static AtomicTime,
     ) -> anyhow::Result<Self> {
         config.validate()?;
+        nautilus_model::data::ensure_custom_data_json_registered::<
+            settlement::PredictSettlementUpdate,
+        >()?;
         let order_hasher = Arc::new(crate::signing::PredictOrderHasher::new(
             config.session.environment(),
         ));
@@ -152,11 +160,14 @@ impl PredictExecutionClient {
                 &policy.signer,
             )))
         });
-        let chain = config
+        let mut chain = config
             .chain
             .clone()
             .map(crate::blockchain::PredictChainClient::new)
             .transpose()?;
+        if let Some(chain) = chain.as_mut() {
+            chain.latency = config.latency.clone();
+        }
         anyhow::ensure!(
             core.venue == *PREDICT_VENUE
                 && core.account_id == config.account_id
@@ -164,6 +175,13 @@ impl PredictExecutionClient {
                 && core.account_type == AccountType::Cash
                 && core.base_currency.is_none(),
             "Predict execution core requires the configured cash/netting account and venue"
+        );
+        anyhow::ensure!(
+            config
+                .latency
+                .as_ref()
+                .is_none_or(|probe| probe.matches_owner(core.trader_id, core.account_id)),
+            "Predict latency probe belongs to another trader/account"
         );
         let mut emitter = ExecutionEventEmitter::new(
             clock,
@@ -183,12 +201,13 @@ impl PredictExecutionClient {
             chain,
             clock,
             emitter,
+            settlement_sender: nautilus_common::live::runner::try_get_data_event_sender(),
             tasks: TaskGroup::new(),
             stream_task: None,
             account_task: None,
             account_query_active: Arc::new(AtomicBool::new(false)),
             order_queries: Default::default(),
-            account_orders: Arc::new(AtomicMap::new()),
+            account_orders: Default::default(),
             account_sync: Arc::new(account::AccountSync::default()),
             healthy: Arc::new(AtomicBool::new(false)),
             reconciliation_required: Arc::new(AtomicBool::new(false)),
@@ -197,12 +216,14 @@ impl PredictExecutionClient {
             verified_epoch: Arc::new(AtomicU64::new(0)),
             recovery_clock: None,
             instruments: Arc::new(AtomicMap::new()),
-            orders: Arc::new(AtomicMap::new()),
+            orders: Default::default(),
             order_observer: None,
+            account_observer: None,
+            cleanup_cursor: Default::default(),
+            metadata_notify: Arc::new(tokio::sync::Notify::new()),
             pending_cancels: Default::default(),
             deferred_cancels: Default::default(),
             pending_submissions: Default::default(),
-            submission_admission: Default::default(),
             fill_evidence: Default::default(),
             rest_order_ids: Default::default(),
         })
@@ -306,11 +327,18 @@ impl ExecutionClient for PredictExecutionClient {
         let sender = try_get_exec_event_sender()
             .ok_or_else(|| anyhow::anyhow!("Nautilus execution event sender is not installed"))?;
         self.emitter.set_sender(sender);
+        self.settlement_sender = nautilus_common::live::runner::try_get_data_event_sender();
         self.core.set_started();
         Ok(())
     }
     fn stop(&mut self) -> anyhow::Result<()> {
-        if self.core.is_connected() && !self.account_orders.load().is_empty() {
+        if self.core.is_connected()
+            && !self
+                .account_orders
+                .lock()
+                .expect("order snapshots poisoned")
+                .is_empty()
+        {
             self.reconciliation_required.store(true, Ordering::Release);
         }
         self.healthy.store(false, Ordering::Release);
@@ -325,6 +353,7 @@ impl ExecutionClient for PredictExecutionClient {
                 .lock()
                 .expect("account sync poisoned");
             sync.revision = sync.revision.wrapping_add(1);
+            sync.resource_revision = sync.resource_revision.wrapping_add(1);
         }
         self.clear_observer();
         Ok(())
@@ -339,16 +368,42 @@ impl ExecutionClient for PredictExecutionClient {
             "Predict submitted orders must be reconciled before reset"
         );
         anyhow::ensure!(
+            self.pending_cancels
+                .lock()
+                .expect("pending cancels poisoned")
+                .is_empty(),
+            "Predict cancellations must be reconciled before reset"
+        );
+        anyhow::ensure!(
             self.tasks.is_empty(),
             "Predict tasks must be drained before reset"
         );
         self.stop()?;
         self.instruments.store(Default::default());
-        self.orders.store(Default::default());
-        self.rest_order_ids.store(Default::default());
+        self.cleanup_cursor.set((0, 0));
+        self.orders
+            .lock()
+            .expect("order snapshots poisoned")
+            .clear();
+        self.rest_order_ids
+            .lock()
+            .expect("REST order IDs poisoned")
+            .clear();
         self.fill_evidence = Default::default();
         self.reconciliation_required.store(false, Ordering::Release);
-        self.account_orders.store(Default::default());
+        self.account_orders
+            .lock()
+            .expect("order snapshots poisoned")
+            .clear();
+        {
+            let mut sync = self
+                .account_sync
+                .state
+                .lock()
+                .expect("account sync poisoned");
+            sync.active_orders.clear();
+            sync.clear_connection();
+        }
         Ok(())
     }
     async fn connect(&mut self) -> anyhow::Result<()> {
@@ -370,23 +425,26 @@ impl ExecutionClient for PredictExecutionClient {
     }
     fn on_instrument(&mut self, instrument: InstrumentAny) {
         if instrument.id().venue == self.core.venue {
-            self.prune_order_lookups();
+            self.prune_order_lookups_on_request();
             let mut sync = self
                 .account_sync
                 .state
                 .lock()
                 .expect("account sync poisoned");
             sync.revision = sync.revision.wrapping_add(1);
-            self.instruments.insert(instrument.id(), instrument);
+            sync.resource_revision = sync.resource_revision.wrapping_add(1);
+            self.instruments
+                .rcu(|map| types::upsert_instrument(map, instrument.clone()));
             drop(sync);
             self.account_sync.notify.notify_one();
+            self.metadata_notify.notify_one();
         }
     }
     fn generate_position_status_reports_task(
         &self,
         cmd: &GeneratePositionStatusReports,
     ) -> Option<ExecutionReportTask<Vec<PositionStatusReport>>> {
-        self.prune_order_lookups();
+        self.prune_order_lookups_on_request();
         Some(position_report_task(
             self.config.clone(),
             self.core.clone(),
@@ -398,7 +456,7 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         cmd: &GeneratePositionStatusReports,
     ) -> anyhow::Result<Vec<PositionStatusReport>> {
-        self.prune_order_lookups();
+        self.prune_order_lookups_on_request();
         let task = position_report_task(self.config.clone(), self.core.clone(), self.clock, cmd);
         task.collection.await;
         task.result.await
@@ -439,12 +497,13 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         cmd: &GenerateFillReports,
     ) -> Option<ExecutionReportTask<Vec<FillReport>>> {
-        self.prune_order_lookups();
+        self.prune_order_lookups_on_request();
         Some(matches::fill_report_task(
             self.config.clone(),
             self.core.clone(),
             self.clock,
             Arc::clone(&self.fill_evidence),
+            Arc::clone(&self.account_orders),
             cmd,
         ))
     }
@@ -452,12 +511,13 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         cmd: GenerateFillReports,
     ) -> anyhow::Result<Vec<FillReport>> {
-        self.prune_order_lookups();
+        self.prune_order_lookups_on_request();
         let task = matches::fill_report_task(
             self.config.clone(),
             self.core.clone(),
             self.clock,
             Arc::clone(&self.fill_evidence),
+            Arc::clone(&self.account_orders),
             &cmd,
         );
         task.collection.await;
@@ -573,22 +633,24 @@ impl ExecutionClient for PredictExecutionClient {
                 && self.tasks.is_open(),
             "Predict reported account client generation is not active"
         );
-        self.prune_order_lookups();
+        self.prune_order_lookups_on_request();
         if self.reconciliation_required.load(Ordering::Acquire) || !self.is_connected() {
             self.reconciliation_required.store(true, Ordering::Release);
-            let mut reporter = self.account_reporter()?;
-            reporter.allow_stream_gap = true;
-            let check = match readiness::ReadinessCheck::new(self) {
-                Ok(check) => Some(check),
-                Err(error) => {
-                    log::warn!("Predict readiness snapshot is not eligible: {error}");
-                    None
-                }
-            };
             let Some(guard) = account::AccountQueryGuard::acquire(&self.account_query_active)
             else {
                 return Ok(());
             };
+            let check = match readiness::ReadinessCheck::new(self) {
+                Ok(check) => Some(check),
+                Err(error) => {
+                    // An explicit query still refreshes cash across a wallet gap.
+                    // Automatic retries skip unresolved commands before enqueueing.
+                    log::warn!("Predict readiness snapshot is not eligible: {error}");
+                    None
+                }
+            };
+            let mut reporter = self.account_reporter()?;
+            reporter.allow_stream_gap = true;
             let cancellation = self.tasks.cancellation_token();
             self.tasks
                 .spawn_named("predict-gap-account-query", async move {
@@ -596,13 +658,13 @@ impl ExecutionClient for PredictExecutionClient {
                     for _ in 0..5 {
                         let result = tokio::select! {biased;
                             _ = cancellation.cancelled() => return,
-                            result = reporter.refresh() => result,
+                            result = reporter.refresh_for_readiness() => result,
                         };
                         match result {
-                            Ok(true) => {
+                            Ok(Some(snapshot)) => {
                                 let result = tokio::select! {biased;
                                     _ = cancellation.cancelled() => return,
-                                    result = async {match check {Some(check)=>check.confirm().await,None=>Ok(())}} => result,
+                                    result = async { match check { Some(check) => check.confirm(snapshot).await, None => Ok(()) } } => result,
                                 };
                                 if let Err(error) = result {
                                     log::warn!(
@@ -611,7 +673,7 @@ impl ExecutionClient for PredictExecutionClient {
                                 }
                                 return;
                             }
-                            Ok(false) => continue,
+                            Ok(None) => continue,
                             Err(error) => {
                                 log::warn!("Predict gap account query remains unresolved: {error}");
                                 return;
@@ -625,7 +687,7 @@ impl ExecutionClient for PredictExecutionClient {
             self.is_connected(),
             "Predict reported account session is not connected"
         );
-        self.account_sync.notify.notify_one();
+        self.account_sync.request_remote();
         Ok(())
     }
     fn query_order(&self, cmd: QueryOrder) -> anyhow::Result<()> {

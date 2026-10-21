@@ -125,9 +125,7 @@ async fn mainnet_rust_strategy_batch_restart() -> anyhow::Result<()> {
         execution.orderbook_removal_enabled = true;
         execution.submission = Some(PredictSubmissionConfig {
             signer: signer.clone(),
-            max_order_usdt: Decimal::ONE,
-            max_total_usdt: Decimal::from(2),
-            require_post_only: true,
+
             market_slippage_bps: 100,
         });
         let key = settings

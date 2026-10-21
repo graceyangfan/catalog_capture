@@ -13,6 +13,7 @@ default = ["high-precision", "live"]
 execution = [
   "live",
   "dep:base64",
+  "dep:indexmap",
   "dep:alloy",
   "dep:alloy-primitives",
   "dep:thiserror",
@@ -39,6 +40,7 @@ high-precision = [
 ]
 
 [dependencies]
+indexmap = { version = "2", optional = true }
 nautilus-execution = { path = "../../../nautilus_trader_quantity_commission/crates/execution", default-features = false, optional = true }
 ahash = { workspace = true, optional = true }
 alloy = { version = "2.5.0", default-features = false, features = [
@@ -100,5 +102,20 @@ required-features = ["execution"]
 
 [[bench]]
 name = "order_signing"
+harness = false
+required-features = ["execution"]
+
+[[bench]]
+name = "latency"
+harness = false
+required-features = ["execution"]
+
+[[bench]]
+name = "execution_entry"
+harness = false
+required-features = ["execution"]
+
+[[bench]]
+name = "routing"
 harness = false
 required-features = ["execution"]

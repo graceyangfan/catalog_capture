@@ -7,11 +7,14 @@
 //! In-process private HTTP, wallet WebSocket, and chain RPC venue.
 
 use super::*;
+use axum::response::IntoResponse;
 
 pub(super) type CreateReply = (u16, u64, Vec<String>);
 
 #[derive(Clone)]
 pub(super) struct VenueState {
+    pub(super) account_requests: Arc<Mutex<usize>>,
+    pub(super) account_unavailable: Arc<std::sync::atomic::AtomicBool>,
     pub(super) pages: Arc<Mutex<VecDeque<Value>>>,
     pub(super) match_pages: Arc<Mutex<VecDeque<(u16, Value, u64)>>>,
     pub(super) match_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
@@ -37,23 +40,36 @@ pub(super) struct VenueState {
     pub(super) order_list_log: Arc<Mutex<Vec<Value>>>,
     pub(super) rpc_frame: Arc<Mutex<(u128, u64, u64)>>,
     pub(super) rpc_methods: Arc<Mutex<Vec<String>>>,
+    pub(super) rpc_latest_started: Arc<tokio::sync::Notify>,
+    pub(super) rpc_final_started: Arc<tokio::sync::Notify>,
+    pub(super) rpc_final_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
+    pub(super) rpc_latest_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
+    pub(super) rpc_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
     pub(super) rpc_delay_ms: Arc<Mutex<u64>>,
     pub(super) rpc_failure: Arc<Mutex<bool>>,
+    pub(super) nonce_values: Arc<Mutex<[U256; 4]>>,
     pub(super) remove_replies: Arc<Mutex<VecDeque<(u16, Value, u64)>>>,
     pub(super) removals: Arc<Mutex<Vec<Value>>>,
     pub(super) removal_responses: Arc<Mutex<Vec<Value>>>,
     pub(super) remove_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
+    pub(super) create_times: Arc<Mutex<Vec<std::time::Instant>>>,
+    pub(super) removed_times: Arc<Mutex<Vec<std::time::Instant>>>,
     pub(super) creations: Arc<Mutex<Vec<Value>>>,
     pub(super) create_replies: Arc<Mutex<VecDeque<CreateReply>>>,
     pub(super) create_order_ids: Arc<Mutex<VecDeque<String>>>,
     pub(super) create_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
     pub(super) create_body: Arc<Mutex<Option<Value>>>,
+    pub(super) market_requests: Arc<Mutex<usize>>,
+    pub(super) market_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
+    pub(super) open_rpc_barrier: Arc<Mutex<Option<Arc<tokio::sync::Barrier>>>>,
     pub(super) market_fee: Arc<Mutex<u32>>,
     pub(super) market_yield_bearing: Arc<Mutex<bool>>,
     pub(super) admission_allowance: Arc<Mutex<U256>>,
     pub(super) sell_inventory: Arc<Mutex<U256>>,
     pub(super) sell_approved: Arc<Mutex<bool>>,
     pub(super) execution_book: Arc<Mutex<Value>>,
+    pub(super) book_requests: Arc<Mutex<usize>>,
+    pub(super) book_delay_ms: Arc<Mutex<u64>>,
 }
 
 pub(super) struct Server {
@@ -80,8 +96,15 @@ pub(super) fn auth(headers: &HeaderMap) {
     assert_eq!(headers["authorization"], format!("Bearer {JWT}"));
 }
 
-pub(super) async fn account(headers: HeaderMap) -> Response {
+pub(super) async fn account(State(state): State<VenueState>, headers: HeaderMap) -> Response {
     auth(&headers);
+    *state.account_requests.lock().unwrap() += 1;
+    if state
+        .account_unavailable
+        .load(std::sync::atomic::Ordering::Acquire)
+    {
+        return axum::http::StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     json_response(
         json!({"success":true, "data":{"name":"fixture", "address":WALLET,
         "referral":{"code":null,"status":"LOCKED"}, "points":{"total":123}}}),
@@ -221,6 +244,10 @@ pub(super) async fn open_orders(
         .collect();
     assert!(query.get("status").is_none_or(|status| status == "OPEN"));
     state.requests.lock().unwrap().push(query.clone());
+    let barrier = state.open_rpc_barrier.lock().unwrap().clone();
+    if let Some(barrier) = barrier {
+        barrier.wait().await;
+    }
     let fault = *state.open_pagination_fault.lock().unwrap();
     if let Some(fault) = fault {
         let cursor = if fault == "cycle" {
@@ -327,6 +354,11 @@ pub(super) async fn remove_orders(
         .unwrap()
         .push(json!({"status":status,"body":reply,"request":request}));
     tokio::time::sleep(Duration::from_millis(delay)).await;
+    state
+        .removed_times
+        .lock()
+        .unwrap()
+        .push(std::time::Instant::now());
     let mut response = json_response(reply);
     *response.status_mut() = axum::http::StatusCode::from_u16(status).unwrap();
     response
@@ -345,6 +377,30 @@ pub(super) async fn collateral_rpc(
         .lock()
         .unwrap()
         .push(request["method"].as_str().unwrap().to_string());
+    if request["method"] == "eth_getBlockByNumber" && request["params"][0] == "latest" {
+        state.rpc_latest_started.notify_one();
+        let gate = state.rpc_latest_gate.lock().unwrap().take();
+        if let Some(gate) = gate {
+            gate.notified().await;
+        }
+    }
+    if request["method"] == "eth_getBlockByNumber" && request["params"][0] != "latest" {
+        let gate = state.rpc_final_gate.lock().unwrap().take();
+        if let Some(gate) = gate {
+            state.rpc_final_started.notify_one();
+            gate.notified().await;
+        }
+    }
+    let gate = state.rpc_gate.lock().unwrap().take();
+    if let Some(gate) = gate {
+        gate.notified().await;
+    }
+    if request["method"] == "eth_getBlockByNumber" && request["params"][0] == "latest" {
+        let barrier = state.open_rpc_barrier.lock().unwrap().clone();
+        if let Some(barrier) = barrier {
+            barrier.wait().await;
+        }
+    }
     let delay = *state.rpc_delay_ms.lock().unwrap();
     if delay != 0 {
         tokio::time::sleep(Duration::from_millis(delay)).await;
@@ -378,7 +434,21 @@ pub(super) async fn collateral_rpc(
             } else if data.starts_with("0xe985e9c5") {
                 U256::from(u8::from(*state.sell_approved.lock().unwrap()))
             } else if data.starts_with("0x7ecebe00") {
-                U256::from(7)
+                use nautilus_predict::common::contracts::PredictExchangeType as Exchange;
+                let exchanges = [
+                    Exchange::Standard,
+                    Exchange::NegRisk,
+                    Exchange::YieldBearing,
+                    Exchange::YieldBearingNegRisk,
+                ];
+                let index = exchanges
+                    .iter()
+                    .position(|exchange| {
+                        request["params"][0]["to"]
+                            == format!("{:#x}", exchange.contract(PredictEnvironment::BnbMainnet))
+                    })
+                    .expect("known signing exchange");
+                state.nonce_values.lock().unwrap()[index]
             } else {
                 U256::ZERO
             };
@@ -428,6 +498,8 @@ pub(super) async fn server(pages: Vec<Value>) -> Server {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let state = VenueState {
+        account_requests: Default::default(),
+        account_unavailable: Default::default(),
         match_response_log: Default::default(),
         position_response_log: Default::default(),
         pages: Arc::new(Mutex::new(pages.into())),
@@ -453,23 +525,36 @@ pub(super) async fn server(pages: Vec<Value>) -> Server {
         order_list_log: Default::default(),
         rpc_frame: Arc::new(Mutex::new((1_000_000_000_000_000_000_000u128, 1, 2))),
         rpc_methods: Arc::new(Mutex::new(vec![])),
+        rpc_latest_started: Default::default(),
+        rpc_final_started: Default::default(),
+        rpc_final_gate: Default::default(),
+        rpc_latest_gate: Default::default(),
+        rpc_gate: Default::default(),
         rpc_delay_ms: Arc::new(Mutex::new(0)),
         rpc_failure: Arc::new(Mutex::new(false)),
+        nonce_values: Arc::new(Mutex::new([U256::from(7); 4])),
         remove_replies: Arc::new(Mutex::new(VecDeque::new())),
         removals: Arc::new(Mutex::new(vec![])),
         removal_responses: Arc::new(Mutex::new(vec![])),
         remove_gate: Arc::new(Mutex::new(None)),
+        create_times: Arc::new(Mutex::new(vec![])),
+        removed_times: Arc::new(Mutex::new(vec![])),
         creations: Arc::new(Mutex::new(vec![])),
         create_replies: Arc::new(Mutex::new(VecDeque::new())),
         create_order_ids: Default::default(),
         create_gate: Arc::new(Mutex::new(None)),
         create_body: Arc::new(Mutex::new(None)),
+        market_requests: Default::default(),
+        market_gate: Default::default(),
+        open_rpc_barrier: Default::default(),
         market_fee: Arc::new(Mutex::new(0)),
         market_yield_bearing: Arc::new(Mutex::new(false)),
         admission_allowance: Arc::new(Mutex::new(U256::MAX)),
         sell_inventory: Arc::new(Mutex::new(U256::ZERO)),
         sell_approved: Arc::new(Mutex::new(false)),
         execution_book: Arc::new(Mutex::new(Value::Null)),
+        book_requests: Default::default(),
+        book_delay_ms: Default::default(),
     };
     let router = Router::new()
         .route("/v1/account", get(account))
@@ -516,6 +601,11 @@ pub(super) async fn execution_market(
     headers: HeaderMap,
 ) -> Response {
     auth(&headers);
+    *state.market_requests.lock().unwrap() += 1;
+    let gate = state.market_gate.lock().unwrap().take();
+    if let Some(gate) = gate {
+        gate.notified().await;
+    }
     json_response(
         json!({"success":true,"data":{"id":42,"tradingStatus":"OPEN",
         "isNegRisk":false,"isYieldBearing":*state.market_yield_bearing.lock().unwrap(),"feeRateBps":*state.market_fee.lock().unwrap(),
@@ -536,6 +626,11 @@ pub(super) async fn create_order(
         .unwrap()
         .pop_front()
         .unwrap_or_else(|| "12345".into());
+    state
+        .create_times
+        .lock()
+        .unwrap()
+        .push(std::time::Instant::now());
     state.creations.lock().unwrap().push(request.clone());
     let gate = state.create_gate.lock().unwrap().clone();
     if let Some(gate) = gate {
@@ -619,5 +714,10 @@ pub(super) async fn execution_book(
     headers: HeaderMap,
 ) -> Response {
     auth(&headers);
+    *state.book_requests.lock().unwrap() += 1;
+    let delay = *state.book_delay_ms.lock().unwrap();
+    if delay > 0 {
+        tokio::time::sleep(Duration::from_millis(delay)).await;
+    }
     json_response(json!({"success":true,"data":state.execution_book.lock().unwrap().clone()}))
 }

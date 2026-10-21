@@ -46,6 +46,16 @@ fn locked(cache: &Rc<RefCell<Cache>>) -> Decimal {
         .unwrap()
         .as_decimal()
 }
+fn open_reads(server: &Server) -> usize {
+    server
+        .state
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|query| query.get("status").is_some_and(|status| status == "OPEN"))
+        .count()
+}
 fn book(
     public: &PublicState,
     frames: &mut Vec<Value>,
@@ -115,15 +125,18 @@ fn request(server: &Server, token: &str, price: &str) -> Value {
         .clone()
 }
 async fn run(denied: bool, saved: Option<&Value>) -> Value {
+    run_case(denied, saved, false).await
+}
+async fn run_case(denied: bool, saved: Option<&Value>, local: bool) -> Value {
     let HostFixture {
         backing,
         public,
         rpc_gate,
-        mut config,
+        config,
         task,
+        trace,
         ..
     } = fixture(true, if denied { 2 } else { 3 }).await;
-    config = config.replace("max_total_usdt = \"3\"", "max_total_usdt = \"4\"");
     let total = if denied { 2 } else { 3 };
     backing.state.rpc_frame.lock().unwrap().0 = total * 1_000_000_000_000_000_000;
     *backing.state.create_order_ids.lock().unwrap() = ["10001", "10002", "10003"]
@@ -147,18 +160,21 @@ async fn run(denied: bool, saved: Option<&Value>) -> Value {
     .unwrap();
     let target = Rc::new(RefCell::new(vec![]));
     let companion = Rc::new(RefCell::new(vec![]));
-    prepared
-        .node
-        .add_strategy(
-            snapshot_maker::SnapshotMaker::new(
-                prepared.market_id,
-                prepared.instruments[0],
-                target.clone(),
-            )
-            .with_cancel_replace()
-            .with_shared_account(),
-        )
-        .unwrap();
+    let timing = Rc::new(RefCell::new(snapshot_maker::FlowTiming::default()));
+    let strategy = snapshot_maker::SnapshotMaker::new(
+        prepared.market_id,
+        prepared.instruments[0],
+        target.clone(),
+    )
+    .with_cancel_replace()
+    .with_shared_account()
+    .with_flow_timing(timing.clone());
+    let strategy = if local {
+        strategy
+    } else {
+        strategy.with_fresh_block_replace()
+    };
+    prepared.node.add_strategy(strategy).unwrap();
     prepared
         .node
         .add_strategy(snapshot_maker::SnapshotMaker::companion(
@@ -202,50 +218,71 @@ async fn run(denied: bool, saved: Option<&Value>) -> Value {
         let other = request(&backing, "22", "10000000000000000");
         accept(&backing, &other, saved, &mut wallet);
         barrier("companion native accepted", || {
-            count(&companion, "on_order_accepted") == 1
+            count(&companion, "on_order_accepted") == 1 && locked(&cache) == Decimal::ONE
         })
         .await;
-        assert_eq!(locked(&cache), Decimal::from(2));
+        assert_eq!(locked(&cache), Decimal::ONE);
         checkpoints.push(json!({"phase":"two_reserved","account":balance(&cache)}));
         rpc_gate.paused.store(true, Ordering::Release);
+        if local {
+            // Duplicate book while the target is still awaiting acceptance; it
+            // cannot cause replacement and keeps the replay frame count stable.
+            book(&public, &mut frames, None, "0.630", "0.640");
+            barrier("duplicate book before cancellation", || {
+                count(&target, "on_data") == 2
+            })
+            .await;
+        }
+        let before_query_reads = open_reads(&backing);
         let first = request(&backing, "11", "10000000000000000");
         let old_ack = accept(&backing, &first, saved, &mut wallet);
         barrier("target canceled and account query blocked", || {
-            count(&target, "query_account") == 1 && rpc_gate.blocked.load(Ordering::Acquire) > 0
+            count(&target, "query_account") == 1
+                && rpc_gate.blocked.load(Ordering::Acquire) > 0
+                && open_reads(&backing) > before_query_reads
         })
         .await;
         assert_eq!(count(&target, "on_order_modify_rejected"), 1);
         assert_eq!(count(&companion, "on_order_canceled"), 0);
         wallet.push(old_ack.clone());
         backing.wallet(old_ack);
-        book(&public, &mut frames, saved, "0.630", "0.640");
-        barrier("multi snapshot defers old account", || {
-            count(&target, "ReplacementDeferred") == 1
-        })
-        .await;
-        assert_eq!(backing.state.creations.lock().unwrap().len(), 2);
-        let next_block = {
-            let mut rpc = backing.state.rpc_frame.lock().unwrap();
-            rpc.1 += 1;
-            rpc.1
-        };
-        rpc_gate.paused.store(false, Ordering::Release);
-        rpc_gate.release.close();
-        barrier(
-            "target reserve released while companion stays reserved",
-            || {
-                let c = cache.borrow();
-                let account = c.account(&account_id()).unwrap();
-                account.balance_locked(Some(Currency::USDT())) == Some(Money::from("1 USDT"))
-                    && account.last_event().and_then(|e| {
-                        e.info
-                            .as_ref()
-                            .and_then(|i| i.get("predict_block_number"))
-                            .and_then(Value::as_u64)
-                    }) == Some(next_block)
-            },
-        )
-        .await;
+        if !local {
+            book(&public, &mut frames, saved, "0.630", "0.640");
+            barrier("multi snapshot defers old account", || {
+                count(&target, "ReplacementDeferred") == 1
+            })
+            .await;
+            assert_eq!(backing.state.creations.lock().unwrap().len(), 2);
+            let next_block = {
+                let mut rpc = backing.state.rpc_frame.lock().unwrap();
+                rpc.1 += 1;
+                rpc.1
+            };
+            rpc_gate.paused.store(false, Ordering::Release);
+            rpc_gate.release.close();
+            barrier(
+                "target reserve released while companion stays reserved",
+                || {
+                    let c = cache.borrow();
+                    let account = c.account(&account_id()).unwrap();
+                    account.balance_locked(Some(Currency::USDT())) == Some(Money::from("1 USDT"))
+                        && account.last_event().and_then(|e| {
+                            e.info
+                                .as_ref()
+                                .and_then(|i| i.get("predict_block_number"))
+                                .and_then(Value::as_u64)
+                        }) == Some(next_block)
+                },
+            )
+            .await;
+        } else {
+            barrier(
+                "local account releases target while explicit query remains held",
+                || locked(&cache) == Decimal::ONE,
+            )
+            .await;
+            assert!(rpc_gate.paused.load(Ordering::Acquire));
+        }
         checkpoints.push(json!({"phase":"before_replacement","account":balance(&cache)}));
         assert_eq!(
             cache
@@ -253,6 +290,17 @@ async fn run(denied: bool, saved: Option<&Value>) -> Value {
                 .orders_open(None, None, None, None, None)
                 .len(),
             1
+        );
+        let before_replacement_reads = (
+            backing.state.rpc_methods.lock().unwrap().len(),
+            open_reads(&backing),
+            trace
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|event| event["kind"] == "market")
+                .count(),
+            *backing.state.book_requests.lock().unwrap(),
         );
         book(&public, &mut frames, saved, "0.631", "0.641");
         barrier("replacement submitted from nonzero locked snapshot", || {
@@ -277,7 +325,14 @@ async fn run(denied: bool, saved: Option<&Value>) -> Value {
                 backing.state.creations.lock().unwrap().len() == 3
             })
             .await;
-            assert_eq!(locked(&cache), Decimal::new(21, 1));
+            // POST arrival and asynchronous Portfolio publication are independent.
+            // A faster admission path must not turn the checkpoint into a timing race.
+            barrier(
+                "replacement reservation published through Portfolio",
+                || locked(&cache) == Decimal::ONE,
+            )
+            .await;
+            assert_eq!(locked(&cache), Decimal::ONE);
             checkpoints.push(json!({"phase":"replacement_reserved","account":balance(&cache)}));
             let second = request(&backing, "11", "11000000000000000");
             accept(&backing, &second, saved, &mut wallet);
@@ -285,6 +340,23 @@ async fn run(denied: bool, saved: Option<&Value>) -> Value {
                 count(&target, "on_order_canceled") == 2 && locked(&cache) == Decimal::ONE
             })
             .await;
+        }
+        if local {
+            assert_eq!(
+                before_replacement_reads,
+                (
+                    backing.state.rpc_methods.lock().unwrap().len(),
+                    open_reads(&backing),
+                    trace
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .filter(|event| event["kind"] == "market")
+                        .count(),
+                    *backing.state.book_requests.lock().unwrap()
+                ),
+                "replacement performs no RPC/OPEN/market/book read"
+            );
         }
         assert_eq!(count(&companion, "on_order_canceled"), 0);
         assert_eq!(
@@ -314,6 +386,11 @@ async fn run(denied: bool, saved: Option<&Value>) -> Value {
         )
         .await;
         checkpoints.push(json!({"phase":"cleanup","account":balance(&cache)}));
+        if local {
+            assert!(rpc_gate.paused.load(Ordering::Acquire));
+            rpc_gate.paused.store(false, Ordering::Release);
+            rpc_gate.release.close();
+        }
         handle.stop();
     };
     timeout(Duration::from_secs(20), async {
@@ -372,11 +449,86 @@ async fn run(denied: bool, saved: Option<&Value>) -> Value {
     assert_eq!(count(&companion, "on_order_canceled"), 1);
     assert_eq!(count(&companion, "submit_order"), 1);
     if let Some(saved) = saved {
-        assert_eq!(saved["targetCallbacks"], json!(*target.borrow()));
-        assert_eq!(saved["companionCallbacks"], json!(*companion.borrow()));
-        assert_eq!(saved["checkpoints"], json!(checkpoints));
+        // AccountAtAccepted is an observation of an asynchronous reported cash
+        // refresh, not a required pre-callback barrier. Financial checkpoints
+        // below remain exact; compare command/callback ordering independently.
+        let callbacks = |rows: &Value| {
+            rows.as_array()
+                .unwrap()
+                .iter()
+                .filter(|row| row["callback"] != "AccountAtAccepted")
+                .cloned()
+                .map(|mut row| {
+                    if row["callback"] == "ReplacementDeferred" {
+                        row.as_object_mut().unwrap().remove("account");
+                    }
+                    if row["callback"] == "query_account" {
+                        row.as_object_mut().unwrap().remove("accountBeforeQuery");
+                    }
+                    row
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            callbacks(&saved["targetCallbacks"]),
+            callbacks(&json!(*target.borrow()))
+        );
+        assert_eq!(
+            callbacks(&saved["companionCallbacks"]),
+            callbacks(&json!(*companion.borrow()))
+        );
+        // The immutable older fixture included local Submitted in reported Cash locks.
+        // Native Cash RiskEngine now owns that amount until OPEN/terminal. Preserve
+        // protocol/callback replay and check the new financial boundary explicitly.
+        let mut expected = saved["checkpoints"].clone();
+        for checkpoint in expected.as_array_mut().unwrap() {
+            if matches!(
+                checkpoint["phase"].as_str(),
+                Some("two_reserved" | "replacement_reserved")
+            ) {
+                checkpoint["account"]["locked"] = json!("1");
+                checkpoint["account"]["free"] = json!((total - 1).to_string());
+            }
+        }
+        let normalize = |mut rows: Value| {
+            for row in rows.as_array_mut().unwrap() {
+                for key in ["total", "locked", "free"] {
+                    let value = row["account"][key]
+                        .as_str()
+                        .unwrap()
+                        .parse::<Decimal>()
+                        .unwrap();
+                    row["account"][key] = json!(value.normalize().to_string());
+                }
+            }
+            rows
+        };
+        assert_eq!(normalize(expected), normalize(json!(checkpoints)));
     }
-    let out = json!({"source":"synthetic two Rust snapshot strategies + actual product host + Native LiveNode; not mainnet",
+    let intervals = if !denied && local {
+        let timing = timing.borrow();
+        let confirmed = backing.state.removed_times.lock().unwrap()[0];
+        let canceled = timing.canceled.unwrap();
+        let decision = timing.replacement.unwrap();
+        let admitted = timing.admitted.unwrap();
+        let posted = backing.state.create_times.lock().unwrap()[2];
+        // Submitted is the actual strategy callback after Native risk admits the command.
+        assert!(
+            confirmed <= canceled
+                && canceled <= decision
+                && decision <= admitted
+                && admitted <= posted
+        );
+        json!({"confirmation_to_cancel_callback_ns":(canceled-confirmed).as_nanos() as u64,
+            "confirmation_to_admitted_ns":(admitted-confirmed).as_nanos() as u64,
+            "confirmation_to_post_ns":(posted-confirmed).as_nanos() as u64,
+            "cancel_callback_to_next_signal_ns":(decision-canceled).as_nanos() as u64,
+            "replacement_decision_to_admitted_ns":(admitted-decision).as_nanos() as u64,
+            "replacement_admitted_to_post_ns":(posted-admitted).as_nanos() as u64})
+    } else {
+        Value::Null
+    };
+    let out = json!({"intervals":intervals,"source":"synthetic two Rust snapshot strategies + actual product host + Native LiveNode; not mainnet",
         "case":if denied {"native_insufficient_free_balance"} else {"replacement_with_other_active_order"},
         "initialCash":total.to_string(),"nativeRiskBypassed":false,"signalInput":"custom_snapshot",
         "books":frames,"wallet":wallet,"requests":backing.state.creations.lock().unwrap().clone(),
@@ -412,6 +564,14 @@ async fn multiple_active_orders_replace_without_waiting_for_account_locked_zero(
         )
         .await;
     }
+    // Also exercise Native risk using local cash publication while the
+    // explicit remote query stays blocked throughout replacement and cleanup.
+    for denied in [false, true] {
+        let result = run_case(denied, None, true).await;
+        assert_eq!(result["nativeRiskBypassed"], false);
+        assert_eq!(result["finalLocked"], "0");
+        assert_eq!(result["finalOpen"], 0);
+    }
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "explicit multi-order synthetic capture; create_new only"]
@@ -426,4 +586,31 @@ async fn record_snapshot_multi_reservations_json() {
         &json!({"source":"synthetic loopback, no real balances/orders","sessions":sessions}),
     )
     .unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "explicit full cancel/replace loopback capture; PREDICT_REPLACE_BENCH_PATH writes create_new JSON"]
+async fn benchmark_cancel_confirmation_replacement_risk_admission_and_post() {
+    let mut rows = Vec::new();
+    for _ in 0..20 {
+        rows.push(run_case(false, None, true).await["intervals"].clone());
+    }
+    let mut distributions = serde_json::Map::new();
+    for name in rows[0].as_object().unwrap().keys() {
+        let mut values = rows
+            .iter()
+            .map(|row| row[name].as_u64().unwrap())
+            .collect::<Vec<_>>();
+        values.sort_unstable();
+        distributions.insert(name.clone(),json!({"count":values.len(),"p50_ns":values[9],"p95_ns":values[18],"p99_ns":values[19]}));
+    }
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(std::env::var("PREDICT_REPLACE_BENCH_PATH").unwrap())
+        .unwrap();
+    serde_json::to_writer_pretty(file,&json!({"source":"actual Native LiveNode, RiskEngine, two strategies, 3 USDT; explicit RPC held throughout replacement; no mainnet",
+        "replacement_remote_reads":{"rpc":0,"open":0,"market":0,"book":0},
+        "boundary":"definitive REST removal reply at loopback server to actual OrderSubmitted strategy callback to POST arrival; includes local account publication and next book signal",
+        "rows":rows,"distributions":distributions})).unwrap();
 }

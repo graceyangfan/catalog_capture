@@ -207,6 +207,7 @@ impl PredictPrivateHttpClient {
             transport: self.clone(),
             token: std::sync::Arc::new(tokio::sync::watch::Sender::new(token)),
             account_address,
+            identity_verified: Default::default(),
         })
     }
 
@@ -242,6 +243,8 @@ pub struct PredictAuthenticatedHttpClient {
     transport: PredictPrivateHttpClient,
     token: std::sync::Arc<tokio::sync::watch::Sender<PredictAuthToken>>,
     account_address: Address,
+    // Session identity is immutable. Replacement JWTs are verified before publication.
+    identity_verified: std::sync::Arc<tokio::sync::OnceCell<()>>,
 }
 
 impl PredictAuthenticatedHttpClient {
@@ -444,6 +447,7 @@ impl PredictAuthenticatedHttpClient {
             return Err(Error::BadRequest("renewed JWT has no usable expiration"));
         }
         self.token.send_replace(token);
+        let _ = self.identity_verified.set(());
         Ok(())
     }
 
@@ -459,6 +463,20 @@ impl PredictAuthenticatedHttpClient {
     ///
     /// Returns an error if the request fails, the response is invalid, or the account identity differs.
     pub async fn request_account(&self) -> Result<PredictAccount> {
+        let account = self.fetch_account().await?;
+        let _ = self.identity_verified.set(());
+        Ok(account)
+    }
+
+    /// Validate externally bound tokens once; connected/replaced sessions do no extra GET.
+    pub(crate) async fn ensure_account_identity(&self) -> Result<()> {
+        self.identity_verified
+            .get_or_try_init(|| async { self.fetch_account().await.map(|_| ()) })
+            .await?;
+        Ok(())
+    }
+
+    async fn fetch_account(&self) -> Result<PredictAccount> {
         let response = self
             .get(ACCOUNT, ACCOUNT, None::<&PredictOrdersQuery<'_>>)
             .await?;

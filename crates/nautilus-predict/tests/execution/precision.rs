@@ -230,21 +230,22 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
         );
         barrier["details"]["quantityFilled"] =
             json!(Decimal::from_i128_with_scale(raw_total.to::<u128>() as i128, 18).to_string());
+        let (control_hash, control) = super::wallet_lifecycle::control(&mut engine, &barrier);
         server.wallet(barrier);
+        server.wallet(control);
+        let mut own_canceled = false;
         loop {
             match next(&mut rx).await {
-                ExecutionEvent::Report(ExecutionReport::Order(report)) => {
-                    assert_eq!(report.filled_qty, expected_gross);
-                    assert_eq!(
-                        report.order_status,
-                        if full {
-                            OrderStatus::Filled
-                        } else {
-                            OrderStatus::Canceled
-                        }
-                    );
-                    engine.reconcile_execution_report(&ExecutionReport::Order(report));
-                    break;
+                ExecutionEvent::Order(
+                    native @ nautilus_model::events::OrderEventAny::Canceled(_),
+                ) => {
+                    let is_control = native.venue_order_id() == Some(control_hash);
+                    assert!(is_control || !full && native.venue_order_id() == Some(HASH.into()));
+                    engine.process(&native);
+                    if is_control {
+                        break;
+                    }
+                    own_canceled = true;
                 }
                 ExecutionEvent::Account(state) => msgbus::send_account_state(
                     MessagingSwitchboard::portfolio_update_account(),
@@ -253,6 +254,15 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
                 other => panic!("duplicate was not suppressed: {other:?}"),
             }
         }
+        assert_eq!(own_canceled, !full);
+        assert_eq!(
+            cache
+                .borrow()
+                .order(&original.client_order_id())
+                .unwrap()
+                .filled_qty(),
+            expected_gross
+        );
         assert!(client.is_connected());
         let fees =
             (first * U256::from(2) / U256::from(100)) + (second * U256::from(2) / U256::from(100));

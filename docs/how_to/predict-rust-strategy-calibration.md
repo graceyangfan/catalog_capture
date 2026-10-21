@@ -31,7 +31,7 @@ implement authentication expiry or replace adapter execution checks.
 ## Offline scenarios
 
 ```bash
-CARGO_INCREMENTAL=0 cargo test -p nautilus-predict --features execution --locked --test execution rust_strategy_livenode -- --test-threads=4
+CARGO_INCREMENTAL=0 cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution rust_strategy_livenode -- --test-threads=4
 CARGO_INCREMENTAL=0 cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution recorded_startup:: -- --test-threads=4
 ```
 
@@ -49,21 +49,36 @@ saved protocol facts without operator credentials.
 
 Snapshot signals are deterministic test heuristics, not evidence of profitable
 reversal. Invalid, empty, crossed or stale signal books do not justify trading.
-Attempted BUY notional consumes the configured lifetime cap and is not refunded
-when an order is canceled.
+The test strategy owns its run budget and bounded order count. Production adapter
+submission has no lifetime attempted-BUY budget; use Native risk configuration
+and strategy exposure limits.
 
 ## Strategy execution contract
 
 The strategy computes signals from `PredictOrderbookSnapshot`. QuoteTicks are
-routed through Native DataEngine where Native risk/valuation needs them. No
-parallel order/position/account ledger is maintained by the strategy.
+routed through Native DataEngine where Native risk/valuation needs them. Native
+owns confirmed orders, positions and accounts. A strategy may track provisional
+hedge decisions by settlement, as described below, without mutating Native state.
 
 Take-profit is an ordinary maker SELL above entry price. Stop-loss is a strategy
 P&L decision: cancel the active TP, wait for a confirmed terminal outcome, re-read
 remaining net inventory and submit a taker MARKET SELL. A fill during cancellation
-changes that quantity and may eliminate the stop order. Neither path bypasses
-minimum notional, inventory/approval checks or configured budgets. Entry and exit
-fees must be included when evaluating the cash break-even price.
+changes that quantity and may eliminate the stop order. Both paths retain Native
+risk, minimum notional and configured budgets. Venue inventory/approval rejection
+is authoritative; submission does not add balance or allowance RPCs. Entry and
+exit fees must be included when evaluating the cash break-even price.
+
+The exit strategy reuses its already-validated snapshot depth walk to select the
+worst consumed bid as a SELL MARKET reference. It passes the decimal string
+through Native `SubmitOrder.params["market_price"]`, including `close_position`.
+For example, `params.insert("market_price".into(), serde_json::json!("0.020"))`.
+This is a reference before the configured `market_slippage_bps`, not a guaranteed
+fill price. It eliminates the adapter's extra execution-book GET. The strategy
+still checks snapshot freshness and depth before deciding. Both MARKET BUY and
+SELL require this parameter; omitting it produces Native Denied before Submitted.
+Taker entry selects the worst consumed ask (NO uses its own outcome prices),
+while exit selects the worst consumed bid. Signed BUY collateral includes the
+configured slippage and the SDK's one-USDT-per-share protocol ceiling.
 
 Predict amend is not implemented. `modify_order` produces OrderModifyRejected;
 replacement uses a new ClientOrderId and signed hash. Unknown submission or
@@ -75,12 +90,95 @@ later; available account notifications and Cache reads are used together. The
 pinned fork does not guarantee an account-topic callback for every balance refresh.
 Native quote realized PnL and all-fee cash return are distinct measures.
 
+## Quantity fees and settlement callbacks
+
+This strategy contract uses the repaired `quantity_commission` Native dependency
+and the explicit `native-quantity-commission` build feature. Enabling only
+`execution` does not enable that feature. Compatibility builds are not an
+alternative fee policy for this strategy.
+
+For a BUY-entry / SELL-exit strategy, charged BUY fills deduct shares from received
+inventory; charged SELL fills deduct USDT from sale proceeds. These labels describe
+trade direction, not a special entry/exit flag. Maker fills currently have zero
+trading fee; final fee asset and amount come from the venue, not a hardcoded rate.
+The [official fee schedule](https://docs.predict.fun/the-basics/predict-fees-and-limits)
+describes maker/taker rates, and the
+[wallet schema](https://dev.predict.fun/subscription-topics-1915507m0)
+reports `fee.type` as `SHARES` or `COLLATERAL`.
+
+| Confirmed fill | Native order progress | Native inventory / cash treatment |
+| --- | --- | --- |
+| BUY with a SHARES fee | Gross `last_qty` / `filled_qty` | `quantity_commission` reduces acquired inventory; do not also charge its USDT valuation |
+| SELL with a COLLATERAL fee | Sold `last_qty` / `filled_qty` | Inventory decreases by sold shares; USDT proceeds decrease by `commission` |
+| Zero-fee maker | Executed gross quantity | No fee deduction; do not invent one from the market's taker rate |
+
+Example with assumed reported fees: BUY 100 shares at 0.40 USDT, paying 2 shares
+in fees, completes a 100-share order and acquires 98 shares for 40 USDT. SELL those
+98 at 0.50 with a 0.98 USDT fee closes the position and receives 48.02 USDT.
+The flat-cycle cash profit is 8.02 USDT; subtracting the BUY fee's 0.80 USDT
+valuation again would double-charge it. Gross filled quantity is for order
+completion; net Native position quantity is for inventory and exit sizing.
+Reported account cash can update asynchronously after the fill.
+
+### Matching, settlement and actions
+
+Predict matches orders off-chain and settles the match on-chain. A transaction
+Submitted means a counterpart was matched and settlement was submitted; asset
+exchange can still fail. It is not Native `OrderSubmitted`, which describes the
+earlier local order submission. The official wallet event definitions are linked
+above; the Rust mapping is:
+
+| Wallet WS event | Rust callback | Meaning and action boundary |
+| --- | --- | --- |
+| `orderTransactionSubmitted` | `on_data(CustomData)` with `PredictSettlementStatus::Submitted` | Pending matched exposure. A strategy may hedge early or cancel other risky quotes. Native fill quantity and position do not change yet. |
+| `orderTransactionSuccess` | `Confirmed` custom notice plus normal `on_order_filled` | Settlement succeeded. Native applies the final fill, fees and net position. Do not book the custom notice as another fill. |
+| `orderTransactionFailed` | `Failed` custom notice | This settlement failed. Adjust its provisional hedge if one was sent; do not reject, reopen or cancel the entire order from this notice alone. |
+
+Subscribe locally through the normal Rust data interface:
+
+```rust
+self.subscribe_data(
+    predict_settlement_data_type(account_id, strategy_id),
+    None,
+    None,
+)?;
+```
+
+- **Early hedge:** optionally act on Submitted using cached market/fee estimates.
+  Submitted has gross execution facts but no final fee/isMaker evidence. Track
+  the decision by `(account_id, venue_order_id, settlement_id)` with strategy
+  ownership; a settlement may involve multiple orders. On success, reconcile the
+  hedge to confirmed net exposure rather than sending the same hedge twice. On
+  failure, correct only the exposure actually hedged for that settlement. The
+  adapter does not submit these strategy hedge/compensation orders automatically.
+- **Confirmed inventory:** use `on_order_filled`, position events and Native Cache.
+  The data and execution channels have no guaranteed cross-channel callback order;
+  receiving custom Confirmed alone does not prove the Native fill is applied yet.
+  Native net inventory is not automatically free-to-sell inventory: existing SELLs
+  and pending matched sales must also be accounted for when sizing another exit.
+  Count overlapping live-order and pending-settlement commitments once, not twice.
+- **Cancel / reprice:** act on current signals and Native order state without
+  waiting for a settlement or querying chain balance before each command. Predict
+  has no atomic amend in this adapter: cancel, obtain Native `OrderCanceled`, then
+  re-evaluate size and submit a replacement with a new ClientOrderId. Cancellation
+  removes remaining book liquidity, not a match already submitted for settlement.
+  A late Filled can therefore follow Canceled; use it to update the remaining
+  inventory and any replacement/hedge intent, not to discard the fill.
+
+The wallet topic has no snapshot: Submitted need not precede every recovered
+Filled. A strategy must handle success without an early notice, deduplicate late
+or repeated notifications, and never let a late Submitted reopen a terminal
+settlement decision. Native owns final fills, positions, recovery and order
+deduplication; provisional hedge intent belongs to the strategy. These callbacks
+do not require an extra per-event REST/RPC confirmation or a new chain polling
+loop. Account reporting remains asynchronous and Native risk still admits commands.
+
 ## Read-only mainnet observation
 
 Keep `test.allow_order_writes = false` and `strategy.phase = "observe"`:
 
 ```bash
-cargo test -p nautilus-predict --features execution --locked --test private_api_live mainnet_rust_strategy_livenode_observe -- --ignored --nocapture
+cargo test -p nautilus-predict --features native-quantity-commission --locked --test private_api_live mainnet_rust_strategy_livenode_observe -- --ignored --nocapture
 ```
 
 This named probe discovers a market, authenticates, runs the snapshot strategy
@@ -94,6 +192,54 @@ The root `tests/run_predict_resting_live.py`, `run_predict_fill_live.py` and
 `run_predict_exit_only_live.py` supervisors are explicit funded tools. Review their
 arguments, selected mode and monetary bounds before use. A successful offline
 run or a TOML write flag alone is not authorization for another funded test.
+
+The resting supervisor accepts `--features native-quantity-commission` for the
+pinned fork. Its `--execute-minimum-resting` flag explicitly selects a separate
+one-run profile with two orders capped at 1 USDT each and 2 USDT in total; these
+are not the ordinary read-only profile's 0.10/0.20 USDT limits. Prefer the bounded
+GTD cases when manually validating a resting order. Post-only prevents immediate
+taking; a resting order can still fill later.
+
+For one bounded latency pilot, prebuild before starting the wallet collector, then
+select one GTD case (the same two-order 1/2 USDT limits apply):
+
+```bash
+cargo test --release -p nautilus-predict --features native-quantity-commission --locked --test private_api_live --no-run
+uv run --python 3.12 --with predict-sdk==0.0.22 --with websocket-client --with python-dotenv --with requests python tests/run_predict_resting_live.py --execute-minimum-resting --case yes-gtd --features native-quantity-commission --measure-latency
+```
+
+This attaches the optional probe to execution and the real typed strategy
+callbacks. Native feedback is buffered until shutdown, and metric aggregation/JSON
+writes occur after LiveNode stops. `latency.json` contains monotonic segment
+percentiles, counters and Native runner metrics; `latency_analysis.json` includes
+milliseconds, metadata hit rate and private request counts. Historical captures
+can contain admission OPEN/resource spans; the current submit path produces none.
+Background OPEN/RPC has separate spans; do not sum concurrent requests.
+Cancel request time and cancel-decision-to-callback also cover a REST-confirmed
+terminal event with no matching WS report.
+
+The safety relay keeps the durable pre-forward create identity journal. In
+measurement mode it pools upstream connections per local connection and defers
+completion journal writes until close; upstream HTTP durations are reported
+separately. HTTP spans still include the relay. Only two orders are authorized:
+p95/p99 are sample maxima, not stable live tail estimates. Public discovery/book
+reads and independent collector/supervisor requests are excluded from execution
+request counters. The ordinary independent wallet/chain checks and final complete
+REST OPEN queries still run. Normal commands do not wait for those checks.
+
+The amendment check expects Native `OrderModifyRejected` and unchanged terms.
+It does not call a venue amend endpoint. A subsequent cancel and replacement are
+two distinct remote operations, with terminal confirmation required between them.
+
+Successful resting runs print `Live calibration completed` followed by their
+archive path under Git-ignored `data/predict-validation/live_resting_<case>_<UTC>/`.
+Rust and Python share a transient `fixtures/private_api/live_resting/` directory;
+an interrupted run remains there until the next run archives it as `interrupted`.
+No prior recording is deleted. Do not start another funded run merely to archive
+or inspect a failure. `run_metadata.json` records the source/features used by new
+runs. Review with `python3 tests/predict_evidence.py --run <directory>`; this
+reuses the supervisor's offline checks without rewriting evidence or trading.
+Existing frozen captures remain regression inputs and are not moved or refreshed.
 
 The continuous exit mode uses the opt-in quantity-commission fork and can retain
 an active maker TP while waiting for the strategy exit. Entry has a deadline;
@@ -110,3 +256,31 @@ never regenerate historical expected data in place.
 
 [Live evidence and limits](../reference/predict-live-evidence.md) documents actual
 maker, batch, startup, entry/exit and read-only runs separately from offline cases.
+
+
+Execution metadata is prepared during connection, instrument updates, recovery and
+half-TTL background refresh. `market_metadata_ttl_secs` defaults to 30 and accepts
+1–300; zero fails configuration validation. Submit never performs a metadata GET.
+A cold/expired slot promptly rejects as not ready and wakes background preparation;
+it never automatically resubmits an order. Strategies explicitly submit a new
+command once prepared. `market_slippage_bps` is client submission configuration,
+and `market_price` remains a per-command decimal-string reference for both sides.
+
+For early authenticated matching facts, subscribe locally in the Rust strategy:
+
+```rust,ignore
+self.subscribe_data(
+    predict_settlement_data_type(account_id, self.strategy_id().unwrap()),
+    None,
+    None,
+)?;
+```
+
+In `on_data`, downcast the matching custom payload to `PredictSettlementUpdate`.
+Its Submitted status is a venue matching/settlement-submission fact, distinct from
+Native `OrderSubmitted`. Confirmed/Failed describe that same settlement. Exact
+price/size/value wei strings and the complete settlement ID remain available.
+These notifications do not book cash, fills or positions; ordinary Native Filled
+continues to carry confirmed quantities and fees. A Failed notice does not imply
+the remaining order was canceled. See the continuous loopback strategies in
+`tests/execution/continuous.rs`; no live calibration is needed to exercise them.

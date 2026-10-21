@@ -13,26 +13,33 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Numeric REST routing IDs. Exchange hashes remain Native VenueOrderId.
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
+use ahash::AHashMap;
 use alloy::primitives::U256;
-use nautilus_core::AtomicMap;
 use nautilus_model::identifiers::VenueOrderId;
 
-pub(super) type RestOrderIds = Arc<AtomicMap<VenueOrderId, U256>>;
+pub(super) type RestOrderIds = Arc<Mutex<AHashMap<VenueOrderId, U256>>>;
 
 pub(super) fn register(ids: &RestOrderIds, hash: VenueOrderId, id: U256) -> anyhow::Result<()> {
-    if ids.get_cloned(&hash) == Some(id) {
-        return Ok(());
+    let mut ids = ids.lock().expect("REST order IDs poisoned");
+    match ids.entry(hash) {
+        std::collections::hash_map::Entry::Occupied(entry) => anyhow::ensure!(
+            *entry.get() == id,
+            "Predict hash has conflicting REST order IDs"
+        ),
+        std::collections::hash_map::Entry::Vacant(entry) => {
+            entry.insert(id);
+        }
     }
-    register_many(ids, &[(hash, id)])
+    Ok(())
 }
 
 pub(super) fn register_many(
     ids: &RestOrderIds,
     routes: &[(VenueOrderId, U256)],
 ) -> anyhow::Result<()> {
-    let mut incoming = std::collections::HashMap::new();
+    let mut incoming = AHashMap::with_capacity(routes.len());
     for (hash, id) in routes {
         anyhow::ensure!(
             incoming
@@ -41,25 +48,15 @@ pub(super) fn register_many(
             "Predict hash has conflicting REST order IDs"
         );
     }
-    let current = ids.load();
-    if incoming
-        .iter()
-        .all(|(hash, id)| current.get(hash) == Some(id))
-    {
-        return Ok(());
-    }
-    drop(current);
-    // One snapshot update per verified REST batch, with atomic first-owner protection.
-    let mut conflict = false;
-    ids.rcu(|map| {
-        conflict = incoming
+    // Validate the whole batch before mutation, retaining the first owner's route.
+    let mut ids = ids.lock().expect("REST order IDs poisoned");
+    anyhow::ensure!(
+        incoming
             .iter()
-            .any(|(hash, id)| map.get(hash).is_some_and(|previous| previous != id));
-        if !conflict {
-            map.extend(incoming.iter().map(|(hash, id)| (*hash, *id)));
-        }
-    });
-    anyhow::ensure!(!conflict, "Predict hash has conflicting REST order IDs");
+            .all(|(hash, id)| ids.get(hash).is_none_or(|previous| previous == id)),
+        "Predict hash has conflicting REST order IDs"
+    );
+    ids.extend(incoming);
     Ok(())
 }
 
@@ -81,10 +78,13 @@ mod tests {
         register(&ids, first, U256::from(1)).unwrap();
         register(&ids, first, U256::from(1)).unwrap();
         assert!(register_many(&ids, &[(other, U256::from(2)), (first, U256::from(3))]).is_err());
-        assert_eq!(ids.len(), 1);
-        assert_eq!(ids.get_cloned(&first), Some(U256::from(1)));
+        assert_eq!(ids.lock().unwrap().len(), 1);
+        assert_eq!(
+            ids.lock().unwrap().get(&first).copied(),
+            Some(U256::from(1))
+        );
         assert!(register_many(&ids, &[(other, U256::from(2)), (other, U256::from(3))]).is_err());
-        assert!(ids.get_cloned(&other).is_none());
+        assert!(ids.lock().unwrap().get(&other).copied().is_none());
         assert!(parse_id("-1").is_err());
         assert!(parse_id("1e3").is_err());
     }

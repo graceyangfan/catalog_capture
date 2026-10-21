@@ -41,6 +41,8 @@ pub mod factories;
 #[cfg(feature = "execution")]
 pub mod fees;
 pub mod http;
+#[cfg(feature = "execution")]
+pub mod latency;
 pub mod models;
 #[cfg(feature = "live")]
 pub mod providers;
@@ -72,6 +74,10 @@ pub use data_types::{
 };
 #[cfg(feature = "execution")]
 pub use execution::PredictExecutionClient;
+#[cfg(feature = "execution")]
+pub use execution::settlement::{
+    PredictSettlementStatus, PredictSettlementUpdate, predict_settlement_data_type,
+};
 #[cfg(feature = "live")]
 pub use factories::PredictDataClientFactory;
 #[cfg(feature = "execution")]

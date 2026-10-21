@@ -63,6 +63,7 @@ pub struct PredictChainClient {
     config: PredictChainClientConfig,
     client: HttpClient,
     verified: Arc<tokio::sync::OnceCell<()>>,
+    pub(crate) latency: Option<crate::latency::PredictLatency>,
 }
 
 impl PredictChainClient {
@@ -81,29 +82,64 @@ impl PredictChainClient {
         tokio::time::timeout(
             std::time::Duration::from_secs(self.config.timeout_secs),
             async {
-                let (snapshot, timestamp) =
-                    self.collect(account, clock, &[exchange], false).await?;
-                let timestamp = timestamp.ok_or_else(|| {
+                anyhow::ensure!(
+                    !account.is_zero(),
+                    "Predict collateral account cannot be zero"
+                );
+                let block = self.read_block().await?;
+                let block_number = quantity(&block.number)?;
+                let timestamp = block_timestamp(&block)?.ok_or_else(|| {
                     anyhow::anyhow!("Predict admission block timestamp is missing")
                 })?;
-                let nonce = self
-                    .call(
+                let collateral = collateral_contract(self.environment());
+                // Like SELL admission, all independent ABI reads share one canonical block.
+                let (balance_wei, allowance, nonce) = tokio::try_join!(
+                    self.call(collateral, balanceOf_0Call { owner: account }, block.hash),
+                    self.call(
+                        collateral,
+                        allowanceCall {
+                            owner: account,
+                            spender: exchange.contract(self.environment()),
+                        },
+                        block.hash
+                    ),
+                    self.call(
                         exchange.contract(self.environment()),
                         noncesCall { owner: account },
-                        snapshot.block_hash,
-                    )
-                    .await?;
+                        block.hash,
+                    ),
+                )?;
                 let current: Block = self
                     .request(
                         "eth_getBlockByNumber",
-                        json!([format!("0x{:x}", snapshot.block_number), false]),
+                        json!([format!("0x{block_number:x}"), false]),
                     )
                     .await?;
                 anyhow::ensure!(
-                    current.hash == snapshot.block_hash
-                        && quantity(&current.number)? == snapshot.block_number,
+                    current.hash == block.hash && quantity(&current.number)? == block_number,
                     PredictBlockChanged
                 );
+                let allowances = ALL_EXCHANGES.map(|kind| {
+                    (
+                        kind,
+                        if kind == exchange {
+                            allowance
+                        } else {
+                            U256::ZERO
+                        },
+                    )
+                });
+                let snapshot = PredictCollateralSnapshot {
+                    environment: self.environment(),
+                    account_address: account,
+                    collateral,
+                    block_number,
+                    block_hash: block.hash,
+                    decimals: 18,
+                    balance_wei,
+                    allowances,
+                    ts_observed: clock.get_time_ns(),
+                };
                 Ok((snapshot, nonce, timestamp))
             },
         )
@@ -188,6 +224,7 @@ impl PredictChainClient {
             config,
             client,
             verified: Default::default(),
+            latency: None,
         })
     }
 
@@ -237,6 +274,32 @@ impl PredictChainClient {
         })
     }
 
+    // Account collection prepares signing nonces outside the command path, at the
+    // same canonical block as cash. No allowances or token inventory are queried.
+    pub(crate) async fn request_execution_account_snapshot(
+        &self,
+        account: Address,
+        clock: &'static AtomicTime,
+        signing: bool,
+    ) -> anyhow::Result<(PredictBalanceSnapshot, Option<[U256; 4]>)> {
+        let (snapshot, timestamp, nonces) = self
+            .collect_account(account, clock, &[], true, signing)
+            .await?;
+        let balance = PredictBalanceSnapshot {
+            environment: snapshot.environment,
+            account_address: snapshot.account_address,
+            collateral: snapshot.collateral,
+            block_number: snapshot.block_number,
+            block_hash: snapshot.block_hash,
+            block_timestamp: timestamp
+                .ok_or_else(|| anyhow::anyhow!("Predict balance block timestamp is missing"))?,
+            decimals: snapshot.decimals,
+            balance_wei: snapshot.balance_wei,
+            ts_observed: snapshot.ts_observed,
+        };
+        Ok((balance, signing.then_some(nonces)))
+    }
+
     async fn collect(
         &self,
         account: Address,
@@ -244,6 +307,24 @@ impl PredictChainClient {
         exchanges: &[PredictExchangeType],
         verify_final: bool,
     ) -> anyhow::Result<(PredictCollateralSnapshot, Option<nautilus_core::UnixNanos>)> {
+        let (snapshot, timestamp, _) = self
+            .collect_account(account, clock, exchanges, verify_final, false)
+            .await?;
+        Ok((snapshot, timestamp))
+    }
+
+    async fn collect_account(
+        &self,
+        account: Address,
+        clock: &'static AtomicTime,
+        exchanges: &[PredictExchangeType],
+        verify_final: bool,
+        signing: bool,
+    ) -> anyhow::Result<(
+        PredictCollateralSnapshot,
+        Option<nautilus_core::UnixNanos>,
+        [U256; 4],
+    )> {
         anyhow::ensure!(
             !account.is_zero(),
             "Predict collateral account cannot be zero"
@@ -255,9 +336,24 @@ impl PredictChainClient {
                 let block_number = quantity(&block.number)?;
                 let block_timestamp = block_timestamp(&block)?;
                 let collateral = collateral_contract(self.environment());
-                let balance_wei = self
-                    .call(collateral, balanceOf_0Call { owner: account }, block.hash)
-                    .await?;
+                let (balance_wei, nonces) = tokio::try_join!(
+                    self.call(collateral, balanceOf_0Call { owner: account }, block.hash),
+                    async {
+                        if !signing {
+                            return Ok([U256::ZERO; 4]);
+                        }
+                        let values =
+                            futures_util::future::try_join_all(ALL_EXCHANGES.map(|exchange| {
+                                self.call(
+                                    exchange.contract(self.environment()),
+                                    noncesCall { owner: account },
+                                    block.hash,
+                                )
+                            }))
+                            .await?;
+                        Ok::<_, anyhow::Error>([values[0], values[1], values[2], values[3]])
+                    },
+                )?;
                 let mut allowances = ALL_EXCHANGES.map(|exchange| (exchange, U256::ZERO));
                 for (exchange, value) in &mut allowances {
                     if !exchanges.contains(exchange) {
@@ -296,6 +392,7 @@ impl PredictChainClient {
                         ts_observed: clock.get_time_ns(),
                     },
                     block_timestamp,
+                    nonces,
                 ))
             },
         )
@@ -364,6 +461,10 @@ impl PredictChainClient {
             .to_string()
             .into();
         let headers = HashMap::from([("Content-Type".to_string(), "application/json".to_string())]);
+        let timing = self.latency.as_ref().map(|probe| {
+            probe.count(crate::latency::LatencyCounter::RpcRequests);
+            probe.timer(crate::latency::LatencyMetric::RpcHttp)
+        });
         let response = self
             .client
             .request_with_secret_body(
@@ -375,8 +476,11 @@ impl PredictChainClient {
                 None,
                 None,
             )
-            .await
-            .map_err(|_| anyhow::anyhow!("Predict RPC HTTP request failed"))?;
+            .await;
+        if let Some(timing) = timing {
+            timing.finish();
+        }
+        let response = response.map_err(|_| anyhow::anyhow!("Predict RPC HTTP request failed"))?;
         anyhow::ensure!(
             response.status.as_u16() == 200,
             "Predict RPC HTTP status is not successful"

@@ -13,14 +13,12 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Stateless resource views. Native owns balances/orders; this module owns no ledger.
-//! Reported cash uses Native leaves notional. Admission also covers signed budgets
-//! and pending writes; its fee allowance is a conservative bound, not a charged fee.
-use alloy::primitives::{B256, U256};
+//! Reported cash uses Native leaves notional; command admission does not audit funds.
+use alloy::primitives::B256;
 use nautilus_model::{
     accounts::{Account, cash::CashAccount},
     enums::{OrderSide, OrderType},
     instruments::InstrumentAny,
-    orders::{Order, OrderAny},
     types::{Currency, Money, Price},
 };
 use rust_decimal::Decimal;
@@ -59,35 +57,7 @@ pub(super) fn reported_signed_reservation(row: &PredictOrderData) -> anyhow::Res
     external_reservation(signed_collateral(row)?)
 }
 
-/// Preserve the existing worst-case signed BUY budget plus fee-rate allowance.
-/// A BUY share fee is not an extra collateral debit; this is only admission headroom.
-pub(super) fn signed_admission_collateral(row: &PredictOrderData) -> anyhow::Result<Decimal> {
-    let collateral = signed_collateral(row)?;
-    if row.order.fields.side != PredictOrderSide::Buy {
-        return Ok(collateral);
-    }
-    let bps: u32 = row
-        .order
-        .fields
-        .fee_rate_bps
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Predict fee exceeds supported range"))?;
-    anyhow::ensure!(bps <= 10_000, "Predict fee exceeds supported range");
-    collateral
-        .checked_mul(Decimal::ONE + Decimal::from(bps) / Decimal::from(10_000))
-        .ok_or_else(|| anyhow::anyhow!("Predict reserve overflow"))
-}
-
-/// Reserve the full signed SELL quantity for this token, including partial REST rows.
-pub(super) fn signed_inventory(row: &PredictOrderData, token: U256) -> U256 {
-    if row.order.fields.side == PredictOrderSide::Sell && row.order.fields.token_id == token {
-        row.order.fields.maker_amount
-    } else {
-        U256::ZERO
-    }
-}
-
-fn native_buy_price(order: &OrderAny) -> anyhow::Result<Price> {
+fn native_buy_price(order: &impl super::context::OrderView) -> anyhow::Result<Price> {
     if order.order_type() == OrderType::Market {
         // No signed budget is available: binary BUY cost is bounded by one USDT/share.
         Ok(Price::from("1"))
@@ -98,18 +68,7 @@ fn native_buy_price(order: &OrderAny) -> anyhow::Result<Price> {
     }
 }
 
-/// Exact pre-Money notional for an unrepresented local BUY; no fee is charged here.
-pub(super) fn native_admission_collateral(order: &OrderAny) -> anyhow::Result<Decimal> {
-    if order.order_side() != OrderSide::Buy {
-        return Ok(Decimal::ZERO);
-    }
-    native_buy_price(order)?
-        .as_decimal()
-        .checked_mul(order.leaves_qty().as_decimal())
-        .ok_or_else(|| anyhow::anyhow!("Predict native BUY reserve overflow"))
-}
-
-pub(super) fn native_inventory(order: &OrderAny) -> Decimal {
+pub(super) fn native_inventory(order: &impl super::context::OrderView) -> Decimal {
     if order.order_side() == OrderSide::Sell {
         order.leaves_qty().as_decimal()
     } else {
@@ -119,8 +78,9 @@ pub(super) fn native_inventory(order: &OrderAny) -> Decimal {
 
 pub(super) fn native_reservation(
     cash: &CashAccount,
-    order: &OrderAny,
+    order: &impl super::context::OrderView,
     instrument: &InstrumentAny,
+    market_buy_collateral: Option<Decimal>,
 ) -> anyhow::Result<Money> {
     anyhow::ensure!(
         matches!(instrument, InstrumentAny::BinaryOption(_)) && !order.is_quote_quantity(),
@@ -130,6 +90,18 @@ pub(super) fn native_reservation(
         return Ok(Money::zero(Currency::USDT()));
     }
     if order.order_type() == OrderType::Market {
+        if let Some(collateral) = market_buy_collateral {
+            // Native filled/leaves quantities are gross shares. The immutable signed
+            // budget bounds the unfilled fraction; REST amountFilled units are unused.
+            let quantity = crate::common::parse::decimal_to_wei(order.quantity().as_decimal())?;
+            let leaves = crate::common::parse::decimal_to_wei(order.leaves_qty().as_decimal())?;
+            let budget = crate::common::parse::decimal_to_wei(collateral)?;
+            let numerator = budget
+                .checked_mul(leaves)
+                .and_then(|value| value.checked_add(quantity - alloy::primitives::U256::from(1)))
+                .ok_or_else(|| anyhow::anyhow!("Predict MARKET reservation overflow"))?;
+            return external_reservation(exact_wei(numerator / quantity)?);
+        }
         // Recovery can observe a MARKET before the authenticated OPEN snapshot. With
         // no original signed budget in the native order, reserve the binary maximum
         // of one USDT/share. Never infer the budget from a current/average quote.
@@ -164,3 +136,6 @@ fn external_reservation(amount: Decimal) -> anyhow::Result<Money> {
 #[cfg(test)]
 #[path = "../../tests/unit/resources.rs"]
 mod tests;
+
+#[cfg(test)]
+use nautilus_model::orders::Order;

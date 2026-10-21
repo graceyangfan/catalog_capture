@@ -143,9 +143,7 @@ async fn run_mode_inner(
     cfg.orderbook_removal_enabled = resume;
     cfg.submission = (!read_only).then(|| PredictSubmissionConfig {
         signer: signer.clone(),
-        max_order_usdt: Decimal::from(62),
-        max_total_usdt: Decimal::from(if resume { 63 } else { 62 }),
-        require_post_only: true,
+
         market_slippage_bps: 100,
     });
     private.state.rpc_frame.lock().unwrap().2 =

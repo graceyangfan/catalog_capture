@@ -143,6 +143,7 @@ impl RestingBookConfirmation {
 #[derive(Debug)]
 pub struct CalibrationStrategy {
     core: StrategyCore,
+    latency: Option<nautilus_predict::latency::PredictLatency>,
     inputs: CalibrationInputs,
     observations: Rc<RefCell<Observations>>,
     handle: LiveNodeHandle,
@@ -184,6 +185,7 @@ impl CalibrationStrategy {
                 oms_type: Some(nautilus_model::enums::OmsType::Netting),
                 ..Default::default()
             }),
+            latency: None,
             inputs,
             observations,
             handle,
@@ -203,6 +205,15 @@ impl CalibrationStrategy {
             pending_snapshot: None,
             resting_time_in_force: TimeInForce::Gtc,
         }
+    }
+
+    #[allow(dead_code)] // Shared support also compiles in the live test binary without telemetry.
+    pub fn with_latency(
+        mut self,
+        latency: Option<nautilus_predict::latency::PredictLatency>,
+    ) -> Self {
+        self.latency = latency;
+        self
     }
 
     /// Loopback-only barrier: keep the node running until its own position poll is applied.
@@ -265,7 +276,9 @@ impl CalibrationStrategy {
             return;
         }
         observed.recorded_feedback.push(value);
-        if let Some(path) = &self.feedback_path {
+        if let Some(path) = &self.feedback_path
+            && self.latency.is_none()
+        {
             let result = serde_json::to_vec_pretty(&observed.recorded_feedback)
                 .map_err(std::io::Error::other)
                 .and_then(|bytes| std::fs::write(path, bytes));
@@ -346,6 +359,9 @@ impl CalibrationStrategy {
                 return Ok(());
             }
             self.cancel_requested = true;
+            if let Some(probe) = &self.latency {
+                probe.cancel_decision(id, std::time::Instant::now());
+            }
             self.cancel_order(id, Some(ClientId::new("PREDICT")), None)?;
         }
         Ok(())
@@ -533,6 +549,7 @@ impl DataActor for CalibrationStrategy {
         {
             return Ok(());
         }
+        let decision_started = self.latency.as_ref().map(|_| std::time::Instant::now());
         let order = self.order().limit(
             self.inputs.instrument_id,
             OrderSide::Buy,
@@ -560,6 +577,9 @@ impl DataActor for CalibrationStrategy {
             "bookTsEvent":book.ts_event.as_u64(),"observedNs":now,"bestBid":bid.to_string(),"bestAsk":ask.to_string(),
             "restConfirmed":self.resting_confirmation.is_some(),"timeInForce":self.resting_time_in_force.to_string(),
             "price":price.to_string(),"quantity":quantity.to_string(),"cost":cost.to_string()}));
+        if let (Some(probe), Some(started)) = (&self.latency, decision_started) {
+            probe.decision(order.client_order_id(), started);
+        }
         self.submit_order(order, None, Some(ClientId::new("PREDICT")), None)?;
         self.observations.borrow_mut().submitted += 1;
         Ok(())
@@ -646,6 +666,9 @@ nautilus_strategy!(CalibrationStrategy, {
         }
     }
     fn on_order_accepted(&mut self, event: OrderAccepted) {
+        if let Some(probe) = &self.latency {
+            probe.strategy_callback(&event);
+        }
         self.observations.borrow_mut().accepted += 1;
         if self.inputs.settings.phase == Phase::Resting {
             // Atomic amend is expected to reject; original order must remain unchanged.
@@ -693,7 +716,10 @@ nautilus_strategy!(CalibrationStrategy, {
     fn on_order_cancel_rejected(&mut self, _event: OrderCancelRejected) {
         self.observations.borrow_mut().cancel_rejected += 1;
     }
-    fn on_order_canceled(&mut self, _event: &OrderCanceled) {
+    fn on_order_canceled(&mut self, event: &OrderCanceled) {
+        if let Some(probe) = &self.latency {
+            probe.strategy_callback(event);
+        }
         self.observations.borrow_mut().canceled += 1;
         self.active = None;
         if self.observations.borrow().canceled >= 2 || self.inputs.settings.phase == Phase::Fill {
@@ -701,6 +727,9 @@ nautilus_strategy!(CalibrationStrategy, {
         }
     }
     fn on_order_filled(&mut self, event: &OrderFilled) {
+        if let Some(probe) = &self.latency {
+            probe.strategy_callback(event);
+        }
         self.observations.borrow_mut().fills += 1;
         if event.order_side == OrderSide::Buy {
             let mut observed = self.observations.borrow_mut();

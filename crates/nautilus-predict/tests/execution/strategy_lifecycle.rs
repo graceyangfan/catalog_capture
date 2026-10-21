@@ -206,12 +206,8 @@ pub(super) fn book(
 pub(super) fn rest(private: &Server, body: &Value) {
     let mut row = super::live_node::rest_row(body, "OPEN");
     row["amountFilled"] = json!("0");
-    private
-        .state
-        .orders
-        .lock()
-        .unwrap()
-        .push_back(json!({"success":true,"data":row.clone()}));
+    // Concurrent Native queries are keyed by hash, just like the venue. A shared
+    // FIFO can otherwise return another strategy's order depending on scheduling.
     private.state.orders_by_hash.lock().unwrap().insert(
         body["data"]["order"]["hash"].as_str().unwrap().to_owned(),
         json!({"success":true,"data":row.clone()}),
@@ -540,10 +536,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::from(3),
-        // Entry attempts 2.5 USDT plus the second strategy's 1 USDT BUY.
-        max_total_usdt: Decimal::from(if case.is_concurrent() { 4 } else { 3 }),
-        require_post_only: false,
+
         market_slippage_bps: 100,
     });
     let public = PublicState(Arc::new(Mutex::new(vec![])));
@@ -1205,6 +1198,20 @@ async fn run(case: Case, from_saved: bool) -> Value {
                         })
                         .await;
                         cash(&private, Decimal::ZERO); // A canonical block after REST native status application.
+                        // Order cancellation can apply before the wallet verification gate releases.
+                        // Publish the final fresh signal after that gate, preserving the two frames.
+                        barrier("wallet verified before fresh stop signal", || {
+                            engine
+                                .try_borrow_mut()
+                                .ok()
+                                .and_then(|mut engine| {
+                                    engine
+                                        .get_client_adapter_mut(&"PREDICT".into())
+                                        .map(|client| client.is_connected())
+                                })
+                                .unwrap_or(false)
+                        })
+                        .await;
                         books.push(book(&private, &public, "0.008", saved.as_ref()));
                     } else {
                         gate.notify_one();
@@ -1236,6 +1243,16 @@ async fn run(case: Case, from_saved: bool) -> Value {
                             assert_eq!(private.state.removals.lock().unwrap().len(), 2);
                         }
                         let stop = exit_requests(&private, case)[2].clone();
+                        // The venue already owns a POSTed stop when Native's
+                        // concurrent recovery timer queries it before wallet ACK.
+                        if case.native_reconcile() {
+                            let mut row = super::live_node::rest_row(&stop, "OPEN");
+                            row["strategy"] = stop["data"]["strategy"].clone();
+                            private.state.orders_by_hash.lock().unwrap().insert(
+                                stop["data"]["order"]["hash"].as_str().unwrap().to_owned(),
+                                json!({"success":true,"data":row}),
+                            );
+                        }
                         assert_eq!(stop["data"]["strategy"], "MARKET");
                         assert_eq!(
                             stop["data"]["order"]["makerAmount"],
@@ -1306,6 +1323,27 @@ async fn run(case: Case, from_saved: bool) -> Value {
                             settlement(&stop, 1, first, first, "0.008", "native-stop-1", false),
                             saved.as_ref(),
                         );
+                        if case.native_reconcile() {
+                            barrier(
+                                "partial stop fill applied before refreshing its signal",
+                                || {
+                                    let cache = cache.borrow();
+                                    cache
+                                        .client_order_id(&VenueOrderId::new(
+                                            stop["data"]["order"]["hash"].as_str().unwrap(),
+                                        ))
+                                        .and_then(|id| cache.order(id))
+                                        .is_some_and(|order| {
+                                            order.filled_qty().as_decimal() == Decimal::from(first)
+                                        })
+                                },
+                            )
+                            .await;
+                            // Reconciliation can exceed the strategy's book freshness
+                            // window under parallel load. Keep the policy's freshness
+                            // check and provide a current quote after the fill barrier.
+                            books.push(book(&private, &public, "0.008", saved.as_ref()));
+                        }
                         barrier("partial stop and wait callback", || {
                             journal
                                 .borrow()
@@ -1379,16 +1417,9 @@ async fn run(case: Case, from_saved: bool) -> Value {
                                 saved.as_ref(),
                             );
                             barrier("residual minimum reaches the owning rejection path", || {
-                                // 100 shares are below Native's notional minimum;
-                                // 126 pass it but fail the venue slippage-floor minimum.
-                                callback(
-                                    &journal,
-                                    if case == Case::TerminalStop {
-                                        "on_order_denied"
-                                    } else {
-                                        "on_order_rejected"
-                                    },
-                                )
+                                // Native minimum and adapter signed-floor minimum
+                                // both deny before submission; neither sends a POST.
+                                callback(&journal, "on_order_denied")
                             })
                             .await;
                             assert_eq!(exit_requests(&private, case).len(), 3);
@@ -1577,6 +1608,11 @@ async fn run(case: Case, from_saved: bool) -> Value {
     };
     tokio::select! {result=async{let (result,())=tokio::join!(live.run(),driver);result.unwrap();}=>{let ()=result;},()=deadline=>panic!("lifecycle watchdog: {:?}",journal.borrow())}
     task.abort();
+    assert_eq!(
+        *private.state.book_requests.lock().unwrap(),
+        0,
+        "strategy snapshot price must survive Native risk/submit/close-position routing"
+    );
     if case == Case::NativeQuotes {
         for byte in ["cc", "dd"] {
             assert!(
@@ -1860,20 +1896,9 @@ async fn run(case: Case, from_saved: bool) -> Value {
             );
             assert!(order.filled_qty().is_zero());
             assert!(order.venue_order_id().is_none());
-            assert_eq!(
-                order.status(),
-                if default {
-                    OrderStatus::Denied
-                } else {
-                    OrderStatus::Rejected
-                }
-            );
+            assert_eq!(order.status(), OrderStatus::Denied);
             let id = order.client_order_id().to_string();
-            let callback = if default {
-                "on_order_denied"
-            } else {
-                "on_order_rejected"
-            };
+            let callback = "on_order_denied";
             assert_eq!(
                 callbacks
                     .iter()
@@ -1886,7 +1911,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
                     .iter()
                     .filter(|r| r["clientOrderId"] == id && r["callback"] == "on_order_submitted")
                     .count(),
-                usize::from(!default)
+                0
             );
             assert!(
                 !callbacks
@@ -1896,7 +1921,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
             let reason = if default {
                 "reduce-only is unsupported"
             } else {
-                "minimum of 1 USDT at its slippage floor"
+                "minimum of 1 USDT"
             };
             assert!(callbacks.iter().any(|r| r["clientOrderId"] == id
                 && r["reason"].as_str().is_some_and(|r| r.contains(reason))));

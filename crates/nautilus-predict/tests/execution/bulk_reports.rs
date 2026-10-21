@@ -34,6 +34,10 @@ async fn bulk_and_mass_reports_preserve_precision_and_duplicate_trade_identity()
     run("valid").await;
 }
 #[tokio::test]
+async fn bulk_fill_recovery_preserves_millisecond_venue_time_before_native_submission() {
+    run("submillisecond").await;
+}
+#[tokio::test]
 async fn bulk_and_mass_fail_closed_on_incomplete_conflicting_and_unverified_sources() {
     for case in [
         "duplicate_order",
@@ -88,6 +92,9 @@ async fn run(case: &str) -> Value {
         .push_back((500, 0, vec![]));
     let (mut client, mut rx, cache, _portfolio, order, clock) =
         submissions::connected_with_clock(&private, 1).await;
+    if case == "submillisecond" {
+        clock.set_time(UnixNanos::from(2_999_999));
+    }
     let mut engine = submissions::engine(&cache);
     client.submit_order(submissions::submit(&order)).unwrap();
     submissions::apply(&mut engine, &next(&mut rx).await);
@@ -176,12 +183,23 @@ async fn run(case: &str) -> Value {
             matches.pop();
         }
         "generation" => {}
-        "valid" => {
+        "valid" | "submillisecond" => {
             matches.push(matches[0].clone());
         }
         _ => unreachable!(),
     }
     *private.state.match_snapshot.lock().unwrap() = Some(matches.clone());
+    if case == "submillisecond" {
+        assert_eq!(
+            cache
+                .borrow()
+                .order(&order.client_order_id())
+                .unwrap()
+                .ts_submitted(),
+            Some(UnixNanos::from(2_999_999))
+        );
+        clock.set_time(UnixNanos::from(3_000_000));
+    }
     let result = if case == "generation" {
         let task = client
             .generate_order_status_reports_task(&command(false))
@@ -196,13 +214,21 @@ async fn run(case: &str) -> Value {
         client.generate_mass_status(None).await
     };
     let mut output = json!({"case":case,"request":body,"matches":matches,"nativeStatusBefore":cache.borrow().order(&order.client_order_id()).unwrap().status().to_string(),"mainnetWrites":0});
-    if case == "valid" {
+    if matches!(case, "valid" | "submillisecond") {
         let mass = result.unwrap().unwrap();
         assert!(mass.reports_complete());
         let reports = mass.order_reports();
         let fills = mass.fill_reports();
         assert_eq!(reports.len(), 1);
         assert_eq!(fills.values().map(Vec::len).sum::<usize>(), 2);
+        if case == "submillisecond" {
+            assert!(
+                fills
+                    .values()
+                    .flatten()
+                    .all(|fill| fill.ts_event == UnixNanos::from(2_000_000))
+            );
+        }
         let report = reports.values().next().unwrap();
         assert_eq!(report.order_status, OrderStatus::Filled);
         assert_eq!(report.filled_qty, Quantity::from(100));
@@ -216,11 +242,17 @@ async fn run(case: &str) -> Value {
             "collection cannot mutate Cache"
         );
         output["massStatus"] = serde_json::to_value(&mass).unwrap();
+        let identities_before = *private.state.account_requests.lock().unwrap();
         let deferred = client
             .generate_order_status_reports(&command(false))
             .await
             .unwrap_err();
         assert!(deferred.to_string().contains("defer status until applied"));
+        assert_eq!(
+            *private.state.account_requests.lock().unwrap() - identities_before,
+            0,
+            "the verified session does not repeat identity GETs across reports"
+        );
         output["deferredStatus"] = json!(deferred.to_string());
         let packet = timeout(Duration::from_secs(3), async {
             loop {

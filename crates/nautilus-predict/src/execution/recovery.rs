@@ -6,7 +6,7 @@ use nautilus_model::{
     enums::OrderStatus,
     identifiers::{AccountId, VenueOrderId},
     instruments::{BinaryOption, Instrument},
-    orders::{Order, OrderAny},
+    orders::OrderAny,
     reports::OrderStatusReport,
     types::Quantity,
 };
@@ -19,8 +19,8 @@ use crate::{
     signing::PredictOrderHasher,
 };
 
-pub(super) struct OrderRecovery<'a> {
-    pub order: &'a OrderAny,
+pub(super) struct OrderRecovery<'a, O = OrderAny> {
+    pub order: &'a O,
     pub instrument: &'a BinaryOption,
     pub venue_id: VenueOrderId,
     pub account_id: AccountId,
@@ -28,13 +28,13 @@ pub(super) struct OrderRecovery<'a> {
     pub hasher: &'a PredictOrderHasher,
 }
 
-impl OrderRecovery<'_> {
+impl<O: super::context::OrderView> OrderRecovery<'_, O> {
     /// Full history is required, including previously applied trade IDs. REST amountFilled
     /// has undocumented units; only its zero/nonzero property is used, never a conversion.
     pub fn report(
         &self,
         row: &PredictOrderData,
-        fills: &[BufferedFill],
+        fills: &[&BufferedFill],
         observed: UnixNanos,
     ) -> anyhow::Result<OrderStatusReport> {
         let order = self.order;
@@ -71,7 +71,11 @@ impl OrderRecovery<'_> {
         );
         let mut raw = U256::ZERO;
         let mut qty = Decimal::ZERO;
+        let mut ids = std::collections::HashSet::with_capacity(fills.len());
+        let mut earliest = fills[0].report.ts_event;
         for fill in fills {
+            ids.insert(fill.report.trade_id);
+            earliest = earliest.min(fill.report.ts_event);
             anyhow::ensure!(
                 fill.report.client_order_id == Some(order.client_order_id())
                     && fill.report.venue_order_id == self.venue_id
@@ -85,13 +89,13 @@ impl OrderRecovery<'_> {
                 .checked_add(fill.report.last_qty.as_decimal())
                 .ok_or_else(|| anyhow::anyhow!("Predict recovery quantity overflow"))?;
         }
-        anyhow::ensure!(
-            order
-                .trade_ids()
-                .iter()
-                .all(|id| fills.iter().any(|f| f.report.trade_id == **id)),
-            "Predict recovery history omits an applied trade"
-        );
+        order.for_each_trade_id(|id| {
+            anyhow::ensure!(
+                ids.contains(&id),
+                "Predict recovery history omits an applied trade"
+            );
+            Ok(())
+        })?;
         let full = raw == decimal_to_wei(order.quantity().as_decimal())?;
         anyhow::ensure!(
             raw <= decimal_to_wei(order.quantity().as_decimal())?
@@ -109,14 +113,11 @@ impl OrderRecovery<'_> {
             !order.is_closed() || order.status() == status,
             "Predict recovery cannot change a terminal native status"
         );
-        let earliest = fills
-            .iter()
-            .map(|f| f.report.ts_event)
-            .min()
-            .expect("nonempty fills");
+        // Venue milliseconds can round below a local nanosecond submission.
+        // Ownership and signed terms above establish association, not clock ordering.
         anyhow::ensure!(
-            earliest <= observed && order.ts_submitted().is_none_or(|ts| ts <= earliest),
-            "Predict recovery execution precedes submission or observation"
+            earliest <= observed,
+            "Predict recovery execution is after observation"
         );
         let accepted = order.ts_accepted().unwrap_or(earliest);
         let mut report = OrderStatusReport::new(

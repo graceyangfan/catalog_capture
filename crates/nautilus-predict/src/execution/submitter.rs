@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Admission, signing and one-shot private submission over owned worker snapshots.
+//! Local preparation, signing and one-shot private submission over owned worker snapshots.
 
 use std::sync::{
     Arc,
@@ -24,13 +24,12 @@ use nautilus_common::factories::OrderEventFactory;
 use nautilus_core::{AtomicMap, time::AtomicTime};
 use nautilus_live::{ExecutionEventEmitter, execution::failure::CommandFailure};
 use nautilus_model::{
-    enums::{OrderSide, OrderType},
+    enums::OrderSide,
     identifiers::{InstrumentId, VenueOrderId},
-    instruments::{BinaryOption, Instrument, InstrumentAny},
+    instruments::Instrument,
     orders::{Order, OrderAny},
 };
 use nautilus_network::websocket::AuthTracker;
-use rust_decimal::Decimal;
 
 use super::{
     order_builder::decimal_wei,
@@ -38,37 +37,26 @@ use super::{
     types::classify_http_command_failure,
 };
 use crate::{
-    blockchain::PredictChainClient,
-    common::{
-        enums::{PredictOrderSide, PredictSignatureType},
-        parse::exact_wei,
-    },
-    config::{PredictExecutionClientConfig, PredictSubmissionConfig},
-    http::{PredictAuthenticatedHttpClient, order_models::PredictOrder},
+    common::enums::{PredictOrderSide, PredictSignatureType},
+    config::PredictExecutionClientConfig,
+    http::order_models::PredictOrder,
     signing::PredictOrderSigner,
 };
 
 pub(super) struct SubmitWorker {
     pub signer: Arc<PredictOrderSigner>,
-    pub session: PredictAuthenticatedHttpClient,
-    pub chain: PredictChainClient,
+    pub command_started: Option<std::time::Instant>,
     pub config: PredictExecutionClientConfig,
-    pub policy: PredictSubmissionConfig,
     pub order: Arc<OrderAny>,
-    pub instrument: BinaryOption,
-    pub price: U256,
-    pub shares: U256,
-    pub expiry: U256,
+    pub definition: super::types::ExecutionInstrument,
+    pub terms: super::order_builder::OrderTerms,
     pub salt: U256,
-    pub cost: Decimal,
-    pub free: Decimal,
     pub pending: PendingSubmissions,
-    pub admission: Arc<tokio::sync::Mutex<()>>,
-    pub orders: Arc<AtomicMap<VenueOrderId, Arc<OrderAny>>>,
+    pub orders: super::types::OrderSnapshots<VenueOrderId>,
     pub rest_ids: super::routing::RestOrderIds,
     pub reconciliation_required: Arc<AtomicBool>,
     pub account_sync: Arc<super::account::AccountSync>,
-    pub instruments: Arc<AtomicMap<InstrumentId, InstrumentAny>>,
+    pub instruments: Arc<AtomicMap<InstrumentId, super::types::ExecutionInstrument>>,
     pub healthy: Arc<AtomicBool>,
     pub authentication: AuthTracker,
     pub epoch: Arc<AtomicU64>,
@@ -76,6 +64,7 @@ pub(super) struct SubmitWorker {
     pub emitter: ExecutionEventEmitter,
     pub factory: OrderEventFactory,
     pub clock: &'static AtomicTime,
+    pub metadata_notify: Arc<tokio::sync::Notify>,
 }
 
 impl SubmitWorker {
@@ -86,227 +75,81 @@ impl SubmitWorker {
             && self.epoch.load(Ordering::Acquire) == self.admitted_epoch
     }
 
-    async fn preflight(
+    fn current_definition(&self) -> bool {
+        self.definition.is_current(&self.instruments)
+    }
+
+    fn execution_market(&self) -> anyhow::Result<super::types::MarketMetadata> {
+        if let Some(value) = self.definition.cached_market(
+            self.admitted_epoch,
+            self.clock.get_time_ns(),
+            self.config
+                .market_metadata_ttl_secs
+                .saturating_mul(1_000_000_000),
+        )? {
+            if let Some(probe) = &self.config.latency {
+                probe.count(crate::latency::LatencyCounter::MetadataHit);
+            }
+            return Ok(value);
+        }
+        if let Some(probe) = &self.config.latency {
+            probe.count(crate::latency::LatencyCounter::MetadataMiss);
+        }
+        self.metadata_notify.notify_one();
+        anyhow::bail!("Predict market metadata is not ready; wait for background preparation")
+    }
+
+    fn prepare_order(
         &self,
-        market: crate::http::market_models::PredictExecutionMarket,
-        rows: Vec<crate::http::account_models::PredictOrderData>,
+        market: &crate::http::market_models::PredictExecutionMarket,
+        nonce: U256,
     ) -> anyhow::Result<(
         crate::http::order_models::PredictSignedOrder,
         Option<crate::common::market::PredictMarketOrderAmounts>,
     )> {
-        let market_id = super::parse::market_id_from_instrument(&self.instrument.id())?;
         let token: U256 = self
+            .definition
             .instrument
             .raw_symbol()
             .as_str()
             .parse()
             .map_err(|_| anyhow::anyhow!("Predict token ID is invalid"))?;
-        let outcome = if self.instrument.id().symbol.as_str().ends_with("-1") {
-            1
-        } else {
-            2
-        };
-        anyhow::ensure!(
-            market.trading_status == "OPEN",
-            "Predict market is not open"
-        );
-        anyhow::ensure!(
-            market.fee_rate_bps <= 10_000,
-            "Predict market fee exceeds supported range"
-        );
-        // Reported cash and native position reconciliation account for BUY fees in shares.
-        // Submission policy still enforces post-only when the operator requires it.
-        anyhow::ensure!(
-            market.decimal_precision == self.instrument.price_precision()
-                && market.outcomes.len() == 2
-                && market
-                    .outcomes
-                    .iter()
-                    .filter(|o| o.index_set == outcome && o.on_chain_id == token)
-                    .count()
-                    == 1,
-            "Predict market outcome/token/precision differs from the native instrument"
-        );
         let side = if self.order.order_side() == OrderSide::Sell {
             PredictOrderSide::Sell
         } else {
             PredictOrderSide::Buy
         };
-        let mut locked = Decimal::ZERO;
-        let mut locked_shares = U256::ZERO;
-        let mut seen = std::collections::HashSet::new();
-        for row in rows {
-            let hash = super::resources::open_order_hash(&row)?;
-            anyhow::ensure!(
-                seen.insert(hash),
-                "Predict open-order admission pages contain duplicates"
-            );
-            locked_shares = locked_shares
-                .checked_add(super::resources::signed_inventory(&row, token))
-                .ok_or_else(|| anyhow::anyhow!("Predict SELL reservations overflow"))?;
-            locked = locked
-                .checked_add(super::resources::signed_admission_collateral(&row)?)
-                .ok_or_else(|| anyhow::anyhow!("Predict aggregate reserve overflow"))?;
-        }
-        // OPEN can lag a transmitted order, including an unknown POST outcome. Union
-        // protocol evidence with native snapshots by exchange hash, never sum both.
-        // Admission stays serialized until the signed hash/resource claim is installed,
-        // so another worker cannot transmit between this snapshot and registration.
-        for (hash, order) in self.orders.load().iter() {
-            if order.client_order_id() == self.order.client_order_id()
-                || order.is_closed()
-                || seen.contains(&hash.as_str().parse::<alloy::primitives::B256>()?)
-            {
-                continue;
-            }
-            if order.order_side() == OrderSide::Buy {
-                locked = locked
-                    .checked_add(super::resources::native_admission_collateral(order)?)
-                    .ok_or_else(|| anyhow::anyhow!("Predict aggregate reserve overflow"))?;
-            } else if order.order_side() == OrderSide::Sell {
-                let instrument = self
-                    .instruments
-                    .get_cloned(&order.instrument_id())
-                    .ok_or_else(|| anyhow::anyhow!("Predict pending SELL instrument is missing"))?;
-                if instrument.raw_symbol().as_str().parse::<U256>()? == token {
-                    locked_shares = locked_shares
-                        .checked_add(decimal_wei(super::resources::native_inventory(order))?)
-                        .ok_or_else(|| anyhow::anyhow!("Predict native SELL reserve overflow"))?;
-                }
-            }
-        }
-        let now = self.clock.get_time_ns().as_u64();
-        let (nonce, timestamp) = if side == PredictOrderSide::Sell {
-            let (balance, approved, nonce, timestamp) = self
-                .chain
-                .request_sell_admission(
-                    self.session.account_address(),
-                    market.exchange(),
-                    token,
-                    self.clock,
-                )
-                .await?;
-            anyhow::ensure!(
-                approved,
-                "Predict exchange ERC1155 approval is missing; no approval was sent"
-            );
-            anyhow::ensure!(
-                balance
-                    .checked_sub(locked_shares)
-                    .is_some_and(|free| free >= self.shares),
-                "Predict fresh net inventory minus outstanding SELL reservations is insufficient"
-            );
-            (nonce, timestamp)
-        } else {
-            let (snapshot, nonce, timestamp) = self
-                .chain
-                .request_buy_admission(
-                    self.session.account_address(),
-                    market.exchange(),
-                    self.clock,
-                )
-                .await?;
-            let funds = exact_wei(snapshot.balance_wei)?
-                .checked_sub(locked)
-                .ok_or_else(|| anyhow::anyhow!("Predict free balance underflow"))?;
-            anyhow::ensure!(
-                self.cost <= funds.min(self.free),
-                "Predict fresh collateral minus outstanding BUY reservations is insufficient"
-            );
-            let allowance = snapshot
-                .allowances
-                .iter()
-                .find(|(exchange, _)| *exchange == market.exchange())
-                .map(|(_, value)| *value)
-                .unwrap_or_default();
-            let cost = decimal_wei(self.cost)?;
-            anyhow::ensure!(
-                allowance >= cost,
-                "Predict exchange USDT allowance is insufficient; no approval was sent"
-            );
-            (nonce, timestamp)
-        };
-        let latest_fill = self
-            .account_sync
-            .state
-            .lock()
-            .expect("account sync poisoned")
-            .latest_fill;
-        let newest_fill = latest_fill;
-        anyhow::ensure!(
-            timestamp >= newest_fill,
-            "Predict admission block predates confirmed native fills"
-        );
-        anyhow::ensure!(
-            timestamp.as_u64() <= now.saturating_add(5_000_000_000)
-                && now.saturating_sub(timestamp.as_u64()) <= 30_000_000_000,
-            "Predict admission block is stale or in the future"
-        );
-        let amounts = if self.order.order_type() == OrderType::Market {
-            let book = self.session.request_execution_orderbook(market_id).await?;
-            let observed = self.clock.get_time_ns().as_u64();
-            anyhow::ensure!(
-                book.market_id == market_id
-                    && book
-                        .update_timestamp_ms
-                        .checked_mul(1_000_000)
-                        .and_then(|ts| observed.checked_sub(ts))
-                        .is_some(),
-                "Predict MARKET orderbook identity or freshness is invalid"
-            );
-            let levels = if outcome == 1 {
-                book.bids
-            } else {
-                book.asks
-                    .into_iter()
-                    .map(|(px, qty)| (Decimal::ONE - px, qty))
-                    .collect()
-            };
-            let levels = levels
-                .into_iter()
-                .map(|(px, qty)| Ok((decimal_wei(px)?, decimal_wei(qty)?)))
-                .collect::<anyhow::Result<Vec<_>>>()?;
-            let amounts = crate::common::market::PredictMarketOrderAmounts::from_levels(
-                side,
-                self.shares,
-                &levels,
-                self.policy.market_slippage_bps,
-            )?;
-            anyhow::ensure!(
-                amounts.taker_amount >= decimal_wei(Decimal::ONE)?,
-                "Predict MARKET SELL is below the venue minimum of 1 USDT at its slippage floor"
-            );
-            Some(amounts)
-        } else {
-            None
-        };
+        let amounts = self.terms.market;
         let now = self.clock.get_time_ns().as_u64();
         anyhow::ensure!(
-            now < self.instrument.expiration_ns.as_u64()
-                && self.expiry > U256::from(now / 1_000_000_000),
+            self.definition
+                .instrument
+                .expiration_ns()
+                .is_some_and(|expiry| now < expiry.as_u64())
+                && self.terms.expiry > U256::from(now / 1_000_000_000),
             "Predict order expired during admission"
         );
         let (maker_amount, taker_amount) = match amounts {
             Some(amounts) => (amounts.maker_amount, amounts.taker_amount),
             None => {
-                let collateral = decimal_wei(self.cost)?;
+                let collateral = decimal_wei(self.terms.cost)?;
                 if side == PredictOrderSide::Sell {
-                    (self.shares, collateral)
+                    (self.terms.shares, collateral)
                 } else {
-                    (collateral, self.shares)
+                    (collateral, self.terms.shares)
                 }
             }
         };
         let signed = self.signer.sign_order(
             &PredictOrder {
                 salt: self.salt,
-                maker: self.session.account_address(),
-                signer: self.session.account_address(),
+                maker: self.config.session.account_address(),
+                signer: self.config.session.account_address(),
                 taker: Address::ZERO,
                 token_id: token,
                 maker_amount,
                 taker_amount,
-                expiration: self.expiry,
+                expiration: self.terms.expiry,
                 nonce,
                 fee_rate_bps: U256::from(market.fee_rate_bps),
                 side,
@@ -318,80 +161,107 @@ impl SubmitWorker {
     }
 
     pub(super) async fn run(&self, guard: &mut SubmissionGuard) -> Result<(), CommandFailure> {
-        if !self.available() {
+        let preparation = self
+            .config
+            .latency
+            .as_ref()
+            .map(|probe| probe.timer(crate::latency::LatencyMetric::Preparation));
+        if !self.available() || !self.current_definition() {
             return Err(CommandFailure::not_sent(
-                "Predict admission lost wallet continuity",
+                "Predict admission lost wallet or instrument continuity",
             ));
         }
-        let market_id = super::parse::market_id_from_instrument(&self.instrument.id())
-            .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
-        // Independent metadata and venue reservations do not hold the resource admission lock.
-        let (market, rows) = tokio::try_join!(
-            async {
-                self.session
-                    .request_execution_market(market_id)
-                    .await
-                    .map_err(anyhow::Error::from)
-            },
-            super::account::collect_open_orders(&self.config),
-        )
-        .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
-        // Under the lock, union current local claims with the venue rows, collect fresh
-        // chain resources, then sign and register atomically. Concurrent attempts cannot
-        // consume the same snapshot; external wallet orders remain part of admission.
-        let admission = self.admission.lock().await;
-        if !self.available() {
+        let metadata = self
+            .execution_market()
+            .map_err(|error| CommandFailure::NotSent(error.to_string()))?;
+        let nonce = self
+            .account_sync
+            .state
+            .lock()
+            .expect("account sync poisoned")
+            .signing_nonces
+            .filter(|(epoch, _)| *epoch == self.admitted_epoch)
+            .map(|(_, values)| values[metadata.market.exchange().cache_index()])
+            .ok_or_else(|| {
+                CommandFailure::not_sent(
+                    "Predict signing nonce is not prepared for this wallet generation",
+                )
+            })?;
+        if !self.available() || !self.current_definition() {
             return Err(CommandFailure::not_sent(
-                "Predict admission lost wallet continuity",
+                "Predict admission lost wallet or instrument continuity",
             ));
         }
         let (signed, amounts) = self
-            .preflight(market, rows)
-            .await
+            .prepare_order(&metadata.market, nonce)
             .map_err(|error| CommandFailure::NotSent(error.to_string()))?;
-        if !self.available() {
-            return Err(CommandFailure::NotSent(
-                "Predict wallet continuity changed before transmission".into(),
-            ));
+        if let Some(preparation) = preparation {
+            preparation.finish();
         }
-        let id = VenueOrderId::new(format!("{:#x}", signed.hash()));
-        if self
-            .orders
-            .load()
-            .get(&id)
-            .is_some_and(|existing| existing.client_order_id() != self.order.client_order_id())
-        {
-            return Err(CommandFailure::NotSent(
-                "Predict signed order hash already belongs to another native order".into(),
-            ));
-        }
-        {
-            let mut registry = self.pending.lock().expect("submission registry poisoned");
-            let attempted = registry
-                .attempted_usdt
-                .checked_add(if self.order.order_side() == OrderSide::Buy {
-                    self.cost
-                } else {
-                    Decimal::ZERO
-                })
-                .filter(|v| *v <= self.policy.max_total_usdt)
-                .ok_or_else(|| {
-                    CommandFailure::NotSent("Predict collateral cap is exhausted".into())
-                })?;
-            *registry
-                .entries
-                .get_mut(&self.order.client_order_id())
-                .ok_or_else(|| {
-                    CommandFailure::NotSent("Predict submission lost command ownership".into())
-                })? = Some(id);
-            registry.attempted_usdt = attempted;
-            // Install correlation before POST. Only immutable snapshots are stored here.
-            self.orders.insert(id, Arc::clone(&self.order));
-            guard.transmitted = true;
-        }
-        // The signed hash now reserves this attempt through existing immutable native
-        // context; a following preflight includes it even before OPEN/ACK publication.
-        drop(admission);
+        let id = {
+            // Fence the prepared nonce, generation and definition with registration.
+            // This short correlation lock never covers signing or network IO.
+            let mut sync = self
+                .account_sync
+                .state
+                .lock()
+                .expect("account sync poisoned");
+            if sync
+                .signing_nonces
+                .filter(|(epoch, _)| *epoch == self.admitted_epoch)
+                .is_none_or(|(_, values)| values[metadata.market.exchange().cache_index()] != nonce)
+                || !self.available()
+                || !self.current_definition()
+                || !self
+                    .clock
+                    .get_time_ns()
+                    .as_u64()
+                    .checked_sub(metadata.observed.as_u64())
+                    .is_some_and(|age| age < self.config.market_metadata_ttl_secs * 1_000_000_000)
+            {
+                return Err(CommandFailure::NotSent(
+                    "Predict wallet, instrument or market metadata changed before transmission"
+                        .into(),
+                ));
+            }
+            let id = VenueOrderId::new(format!("{:#x}", signed.hash()));
+            if self
+                .orders
+                .lock()
+                .expect("order snapshots poisoned")
+                .get(&id)
+                .is_some_and(|existing| existing.client_order_id() != self.order.client_order_id())
+            {
+                return Err(CommandFailure::NotSent(
+                    "Predict signed order hash already belongs to another native order".into(),
+                ));
+            }
+            {
+                let mut registry = self.pending.lock().expect("submission registry poisoned");
+                registry
+                    .entries
+                    .get_mut(&self.order.client_order_id())
+                    .ok_or_else(|| {
+                        CommandFailure::NotSent("Predict submission lost command ownership".into())
+                    })?
+                    .venue_id = Some(id);
+                // Install correlation before POST. Only immutable snapshots are stored here.
+                self.orders
+                    .lock()
+                    .expect("order snapshots poisoned")
+                    .insert(
+                        id,
+                        Arc::new(super::context::WorkerOrder::capture(&self.order)),
+                    );
+                sync.active_orders
+                    .insert(self.order.client_order_id(), Some(id));
+                guard.venue_id = Some(id);
+                guard.transmitted = true;
+            }
+            id
+        };
+        // Correlation is installed before transmission; no funds ledger or admission
+        // mutex is needed. Native risk and the venue enforce trading capacity.
         // Public correlation metadata survives an ambiguous reply without exposing signed
         // payloads. This is transmission intent, never a venue acceptance acknowledgement.
         log::info!(
@@ -399,16 +269,58 @@ impl SubmitWorker {
             self.order.client_order_id(),
             signed.hash(),
         );
+        let timing = self.config.latency.as_ref().map(|probe| {
+            if let Some(started) = self.command_started {
+                probe.post(self.order.client_order_id(), started);
+            }
+            probe.count(crate::latency::LatencyCounter::CreateCalls);
+            probe.timer(crate::latency::LatencyMetric::CreateRequest)
+        });
         let receipt = if let Some(amounts) = amounts {
-            self.session
+            self.config
+                .session
                 .request_create_market_order(&signed, &amounts)
                 .await
         } else {
-            self.session
-                .request_create_limit_order(&signed, self.price, self.order.is_post_only())
+            self.config
+                .session
+                .request_create_limit_order(&signed, self.terms.price, self.order.is_post_only())
                 .await
+        };
+        if let Some(timing) = timing {
+            timing.finish();
         }
-        .map_err(|error| classify_http_command_failure(&error))?;
+        let receipt = match receipt {
+            Ok(receipt) => receipt,
+            Err(error) => {
+                // Definitive venue rejection is published without account IO or retry.
+                // A nonce failure invalidates prepared signing context, waking the existing
+                // background collector. Ordinary funding failures do not evict metadata.
+                if matches!(
+                    &error,
+                    crate::http::error::Error::Api {
+                        reason: crate::http::error::PredictApiErrorReason::InvalidNonce,
+                        ..
+                    }
+                ) && self.available()
+                {
+                    let mut sync = self
+                        .account_sync
+                        .state
+                        .lock()
+                        .expect("account sync poisoned");
+                    if sync.signing_nonces.is_some_and(|(epoch, values)| {
+                        epoch == self.admitted_epoch
+                            && values[metadata.market.exchange().cache_index()] == nonce
+                    }) {
+                        sync.signing_nonces = None;
+                        sync.request_cash();
+                        self.account_sync.notify.notify_one();
+                    }
+                }
+                return Err(classify_http_command_failure(&error));
+            }
+        };
         super::routing::register(&self.rest_ids, id, receipt.order_id).map_err(|error| {
             self.reconciliation_required.store(true, Ordering::Release);
             CommandFailure::Ambiguous(error.to_string())

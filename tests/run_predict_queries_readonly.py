@@ -1,5 +1,6 @@
 """Opt-in read-only relay for Rust Strategy QueryAccount/QueryOrder. LGPL-3.0-or-later."""
 
+import argparse
 import json
 import os
 import re
@@ -18,7 +19,7 @@ from capture_predict_startup_readonly import OWN, contract_hash, sanitize
 from predict_sdk import ChainId, OrderBuilder
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "crates/nautilus-predict/tests/fixtures/private_api"
+OUTPUT = ROOT / "data/predict-validation"
 READ_RPC = {"eth_chainId", "eth_blockNumber", "eth_getBlockByNumber", "eth_call"}
 
 
@@ -265,14 +266,29 @@ class ReadOnlyRelay:
                 f.write("\n")
 
 
+def probe_options():
+    parser = argparse.ArgumentParser(
+        description="Read-only mainnet validation; order and chain writes are blocked."
+    )
+    parser.add_argument(
+        "--features",
+        choices=("execution", "native-quantity-commission"),
+        default="execution",
+    )
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT)
+    return parser.parse_args()
+
+
 def main():
+    options = probe_options()
+    options.output_dir.mkdir(parents=True, exist_ok=True)
     settings = tomllib.loads((ROOT / "env/predict-execution.toml").read_text())
     name = (
         "query_commands_readonly_"
         + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         + f"_{os.getpid()}.json"
     )
-    output = OUTPUT / name
+    output = options.output_dir / name
     with tempfile.TemporaryDirectory(prefix=".predict-query-", dir=ROOT) as directory:
         work = Path(directory)
         phase = work / "phase.txt"
@@ -306,7 +322,7 @@ def main():
                     "-p",
                     "nautilus-predict",
                     "--features",
-                    "execution",
+                    options.features,
                     "--locked",
                     "--test",
                     "private_api_live",
@@ -326,7 +342,7 @@ def main():
         print(
             json.dumps(
                 {
-                    "file": str(output.relative_to(ROOT)),
+                    "file": str(output),
                     "passed": result.returncode == 0,
                     "requests": len(relay.events),
                     "orderWrites": 0,

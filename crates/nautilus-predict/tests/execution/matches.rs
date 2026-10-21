@@ -527,13 +527,18 @@ async fn rest_full_fill_then_wallet_replay_stays_connected_and_does_not_double_c
     duplicate["fill"]["executedSizeWei"] = json!("100000000000000000000");
     duplicate["fill"]["executedValueWei"] = json!("62000000000000000000");
     server.wallet(duplicate);
-    let mut barrier = event("orderAccepted", 1);
-    barrier["details"]["quantityFilled"] = json!("100");
-    server.wallet(barrier);
-    let ExecutionEvent::Report(ExecutionReport::Order(status)) = next(&mut rx).await else {
-        panic!("duplicate wallet fill must be suppressed before its following lifecycle report");
+    let mut ack = event("orderAccepted", 1);
+    ack["details"]["quantityFilled"] = json!("100");
+    let (control_hash, control) = super::wallet_lifecycle::control(&mut engine, &ack);
+    server.wallet(ack);
+    server.wallet(control);
+    let ExecutionEvent::Order(native @ nautilus_model::events::OrderEventAny::Canceled(_)) =
+        next(&mut rx).await
+    else {
+        panic!("replayed fill and historical ACK must be suppressed before control event");
     };
-    assert_eq!(status.order_status, OrderStatus::Filled);
+    assert_eq!(native.venue_order_id(), Some(control_hash));
+    engine.process(&native);
     assert!(client.is_connected());
     assert_eq!(
         cache
@@ -650,5 +655,81 @@ async fn captured_real_match_precision_preserves_raw_wei_and_normalizes_gross_cu
             .borrow()
             .positions(None, None, None, None, None)
             .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn millisecond_match_timestamp_does_not_reject_known_hash_submitted_within_same_millisecond()
+{
+    let server = server(vec![]).await;
+    let (client, _, cache) = client(&server);
+    add_instruments(&cache);
+    seed_account(&cache);
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    let mut own = OrderTestBuilder::new(OrderType::Limit)
+        .trader_id(trader_id())
+        .instrument_id(instrument_id(1))
+        .side(OrderSide::Buy)
+        .quantity(Quantity::from(100))
+        .price(Price::from("0.620"))
+        .build();
+    own.apply(factory.generate_order_submitted(&own, 1_000_999.into()))
+        .unwrap();
+    own.apply(factory.generate_order_accepted(
+        &own,
+        HASH.into(),
+        1_001_100.into(),
+        1_001_100.into(),
+    ))
+    .unwrap();
+    cache
+        .borrow_mut()
+        .add_order(own.clone(), None, None, false)
+        .unwrap();
+    cache
+        .borrow_mut()
+        .add_venue_order_id(&own.client_order_id(), &HASH.into(), false)
+        .unwrap();
+    page(&server, json!({"success":true,"data":[match_row(1)]}));
+    let reports = client
+        .generate_fill_reports(command(Some(1)))
+        .await
+        .unwrap();
+    assert_eq!(reports.len(), 1);
+    assert_eq!(reports[0].client_order_id, Some(own.client_order_id()));
+    assert_eq!(reports[0].ts_event, UnixNanos::from(1_000_000u64));
+    assert_eq!(reports[0].last_qty, Quantity::from(17));
+    let mut engine = cancellations::engine(&cache);
+    engine.reconcile_execution_report(&ExecutionReport::Fill(Box::new(reports[0].clone())));
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&own.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::PartiallyFilled
+    );
+    assert_eq!(
+        cache.borrow().positions(None, None, None, None, None)[0].quantity,
+        Quantity::from(17)
+    );
+    // Exact ownership and quantity checks remain necessary, independent of clocks.
+    let mut overfill = match_row(1);
+    overfill["taker"]["amount"] = json!("101000000000000000000");
+    overfill["settlementId"] = json!("oversized-settlement");
+    page(&server, json!({"success":true,"data":[overfill]}));
+    assert!(
+        client
+            .generate_fill_reports(command(Some(1)))
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&own.client_order_id())
+            .unwrap()
+            .filled_qty(),
+        Quantity::from(17)
     );
 }

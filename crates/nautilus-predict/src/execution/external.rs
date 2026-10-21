@@ -27,9 +27,9 @@ use crate::{
 
 pub(super) fn order_report(
     row: &PredictOrderData,
-    context: &MatchContext,
+    context: &MatchContext<impl super::context::OrderView>,
     hasher: &PredictOrderHasher,
-    fills: &[BufferedFill],
+    fills: &[&BufferedFill],
     observed: UnixNanos,
 ) -> anyhow::Result<OrderStatusReport> {
     let fields = &row.order.fields;
@@ -86,9 +86,11 @@ pub(super) fn order_report(
     let mut raw_filled = U256::ZERO;
     let mut filled = Decimal::ZERO;
     let mut first = observed;
-    for fill in fills.iter().filter(|f| f.report.venue_order_id == id) {
+    for fill in fills {
         anyhow::ensure!(
-            fill.report.instrument_id == instrument.id() && fill.report.order_side == side,
+            fill.report.venue_order_id == id
+                && fill.report.instrument_id == instrument.id()
+                && fill.report.order_side == side,
             "Predict external match differs from signed order"
         );
         raw_filled = raw_filled

@@ -13,9 +13,13 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Exercise the actual product host; fixture services/strategies remain in tests.
+#[path = "continuous.rs"]
+mod continuous;
 #[allow(dead_code)]
 #[path = "../../../catalog-capture-cli/src/predict_node.rs"]
 mod host;
+#[path = "in_service.rs"]
+mod in_service;
 #[path = "../support/snapshot_maker.rs"]
 mod snapshot_maker;
 #[path = "snapshot_multi.rs"]
@@ -48,6 +52,15 @@ fn product_profile_reuses_native_config_and_rejects_venue_incompatible_overrides
             .is_none()
     );
     assert_eq!(profile.node.delay_post_stop, Duration::from_secs(10));
+    let native_limit = host::NodeProfile::parse(&source.replace(
+        "bypass = false",
+        "bypass = false\nmax_notional_per_order = { \"42-1.PREDICT\" = \"0.50\" }",
+    ))
+    .unwrap();
+    assert_eq!(
+        native_limit.node.risk_engine.max_notional_per_order["42-1.PREDICT"],
+        "0.50"
+    );
     let bounded = host::NodeProfile::parse(&source.replace(
         "reconciliation = true",
         "reconciliation = true\nreconciliation_lookback_mins = 10",
@@ -69,6 +82,90 @@ fn product_profile_reuses_native_config_and_rejects_venue_incompatible_overrides
     ] {
         assert!(host::NodeProfile::parse(&change).is_err());
     }
+    let submission = format!("{source}\n[predict.submission]\nmarket_slippage_bps = 100\n");
+    assert!(host::NodeProfile::parse(&submission).is_ok());
+    for removed in [
+        "max_order_usdt = \"10\"",
+        "max_total_usdt = \"100\"",
+        "require_post_only = true",
+    ] {
+        assert!(host::NodeProfile::parse(&format!("{submission}{removed}\n")).is_err());
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_risk_notional_limit_denies_before_predict_post() {
+    let HostFixture {
+        backing,
+        public,
+        config,
+        task,
+        ..
+    } = fixture(true, 3).await;
+    let signer = Arc::new(
+        PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    );
+    let mut prepared = host::prepare(
+        host::NodeProfile::parse(&config).unwrap(),
+        KEY.into(),
+        signer,
+    )
+    .await
+    .unwrap();
+    prepared
+        .node
+        .kernel()
+        .risk_engine
+        .borrow_mut()
+        .set_max_notional_per_order(prepared.instruments[0], Decimal::new(5, 1));
+    let journal = Rc::new(RefCell::new(vec![]));
+    prepared
+        .node
+        .add_strategy(snapshot_maker::SnapshotMaker::new(
+            prepared.market_id,
+            prepared.instruments[0],
+            journal.clone(),
+        ))
+        .unwrap();
+    let handle = prepared.node.handle();
+    let driver = async {
+        barrier("native risk test public subscription", || {
+            !public.0.lock().unwrap().is_empty()
+        })
+        .await;
+        let frame = json!({"type":"M","topic":"predictOrderbook/42","data":{
+            "marketId":42,"updateTimestampMs":get_atomic_clock_realtime().get_time_ns().as_u64()/1_000_000,
+            "orderCount":2,"bids":[["0.630","1000"]],"asks":[["0.640","1000"]]}});
+        public.0.lock().unwrap()[0]
+            .send(Message::Text(frame.to_string().into()))
+            .unwrap();
+        barrier("native risk denies the strategy order", || {
+            journal
+                .borrow()
+                .iter()
+                .any(|row| row["callback"] == "on_order_denied")
+        })
+        .await;
+        assert!(backing.state.creations.lock().unwrap().is_empty());
+        assert!(journal.borrow().iter().any(|row| {
+            row["reason"]
+                .as_str()
+                .is_some_and(|reason| reason.to_uppercase().contains("NOTIONAL"))
+        }));
+        handle.stop();
+    };
+    timeout(Duration::from_secs(15), async {
+        let (result, ()) = tokio::join!(prepared.node.run(), driver);
+        result.unwrap();
+    })
+    .await
+    .unwrap();
+    task.abort();
 }
 
 #[derive(Clone)]
@@ -189,9 +286,6 @@ position_check_interval_secs = 30.0
         text.push_str(
             r#"
 [predict.submission]
-max_order_usdt = "1.2"
-max_total_usdt = "3"
-require_post_only = true
 market_slippage_bps = 100
 "#,
         );
@@ -381,7 +475,7 @@ async fn run_scenario(scenario: Scenario, saved: Option<&Value>) -> Value {
         prepared
             .node
             .add_strategy(if replace {
-                strategy.with_cancel_replace()
+                strategy.with_cancel_replace().with_fresh_block_replace()
             } else {
                 strategy
             })
@@ -487,6 +581,23 @@ async fn run_scenario(scenario: Scenario, saved: Option<&Value>) -> Value {
                 json!({"success":true,"data":row}),
             );
             if replace {
+                // This replay tests account-controlled replacement. Establish its
+                // financial checkpoint explicitly instead of relying on submit RPC
+                // latency to let the background report arrive before acceptance.
+                barrier("initial maker is in-flight under Native Cash risk", || {
+                    cache
+                        .borrow()
+                        .account(&account_id())
+                        .unwrap()
+                        .balance_locked(Some(Currency::USDT()))
+                        == Some(Money::from("0 USDT"))
+                        && cache
+                            .borrow()
+                            .orders_inflight(None, None, None, None, None)
+                            .len()
+                            == 1
+                })
+                .await;
                 rpc_gate
                     .paused
                     .store(true, std::sync::atomic::Ordering::Release);
@@ -763,7 +874,28 @@ async fn run_scenario(scenario: Scenario, saved: Option<&Value>) -> Value {
                     || e["callback"] == "on_order_denied")
         );
         if let Some(saved) = saved {
-            assert_eq!(saved["strategyCallbacks"], json!(*callbacks));
+            let stable = |rows: &Value| {
+                rows.as_array()
+                    .unwrap()
+                    .iter()
+                    .cloned()
+                    .map(|mut row| {
+                        // Cash may update before or after the cancellation callback;
+                        // the explicit replacement/account checkpoints above remain exact.
+                        if row["callback"] == "query_account" {
+                            row.as_object_mut().unwrap().remove("accountBeforeQuery");
+                        }
+                        if row["callback"] == "ReplacementDeferred" {
+                            row.as_object_mut().unwrap().remove("account");
+                        }
+                        row
+                    })
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(
+                stable(&saved["strategyCallbacks"]),
+                stable(&json!(*callbacks))
+            );
         }
         let account_events = accounts.borrow();
         assert!(account_events.iter().any(|event| {

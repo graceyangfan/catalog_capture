@@ -32,19 +32,17 @@ use nautilus_common::{
         execution::{BatchCancelOrders, CancelAllOrders, CancelOrder},
     },
 };
-use nautilus_core::{AtomicMap, time::AtomicTime};
+use nautilus_core::time::AtomicTime;
 use nautilus_live::{ExecutionEventEmitter, execution::failure::CommandFailure};
 use nautilus_model::{
     identifiers::{ClientOrderId, VenueOrderId},
     instruments::{BinaryOption, InstrumentAny},
-    orders::{Order, OrderAny},
+    orders::Order,
 };
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    PredictExecutionClient,
-    parse::{parse_rest_order_report, validate_rest_order_terms},
-    types::classify_http_command_failure,
+    PredictExecutionClient, parse::validate_rest_order_terms, types::classify_http_command_failure,
 };
 use crate::{
     config::PredictAccountStateMode,
@@ -139,8 +137,10 @@ impl PredictExecutionClient {
                 && cmd.client_id.is_none_or(|id| id == self.core.client_id),
             "Predict cancel-all identity differs from execution client"
         );
-        let orders = {
+        // Strategy expands strategy_only into explicit commands; CancelAll spans strategies.
+        let cancels = {
             let cache = self.core.cache();
+            let mut seen = HashSet::new();
             cache
                 .orders_open(
                     Some(&self.core.venue),
@@ -166,32 +166,25 @@ impl PredictExecutionClient {
                             .client_id(&order.client_order_id())
                             .is_none_or(|id| *id == self.core.client_id)
                 })
-                .map(|order| order.clone())
+                .filter(|order| seen.insert(order.client_order_id()))
+                .map(|order| {
+                    let mut cancel = CancelOrder::new(
+                        cmd.trader_id,
+                        Some(self.core.client_id),
+                        order.strategy_id(),
+                        order.instrument_id(),
+                        order.client_order_id(),
+                        order.venue_order_id(),
+                        cmd.command_id,
+                        cmd.ts_init,
+                        cmd.params.clone(),
+                        cmd.correlation_id,
+                    );
+                    cancel.causation_id = cmd.causation_id;
+                    cancel
+                })
                 .collect::<Vec<_>>()
         };
-        let mut seen = HashSet::new();
-        let mut cancels = Vec::new();
-        for order in orders {
-            if !seen.insert(order.client_order_id()) {
-                continue;
-            }
-            // CancelAll intentionally spans strategies for this client/account/instrument;
-            // strategy_only is expanded into explicit commands by the native Strategy API.
-            let mut cancel = CancelOrder::new(
-                cmd.trader_id,
-                Some(self.core.client_id),
-                order.strategy_id(),
-                order.instrument_id(),
-                order.client_order_id(),
-                order.venue_order_id(),
-                cmd.command_id,
-                cmd.ts_init,
-                cmd.params.clone(),
-                cmd.correlation_id,
-            );
-            cancel.causation_id = cmd.causation_id;
-            cancels.push(cancel);
-        }
         self.dispatch_cancels(&cancels)
     }
 
@@ -285,7 +278,7 @@ impl PredictExecutionClient {
         );
         let cache = self.core.cache();
         let order = cache
-            .order_owned(&cmd.client_order_id)
+            .order(&cmd.client_order_id)
             .ok_or_else(|| anyhow::anyhow!("Predict cancel requires a cached native order"))?;
         anyhow::ensure!(
             cmd.trader_id == self.core.trader_id
@@ -339,6 +332,7 @@ impl PredictExecutionClient {
             anyhow::bail!("Predict cancel instrument is missing from native cache");
         };
         let instrument = instrument.clone();
+        drop(order);
         drop(cache);
         anyhow::ensure!(
             self.pending_cancels
@@ -355,11 +349,12 @@ impl PredictExecutionClient {
         let worker = CancelWorker {
             session: self.config.session.clone(),
             orders: Arc::clone(&self.orders),
-            client_order_id: order.client_order_id(),
+            client_order_id: cmd.client_order_id,
             instrument,
             venue_id,
             hash,
             rest_ids: Arc::clone(&self.rest_order_ids),
+            account_sync: Arc::clone(&self.account_sync),
             healthy: Arc::clone(&self.healthy),
             factory: OrderEventFactory::new(
                 self.core.trader_id,
@@ -371,6 +366,7 @@ impl PredictExecutionClient {
             clock: self.clock,
             timeout: Duration::from_secs(self.config.report_timeout_secs),
             cancellation: self.tasks.cancellation_token(),
+            latency: self.config.latency.clone(),
         };
         Ok(Some((worker, guard)))
     }
@@ -378,18 +374,20 @@ impl PredictExecutionClient {
 
 struct CancelWorker {
     session: PredictAuthenticatedHttpClient,
-    orders: Arc<AtomicMap<VenueOrderId, Arc<OrderAny>>>,
+    orders: super::types::OrderSnapshots<VenueOrderId>,
     client_order_id: ClientOrderId,
     instrument: BinaryOption,
     venue_id: VenueOrderId,
     hash: B256,
     rest_ids: super::routing::RestOrderIds,
+    account_sync: Arc<super::account::AccountSync>,
     healthy: Arc<AtomicBool>,
     factory: OrderEventFactory,
     emitter: ExecutionEventEmitter,
     clock: &'static AtomicTime,
     timeout: Duration,
     cancellation: CancellationToken,
+    latency: Option<crate::latency::PredictLatency>,
 }
 
 impl CancelWorker {
@@ -404,21 +402,18 @@ impl CancelWorker {
             && !order.is_closed()
         {
             let now = self.clock.get_time_ns();
-            let event = self.factory.generate_order_cancel_rejected(
-                &order,
-                Some(self.venue_id),
-                reason,
-                now,
-                now,
-            );
+            let event = order.cancel_rejected(&self.factory, Some(self.venue_id), reason, now, now);
             if self.emitter.try_send_order_event(event).is_err() {
                 self.healthy.store(false, Ordering::Release);
             }
         }
     }
-    fn current_order(&self) -> Option<Arc<OrderAny>> {
+    fn current_order(&self) -> Option<Arc<super::context::WorkerOrder>> {
         self.orders
-            .get_cloned(&self.venue_id)
+            .lock()
+            .expect("order snapshots poisoned")
+            .get(&self.venue_id)
+            .cloned()
             .filter(|order| order.client_order_id() == self.client_order_id)
     }
     fn resolve(
@@ -465,7 +460,13 @@ impl CancelWorker {
         if order.is_closed() {
             return Ok(None);
         }
-        if let Some(id) = self.rest_ids.get_cloned(&self.venue_id) {
+        if let Some(id) = self
+            .rest_ids
+            .lock()
+            .expect("REST order IDs poisoned")
+            .get(&self.venue_id)
+            .copied()
+        {
             return Ok(Some(id));
         }
         let row = self
@@ -511,11 +512,15 @@ impl CancelWorker {
             return Ok(());
         };
         guard.retain = true;
-        let receipt = self
-            .session
-            .request_remove_orders(&[id])
-            .await
-            .map_err(|e| classify_http_command_failure(&e))?;
+        let timing = self.latency.as_ref().map(|probe| {
+            probe.count(crate::latency::LatencyCounter::RemoveCalls);
+            probe.timer(crate::latency::LatencyMetric::CancelRequest)
+        });
+        let receipt = self.session.request_remove_orders(&[id]).await;
+        if let Some(timing) = timing {
+            timing.finish();
+        }
+        let receipt = receipt.map_err(|e| classify_http_command_failure(&e))?;
         self.complete(guard, &receipt, id).await
     }
 
@@ -528,6 +533,12 @@ impl CancelWorker {
         let order = self.current_order().ok_or_else(|| {
             CommandFailure::ambiguous("Predict cancel lost native context after transmission")
         })?;
+        if self.session_active() && receipt.removed.contains(&id.to_string()) {
+            // A late definitive receipt also resolves an earlier Native-only
+            // terminal state, without publishing a duplicate order event.
+            self.account_sync
+                .confirm_terminal(self.venue_id, Some(self.client_order_id));
+        }
         if order.is_closed() {
             guard.retain = false;
             return Ok(());
@@ -547,9 +558,7 @@ impl CancelWorker {
         }
         if receipt.removed.contains(&id) {
             let now = self.clock.get_time_ns();
-            let event = self
-                .factory
-                .generate_order_canceled(&order, Some(self.venue_id), now, now);
+            let event = order.canceled(&self.factory, Some(self.venue_id), now, now);
             self.emitter.try_send_order_event(event).map_err(|_| {
                 self.healthy.store(false, Ordering::Release);
                 CommandFailure::ambiguous(
@@ -587,7 +596,7 @@ impl CancelWorker {
                     "Predict removal noop does not establish cancellation",
                 ));
             }
-            let report = parse_rest_order_report(
+            let report = super::parse::rest_order_report_from_view(
                 &row,
                 &order,
                 &self.instrument,
@@ -596,6 +605,7 @@ impl CancelWorker {
                 self.clock.get_time_ns(),
             )
             .map_err(|e| CommandFailure::Ambiguous(e.to_string()))?;
+            self.account_sync.confirm_report(&report);
             self.emitter
                 .try_send_execution_report(ExecutionReport::Order(Box::new(report)))
                 .map_err(|_| {
@@ -650,7 +660,18 @@ async fn execute_batch(entries: Vec<(CancelWorker, CancelGuard)>) {
             for (_, guard, _) in &mut active {
                 guard.retain = true;
             }
-            match tokio::time::timeout(timeout, session.request_remove_orders(&ids)).await {
+            let probe = active[0].0.latency.clone();
+            let timing = probe.as_ref().map(|probe| {
+                probe.count(crate::latency::LatencyCounter::RemoveCalls);
+                probe.timer(crate::latency::LatencyMetric::CancelRequest)
+            });
+            let result = tokio::time::timeout(timeout, session.request_remove_orders(&ids)).await;
+            if let Some(timing) = timing
+                && result.is_ok()
+            {
+                timing.finish();
+            }
+            match result {
                 Ok(Ok(receipt)) => {
                     let receipt = &receipt;
                     futures_util::future::join_all(active.into_iter().map(

@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Bounded settlement evidence, not an order/position ledger. Native events own applied quantities.
+//! Native-owned settlement evidence, not an order/position ledger. Native events own applied quantities.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -21,9 +21,7 @@ use std::{
 
 use alloy::primitives::{B256, U256};
 use nautilus_model::{
-    events::OrderEventAny,
     identifiers::{TradeId, VenueOrderId},
-    orders::{Order, OrderAny},
     reports::FillReport,
     types::{Currency, Money, Quantity},
 };
@@ -39,6 +37,11 @@ use crate::{
 // raw wei and per-order fill quantities are never compared with this tolerance.
 pub(super) const POSITION_RECONCILIATION_TOLERANCE: Decimal =
     Decimal::from_parts(1, 0, 0, false, 12);
+
+#[cfg(test)]
+thread_local! {
+    static COMMIT_BATCH_IDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 
 pub(super) type SharedFillEvidence = Arc<Mutex<FillEvidence>>;
 
@@ -96,10 +99,154 @@ impl BufferedFill {
 
 #[derive(Clone, Debug, Default)]
 pub(super) struct FillEvidence {
-    // No balances/statuses: native orders own applied allocations; this bounded map retains facts.
-    entries: HashMap<TradeId, BufferedFill>,
-    by_order: HashMap<VenueOrderId, HashSet<TradeId>>,
-    queued: HashMap<TradeId, Option<nautilus_core::UnixNanos>>,
+    // Native owns applied allocations; its owner retention/purge also bounds these facts.
+    entries: ahash::AHashMap<TradeId, BufferedFill>,
+    pub notifications: super::settlement::SettlementNotifications,
+    by_order: ahash::AHashMap<VenueOrderId, OrderEvidence>,
+    queued: ahash::AHashMap<VenueOrderId, HashMap<TradeId, Option<nautilus_core::UnixNanos>>>,
+}
+
+// Reuses immutable committed facts only; Native still supplies allocated quantity.
+// No memo survives evidence cloning, Native history replacement or owner retirement.
+#[derive(Debug, Default)]
+struct OrderEvidence {
+    ids: HashSet<TradeId>,
+    prefix: Option<VerifiedPrefix>,
+}
+impl Clone for OrderEvidence {
+    fn clone(&self) -> Self {
+        Self {
+            ids: self.ids.clone(),
+            prefix: None,
+        }
+    }
+}
+#[derive(Debug)]
+struct VerifiedPrefix {
+    cursor: super::context::NativeFillCursor,
+    // Retirement can prove complete ID membership without reading economic fields.
+    // Normalization must still compute raw totals before reusing this prefix.
+    raw: Option<U256>,
+    collateral_fee: U256,
+}
+
+// One operation's raw prefix, not a retained balance or order model. Each Native
+// trade ID is visited once; queued and incoming allocations extend it in order.
+#[derive(Default)]
+struct FillPrefix {
+    ids: HashSet<TradeId>,
+    allocated: Decimal,
+    raw: U256,
+    collateral_fee: U256,
+    complete: bool,
+}
+impl FillPrefix {
+    fn capture<'a>(
+        order: Option<&impl super::context::OrderView>,
+        raw: &impl Fn(TradeId) -> Option<&'a RawFillFacts>,
+    ) -> anyhow::Result<Self> {
+        let mut prefix = Self {
+            complete: true,
+            ..Self::default()
+        };
+        if let Some(order) = order {
+            prefix.allocated = order.filled_qty().as_decimal();
+            // Native's applied-ID index is already unique. Do not copy it into
+            // another membership set; only queued/incoming facts need local dedup.
+            order.for_each_trade_id(|id| prefix.include_raw(raw(id)))?;
+        }
+        Ok(prefix)
+    }
+    fn capture_committed(
+        order: &impl super::context::OrderView,
+        entries: &ahash::AHashMap<TradeId, BufferedFill>,
+        mut memo: Option<&mut Option<VerifiedPrefix>>,
+    ) -> anyhow::Result<Self> {
+        let previous = memo
+            .as_deref()
+            .and_then(Option::as_ref)
+            .filter(|prefix| prefix.raw.is_some());
+        let cursor = previous.map(|prefix| prefix.cursor.clone());
+        let mut prefix = Self {
+            allocated: order.filled_qty().as_decimal(),
+            raw: previous.and_then(|p| p.raw).unwrap_or(U256::ZERO),
+            collateral_fee: previous.map_or(U256::ZERO, |p| p.collateral_fee),
+            complete: true,
+            ..Self::default()
+        };
+        let mut next = order.for_each_trade_id_since(cursor.as_ref(), |id| {
+            prefix.include_raw(entries.get(&id).map(|fill| &fill.raw))
+        })?;
+        if cursor.is_some() && next.is_none() {
+            prefix.raw = U256::ZERO;
+            prefix.collateral_fee = U256::ZERO;
+            prefix.complete = true;
+            next = order.for_each_trade_id_since(None, |id| {
+                prefix.include_raw(entries.get(&id).map(|fill| &fill.raw))
+            })?;
+        }
+        if let Some(memo) = memo.as_mut() {
+            **memo = next
+                .filter(|_| prefix.complete)
+                .map(|cursor| VerifiedPrefix {
+                    cursor,
+                    raw: Some(prefix.raw),
+                    collateral_fee: prefix.collateral_fee,
+                });
+        }
+        Ok(prefix)
+    }
+    fn include(
+        &mut self,
+        id: TradeId,
+        quantity: Decimal,
+        raw: Option<&RawFillFacts>,
+    ) -> anyhow::Result<()> {
+        if !self.ids.insert(id) {
+            return Ok(());
+        }
+        self.allocated = self
+            .allocated
+            .checked_add(quantity)
+            .ok_or_else(|| anyhow::anyhow!("Predict allocated quantity overflow"))?;
+        self.include_raw(raw)
+    }
+    fn include_raw(&mut self, raw: Option<&RawFillFacts>) -> anyhow::Result<()> {
+        if let Some(raw) = raw {
+            self.raw = self
+                .raw
+                .checked_add(raw.gross_shares)
+                .ok_or_else(|| anyhow::anyhow!("Predict raw cumulative quantity overflow"))?;
+            if raw.fee_type == PredictFeeType::Collateral {
+                self.collateral_fee = self
+                    .collateral_fee
+                    .checked_add(raw.fee)
+                    .ok_or_else(|| anyhow::anyhow!("Predict raw currency fee overflow"))?;
+            }
+        } else {
+            self.complete = false;
+        }
+        Ok(())
+    }
+    fn validate(&self, order: &impl super::context::OrderView) -> anyhow::Result<()> {
+        let quantity = order.quantity().as_decimal();
+        let raw_quantity = decimal_to_wei(quantity)?;
+        anyhow::ensure!(
+            self.raw <= raw_quantity,
+            "Predict raw fills exceed cached native order quantity"
+        );
+        anyhow::ensure!(
+            self.allocated <= quantity,
+            "Predict normalized fills exceed cached native order quantity"
+        );
+        if self.allocated == quantity {
+            anyhow::ensure!(
+                self.complete && self.raw == raw_quantity,
+                "Predict full fill requires complete exact raw settlement quantity"
+            );
+        }
+        Ok(())
+    }
 }
 
 fn same_facts(left: &BufferedFill, right: &BufferedFill) -> bool {
@@ -121,56 +268,96 @@ fn same_facts(left: &BufferedFill, right: &BufferedFill) -> bool {
 }
 
 impl FillEvidence {
+    /// Only reports still queued to Native, independent of retained history size.
+    pub fn queued_client_order_ids(
+        &self,
+    ) -> impl Iterator<Item = Option<nautilus_model::identifiers::ClientOrderId>> + '_ {
+        self.queued
+            .values()
+            .flat_map(|pending| pending.keys())
+            .filter_map(|id| self.entries.get(id))
+            .map(|fill| fill.report.client_order_id)
+    }
+
+    /// Recovery's cross-IO comparison snapshot contains only relevant raw facts,
+    /// not another account's orders or custom-data notification/queue state.
+    pub fn snapshot_for_orders(&self, owners: impl Iterator<Item = VenueOrderId>) -> Self {
+        let mut snapshot = Self::default();
+        for owner in owners {
+            if let Some(ids) = self.by_order.get(&owner) {
+                for id in &ids.ids {
+                    if let Some(fill) = self.entries.get(id) {
+                        snapshot.entries.insert(*id, fill.clone());
+                    }
+                }
+                snapshot.by_order.insert(owner, ids.clone());
+            }
+        }
+        snapshot
+    }
+
     /// Native has purged these terminal orders and every retained fill was applied.
     /// Other orders keep their full atomic prefix, including queued settlements.
     pub fn retire_orders(&mut self, retired: &HashSet<VenueOrderId>) {
+        self.notifications.retire_orders(retired);
         for hash in retired {
+            self.queued.remove(hash);
             if let Some(ids) = self.by_order.remove(hash) {
-                for id in ids {
+                for id in ids.ids {
                     self.entries.remove(&id);
-                    self.queued.remove(&id);
                 }
             }
         }
     }
 
     /// Only queued facts for this order; Native trade IDs own applied progress.
-    pub fn pending_for(&mut self, order: &OrderAny, hash: VenueOrderId) -> Vec<BufferedFill> {
-        let applied = order
-            .trade_ids()
-            .into_iter()
-            .copied()
-            .collect::<HashSet<_>>();
-        for id in &applied {
-            self.queued.remove(id);
-        }
-        self.by_order
-            .get(&hash)
-            .into_iter()
-            .flatten()
-            .filter(|id| self.queued.contains_key(id))
+    pub fn pending_for(
+        &mut self,
+        order: &impl super::context::OrderView,
+        hash: VenueOrderId,
+    ) -> Vec<BufferedFill> {
+        let Some(pending) = self.queued.get_mut(&hash) else {
+            return Vec::new();
+        };
+        pending.retain(|id, _| !order.has_applied_fill(*id));
+        let result = pending
+            .keys()
             .filter_map(|id| self.entries.get(id).cloned())
-            .collect()
+            .collect();
+        if pending.is_empty() {
+            self.queued.remove(&hash);
+        }
+        result
     }
 
     /// Mark only successfully published reports, never a read-only REST collection.
     pub fn queue(&mut self, fills: &[BufferedFill]) -> anyhow::Result<()> {
         self.commit(fills)?;
         for fill in fills {
-            self.queued.entry(fill.report.trade_id).or_insert(None);
+            self.queued
+                .entry(fill.report.venue_order_id)
+                .or_default()
+                .entry(fill.report.trade_id)
+                .or_insert(None);
         }
         Ok(())
     }
 
     pub fn queue_wallet(&mut self, fill: &BufferedFill) -> anyhow::Result<()> {
-        self.queue(std::slice::from_ref(fill))?;
+        self.commit(std::slice::from_ref(fill))?;
         self.queued
+            .entry(fill.report.venue_order_id)
+            .or_default()
             .insert(fill.report.trade_id, Some(fill.report.ts_event));
         Ok(())
     }
 
     pub fn validate_wallet_timestamp(&self, fill: &BufferedFill) -> anyhow::Result<()> {
-        if let Some(Some(timestamp)) = self.queued.get(&fill.report.trade_id) {
+        if let Some(Some(timestamp)) = self
+            .queued
+            .get(&fill.report.venue_order_id)
+            .and_then(|pending| pending.get(&fill.report.trade_id))
+        {
             anyhow::ensure!(
                 *timestamp == fill.report.ts_event,
                 "Predict wallet settlement replay timestamp changed"
@@ -180,252 +367,303 @@ impl FillEvidence {
     }
 
     pub fn applied(&mut self, trade_id: TradeId) {
-        self.queued.remove(&trade_id);
+        self.notifications.applied(trade_id);
+        if let Some(fill) = self.entries.get(&trade_id) {
+            let id = fill.report.venue_order_id;
+            if let Some(pending) = self.queued.get_mut(&id) {
+                pending.remove(&trade_id);
+                if pending.is_empty() {
+                    self.queued.remove(&id);
+                }
+            }
+        }
     }
 
-    /// Identify retained settlements not covered by the supplied Native trade IDs.
-    /// Used only for a Cache-retirement sweep; this is not another applied-ID registry.
-    pub fn unapplied_orders(&self, applied: &HashSet<TradeId>) -> HashSet<VenueOrderId> {
-        self.entries
-            .values()
-            .filter(|fill| !applied.contains(&fill.report.trade_id))
-            .map(|fill| fill.report.venue_order_id)
-            .collect()
+    /// Reuse complete ID membership only for the same immutable Native history.
+    /// Economic totals remain optional; new facts and replaced histories are rechecked.
+    pub fn has_unapplied(
+        &mut self,
+        owner: VenueOrderId,
+        order: &super::context::WorkerOrder,
+    ) -> bool {
+        self.notifications.has_pending(owner)
+            || self.by_order.get_mut(&owner).is_some_and(|facts| {
+                if facts.ids.len() == order.fill_count()
+                    && facts
+                        .prefix
+                        .as_ref()
+                        .is_some_and(|prefix| prefix.cursor.is_current(order))
+                {
+                    return false;
+                }
+                let Some(cursor) = order.applied_fill_cursor(facts.ids.iter().copied()) else {
+                    return true;
+                };
+                if facts.ids.len() == order.fill_count() {
+                    facts.prefix = Some(VerifiedPrefix {
+                        cursor,
+                        raw: None,
+                        collateral_fee: U256::ZERO,
+                    });
+                }
+                false
+            })
+    }
+
+    pub fn retirement_work(&self, owner: VenueOrderId) -> usize {
+        self.by_order
+            .get(&owner)
+            .map_or(0, |facts| facts.ids.len())
+            .saturating_add(self.notifications.retirement_work(owner))
     }
 
     /// Prepares allocations without advancing evidence. Call commit only after the whole
     /// REST batch validates, or after a wallet report was successfully queued.
-    pub fn prepare(
+    #[cfg(test)]
+    pub fn prepare<O: super::context::OrderView>(
         &self,
         reports: &mut [BufferedFill],
-        orders: &HashMap<VenueOrderId, OrderAny>,
+        orders: &HashMap<VenueOrderId, O>,
         queued: &[BufferedFill],
         precision: impl Fn(VenueOrderId) -> u8,
     ) -> anyhow::Result<()> {
-        let incoming = reports
-            .iter()
-            .map(|r| (r.report.trade_id, r.raw.gross_shares))
-            .collect::<HashMap<_, _>>();
-        let incoming_facts = reports
-            .iter()
-            .map(|fill| (fill.report.trade_id, fill.raw.clone()))
-            .collect::<HashMap<_, _>>();
-        let mut planned: Vec<BufferedFill> = Vec::new();
-        for report in reports.iter_mut() {
-            let dp = precision(report.report.venue_order_id);
-            anyhow::ensure!(
-                dp <= 18,
-                "Predict quantity precision exceeds atomic precision"
-            );
-            let amount = report.raw.gross_shares;
-            let order = orders.get(&report.report.venue_order_id);
-            if let Some(previous) = self.entries.get(&report.report.trade_id) {
-                anyhow::ensure!(
-                    same_facts(previous, report),
-                    "Predict settlement replay contains conflicting raw fill facts"
-                );
-                report.report.last_qty = previous.report.last_qty;
-            } else if let Some(fill) = order.and_then(|order| {
-                order.events().into_iter().find_map(|event| match event {
-                    OrderEventAny::Filled(fill) if fill.trade_id == report.report.trade_id => {
-                        Some(fill)
-                    }
-                    _ => None,
-                })
-            }) {
-                // Reconstruct from complete REST history after a generation change; native
-                // applied allocations are immutable. At most one quantum can be carried.
-                let floor = floor_wei_quantity(amount, dp)?.as_decimal();
-                let quantum = Decimal::new(1, u32::from(dp));
-                anyhow::ensure!(
-                    fill.last_qty.as_decimal() >= floor
-                        && fill.last_qty.as_decimal()
-                            <= floor
-                                + if amount % U256::from(10u64.pow(18 - u32::from(dp)))
-                                    == U256::ZERO
-                                {
-                                    Decimal::ZERO
-                                } else {
-                                    quantum
-                                },
-                    "Predict applied quantity is outside the atomic normalization interval"
-                );
-                report.report.last_qty = fill.last_qty;
-            } else {
-                let mut prefix_qty =
-                    order.map_or(Decimal::ZERO, |order| order.filled_qty().as_decimal());
-                let mut ids: HashSet<TradeId> = order.map_or_else(HashSet::new, |order| {
-                    order.trade_ids().into_iter().copied().collect()
-                });
-                for previous in queued
-                    .iter()
-                    .chain(planned.iter())
-                    .filter(|r| r.report.venue_order_id == report.report.venue_order_id)
-                {
-                    if ids.insert(previous.report.trade_id) {
-                        prefix_qty = prefix_qty
-                            .checked_add(previous.report.last_qty.as_decimal())
-                            .ok_or_else(|| {
-                                anyhow::anyhow!("Predict native cumulative quantity overflow")
-                            })?;
-                    }
-                }
-                let mut prefix_raw = U256::ZERO;
-                let mut complete = true;
-                for id in ids {
-                    let raw = incoming
-                        .get(&id)
-                        .copied()
-                        .or_else(|| self.entries.get(&id).map(|r| r.raw.gross_shares))
-                        .or_else(|| {
-                            queued
-                                .iter()
-                                .find(|r| r.report.trade_id == id)
-                                .map(|r| r.raw.gross_shares)
-                        });
-                    if let Some(raw) = raw {
-                        prefix_raw = prefix_raw.checked_add(raw).ok_or_else(|| {
-                            anyhow::anyhow!("Predict raw cumulative quantity overflow")
-                        })?;
-                    } else {
-                        complete = false;
-                    }
-                }
-                let unit = U256::from(10u64.pow(18 - u32::from(dp)));
-                let delta = if !complete {
-                    anyhow::ensure!(
-                        amount % unit == U256::ZERO,
-                        "Predict subprecision fill requires complete raw settlement prefix; reconcile REST history"
-                    );
-                    floor_wei_quantity(amount, dp)?.as_decimal()
-                } else {
-                    let total = prefix_raw.checked_add(amount).ok_or_else(|| {
-                        anyhow::anyhow!("Predict raw cumulative quantity overflow")
-                    })?;
-                    if let Some(order) = order {
-                        anyhow::ensure!(
-                            total <= decimal_to_wei(order.quantity().as_decimal())?,
-                            "Predict raw fills exceed cached native order quantity"
-                        );
-                    }
-                    floor_wei_quantity(total, dp)?
-                        .as_decimal()
-                        .checked_sub(prefix_qty)
-                        .ok_or_else(|| {
-                            anyhow::anyhow!("Predict cumulative normalization overflow")
-                        })?
-                };
-                anyhow::ensure!(
-                    delta > Decimal::ZERO,
-                    "Predict fill is below native quantity quantum or has inconsistent prefix"
-                );
-                let floor = floor_wei_quantity(amount, dp)?.as_decimal();
-                let ceiling = floor
-                    + if amount % unit == U256::ZERO {
-                        Decimal::ZERO
-                    } else {
-                        Decimal::new(1, u32::from(dp))
-                    };
-                anyhow::ensure!(
-                    delta >= floor && delta <= ceiling,
-                    "Predict cumulative prefix is inconsistent with native allocation"
-                );
-                report.report.last_qty = Quantity::from_decimal_dp(delta, dp)?;
-            }
-            if report.raw.fee_type == PredictFeeType::Collateral {
-                self.normalize_collateral_commission(
-                    report,
-                    order,
-                    queued,
-                    &planned,
-                    &incoming_facts,
-                )?;
-            }
-            if let Some(order) = order {
-                super::parse::validate_applied_fill(&report.report, order)?;
-            }
-            anyhow::ensure!(
-                report.report.last_qty.as_decimal().round_dp(u32::from(dp))
-                    == report.report.last_qty.as_decimal(),
-                "Predict instrument precision differs from retained settlement allocation"
-            );
-            anyhow::ensure!(
-                !report.report.last_qty.is_zero(),
-                "Predict fill is below native quantity quantum"
-            );
-            planned.push(report.clone());
-        }
-        for (venue_id, order) in orders {
-            let mut ids: HashSet<_> = order.trade_ids().into_iter().copied().collect();
-            ids.extend(
-                reports
-                    .iter()
-                    .chain(queued.iter())
-                    .filter(|r| r.report.venue_order_id == *venue_id)
-                    .map(|r| r.report.trade_id),
-            );
-            let mut total = U256::ZERO;
-            let mut complete = true;
-            for id in ids {
-                let raw = incoming
-                    .get(&id)
-                    .copied()
-                    .or_else(|| self.entries.get(&id).map(|r| r.raw.gross_shares))
-                    .or_else(|| {
-                        queued
-                            .iter()
-                            .find(|r| r.report.trade_id == id)
-                            .map(|r| r.raw.gross_shares)
-                    });
-                if let Some(raw) = raw {
-                    total = total.checked_add(raw).ok_or_else(|| {
-                        anyhow::anyhow!("Predict raw cumulative quantity overflow")
-                    })?;
-                } else {
-                    complete = false;
-                }
-            }
-            anyhow::ensure!(
-                total <= decimal_to_wei(order.quantity().as_decimal())?,
-                "Predict raw fills exceed cached native order quantity"
-            );
-            let mut known: HashSet<_> = order.trade_ids().into_iter().copied().collect();
-            let mut allocated = order.filled_qty().as_decimal();
-            for report in queued
-                .iter()
-                .chain(reports.iter())
-                .filter(|r| r.report.venue_order_id == *venue_id)
-            {
-                if known.insert(report.report.trade_id) {
-                    allocated = allocated
-                        .checked_add(report.report.last_qty.as_decimal())
-                        .ok_or_else(|| anyhow::anyhow!("Predict allocated quantity overflow"))?;
-                }
-            }
-            anyhow::ensure!(
-                allocated <= order.quantity().as_decimal(),
-                "Predict normalized fills exceed cached native order quantity"
-            );
-            if allocated == order.quantity().as_decimal() {
-                anyhow::ensure!(
-                    complete && total == decimal_to_wei(order.quantity().as_decimal())?,
-                    "Predict full fill requires complete exact raw settlement quantity"
-                );
-            }
-        }
-        self.check_capacity(reports)?;
-        Ok(())
+        self.prepare_with_orders(
+            reports,
+            |id| orders.get(&id),
+            orders.iter().map(|(id, order)| (*id, order)),
+            queued,
+            precision,
+        )
+        .map(|_| ())
     }
 
-    // Protocol normalization only: Native Order retains applied Money allocations, while
-    // this generation's existing evidence retains the original atomic fees.
+    /// Own wallet messages borrow Native's immutable snapshot. Return true for an
+    /// already applied/queued settlement; never reallocate an existing raw fact.
+    pub fn prepare_wallet(
+        &mut self,
+        fill: &mut BufferedFill,
+        order: &impl super::context::OrderView,
+        queued: &[BufferedFill],
+        precision: u8,
+    ) -> anyhow::Result<bool> {
+        if let Some(previous) = self.entries.get(&fill.report.trade_id) {
+            anyhow::ensure!(
+                same_facts(previous, fill),
+                "Predict settlement replay contains conflicting raw fill facts"
+            );
+            fill.report.last_qty = previous.report.last_qty;
+            fill.report.commission = previous.report.commission;
+            if super::parse::validate_applied_fill(&fill.report, order)?
+                || queued
+                    .iter()
+                    .any(|old| old.report.trade_id == fill.report.trade_id)
+            {
+                return Ok(true);
+            }
+        }
+        let id = fill.report.venue_order_id;
+        let raw = |trade| {
+            self.entries
+                .get(&trade)
+                .map(|fill| &fill.raw)
+                .or_else(|| (trade == fill.report.trade_id).then_some(&fill.raw))
+                .or_else(|| {
+                    queued
+                        .iter()
+                        .find(|old| old.report.trade_id == trade)
+                        .map(|old| &old.raw)
+                })
+        };
+        let mut prefix = FillPrefix::capture_committed(
+            order,
+            &self.entries,
+            self.by_order.get_mut(&id).map(|facts| &mut facts.prefix),
+        )?;
+        if !prefix.complete {
+            // Cold REST/queued input may fill holes, but uncommitted facts never
+            // enter the reusable memo even when the operation later fails.
+            prefix = FillPrefix::capture(Some(order), &raw)?;
+        }
+        for previous in queued.iter().filter(|old| {
+            old.report.venue_order_id == id && !order.has_applied_fill(old.report.trade_id)
+        }) {
+            prefix.include(
+                previous.report.trade_id,
+                previous.report.last_qty.as_decimal(),
+                raw(previous.report.trade_id),
+            )?;
+        }
+        let applied = self.prepare_fill(fill, Some(order), &mut prefix, precision)?;
+        prefix.validate(order)?;
+        Ok(applied)
+    }
+
+    pub(super) fn prepare_with_orders<'a, O: super::context::OrderView + 'a>(
+        &self,
+        reports: &mut [BufferedFill],
+        lookup: impl Fn(VenueOrderId) -> Option<&'a O>,
+        orders: impl Iterator<Item = (VenueOrderId, &'a O)>,
+        queued: &[BufferedFill],
+        precision: impl Fn(VenueOrderId) -> u8,
+    ) -> anyhow::Result<bool> {
+        // Borrow raw inputs once. Prefixes live only for this operation; Native still
+        // owns allocations and no derived prefix survives an epoch/cache change.
+        let incoming = reports
+            .iter()
+            .map(|fill| (fill.report.trade_id, &fill.raw))
+            .collect::<HashMap<_, _>>();
+        let queued_raw = queued
+            .iter()
+            .map(|fill| (fill.report.trade_id, &fill.raw))
+            .collect::<HashMap<_, _>>();
+        let raw = |id| {
+            incoming
+                .get(&id)
+                .copied()
+                .or_else(|| self.entries.get(&id).map(|fill| &fill.raw))
+                .or_else(|| queued_raw.get(&id).copied())
+        };
+        let mut prefixes = HashMap::new();
+        for (id, order) in orders {
+            prefixes.insert(id, FillPrefix::capture(Some(order), &raw)?);
+        }
+        for report in reports.iter() {
+            let id = report.report.venue_order_id;
+            if let std::collections::hash_map::Entry::Vacant(entry) = prefixes.entry(id) {
+                entry.insert(FillPrefix::capture(lookup(id), &raw)?);
+            }
+        }
+        for fill in queued {
+            if let Some(prefix) = prefixes.get_mut(&fill.report.venue_order_id)
+                && !lookup(fill.report.venue_order_id)
+                    .is_some_and(|order| order.has_applied_fill(fill.report.trade_id))
+            {
+                prefix.include(
+                    fill.report.trade_id,
+                    fill.report.last_qty.as_decimal(),
+                    raw(fill.report.trade_id),
+                )?;
+            }
+        }
+        // The prefixes own sums and IDs, so input borrows end before normalization.
+        let mut all_applied = true;
+        for report in reports.iter_mut() {
+            let id = report.report.venue_order_id;
+            let prefix = prefixes.get_mut(&id).expect("prefix installed");
+            all_applied &= self.prepare_fill(report, lookup(id), prefix, precision(id))?;
+        }
+        for (id, prefix) in &prefixes {
+            if let Some(order) = lookup(*id) {
+                prefix.validate(order)?;
+            }
+        }
+        Ok(all_applied)
+    }
+
+    fn prepare_fill(
+        &self,
+        fill: &mut BufferedFill,
+        order: Option<&impl super::context::OrderView>,
+        prefix: &mut FillPrefix,
+        dp: u8,
+    ) -> anyhow::Result<bool> {
+        let id = fill.report.trade_id;
+        if let Some(order) = order {
+            order.with_applied_fill(id, |applied| self.normalize_fill(fill, applied, prefix, dp))
+        } else {
+            self.normalize_fill(fill, None, prefix, dp)
+        }
+    }
+
+    fn normalize_fill(
+        &self,
+        fill: &mut BufferedFill,
+        applied: Option<&nautilus_model::events::OrderFilled>,
+        prefix: &mut FillPrefix,
+        dp: u8,
+    ) -> anyhow::Result<bool> {
+        anyhow::ensure!(
+            dp <= 18,
+            "Predict quantity precision exceeds atomic precision"
+        );
+        let amount = fill.raw.gross_shares;
+        let unit = U256::from(10u64.pow(18 - u32::from(dp)));
+        let floor = floor_wei_quantity(amount, dp)?.as_decimal();
+        let ceiling = floor
+            + if amount % unit == U256::ZERO {
+                Decimal::ZERO
+            } else {
+                Decimal::new(1, u32::from(dp))
+            };
+        if let Some(previous) = self.entries.get(&fill.report.trade_id) {
+            anyhow::ensure!(
+                same_facts(previous, fill),
+                "Predict settlement replay contains conflicting raw fill facts"
+            );
+            fill.report.last_qty = previous.report.last_qty;
+        } else if let Some(applied) = applied {
+            anyhow::ensure!(
+                applied.last_qty.as_decimal() >= floor && applied.last_qty.as_decimal() <= ceiling,
+                "Predict applied quantity is outside the atomic normalization interval"
+            );
+            fill.report.last_qty = applied.last_qty;
+        } else {
+            let delta = if prefix.complete {
+                let total = prefix
+                    .raw
+                    .checked_add(amount)
+                    .ok_or_else(|| anyhow::anyhow!("Predict raw cumulative quantity overflow"))?;
+                floor_wei_quantity(total, dp)?
+                    .as_decimal()
+                    .checked_sub(prefix.allocated)
+                    .ok_or_else(|| anyhow::anyhow!("Predict cumulative normalization overflow"))?
+            } else {
+                anyhow::ensure!(
+                    amount % unit == U256::ZERO,
+                    "Predict subprecision fill requires complete raw settlement prefix; reconcile REST history"
+                );
+                floor
+            };
+            anyhow::ensure!(
+                delta > Decimal::ZERO,
+                "Predict fill is below native quantity quantum or has inconsistent prefix"
+            );
+            anyhow::ensure!(
+                delta >= floor && delta <= ceiling,
+                "Predict cumulative prefix is inconsistent with native allocation"
+            );
+            fill.report.last_qty = Quantity::from_decimal_dp(delta, dp)?;
+        }
+        if fill.raw.fee_type == PredictFeeType::Collateral {
+            self.normalize_collateral_commission(fill, applied, prefix)?;
+        }
+        if let Some(applied) = applied {
+            super::parse::validate_native_fill(&fill.report, applied)?;
+        }
+        anyhow::ensure!(
+            fill.report.last_qty.as_decimal().round_dp(u32::from(dp))
+                == fill.report.last_qty.as_decimal(),
+            "Predict instrument precision differs from retained settlement allocation"
+        );
+        anyhow::ensure!(
+            !fill.report.last_qty.is_zero(),
+            "Predict fill is below native quantity quantum"
+        );
+        if applied.is_none() {
+            prefix.include(
+                fill.report.trade_id,
+                fill.report.last_qty.as_decimal(),
+                Some(&fill.raw),
+            )?;
+        }
+        Ok(applied.is_some())
+    }
+
     fn normalize_collateral_commission(
         &self,
         fill: &mut BufferedFill,
-        order: Option<&OrderAny>,
-        queued: &[BufferedFill],
-        planned: &[BufferedFill],
-        incoming: &HashMap<TradeId, RawFillFacts>,
+        applied: Option<&nautilus_model::events::OrderFilled>,
+        prefix: &FillPrefix,
     ) -> anyhow::Result<()> {
         let currency = Currency::USDT();
         anyhow::ensure!(
@@ -436,15 +674,8 @@ impl FillEvidence {
             fill.report.commission = previous.report.commission;
             return Ok(());
         }
-        if let Some(previous) = order.and_then(|order| {
-            order.events().into_iter().find_map(|event| match event {
-                OrderEventAny::Filled(previous) if previous.trade_id == fill.report.trade_id => {
-                    Some(previous)
-                }
-                _ => None,
-            })
-        }) {
-            let amount = crate::common::parse::exact_wei(fill.raw.fee)?;
+        let amount = crate::common::parse::exact_wei(fill.raw.fee)?;
+        if let Some(previous) = applied {
             let floor = amount.round_dp_with_strategy(
                 u32::from(currency.precision),
                 rust_decimal::RoundingStrategy::ToZero,
@@ -465,50 +696,14 @@ impl FillEvidence {
             fill.report.commission = allocated;
             return Ok(());
         }
-        if let Ok(exact) =
-            Money::from_decimal_exact(crate::common::parse::exact_wei(fill.raw.fee)?, currency)
-        {
+        if let Ok(exact) = Money::from_decimal_exact(amount, currency) {
             fill.report.commission = exact;
             return Ok(());
         }
-        let mut ids: HashSet<_> = order.map_or_else(HashSet::new, |order| {
-            order.trade_ids().into_iter().copied().collect()
-        });
-        ids.extend(
-            queued
-                .iter()
-                .chain(planned)
-                .filter(|previous| previous.report.venue_order_id == fill.report.venue_order_id)
-                .map(|previous| previous.report.trade_id),
+        anyhow::ensure!(
+            prefix.complete,
+            "Predict subprecision collateral fee requires complete raw settlement prefix; reconcile REST history"
         );
-        let mut raw = U256::ZERO;
-        let mut complete = true;
-        for id in ids {
-            let facts = incoming
-                .get(&id)
-                .or_else(|| self.entries.get(&id).map(|entry| &entry.raw))
-                .or_else(|| {
-                    queued
-                        .iter()
-                        .find(|entry| entry.report.trade_id == id)
-                        .map(|entry| &entry.raw)
-                });
-            if let Some(facts) = facts {
-                if facts.fee_type == PredictFeeType::Collateral {
-                    raw = raw
-                        .checked_add(facts.fee)
-                        .ok_or_else(|| anyhow::anyhow!("Predict raw currency fee overflow"))?;
-                }
-            } else {
-                complete = false;
-            }
-        }
-        if !complete {
-            fill.report.commission = Money::from_decimal_exact(
-                crate::common::parse::exact_wei(fill.raw.fee)?, currency
-            ).map_err(|_| anyhow::anyhow!("Predict subprecision collateral fee requires complete raw settlement prefix; reconcile REST history"))?;
-            return Ok(());
-        }
         let native_money = |amount| {
             Money::from_decimal_exact(
                 crate::common::parse::exact_wei(amount)?
@@ -517,12 +712,11 @@ impl FillEvidence {
             )
             .map_err(anyhow::Error::from)
         };
-        let total = raw
+        let total = prefix
+            .collateral_fee
             .checked_add(fill.raw.fee)
             .ok_or_else(|| anyhow::anyhow!("Predict raw currency fee overflow"))?;
-        // Carry only the Native fixed-point residual. Historical applied allocations
-        // remain immutable even if an older session used currency-default precision.
-        fill.report.commission = native_money(total)? - native_money(raw)?;
+        fill.report.commission = native_money(total)? - native_money(prefix.collateral_fee)?;
         anyhow::ensure!(
             fill.report.commission.as_decimal() >= Decimal::ZERO,
             "Predict normalized fee is negative"
@@ -531,52 +725,49 @@ impl FillEvidence {
     }
 
     pub fn confirmed_raw(
-        &self,
-        order: &OrderAny,
+        &mut self,
+        order: &impl super::context::OrderView,
         queued: &[BufferedFill],
     ) -> anyhow::Result<Option<U256>> {
-        let mut ids: HashSet<_> = order.trade_ids().into_iter().copied().collect();
-        ids.extend(
-            queued
-                .iter()
-                .filter(|r| {
-                    r.report.venue_order_id
-                        == order.venue_order_id().unwrap_or(r.report.venue_order_id)
-                })
-                .map(|r| r.report.trade_id),
-        );
-        let mut total = U256::ZERO;
-        for id in ids {
-            let raw = self
-                .entries
-                .get(&id)
-                .or_else(|| queued.iter().find(|r| r.report.trade_id == id));
-            let Some(report) = raw else {
-                return Ok(None);
-            };
-            total = total
-                .checked_add(report.raw.gross_shares)
-                .ok_or_else(|| anyhow::anyhow!("Predict raw cumulative quantity overflow"))?;
+        let queued = queued
+            .iter()
+            .map(|fill| (fill.report.trade_id, fill))
+            .collect::<HashMap<_, _>>();
+        let mut prefix = FillPrefix::capture_committed(
+            order,
+            &self.entries,
+            order
+                .venue_order_id()
+                .and_then(|id| self.by_order.get_mut(&id))
+                .map(|facts| &mut facts.prefix),
+        )?;
+        if !prefix.complete {
+            prefix = FillPrefix::capture(Some(order), &|id| {
+                self.entries
+                    .get(&id)
+                    .or_else(|| queued.get(&id).copied())
+                    .map(|fill| &fill.raw)
+            })?;
+        }
+        if !prefix.complete {
+            return Ok(None);
+        }
+        let mut total = prefix.raw;
+        for (id, fill) in queued {
+            if fill.report.venue_order_id
+                == order.venue_order_id().unwrap_or(fill.report.venue_order_id)
+                && !order.has_applied_fill(id)
+            {
+                let raw = self.entries.get(&id).unwrap_or(fill);
+                total = total
+                    .checked_add(raw.raw.gross_shares)
+                    .ok_or_else(|| anyhow::anyhow!("Predict raw cumulative quantity overflow"))?;
+            }
         }
         Ok(Some(total))
     }
 
-    fn check_capacity(&self, reports: &[BufferedFill]) -> anyhow::Result<()> {
-        let new = reports
-            .iter()
-            .filter(|r| !self.entries.contains_key(&r.report.trade_id))
-            .map(|r| r.report.trade_id)
-            .collect::<HashSet<_>>()
-            .len();
-        anyhow::ensure!(
-            self.entries.len() + new <= 10000,
-            "Predict raw settlement evidence capacity reached; reconcile in a new generation"
-        );
-        Ok(())
-    }
-
-    pub fn commit(&mut self, reports: &[BufferedFill]) -> anyhow::Result<()> {
-        self.check_capacity(reports)?;
+    pub fn validate_commit(&self, reports: &[BufferedFill]) -> anyhow::Result<()> {
         let mut seen = HashMap::new();
         for report in reports {
             if let Some(old) = self
@@ -591,12 +782,24 @@ impl FillEvidence {
                     "Predict settlement allocation changed during replay"
                 );
             }
-            seen.insert(report.report.trade_id, report);
+            // One wallet fill cannot duplicate itself within the batch. Do not
+            // allocate a temporary ID map for every normal WS settlement.
+            if reports.len() > 1 {
+                seen.insert(report.report.trade_id, report);
+                #[cfg(test)]
+                COMMIT_BATCH_IDS.with(|n| n.set(n.get() + 1));
+            }
         }
+        Ok(())
+    }
+
+    pub fn commit(&mut self, reports: &[BufferedFill]) -> anyhow::Result<()> {
+        self.validate_commit(reports)?;
         for report in reports {
             self.by_order
                 .entry(report.report.venue_order_id)
                 .or_default()
+                .ids
                 .insert(report.report.trade_id);
             self.entries
                 .entry(report.report.trade_id)
@@ -609,3 +812,6 @@ impl FillEvidence {
 #[cfg(test)]
 #[path = "../../tests/unit/precision.rs"]
 mod tests;
+
+#[cfg(test)]
+use nautilus_model::orders::{Order, OrderAny};

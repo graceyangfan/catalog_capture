@@ -33,7 +33,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     error::{PredictWalletWsError, Result},
-    private_handler::{PredictWalletHandler, connect_transport},
+    private_handler::{PredictWalletHandler, TimedWalletMessage, connect_transport},
     private_messages::PredictWalletStreamMessage,
 };
 use crate::{config::PredictWalletWebSocketConfig, http::PredictAuthenticatedHttpClient};
@@ -54,7 +54,7 @@ pub struct PredictWalletWebSocketClient {
     auth_tracker: AuthTracker,
     subscriptions: SubscriptionState,
     state: watch::Receiver<PredictWalletSubscriptionState>,
-    output: mpsc::Receiver<PredictWalletStreamMessage>,
+    output: mpsc::Receiver<TimedWalletMessage>,
     connected: Arc<AtomicBool>,
     epoch: Arc<AtomicU64>,
 }
@@ -93,6 +93,15 @@ impl PredictWalletWebSocketClient {
         config: PredictWalletWebSocketConfig,
         session: &PredictAuthenticatedHttpClient,
         cancellation: CancellationToken,
+    ) -> Result<Self> {
+        Self::connect_observed(config, session, cancellation, false).await
+    }
+
+    pub(crate) async fn connect_observed(
+        config: PredictWalletWebSocketConfig,
+        session: &PredictAuthenticatedHttpClient,
+        cancellation: CancellationToken,
+        observe: bool,
     ) -> Result<Self> {
         let url = config.validated_ws_url()?;
         if config.environment != session.environment() {
@@ -136,7 +145,7 @@ impl PredictWalletWebSocketClient {
         let (reader, client) = tokio::select! {
             biased;
             _ = cancellation.cancelled() => return Err(PredictWalletWsError::Closed),
-            result = connect_transport(ws_config.clone(), config.connect_timeout_secs, Arc::clone(&connected), Arc::clone(&epoch), auth_tracker.clone(), overflow.clone(), config.queue_capacity) => result?,
+            result = connect_transport(ws_config.clone(), config.connect_timeout_secs, Arc::clone(&connected), Arc::clone(&epoch), auth_tracker.clone(), overflow.clone(), config.queue_capacity, observe) => result?,
         };
         let (state_tx, state) = watch::channel(PredictWalletSubscriptionState::Subscribing {
             connection_epoch: 0,
@@ -228,6 +237,10 @@ impl PredictWalletWebSocketClient {
     /// # Errors
     /// Returns a safe failure on data loss, decode rejection or terminal subscription failure.
     pub async fn next_message(&mut self) -> Result<Option<PredictWalletStreamMessage>> {
+        Ok(self.next_timed_message().await?.map(|(message, _)| message))
+    }
+
+    pub(crate) async fn next_timed_message(&mut self) -> Result<Option<TimedWalletMessage>> {
         loop {
             match self.subscription_state() {
                 PredictWalletSubscriptionState::Failed(error) => return Err(error),
@@ -242,7 +255,7 @@ impl PredictWalletWebSocketClient {
                     let Some(message) = message else { continue };
                     if matches!(self.subscription_state(), PredictWalletSubscriptionState::Failed(_)) { continue; }
                     if self.connected.load(Ordering::Acquire)
-                        && message.connection_epoch() == self.epoch.load(Ordering::Acquire) {
+                        && message.0.connection_epoch() == self.epoch.load(Ordering::Acquire) {
                         return Ok(Some(message));
                     }
                 }

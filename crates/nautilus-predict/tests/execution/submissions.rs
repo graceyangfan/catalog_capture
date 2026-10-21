@@ -28,32 +28,91 @@ fn setup_client_at(
     mpsc::UnboundedReceiver<ExecutionEvent>,
     Rc<RefCell<Cache>>,
 ) {
-    setup_client_with_policy(server, now, true)
+    setup_client(server, now)
 }
 
-pub(super) fn setup_client_with_policy(
+pub(super) fn setup_client(
     server: &Server,
     now: u64,
-    require_post_only: bool,
 ) -> (
     PredictExecutionClient,
     mpsc::UnboundedReceiver<ExecutionEvent>,
     Rc<RefCell<Cache>>,
 ) {
-    let (client, rx, cache, _) = setup_client_with_policy_and_clock(server, now, require_post_only);
+    let (client, rx, cache, _) = setup_client_with_clock(server, now);
     (client, rx, cache)
 }
 
-fn setup_client_with_policy_and_clock(
+pub(super) fn setup_client_with_clock(
     server: &Server,
     now: u64,
-    require_post_only: bool,
 ) -> (
     PredictExecutionClient,
     mpsc::UnboundedReceiver<ExecutionEvent>,
     Rc<RefCell<Cache>>,
     &'static AtomicTime,
 ) {
+    setup_with_metadata_ttl(server, now, 30)
+}
+
+pub(super) fn setup_with_metadata_ttl(
+    server: &Server,
+    now: u64,
+    ttl: u64,
+) -> (
+    PredictExecutionClient,
+    mpsc::UnboundedReceiver<ExecutionEvent>,
+    Rc<RefCell<Cache>>,
+    &'static AtomicTime,
+) {
+    setup_with_account_interval(server, now, ttl, 30)
+}
+
+type Setup = (
+    PredictExecutionClient,
+    mpsc::UnboundedReceiver<ExecutionEvent>,
+    Rc<RefCell<Cache>>,
+    &'static AtomicTime,
+);
+fn setup_with_account_interval(
+    server: &Server,
+    now: u64,
+    ttl: u64,
+    account_interval: u64,
+) -> Setup {
+    try_setup(server, now, ttl, account_interval, None).unwrap()
+}
+pub(super) fn setup_metadata_probe(
+    server: &Server,
+    ttl: u64,
+) -> (Setup, nautilus_predict::latency::PredictLatencyCollector) {
+    let (probe, collector) =
+        nautilus_predict::latency::PredictLatency::channel(trader_id(), account_id(), 128).unwrap();
+    (
+        try_setup(server, OBSERVED, ttl, 30, Some(probe)).unwrap(),
+        collector,
+    )
+}
+pub(super) async fn metadata_collected(
+    collector: &mut nautilus_predict::latency::PredictLatencyCollector,
+    count: u64,
+) {
+    exit_orders::barrier("background market collection finished", || {
+        collector
+            .snapshot()
+            .distributions
+            .get(&nautilus_predict::latency::LatencyMetric::MarketGet)
+            .is_some_and(|metric| metric.completed_observations >= count)
+    })
+    .await;
+}
+pub(super) fn try_setup(
+    server: &Server,
+    now: u64,
+    ttl: u64,
+    account_interval: u64,
+    latency: Option<nautilus_predict::latency::PredictLatency>,
+) -> anyhow::Result<Setup> {
     let (_, rx, cache) = client(server);
     let mut cfg = config(server);
     cfg.account_state_mode = PredictAccountStateMode::Reported;
@@ -62,6 +121,9 @@ fn setup_client_with_policy_and_clock(
         format!("{}/rpc", server.http).into(),
     ));
     cfg.report_timeout_secs = 1;
+    cfg.latency = latency;
+    cfg.market_metadata_ttl_secs = ttl;
+    cfg.account_refresh_interval_secs = account_interval;
     cfg.submission = Some(PredictSubmissionConfig {
         signer: Arc::new(
             PredictAuthSigner::new(
@@ -71,9 +133,7 @@ fn setup_client_with_policy_and_clock(
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::from(100),
-        max_total_usdt: Decimal::from(100),
-        require_post_only,
+
         market_slippage_bps: 100,
     });
     let core = ExecutionClientCore::new(
@@ -87,12 +147,12 @@ fn setup_client_with_policy_and_clock(
         cache.clone(),
     );
     let clock = Box::leak(Box::new(AtomicTime::new(false, UnixNanos::from(now))));
-    (
-        PredictExecutionClient::new_with_clock(core, cfg, clock).unwrap(),
+    Ok((
+        PredictExecutionClient::new_with_clock(core, cfg, clock)?,
         rx,
         cache,
         clock,
-    )
+    ))
 }
 
 fn initialized(index: u8) -> OrderAny {
@@ -157,8 +217,7 @@ pub(super) async fn connected_with_clock(
     OrderAny,
     &'static AtomicTime,
 ) {
-    let (mut client, mut rx, cache, clock) =
-        setup_client_with_policy_and_clock(server, OBSERVED, true);
+    let (mut client, mut rx, cache, clock) = setup_client_with_clock(server, OBSERVED);
     let portfolio = portfolio(&cache);
     cache
         .borrow_mut()
@@ -197,6 +256,7 @@ async fn wallet_before_http_accepts_yes_and_no_and_preserves_burst_fill_cancel()
         ));
         let mut engine = engine(&cache);
         apply(&mut engine, &first);
+        let mut own_fills = 0;
         timeout(Duration::from_secs(3), async {
             while cache
                 .borrow()
@@ -206,11 +266,21 @@ async fn wallet_before_http_accepts_yes_and_no_and_preserves_burst_fill_cancel()
                 != OrderStatus::Canceled
             {
                 let event = next(&mut rx).await;
+                if let ExecutionEvent::Order(OrderEventAny::Filled(fill)) = &event {
+                    assert!(!fill.reconciliation);
+                    assert_eq!(fill.client_order_id, order.client_order_id());
+                    own_fills += 1;
+                }
+                assert!(
+                    !matches!(event, ExecutionEvent::Report(ExecutionReport::Fill(_))),
+                    "own live fill bypasses reconciliation"
+                );
                 apply(&mut engine, &event);
             }
         })
         .await
         .unwrap();
+        assert_eq!(own_fills, 1);
         let cached = cache
             .borrow()
             .order_owned(&order.client_order_id())
@@ -287,12 +357,20 @@ async fn opaque_receipt_does_not_accept_and_timeout_never_resubmits() {
 }
 
 #[tokio::test]
-async fn admission_failures_reject_without_post_or_approvals() {
+async fn invalid_market_is_local_and_allowance_failure_is_a_venue_rejection() {
     for (fee, allowance) in [(10_001, U256::MAX), (0, U256::ZERO)] {
         let server = server(vec![]).await;
         *server.state.market_fee.lock().unwrap() = fee;
         *server.state.admission_allowance.lock().unwrap() = allowance;
         let (mut client, mut rx, cache, _portfolio, order) = connected(&server, 1).await;
+        if allowance.is_zero() {
+            server
+                .state
+                .create_replies
+                .lock()
+                .unwrap()
+                .push_back((400, 0, vec![]));
+        }
         client.submit_order(submit(&order)).unwrap();
         let mut engine = engine(&cache);
         timeout(Duration::from_secs(2), async {
@@ -309,7 +387,10 @@ async fn admission_failures_reject_without_post_or_approvals() {
         })
         .await
         .unwrap();
-        assert!(server.state.creations.lock().unwrap().is_empty());
+        assert_eq!(
+            server.state.creations.lock().unwrap().len(),
+            usize::from(allowance.is_zero())
+        );
         assert!(
             !server
                 .state
@@ -462,10 +543,9 @@ async fn native_gtc_and_gtd_submit_exact_official_sdk_bodies_and_preserve_accoun
 }
 
 #[tokio::test]
-async fn unsupported_market_buy_stop_and_immediate_time_in_force_are_native_denied_before_post() {
+async fn unsupported_stop_and_immediate_time_in_force_are_native_denied_before_post() {
     use nautilus_model::enums::TimeInForce;
     for (kind, tif) in [
-        (OrderType::Market, TimeInForce::Gtc),
         (OrderType::StopMarket, TimeInForce::Gtc),
         (OrderType::Limit, TimeInForce::Ioc),
         (OrderType::Limit, TimeInForce::Fok),
@@ -497,7 +577,6 @@ async fn unsupported_market_buy_stop_and_immediate_time_in_force_are_native_deni
         };
         let reason = match kind {
             OrderType::Limit => "LIMIT requires GTC/GTD",
-            OrderType::Market => "MARKET submission supports SELL only",
             _ => "order type",
         };
         assert!(event.reason.as_str().contains(reason));
@@ -567,7 +646,7 @@ async fn transmitted_timeout_stays_submitted_then_late_wallet_evidence_resolves_
             .balance_locked(Some(Currency::USDT()))
             .unwrap()
             .as_decimal(),
-        Decimal::from(62)
+        Decimal::ZERO // Native Cash RiskEngine owns in-flight funding.
     );
     assert!(client.submit_order(submit(&order)).is_err());
     assert!(client.reset().is_err());
@@ -607,12 +686,11 @@ async fn transmitted_timeout_stays_submitted_then_late_wallet_evidence_resolves_
 }
 
 #[tokio::test]
-async fn gtd_precision_quantity_and_post_only_failures_have_specific_native_denial_reasons() {
+async fn gtd_precision_and_quantity_failures_have_specific_native_denial_reasons() {
     use nautilus_model::enums::TimeInForce;
     for (price, qty, post_only, expiry, reason) in [
         ("0.001", "0.001", true, None, "quantity minimum"),
         ("0.0015", "0.01", true, None, "instrument increment"),
-        ("0.001", "0.01", false, None, "requires post-only"),
         (
             "0.001",
             "0.01",
@@ -692,6 +770,7 @@ async fn unsupported_native_terms_emit_denied_and_never_reach_private_post() {
             ))
             .side(side)
             .reduce_only(side == OrderSide::Sell)
+            .quote_quantity(side == OrderSide::Buy)
             .quantity(Quantity::from(1000))
             .price(Price::from("0.620"))
             .post_only(true)
@@ -761,7 +840,7 @@ async fn shutdown_during_admission_retains_submitted_command_without_any_private
 async fn fee_bearing_non_post_only_limit_buy_retains_signed_fee_and_native_submitted_state() {
     let server = server(vec![]).await;
     *server.state.market_fee.lock().unwrap() = 200;
-    let (mut client, mut rx, cache) = setup_client_with_policy(&server, OBSERVED, false);
+    let (mut client, mut rx, cache) = setup_client(&server, OBSERVED);
     let _portfolio = portfolio(&cache);
     cache
         .borrow_mut()
@@ -1119,4 +1198,582 @@ async fn sdk_valid_subminimum_orders_are_denied_without_scaling_and_one_usdt_is_
         }
         client.disconnect().await.unwrap();
     }
+}
+
+fn metadata_order(n: usize, index: u8) -> OrderAny {
+    OrderTestBuilder::new(OrderType::Limit)
+        .trader_id(trader_id())
+        .client_order_id(ClientOrderId::new(format!("METADATA-{n}")))
+        .instrument_id(instrument_id(index))
+        .side(OrderSide::Buy)
+        .quantity(Quantity::from(100))
+        .price(Price::from("0.010"))
+        .post_only(true)
+        .build()
+}
+
+async fn metadata_outcome(
+    client: &PredictExecutionClient,
+    server: &Server,
+    cache: &Rc<RefCell<Cache>>,
+    rx: &mut mpsc::UnboundedReceiver<ExecutionEvent>,
+    engine: &mut ExecutionEngine,
+    order: &OrderAny,
+    expected_posts: usize,
+) {
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(order)).unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            while let Ok(event) = rx.try_recv() {
+                apply(engine, &event);
+            }
+            if server.state.creations.lock().unwrap().len() == expected_posts
+                || cache
+                    .borrow()
+                    .order(&order.client_order_id())
+                    .unwrap()
+                    .status()
+                    == OrderStatus::Rejected
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn market_metadata_reuse_ignores_funding_reads_and_invalidates_at_its_boundaries() {
+    for case in [
+        "warm",
+        "other_outcome",
+        "rejected",
+        "allowance",
+        "balance",
+        "rpc_failure",
+    ] {
+        let server = server(vec![]).await;
+        let (mut client, mut rx, cache, _clock) = setup_with_metadata_ttl(&server, OBSERVED, 30);
+        let _portfolio = portfolio(&cache);
+        cache
+            .borrow_mut()
+            .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+            .unwrap();
+        if case == "other_outcome" {
+            cache
+                .borrow_mut()
+                .add_instrument(InstrumentAny::BinaryOption(instrument(2)))
+                .unwrap();
+        }
+        connect_reported(&mut client, &mut rx).await;
+        let mut engine = engine(&cache);
+        if case == "rejected" {
+            server
+                .state
+                .create_replies
+                .lock()
+                .unwrap()
+                .push_back((400, 0, vec![]));
+        }
+        let first = metadata_order(0, 1);
+        metadata_outcome(&client, &server, &cache, &mut rx, &mut engine, &first, 1).await;
+        assert_eq!(*server.state.market_requests.lock().unwrap(), 1, "{case}");
+        if case == "rejected" {
+            timeout(Duration::from_secs(2), async {
+                while cache
+                    .borrow()
+                    .order(&first.client_order_id())
+                    .unwrap()
+                    .status()
+                    != OrderStatus::Rejected
+                {
+                    apply(&mut engine, &next(&mut rx).await);
+                }
+            })
+            .await
+            .unwrap();
+        }
+        if case == "allowance" {
+            *server.state.admission_allowance.lock().unwrap() = U256::ZERO;
+        }
+        if case == "balance" {
+            server.state.rpc_frame.lock().unwrap().0 = 0;
+        }
+        if case == "rpc_failure" {
+            *server.state.rpc_failure.lock().unwrap() = true;
+        }
+        let second = metadata_order(1, if case == "other_outcome" { 2 } else { 1 });
+        metadata_outcome(&client, &server, &cache, &mut rx, &mut engine, &second, 2).await;
+        assert_eq!(server.state.creations.lock().unwrap().len(), 2, "{case}");
+        assert_eq!(
+            server.state.creations.lock().unwrap()[1]["data"]["order"]["feeRateBps"],
+            "0",
+            "{case}"
+        );
+        assert_eq!(*server.state.market_requests.lock().unwrap(), 1, "{case}");
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn warm_limit_submits_with_open_and_rpc_unavailable() {
+    let server = server(vec![]).await;
+    let (mut client, _rx, cache, _portfolio, warm) = connected(&server, 1).await;
+    client.submit_order(submit(&warm)).unwrap();
+    super::exit_orders::barrier("market warmed", || {
+        server.state.creations.lock().unwrap().len() == 1
+    })
+    .await;
+    let rpc = server.state.rpc_methods.lock().unwrap().len();
+    let open = server.state.requests.lock().unwrap().len();
+    let market = *server.state.market_requests.lock().unwrap();
+    *server.state.rpc_failure.lock().unwrap() = true;
+    *server.state.open_rpc_barrier.lock().unwrap() = Some(Arc::new(tokio::sync::Barrier::new(2)));
+    let order = metadata_order(90, 1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&order)).unwrap();
+    super::exit_orders::barrier("POST without any pre-order reads", || {
+        server.state.creations.lock().unwrap().len() == 2
+    })
+    .await;
+    assert_eq!(server.state.rpc_methods.lock().unwrap().len(), rpc);
+    assert_eq!(server.state.requests.lock().unwrap().len(), open);
+    assert_eq!(*server.state.market_requests.lock().unwrap(), market);
+    assert_eq!(
+        server.state.creations.lock().unwrap()[1]["data"]["order"]["nonce"],
+        "7"
+    );
+    // No Submitted application: an account refresh cannot hide command-path IO.
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn cold_commands_reject_before_held_background_metadata_and_never_replay() {
+    let server = server(vec![]).await;
+    let ((mut client, mut rx, cache, clock), mut collector) = setup_metadata_probe(&server, 30);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.market_gate.lock().unwrap() = Some(gate.clone());
+    clock.set_time(UnixNanos::from(OBSERVED + 30_000_000_000));
+    let own = metadata_order(1, 1);
+    let mut engine = engine(&cache);
+    metadata_outcome(&client, &server, &cache, &mut rx, &mut engine, &own, 1).await;
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&own.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Rejected
+    );
+    assert!(server.state.creations.lock().unwrap().is_empty());
+    exit_orders::barrier("cold miss wakes background preparation", || {
+        *server.state.market_requests.lock().unwrap() == 2
+    })
+    .await;
+    *server.state.market_fee.lock().unwrap() = 200;
+    // The response belongs to the old instrument slot and must be discarded.
+    let definition = InstrumentAny::BinaryOption(instrument(1));
+    cache
+        .borrow_mut()
+        .add_instrument(definition.clone())
+        .unwrap();
+    client.on_instrument(definition);
+    gate.notify_one();
+    metadata_collected(&mut collector, 3).await;
+    assert!(server.state.creations.lock().unwrap().is_empty());
+    let fresh = metadata_order(2, 1);
+    metadata_outcome(&client, &server, &cache, &mut rx, &mut engine, &fresh, 1).await;
+    assert_eq!(
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["feeRateBps"],
+        "200"
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn zero_metadata_ttl_is_a_configuration_error() {
+    let server = server(vec![]).await;
+    assert!(
+        try_setup(&server, OBSERVED, 0, 30, None)
+            .unwrap_err()
+            .to_string()
+            .contains("market metadata TTL")
+    );
+}
+
+#[tokio::test]
+async fn concurrent_commands_do_not_wait_for_funding_or_a_prior_post() {
+    let server = server(vec![]).await;
+    let (mut client, _rx, cache, _portfolio, _) = connected(&server, 1).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.create_gate.lock().unwrap() = Some(gate.clone());
+    *server.state.rpc_failure.lock().unwrap() = true;
+    let rpc = server.state.rpc_methods.lock().unwrap().len();
+    let open = server.state.requests.lock().unwrap().len();
+    for order in [metadata_order(10, 1), metadata_order(11, 1)] {
+        cache
+            .borrow_mut()
+            .add_order(order.clone(), None, None, false)
+            .unwrap();
+        client.submit_order(submit(&order)).unwrap();
+    }
+    super::exit_orders::barrier("both POSTs reach venue while replies are held", || {
+        server.state.creations.lock().unwrap().len() == 2
+    })
+    .await;
+    assert_eq!(server.state.rpc_methods.lock().unwrap().len(), rpc);
+    assert_eq!(server.state.requests.lock().unwrap().len(), open);
+    gate.notify_waiters();
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn concurrent_yes_no_submissions_share_one_prepared_market() {
+    let server = server(vec![]).await;
+    let ((mut client, mut rx, cache, _clock), mut collector) = setup_metadata_probe(&server, 30);
+    let _portfolio = portfolio(&cache);
+    for index in [1, 2] {
+        cache
+            .borrow_mut()
+            .add_instrument(InstrumentAny::BinaryOption(instrument(index)))
+            .unwrap();
+    }
+    connect_reported(&mut client, &mut rx).await;
+    metadata_collected(&mut collector, 1).await;
+    for own in [metadata_order(20, 1), metadata_order(21, 2)] {
+        cache
+            .borrow_mut()
+            .add_order(own.clone(), None, None, false)
+            .unwrap();
+        client.submit_order(submit(&own)).unwrap();
+    }
+    exit_orders::barrier("both prepared outcomes POST", || {
+        server.state.creations.lock().unwrap().len() == 2
+    })
+    .await;
+    assert_eq!(*server.state.market_requests.lock().unwrap(), 1);
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn restored_order_does_not_trigger_an_adapter_funds_audit() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache) = setup_client_at(&server, OBSERVED);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let mut restored = metadata_order(50, 1);
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    restored
+        .apply(factory.generate_order_submitted(&restored, 1.into()))
+        .unwrap();
+    restored
+        .apply(factory.generate_order_accepted(&restored, HASH.into(), 2.into(), 2.into()))
+        .unwrap();
+    cache
+        .borrow_mut()
+        .add_order(restored.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    // Direct adapter calls bypass Native risk deliberately. The adapter neither
+    // re-audits funds nor changes the restored Native order before transmission.
+    server.state.rpc_frame.lock().unwrap().0 = 1_500_000_000_000_000_000;
+    let order = metadata_order(51, 1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&order)).unwrap();
+    super::exit_orders::barrier("new order sent beside restored order", || {
+        server.state.creations.lock().unwrap().len() == 1
+    })
+    .await;
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&restored.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn funding_rejection_reaches_native_while_account_io_is_blocked() {
+    for reason in ["insufficient balance", "insufficient allowance"] {
+        let server = server(vec![]).await;
+        let (mut client, mut rx, cache, _portfolio, order) = connected(&server, 1).await;
+        server.state.rpc_latest_started.notified().await; // Drain initialization.
+        *server.state.rpc_gate.lock().unwrap() = Some(Arc::new(tokio::sync::Notify::new()));
+        *server.state.create_body.lock().unwrap() =
+            Some(json!({"success":false,"code":400,"error":"bad_request","message":reason}));
+        server
+            .state
+            .create_replies
+            .lock()
+            .unwrap()
+            .push_back((400, 0, vec![]));
+        client.submit_order(submit(&order)).unwrap();
+        super::exit_orders::barrier("POST does not wait for a funds read", || {
+            server.state.creations.lock().unwrap().len() == 1
+        })
+        .await;
+        let mut engine = engine(&cache);
+        timeout(Duration::from_secs(1), async {
+            while cache
+                .borrow()
+                .order(&order.client_order_id())
+                .unwrap()
+                .status()
+                != OrderStatus::Rejected
+            {
+                apply(&mut engine, &next(&mut rx).await);
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+        // A separate command uses the same market metadata even while the account
+        // collector is stuck; neither an error callback nor the next send waits.
+        let next_order = metadata_order(96, 1);
+        cache
+            .borrow_mut()
+            .add_order(next_order.clone(), None, None, false)
+            .unwrap();
+        client.submit_order(submit(&next_order)).unwrap();
+        super::exit_orders::barrier("next command is independent of the funds rejection", || {
+            server.state.creations.lock().unwrap().len() == 2
+        })
+        .await;
+        assert_eq!(*server.state.market_requests.lock().unwrap(), 1);
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn prepared_signing_nonces_are_scoped_to_each_exchange() {
+    let server = server(vec![]).await;
+    *server.state.nonce_values.lock().unwrap() = [7, 8, 9, 10].map(U256::from);
+    let ((mut client, mut rx, cache, _clock), mut collector) = setup_metadata_probe(&server, 30);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    let order = metadata_order(96, 1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&order)).unwrap();
+    super::exit_orders::barrier("standard exchange POST", || {
+        server.state.creations.lock().unwrap().len() == 1
+    })
+    .await;
+    assert_eq!(
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["nonce"],
+        "7"
+    );
+    // New market context selects a different prepared exchange, without a nonce RPC.
+    *server.state.market_yield_bearing.lock().unwrap() = true;
+    let definition = InstrumentAny::BinaryOption(instrument(1));
+    cache
+        .borrow_mut()
+        .add_instrument(definition.clone())
+        .unwrap();
+    client.on_instrument(definition);
+    metadata_collected(&mut collector, 2).await;
+    let order = metadata_order(97, 1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&order)).unwrap();
+    super::exit_orders::barrier("yield-bearing exchange POST", || {
+        server.state.creations.lock().unwrap().len() == 2
+    })
+    .await;
+    assert_eq!(
+        server.state.creations.lock().unwrap()[1]["data"]["order"]["nonce"],
+        "9"
+    );
+    // Consume both Submitted events only after both requests have arrived.
+    let mut engine = engine(&cache);
+    while let Ok(event) = rx.try_recv() {
+        apply(&mut engine, &event);
+    }
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn invalid_nonce_rejection_cannot_be_undone_by_an_older_periodic_collection() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _) = setup_with_account_interval(&server, OBSERVED, 30, 1);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let order = metadata_order(95, 1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    // Hold the final block check of a periodic snapshot: it has already read
+    // nonce 7, but must not restore it after the venue has explicitly rejected it.
+    let final_gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_final_gate.lock().unwrap() = Some(final_gate.clone());
+    timeout(
+        Duration::from_secs(2),
+        server.state.rpc_final_started.notified(),
+    )
+    .await
+    .unwrap();
+    *server.state.create_body.lock().unwrap() =
+        Some(json!({"success":false,"code":400,"error":"bad_request","message":"invalid nonce"}));
+    server
+        .state
+        .create_replies
+        .lock()
+        .unwrap()
+        .push_back((400, 0, vec![]));
+    *server.state.nonce_values.lock().unwrap() = [17, 18, 19, 20].map(U256::from);
+    client.submit_order(submit(&order)).unwrap();
+    let mut engine = engine(&cache);
+    timeout(Duration::from_secs(2), async {
+        while cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status()
+            != OrderStatus::Rejected
+        {
+            apply(&mut engine, &next(&mut rx).await);
+        }
+    })
+    .await
+    .unwrap();
+    *server.state.create_body.lock().unwrap() = None;
+    let fresh_gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_final_gate.lock().unwrap() = Some(fresh_gate.clone());
+    final_gate.notify_one();
+    // Local projections can also publish cash while IO is held. Fence the
+    // fresh nonce collection itself, rather than counting account events.
+    timeout(
+        Duration::from_secs(2),
+        server.state.rpc_final_started.notified(),
+    )
+    .await
+    .unwrap();
+    while let Ok(event) = rx.try_recv() {
+        apply(&mut engine, &event);
+    }
+    fresh_gate.notify_one();
+    let _ = super::apply_account(&mut rx).await;
+    let fresh = metadata_order(98, 1);
+    cache
+        .borrow_mut()
+        .add_order(fresh.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&fresh)).unwrap();
+    super::exit_orders::barrier("new command uses refreshed nonce", || {
+        server.state.creations.lock().unwrap().len() == 2
+    })
+    .await;
+    {
+        let bodies = server.state.creations.lock().unwrap();
+        assert_eq!(bodies[0]["data"]["order"]["nonce"], "7");
+        assert_eq!(bodies[1]["data"]["order"]["nonce"], "17");
+    }
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Rejected
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn reconnect_prepares_nonces_when_the_new_transport_epoch_restarts_at_zero() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, _cache, _portfolio, order) = connected(&server, 1).await;
+    client.disconnect().await.unwrap();
+    *server.state.nonce_values.lock().unwrap() = [17, 18, 19, 20].map(U256::from);
+    connect_reported(&mut client, &mut rx).await;
+    client.submit_order(submit(&order)).unwrap();
+    super::exit_orders::barrier("reconnected command uses fresh prepared nonce", || {
+        server.state.creations.lock().unwrap().len() == 1
+    })
+    .await;
+    assert_eq!(
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["nonce"],
+        "17"
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn accepted_lock_is_queued_on_native_application_before_background_tasks_run() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _portfolio, order) = connected(&server, 1).await;
+    let mut engine = engine(&cache);
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    let reads = server.state.requests.lock().unwrap().len();
+    let submitted = factory.generate_order_submitted(&order, OBSERVED.into());
+    engine.process(&submitted);
+    assert!(
+        rx.try_recv().is_err(),
+        "Submitted capacity belongs to Native risk, not reported locks"
+    );
+    let accepted = factory.generate_order_accepted(
+        &cache.borrow().order(&order.client_order_id()).unwrap(),
+        VenueOrderId::new(format!("0x{}", "11".repeat(32))),
+        OBSERVED.into(),
+        OBSERVED.into(),
+    );
+    engine.process(&accepted);
+    // No await: a background projection cannot have run. Native's live sender
+    // treats this AccountState as a child before the strategy's next command.
+    let ExecutionEvent::Account(state) =
+        rx.try_recv().expect("Native Accepted must queue its lock")
+    else {
+        panic!("expected reported lock projection");
+    };
+    assert!(state.balances[0].locked > Money::zero(Currency::USDT()));
+    msgbus::send_account_state(MessagingSwitchboard::portfolio_update_account(), &state);
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_locked(Some(Currency::USDT()))
+            .unwrap(),
+        state.balances[0].locked
+    );
+    assert_eq!(server.state.requests.lock().unwrap().len(), reads);
+    assert!(server.state.creations.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
 }

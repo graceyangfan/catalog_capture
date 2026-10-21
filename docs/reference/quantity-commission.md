@@ -7,8 +7,8 @@ supersedes the staged prototypes and local patch exports. It is not an upstream
 approval or a claim that all account/product combinations are supported.
 
 - [Own-fork RFC](https://github.com/graceyangfan/nautilus_trader/issues/1).
-- [Pinned baseline](https://github.com/graceyangfan/nautilus_trader/commit/797d98618ddbb26dd2bf843df52dd494daad8c7b).
-- [Fixed comparison with its upstream baseline](https://github.com/graceyangfan/nautilus_trader/compare/96ec148a8249eda918c9ee3219c7030755cabcf0...797d98618ddbb26dd2bf843df52dd494daad8c7b).
+- [Pinned baseline](https://github.com/graceyangfan/nautilus_trader/commit/edd0b0f1588f241690f578ef8b141a947997486a).
+- [Fixed comparison with its upstream baseline](https://github.com/graceyangfan/nautilus_trader/compare/96ec148a8249eda918c9ee3219c7030755cabcf0...edd0b0f1588f241690f578ef8b141a947997486a).
 
 The earlier own-fork draft PR was closed without merging. Use the pinned source
 and comparison, not the frozen PR diff. The workspace bootstrap and CI pin the

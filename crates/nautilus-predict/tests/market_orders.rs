@@ -191,3 +191,29 @@ fn saved_actual_strategy_books_match_sdk_and_incomplete_depth_is_not_resized() {
         );
     }
 }
+
+#[test]
+fn strategy_price_uses_sdk_single_level_amounts_with_slippage_once() {
+    for side in [PredictOrderSide::Buy, PredictOrderSide::Sell] {
+        for price in ["0.02", "0.42", "0.99"] {
+            for slip in [0, 100, 9999] {
+                let expected = PredictMarketOrderAmounts::from_levels(
+                    side,
+                    wei("100"),
+                    &[(wei(price), wei("100"))],
+                    slip,
+                )
+                .unwrap();
+                let actual =
+                    PredictMarketOrderAmounts::from_price(side, wei("100"), wei(price), slip)
+                        .unwrap();
+                assert_eq!(actual, expected);
+                actual.validate().unwrap();
+            }
+        }
+    }
+    assert!(
+        PredictMarketOrderAmounts::from_price(PredictOrderSide::Sell, wei("100"), U256::ZERO, 100)
+            .is_err()
+    );
+}

@@ -322,6 +322,37 @@ async fn owned_position_reports_finalize_against_current_core_cache_and_preserve
 }
 
 #[tokio::test]
+async fn verified_position_queries_do_not_depend_on_the_identity_endpoint() {
+    let server = server(vec![json!({"success":true,"data":[holding(1)]})]).await;
+    let (mut client, _rx, cache) = client(&server);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    client.connect().await.unwrap();
+    let before = *server.state.account_requests.lock().unwrap();
+    assert!(before > 0);
+    server
+        .state
+        .account_unavailable
+        .store(true, std::sync::atomic::Ordering::Release);
+    let cmd = GeneratePositionStatusReports::new(
+        UUID4::new(),
+        UnixNanos::default(),
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
+    let reports = client.generate_position_status_reports(&cmd).await.unwrap();
+    assert_eq!(reports.len(), 1);
+    assert_eq!(reports[0].signed_decimal_qty, Decimal::from(17));
+    assert_eq!(*server.state.account_requests.lock().unwrap(), before);
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
 async fn position_pagination_fails_on_cycles_bounds_and_duplicate_outcomes() {
     for (pages, max) in [
         (
@@ -500,15 +531,12 @@ async fn confirmed_wallet_fill_flows_through_emitter_and_real_nautilus_execution
     let mut cancelled = event("orderCancelled", 1);
     cancelled["details"]["quantityFilled"] = json!("17");
     server.wallet(cancelled);
-    let ExecutionEvent::Report(report) = next(&mut rx).await else {
-        panic!("lifecycle report")
+    let ExecutionEvent::Order(event @ nautilus_model::events::OrderEventAny::Canceled(_)) =
+        next(&mut rx).await
+    else {
+        panic!("duplicate fill must be suppressed before native cancellation")
     };
-    let ExecutionReport::Order(status) = &report else {
-        panic!("duplicate fill must be suppressed")
-    };
-    assert_eq!(status.order_status, OrderStatus::Canceled);
-    assert_eq!(status.filled_qty.as_decimal(), Decimal::from(17));
-    engine.reconcile_execution_report(&report);
+    engine.process(&event);
     assert_eq!(
         cache
             .borrow()
@@ -632,14 +660,12 @@ async fn burst_fill_and_cancel_reports_preserve_core_cache_ownership_and_causal_
     let ExecutionEvent::Report(first) = next(&mut rx).await else {
         panic!("fill report")
     };
-    let ExecutionEvent::Report(second) = next(&mut rx).await else {
-        panic!("cancel report")
+    let ExecutionEvent::Order(second @ nautilus_model::events::OrderEventAny::Canceled(_)) =
+        next(&mut rx).await
+    else {
+        panic!("native cancellation follows confirmed fill")
     };
     assert!(matches!(first, ExecutionReport::Fill(_)));
-    let ExecutionReport::Order(status) = &second else {
-        panic!("cancel follows confirmed fill")
-    };
-    assert_eq!(status.filled_qty.as_decimal(), Decimal::from(17));
     assert_eq!(
         cache
             .borrow()
@@ -653,7 +679,7 @@ async fn burst_fill_and_cancel_reports_preserve_core_cache_ownership_and_causal_
     clock.advance_time(UnixNanos::from(OBSERVED), true);
     let mut engine = ExecutionEngine::new(Rc::new(RefCell::new(clock)), cache.clone(), None);
     engine.reconcile_execution_report(&first);
-    engine.reconcile_execution_report(&second);
+    engine.process(&second);
     let cached = cache
         .borrow()
         .order_owned(&order.client_order_id())
@@ -1231,6 +1257,14 @@ async fn reported_cash_and_native_positions_follow_confirmed_fills_and_cancel_re
         .add_order(order.clone(), None, None, false)
         .unwrap();
     connect_reported(&mut client, &mut rx).await;
+    let open_before = server
+        .state
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|row| row.get("status").is_some_and(|status| status == "OPEN"))
+        .count();
     let mut clock = VirtualClock::new();
     clock.advance_time(UnixNanos::from(OBSERVED), true);
     let mut engine = ExecutionEngine::new(Rc::new(RefCell::new(clock)), cache.clone(), None);
@@ -1245,6 +1279,18 @@ async fn reported_cash_and_native_positions_follow_confirmed_fills_and_cancel_re
     assert_eq!(state.balances[0].total, Money::from("989.36 USDT"));
     assert_eq!(state.balances[0].locked, Money::from("51.46 USDT"));
     assert_eq!(state.balances[0].free, Money::from("937.90 USDT"));
+    assert_eq!(
+        server
+            .state
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|row| row.get("status").is_some_and(|status| status == "OPEN"))
+            .count(),
+        open_before,
+        "confirmed cash refresh must not collect OPEN again"
+    );
     assert_eq!(
         cache.borrow().positions(None, None, None, None, None)[0]
             .quantity
@@ -1262,10 +1308,12 @@ async fn reported_cash_and_native_positions_follow_confirmed_fills_and_cancel_re
     let mut canceled = event("orderCancelled", 1);
     canceled["details"]["quantityFilled"] = json!("17");
     server.wallet(canceled);
-    let ExecutionEvent::Report(report) = next(&mut rx).await else {
-        panic!("cancel report");
+    let ExecutionEvent::Order(event @ nautilus_model::events::OrderEventAny::Canceled(_)) =
+        next(&mut rx).await
+    else {
+        panic!("native wallet cancellation");
     };
-    engine.reconcile_execution_report(&report);
+    engine.process(&event);
     let state = apply_account(&mut rx).await;
     assert_eq!(state.balances[0].locked, Money::from("0 USDT"));
     assert_eq!(state.balances[0].free, Money::from("989.36 USDT"));
@@ -1284,6 +1332,64 @@ async fn reported_cash_and_native_positions_follow_confirmed_fills_and_cancel_re
             .as_decimal(),
         Decimal::new(17, 0)
     );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn full_fill_releases_retained_open_reservation_without_an_open_query() {
+    let server = server(vec![]).await;
+    server
+        .state
+        .open_orders
+        .lock()
+        .unwrap()
+        .push(rest_order_data("OPEN", 1, OrderSide::Buy));
+    let (mut client, mut rx, cache) = reported_client(&server);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let order = order(1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    let reads = server.state.requests.lock().unwrap().len();
+    *server.state.rpc_frame.lock().unwrap() = (938_000_000_000_000_000_000u128, 2, 2);
+    let mut full = fill(1);
+    full["details"]["quantityFilled"] = json!("100");
+    full["details"]["valueFilled"] = json!("62");
+    full["fill"]["executedSizeWei"] = json!("100000000000000000000");
+    full["fill"]["executedValueWei"] = json!("62000000000000000000");
+    full["fee"]["amountWei"] = json!("0");
+    let mut clock = VirtualClock::new();
+    clock.advance_time(UnixNanos::from(OBSERVED), true);
+    let mut engine = ExecutionEngine::new(Rc::new(RefCell::new(clock)), cache.clone(), None);
+    server.wallet(full);
+    let ExecutionEvent::Report(report) = next(&mut rx).await else {
+        panic!("confirmed fill")
+    };
+    engine.reconcile_execution_report(&report);
+    let state = apply_account(&mut rx).await;
+    assert_eq!(state.balances[0].total, Money::from("938 USDT"));
+    assert_eq!(state.balances[0].locked, Money::from("0 USDT"));
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Filled
+    );
+    assert_eq!(
+        cache.borrow().positions_open(None, None, None, None, None)[0]
+            .quantity
+            .as_decimal(),
+        Decimal::from(100)
+    );
+    assert_eq!(server.state.requests.lock().unwrap().len(), reads);
     client.disconnect().await.unwrap();
 }
 
@@ -1349,7 +1455,9 @@ async fn reported_account_keeps_external_buy_capacity_and_registers_unfunded_wal
 }
 
 #[tokio::test]
-async fn stale_account_collection_cannot_reinstate_a_released_order_reservation() {
+async fn unchanged_command_feedback_does_not_restart_an_inflight_account_collection() {
+    use nautilus_model::events::{OrderEventAny, OrderPendingUpdate};
+
     let server = server(vec![]).await;
     let (mut client, mut rx, cache) = reported_client(&server);
     let _portfolio = portfolio(&cache);
@@ -1366,8 +1474,98 @@ async fn stale_account_collection_cannot_reinstate_a_released_order_reservation(
     let mut clock = VirtualClock::new();
     clock.advance_time(UnixNanos::from(OBSERVED), true);
     let mut engine = ExecutionEngine::new(Rc::new(RefCell::new(clock)), cache.clone(), None);
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_gate.lock().unwrap() = Some(gate.clone());
+    let requests_before = server.state.rpc_methods.lock().unwrap().len();
+    client
+        .query_account(QueryAccount::new(
+            trader_id(),
+            None,
+            account_id(),
+            UUID4::new(),
+            UnixNanos::default(),
+            None,
+            None,
+        ))
+        .unwrap();
+    timeout(Duration::from_secs(2), async {
+        while server.state.rpc_methods.lock().unwrap().len() == requests_before {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    // Collection is causally held at RPC while the engine applies real command feedback.
+    let pending = OrderEventAny::PendingUpdate(OrderPendingUpdate::new(
+        order.trader_id(),
+        order.strategy_id(),
+        order.instrument_id(),
+        order.client_order_id(),
+        order.account_id(),
+        UUID4::new(),
+        UnixNanos::from(300),
+        UnixNanos::from(300),
+        false,
+        order.venue_order_id(),
+    ));
+    engine.process(&pending);
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    let rejection = factory.generate_order_modify_rejected(
+        &cache.borrow().order(&order.client_order_id()).unwrap(),
+        order.venue_order_id(),
+        "unsupported modification",
+        UnixNanos::from(400),
+        UnixNanos::from(400),
+    );
+    engine.process(&rejection);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    gate.notify_one();
+    let state = apply_account(&mut rx).await;
+    assert_eq!(state.balances[0].locked, Money::from("62 USDT"));
+    assert_eq!(state.balances[0].free, Money::from("938 USDT"));
+    assert_eq!(
+        server.state.rpc_methods.lock().unwrap().len() - requests_before,
+        3,
+        "unchanged reservation must publish the first collected snapshot without retry"
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn stale_account_collection_cannot_reinstate_a_released_order_reservation() {
+    let server = server(vec![]).await;
+    server
+        .state
+        .open_orders
+        .lock()
+        .unwrap()
+        .push(rest_order_data("OPEN", 1, OrderSide::Buy));
+    let (mut client, mut rx, cache) = reported_client(&server);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let order = order(1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    let mut clock = VirtualClock::new();
+    clock.advance_time(UnixNanos::from(OBSERVED), true);
+    let mut engine = ExecutionEngine::new(Rc::new(RefCell::new(clock)), cache.clone(), None);
     let initial = server.state.rpc_methods.lock().unwrap().len();
-    *server.state.rpc_delay_ms.lock().unwrap() = 100;
+    server.state.rpc_latest_started.notified().await; // Initial account snapshot.
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_gate.lock().unwrap() = Some(gate.clone());
     client
         .query_account(QueryAccount::new(
             trader_id(),
@@ -1389,13 +1587,27 @@ async fn stale_account_collection_cannot_reinstate_a_released_order_reservation(
     })
     .await
     .unwrap();
+    server.state.rpc_latest_started.notified().await; // Held first query.
     server.wallet(event("orderCancelled", 1));
-    let ExecutionEvent::Report(report) = next(&mut rx).await else {
-        panic!("cancel report");
+    let ExecutionEvent::Order(event @ nautilus_model::events::OrderEventAny::Canceled(_)) =
+        next(&mut rx).await
+    else {
+        panic!("native wallet cancellation");
     };
-    engine.reconcile_execution_report(&report);
-    *server.state.rpc_delay_ms.lock().unwrap() = 0;
-    let state = apply_account(&mut rx).await;
+    engine.process(&event);
+    // Block a second collection: the first balance must be reusable with the
+    // latest local reservation view after cancellation, without repeating RPC.
+    *server.state.rpc_latest_gate.lock().unwrap() = Some(Arc::new(tokio::sync::Notify::new()));
+    // Publish the local release while the explicit remote query is still held.
+    let state = timeout(Duration::from_millis(500), apply_account(&mut rx))
+        .await
+        .unwrap();
+    assert_eq!(state.balances[0].locked, Money::from("0 USDT"));
+    assert_eq!(state.balances[0].free, Money::from("1000 USDT"));
+    gate.notify_one();
+    let state = timeout(Duration::from_millis(500), apply_account(&mut rx))
+        .await
+        .unwrap();
     assert_eq!(state.balances[0].locked, Money::from("0 USDT"));
     assert_eq!(state.balances[0].free, Money::from("1000 USDT"));
     client.disconnect().await.unwrap();
@@ -1823,6 +2035,14 @@ mod precision;
 #[path = "execution/exit_orders.rs"]
 mod exit_orders;
 
+#[path = "execution/market_preparation.rs"]
+mod market_preparation;
+#[path = "execution/market_taker.rs"]
+mod market_taker;
+
+#[path = "execution/wallet_lifecycle.rs"]
+mod wallet_lifecycle;
+
 #[path = "execution/strategy_lifecycle.rs"]
 mod strategy_lifecycle;
 
@@ -1930,4 +2150,180 @@ fn requires_reconciliation(client: &PredictExecutionClient) -> bool {
     client
         .submit_order(submissions::submit(&order(1)))
         .is_err_and(|error| error.to_string().contains("stream gap"))
+}
+
+#[allow(dead_code)]
+#[path = "execution/entry_benchmark.rs"]
+pub(crate) mod entry_benchmark;
+
+#[tokio::test]
+async fn account_snapshot_collects_open_and_cash_concurrently_and_publishes_native_balance() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache) = reported_client(&server);
+    let _portfolio = portfolio(&cache);
+    connect_reported(&mut client, &mut rx).await;
+    let rendezvous = Arc::new(tokio::sync::Barrier::new(3));
+    *server.state.open_rpc_barrier.lock().unwrap() = Some(rendezvous.clone());
+    client
+        .query_account(QueryAccount::new(
+            trader_id(),
+            None,
+            account_id(),
+            UUID4::new(),
+            UnixNanos::from(OBSERVED),
+            None,
+            None,
+        ))
+        .unwrap();
+    timeout(Duration::from_millis(500), rendezvous.wait())
+        .await
+        .unwrap();
+    *server.state.open_rpc_barrier.lock().unwrap() = None;
+    let state = apply_account(&mut rx).await;
+    assert_eq!(state.balances[0].total, Money::from("1000 USDT"));
+    assert_eq!(state.balances[0].free, Money::from("1000 USDT"));
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_total(Some(Currency::USDT())),
+        Some(Money::from("1000 USDT"))
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn explicit_account_query_during_io_keeps_a_followup_fresh_read() {
+    for fail_first in [false, true] {
+        let server = server(vec![]).await;
+        let (mut client, mut rx, cache) = reported_client(&server);
+        let _portfolio = portfolio(&cache);
+        connect_reported(&mut client, &mut rx).await;
+        server.state.rpc_latest_started.notified().await;
+        let initial = server.state.rpc_methods.lock().unwrap().len();
+        let query = || {
+            QueryAccount::new(
+                trader_id(),
+                None,
+                account_id(),
+                UUID4::new(),
+                UnixNanos::from(OBSERVED),
+                None,
+                None,
+            )
+        };
+        let first = Arc::new(tokio::sync::Notify::new());
+        *server.state.rpc_gate.lock().unwrap() = Some(first.clone());
+        client.query_account(query()).unwrap();
+        server.state.rpc_latest_started.notified().await;
+        let second = Arc::new(tokio::sync::Notify::new());
+        *server.state.rpc_latest_gate.lock().unwrap() = Some(second.clone());
+        client.query_account(query()).unwrap();
+        *server.state.rpc_failure.lock().unwrap() = fail_first;
+        first.notify_one();
+        if !fail_first {
+            let state = apply_account(&mut rx).await;
+            assert_eq!(state.balances[0].total, Money::from("1000 USDT"));
+        }
+        timeout(
+            Duration::from_millis(500),
+            server.state.rpc_latest_started.notified(),
+        )
+        .await
+        .unwrap();
+        *server.state.rpc_frame.lock().unwrap() = (900_000_000_000_000_000_000, 2, 2);
+        *server.state.rpc_failure.lock().unwrap() = false;
+        second.notify_one();
+        let state = apply_account(&mut rx).await;
+        assert_eq!(state.balances[0].total, Money::from("900 USDT"));
+        assert_eq!(
+            server.state.rpc_methods.lock().unwrap().len() - initial,
+            if fail_first { 4 } else { 6 }
+        );
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn local_lifecycle_reuses_cash_without_rest_and_preserves_external_open_reservations() {
+    let server = server(vec![]).await;
+    let mut external = rest_order_data("OPEN", 1, OrderSide::Buy);
+    external["order"]["hash"] = json!(format!("0x{}", "aa".repeat(32)));
+    external["id"] = json!("12346");
+    *server.state.open_orders.lock().unwrap() =
+        vec![rest_order_data("OPEN", 1, OrderSide::Buy), external];
+    let (mut client, mut rx, cache) = reported_client(&server);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let own = order(1);
+    cache
+        .borrow_mut()
+        .add_order(own.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    assert_eq!(
+        client
+            .get_account()
+            .unwrap()
+            .balance(Some(Currency::USDT()))
+            .unwrap()
+            .locked,
+        Money::from("124 USDT")
+    );
+    let rpc_before = server.state.rpc_methods.lock().unwrap().len();
+    let open_before = server.state.requests.lock().unwrap().len();
+    *server.state.rpc_latest_gate.lock().unwrap() = Some(Arc::new(tokio::sync::Notify::new()));
+    let mut clock = VirtualClock::new();
+    clock.advance_time(UnixNanos::from(OBSERVED), true);
+    let mut engine = ExecutionEngine::new(Rc::new(RefCell::new(clock)), cache.clone(), None);
+    server.wallet(event("orderCancelled", 1));
+    let ExecutionEvent::Order(event @ nautilus_model::events::OrderEventAny::Canceled(_)) =
+        next(&mut rx).await
+    else {
+        panic!("native wallet cancellation");
+    };
+    engine.process(&event);
+    let canceled = apply_account(&mut rx).await;
+    assert_eq!(canceled.balances[0].locked, Money::from("62 USDT"));
+    assert_eq!(canceled.balances[0].free, Money::from("938 USDT"));
+    let replacement = OrderTestBuilder::new(OrderType::Limit)
+        .trader_id(trader_id())
+        .client_order_id("LOCAL-REPLACEMENT".into())
+        .instrument_id(instrument_id(1))
+        .side(OrderSide::Buy)
+        .quantity(Quantity::from(100))
+        .price(Price::from("0.010"))
+        .build();
+    cache
+        .borrow_mut()
+        .add_order(replacement.clone(), None, None, false)
+        .unwrap();
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    engine.process(&factory.generate_order_submitted(&replacement, 400.into()));
+    // Native risk owns the local in-flight amount; no duplicate reported-lock event.
+    assert!(rx.try_recv().is_err());
+    assert_eq!(
+        client
+            .get_account()
+            .unwrap()
+            .balance(Some(Currency::USDT()))
+            .unwrap()
+            .locked,
+        Money::from("62 USDT")
+    );
+    engine.process(&factory.generate_order_accepted(
+        &replacement,
+        VenueOrderId::new(format!("0x{}", "bb".repeat(32))),
+        500.into(),
+        500.into(),
+    ));
+    let accepted = apply_account(&mut rx).await;
+    assert_eq!(accepted.balances[0].locked, Money::from("63 USDT"));
+    assert_eq!(server.state.rpc_methods.lock().unwrap().len(), rpc_before);
+    assert_eq!(server.state.requests.lock().unwrap().len(), open_before);
+    client.disconnect().await.unwrap();
 }

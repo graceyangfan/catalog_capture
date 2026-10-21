@@ -424,12 +424,16 @@ impl ExitStrategy {
         };
         let mut remaining = qty;
         let mut proceeds = Decimal::ZERO;
+        let mut market_price = *bid;
         for (px, available) in &levels {
             let take = remaining.min(*available);
             let fee = Decimal::from(self.fee_bps) / Decimal::from(10_000)
                 * (*px).min(Decimal::ONE - *px)
                 * take;
             proceeds += px * take - fee;
+            if take > Decimal::ZERO {
+                market_price = *px;
+            }
             remaining -= take;
             if remaining.is_zero() {
                 break;
@@ -473,6 +477,10 @@ impl ExitStrategy {
                 return Ok(());
             }
             self.stop_attempts += 1;
+            let mut params = nautilus_core::Params::new();
+            // The signal already walked this fresh snapshot's depth. Its worst tier
+            // supplies the reference; the adapter applies configured slippage once.
+            params.insert("market_price".into(), json!(market_price.to_string()));
             if self.native_close {
                 let positions = self.cache().positions_open(
                     None,
@@ -499,7 +507,7 @@ impl ExitStrategy {
                     Some(TimeInForce::Gtc),
                     self.close_reduce_only,
                     Some(false),
-                    None,
+                    Some(params),
                 )?;
                 return Ok(());
             }
@@ -526,7 +534,7 @@ impl ExitStrategy {
             self.journal
                 .borrow_mut()
                 .push(json!({"type":"TakerStopSubmitted","quantity":qty.to_string()}));
-            self.submit_order(order, None, Some(ClientId::new("PREDICT")), None)?;
+            self.submit_order(order, None, Some(ClientId::new("PREDICT")), Some(params))?;
         } else if self.maker.is_none() {
             let (tick, precision) = {
                 let cache = self.cache();

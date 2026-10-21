@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Exact native LIMIT / SELL MARKET validation and wei conversion. No RPC or order state is owned here.
+//! Exact native LIMIT/MARKET terms and wei conversion. No RPC or order state is owned here.
 
 use alloy::primitives::U256;
 use nautilus_model::{
@@ -25,6 +25,15 @@ use rust_decimal::Decimal;
 
 use crate::config::PredictSubmissionConfig;
 
+#[derive(Clone, Copy, Debug)]
+pub(super) struct OrderTerms {
+    pub cost: Decimal,
+    pub price: U256,
+    pub shares: U256,
+    pub expiry: U256,
+    pub market: Option<crate::common::market::PredictMarketOrderAmounts>,
+}
+
 pub(super) fn decimal_wei(value: Decimal) -> anyhow::Result<U256> {
     let value = value.normalize();
     anyhow::ensure!(
@@ -34,6 +43,30 @@ pub(super) fn decimal_wei(value: Decimal) -> anyhow::Result<U256> {
     U256::from(value.mantissa().unsigned_abs())
         .checked_mul(U256::from(10).pow(U256::from(18 - value.scale())))
         .ok_or_else(|| anyhow::anyhow!("Predict amount exceeds U256"))
+}
+
+/// Native command params carry venue-specific inputs without changing MarketOrder.
+/// A decimal string keeps the strategy price exact; it is a reference before slippage.
+pub(super) fn market_price(
+    params: Option<&nautilus_core::Params>,
+    order: &OrderAny,
+) -> anyhow::Result<Option<U256>> {
+    let Some(value) = params.and_then(|params| params.get("market_price")) else {
+        anyhow::ensure!(
+            order.order_type() != OrderType::Market,
+            "Predict MARKET requires strategy market_price"
+        );
+        return Ok(None);
+    };
+    anyhow::ensure!(
+        order.order_type() == OrderType::Market,
+        "Predict market_price requires MARKET"
+    );
+    let price = value
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("Predict market_price must be a decimal string"))?;
+    let price = Decimal::from_str_exact(price)?;
+    Ok(Some(decimal_wei(price)?))
 }
 
 fn significant_digits(value: Decimal) -> usize {
@@ -51,19 +84,19 @@ pub(super) fn terms(
     instrument: &BinaryOption,
     policy: &PredictSubmissionConfig,
     now: u64,
-) -> anyhow::Result<(Decimal, U256, U256, U256)> {
+    market_price: Option<U256>,
+) -> anyhow::Result<OrderTerms> {
     anyhow::ensure!(
         order.status() == OrderStatus::Initialized,
         "Predict submit requires an initialized order"
     );
     anyhow::ensure!(
         matches!(order.order_type(), OrderType::Limit | OrderType::Market),
-        "Predict order type is unsupported; use LIMIT or SELL MARKET"
+        "Predict order type is unsupported; use LIMIT or MARKET"
     );
     anyhow::ensure!(
-        matches!(order.order_side(), OrderSide::Buy | OrderSide::Sell)
-            && (order.order_type() != OrderType::Market || order.order_side() == OrderSide::Sell),
-        "Predict MARKET submission supports SELL only"
+        matches!(order.order_side(), OrderSide::Buy | OrderSide::Sell),
+        "Predict order side is unsupported"
     );
     anyhow::ensure!(
         matches!(order.time_in_force(), TimeInForce::Gtc | TimeInForce::Gtd)
@@ -75,10 +108,6 @@ pub(super) fn terms(
         !order.is_quote_quantity() && !order.is_reduce_only(),
         "Predict requires base quantity; venue reduce-only is unsupported"
     );
-    anyhow::ensure!(
-        !policy.require_post_only || order.is_post_only(),
-        "Predict configured submission policy requires post-only"
-    );
     let px = if order.order_type() == OrderType::Market {
         Decimal::ONE
     } else {
@@ -88,25 +117,52 @@ pub(super) fn terms(
             .as_decimal()
     };
     let qty = order.quantity().as_decimal();
-    anyhow::ensure!(
-        px > Decimal::ZERO && px <= Decimal::ONE,
-        "Predict limit price must be positive and at most one"
-    );
-    anyhow::ensure!(
-        qty >= Decimal::new(1, 2),
-        "Predict SDK quantity minimum is 0.01 shares"
-    );
-    anyhow::ensure!(
-        significant_digits(px) <= 3 && significant_digits(qty) <= 5,
-        "Predict SDK amount preparation would change original native terms"
-    );
+    // MARKET's shared SDK amount builder checks its quantity/price bounds once.
+    // LIMIT keeps exact native terms instead of silently applying SDK truncation.
+    if order.order_type() == OrderType::Limit {
+        anyhow::ensure!(
+            px > Decimal::ZERO && px <= Decimal::ONE,
+            "Predict limit price must be positive and at most one"
+        );
+        anyhow::ensure!(
+            qty >= Decimal::new(1, 2),
+            "Predict SDK quantity minimum is 0.01 shares"
+        );
+        anyhow::ensure!(
+            significant_digits(px) <= 3 && significant_digits(qty) <= 5,
+            "Predict SDK amount preparation would change original native terms"
+        );
+    }
     anyhow::ensure!(
         px % instrument.price_increment().as_decimal() == Decimal::ZERO
             && qty % instrument.size_increment().as_decimal() == Decimal::ZERO,
         "Predict price or quantity does not match the native instrument increment"
     );
-    let cost = if order.order_type() == OrderType::Market {
-        Decimal::ZERO // Fresh depth determines SELL proceeds in preflight; no cash is spent.
+    let shares = decimal_wei(qty)?;
+    let market = if order.order_type() == OrderType::Market {
+        Some(
+            crate::common::market::PredictMarketOrderAmounts::from_price(
+                if order.order_side() == OrderSide::Buy {
+                    crate::common::enums::PredictOrderSide::Buy
+                } else {
+                    crate::common::enums::PredictOrderSide::Sell
+                },
+                shares,
+                market_price.ok_or_else(|| {
+                    anyhow::anyhow!("Predict MARKET requires strategy market_price")
+                })?,
+                policy.market_slippage_bps,
+            )?,
+        )
+    } else {
+        None
+    };
+    let cost = if let Some(amounts) = market {
+        crate::common::parse::exact_wei(if order.order_side() == OrderSide::Buy {
+            amounts.maker_amount
+        } else {
+            amounts.taker_amount
+        })?
     } else {
         px.checked_mul(qty)
             .ok_or_else(|| anyhow::anyhow!("Predict notional overflow"))?
@@ -116,10 +172,6 @@ pub(super) fn terms(
             && (order.order_type() == OrderType::Market
                 || cost.round_dp(u32::from(Currency::USDT().precision)) == cost),
         "Predict collateral requires exact native USDT representation"
-    );
-    anyhow::ensure!(
-        order.order_side() == OrderSide::Sell || cost <= policy.max_order_usdt,
-        "Predict order exceeds its collateral cap"
     );
     let expiry = match order.time_in_force() {
         TimeInForce::Gtc if order.order_type() == OrderType::Market => now / 1_000_000_000 + 300,
@@ -146,15 +198,16 @@ pub(super) fn terms(
         "Predict GTD expiry must be more than 2 minutes in the future"
     );
     anyhow::ensure!(
-        order.order_type() == OrderType::Market || cost >= Decimal::ONE,
+        cost >= Decimal::ONE,
         "Predict order is below the venue minimum of 1 USDT"
     );
-    Ok((
+    Ok(OrderTerms {
         cost,
-        decimal_wei(px)?,
-        decimal_wei(qty)?,
-        U256::from(expiry),
-    ))
+        price: decimal_wei(px)?,
+        shares,
+        expiry: U256::from(expiry),
+        market,
+    })
 }
 
 #[cfg(test)]

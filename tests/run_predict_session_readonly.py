@@ -11,7 +11,7 @@ from pathlib import Path
 import websocket
 from websockets.sync.server import serve
 
-from run_predict_queries_readonly import OUTPUT, ROOT, ReadOnlyRelay
+from run_predict_queries_readonly import ROOT, ReadOnlyRelay, probe_options
 
 
 class WalletRelay:
@@ -98,9 +98,11 @@ class WalletRelay:
 
 
 def main():
+    options = probe_options()
+    options.output_dir.mkdir(parents=True, exist_ok=True)
     settings = tomllib.loads((ROOT / "env/predict-execution.toml").read_text())
     name = "session_readonly_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + f"_{os.getpid()}.json"
-    output = OUTPUT / name
+    output = options.output_dir / name
     with tempfile.TemporaryDirectory(prefix=".predict-session-", dir=ROOT) as directory:
         work = Path(directory)
         phase, feedback = work / "phase", work / "feedback.json"
@@ -113,13 +115,13 @@ def main():
         config.chmod(0o600)
         result = None
         try:
-            result = subprocess.run(["cargo", "test", "-p", "nautilus-predict", "--features", "execution", "--locked", "--test", "private_api_live", "mainnet_jwt_wallet_recovery_readonly", "--", "--ignored", "--nocapture"], cwd=ROOT, env=dict(os.environ, PREDICT_SESSION_RELAY_CONFIG=str(config)), timeout=240, check=False)
+            result = subprocess.run(["cargo", "test", "-p", "nautilus-predict", "--features", options.features, "--locked", "--test", "private_api_live", "mainnet_jwt_wallet_recovery_readonly", "--", "--ignored", "--nocapture"], cwd=ROOT, env=dict(os.environ, PREDICT_SESSION_RELAY_CONFIG=str(config)), timeout=240, check=False)
         finally:
             wallet.close()
             journal = json.loads(feedback.read_text()) if feedback.exists() else {}
             journal.update(walletFrames=wallet.events, acknowledgedConnections=wallet.acks, heartbeatEchoConnections=wallet.echoes, renewalTrigger="explicit early renewal with real venue JWT; not natural expiration")
             relay.close(journal, result is not None and result.returncode == 0)
-        print(json.dumps({"file": str(output.relative_to(ROOT)), "passed": result is not None and result.returncode == 0, "requests": len(relay.events), "walletFrames": len(wallet.events), "orderWrites": 0, "chainWrites": 0}))
+        print(json.dumps({"file": str(output), "passed": result is not None and result.returncode == 0, "requests": len(relay.events), "walletFrames": len(wallet.events), "orderWrites": 0, "chainWrites": 0}))
         raise SystemExit(result.returncode if result else 1)
 
 

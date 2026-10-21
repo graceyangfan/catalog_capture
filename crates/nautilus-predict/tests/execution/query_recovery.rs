@@ -115,9 +115,7 @@ async fn run_node(from_saved: bool) -> Value {
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::from(62),
-        max_total_usdt: Decimal::from(62),
-        require_post_only: true,
+
         market_slippage_bps: 100,
     });
     private.state.rpc_frame.lock().unwrap().2 =
@@ -487,11 +485,8 @@ async fn run(case: &str, from_saved: bool) -> Value {
     );
     assert_eq!(server.state.creations.lock().unwrap().len(), 1);
     assert!(client.submit_order(submissions::submit(&order)).is_err());
-    let expected_locked = if resolved {
-        Decimal::ZERO
-    } else {
-        Decimal::from(62)
-    };
+    // Neither a rejected query nor unresolved Submitted changes Native's risk reservation.
+    let expected_locked = Decimal::ZERO;
     timeout(Duration::from_secs(3), async {
         while cache
             .borrow()
@@ -548,4 +543,100 @@ fn replay_response(case: &str, request: &Value, generated: Value, from_saved: bo
     }
     assert_eq!(row, generated, "saved response evidence changed for {case}");
     row
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn automatic_gap_with_unacknowledged_order_avoids_io_but_explicit_account_query_refreshes() {
+    use nautilus_common::messages::execution::TradingCommand;
+    use nautilus_common::msgbus::TypedIntoHandler;
+    let server = server(vec![]).await;
+    let (client, mut rx, cache) = reported_client(&server);
+    let clock = Rc::new(RefCell::new(VirtualClock::new()));
+    let mut client = client.with_reconciliation_clock(clock.clone());
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let mut pending = OrderTestBuilder::new(OrderType::Limit)
+        .trader_id(trader_id())
+        .instrument_id(instrument_id(1))
+        .side(OrderSide::Buy)
+        .quantity(Quantity::from(100))
+        .price(Price::from("0.010"))
+        .build();
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    pending
+        .apply(factory.generate_order_submitted(&pending, 1.into()))
+        .unwrap();
+    cache
+        .borrow_mut()
+        .add_order(pending.clone(), None, None, false)
+        .unwrap();
+    cache.borrow_mut().build_index();
+    connect_reported(&mut client, &mut rx).await;
+    let queries = Rc::new(std::cell::Cell::new(0));
+    let seen = queries.clone();
+    msgbus::register_trading_command_endpoint(
+        MessagingSwitchboard::exec_engine_queue_execute(),
+        TypedIntoHandler::from(move |_: TradingCommand| seen.set(seen.get() + 1)),
+    );
+    let lists = server.state.order_list_log.lock().unwrap().len();
+    let rpc = server.state.rpc_methods.lock().unwrap().len();
+    // Re-authentication starts another wallet epoch; unacknowledged Native state remains.
+    let subscriptions = server.state.ws_requests.lock().unwrap().len();
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    super::exit_orders::barrier("new wallet subscription", || {
+        server.state.ws_requests.lock().unwrap().len() > subscriptions
+    })
+    .await;
+    for second in 1..=3 {
+        let events = clock
+            .borrow_mut()
+            .advance_time((second * 1_000_000_000u64).into(), true);
+        for handler in clock.borrow().match_handlers(events) {
+            handler.run();
+        }
+    }
+    assert_eq!(queries.get(), 0);
+    assert_eq!(server.state.order_list_log.lock().unwrap().len(), lists);
+    assert_eq!(server.state.rpc_methods.lock().unwrap().len(), rpc);
+    client
+        .query_account(QueryAccount::new(
+            trader_id(),
+            Some(ClientId::from("PREDICT")),
+            account_id(),
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        ))
+        .unwrap();
+    let event = next(&mut rx).await;
+    let ExecutionEvent::Account(state) = event else {
+        panic!("explicit query must publish AccountState")
+    };
+    assert_eq!(state.account_id, account_id());
+    msgbus::send_account_state(MessagingSwitchboard::portfolio_update_account(), &state);
+    assert_eq!(server.state.order_list_log.lock().unwrap().len(), lists + 1);
+    assert!(server.state.rpc_methods.lock().unwrap().len() > rpc);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&pending.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Submitted
+    );
+    assert!(server.state.creations.lock().unwrap().is_empty());
+    assert!(server.state.removals.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
 }

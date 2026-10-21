@@ -17,6 +17,76 @@ from predict_private_http_recorder import (
 
 
 class RecorderTests(unittest.TestCase):
+    def test_latency_mode_pools_forwards_once_and_defers_completion_writes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "http.json"
+            order_hash = "0x" + "ab" * 32
+            body = {
+                "data": {
+                    "strategy": "LIMIT",
+                    "isPostOnly": True,
+                    "order": {
+                        "side": 0,
+                        "salt": "1",
+                        "nonce": "0",
+                        "expiration": 4102444800,
+                        "feeRateBps": "0",
+                        "makerAmount": str(10**18),
+                        "takerAmount": str(100 * 10**18),
+                        "hash": order_hash,
+                        "signature": "secret-signature",
+                    },
+                }
+            }
+
+            def reply(method, url, **kwargs):
+                if method == "POST":
+                    pending = json.loads(output.read_text())["events"][-1]
+                    self.assertEqual(pending["requestTerms"]["hash"], order_hash)
+                    self.assertIsNone(pending["status"])
+                payload = {
+                    "success": True,
+                    "data": {"code": "OK", "orderHash": order_hash},
+                }
+                return SimpleNamespace(
+                    status_code=201 if method == "POST" else 200,
+                    headers={"Content-Type": "application/json"},
+                    content=json.dumps(payload).encode(),
+                    json=lambda: payload,
+                )
+
+            with patch("predict_private_http_recorder.requests.Session") as session:
+                session.return_value.request.side_effect = reply
+                recorder = PrivateHttpRecorder(output, measure_latency=True)
+                connection = http.client.HTTPConnection(
+                    "127.0.0.1", recorder.server.server_port
+                )
+                try:
+                    connection.request("GET", "/v1/account")
+                    connection.getresponse().read()
+                    self.assertFalse(output.exists())
+                    connection.request("POST", "/v1/orders", body=json.dumps(body))
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, 201)
+                    response.read()
+                    self.assertIsNone(
+                        json.loads(output.read_text())["events"][-1]["status"]
+                    )
+                    self.assertEqual(recorder.submitted_hashes(), {order_hash})
+                finally:
+                    connection.close()
+                    recorder.close()
+                session.assert_called_once()
+                self.assertEqual(session.return_value.request.call_count, 2)
+                session.return_value.close.assert_called_once()
+            saved = json.loads(output.read_text())["events"]
+            self.assertEqual(saved[-1]["status"], 201)
+            for event in saved:
+                self.assertGreaterEqual(
+                    event["relayBeforeResponseNs"], event["upstreamElapsedNs"]
+                )
+            self.assertNotIn("secret-signature", output.read_text())
+
     def test_successful_removal_response_is_saved_and_forwarded_unchanged(self):
         payload = {"success": True, "removed": ["5468024121"], "noop": []}
         upstream = json.dumps(payload).encode()

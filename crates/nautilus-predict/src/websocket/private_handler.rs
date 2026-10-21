@@ -45,6 +45,13 @@ use super::{
 };
 use crate::{common::credential::PredictAuthToken, config::PredictWalletWebSocketConfig};
 
+pub(crate) type TimedWalletMessage = (PredictWalletStreamMessage, Option<std::time::Instant>);
+type Inbound = (u64, Message, Option<std::time::Instant>);
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "transport generation handles and optional timing"
+)]
 pub(super) async fn connect_transport(
     config: WebSocketConfig,
     timeout_secs: u64,
@@ -53,7 +60,8 @@ pub(super) async fn connect_transport(
     auth_tracker: AuthTracker,
     overflow: Arc<AtomicBool>,
     capacity: usize,
-) -> Result<(mpsc::Receiver<(u64, Message)>, WebSocketClient)> {
+    observe: bool,
+) -> Result<(mpsc::Receiver<Inbound>, WebSocketClient)> {
     let tracker = auth_tracker.clone();
     let sink = SocketStateSink::new(move |state| {
         connected.store(state == SocketState::Connected, Ordering::Release);
@@ -71,15 +79,16 @@ pub(super) async fn connect_transport(
             .config(config)
             .state_sink(sink)
             .epoch_handler(Arc::new(move |generation, message| {
+                let received = observe.then(std::time::Instant::now);
                 epoch.fetch_max(generation, Ordering::AcqRel);
-                if tx.try_send((generation, message)).is_err() {
+                if tx.try_send((generation, message, received)).is_err() {
                     overflow.store(true, Ordering::Release);
                 }
             }))
             .epoch_ping_handler(Arc::new(move |generation, data| {
                 ping_epoch.fetch_max(generation, Ordering::AcqRel);
                 if ping_tx
-                    .try_send((generation, Message::Ping(data.into())))
+                    .try_send((generation, Message::Ping(data.into()), None))
                     .is_err()
                 {
                     ping_overflow.store(true, Ordering::Release);
@@ -99,8 +108,8 @@ pub(super) async fn connect_transport(
 
 pub(super) struct PredictWalletHandler {
     client: WebSocketClient,
-    reader: mpsc::Receiver<(u64, Message)>,
-    output: mpsc::Sender<PredictWalletStreamMessage>,
+    reader: mpsc::Receiver<Inbound>,
+    output: mpsc::Sender<TimedWalletMessage>,
     state: watch::Sender<PredictWalletSubscriptionState>,
     topic: SecretString,
     account: Address,
@@ -111,7 +120,7 @@ pub(super) struct PredictWalletHandler {
     next_request_id: i64,
     pending_request: Option<i64>,
     deadline: Option<Instant>,
-    before_ack: VecDeque<Box<PredictWalletEvent>>,
+    before_ack: VecDeque<(Box<PredictWalletEvent>, Option<std::time::Instant>)>,
     active_epoch: u64,
     rotating: bool,
     overflow: Arc<AtomicBool>,
@@ -124,8 +133,8 @@ impl PredictWalletHandler {
     #[expect(clippy::too_many_arguments)]
     pub(super) fn new(
         client: WebSocketClient,
-        reader: mpsc::Receiver<(u64, Message)>,
-        output: mpsc::Sender<PredictWalletStreamMessage>,
+        reader: mpsc::Receiver<Inbound>,
+        output: mpsc::Sender<TimedWalletMessage>,
         state: watch::Sender<PredictWalletSubscriptionState>,
         token_updates: watch::Receiver<PredictAuthToken>,
         overflow: Arc<AtomicBool>,
@@ -210,7 +219,7 @@ impl PredictWalletHandler {
                 },
                 _ = tick.tick() => {},
                 raw = self.reader.recv() => {
-                    let (epoch, message) = raw.ok_or(PredictWalletWsError::Closed)?;
+                    let (epoch, message, received) = raw.ok_or(PredictWalletWsError::Closed)?;
                     if epoch < self.epoch.load(Ordering::Acquire) { continue; }
                     if self.rotating && epoch == self.active_epoch { continue; }
                     if epoch != self.active_epoch {
@@ -226,7 +235,7 @@ impl PredictWalletHandler {
                             self.check_protocol_send(result, epoch)?;
                         },
                         Message::Pong(_) => {},
-                        message => self.handle(epoch, message).await?,
+                        message => self.handle(epoch, message, received).await?,
                     }
                 },
             }
@@ -302,7 +311,12 @@ impl PredictWalletHandler {
         Ok(())
     }
 
-    async fn handle(&mut self, epoch: u64, message: Message) -> Result<()> {
+    async fn handle(
+        &mut self,
+        epoch: u64,
+        message: Message,
+        received: Option<std::time::Instant>,
+    ) -> Result<()> {
         let text = message.as_text().ok_or(PredictWalletWsError::Decode)?;
         match parse_frame(text, self.topic.expose_secret(), self.account)? {
             PredictWalletFrame::Heartbeat(data) => {
@@ -329,15 +343,21 @@ impl PredictWalletHandler {
                 }
                 self.pending_request = None;
                 self.deadline = None;
-                self.emit(PredictWalletStreamMessage::Subscribed {
-                    connection_epoch: epoch,
-                    reconciliation_required: true,
-                })?;
-                while let Some(event) = self.before_ack.pop_front() {
-                    self.emit(PredictWalletStreamMessage::Wallet {
+                self.emit(
+                    PredictWalletStreamMessage::Subscribed {
                         connection_epoch: epoch,
-                        event,
-                    })?;
+                        reconciliation_required: true,
+                    },
+                    None,
+                )?;
+                while let Some((event, received)) = self.before_ack.pop_front() {
+                    self.emit(
+                        PredictWalletStreamMessage::Wallet {
+                            connection_epoch: epoch,
+                            event,
+                        },
+                        received,
+                    )?;
                 }
                 self.subscriptions.confirm_subscribe("predictWalletEvents");
                 self.auth_tracker.succeed();
@@ -351,12 +371,15 @@ impl PredictWalletHandler {
                     if self.before_ack.len() == self.config.queue_capacity {
                         return Err(PredictWalletWsError::QueueOverflow);
                     }
-                    self.before_ack.push_back(event);
+                    self.before_ack.push_back((event, received));
                 } else {
-                    self.emit(PredictWalletStreamMessage::Wallet {
-                        connection_epoch: epoch,
-                        event,
-                    })?;
+                    self.emit(
+                        PredictWalletStreamMessage::Wallet {
+                            connection_epoch: epoch,
+                            event,
+                        },
+                        received,
+                    )?;
                 }
             }
             PredictWalletFrame::Ignored => {}
@@ -364,10 +387,16 @@ impl PredictWalletHandler {
         Ok(())
     }
 
-    fn emit(&self, message: PredictWalletStreamMessage) -> Result<()> {
-        self.output.try_send(message).map_err(|error| match error {
-            mpsc::error::TrySendError::Full(_) => PredictWalletWsError::QueueOverflow,
-            mpsc::error::TrySendError::Closed(_) => PredictWalletWsError::Closed,
-        })
+    fn emit(
+        &self,
+        message: PredictWalletStreamMessage,
+        received: Option<std::time::Instant>,
+    ) -> Result<()> {
+        self.output
+            .try_send((message, received))
+            .map_err(|error| match error {
+                mpsc::error::TrySendError::Full(_) => PredictWalletWsError::QueueOverflow,
+                mpsc::error::TrySendError::Closed(_) => PredictWalletWsError::Closed,
+            })
     }
 }

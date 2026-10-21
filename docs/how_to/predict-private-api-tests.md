@@ -87,6 +87,12 @@ uv run --python 3.12 --with predict-sdk==0.0.22 --with websocket-client --with w
 uv run --python 3.12 --with predict-sdk==0.0.22 --with websocket-client --with websockets --with python-dotenv --with requests python tests/run_predict_queries_readonly.py
 ```
 
+Use `--features native-quantity-commission` to run either wrapper against the
+quantity-fee configuration. Add `--output-dir data/predict-validation/<run-id>`
+to group new redacted recordings by run. The default is the ignored
+`data/predict-validation/` directory. Both options
+preserve the read-only relay restrictions.
+
 The session probe requires a flat account without active orders. Two early token
 renewals exercise wallet subscribe ACK, heartbeat echo, QueryAccount and Native
 readiness. It verifies the renewal path without waiting for natural expiry.
@@ -108,6 +114,11 @@ snapshot signals, cancel/replacement, maker take-profit and taker stop-loss
 calibration. SDK-valid quantities do not establish venue minimum notional, and a
 preflight quote does not guarantee later acceptance or a profitable exit. Any
 funded run needs its own explicit scope, budget, capture supervision and cleanup.
+Before repeating a live case, consult the
+[existing coverage and test selection](../reference/predict-live-evidence.md#choose-tests-without-repeating-funded-runs).
+Completed resting captures can be reviewed offline with
+`python3 tests/predict_evidence.py --run <directory>`; rerunning the supervisor
+would create new live orders.
 
 Protocol references: [official SDK](https://github.com/PredictDotFun/sdk),
 [order guide](https://dev.predict.fun/how-to-create-or-cancel-orders-679306m0),

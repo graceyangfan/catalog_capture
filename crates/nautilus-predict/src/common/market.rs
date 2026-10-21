@@ -67,6 +67,21 @@ impl PredictMarketOrderAmounts {
         Ok(())
     }
 
+    /// Prepares quantity-based MARKET terms from a strategy-selected reference price.
+    /// This is the SDK amount calculation for a single level covering the quantity;
+    /// it does not assert that such liquidity exists or promise an execution price.
+    ///
+    /// # Errors
+    /// Rejects the same quantity, price, slippage and overflow boundaries as `from_levels`.
+    pub fn from_price(
+        side: PredictOrderSide,
+        quantity: U256,
+        price: U256,
+        slippage_bps: u32,
+    ) -> anyhow::Result<Self> {
+        Self::from_levels(side, quantity, &[(price, quantity)], slippage_bps)
+    }
+
     /// Matches SDK quantity-based default slippage, preserving the requested base quantity.
     /// Levels must be sorted asks for BUY or sorted bids for SELL, already converted to
     /// the selected outcome. Insufficient depth and SDK quantity truncation fail explicitly.

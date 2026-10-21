@@ -288,9 +288,7 @@ async fn run_with_saved(case: Case, saved: Option<&Value>) -> Value {
             )
             .unwrap(),
         ),
-        max_order_usdt: Decimal::ONE,
-        max_total_usdt: Decimal::from(2),
-        require_post_only: true,
+
         market_slippage_bps: 100,
     });
     let mut node = node::build_node(
