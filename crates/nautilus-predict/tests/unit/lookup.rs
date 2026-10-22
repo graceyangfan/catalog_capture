@@ -562,15 +562,21 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
         wallet: client.config.session.account_address(),
         clock: client.clock,
     };
-    let (before, queued) = context.order_snapshot(hash, true).unwrap();
+    let (before, queued) = context.order_snapshot(hash).unwrap();
     assert!(!before.is_closed());
-    assert_eq!(queued.len(), 1);
-    let (matching_view, matching_queued) = context.order_snapshot(hash, false).unwrap();
-    assert!(Arc::ptr_eq(&before, &matching_view));
+    assert_eq!(queued.pending_for(&before, hash).count(), 1);
     assert!(
-        matching_queued.is_empty(),
-        "early matching does not prepare final fill prefixes"
+        client.account_sync.state.try_lock().is_ok(),
+        "normalization releases the account publication lock"
     );
+    assert!(
+        matches!(
+            client.fill_evidence.try_lock(),
+            Err(std::sync::TryLockError::WouldBlock)
+        ),
+        "the pending borrow must keep Native application from tearing the sampled view"
+    );
+    drop(queued);
     // Pause the Native observer between clearing a marker and publishing the new order.
     let state = client.account_sync.state.lock().unwrap();
     client
@@ -582,7 +588,10 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
     let (result_tx, result_rx) = std::sync::mpsc::channel();
     let reader = std::thread::spawn(move || {
         started_tx.send(()).unwrap();
-        result_tx.send(context.order_snapshot(hash, true)).unwrap();
+        let result = context
+            .order_snapshot(hash)
+            .map(|(order, facts)| (order.is_closed(), facts.pending_for(&order, hash).count()));
+        result_tx.send(result).unwrap();
     });
     started_rx.recv().unwrap();
     assert!(
@@ -613,8 +622,8 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
         .unwrap()
         .unwrap();
     reader.join().unwrap();
-    assert!(after.is_closed());
-    assert!(queued.is_empty());
+    assert!(after);
+    assert_eq!(queued, 0);
 }
 
 #[test]
@@ -2098,7 +2107,7 @@ fn benchmark_verified_owner_retirement_phases() {
                             .fill_evidence
                             .lock()
                             .unwrap()
-                            .confirmed_raw(&order, &[])
+                            .confirmed_raw(&order, order.venue_order_id().unwrap())
                             .unwrap()
                             .is_some()
                     );
@@ -2170,7 +2179,7 @@ fn verified_prefix_retains_a_purged_owner_until_pending_matching_is_resolved() {
             .fill_evidence
             .lock()
             .unwrap()
-            .confirmed_raw(&order, &[])
+            .confirmed_raw(&order, order.venue_order_id().unwrap())
             .unwrap()
             .is_some()
     );
@@ -2340,7 +2349,12 @@ fn benchmark_native_timer_evidence_sweeps() {
                     let orders = client.orders.lock().unwrap();
                     let mut facts = client.fill_evidence.lock().unwrap();
                     for order in orders.values() {
-                        assert!(facts.confirmed_raw(order.as_ref(), &[]).unwrap().is_some());
+                        assert!(
+                            facts
+                                .confirmed_raw(order.as_ref(), order.venue_order_id().unwrap())
+                                .unwrap()
+                                .is_some()
+                        );
                     }
                 }
                 let clock = Rc::new(RefCell::new(VirtualClock::new()));

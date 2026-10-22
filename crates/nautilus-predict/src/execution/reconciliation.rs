@@ -290,7 +290,17 @@ pub(super) fn bulk_task(
                             .map_or(true, |qty| !qty.is_zero())
                     });
                 let mut matches = if matched {
-                    super::matches::collect_matches(&config, None).await?
+                    // Ordinary instrument-scoped reports need only this market. Full
+                    // recovery still includes position-only markets outside order rows.
+                    let market_id = if bundle_fills {
+                        None
+                    } else {
+                        instrument_id
+                            .as_ref()
+                            .map(super::parse::market_id_from_instrument)
+                            .transpose()?
+                    };
+                    super::matches::collect_matches(&config, market_id).await?
                 } else {
                     vec![]
                 };

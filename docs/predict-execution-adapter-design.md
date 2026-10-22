@@ -170,6 +170,14 @@ plus complete fact count/cutoff permits reuse of verified raw prefixes. Only new
 appended IDs need reading on a valid continuation. Cold/replaced/incomplete histories
 retain full validation. Uncommitted facts are not memoized.
 
+Pending wallet fills borrow the existing queued-ID and committed-fact indexes;
+there is no per-message economic-fact Vec or lifecycle lookup map. The order view
+and evidence guard are sampled under the Native observer's publication lock. That
+account lock is released before normalization; the evidence guard protects the
+borrow through event enqueue and queued marking. Lifecycle/account publication
+occurs after releasing evidence, preserving the observer's lock order. The
+transmitted hash supplies ownership even before Native applies Accepted.
+
 Retirement may reuse a membership-only cursor with no monetary summary. It must
 never substitute zero economic totals. Raw wei evidence and temporary settlement
 notices have distinct purposes and owner-scoped lifetimes; neither is a position
@@ -203,6 +211,20 @@ Recovery reuses collected account facts and observed order views, with post-IO
 OPEN/match/holdings/block and revision checks where needed. It is intentionally
 broader than ordinary execution. Current inventory, not unrelated closed history,
 determines startup recovery scope. Native external claims preserve strategy ownership.
+
+QueryOrder and single-order report tasks share target HTTP collection and pure
+conversion. Native core-thread finalization and command report delivery remain
+separate. Zero reported fills need one order GET; a nonzero amount requires
+market-scoped matches and a second order GET consistency fence. Predict documents
+amountFilled as a string without a share unit, so it is not compared numerically
+to Native filled_qty. A Filled-only shortcut is deferred: skipping the REST matches
+would also require preserving the existing complete raw-history, signed-term and
+allocation checks without constructing another retained proof/cache.
+
+Ordinary bulk reports with an explicit instrument filter matches by market ID.
+Account-wide and full recovery retain all required markets, including instruments
+with positions and no current order. Explicit fill-report windows and batch
+validation are unchanged.
 
 A cold capture reconstructs a Native/raw prefix at startup, full client reconnect,
 missing/stale observer context or a separate recovery view. A wallet resubscribe

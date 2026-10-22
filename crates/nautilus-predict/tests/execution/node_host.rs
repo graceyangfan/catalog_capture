@@ -52,6 +52,12 @@ fn product_profile_reuses_native_config_and_rejects_venue_incompatible_overrides
             .is_none()
     );
     assert_eq!(profile.node.delay_post_stop, Duration::from_secs(10));
+    let quiet = host::NodeProfile::parse(&format!(
+        "{source}\n[node.logging]\nstdout_level = \"WARN\"\n"
+    ))
+    .unwrap();
+    assert_eq!(quiet.node.logging.stdout_level, log::LevelFilter::Warn);
+
     let native_limit = host::NodeProfile::parse(&source.replace(
         "bypass = false",
         "bypass = false\nmax_notional_per_order = { \"42-1.PREDICT\" = \"0.50\" }",

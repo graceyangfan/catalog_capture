@@ -358,12 +358,21 @@ async fn run_interleaved(
         ),
         market_slippage_bps: 100,
     });
+    // An explicit benchmark control; ordinary tests retain Native's INFO default.
+    let stdout_level = std::env::var("PREDICT_CONTINUOUS_LOG_LEVEL")
+        .unwrap_or_else(|_| "INFO".into())
+        .parse::<log::LevelFilter>()
+        .expect("PREDICT_CONTINUOUS_LOG_LEVEL must be a Native log level");
     // Native still performs risk checks. Only the deterministic replay's rate budget is raised.
     let mut node = nautilus_live::node::LiveNode::builder(
         trader_id(),
         nautilus_common::enums::Environment::Live,
     )
     .unwrap()
+    .with_logging(nautilus_common::logging::logger::LoggerConfig {
+        stdout_level,
+        ..Default::default()
+    })
     .with_risk_engine_config(nautilus_live::node::config::LiveRiskEngineConfig {
         max_order_submit_rate: "10000/00:00:01".into(),
         ..Default::default()
@@ -943,7 +952,7 @@ async fn run_interleaved(
     assert_eq!(snapshot.invalid_intervals, 0);
     node.dispose();
     task.abort();
-    json!({"source":"one warmed Native LiveNode, two real Rust strategies, loopback only; callback-immediate commands, no next-signal wait","taker":taker,"rounds":rounds,"background_active_orders":background,"cleanup":cleanup,"callbacks":target.borrow().rows,"cancel_confirmation_to_post_ns":cancel_post_ns,"fill_callback_to_post_ns":fill_post_ns,"cancel_confirmation_to_native_submitted_callback_ns":cancel_admitted_ns,"fill_callback_to_native_submitted_callback_ns":fill_admitted_ns,"native_submitted_callback_to_post_ns":submitted_to_post_ns,"submitted_callback_after_post":submitted_callback_after_post,"metrics":snapshot,"final_native_orders_after_purge":background,"final_native_open_orders":background,"final_native_positions":0})
+    json!({"source":"one warmed Native LiveNode, two real Rust strategies, loopback only; callback-immediate commands, no next-signal wait","taker":taker,"rounds":rounds,"stdout_level":stdout_level.to_string(),"background_active_orders":background,"cleanup":cleanup,"callbacks":target.borrow().rows,"cancel_confirmation_to_post_ns":cancel_post_ns,"fill_callback_to_post_ns":fill_post_ns,"cancel_confirmation_to_native_submitted_callback_ns":cancel_admitted_ns,"fill_callback_to_native_submitted_callback_ns":fill_admitted_ns,"native_submitted_callback_to_post_ns":submitted_to_post_ns,"submitted_callback_after_post":submitted_callback_after_post,"metrics":snapshot,"final_native_orders_after_purge":background,"final_native_open_orders":background,"final_native_positions":0})
 }
 #[tokio::test(flavor = "current_thread")]
 async fn warmed_maker_replaces_inside_cancel_callback_with_tight_cash_and_no_rpc() {

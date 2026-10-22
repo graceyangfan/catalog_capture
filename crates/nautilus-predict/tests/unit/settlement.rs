@@ -187,7 +187,9 @@ fn failed_settlement_resolves_only_its_pending_fact_and_conflicting_success_fail
         fee: None,
     };
     assert!(
-        notices.validate_success(&success).is_err(),
+        notices
+            .validate_success(&success, update.trade_id, update.venue_order_id)
+            .is_err(),
         "terminal conflict must be detected before Native send"
     );
     assert!(

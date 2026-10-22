@@ -39,12 +39,81 @@ use nautilus_model::{
 use crate::{
     common::instrument_id_from_outcome,
     config::PredictExecutionClientConfig,
-    execution::parse::{market_id_from_instrument, parse_submitted_order_report},
+    execution::parse::market_id_from_instrument,
     http::{
-        account_models::PredictPositionData, parse::parse_position_status_report,
+        account_models::{PredictMatchData, PredictOrderData, PredictPositionData},
+        parse::parse_position_status_report,
         query::PredictPositionsQuery,
     },
 };
+
+/// Both explicit queries and report tasks collect one fenced target. The venue's
+/// amountFilled unit is unspecified: use zero/nonzero, never compare it to shares.
+async fn collect_target_order(
+    config: &PredictExecutionClientConfig,
+    hash: B256,
+) -> anyhow::Result<(PredictOrderData, Vec<PredictMatchData>)> {
+    config.session.ensure_account_identity().await?;
+    let row = config.session.request_order(hash).await?;
+    let matched = rust_decimal::Decimal::from_str_exact(&row.amount_filled)?;
+    anyhow::ensure!(
+        matched >= rust_decimal::Decimal::ZERO,
+        "Predict negative filled amount"
+    );
+    if matched.is_zero() {
+        return Ok((row, Vec::new()));
+    }
+    let matches = super::matches::collect_matches(config, Some(row.market_id)).await?;
+    let fence = config.session.request_order(hash).await?;
+    anyhow::ensure!(
+        super::reconciliation::same_order(&row, &fence),
+        "Predict order changed during match collection; query again"
+    );
+    Ok((row, matches))
+}
+
+/// Conversion is shared; callers retain their Native delivery/commit boundaries.
+fn prepare_target_report(
+    venue_id: nautilus_model::identifiers::VenueOrderId,
+    row: &PredictOrderData,
+    matches: Vec<PredictMatchData>,
+    context: &super::matches::MatchContext<Arc<super::context::WorkerOrder>>,
+    hasher: &crate::signing::PredictOrderHasher,
+    evidence: &super::precision::FillEvidence,
+    observed: nautilus_core::UnixNanos,
+) -> anyhow::Result<(OrderStatusReport, Vec<super::precision::BufferedFill>)> {
+    let order = context
+        .orders
+        .get(&venue_id)
+        .ok_or_else(|| anyhow::anyhow!("Predict target report lost order context"))?;
+    let Some(InstrumentAny::BinaryOption(instrument)) =
+        context.instruments.get(&order.instrument_id())
+    else {
+        anyhow::bail!("Predict target report instrument is missing");
+    };
+    let scope = nautilus_common::messages::execution::GenerateFillReports::new(
+        nautilus_core::UUID4::new(),
+        observed,
+        Some(order.instrument_id()),
+        Some(venue_id),
+        None,
+        None,
+        None,
+        None,
+    );
+    let fills =
+        super::matches::prepare_match_reports(matches, observed, context, &scope, evidence, false)?;
+    let report = super::reconciliation::status_report(
+        row,
+        order,
+        instrument,
+        context,
+        hasher,
+        &fills.iter().collect::<Vec<_>>(),
+        observed,
+    )?;
+    Ok((report, fills))
+}
 
 pub(super) fn order_report_task(
     client: &super::PredictExecutionClient,
@@ -104,24 +173,7 @@ pub(super) fn order_report_task(
             let (client_id, venue_id, hash) = target?;
             let (row, matches) = tokio::time::timeout(
                 std::time::Duration::from_secs(config.report_timeout_secs),
-                async {
-                    config.session.ensure_account_identity().await?;
-                    let row = config.session.request_order(hash).await?;
-                    let matched = rust_decimal::Decimal::from_str_exact(&row.amount_filled)?;
-                    let matches = if !matched.is_zero() {
-                        super::matches::collect_matches(&config, Some(row.market_id)).await?
-                    } else {
-                        vec![]
-                    };
-                    if !matched.is_zero() {
-                        let fence = config.session.request_order(hash).await?;
-                        anyhow::ensure!(
-                            super::reconciliation::same_order(&row, &fence),
-                            "Predict order changed during report match collection"
-                        );
-                    }
-                    Ok::<_, anyhow::Error>((row, matches))
-                },
+                collect_target_order(&config, hash),
             )
             .await
             .map_err(|_| anyhow::anyhow!("Predict order report collection timed out"))??;
@@ -175,33 +227,15 @@ pub(super) fn order_report_task(
                 ))
                 .collect(),
             };
-            let scope = nautilus_common::messages::execution::GenerateFillReports::new(
-                nautilus_core::UUID4::new(),
-                observed,
-                Some(order.instrument_id()),
-                Some(venue_id),
-                None,
-                None,
-                None,
-                None,
-            );
-            let fills = super::matches::prepare_match_reports(
+            let (report, fills) = prepare_target_report(
+                venue_id,
+                &row,
                 matches,
-                observed,
                 &context,
-                &scope,
+                &hasher,
                 &*evidence
                     .lock()
                     .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?,
-                false,
-            )?;
-            let report = super::reconciliation::status_report(
-                &row,
-                &*order,
-                instrument,
-                &context,
-                &hasher,
-                &fills.iter().collect::<Vec<_>>(),
                 observed,
             )?;
             super::routing::register(&rest_ids, venue_id, super::routing::parse_id(&row.id)?)?;
@@ -393,18 +427,7 @@ impl super::PredictExecutionClient {
         };
         self.tasks.spawn_named("predict-query-order", async move {
             let _guard = guard;
-            let collection = async {
-                config.session.ensure_account_identity().await?;
-                let row = config.session.request_order(hash).await?;
-                let matched = rust_decimal::Decimal::from_str_exact(&row.amount_filled)
-                    .map_err(|_| anyhow::anyhow!("Predict queried filled amount is invalid"))?;
-                if matched.is_zero() {return Ok::<_, anyhow::Error>((row, None));}
-                anyhow::ensure!(matched > rust_decimal::Decimal::ZERO, "Predict negative filled amount");
-                let rows = super::matches::collect_matches(&config, Some(row.market_id)).await?;
-                let fence = config.session.request_order(hash).await?;
-                anyhow::ensure!(super::reconciliation::same_order(&row,&fence), "Predict order changed during match collection; query again");
-                Ok((fence, Some(rows)))
-            };
+            let collection = collect_target_order(&config, hash);
             let result = tokio::select! { biased;
                 _ = cancellation.cancelled() => return,
                 result = tokio::time::timeout(std::time::Duration::from_secs(config.report_timeout_secs), collection) => result,
@@ -418,44 +441,30 @@ impl super::PredictExecutionClient {
                 let Some(InstrumentAny::BinaryOption(instrument)) = instruments.get_cloned(&current.instrument_id()).map(|entry| entry.instrument) else {
                     anyhow::bail!("Predict targeted query instrument is missing");
                 };
-                if let Some(rows) = matches {
-                    let hasher = &hasher;
-                    if current.venue_order_id().is_none() {
-                        anyhow::ensure!(pending.lock().expect("submission registry poisoned").entries.get(&client_id).and_then(|entry| entry.venue_id)==Some(venue_id), "Predict match recovery lost transmitted hash ownership");
-                    }
-                    let scope = nautilus_common::messages::execution::GenerateFillReports::new(
-                        nautilus_core::UUID4::new(), clock.get_time_ns(), Some(current.instrument_id()), Some(venue_id), None,None,None,None);
-                    let context = super::matches::MatchContext {
-                        account_id:config.account_id,wallet:config.session.account_address(),shares_allowed,
-                        instruments: std::iter::once((instrument.id(), InstrumentAny::BinaryOption(instrument.clone()))).collect(),
-                        orders: std::iter::once((venue_id,Arc::clone(&current))).collect(),
-                    };
-                    let mut facts = evidence.lock().map_err(|_|anyhow::anyhow!("Predict evidence poisoned"))?;
-                    let fills = super::matches::prepare_match_reports(rows,clock.get_time_ns(),&context,&scope,&facts,false)?;
-                    let report = super::reconciliation::status_report(&row,&current,&instrument,&context,hasher,&fills.iter().collect::<Vec<_>>(),clock.get_time_ns())?;
-                    facts.validate_commit(&fills)?;
-                    let terminal = matches!(report.order_status,
-                        nautilus_model::enums::OrderStatus::Canceled | nautilus_model::enums::OrderStatus::Expired
-                            | nautilus_model::enums::OrderStatus::Filled | nautilus_model::enums::OrderStatus::Rejected);
-                    emitter.try_send_execution_report(ExecutionReport::OrderWithFills(Box::new(report), fills.iter().map(|f|f.report.clone()).collect()))?;
-                    facts.commit(&fills)?;
-                    drop(facts);
-                    // Native observers acquire account sync before fill evidence.
-                    // Never acquire the account lock while holding fill evidence.
-                    if terminal { account_sync.confirm_terminal(venue_id, Some(client_id)); }
-                    return Ok(None);
+                if current.venue_order_id().is_none() {
+                    anyhow::ensure!(pending.lock().expect("submission registry poisoned").entries.get(&client_id).and_then(|entry| entry.venue_id)==Some(venue_id), "Predict match recovery lost transmitted hash ownership");
                 }
-                if current.venue_order_id() == Some(venue_id) {
-                    super::parse::rest_order_report_from_view(&row, &current, &instrument, config.account_id, config.session.account_address(), clock.get_time_ns()).map(Some)
-                } else {
-                    anyhow::ensure!(
-                        pending.lock().expect("submission registry poisoned").entries.get(&client_id).and_then(|entry| entry.venue_id) == Some(venue_id)
-                            && row.order.fields.maker == config.session.account_address(),
-                        "Predict targeted query lost transmitted hash ownership"
-                    );
-                    let hasher = &hasher;
-                    parse_submitted_order_report(&row, &current, &instrument, hasher, venue_id, clock.get_time_ns()).map(Some)
-                }
+                let context = super::matches::MatchContext {
+                    account_id:config.account_id,wallet:config.session.account_address(),shares_allowed,
+                    instruments: std::iter::once((instrument.id(), InstrumentAny::BinaryOption(instrument))).collect(),
+                    orders: std::iter::once((venue_id,Arc::clone(&current))).collect(),
+                };
+                let mut facts = evidence.lock().map_err(|_|anyhow::anyhow!("Predict evidence poisoned"))?;
+                let (report, fills) = prepare_target_report(
+                    venue_id, &row, matches, &context, &hasher, &facts, clock.get_time_ns(),
+                )?;
+                if fills.is_empty() { return Ok(Some(report)); }
+                facts.validate_commit(&fills)?;
+                let terminal = matches!(report.order_status,
+                    nautilus_model::enums::OrderStatus::Canceled | nautilus_model::enums::OrderStatus::Expired
+                        | nautilus_model::enums::OrderStatus::Filled | nautilus_model::enums::OrderStatus::Rejected);
+                emitter.try_send_execution_report(ExecutionReport::OrderWithFills(Box::new(report), fills.iter().map(|f|f.report.clone()).collect()))?;
+                facts.commit(&fills)?;
+                drop(facts);
+                // Native observers acquire account sync before fill evidence.
+                // Never acquire the account lock while holding fill evidence.
+                if terminal { account_sync.confirm_terminal(venue_id, Some(client_id)); }
+                Ok(None)
             })();
             match report {
                 Ok(Some(report)) => { account_sync.confirm_report(&report); let _ = emitter.try_send_execution_report(ExecutionReport::Order(Box::new(report))); },

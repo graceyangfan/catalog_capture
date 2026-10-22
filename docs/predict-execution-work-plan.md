@@ -24,13 +24,13 @@ are maintained in the [test guide](../crates/nautilus-predict/tests/README.md) a
 | --- | --- |
 | Commands | No adapter lifetime trading budget or per-order funds/OPEN audit; known-ID cancel uses one POST |
 | Market preparation | Background metadata/nonce preparation; both MARKET sides require a strategy price; no command GET fallback |
-| Wallet feedback | Own lifecycle facts use Native events; confirmed fills retain exact precision and reports |
+| Wallet feedback | Own live lifecycle and confirmed fills use Native events; recovery retains precision/report handling |
 | Early settlement | Strategy-scoped CustomData for Submitted/Confirmed/Failed, separate from economic fill accounting |
 | Native views | Borrowed fill indexes and observed order views replace repeated full-history copies |
-| Raw normalization | Verified history identity/cutoff permits appended-prefix processing; cold evidence retains complete validation |
+| Raw normalization | Verified history permits appended-prefix processing; pending facts borrow existing indexes; cold evidence retains full validation |
 | Accounts | Order-local projection with proven prior state; remote cash refresh and OPEN verification remain separate |
 | Publication | Native account application/publication flushes deferred reservations without a new ACK protocol |
-| Recovery | Scoped snapshots reuse observed history and collected facts; unresolved commands prevent futile automatic capture |
+| Recovery | Scoped snapshots reuse observed history and facts; unresolved commands prevent futile automatic capture; target queries share collection/conversion |
 | Retention | Native-owned lifetimes, bounded adapter retirement and no 10,000-entry fact/Accepted FIFO caps |
 | Purge | Existing Native APIs retain full index cleanup with fewer temporary allocations/history copies |
 | Reset | Unresolved submissions/cancellations preserve ownership until reconciled |
@@ -40,9 +40,9 @@ are maintained in the [test guide](../crates/nautilus-predict/tests/README.md) a
 
 | Priority | Work | Acceptance criterion |
 | --- | --- | --- |
-| Measurement-driven | First cold validation and single large-history destruction during trading | Same-harness complete CPU sweeps and actual strategy tail latency, with nonempty evidence and a real timer |
+| Lower | First cold validation and single large-history destruction during occasional purge | Keep current Native cleanup; revisit only with callback evidence of operational impact |
 | Measurement-driven | In-service full recovery, instrument scans and OPEN copy-on-write | Demonstrated repeated work removed without weakening late-fill, ownership or post-IO checks |
-| Lower | Report/context orchestration | Smaller interfaces and shared preparation while preserving batch conflict atomicity and position-only instrument protection |
+| Measurement-driven | Remaining bulk/context preparation and query-history IO | Remove proven repetition without new caches, preserving batch atomicity, raw units and position-only coverage |
 
 Startup speed has lower priority than trading-time feedback. Bounded work does not
 establish a hard pause limit for one oversized owner. Additional caches, background

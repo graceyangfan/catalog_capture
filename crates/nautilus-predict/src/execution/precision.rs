@@ -205,6 +205,13 @@ impl FillPrefix {
         if !self.ids.insert(id) {
             return Ok(());
         }
+        self.include_allocation(quantity, raw)
+    }
+    fn include_allocation(
+        &mut self,
+        quantity: Decimal,
+        raw: Option<&RawFillFacts>,
+    ) -> anyhow::Result<()> {
         self.allocated = self
             .allocated
             .checked_add(quantity)
@@ -310,24 +317,23 @@ impl FillEvidence {
         }
     }
 
-    /// Only queued facts for this order; Native trade IDs own applied progress.
-    pub fn pending_for(
-        &mut self,
-        order: &impl super::context::OrderView,
+    /// Borrow this owner's queued, not-yet-applied facts at the caller's order cutoff.
+    /// The Native observer removes applied markers; restored snapshots may already
+    /// include a queued ID, which must not be counted twice.
+    pub fn pending_for<'a>(
+        &'a self,
+        order: &'a impl super::context::OrderView,
         hash: VenueOrderId,
-    ) -> Vec<BufferedFill> {
-        let Some(pending) = self.queued.get_mut(&hash) else {
-            return Vec::new();
-        };
-        pending.retain(|id, _| !order.has_applied_fill(*id));
-        let result = pending
-            .keys()
-            .filter_map(|id| self.entries.get(id).cloned())
-            .collect();
-        if pending.is_empty() {
-            self.queued.remove(&hash);
-        }
-        result
+    ) -> impl Iterator<Item = &'a BufferedFill> {
+        self.queued.get(&hash).into_iter().flat_map(|pending| {
+            pending.keys().filter_map(|id| {
+                if order.has_applied_fill(*id) {
+                    None
+                } else {
+                    self.entries.get(id)
+                }
+            })
+        })
     }
 
     /// Mark only successfully published reports, never a read-only REST collection.
@@ -443,7 +449,6 @@ impl FillEvidence {
         &mut self,
         fill: &mut BufferedFill,
         order: &impl super::context::OrderView,
-        queued: &[BufferedFill],
         precision: u8,
     ) -> anyhow::Result<bool> {
         if let Some(previous) = self.entries.get(&fill.report.trade_id) {
@@ -454,9 +459,10 @@ impl FillEvidence {
             fill.report.last_qty = previous.report.last_qty;
             fill.report.commission = previous.report.commission;
             if super::parse::validate_applied_fill(&fill.report, order)?
-                || queued
-                    .iter()
-                    .any(|old| old.report.trade_id == fill.report.trade_id)
+                || self
+                    .queued
+                    .get(&fill.report.venue_order_id)
+                    .is_some_and(|pending| pending.contains_key(&fill.report.trade_id))
             {
                 return Ok(true);
             }
@@ -467,12 +473,6 @@ impl FillEvidence {
                 .get(&trade)
                 .map(|fill| &fill.raw)
                 .or_else(|| (trade == fill.report.trade_id).then_some(&fill.raw))
-                .or_else(|| {
-                    queued
-                        .iter()
-                        .find(|old| old.report.trade_id == trade)
-                        .map(|old| &old.raw)
-                })
         };
         let mut prefix = FillPrefix::capture_committed(
             order,
@@ -480,18 +480,15 @@ impl FillEvidence {
             self.by_order.get_mut(&id).map(|facts| &mut facts.prefix),
         )?;
         if !prefix.complete {
-            // Cold REST/queued input may fill holes, but uncommitted facts never
+            // The incoming replay may fill a raw hole, but uncommitted facts never
             // enter the reusable memo even when the operation later fails.
             prefix = FillPrefix::capture(Some(order), &raw)?;
         }
-        for previous in queued.iter().filter(|old| {
-            old.report.venue_order_id == id && !order.has_applied_fill(old.report.trade_id)
-        }) {
-            prefix.include(
-                previous.report.trade_id,
-                previous.report.last_qty.as_decimal(),
-                raw(previous.report.trade_id),
-            )?;
+        // queued is already unique by trade ID and pending_for excludes Native
+        // applied IDs. Do not rebuild that membership set in the local prefix.
+        for previous in self.pending_for(order, id) {
+            prefix
+                .include_allocation(previous.report.last_qty.as_decimal(), Some(&previous.raw))?;
         }
         let applied = self.prepare_fill(fill, Some(order), &mut prefix, precision)?;
         prefix.validate(order)?;
@@ -727,13 +724,9 @@ impl FillEvidence {
     pub fn confirmed_raw(
         &mut self,
         order: &impl super::context::OrderView,
-        queued: &[BufferedFill],
+        owner: VenueOrderId,
     ) -> anyhow::Result<Option<U256>> {
-        let queued = queued
-            .iter()
-            .map(|fill| (fill.report.trade_id, fill))
-            .collect::<HashMap<_, _>>();
-        let mut prefix = FillPrefix::capture_committed(
+        let prefix = FillPrefix::capture_committed(
             order,
             &self.entries,
             order
@@ -742,27 +735,13 @@ impl FillEvidence {
                 .map(|facts| &mut facts.prefix),
         )?;
         if !prefix.complete {
-            prefix = FillPrefix::capture(Some(order), &|id| {
-                self.entries
-                    .get(&id)
-                    .or_else(|| queued.get(&id).copied())
-                    .map(|fill| &fill.raw)
-            })?;
-        }
-        if !prefix.complete {
             return Ok(None);
         }
         let mut total = prefix.raw;
-        for (id, fill) in queued {
-            if fill.report.venue_order_id
-                == order.venue_order_id().unwrap_or(fill.report.venue_order_id)
-                && !order.has_applied_fill(id)
-            {
-                let raw = self.entries.get(&id).unwrap_or(fill);
-                total = total
-                    .checked_add(raw.raw.gross_shares)
-                    .ok_or_else(|| anyhow::anyhow!("Predict raw cumulative quantity overflow"))?;
-            }
+        for fill in self.pending_for(order, owner) {
+            total = total
+                .checked_add(fill.raw.gross_shares)
+                .ok_or_else(|| anyhow::anyhow!("Predict raw cumulative quantity overflow"))?;
         }
         Ok(Some(total))
     }

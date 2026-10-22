@@ -423,6 +423,64 @@ fn representable_subcurrency_fees_use_native_exact_money_without_currency_roundi
 }
 
 #[test]
+fn queued_raw_uses_transmitted_owner_before_native_acceptance_and_borrows_facts() {
+    use nautilus_common::factories::OrderEventFactory;
+    use nautilus_model::{
+        enums::{AccountType, OrderType},
+        orders::builder::OrderTestBuilder,
+    };
+    let mut first = report(U256::from(1_000_000_000_000_000_000u64), 1, 16);
+    let mut order = OrderTestBuilder::new(OrderType::Limit)
+        .instrument_id(first.report.instrument_id)
+        .side(OrderSide::Buy)
+        .quantity(Quantity::from(10))
+        .price(first.report.last_px)
+        .build();
+    let factory = OrderEventFactory::new(
+        order.trader_id(),
+        first.report.account_id,
+        AccountType::Cash,
+        None,
+    );
+    order
+        .apply(factory.generate_order_submitted(&order, 1.into()))
+        .unwrap();
+    let owner = first.report.venue_order_id;
+    first.report.client_order_id = Some(order.client_order_id());
+    let mut evidence = FillEvidence::default();
+    evidence.prepare_wallet(&mut first, &order, 16).unwrap();
+    evidence.queue_wallet(&first).unwrap();
+    evidence.queue_wallet(&first).unwrap();
+    let mut second = first.clone();
+    second.report.trade_id = "SECOND".into();
+    assert!(!evidence.prepare_wallet(&mut second, &order, 16).unwrap());
+    evidence.queue_wallet(&second).unwrap();
+    let mut other = first.clone();
+    other.report.trade_id = "OTHER".into();
+    other.report.venue_order_id = "OTHER-ORDER".into();
+    evidence.queue_wallet(&other).unwrap();
+    assert!(order.venue_order_id().is_none());
+    assert_eq!(
+        evidence.confirmed_raw(&order, owner).unwrap(),
+        Some(first.raw.gross_shares * U256::from(2))
+    );
+    let pending = evidence.pending_for(&order, owner).collect::<Vec<_>>();
+    assert_eq!(pending.len(), 2);
+    for fill in pending {
+        assert!(
+            std::ptr::eq(fill, evidence.entries.get(&fill.report.trade_id).unwrap()),
+            "pending must borrow the retained allocation rather than copy an economic fact"
+        );
+    }
+    assert_eq!(
+        evidence
+            .pending_for(&order, other.report.venue_order_id)
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn collecting_raw_evidence_does_not_mark_a_fill_as_queued_to_native() {
     use nautilus_model::{enums::OrderType, orders::builder::OrderTestBuilder};
     let fill = report(U256::from(1_000_000_000_000_000_000u64), 1, 16);
@@ -437,14 +495,16 @@ fn collecting_raw_evidence_does_not_mark_a_fill_as_queued_to_native() {
     assert!(
         evidence
             .pending_for(&order, fill.report.venue_order_id)
-            .is_empty()
+            .next()
+            .is_none()
     );
     evidence.queue(std::slice::from_ref(&fill)).unwrap();
     assert_eq!(
         evidence
             .pending_for(&order, fill.report.venue_order_id)
+            .collect::<Vec<_>>()
             .as_slice(),
-        std::slice::from_ref(&fill)
+        &[&fill]
     );
     evidence.queue_wallet(&fill).unwrap();
     evidence.validate_wallet_timestamp(&fill).unwrap();
@@ -455,7 +515,8 @@ fn collecting_raw_evidence_does_not_mark_a_fill_as_queued_to_native() {
     assert!(
         evidence
             .pending_for(&order, fill.report.venue_order_id)
-            .is_empty()
+            .next()
+            .is_none()
     );
     assert_eq!(
         evidence.entries.len(),
@@ -527,8 +588,7 @@ fn bench_wallet_prepare(
     order: &impl crate::execution::context::OrderView,
     fill: &mut BufferedFill,
 ) {
-    let queued = evidence.pending_for(order, fill.report.venue_order_id);
-    std::hint::black_box(evidence.prepare_wallet(fill, order, &queued, 16).unwrap());
+    std::hint::black_box(evidence.prepare_wallet(fill, order, 16).unwrap());
 }
 
 #[test]
@@ -543,37 +603,32 @@ fn borrowed_wallet_allocations_match_rest_and_keep_scoped_pending_and_raw_confli
             |_| 16,
         )
         .unwrap();
-    assert!(
-        !evidence
-            .prepare_wallet(&mut incoming, &order, &[], 16)
-            .unwrap()
-    );
+    assert!(!evidence.prepare_wallet(&mut incoming, &order, 16).unwrap());
     assert_eq!(incoming, batch[0]);
     evidence.commit(std::slice::from_ref(&incoming)).unwrap();
     evidence.queue_wallet(&incoming).unwrap();
     assert_eq!(
-        evidence.pending_for(&order, incoming.report.venue_order_id),
-        vec![incoming.clone()]
+        evidence
+            .pending_for(&order, incoming.report.venue_order_id)
+            .collect::<Vec<_>>(),
+        vec![&incoming]
     );
     let other: VenueOrderId = "UNRELATED".into();
-    assert!(evidence.pending_for(&order, other).is_empty());
+    assert!(evidence.pending_for(&order, other).next().is_none());
     assert!(
         evidence
-            .prepare_wallet(&mut incoming.clone(), &order, &[incoming.clone()], 16)
+            .prepare_wallet(&mut incoming.clone(), &order, 16)
             .unwrap()
     );
     let mut conflict = incoming.clone();
     conflict.raw.gross_shares += U256::from(1);
-    assert!(
-        evidence
-            .prepare_wallet(&mut conflict, &order, &[], 16)
-            .is_err()
-    );
+    assert!(evidence.prepare_wallet(&mut conflict, &order, 16).is_err());
     evidence.applied(incoming.report.trade_id);
     assert!(
         evidence
             .pending_for(&order, incoming.report.venue_order_id)
-            .is_empty()
+            .next()
+            .is_none()
     );
     evidence.retire_orders(&HashSet::from([incoming.report.venue_order_id]));
     assert!(
@@ -590,7 +645,7 @@ fn new_wallet_fill_reads_native_history_once_and_pending_membership_does_not_clo
     let order = WorkerOrder::capture(&native);
     TRADE_ID_READS.with(|reads| reads.set(0));
     TRADE_ID_COPIES.with(|copies| copies.set(0));
-    assert!(!evidence.prepare_wallet(&mut fill, &order, &[], 16).unwrap());
+    assert!(!evidence.prepare_wallet(&mut fill, &order, 16).unwrap());
     assert_eq!(
         TRADE_ID_READS.with(|reads| reads.get()),
         1,
@@ -602,7 +657,9 @@ fn new_wallet_fill_reads_native_history_once_and_pending_membership_does_not_clo
         "wallet preparation borrows the Native index"
     );
     assert_eq!(
-        evidence.confirmed_raw(&order, &[]).unwrap(),
+        evidence
+            .confirmed_raw(&order, order.venue_order_id().unwrap())
+            .unwrap(),
         Some(U256::from(1000) * U256::from(1_000_000_000_000_000_000u64))
     );
     assert_eq!(
@@ -616,7 +673,8 @@ fn new_wallet_fill_reads_native_history_once_and_pending_membership_does_not_clo
     assert!(
         evidence
             .pending_for(&order, old.report.venue_order_id)
-            .is_empty()
+            .next()
+            .is_none()
     );
     assert_eq!(
         APPLIED_FILL_CLONES.with(|clones| clones.get()),
@@ -790,15 +848,11 @@ fn compact_native_views_keep_snapshot_cutoffs_and_identical_atomic_allocations()
     use crate::execution::context::WorkerOrder;
     let (mut evidence, mut native, mut target) = wallet_history(64);
     let previous = WorkerOrder::capture(&native);
-    assert!(
-        !evidence
-            .prepare_wallet(&mut target, &previous, &[], 16)
-            .unwrap()
-    );
+    assert!(!evidence.prepare_wallet(&mut target, &previous, 16).unwrap());
     let mut native_target = target.clone();
     assert!(
         !evidence
-            .prepare_wallet(&mut native_target, &native, &[], 16)
+            .prepare_wallet(&mut native_target, &native, 16)
             .unwrap()
     );
     assert_eq!(native_target, target);
@@ -814,11 +868,7 @@ fn compact_native_views_keep_snapshot_cutoffs_and_identical_atomic_allocations()
     assert!(!crate::execution::parse::validate_applied_fill(&target.report, &previous).unwrap());
     assert!(crate::execution::parse::validate_applied_fill(&target.report, &current).unwrap());
     evidence.commit(std::slice::from_ref(&target)).unwrap();
-    assert!(
-        evidence
-            .prepare_wallet(&mut target, &current, &[], 16)
-            .unwrap()
-    );
+    assert!(evidence.prepare_wallet(&mut target, &current, 16).unwrap());
 }
 
 #[test]
@@ -829,7 +879,7 @@ fn benchmark_native_worker_observation() {
     let mut rows = Vec::new();
     for retained in [0, 1000, 9999] {
         let (mut evidence, old, mut target) = wallet_history(retained);
-        evidence.prepare_wallet(&mut target, &old, &[], 16).unwrap();
+        evidence.prepare_wallet(&mut target, &old, 16).unwrap();
         let event = native_fill(&old, &target);
         let mut native = old.clone();
         native.apply(event.clone()).unwrap();
@@ -902,33 +952,45 @@ fn lifecycle_raw_borrow_keeps_old_cutoff_and_deduplicates_queued_applied_ids() {
     use crate::execution::context::{TRADE_ID_COPIES, WorkerOrder};
     let (mut evidence, mut native, mut next) = wallet_history(64);
     let before = WorkerOrder::capture(&native);
-    evidence
-        .prepare_wallet(&mut next, &before, &[], 16)
-        .unwrap();
+    evidence.prepare_wallet(&mut next, &before, 16).unwrap();
     let event = native_fill(&native, &next);
     native.apply(event.clone()).unwrap();
     let after = WorkerOrder::observe(&native, &event, Some(&before));
     evidence.commit(std::slice::from_ref(&next)).unwrap();
     let old_raw = U256::from(64) * U256::from(1_000_000_000_000_000_000u64);
     TRADE_ID_COPIES.with(|copies| copies.set(0));
-    assert_eq!(evidence.confirmed_raw(&before, &[]).unwrap(), Some(old_raw));
     assert_eq!(
         evidence
-            .confirmed_raw(&before, &[next.clone(), next.clone()])
+            .confirmed_raw(&before, before.venue_order_id().unwrap())
+            .unwrap(),
+        Some(old_raw)
+    );
+    evidence.queue_wallet(&next).unwrap();
+    evidence.queue_wallet(&next).unwrap();
+    assert_eq!(
+        evidence
+            .confirmed_raw(&before, before.venue_order_id().unwrap())
             .unwrap(),
         Some(old_raw + next.raw.gross_shares)
     );
     assert_eq!(
-        evidence.confirmed_raw(&after, &[next.clone()]).unwrap(),
+        evidence
+            .confirmed_raw(&after, after.venue_order_id().unwrap())
+            .unwrap(),
         Some(old_raw + next.raw.gross_shares)
     );
     assert_eq!(TRADE_ID_COPIES.with(|copies| copies.get()), 0);
     let mut missing = evidence.clone();
     missing.entries.remove(&"T-0".into());
-    assert_eq!(missing.confirmed_raw(&before, &[]).unwrap(), None);
+    assert_eq!(
+        missing
+            .confirmed_raw(&before, before.venue_order_id().unwrap())
+            .unwrap(),
+        None
+    );
     assert!(
         missing
-            .prepare_wallet(&mut next.clone(), &before, &[], 16)
+            .prepare_wallet(&mut next.clone(), &before, 16)
             .is_ok()
     );
 }
@@ -942,6 +1004,7 @@ fn benchmark_lifecycle_raw_history() {
         let (mut evidence, native, target) = wallet_history(retained);
         let order = crate::execution::context::WorkerOrder::capture(&native);
         for count in [0, 1, 128] {
+            evidence.queued.clear();
             let queued = (0..count)
                 .map(|index| {
                     let mut fill = target.clone();
@@ -949,13 +1012,16 @@ fn benchmark_lifecycle_raw_history() {
                     fill
                 })
                 .collect::<Vec<_>>();
+            for fill in &queued {
+                evidence.queue_wallet(fill).unwrap();
+            }
             let expected = U256::from(retained as u64 + count as u64)
                 * U256::from(1_000_000_000_000_000_000u64);
             let mut samples = Vec::new();
             for iteration in 0..110 {
                 let started = Instant::now();
                 let raw = black_box(&mut evidence)
-                    .confirmed_raw(black_box(&order), black_box(&queued))
+                    .confirmed_raw(black_box(&order), order.venue_order_id().unwrap())
                     .unwrap();
                 let elapsed = started.elapsed().as_nanos() as u64;
                 assert_eq!(raw, Some(expected));
@@ -980,11 +1046,7 @@ fn live_native_fill_crosses_ten_thousand_retained_facts_without_restart_or_evict
     use crate::execution::context::WorkerOrder;
     let (mut evidence, mut native, mut fill) = wallet_history(10000);
     let before = WorkerOrder::capture(&native);
-    assert!(
-        !evidence
-            .prepare_wallet(&mut fill, &before, &[], 16)
-            .unwrap()
-    );
+    assert!(!evidence.prepare_wallet(&mut fill, &before, 16).unwrap());
     evidence.queue_wallet(&fill).unwrap();
     let event = native_fill(&native, &fill);
     native.apply(event.clone()).unwrap();
@@ -996,14 +1058,10 @@ fn live_native_fill_crosses_ten_thousand_retained_facts_without_restart_or_evict
         evidence.entries.contains_key(&"T-0".into()),
         "the first raw fact must not be evicted to admit a later fill"
     );
-    assert!(evidence.prepare_wallet(&mut fill, &after, &[], 16).unwrap());
+    assert!(evidence.prepare_wallet(&mut fill, &after, 16).unwrap());
     let mut conflict = fill.clone();
     conflict.raw.gross_shares += U256::from(1);
-    assert!(
-        evidence
-            .prepare_wallet(&mut conflict, &after, &[], 16)
-            .is_err()
-    );
+    assert!(evidence.prepare_wallet(&mut conflict, &after, 16).is_err());
     evidence.retire_orders(&HashSet::from([fill.report.venue_order_id]));
     assert!(
         evidence.entries.is_empty() && evidence.by_order.is_empty() && evidence.queued.is_empty()
@@ -1016,7 +1074,9 @@ fn verified_prefix_visits_only_appended_native_ids_and_preserves_atomic_carries(
     let (mut evidence, mut native, target) = wallet_history(1000);
     let old = WorkerOrder::capture(&native);
     TRADE_IDS_VISITED.with(|n| n.set(0));
-    evidence.confirmed_raw(&old, &[]).unwrap();
+    evidence
+        .confirmed_raw(&old, old.venue_order_id().unwrap())
+        .unwrap();
     assert_eq!(TRADE_IDS_VISITED.with(|n| n.get()), 1000);
     let mut queued = Vec::new();
     for index in 0..3 {
@@ -1028,14 +1088,10 @@ fn verified_prefix_visits_only_appended_native_ids_and_preserves_atomic_carries(
         // An independent full Native view must make identical quantity/fee allocations.
         evidence
             .clone()
-            .prepare_wallet(&mut oracle, &native, &queued, 16)
+            .prepare_wallet(&mut oracle, &native, 16)
             .unwrap();
         TRADE_IDS_VISITED.with(|n| n.set(0));
-        assert!(
-            !evidence
-                .prepare_wallet(&mut fill, &old, &queued, 16)
-                .unwrap()
-        );
+        assert!(!evidence.prepare_wallet(&mut fill, &old, 16).unwrap());
         assert_eq!(TRADE_IDS_VISITED.with(|n| n.get()), 0);
         assert_eq!(fill, oracle);
         evidence.queue_wallet(&fill).unwrap();
@@ -1052,7 +1108,9 @@ fn verified_prefix_visits_only_appended_native_ids_and_preserves_atomic_carries(
     let expected = U256::from(1000) * U256::from(1_000_000_000_000_000_000u64)
         + queued.iter().map(|f| f.raw.gross_shares).sum::<U256>();
     assert_eq!(
-        evidence.confirmed_raw(&current, &queued).unwrap(),
+        evidence
+            .confirmed_raw(&current, current.venue_order_id().unwrap())
+            .unwrap(),
         Some(expected)
     );
     assert_eq!(
@@ -1062,14 +1120,18 @@ fn verified_prefix_visits_only_appended_native_ids_and_preserves_atomic_carries(
     );
     TRADE_IDS_VISITED.with(|n| n.set(0));
     assert_eq!(
-        evidence.confirmed_raw(&current, &[]).unwrap(),
+        evidence
+            .confirmed_raw(&current, current.venue_order_id().unwrap())
+            .unwrap(),
         Some(expected)
     );
     assert_eq!(TRADE_IDS_VISITED.with(|n| n.get()), 0);
     // An older snapshot is still immutable after later facts were memoized.
     TRADE_IDS_VISITED.with(|n| n.set(0));
     assert_eq!(
-        evidence.confirmed_raw(&old, &[]).unwrap(),
+        evidence
+            .confirmed_raw(&old, old.venue_order_id().unwrap())
+            .unwrap(),
         Some(expected - queued.iter().map(|f| f.raw.gross_shares).sum::<U256>())
     );
     assert_eq!(TRADE_IDS_VISITED.with(|n| n.get()), 1000);
@@ -1080,18 +1142,16 @@ fn verified_prefix_visits_only_appended_native_ids_and_preserves_atomic_carries(
     let mut oracle = next.clone();
     evidence
         .clone()
-        .prepare_wallet(&mut oracle, &native, &[], 16)
+        .prepare_wallet(&mut oracle, &native, 16)
         .unwrap();
-    evidence
-        .prepare_wallet(&mut next, &current, &[], 16)
-        .unwrap();
+    evidence.prepare_wallet(&mut next, &current, 16).unwrap();
     assert_eq!(next, oracle);
     let mut conflict = next.clone();
     evidence.queue_wallet(&next).unwrap();
     conflict.raw.fee += U256::from(1);
     assert!(
         evidence
-            .prepare_wallet(&mut conflict, &current, &[next], 16)
+            .prepare_wallet(&mut conflict, &current, 16)
             .is_err()
     );
 }
@@ -1101,7 +1161,9 @@ fn verified_prefix_rejects_same_count_cursor_from_another_native_capture() {
     use crate::execution::context::{TRADE_IDS_VISITED, WorkerOrder};
     let (mut evidence, native, _) = wallet_history(64);
     let first = WorkerOrder::capture(&native);
-    evidence.confirmed_raw(&first, &[]).unwrap();
+    evidence
+        .confirmed_raw(&first, first.venue_order_id().unwrap())
+        .unwrap();
     let (_, mut restored, mut different) = wallet_history(63);
     different.report.trade_id = "RESTORED-DIFFERENT".into();
     different.raw.gross_shares *= U256::from(2);
@@ -1113,7 +1175,9 @@ fn verified_prefix_rejects_same_count_cursor_from_another_native_capture() {
     assert_eq!(other.trade_ids().len(), first.trade_ids().len());
     TRADE_IDS_VISITED.with(|n| n.set(0));
     assert_eq!(
-        evidence.confirmed_raw(&other, &[]).unwrap(),
+        evidence
+            .confirmed_raw(&other, other.venue_order_id().unwrap())
+            .unwrap(),
         Some(U256::from(65) * U256::from(1_000_000_000_000_000_000u64))
     );
     assert_eq!(
@@ -1129,34 +1193,51 @@ fn verified_prefix_never_caches_missing_or_uncommitted_facts_and_clone_rebuilds(
     let (mut evidence, native, _) = wallet_history(64);
     let owner = native.venue_order_id().unwrap();
     let order = WorkerOrder::capture(&native);
-    evidence.confirmed_raw(&order, &[]).unwrap();
+    evidence
+        .confirmed_raw(&order, order.venue_order_id().unwrap())
+        .unwrap();
     let mut missing = evidence.clone();
     assert!(missing.by_order[&owner].prefix.is_none());
     let hole = missing.entries.remove(&"T-0".into()).unwrap();
-    assert_eq!(missing.confirmed_raw(&order, &[]).unwrap(), None);
+    assert_eq!(
+        missing
+            .confirmed_raw(&order, order.venue_order_id().unwrap())
+            .unwrap(),
+        None
+    );
     assert!(missing.by_order[&owner].prefix.is_none());
     assert!(
         missing
-            .confirmed_raw(&order, std::slice::from_ref(&hole))
+            .prepare_wallet(&mut hole.clone(), &order, 16)
             .unwrap()
-            .is_some()
     );
     assert!(
         missing.by_order[&owner].prefix.is_none(),
         "a read-only supplied raw fact must not become a committed memo"
     );
-    assert_eq!(missing.confirmed_raw(&order, &[]).unwrap(), None);
+    assert_eq!(
+        missing
+            .confirmed_raw(&order, order.venue_order_id().unwrap())
+            .unwrap(),
+        None
+    );
     missing.commit(&[hole]).unwrap();
     TRADE_IDS_VISITED.with(|n| n.set(0));
     assert_eq!(
-        missing.confirmed_raw(&order, &[]).unwrap(),
-        evidence.confirmed_raw(&order, &[]).unwrap()
+        missing
+            .confirmed_raw(&order, order.venue_order_id().unwrap())
+            .unwrap(),
+        evidence
+            .confirmed_raw(&order, order.venue_order_id().unwrap())
+            .unwrap()
     );
     assert_eq!(TRADE_IDS_VISITED.with(|n| n.get()), 64);
     let mut scoped = missing.snapshot_for_orders(std::iter::once(owner));
     assert!(scoped.by_order[&owner].prefix.is_none());
     TRADE_IDS_VISITED.with(|n| n.set(0));
-    scoped.confirmed_raw(&order, &[]).unwrap();
+    scoped
+        .confirmed_raw(&order, order.venue_order_id().unwrap())
+        .unwrap();
     assert_eq!(TRADE_IDS_VISITED.with(|n| n.get()), 64);
     let mut external = report(U256::from(10), 100, 16);
     external.report.venue_order_id = "OTHER-OWNER".into();
@@ -1177,7 +1258,9 @@ fn benchmark_advancing_wallet_prefix() {
         for operation in ["wallet", "lifecycle", "wallet_fresh_capture"] {
             let (mut evidence, mut native, target) = wallet_history(retained);
             let mut order = WorkerOrder::capture(&native);
-            evidence.confirmed_raw(&order, &[]).unwrap();
+            evidence
+                .confirmed_raw(&order, order.venue_order_id().unwrap())
+                .unwrap();
             let mut timings = Vec::new();
             for index in 0..110 {
                 let mut fill = target.clone();
@@ -1195,7 +1278,7 @@ fn benchmark_advancing_wallet_prefix() {
                 if operation == "lifecycle" {
                     assert_eq!(
                         black_box(&mut evidence)
-                            .confirmed_raw(black_box(&order), &[])
+                            .confirmed_raw(black_box(&order), order.venue_order_id().unwrap())
                             .unwrap(),
                         Some(
                             U256::from(retained + index + 1)
@@ -1245,7 +1328,9 @@ fn verified_prefix_checks_appended_overflow_without_advancing_verified_facts() {
         .gross_shares = U256::MAX - U256::from(1);
     let old = WorkerOrder::capture(&native);
     assert_eq!(
-        evidence.confirmed_raw(&old, &[]).unwrap(),
+        evidence
+            .confirmed_raw(&old, old.venue_order_id().unwrap())
+            .unwrap(),
         Some(U256::MAX - U256::from(1))
     );
     next.raw.gross_shares = U256::from(2);
@@ -1253,7 +1338,11 @@ fn verified_prefix_checks_appended_overflow_without_advancing_verified_facts() {
     let event = native_fill(&native, &next);
     native.apply(event.clone()).unwrap();
     let current = WorkerOrder::observe(&native, &event, Some(&old));
-    assert!(evidence.confirmed_raw(&current, &[]).is_err());
+    assert!(
+        evidence
+            .confirmed_raw(&current, current.venue_order_id().unwrap())
+            .is_err()
+    );
     assert_eq!(
         evidence.by_order[&next.report.venue_order_id]
             .prefix
@@ -1263,7 +1352,9 @@ fn verified_prefix_checks_appended_overflow_without_advancing_verified_facts() {
         Some(U256::MAX - U256::from(1))
     );
     assert_eq!(
-        evidence.confirmed_raw(&old, &[]).unwrap(),
+        evidence
+            .confirmed_raw(&old, old.venue_order_id().unwrap())
+            .unwrap(),
         Some(U256::MAX - U256::from(1))
     );
 }
@@ -1358,11 +1449,7 @@ fn applied_fill_inspection_borrows_native_events_and_preserves_cutoff_and_confli
         )
         .unwrap();
     assert_eq!(replay[0], applied);
-    assert!(
-        evidence
-            .prepare_wallet(&mut replay[0], &old, &[], 16)
-            .unwrap()
-    );
+    assert!(evidence.prepare_wallet(&mut replay[0], &old, 16).unwrap());
     assert_eq!(
         APPLIED_FILL_CLONES.with(|n| n.get()),
         0,
@@ -1434,7 +1521,7 @@ fn benchmark_applied_fill_inspection() {
                     )
                     .unwrap(),
                     "wallet_duplicate" => evidence
-                        .prepare_wallet(black_box(&mut incoming), black_box(&order), &[], 16)
+                        .prepare_wallet(black_box(&mut incoming), black_box(&order), 16)
                         .unwrap(),
                     "wallet_queue_new" => {
                         evidence.queue_wallet(black_box(&incoming)).unwrap();
@@ -1674,7 +1761,12 @@ fn verified_retirement_reuses_native_prefix_and_checks_changed_owners() {
     let (mut evidence, mut native, next) = wallet_history(1000);
     let old = WorkerOrder::capture(&native);
     let owner = next.report.venue_order_id;
-    assert!(evidence.confirmed_raw(&old, &[]).unwrap().is_some());
+    assert!(
+        evidence
+            .confirmed_raw(&old, old.venue_order_id().unwrap())
+            .unwrap()
+            .is_some()
+    );
     APPLIED_MEMBERSHIP_READS.with(|n| n.set(0));
     assert!(!evidence.has_unapplied(owner, &old));
     assert_eq!(APPLIED_MEMBERSHIP_READS.with(|n| n.get()), 0);
@@ -1715,7 +1807,12 @@ fn verified_retirement_reuses_native_prefix_and_checks_changed_owners() {
     let current = WorkerOrder::observe(&native, &event, Some(&old));
     assert!(!evidence.has_unapplied(owner, &current));
     assert!(evidence.has_unapplied(owner, &old));
-    assert!(evidence.confirmed_raw(&current, &[]).unwrap().is_some());
+    assert!(
+        evidence
+            .confirmed_raw(&current, current.venue_order_id().unwrap())
+            .unwrap()
+            .is_some()
+    );
     APPLIED_MEMBERSHIP_READS.with(|n| n.set(0));
     assert!(!evidence.has_unapplied(owner, &current));
     assert_eq!(APPLIED_MEMBERSHIP_READS.with(|n| n.get()), 0);
@@ -1733,7 +1830,7 @@ fn retirement_membership_cursor_does_not_substitute_zero_raw_economics() {
     let owner = next.report.venue_order_id;
     let expected = evidence
         .clone()
-        .confirmed_raw(&order, &[])
+        .confirmed_raw(&order, order.venue_order_id().unwrap())
         .unwrap()
         .unwrap();
     assert!(!expected.is_zero());
@@ -1749,9 +1846,68 @@ fn retirement_membership_cursor_does_not_substitute_zero_raw_economics() {
     APPLIED_MEMBERSHIP_READS.with(|n| n.set(0));
     assert!(!evidence.has_unapplied(owner, &order));
     assert_eq!(APPLIED_MEMBERSHIP_READS.with(|n| n.get()), 0);
-    assert_eq!(evidence.confirmed_raw(&order, &[]).unwrap(), Some(expected));
+    assert_eq!(
+        evidence
+            .confirmed_raw(&order, order.venue_order_id().unwrap())
+            .unwrap(),
+        Some(expected)
+    );
     assert_eq!(
         evidence.by_order[&owner].prefix.as_ref().unwrap().raw,
         Some(expected)
     );
+}
+
+#[test]
+#[ignore = "explicit pending wallet benchmark; PREDICT_PENDING_PATH is create_new JSON"]
+fn benchmark_wallet_pending_work() {
+    use std::{hint::black_box, time::Instant};
+    let mut rows = Vec::new();
+    for retained in [0, 1000, 9999] {
+        for count in [0, 1, 32, 256] {
+            let (mut evidence, native, mut incoming) = wallet_history(retained);
+            let order = crate::execution::context::WorkerOrder::capture(&native);
+            for index in 0..count {
+                let mut fill = incoming.clone();
+                fill.report.trade_id = format!("PENDING-{index}").as_str().into();
+                evidence.prepare_wallet(&mut fill, &order, 16).unwrap();
+                evidence.queue_wallet(&fill).unwrap();
+            }
+            let expected = U256::from(retained as u64 + count as u64) * incoming.raw.gross_shares;
+            let mut wallet = Vec::new();
+            let mut lifecycle = Vec::new();
+            for iteration in 0..110 {
+                let started = Instant::now();
+                bench_wallet_prepare(
+                    black_box(&mut evidence),
+                    black_box(&order),
+                    black_box(&mut incoming),
+                );
+                let elapsed = started.elapsed().as_nanos() as u64;
+                if iteration >= 10 {
+                    wallet.push(elapsed);
+                }
+                let started = Instant::now();
+                assert_eq!(
+                    evidence
+                        .confirmed_raw(&order, order.venue_order_id().unwrap())
+                        .unwrap(),
+                    Some(expected)
+                );
+                let elapsed = started.elapsed().as_nanos() as u64;
+                if iteration >= 10 {
+                    lifecycle.push(elapsed);
+                }
+            }
+            wallet.sort_unstable();
+            lifecycle.sort_unstable();
+            rows.push(serde_json::json!({"retained":retained,"pending":count,"wallet_ns":wallet,"lifecycle_ns":lifecycle}));
+        }
+    }
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(std::env::var("PREDICT_PENDING_PATH").unwrap())
+        .unwrap();
+    serde_json::to_writer_pretty(file, &serde_json::json!({"source":"release production wallet pending lookup + preparation and lifecycle pending lookup + raw sum; 10 warmups + 100 samples; excludes seeding, transport, Native application and callbacks", "rows":rows})).unwrap();
 }

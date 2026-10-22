@@ -1879,19 +1879,34 @@ async fn confirmed_fill_rejects_inconsistent_value_and_limit_price_before_native
 #[tokio::test]
 async fn targeted_query_reconciles_known_zero_fill_orders_and_releases_native_cash() {
     let server = server(vec![]).await;
+    let mut row = rest_order_data("CANCELLED", 1, OrderSide::Buy);
+    let hasher = nautilus_predict::signing::PredictOrderHasher::new(PredictEnvironment::BnbMainnet);
+    let hash = hasher.order_hash(
+        &serde_json::from_value(row["order"].clone()).unwrap(),
+        nautilus_predict::common::contracts::PredictExchangeType::Standard,
+    );
+    row["order"]["hash"] = json!(hash);
     server
         .state
         .orders
         .lock()
         .unwrap()
-        .push_back(json!({"success":true,"data":rest_order_data("CANCELLED",1,OrderSide::Buy)}));
+        .push_back(json!({"success":true,"data":row}));
     let (mut client, mut rx, cache) = reported_client(&server);
     let _portfolio = portfolio(&cache);
     cache
         .borrow_mut()
         .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
         .unwrap();
-    let order = order(1);
+    let original = order(1);
+    let mut order = OrderAny::try_from(original.init_event().clone()).unwrap();
+    for event in original.events().into_iter().skip(1) {
+        let mut event = event.clone();
+        if let nautilus_model::events::OrderEventAny::Accepted(event) = &mut event {
+            event.venue_order_id = VenueOrderId::new(format!("{hash:#x}"));
+        }
+        order.apply(event).unwrap();
+    }
     cache
         .borrow_mut()
         .add_order(order.clone(), None, None, false)
@@ -1938,6 +1953,8 @@ async fn targeted_query_reconciles_known_zero_fill_orders_and_releases_native_ca
     );
     let state = apply_account(&mut rx).await;
     assert_eq!(state.balances[0].locked, Money::from("0 USDT"));
+    assert_eq!(server.state.order_requests.lock().unwrap().len(), 1);
+    assert!(server.state.match_requests.lock().unwrap().is_empty());
     assert!(
         cache
             .borrow()

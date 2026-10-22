@@ -28,6 +28,24 @@ Market/token/instrument identities, outcome, price and quantity are discovered o
 calculated at runtime. `stale_after_ms` is a strategy signal guard. It does not
 implement authentication expiry or replace adapter execution checks.
 
+## Logging and callback measurements
+
+The product profile already accepts Native logging configuration directly:
+
+```toml
+[node.logging]
+stdout_level = "WARN"
+```
+
+Choose this explicitly when measuring a quiet trading configuration. INFO remains
+the default. Native formats/logs order events before calling strategy hooks, so
+logging belongs to WS-to-strategy latency. Rust strategies can also use Native
+StrategyConfig.log_events and log_commands to control their event/command logs.
+Keep logging identical between compared source versions and record the setting.
+The [matched callback validation](../reference/predict-execution-validation.md#matched-taker-callback-comparison)
+distinguishes logger cost from run-to-run tail variation; lowering log output does
+not establish a universal p99 improvement.
+
 ## Offline scenarios
 
 ```bash

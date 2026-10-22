@@ -98,19 +98,21 @@ pub(super) struct SettlementNotifications {
     by_order: HashMap<VenueOrderId, HashSet<TradeId>>,
 }
 impl SettlementNotifications {
-    pub fn validate_success(&self, event: &PredictWalletEvent) -> anyhow::Result<()> {
+    pub fn validate_success(
+        &self,
+        event: &PredictWalletEvent,
+        trade_id: TradeId,
+        venue_order_id: VenueOrderId,
+    ) -> anyhow::Result<()> {
         if let PredictWalletEventKind::OrderTransactionSuccess {
             settlement_id,
             fill,
             ..
         } = &event.kind
-            && let Some(previous) = self.entries.get(&super::parse::settlement_trade_id(
-                settlement_id,
-                event.order.order_hash,
-            ))
+            && let Some(previous) = self.entries.get(&trade_id)
         {
             anyhow::ensure!(
-                previous.order == VenueOrderId::new(format!("{:#x}", event.order.order_hash))
+                previous.order == venue_order_id
                     && previous.settlement_id == *settlement_id
                     && previous.fill == *fill
                     && previous.terminal != Some(PredictSettlementStatus::Failed),

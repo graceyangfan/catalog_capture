@@ -79,7 +79,6 @@ impl WalletReportContext {
             instruments,
             pending,
             rest_ids,
-            fill_evidence,
             allow_share_fees,
             account,
             wallet,
@@ -93,7 +92,7 @@ impl WalletReportContext {
                 | PredictWalletEventKind::OrderTransactionFailed { .. }
                 | PredictWalletEventKind::OrderMarketMatchPlan { .. }
         );
-        let (order, queued) = self.order_snapshot(id, needs_fills)?;
+        let (order, mut evidence) = self.order_snapshot(id)?;
         let outcome = match event.order.details.outcome {
             PredictWalletOutcome::Yes => 1,
             PredictWalletOutcome::No => 2,
@@ -107,10 +106,12 @@ impl WalletReportContext {
             anyhow::bail!("Predict wallet instrument is absent from the Nautilus cache context");
         };
         let mut confirmed = order.filled_qty().as_decimal();
-        for fill in &queued {
-            confirmed = confirmed
-                .checked_add(fill.report.last_qty.as_decimal())
-                .ok_or_else(|| anyhow::anyhow!("Predict confirmed fill aggregate overflow"))?;
+        if needs_fills {
+            for fill in evidence.pending_for(&order, id) {
+                confirmed = confirmed
+                    .checked_add(fill.report.last_qty.as_decimal())
+                    .ok_or_else(|| anyhow::anyhow!("Predict confirmed fill aggregate overflow"))?;
+            }
         }
         let confirmed =
             Quantity::from_decimal_dp(confirmed, instrument.size_precision()).map_err(|_| {
@@ -145,10 +146,7 @@ impl WalletReportContext {
                 PredictWalletEventKind::OrderTransactionSuccess { .. }
             )
         {
-            let mut facts = fill_evidence
-                .lock()
-                .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?;
-            if let Some(raw) = facts.confirmed_raw(&order, &queued)? {
+            if let Some(raw) = evidence.confirmed_raw(&order, id)? {
                 anyhow::ensure!(
                     crate::common::parse::exact_wei(raw)? == event.order.details.quantity_filled,
                     "Predict lifecycle includes unresolved raw cumulative fills"
@@ -176,47 +174,28 @@ impl WalletReportContext {
             },
         )?
         else {
-            self.settlement(event, &order, connection_epoch, received)?;
-            if matches!(
-                event.kind,
-                PredictWalletEventKind::OrderTransactionSubmitted { .. }
-                    | PredictWalletEventKind::OrderTransactionFailed { .. }
-            ) {
-                super::routing::register(
-                    rest_ids,
-                    id,
-                    super::routing::parse_id(&event.order.order_id)?,
-                )?;
-            }
-            if matches!(
-                event.kind,
-                PredictWalletEventKind::OrderTransactionSubmitted { .. }
-            ) && live_submission
-                && registered.is_some()
-                && !order.is_closed()
-                && wallet_epoch.load(Ordering::Acquire) == connection_epoch
-                && !self.reconciliation_required.load(Ordering::Acquire)
-                && self.send_acceptance(
-                    &order,
-                    id,
-                    event.order.timestamp_ns()?,
-                    order.queued_acceptance().is_some(),
-                )?
-            {
-                order.record_acceptance(event.order.timestamp_ns()?);
-            }
+            drop(evidence);
+            self.matching(
+                event,
+                &order,
+                id,
+                connection_epoch,
+                received,
+                live_submission
+                    && registered.is_some()
+                    && wallet_epoch.load(Ordering::Acquire) == connection_epoch,
+            )?;
             return Ok(());
         };
         let rest_id = super::routing::parse_id(&event.order.order_id)?;
         super::routing::register(rest_ids, id, rest_id)?;
         if let ExecutionReport::Fill(native) = report {
             let mut fill = super::precision::BufferedFill::from_wallet(*native, event)?;
-            let mut evidence = fill_evidence
-                .lock()
-                .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?;
-            evidence.notifications.validate_success(event)?;
+            evidence
+                .notifications
+                .validate_success(event, fill.report.trade_id, id)?;
             evidence.validate_wallet_timestamp(&fill)?;
-            if evidence.prepare_wallet(&mut fill, &order, &queued, instrument.size_precision())? {
+            if evidence.prepare_wallet(&mut fill, &order, instrument.size_precision())? {
                 drop(evidence);
                 self.settlement(event, &order, connection_epoch, received)?;
                 return Ok(());
@@ -255,22 +234,67 @@ impl WalletReportContext {
             drop(evidence);
             self.settlement(event, &order, connection_epoch, received)?;
         } else {
-            let accepted = if let ExecutionReport::Order(status) = &report {
-                (status.ts_accepted.as_u64() > 0).then_some(status.ts_accepted)
-            } else {
-                None
-            };
-            self.send_lifecycle(
-                report,
-                &order,
-                order.queued_acceptance().is_some(),
-                received,
+            drop(evidence);
+            self.lifecycle(report, &order, received)?;
+        }
+        Ok(())
+    }
+
+    fn matching(
+        &self,
+        event: &crate::websocket::private_messages::PredictWalletEvent,
+        order: &super::context::WorkerOrder,
+        id: VenueOrderId,
+        epoch: u64,
+        received: Option<std::time::Instant>,
+        live: bool,
+    ) -> anyhow::Result<()> {
+        self.settlement(event, order, epoch, received)?;
+        if matches!(
+            event.kind,
+            PredictWalletEventKind::OrderTransactionSubmitted { .. }
+                | PredictWalletEventKind::OrderTransactionFailed { .. }
+        ) {
+            super::routing::register(
+                &self.rest_ids,
+                id,
+                super::routing::parse_id(&event.order.order_id)?,
             )?;
-            if let Some(accepted) = accepted
-                && order.queued_acceptance().is_none()
-            {
-                order.record_acceptance(accepted);
-            }
+        }
+        if matches!(
+            event.kind,
+            PredictWalletEventKind::OrderTransactionSubmitted { .. }
+        ) && live
+            && !order.is_closed()
+            && !self.reconciliation_required.load(Ordering::Acquire)
+            && self.send_acceptance(
+                order,
+                id,
+                event.order.timestamp_ns()?,
+                order.queued_acceptance().is_some(),
+            )?
+        {
+            order.record_acceptance(event.order.timestamp_ns()?);
+        }
+        Ok(())
+    }
+
+    fn lifecycle(
+        &self,
+        report: ExecutionReport,
+        order: &super::context::WorkerOrder,
+        received: Option<std::time::Instant>,
+    ) -> anyhow::Result<()> {
+        let accepted = if let ExecutionReport::Order(status) = &report {
+            (status.ts_accepted.as_u64() > 0).then_some(status.ts_accepted)
+        } else {
+            None
+        };
+        self.send_lifecycle(report, order, order.queued_acceptance().is_some(), received)?;
+        if let Some(accepted) = accepted
+            && order.queued_acceptance().is_none()
+        {
+            order.record_acceptance(accepted);
         }
         Ok(())
     }
@@ -466,13 +490,13 @@ impl WalletReportContext {
     pub(super) fn order_snapshot(
         &self,
         id: VenueOrderId,
-        include_pending: bool,
     ) -> anyhow::Result<(
         Arc<super::context::WorkerOrder>,
-        Vec<super::precision::BufferedFill>,
+        std::sync::MutexGuard<'_, super::precision::FillEvidence>,
     )> {
-        // Native's observer publishes the order view and clears queued-fill markers
-        // under this same lock. Mixing their revisions loses a raw precision prefix.
+        // Sample the view and pending facts under the observer's publication lock.
+        // Release that global lock before parsing/normalization. Keep the evidence
+        // guard until enqueue so Native cannot clear pending against an older view.
         let _state = self.sync.state.lock().expect("account sync poisoned");
         let order = self
             .orders
@@ -483,15 +507,11 @@ impl WalletReportContext {
             .ok_or_else(|| {
                 anyhow::anyhow!("Predict wallet order is absent from the Nautilus cache context")
             })?;
-        let queued = if include_pending {
-            self.fill_evidence
-                .lock()
-                .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?
-                .pending_for(&order, id)
-        } else {
-            Vec::new()
-        };
-        Ok((order, queued))
+        let evidence = self
+            .fill_evidence
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?;
+        Ok((order, evidence))
     }
 }
 

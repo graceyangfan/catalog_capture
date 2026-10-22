@@ -282,6 +282,100 @@ async fn run(case: &str) -> Value {
             .unwrap();
         assert_eq!(applied.len(), 1);
         assert_eq!(applied[0].order_status, OrderStatus::Filled);
+        if case == "valid" {
+            // A market-scoped report must not collect another market's history.
+            // The mock filters real nonempty rows only when marketId is sent.
+            let original = private.state.match_snapshot.lock().unwrap().clone();
+            let mut foreign = good_matches[0].clone();
+            foreign["market"]["id"] = json!(43);
+            private
+                .state
+                .match_snapshot
+                .lock()
+                .unwrap()
+                .as_mut()
+                .unwrap()
+                .push(foreign);
+            let start = private.state.match_requests.lock().unwrap().len();
+            let mut scoped = command(false);
+            scoped.instrument_id = Some(order.instrument_id());
+            let scoped_reports = client.generate_order_status_reports(&scoped).await.unwrap();
+            assert_eq!(scoped_reports.len(), 1);
+            assert_eq!(scoped_reports[0].filled_qty, Quantity::from(100));
+            {
+                let requests = private.state.match_requests.lock().unwrap();
+                assert_eq!(requests.len(), start + 1);
+                assert_eq!(requests[start]["marketId"], "42");
+            }
+            *private.state.match_snapshot.lock().unwrap() = original;
+
+            // Explicit query and single report use the same fenced target inputs.
+            let native = cache
+                .borrow()
+                .order_owned(&order.client_order_id())
+                .unwrap();
+            for query_command in [false, true] {
+                let orders_before = private.state.order_requests.lock().unwrap().len();
+                let matches_before = private.state.match_requests.lock().unwrap().len();
+                if query_command {
+                    let cmd = nautilus_common::messages::execution::QueryOrder::new(
+                        trader_id(),
+                        Some(ClientId::new("PREDICT")),
+                        native.strategy_id(),
+                        native.instrument_id(),
+                        native.client_order_id(),
+                        native.venue_order_id(),
+                        UUID4::new(),
+                        UnixNanos::from(OBSERVED),
+                        None,
+                        None,
+                    );
+                    client.query_order(cmd).unwrap();
+                    let packet = timeout(Duration::from_secs(3), async {
+                        loop {
+                            if let ExecutionEvent::Report(ExecutionReport::OrderWithFills(
+                                report,
+                                fills,
+                            )) = next(&mut rx).await
+                            {
+                                break (report, fills);
+                            }
+                        }
+                    })
+                    .await
+                    .unwrap();
+                    assert_eq!(packet.0.order_status, OrderStatus::Filled);
+                    assert_eq!(packet.1.len(), 2);
+                    engine.reconcile_execution_report(&ExecutionReport::OrderWithFills(
+                        packet.0, packet.1,
+                    ));
+                } else {
+                    let report = client
+                        .generate_order_status_report(&order_report_cmd(&native))
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    assert_eq!(report.order_status, OrderStatus::Filled);
+                    assert_eq!(report.filled_qty, Quantity::from(100));
+                }
+                assert_eq!(
+                    private.state.order_requests.lock().unwrap().len() - orders_before,
+                    2
+                );
+                let requests = private.state.match_requests.lock().unwrap();
+                assert_eq!(requests.len() - matches_before, 1);
+                assert_eq!(requests[matches_before]["marketId"], "42");
+                assert_eq!(
+                    cache
+                        .borrow()
+                        .order(&order.client_order_id())
+                        .unwrap()
+                        .trade_ids()
+                        .len(),
+                    2
+                );
+            }
+        }
         let repeated = client.generate_mass_status(None).await.unwrap().unwrap();
         let report = repeated.order_reports().values().next().unwrap().clone();
         engine.reconcile_execution_report(&ExecutionReport::OrderWithFills(

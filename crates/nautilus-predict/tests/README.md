@@ -146,6 +146,7 @@ Retained unit exporter index (each name is under execution::<module>::tests in -
 | account | benchmark_pending_account_projection | PREDICT_DEFERRED_PROJECTION_PATH |
 | account | benchmark_retained_readiness_construction_and_release | PREDICT_RETAINED_READINESS_PATH |
 | precision | benchmark_wallet_fill_history | PREDICT_FILL_BENCH_PATH |
+| precision | benchmark_wallet_pending_work | PREDICT_PENDING_PATH |
 | precision | benchmark_native_order_snapshot_copy | PREDICT_SNAPSHOT_COPY_PATH |
 | precision | benchmark_native_worker_observation | PREDICT_OBSERVER_BENCH_PATH |
 | precision | benchmark_lifecycle_raw_history | PREDICT_RAW_BENCH_PATH |
@@ -161,12 +162,39 @@ Retained unit exporter index (each name is under execution::<module>::tests in -
 | lifecycle | benchmark_native_position_purge_history | PREDICT_POSITION_PURGE_PATH |
 | lifecycle | benchmark_native_timer_evidence_sweeps | PREDICT_TIMER_EVIDENCE_PATH |
 
+For matched callback comparisons, prebuild both source revisions, then alternate
+saved test executables in ABBA order with one excluded warmup each. Keep the same
+Native revision, strategy/mock source, rounds, feature set and output policy; never
+compile or run another suite during measurement. Use fresh output paths and retain
+all captures. Each default taker capture has 201 fills, so its p99 is the
+third-largest observation; use repeated capture/block comparisons rather than a
+single before/after number. Report segment quantiles separately, without summing
+or pooling them.
+
+The existing continuous exporter accepts a test-only logging control:
+
+```bash
+PREDICT_CONTINUOUS_LOG_LEVEL=WARN PREDICT_CONTINUOUS_PATH=data/predict-validation/my-review/callbacks-warn.json cargo test --release -p nautilus-predict --features native-quantity-commission --locked --test execution node_host::continuous::benchmark_warmed_callback_immediate_maker_and_taker -- --ignored --exact --test-threads=1
+```
+
+INFO remains the default. Run both INFO and WARN for both source revisions; WARN
+is a diagnostic factor, not a replacement baseline. The output records the selected
+level. Producer telemetry, callbacks, API counts and economic assertions remain
+identical. Normal production logging is configured through Native LoggerConfig.
+
 Other strategy exporters under --test execution:
 
 | Test under node_host | Output variable |
 | --- | --- |
 | continuous::benchmark_active_order_callback_scaling | PREDICT_ACTIVE_PATH |
 | in_service::benchmark_in_service_strategy_pauses | PREDICT_INSERVICE_PAUSE_PATH |
+
+The pending exporter crosses 0/1,000/9,999 applied fills with 0/1/32/256 queued
+fills. It measures wallet preparation and lifecycle raw summation independently;
+fixture seeding, transport, Native application and actual callbacks are excluded.
+Wallet parsing, initial normalized-quantity aggregation and snapshot locking are
+also outside this CPU window. Use the continuous strategy exporter for callback
+spans, not the CPU numbers.
 
 The purge/retirement CPU exporters include complete cleanup, whereas copy/normalization
 exporters exclude setup and Native application. Keep each JSON's declared boundaries;

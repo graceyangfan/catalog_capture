@@ -30,12 +30,12 @@ been removed. They are not outstanding refactoring tasks.
 | mod, factory, types | Native client, trait delegation, construction and shared dependencies |
 | orders, submitter, order_builder | Command handling, async transmission and pure signed-amount conversion |
 | cancellations | Single/batch removal and unknown outcome classification; no synthetic exchange amendment |
-| runtime | Transport loop plus the existing per-message WalletReportContext method |
+| runtime | Transport loop, wallet association and existing Context branches for provisional matching, lifecycle and confirmed fills |
 | context | Native order context and immutable borrowed history; no independently advanced order state |
 | routing | Signed hash to numeric REST endpoint ID; lifetime follows the owner |
 | precision, settlement | Final raw economic evidence versus provisional settlement notification and deduplication |
 | account, resources | Asynchronous cash/local locks and exact resource arithmetic; no strategy admission budget |
-| reports, reconciliation, matches, recovery, external | Target/bulk collection and known/external Native report conversion |
+| reports, reconciliation, matches, recovery, external | Shared target collection/conversion, scoped bulk collection and known/external Native delivery |
 | inventory_scope, readiness, reconnect | Inventory-related recovery coverage, post-IO verification and existing timer scheduling |
 | metadata, authentication | Background market preparation and signer/session continuity |
 
@@ -66,11 +66,17 @@ loading. An API key is a credential, distinct from the adapter's public Rust API
 
 | Area | Current limitation | Direction |
 | --- | --- | --- |
-| Cold evidence and destruction | First validation and one large owner's final release remain O(N); physical Native purge is synchronous | Measure full cleanup and actual callbacks before changing scheduling |
+| Cold evidence and destruction | First validation and one large owner's final release remain O(N); physical Native purge is synchronous | Lower priority; keep Native cleanup, with no background disposer or new queue |
 | Full recovery/projection | Work still scales with retained owners/facts and external OPEN | Reuse collected inputs; keep these operations separate from ordinary commands |
 | Instrument checks and OPEN COW | Ownership checks and snapshots with old readers may require linear work | Remove proven repetition without a permanent parallel ownership/funds index |
 | Settlement/evidence fields | Some immutable raw fields remain in both provisional and final records | Preserve Submitted/Failed/late Success semantics before considering sharing |
-| Runtime/report orchestration | Dense branches and bulk/context preparation remain | Simplify actual message paths, retain batch atomicity and position-only protection |
+| Runtime/report orchestration | Target collection/conversion is shared; bulk/context preparation still scales with requested scope | Simplify proven repetition, retain batch atomicity and position-only protection |
+
+Wallet pending facts now borrow the existing indexes; duplicate detection uses the
+queued trade-ID lookup and lifecycle summation does not rebuild a temporary map.
+Sampling retains the order/evidence consistency boundary without holding the account
+publication lock through normalization. Success reuses its parsed trade identity
+for pre-publication notification conflict checks.
 
 Automatic recovery checks unresolved commands before enqueue/capture, while explicit
 QueryAccount still refreshes. Retirement reuses complete membership proof in the
@@ -82,3 +88,9 @@ The evidence demonstrates less repeated work, not universal speedup: a verified
 multi-owner sweep regressed in the latest observation, and one 100,000-fill cold
 owner still pauses for about 23 ms. Keep quantitative results in the validation
 record; do not substitute short-order replay for long-history measurements.
+
+Matched repeated taker replays do not establish a stable adapter callback regression.
+Native pre-callback INFO logging has a measured typical cost; use existing Native
+logging configuration and keep comparison settings equal. The emitter/Engine/
+strategy path and evidence ownership remain unchanged. See the validation record
+for segment intervals, API parity and the limits of short-order measurements.
