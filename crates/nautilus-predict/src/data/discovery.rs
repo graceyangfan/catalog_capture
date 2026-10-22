@@ -231,6 +231,7 @@ impl PredictDataSession {
             .context("Predict dynamic selector disappeared before activation")?;
         state.pending_market_id = Some(selected.market_id);
         state.next_refresh_ns = selected.window.end_ns;
+        self.refresh_custom_type(selected.market_id);
         if let Some(stale_pending) = pending_market_id {
             self.remove_dynamic_market_if_unused(stale_pending);
         }
@@ -265,6 +266,12 @@ impl PredictDataSession {
         let Some(state) = self.dynamic_subscriptions.remove(key) else {
             return Ok(());
         };
+        for market_id in [state.current_market_id, state.pending_market_id]
+            .into_iter()
+            .flatten()
+        {
+            self.refresh_custom_type(market_id);
+        }
         if let Some(market_id) = state.pending_market_id {
             self.unsubscribe_market(market_id).await?;
         }

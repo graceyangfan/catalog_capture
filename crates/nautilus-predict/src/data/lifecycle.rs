@@ -23,9 +23,9 @@ use anyhow::Context;
 use nautilus_common::{
     clients::DataClient,
     messages::data::{
-        RequestInstrument, SubscribeCustomData, SubscribeInstrument, SubscribeInstruments,
-        SubscribeQuotes, UnsubscribeCustomData, UnsubscribeInstrument, UnsubscribeInstruments,
-        UnsubscribeQuotes,
+        RequestInstrument, SubscribeBookDepth, SubscribeCustomData, SubscribeInstrument,
+        SubscribeInstruments, SubscribeQuotes, UnsubscribeBookDepth, UnsubscribeCustomData,
+        UnsubscribeInstrument, UnsubscribeInstruments, UnsubscribeQuotes,
     },
 };
 use nautilus_live::task::TaskGroup;
@@ -169,25 +169,26 @@ impl DataClient for PredictDataClient {
         Ok(())
     }
 
+    fn subscribe_book_depth(&mut self, command: SubscribeBookDepth) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            command.book_type == nautilus_model::enums::BookType::L2_MBP,
+            "Predict supports only L2_MBP depth snapshots"
+        );
+        let id = command.instrument_id;
+        self.send_command(PredictCommand::SubscribeDepth(
+            id,
+            self.instrument_context(id)?,
+            command.depth,
+        ))
+    }
+
+    fn unsubscribe_book_depth(&mut self, command: &UnsubscribeBookDepth) -> anyhow::Result<()> {
+        self.send_command(PredictCommand::UnsubscribeDepth(command.instrument_id))
+    }
+
     fn subscribe_quotes(&mut self, command: SubscribeQuotes) -> anyhow::Result<()> {
         let id = command.instrument_id;
-        let context = self
-            .provider
-            .contexts()
-            .values()
-            .find(|c| c.yes_instrument_id == id || c.no_instrument_id == id)
-            .cloned()
-            .or_else(|| {
-                self.dynamic_registry
-                    .read()
-                    .expect("Predict dynamic registry lock poisoned")
-                    .markets
-                    .values()
-                    .map(|m| &m.context)
-                    .find(|c| c.yes_instrument_id == id || c.no_instrument_id == id)
-                    .cloned()
-            })
-            .with_context(|| format!("Predict quote instrument {id} was not loaded"))?;
+        let context = self.instrument_context(id)?;
         self.send_command(PredictCommand::SubscribeQuotes(id, context))
     }
 

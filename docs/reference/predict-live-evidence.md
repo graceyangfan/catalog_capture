@@ -1,13 +1,11 @@
 # Predict live execution evidence
 
-This index describes observed mainnet behavior, not permission to run funded tests.
-Frozen regression JSON/JSONL and Native journals remain under
-[`tests/fixtures/private_api`](../../crates/nautilus-predict/tests/fixtures/private_api/).
-The [manifest](../../crates/nautilus-predict/tests/fixtures/evidence_manifest.json)
-records hashes and provenance. Derived replays and synthetic fault cases are
-separate from actual exchange observations.
-New operational recordings belong under Git-ignored `data/predict-validation/`.
-They are not added to the frozen manifest unless a regression needs them.
+This reference distinguishes actual venue observations from synthetic and derived
+regressions. Frozen sanitized captures are indexed by the
+[evidence manifest](../../crates/nautilus-predict/tests/fixtures/evidence_manifest.json).
+New operator recordings stay under Git-ignored data/predict-validation/ unless a
+specific regression requires an immutable sanitized fixture. Capture names use UTC.
+A historical capture does not establish behavior for a different source revision.
 
 ## Coverage
 
@@ -22,203 +20,114 @@ They are not added to the frozen manifest unless a regression needs them.
 | [Read-only session and queries](../../crates/nautilus-predict/tests/fixtures/private_api/live_readonly_resources_20261017T100325Z/) | Early JWT replacement, WS resubscription, QueryAccount/readiness and QueryOrder; 101 and 52 successful requests, zero order/chain writes | Empty account; canceled-order repair combines a real historical response with derived stale local state |
 | Operator-run YES/GTD, 2026-10-20 | Two Accepted, two ModifyRejected with unchanged terms, two Canceled; independent wallet confirmation; zero new matches, cash/holdings unchanged, final OPEN zero | Revalidates one existing maker case; does not extend the matrix or prove callback latency |
 
-Capture-directory timestamps use UTC. Earlier successful and failed captures are
-retained; the table lists representative complete runs rather than every attempt.
 
-## Latest revalidation and request costs
+## Interpretation and limits
 
-The operator-run YES/GTD case completed on 2026-10-20 at 17:14:08 Asia/Shanghai
-(09:14:08 UTC). Its ten files were moved unchanged from transient fixtures to
-`data/predict-validation/live_resting_yes-gtd_20261020T091408Z/`; all file hashes
-were checked before and after the move. The offline report is
-`data/predict-validation/resting-review-20261020.json`.
+The [adapter contract](../predict-execution-adapter-design.md) defines current
+behavior. Historical recordings may contain funds/OPEN preflights, cold market
+GETs or one-second account refreshes that are absent from the current normal submit
+path. Their request counts cannot be used to infer current per-order work.
 
-The recorded relay saw 26 HTTP requests: two create POSTs, two remove POSTs,
-16 OPEN-order GETs, two market GETs, two account GETs and one authentication
-challenge/JWT pair. The supervisor, independent collector and public book
-confirmation use additional connections; 26 is not the whole-run request count.
+The representative resting revalidation contains two create/two remove POSTs,
+zero fills and complete independent final OPEN checks. Its relay observed 26 HTTP
+requests; supervisor, independent collector and public discovery/book connections
+were outside that count. Relay HTTP intervals include its forwarding overhead,
+not WS-to-strategy latency. That capture lacks source/features metadata, so it
+cannot support a source-matched performance claim. New runs write source/features,
+tracked-diff, lockfile and harness hashes in run_metadata.json.
 
-| Recorded operation | First order | Replacement |
-| --- | ---: | ---: |
-| Create HTTP duration | 422.753 ms | 407.783 ms |
-| Remove HTTP duration | 525.169 ms | 383.578 ms |
-
-These are local relay wall-clock intervals through upstream response. They
-include relay overhead and do not measure WS arrival or strategy callback delay.
-The resting harness sets `account_refresh_interval_secs = 1`; each account refresh
-queries OPEN orders before reading chain balances. Startup, per-submit resource
-admission and final cleanup also query OPEN orders. The transcript has no
-per-request caller tag, so it cannot assign all 16 reads to those callers exactly.
-Do not interpret them as 16 pre-submit checks or remove resource checks on that basis.
-
-The harness deliberately waits about two seconds after each modify rejection
-before requesting cancellation and independently refreshes a public book about
-every 500 ms. Those are test observation/safety costs, not evidence of slow WS
-execution feedback. No adapter performance change is justified by these timings.
-
-Post-outage read-only probes on the same day passed with 42 query requests and
-83 session requests, including ten wallet frames and two early JWT renewals.
-The longer public observation suffered repeated DNS failures and remains
-inconclusive for uninterrupted rollover/data delivery. Bounded cache samples
-during a stalled feed do not establish long-run cache safety.
-
-The latest recording did not include a source/features metadata file. Keep that
-provenance gap explicit rather than retroactively filling it from today's files.
-Future resting runs record the selected features, source commit, tracked-diff
-hash, lockfile and relevant harness hashes in `run_metadata.json`.
+Read-only session probes used genuine authentication and early JWT renewals; they
+did not wait for natural expiry. A DNS-stalled observation is not evidence of
+uninterrupted rollover or bounded long-running cache growth. Public read-only
+5m/15m subscription/depth verification is documented separately in
+[public-data validation](predict-execution-validation.md#public-snapshot-and-native-depth-delivery).
 
 ## Choose tests without repeating funded runs
 
-| Changed boundary | First check | Reason to repeat mainnet |
+| Changed boundary | First check | Reason for another venue run |
 | --- | --- | --- |
-| Documentation, evidence review, archive paths | Offline helper tests and frozen manifest verification | None |
-| Parsing, units, signing, numeric REST IDs | Existing protocol/SDK vectors and recorded replay | Changed venue contract or unresolved disagreement with captured facts |
-| Authentication, queries, wallet recovery | Session/query offline tests, then one named read-only probe | Changed credentials, transport or authentication behavior |
-| Submit/cancel routing, Native dependency update | Execution/Native tests and one representative resting case | Changed behavior has no current venue evidence; operator starts the funded runner |
-| YES/NO or GTC/GTD mapping | Existing four-case matrix and precision assertions | The specific mapping or venue expiry rule changed |
-| Batch or empty-Cache recovery | Existing batch captures and loopback lifecycle tests | The batch/recovery boundary changed; do not repeat it after unrelated changes |
-| Filled accounting and fees | Existing entry/exit captures and offline quantity-commission regressions | Defer new fills to the separately planned strategy validation |
+| Documentation/evidence organization | Offline helper tests and manifest verification | None |
+| Parsing, units, signing and IDs | Protocol/SDK vectors and recorded replay | Unresolved disagreement with venue facts |
+| Authentication, queries and renewal | Offline session/query tests, then a named read-only probe | Changed transport or authentication behavior |
+| Submit/cancel or dependency update | Native execution tests and existing resting evidence | The changed boundary lacks venue evidence; use one bounded authorized case |
+| YES/NO, GTC/GTD or batch mapping | Existing matrix, batch and ownership replays | A specific venue rule changed |
+| Fees, fills and inventory | Recorded entry/exit and quantity-commission regressions | A separately authorized funded strategy validation |
 
-Order writes alone do not justify a whole matrix run. Select the case that
-exercises the changed boundary, retain failed attempts as well as successes,
-and require a concrete unresolved question before another funded run.
-
-Use the existing evidence tool to recheck a completed resting directory:
+Review a completed resting capture without trading:
 
 ```bash
-python3 tests/predict_evidence.py --run data/predict-validation/live_resting_yes-gtd_20261020T091408Z
+python3 tests/predict_evidence.py --run data/predict-validation/<completed-run>
 python3 tests/predict_evidence.py
 ```
 
-`--run` uses only the Python standard library. It reads the same validation
-functions used by the supervisor, verifies the independent final checks, prints
-request counts/timings and file hashes, and never opens a network connection,
-loads credentials or changes captured files. Missing final checks fail review;
-the intermediate `zero open orders` message alone is not completion.
+The review is offline and uses the supervisor's validation functions. It checks
+independent final facts, request counts and hashes without loading credentials or
+changing evidence. An intermediate zero-open-orders message is insufficient if
+final checks are missing. Preserve failed attempts as well as complete captures.
 
-## Startup, fill and exit flow
+## Confirmed fill and inventory semantics
 
-The funded restart began without persisted Native Cache. InstrumentProvider
-loaded markets required by effective holdings and OPEN orders. Native mass-status
-reconciliation restored the entry's required settlement prefix, net holding,
-reported cash and existing TP. The strategy registered external claims before
-startup and adopted that state in `on_start`.
+The recorded startup reconstructed effective holdings, required settlement history,
+reported cash and an existing take-profit order into an empty Native Cache. Native
+external claims established strategy ownership before startup; adoption submitted
+nothing and did not generate new runtime fills for historical activity.
 
-The first adoption run submitted nothing and received no new runtime Filled or
-PositionOpened callbacks for historical activity. During the separately authorized
-exit run, a relay prohibited BUY from the outset. The strategy canceled the
-existing TP, waited for a Native terminal state, then submitted the inventory-backed
-MARKET SELL. The observed callback sequence was:
+The exit-only run prohibited BUY, canceled the existing take-profit order and then
+sold the remaining inventory. Its observed callback sequence was:
 
 ```text
-on_order_pending_cancel -> on_order_canceled
--> on_order_submitted -> on_order_accepted -> on_order_filled
--> on_position_closed
+on_order_pending_cancel → on_order_canceled
+→ on_order_submitted → on_order_accepted → on_order_filled
+→ on_position_closed
 ```
 
-Canceled and Filled each occurred once. REST `removed` and wallet cancellation
-referred to the same order without duplicate strategy transitions. During the
-SELL Filled callback, Native Order was FILLED with leaves zero and cached net
-inventory was already zero. The subsequent PositionClosed also showed zero.
-A complete exit does not require PositionChanged; restored inventory does not
-require a new runtime PositionOpened.
+Cancellation and Filled each occurred once. Cache showed the filled order with
+zero leaves and zero net inventory inside the SELL Filled callback. A complete
+exit need not emit PositionChanged; restored inventory need not emit a new runtime
+PositionOpened. Reported cash refreshed asynchronously.
 
-## Account and PnL observations
-
-SELL execution price was 0.039. The reported collateral fee was 0.02446080 USDT,
-so gross proceeds of 1.22304000 became net proceeds of 1.19857920 USDT.
-The final independent account check showed no open orders or effective holdings.
-
-The account refresh followed Filled asynchronously. The strategy observed the
-new balance through applied Native Cache state, rather than a guaranteed new
-account-topic callback. No adapter-owned balance ledger or synthetic notification
-was introduced.
-
-| Measure | Value |
+| Recorded economic quantity | Value |
 | --- | ---: |
+| BUY gross quantity / share fee / net inventory | 32 / 0.64 / 31.36 shares |
 | Entry collateral spent | 1.28000000 USDT |
-| Exit net proceeds | 1.19857920 USDT |
-| Round-trip cash difference | -0.08142080 USDT |
+| SELL price / collateral fee | 0.039 / 0.02446080 USDT |
+| Exit gross / net proceeds | 1.22304000 / 1.19857920 USDT |
+| Flat-cycle cash change | -0.08142080 USDT |
 | Native quote realized PnL | -0.05582080 USDT |
-| Entry inventory fee at entry price | 0.02560000 USDT |
 
-The difference is consistent with the existing Native base-commission convention:
-quote realized PnL is not an all-fee cash return. See
-[inventory-unit commissions](quantity-commission.md). These values describe one
-recorded cycle and are not a fee schedule or return forecast.
+These are one capture's reported amounts, not a fee schedule or return forecast.
+The difference between cash change and Native quote PnL follows the documented
+[inventory-unit commission convention](quantity-commission.md); do not deduct the
+valuation of a share fee twice. Fee asset/amount remain venue facts.
 
-## Protocol findings and evidence limits
+## Historical execution timing pilot
 
-- The maker matrix retained a real `create_order_expiry_too_soon` response: venue
-  arrival must leave at least two minutes of validity. The SDK's future-time
-  check alone did not establish this venue constraint. Current admission rejects
-  insufficient local validity without silently extending the user's expiry.
-- Modify rejection is a standard local response to an unsupported amend operation.
-  Subsequent cancel/replacement was verified; atomic amendment was not.
-- Batch removal uses numeric REST IDs after hash verification. `removed` and
-  `noop` are per-item results, not an atomic batch guarantee. Mixed failures and
-  REST-first duplicate handling have offline coverage, not new live observations.
-- Session probes used genuine authentication and two early renewals. They did
-  not wait for natural JWT expiry or establish prolonged network-outage behavior.
-- Real partial SELL, cancellation/fill races and competing strategies' inventory
-  remain outside these live runs. Deterministic offline scenarios cover their
-  intended Native behavior.
+A two-order distant post-only GTD pilot recorded zero fills, unchanged cash/holdings
+and complete independent final OPEN queries. Observed create-client intervals were
+186.813–220.035 ms, cancel-client intervals 176.650–190.700 ms and matched Accepted
+WS-handler-to-strategy intervals 0.338–0.878 ms. Client intervals include the test
+relay and network. With only two samples, p95/p99 are maxima, not tail estimates.
 
-The exit-only helper deliberately adopts one entry and at most one existing SELL
-LIMIT. Ambiguous ownership is rejected; this is not a generic multi-strategy
-recovery framework. Unsupported historical post-only metadata remains unknown.
+That revision performed per-submit funds checks: 436.247–451.186 ms, accounting
+for almost all warm preparation. Its 51 RPC calls, 16 OPEN attempts, one cold
+metadata miss and one hit describe the historical harness, not current submission.
+A separate read-only Python comparison found no clear batching benefit: three
+parallel reads had median 163.165 ms versus 162.421 ms for one batch. No production
+batching or per-order funds cache was introduced. Current local execution/callback
+comparisons and their boundaries are in the
+[validation reference](predict-execution-validation.md).
 
+## Venue contract observations
 
-## Optional latency pilot, 2026-10-20
-
-The single release run at
-`data/predict-validation/live_resting_yes-gtd_20261020T113531080073Z/`
-created and canceled two distant post-only GTD BUY orders, each 1 USDT. Both
-independent wallet facts and Native callbacks showed no fills; matches, cash,
-token balances and positions were unchanged. Complete independent REST OPEN
-queries after capture and again after the read-only RPC comparison returned zero.
-No fallback removal was needed. Raw facts, monotonic metrics, request journal,
-`latency_analysis.json`, `rpc_batch_comparison.json` and the final
-`optimization_decision.json` remain together. Review this run offline rather than
-submitting another pair of orders.
-
-| Interval | p50 ms | p95 / p99 ms | Completed samples |
-| --- | ---: | ---: | ---: |
-| Decision → create call | 437.150 | 801.477 | 2 |
-| Per-submit funding checks | 436.247 | 451.186 | 2 |
-| Create client call | 186.813 | 220.035 | 2 |
-| Cancel client call | 176.650 | 190.700 | 2 |
-| Cancel decision → strategy callback | 177.176 | 191.396 | 2 |
-| WS handler → actual strategy callback | 0.338 | 0.878 | 2 |
-
-Two samples make p95/p99 maxima, not production tail estimates. The matched WS
-callbacks were Accepted events. REST-first cancellation and later WS confirmation
-do not require duplicate strategy transitions. Four unmatched cancellation marks
-remain explicit; one interrupted background OPEN span at shutdown is excluded.
-No samples were dropped and no interval was invalid. Native runner queues were
-empty at the shutdown snapshot; this does not establish peak queue depth.
-
-The execution probe counted 51 RPC calls, 16 OPEN page attempts, two creates and
-two removals; the private HTTP relay recorded 27 requests including setup and
-cleanup. Independent observers and public book/discovery reads are outside these
-counts. The one-second account refresh is a calibration setting; production's
-existing default is 30 seconds plus event-driven wakeups. Metadata had one cold
-miss and one warm hit (50% overall); the cold GET cost 347.628 ms. Funding explains
-approximately 54% of the two measured submit-through-HTTP-ACK intervals and nearly
-all of warm preparation. HTTP client spans include the safety relay; separately
-recorded upstream durations expose that boundary.
-
-A subsequent read-only comparison ran three paired trials at a fresh canonical
-block per pair, reading identical balance, allowance and nonce values. The three
-parallel requests had median 163.165 ms; one batch had median 162.421 ms. Means
-were 162.891 and 163.588 ms respectively, with no clear speed improvement. These
-are Python transport measurements, not a Native Rust batch benchmark. Batch
-changes three HTTP requests to one for that stage (five to three for complete
-per-order funding checks), while retaining three serial dependency stages.
-
-The chosen follow-up is a read-only comparison of Native RPC transport/endpoint
-and deployment RTT. Production batching is not enabled. Batching remains a quota
-candidate if needed; each submission must still read a fresh block, use that
-exact hash for all funds/nonce reads, recheck canonicality, account for Native
-reservations, and retain final fill/registration and recovery fences. No funds,
-nonce or allowance cache across orders was added.
+- The maker matrix includes an actual create_order_expiry_too_soon response.
+  Venue arrival required at least two minutes of remaining validity; local checks
+  do not silently extend the requested expiry.
+- Modify is an explicit local rejection. Cancel/replacement was observed; atomic
+  amendment was not.
+- Batch removed/noop results are per-item facts, not an atomic guarantee. Mixed
+  failures and REST-first duplicates have offline coverage.
+- Partial SELL, cancel/fill races and competing strategies' inventory were not
+  established by these funded runs; deterministic replays cover their intended
+  Native behavior.
+- Exit-only adoption supports one entry and at most one existing SELL LIMIT.
+  Ambiguous ownership is rejected; it is not a general multi-strategy recovery API.

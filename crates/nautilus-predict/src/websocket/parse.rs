@@ -15,42 +15,54 @@
 //! Public WebSocket envelope, heartbeat, subscription, and topic handling.
 
 use anyhow::Context;
-use serde_json::{Value, json};
+use serde::Deserialize;
+use serde_json::{json, value::RawValue};
 
-pub(crate) enum PredictWebSocketMessage {
-    Heartbeat(Value),
-    Market { topic: String, data: Option<Value> },
+pub(crate) enum PredictWebSocketMessage<'a> {
+    Heartbeat(&'a RawValue),
+    Market {
+        topic: String,
+        data: Option<&'a RawValue>,
+    },
     Informational,
 }
 
-pub(crate) fn parse_message(text: &str) -> anyhow::Result<PredictWebSocketMessage> {
-    let mut value: Value = serde_json::from_str(text).context("invalid Predict WebSocket JSON")?;
-    if value.get("topic").and_then(Value::as_str) == Some("heartbeat") {
+#[derive(Deserialize)]
+struct Envelope<'a> {
+    #[serde(rename = "type")]
+    frame_type: Option<String>,
+    topic: Option<String>,
+    #[serde(borrow, default, deserialize_with = "raw_data")]
+    data: Option<&'a RawValue>,
+}
+
+fn raw_data<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<&'de RawValue>, D::Error> {
+    <&RawValue>::deserialize(deserializer).map(Some)
+}
+
+pub(crate) fn parse_message(text: &str) -> anyhow::Result<PredictWebSocketMessage<'_>> {
+    let envelope: Envelope<'_> =
+        serde_json::from_str(text).context("invalid Predict WebSocket JSON")?;
+    if envelope.topic.as_deref() == Some("heartbeat") {
         return Ok(PredictWebSocketMessage::Heartbeat(
-            value
-                .get_mut("data")
-                .map(Value::take)
-                .context("Predict heartbeat is missing data")?,
+            envelope.data.context("Predict heartbeat is missing data")?,
         ));
     }
-    if value.get("type").and_then(Value::as_str) != Some("M") {
+    if envelope.frame_type.as_deref() != Some("M") {
         return Ok(PredictWebSocketMessage::Informational);
     }
-    let topic = value
-        .get_mut("topic")
-        .and_then(|topic| match topic.take() {
-            Value::String(topic) => Some(topic),
-            _ => None,
-        })
-        .context("Predict market frame is missing topic")?;
     Ok(PredictWebSocketMessage::Market {
-        topic,
-        data: value.get_mut("data").map(Value::take),
+        topic: envelope
+            .topic
+            .context("Predict market frame is missing topic")?,
+        data: envelope.data,
     })
 }
 
-pub(crate) fn heartbeat_message(data: Value) -> String {
-    json!({"method": "heartbeat", "data": data}).to_string()
+pub(crate) fn heartbeat_message(data: &RawValue) -> String {
+    format!(r#"{{"method":"heartbeat","data":{}}}"#, data.get())
 }
 
 pub(crate) fn subscription_message(method: &str, request_id: u64, market_id: u64) -> String {
@@ -124,5 +136,66 @@ mod tests {
             "dispatch filters topics before interpreting data"
         );
         assert!(parse_message(r#"{"type":"M","data":{}}"#).is_err());
+    }
+    #[test]
+    fn numeric_snapshot_amounts_preserve_venue_decimal_tokens() {
+        use crate::PredictOrderbookWire;
+        let wire: PredictOrderbookWire = serde_json::from_str(
+            r#"{"marketId":3628808,"updateTimestampMs":1792638971588,"orderCount":1,
+            "bids":[[0.44,155.420350877193]],"asks":[[0.99,3900.9999999999995]],
+            "lastOrderSettled":{"id":"x","price":0.1234567890123456789,"kind":"LIMIT","marketId":3628808,"side":"Ask","outcome":"No"},
+            "settlementsPending":{"asks":[[0.99,1.2345678901234567]],"bids":[]}}"#,
+        ).unwrap();
+        assert_eq!(wire.asks[0].1.to_string(), "3900.9999999999995");
+        assert_eq!(wire.bids[0].1.to_string(), "155.420350877193");
+        assert_eq!(
+            wire.last_order_settled.unwrap().price.to_string(),
+            "0.1234567890123456789"
+        );
+        assert_eq!(
+            wire.settlements_pending.unwrap().asks[0].1.to_string(),
+            "1.2345678901234567"
+        );
+    }
+
+    #[test]
+    fn borrowed_payload_preserves_complete_recording_fields() {
+        use crate::{PredictMarketContext, PredictOrderbookSnapshot, PredictOrderbookWire};
+        let body = include_str!("../../test_data/orderbook_2859346.json");
+        let text = format!(r#"{{"type":"M","topic":"predictOrderbook/2859346","data":{body}}}"#);
+        let PredictWebSocketMessage::Market {
+            topic,
+            data: Some(raw),
+        } = parse_message(&text).unwrap()
+        else {
+            panic!("snapshot")
+        };
+        assert_eq!(topic, "predictOrderbook/2859346");
+        assert!(
+            raw.get().as_ptr() >= text.as_ptr()
+                && raw.get().as_ptr() < text.as_ptr().wrapping_add(text.len())
+        );
+        let context = PredictMarketContext {
+            market_id: 2859346,
+            yes_instrument_id: crate::instrument_id_from_outcome(2859346, 1).unwrap(),
+            no_instrument_id: crate::instrument_id_from_outcome(2859346, 2).unwrap(),
+            price_precision: 2,
+            size_precision: nautilus_model::types::fixed::FIXED_PRECISION,
+        };
+        let direct: PredictOrderbookWire = serde_json::from_str(raw.get()).unwrap();
+        let mut previous: Value = serde_json::from_str(&text).unwrap();
+        let previous: PredictOrderbookWire =
+            serde_json::from_value(previous["data"].take()).unwrap();
+        let snapshot = |wire| {
+            serde_json::to_value(
+                PredictOrderbookSnapshot::from_wire(&context, wire, 42.into()).unwrap(),
+            )
+            .unwrap()
+        };
+        let expected = snapshot(previous);
+        assert!(!expected["bids"].as_array().unwrap().is_empty());
+        assert!(!expected["last_order_settled"].is_null());
+        assert!(!expected["settlements_pending"].is_null());
+        assert_eq!(snapshot(direct), expected);
     }
 }

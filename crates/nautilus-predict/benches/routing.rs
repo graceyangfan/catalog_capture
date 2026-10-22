@@ -60,5 +60,24 @@ fn bench_routes(c: &mut Criterion) {
     }
     group.finish();
 }
-criterion_group!(benches, bench_routes);
+fn bench_numeric_ids(c: &mut Criterion) {
+    let mut group = c.benchmark_group("execution/rest_numeric_id_parse");
+    group.sample_size(30);
+    group.warm_up_time(Duration::from_millis(100));
+    group.measurement_time(Duration::from_millis(300));
+    for value in [
+        "1234567890",
+        "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+    ] {
+        group.bench_with_input(
+            BenchmarkId::from_parameter(value.len()),
+            value,
+            |b, value| {
+                b.iter(|| black_box(routing::parse_id(black_box(value)).unwrap()));
+            },
+        );
+    }
+    group.finish();
+}
+criterion_group!(benches, bench_routes, bench_numeric_ids);
 criterion_main!(benches);

@@ -61,14 +61,40 @@ pub(super) fn register_many(
 }
 
 pub(super) fn parse_id(id: &str) -> anyhow::Result<U256> {
-    #[derive(serde::Deserialize)]
-    struct DecimalId(#[serde(with = "crate::common::serde::decimal_u256")] U256);
-    Ok(serde_json::from_value::<DecimalId>(serde_json::Value::String(id.to_owned()))?.0)
+    crate::common::serde::decimal_u256::parse::<serde::de::value::Error>(id).map_err(Into::into)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn numeric_routes_preserve_strict_decimal_uint256_bounds() {
+        for value in [
+            "0",
+            "00042",
+            "1234567890",
+            "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        ] {
+            assert_eq!(
+                parse_id(value).unwrap(),
+                U256::from_str_radix(value, 10).unwrap()
+            );
+        }
+        for value in [
+            "",
+            "-1",
+            "+1",
+            "1e3",
+            "0x10",
+            " 1",
+            "1 ",
+            "１",
+            "115792089237316195423570985008687907853269984665640564039457584007913129639936",
+        ] {
+            assert!(parse_id(value).is_err(), "accepted invalid route: {value}");
+        }
+    }
 
     #[test]
     fn duplicate_routes_are_idempotent_and_conflicts_preserve_every_existing_owner() {

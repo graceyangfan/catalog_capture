@@ -1,96 +1,66 @@
-# Predict execution structure review
+# Predict execution internals
 
-This review describes current ownership and remaining implementation costs. See the
-[architecture](predict-execution-adapter-design.md) for the API contract,
-[development status](predict-execution-work-plan.md) for priorities and
-[validation record](reference/predict-execution-validation.md) for measurements.
+The [adapter contract](predict-execution-adapter-design.md) defines supported
+behavior. This reference describes internal ownership and implementation limits.
+See the [test guide](../crates/nautilus-predict/tests/README.md) for executable
+coverage and the [validation reference](reference/predict-execution-validation.md)
+for measurements.
 
-## Execution boundaries
+## Module responsibilities
 
-| Path | Current boundary |
-| --- | --- |
-| Submit | Prepared local context, protocol validation, signing and one create POST |
-| Cancel | Known numeric route and one remove POST; missing IDs/noop/unknown outcomes use targeted recovery |
-| Own lifecycle WS | Native events for Accepted/Canceled/Rejected/Expired |
-| Confirmed settlement | Raw precision validation and Native fill/report application |
-| Early settlement | Account/strategy-scoped CustomData, without economic state changes |
-| Accounts | Local reservation projection; asynchronous remote cash/OPEN verification |
-| Explicit queries | Requested order/report scope, without mandatory full-account audit or cleanup |
-| Recovery | Native scheduling, scoped facts and post-IO verification |
-| Retirement | Existing timer, Native owner lifetime and retained unapplied facts |
-
-Per-command funds/OPEN audits, cumulative attempted-BUY limits, full-map REST route
-insertion, per-event order-history clones and fixed 10,000-entry trading caps have
-been removed. They are not outstanding refactoring tasks.
-
-## Module ownership
-
-| Modules | Responsibility and boundary |
+| Modules | Responsibility |
 | --- | --- |
 | mod, factory, types | Native client, trait delegation, construction and shared dependencies |
-| orders, submitter, order_builder | Command handling, async transmission and pure signed-amount conversion |
-| cancellations | Single/batch removal and unknown outcome classification; no synthetic exchange amendment |
-| runtime | Transport loop, wallet association and existing Context branches for provisional matching, lifecycle and confirmed fills |
-| context | Native order context and immutable borrowed history; no independently advanced order state |
-| routing | Signed hash to numeric REST endpoint ID; lifetime follows the owner |
-| precision, settlement | Final raw economic evidence versus provisional settlement notification and deduplication |
-| account, resources | Asynchronous cash/local locks and exact resource arithmetic; no strategy admission budget |
-| reports, reconciliation, matches, recovery, external | Shared target collection/conversion, scoped bulk collection and known/external Native delivery |
-| inventory_scope, readiness, reconnect | Inventory-related recovery coverage, post-IO verification and existing timer scheduling |
+| orders, submitter, order_builder | Command handling, async transmission and signed-amount conversion |
+| cancellations | Single/batch removal and unknown-outcome classification |
+| runtime | Wallet transport consumption, association and lifecycle/settlement dispatch |
+| context | Native order context and borrowed immutable history |
+| routing | Signed hash to numeric REST endpoint ID, retained with its owner |
+| precision, settlement | Confirmed economic evidence and provisional settlement notifications |
+| account, resources | Asynchronous cash reporting, local reservation projection and exact arithmetic |
+| reports, reconciliation, matches, recovery, external | Scoped collection/conversion and Native own/external report delivery |
+| inventory_scope, readiness, reconnect | Recovery coverage, post-IO verification and Native timer coordination |
 | metadata, authentication | Background market preparation and signer/session continuity |
 
-Polymarket also separates context, fills, settlement, commands and reports.
-Bybit/OKX retain protocol/routing validation and async error classification. Predict's
-SDK specifies signing/amount conversion, not Native Cache/Portfolio ownership.
-The number of files alone does not establish duplication.
+Native Engine, Cache and Portfolio own order and position state. Adapter context
+observes that state; it does not advance a parallel order model. The signed hash
+and numeric REST ID remain separate because they serve different venue endpoints.
+Provisional settlement notices and confirmed raw evidence likewise have different
+lifetimes and economic meaning.
 
-The hash and numeric-ID indexes have distinct protocol identities. Raw evidence
-and early settlement notices have distinct final/provisional lifetimes. Sharing
-immutable facts may be useful, but deleting either responsibility or introducing
-another ledger would change the contract.
+## Shared-state boundaries
 
-## Public API and test boundaries
+- Wallet normalization borrows applied/queued trade indexes instead of copying
+  an order's complete event history. Cold or replaced histories are fully validated.
+- Order/evidence sampling follows the Native observer's publication lock order.
+  Account locks are released before normalization; evidence remains protected
+  through event enqueue and queued marking.
+- Retirement membership proof is not an economic summary. Disposal rechecks current
+  ownership and preserves pending/unapplied facts, including ambiguous cancellations.
+- Explicit account queries refresh independently of automatic readiness eligibility.
+  Network reads are followed by the required state checks before applying results.
+- Closed-owner cleanup follows Native retention. Large final references are released
+  outside shared guards; no separate disposer or cleanup scheduler is maintained.
 
-Client/config/factory types, protocol conversion functions, custom-data types and
-optional host telemetry are intentional Rust APIs. Internal context, account,
-precision, recovery and worker modules remain private; public methods inside an
-inaccessible module are not external exports. Native state is changed through
-its engine APIs rather than adapter test hooks.
+## Implementation limits
 
-Private helper tests use cfg(test). Strategy/mock implementations and benchmark
-assembly remain under tests/ or benches/. Documentation and test convenience must
-not introduce production-only accessors, alternate state models or credential
-loading. An API key is a credential, distinct from the adapter's public Rust API.
+| Area | Cost or constraint |
+| --- | --- |
+| Cold evidence | First complete validation scales with the retained fill history |
+| Physical purge | Native purge and one oversized owner's final destruction remain synchronous and linear |
+| Recovery/projection | Full captures scale with relevant owners, facts and external OPEN rows |
+| Instrument ownership and OPEN snapshots | Scans and copy-on-write can be linear while old readers remain |
+| Settlement facts | Some immutable fields exist in provisional and confirmed records to preserve Submitted/Failed/late Success semantics |
+| Bulk reports | Preparation scales with requested scope; batch atomicity and position-only recovery coverage remain required |
 
-## Remaining costs
+The bounded retirement scan is not a hard callback-pause guarantee or a promise
+of constant memory for unresolved activity. Prefer measured removal of repeated
+work over additional ownership indexes, funds ledgers or background management.
 
-| Area | Current limitation | Direction |
-| --- | --- | --- |
-| Cold evidence and destruction | First validation and one large owner's final release remain O(N); physical Native purge is synchronous | Lower priority; keep Native cleanup, with no background disposer or new queue |
-| Full recovery/projection | Work still scales with retained owners/facts and external OPEN | Reuse collected inputs; keep these operations separate from ordinary commands |
-| Instrument checks and OPEN COW | Ownership checks and snapshots with old readers may require linear work | Remove proven repetition without a permanent parallel ownership/funds index |
-| Settlement/evidence fields | Some immutable raw fields remain in both provisional and final records | Preserve Submitted/Failed/late Success semantics before considering sharing |
-| Runtime/report orchestration | Target collection/conversion is shared; bulk/context preparation still scales with requested scope | Simplify proven repetition, retain batch atomicity and position-only protection |
+## Public and test surfaces
 
-Wallet pending facts now borrow the existing indexes; duplicate detection uses the
-queued trade-ID lookup and lifecycle summation does not rebuild a temporary map.
-Sampling retains the order/evidence consistency boundary without holding the account
-publication lock through normalization. Success reuses its parsed trade identity
-for pre-publication notification conflict checks.
-
-Automatic recovery checks unresolved commands before enqueue/capture, while explicit
-QueryAccount still refreshes. Retirement reuses complete membership proof in the
-existing prefix slot; a membership-only cursor is not a monetary zero summary.
-Proof releases shared account/order locks, and deletion rechecks current ownership.
-Reset retains ambiguous cancellations, including restored orders.
-
-The evidence demonstrates less repeated work, not universal speedup: a verified
-multi-owner sweep regressed in the latest observation, and one 100,000-fill cold
-owner still pauses for about 23 ms. Keep quantitative results in the validation
-record; do not substitute short-order replay for long-history measurements.
-
-Matched repeated taker replays do not establish a stable adapter callback regression.
-Native pre-callback INFO logging has a measured typical cost; use existing Native
-logging configuration and keep comparison settings equal. The emitter/Engine/
-strategy path and evidence ownership remain unchanged. See the validation record
-for segment intervals, API parity and the limits of short-order measurements.
+Client/config/factory types, protocol converters, custom data and opt-in execution
+telemetry are intentional Rust APIs. Worker, precision, account and recovery
+modules stay private. Test strategies, mock venues and recording utilities remain
+under tests/ or benches/ and are not installed in production clients. Credentials
+are supplied by the host; tests do not require production accessors.

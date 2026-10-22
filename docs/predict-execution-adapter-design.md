@@ -1,11 +1,9 @@
 # Predict adapter architecture
 
-This is the current execution contract, updated 2026-10-22. The
-[work plan](predict-execution-work-plan.md) tracks remaining work; the
-[structure review](predict-execution-structure-review.md) explains module boundaries.
-Commands and reproducible measurements are in the
-[test guide](../crates/nautilus-predict/tests/README.md) and
-[validation record](reference/predict-execution-validation.md).
+The [execution internals](predict-execution-structure-review.md) describe module
+ownership and implementation limits. [Test commands](../crates/nautilus-predict/tests/README.md)
+and the [validation reference](reference/predict-execution-validation.md) document
+coverage, measurements and evidence boundaries.
 
 The workspace pins the repaired Native fork required by execution. See the
 [dependency contract](reference/predict-execution-validation.md#two-repository-handoff)
@@ -129,8 +127,8 @@ Native emitter directly. Applied state and one-terminal-callback rules remain
 Native-owned. The once-written Accepted marker follows the order context, including
 queued-before-application races; it is not a 10,000-entry FIFO.
 
-Success fills retain exact raw quantity/fee normalization and Native reports.
-REST/external recovery uses reports too. Hash, account, immutable terms, cumulative
+Confirmed fills retain exact raw quantity/fee normalization on the Native
+execution path. REST/external recovery uses reports. Hash, account, immutable terms, cumulative
 quantity and trade identity are validated. A venue millisecond timestamp is not
 rejected merely for preceding the local nanosecond submission timestamp.
 
@@ -177,6 +175,10 @@ account lock is released before normalization; the evidence guard protects the
 borrow through event enqueue and queued marking. Lifecycle/account publication
 occurs after releasing evidence, preserving the observer's lock order. The
 transmitted hash supplies ownership even before Native applies Accepted.
+Wallet dispatch constructs message-derived venue/instrument IDs once and passes
+them to the internal report parser. The parser still checks Native ownership and
+instrument identity. Numeric REST IDs use the shared strict decimal uint256 codec
+directly, without a JSON value or a second string allocation.
 
 Retirement may reuse a membership-only cursor with no monetary summary. It must
 never substitute zero economic totals. Raw wei evidence and temporary settlement
@@ -246,6 +248,13 @@ hash locks; selected deletion rechecks ownership/evidence. Final worker-history
 references are released outside shared guards. A single oversized owner, physical
 Native purge, instrument checks and OPEN copy-on-write can still be linear; this is
 not a hard pause deadline or a constant-memory promise for unresolved activity.
+
+Public CustomSnapshot, native L2 depth and explicit BBO subscriptions share one
+venue book topic. CustomSnapshot is the recording representation; native YES/NO
+depth is an on-demand sorted view, and quotes are an independent BBO projection.
+Managed depth uses Native book/quote maintenance before ordinary strategy callbacks.
+No extra venue subscription or adapter quote stage is required. Market-data timing
+probes have been retired; recording event/init timestamps remain part of the schema.
 
 DataClient owns discovery, subscription rollover and expiry handover. The first
 valid successor snapshot completes handover; stale topic/epoch frames are discarded.

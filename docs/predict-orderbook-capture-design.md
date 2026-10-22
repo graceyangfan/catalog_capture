@@ -1,8 +1,8 @@
 # Predict orderbook capture
 
 Catalog Capture records the native Predict.fun orderbook as a complete, typed
-snapshot. It does not manufacture deltas, a second NO book, trades, candles, or
-an oracle stream that Predict does not publish.
+snapshot. The recorder does not manufacture deltas, persist a second NO book, or synthesize
+trades, candles or an oracle stream.
 
 The implementation is intentionally narrow:
 
@@ -39,8 +39,10 @@ no_bid(price, size) = yes_ask(1 - price, size)
 no_ask(price, size) = yes_bid(1 - price, size)
 ```
 
-It is not separately subscribed or persisted, so recording does not duplicate
-venue liquidity.
+Recording does not subscribe or persist this second view. Strategies may request
+native YES/NO depth from the adapter over the same physical topic; those derived
+views do not change the recorded CustomSnapshot. See the
+[strategy data interface](how_to/predict-rust-strategy-calibration.md#market-data-subscriptions).
 
 ## Snapshot contract
 
@@ -288,8 +290,8 @@ not that every future market will populate those optional fields.
 
 - Trading, balances, private wallet events, split/merge execution, and market
   making.
-- Derived Predict `OrderBookDeltas`, duplicate NO depth, synthetic candles, or
-  a raw JSON side channel.
+- Persisting derived Predict depth/BBO views, manufacturing `OrderBookDeltas`,
+  synthetic candles or a raw JSON side channel.
 - Pretending a missing snapshot or unavailable product is an empty book.
 - Using a community SDK or undocumented oracle topic as a resolution source.
 

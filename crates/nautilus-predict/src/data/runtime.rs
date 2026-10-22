@@ -27,7 +27,10 @@ use anyhow::Context;
 use nautilus_common::{live::sender::EventSender, messages::DataEvent};
 use nautilus_core::time::AtomicTime;
 use nautilus_live::task::TaskSpawner;
-use nautilus_model::{data::QuoteTick, identifiers::InstrumentId};
+use nautilus_model::{
+    data::{DataType, QuoteTick},
+    identifiers::InstrumentId,
+};
 use nautilus_network::{
     mode::ReconnectRequestOutcome,
     transport::Message,
@@ -58,6 +61,12 @@ pub(super) enum PredictCommand {
     Unsubscribe(u64),
     SubscribeQuotes(InstrumentId, PredictMarketContext),
     UnsubscribeQuotes(InstrumentId),
+    SubscribeDepth(
+        InstrumentId,
+        PredictMarketContext,
+        Option<std::num::NonZeroUsize>,
+    ),
+    UnsubscribeDepth(InstrumentId),
     StartDynamic(PredictCryptoUpDownSelector),
     StopDynamic(CryptoUpDownSelectorKey),
 }
@@ -69,6 +78,19 @@ pub(super) struct QuoteSubscription {
 }
 
 #[derive(Debug)]
+pub(super) struct DepthSubscription {
+    pub(super) context: PredictMarketContext,
+    pub(super) depth: Option<std::num::NonZeroUsize>,
+    pub(super) last_timestamp: Option<nautilus_core::UnixNanos>,
+}
+
+#[derive(Debug)]
+pub(super) struct MarketSubscription {
+    pub(super) owners: usize,
+    pub(super) data_type: DataType,
+}
+
+#[derive(Debug)]
 pub(super) struct PredictDataSession {
     pub(super) client: WebSocketClient,
     pub(super) http_client: PredictHttpClient,
@@ -76,8 +98,9 @@ pub(super) struct PredictDataSession {
     pub(super) raw_rx: mpsc::Receiver<(u64, Message)>,
     pub(super) command_rx: mpsc::Receiver<PredictCommand>,
     pub(super) overflowed: std::sync::Arc<AtomicBool>,
-    pub(super) subscriptions: AHashMap<u64, usize>,
+    pub(super) subscriptions: AHashMap<u64, MarketSubscription>,
     pub(super) quotes: AHashMap<InstrumentId, QuoteSubscription>,
+    pub(super) depths: AHashMap<InstrumentId, DepthSubscription>,
     pub(super) contexts: AHashMap<u64, PredictMarketContext>,
     pub(super) dynamic_registry: Arc<RwLock<PredictDynamicMarketRegistry>>,
     pub(super) dynamic_generation: u64,
@@ -145,6 +168,7 @@ impl PredictDataSession {
             overflowed,
             subscriptions: AHashMap::new(),
             quotes: AHashMap::new(),
+            depths: AHashMap::new(),
             contexts,
             dynamic_registry,
             dynamic_generation,
@@ -218,36 +242,27 @@ impl PredictDataSession {
 
     pub(super) async fn handle_command(&mut self, command: PredictCommand) -> anyhow::Result<()> {
         match command {
-            PredictCommand::Subscribe(market_id) => self.subscribe_market(market_id).await?,
+            PredictCommand::Subscribe(market_id) => {
+                self.subscribe_market(market_id).await?;
+                self.refresh_custom_type(market_id);
+            }
             PredictCommand::Unsubscribe(market_id) => {
-                let quote_owners = self
-                    .quotes
-                    .values()
-                    .filter(|q| q.context.market_id == market_id)
-                    .count();
+                let native_owners = self.native_owners(market_id);
                 if self
                     .subscriptions
                     .get(&market_id)
-                    .copied()
-                    .unwrap_or_default()
-                    > quote_owners
+                    .map_or(0, |subscription| subscription.owners)
+                    > native_owners
                 {
                     self.unsubscribe_market(market_id).await?;
                 }
             }
             PredictCommand::SubscribeQuotes(id, context) => {
                 if !self.quotes.contains_key(&id) {
-                    if let Err(error) = self.subscribe_market(context.market_id).await {
+                    let result = self.subscribe_market(context.market_id).await;
+                    if result.is_err() {
                         // Retain desired quote interest for the reconnect generation.
-                        *self.subscriptions.entry(context.market_id).or_default() += 1;
-                        self.quotes.insert(
-                            id,
-                            QuoteSubscription {
-                                context,
-                                last_quote: None,
-                            },
-                        );
-                        return Err(error);
+                        self.retain_market(context.market_id);
                     }
                     self.quotes.insert(
                         id,
@@ -256,6 +271,7 @@ impl PredictDataSession {
                             last_quote: None,
                         },
                     );
+                    result?;
                 }
             }
             PredictCommand::UnsubscribeQuotes(id) => {
@@ -263,10 +279,42 @@ impl PredictDataSession {
                     let market_id = subscription.context.market_id;
                     if let Err(error) = self.unsubscribe_market(market_id).await {
                         // Keep the quote owner and topic count consistent until reconnect.
-                        *self.subscriptions.entry(market_id).or_default() += 1;
+                        self.retain_market(market_id);
                         return Err(error);
                     }
                     self.quotes.remove(&id);
+                }
+            }
+            PredictCommand::SubscribeDepth(id, context, depth) => {
+                if let Some(active) = self.depths.get(&id) {
+                    anyhow::ensure!(
+                        active.depth == depth,
+                        "conflicting Predict snapshot depths for {id}"
+                    );
+                    return Ok(());
+                }
+                let result = self.subscribe_market(context.market_id).await;
+                if result.is_err() {
+                    self.retain_market(context.market_id);
+                }
+                self.depths.insert(
+                    id,
+                    DepthSubscription {
+                        context,
+                        depth,
+                        last_timestamp: None,
+                    },
+                );
+                result?;
+            }
+            PredictCommand::UnsubscribeDepth(id) => {
+                if let Some(subscription) = self.depths.get(&id) {
+                    let market_id = subscription.context.market_id;
+                    if let Err(error) = self.unsubscribe_market(market_id).await {
+                        self.retain_market(market_id);
+                        return Err(error);
+                    }
+                    self.depths.remove(&id);
                 }
             }
             PredictCommand::StartDynamic(selector) => {
@@ -291,11 +339,48 @@ impl PredictDataSession {
         Ok(())
     }
 
+    fn retain_market(&mut self, market_id: u64) {
+        self.subscriptions
+            .entry(market_id)
+            .or_insert_with(|| MarketSubscription {
+                owners: 0,
+                data_type: crate::predict_orderbook_data_type(market_id),
+            })
+            .owners += 1;
+    }
+
+    pub(super) fn native_owners(&self, market_id: u64) -> usize {
+        self.quotes
+            .values()
+            .filter(|q| q.context.market_id == market_id)
+            .count()
+            + self
+                .depths
+                .values()
+                .filter(|d| d.context.market_id == market_id)
+                .count()
+    }
+
+    pub(super) fn refresh_custom_type(&mut self, market_id: u64) {
+        let data_type = self
+            .dynamic_subscriptions
+            .iter()
+            .find(|(_, state)| {
+                state.current_market_id == Some(market_id)
+                    || state.pending_market_id == Some(market_id)
+            })
+            .map(|(key, _)| crate::predict_crypto_up_down_orderbook_data_type(market_id, key))
+            .unwrap_or_else(|| crate::predict_orderbook_data_type(market_id));
+        if let Some(subscription) = self.subscriptions.get_mut(&market_id) {
+            subscription.data_type = data_type;
+        }
+    }
+
     pub(super) async fn subscribe_market(&mut self, market_id: u64) -> anyhow::Result<()> {
         if !self.subscriptions.contains_key(&market_id) {
             self.send_subscription("subscribe", market_id).await?;
         }
-        *self.subscriptions.entry(market_id).or_default() += 1;
+        self.retain_market(market_id);
         Ok(())
     }
 
@@ -303,8 +388,8 @@ impl PredictDataSession {
         let Some(count) = self.subscriptions.get_mut(&market_id) else {
             return Ok(());
         };
-        *count = count.saturating_sub(1);
-        if *count == 0 {
+        count.owners = count.owners.saturating_sub(1);
+        if count.owners == 0 {
             self.subscriptions.remove(&market_id);
             self.send_subscription("unsubscribe", market_id).await?;
         }

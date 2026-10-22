@@ -17,6 +17,8 @@
 #[cfg(feature = "live")]
 mod client;
 #[cfg(feature = "live")]
+mod depth;
+#[cfg(feature = "live")]
 mod discovery;
 #[cfg(feature = "live")]
 mod dispatch;

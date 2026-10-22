@@ -46,6 +46,57 @@ The [matched callback validation](../reference/predict-execution-validation.md#m
 distinguishes logger cost from run-to-run tail variation; lowering log output does
 not establish a universal p99 improvement.
 
+## Market-data subscriptions
+
+Custom snapshots and native depth share Predict's `predictOrderbook/{marketId}`
+stream. Use CustomData for complete venue fields and existing recording. Use
+`subscribe_book_depth` / `on_book_depth` for a standard L2 snapshot strategy:
+
+```rust,ignore
+self.subscribe_book_depth(
+    instrument_id,
+    BookType::L2_MBP,
+    None, // Full depth; Some(NonZeroUsize) limits each derived side.
+    Some(ClientId::from("PREDICT")),
+    true, // Native maintains the cached OrderBook before the strategy callback.
+    None,
+);
+```
+
+Native `OrderBookDepth` supports more than ten levels. YES uses the venue book;
+NO complements prices and swaps sides/sizes. Derived depth is sorted best-first,
+with zero-size levels omitted. An empty side replaces the previous side. Sequence
+and per-level order counts remain zero because Predict does not supply them.
+The complete CustomSnapshot retains its original levels and settlement fields.
+
+For Native MARKET risk pricing and Portfolio valuation, enable the existing
+managed-book quote projection in the node profile:
+
+```toml
+[node.data_engine]
+emit_quotes_from_book = true
+```
+
+Keep `emit_quotes_from_book_depths` disabled for this setup; the high-priority
+managed book updater establishes the book and quote before ordinary depth callbacks.
+`managed=false` avoids maintaining another book when the strategy consumes depth
+itself, but does not populate Native risk/valuation prices with this configuration.
+CustomData alone likewise does not populate quote prices. The standard
+`subscribe_quotes` API remains available for BBO consumers; new managed-depth
+strategies need not subscribe to it as well. Use depth/custom timestamps for
+book freshness: Native may suppress a derived quote when its prices and sizes are
+unchanged even though another complete snapshot has arrived. Native depth ignores
+strictly older venue timestamps to avoid rewinding the managed book; equal-timestamp
+snapshots are still published. CustomSnapshot recording keeps its original behavior.
+
+Only requested views are published. Custom, depth and explicit BBO interests
+retain one shared physical market subscription. Last-owner unsubscribe and reconnect
+retain their existing lifecycle. Depth limits for one instrument must agree across
+consumers. Rolling discovery retains its existing complete custom-snapshot output;
+new depth interests can join discovered instruments without adding another venue
+connection. Recording configuration, fields, timestamps, selector provenance and
+rollover sealing remain unchanged.
+
 ## Offline scenarios
 
 ```bash
@@ -73,8 +124,8 @@ and strategy exposure limits.
 
 ## Strategy execution contract
 
-The strategy computes signals from `PredictOrderbookSnapshot`. QuoteTicks are
-routed through Native DataEngine where Native risk/valuation needs them. Native
+The strategy computes signals from complete CustomSnapshot or native depth.
+Native DataEngine provides managed books and quote projections for risk/valuation. Native
 owns confirmed orders, positions and accounts. A strategy may track provisional
 hedge decisions by settlement, as described below, without mutating Native state.
 
@@ -117,8 +168,8 @@ alternative fee policy for this strategy.
 
 For a BUY-entry / SELL-exit strategy, charged BUY fills deduct shares from received
 inventory; charged SELL fills deduct USDT from sale proceeds. These labels describe
-trade direction, not a special entry/exit flag. Maker fills currently have zero
-trading fee; final fee asset and amount come from the venue, not a hardcoded rate.
+trade direction, not a special entry/exit flag. Preserve a zero fee when it is reported; final fee asset and amount come from the
+venue rather than a hardcoded maker/taker rate.
 The [official fee schedule](https://docs.predict.fun/the-basics/predict-fees-and-limits)
 describes maker/taker rates, and the
 [wallet schema](https://dev.predict.fun/subscription-topics-1915507m0)
@@ -159,7 +210,7 @@ self.subscribe_data(
     predict_settlement_data_type(account_id, strategy_id),
     None,
     None,
-)?;
+);
 ```
 
 - **Early hedge:** optionally act on Submitted using cached market/fee estimates.
@@ -239,7 +290,7 @@ terminal event with no matching WS report.
 The safety relay keeps the durable pre-forward create identity journal. In
 measurement mode it pools upstream connections per local connection and defers
 completion journal writes until close; upstream HTTP durations are reported
-separately. HTTP spans still include the relay. Only two orders are authorized:
+separately. HTTP spans still include the relay. The profile submits two orders and requires explicit operator authorization;
 p95/p99 are sample maxima, not stable live tail estimates. Public discovery/book
 reads and independent collector/supervisor requests are excluded from execution
 request counters. The ordinary independent wallet/chain checks and final complete
@@ -274,31 +325,3 @@ never regenerate historical expected data in place.
 
 [Live evidence and limits](../reference/predict-live-evidence.md) documents actual
 maker, batch, startup, entry/exit and read-only runs separately from offline cases.
-
-
-Execution metadata is prepared during connection, instrument updates, recovery and
-half-TTL background refresh. `market_metadata_ttl_secs` defaults to 30 and accepts
-1–300; zero fails configuration validation. Submit never performs a metadata GET.
-A cold/expired slot promptly rejects as not ready and wakes background preparation;
-it never automatically resubmits an order. Strategies explicitly submit a new
-command once prepared. `market_slippage_bps` is client submission configuration,
-and `market_price` remains a per-command decimal-string reference for both sides.
-
-For early authenticated matching facts, subscribe locally in the Rust strategy:
-
-```rust,ignore
-self.subscribe_data(
-    predict_settlement_data_type(account_id, self.strategy_id().unwrap()),
-    None,
-    None,
-)?;
-```
-
-In `on_data`, downcast the matching custom payload to `PredictSettlementUpdate`.
-Its Submitted status is a venue matching/settlement-submission fact, distinct from
-Native `OrderSubmitted`. Confirmed/Failed describe that same settlement. Exact
-price/size/value wei strings and the complete settlement ID remain available.
-These notifications do not book cash, fills or positions; ordinary Native Filled
-continues to carry confirmed quantities and fees. A Failed notice does not imply
-the remaining order was canceled. See the continuous loopback strategies in
-`tests/execution/continuous.rs`; no live calibration is needed to exercise them.

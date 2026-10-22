@@ -141,7 +141,7 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
         PredictCommand::SubscribeQuotes(id, context.clone())
     };
     let error = state.handle_command(command).await.unwrap_err();
-    assert_eq!(state.subscriptions.get(&ID), Some(&1));
+    assert_eq!(state.subscriptions.get(&ID).map(|s| s.owners), Some(1));
     assert_eq!(state.quotes.len(), 1);
     assert_eq!(state.quotes[&id].context.market_id, ID);
     assert_eq!(state.quotes[&id].last_quote.is_some(), removal);
@@ -159,7 +159,7 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
         .handle_command(PredictCommand::SubscribeQuotes(id, context.clone()))
         .await
         .unwrap();
-    assert_eq!(state.subscriptions.get(&ID), Some(&1));
+    assert_eq!(state.subscriptions.get(&ID).map(|s| s.owners), Some(1));
     assert!(
         commands.try_recv().is_err(),
         "no failed command may appear on the wire"
@@ -265,4 +265,151 @@ async fn record_quote_send_failures_json() {
         .open(path())
         .unwrap();
     serde_json::to_writer_pretty(file,&json!({"source":"synthetic real loopback terminal WebSocket send failures; not mainnet feedback","sessions":sessions})).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn depth_conflict_preserves_owner_after_registry_retirement() {
+    let (tx, mut commands) = mpsc::unbounded_channel();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            Router::new().route("/ws", get(socket)).with_state(tx),
+        )
+        .await
+        .unwrap()
+    });
+    let (mut state, tasks, mut events) = session(&url, TransportBackend::Tungstenite).await;
+    let context = context();
+    let id = context.yes_instrument_id;
+    state
+        .handle_command(PredictCommand::SubscribeDepth(id, context.clone(), None))
+        .await
+        .unwrap();
+    assert_eq!(commands.recv().await.unwrap()["method"], "subscribe");
+    state.contexts.clear();
+    state.remove_dynamic_market_if_unused(ID);
+    let (epoch, message) = state.raw_rx.recv().await.unwrap();
+    state.handle_message(epoch, message).await.unwrap();
+    assert!(matches!(
+        events.recv().await,
+        Some(DataEvent::Data(Data::BookDepth(_)))
+    ));
+    assert!(
+        events.try_recv().is_err(),
+        "depth-only must not emit custom snapshots or quotes"
+    );
+    let (epoch, message) = state.raw_rx.recv().await.unwrap();
+    state.handle_message(epoch, message).await.unwrap();
+    assert!(matches!(
+        events.recv().await,
+        Some(DataEvent::Data(Data::BookDepth(_)))
+    ));
+    let mut older: Value =
+        serde_json::from_str(include_str!("../../test_data/orderbook_2859346.json")).unwrap();
+    older["updateTimestampMs"] = json!(1_700_000_000_122u64);
+    older["bids"] = json!([["0.99", "1"]]);
+    let message = || {
+        nautilus_network::transport::Message::Text(
+            json!({"type":"M","topic":format!("predictOrderbook/{ID}"),"data":older})
+                .to_string()
+                .into(),
+        )
+    };
+    state.handle_message(epoch, message()).await.unwrap();
+    assert!(
+        events.try_recv().is_err(),
+        "older full depth must not rewind Native managed state"
+    );
+    state
+        .handle_command(PredictCommand::Subscribe(ID))
+        .await
+        .unwrap();
+    state.handle_message(epoch, message()).await.unwrap();
+    let Some(DataEvent::Data(Data::Custom(custom))) = events.recv().await else {
+        panic!("Custom recording contract is independent of depth ordering")
+    };
+    assert_eq!(
+        custom.data.ts_event(),
+        nautilus_core::UnixNanos::from_millis(1_700_000_000_122)
+    );
+    assert!(events.try_recv().is_err());
+    state
+        .handle_command(PredictCommand::Unsubscribe(ID))
+        .await
+        .unwrap();
+
+    assert!(
+        state
+            .handle_command(PredictCommand::SubscribeDepth(
+                id,
+                context,
+                std::num::NonZeroUsize::new(1)
+            ))
+            .await
+            .is_err()
+    );
+    assert!(state.depths[&id].depth.is_none());
+    assert_eq!(state.subscriptions[&ID].owners, 1);
+    assert!(commands.try_recv().is_err());
+    state
+        .handle_command(PredictCommand::UnsubscribeDepth(id))
+        .await
+        .unwrap();
+    assert!(state.depths.is_empty() && state.subscriptions.is_empty());
+    assert_eq!(commands.recv().await.unwrap()["method"], "unsubscribe");
+    tasks.begin_shutdown();
+    tasks
+        .finish_shutdown(Duration::from_secs(1), Duration::from_secs(1))
+        .await
+        .unwrap();
+    server.abort();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn terminal_depth_sends_retain_one_owner() {
+    for backend in [TransportBackend::default(), TransportBackend::Tungstenite] {
+        for removal in [false, true] {
+            let (tx, mut commands) = mpsc::unbounded_channel();
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let server = tokio::spawn(async move {
+                axum::serve(
+                    listener,
+                    Router::new().route("/ws", get(socket)).with_state(tx),
+                )
+                .await
+                .unwrap()
+            });
+            let (mut state, tasks, _events) = session(&url, backend).await;
+            let context = context();
+            let id = context.yes_instrument_id;
+            if removal {
+                state
+                    .handle_command(PredictCommand::SubscribeDepth(id, context.clone(), None))
+                    .await
+                    .unwrap();
+                assert_eq!(commands.recv().await.unwrap()["method"], "subscribe");
+            }
+            state.client.disconnect().await;
+            let command = if removal {
+                PredictCommand::UnsubscribeDepth(id)
+            } else {
+                PredictCommand::SubscribeDepth(id, context, None)
+            };
+            assert!(state.handle_command(command).await.is_err());
+            assert_eq!(state.subscriptions[&ID].owners, 1);
+            assert_eq!(state.depths.len(), 1);
+            assert_eq!(state.depths[&id].context.market_id, ID);
+            assert!(state.quotes.is_empty());
+            assert!(commands.try_recv().is_err());
+            tasks.begin_shutdown();
+            tasks
+                .finish_shutdown(Duration::from_secs(1), Duration::from_secs(1))
+                .await
+                .unwrap();
+            server.abort();
+        }
+    }
 }

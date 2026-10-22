@@ -1,7 +1,7 @@
 # Predict adapter
 
 Public market data and opt-in private execution for NautilusTrader. Start with the
-[current architecture and API contract](../../docs/predict-execution-adapter-design.md).
+[architecture and API contract](../../docs/predict-execution-adapter-design.md).
 It defines command support, MARKET strategy input, settlement callbacks, accounts
 and retention. The [validation record](../../docs/reference/predict-execution-validation.md)
 separates current mock validation from historical mainnet evidence and describes
@@ -42,9 +42,13 @@ for early hedging, fee accounting and cancel/fill races.
 
 ## Public data and retention
 
-Strategies can use PredictOrderbookSnapshot for signals and explicit Native quotes
-for valuation/risk. Rolling feed aliases normalize to canonical selectors such as
-BTCUSDT. Predict market/outcome identities remain separate from Binance instruments.
+PredictOrderbookSnapshot preserves the complete venue YES book for recording and
+signals. Standard subscribe_book_depth provides an on-demand YES/NO L2 view over
+the same venue subscription. Managed books can use Native quote projection for
+risk/valuation; subscribe_quotes remains an explicit BBO API. See the
+[strategy subscription guide](../../docs/how_to/predict-rust-strategy-calibration.md#market-data-subscriptions).
+Predict selectors use canonical feed symbols such as BTCUSDT; their market/outcome
+identities remain separate from Binance instruments.
 Crypto Up/Down windows use market/title metadata, price bounds 0..1 and a 1 USDT
 minimum notional; an ended trading window does not prove settled holdings.
 
@@ -63,8 +67,7 @@ mock venues and recorders belong under tests or the application assembly layer.
 No test strategy or recorder runs in production src.
 
 - [Tests, fixtures and explicit benchmark exporters](tests/README.md)
-- [Current development status](../../docs/predict-execution-work-plan.md)
-- [Module review and remaining costs](../../docs/predict-execution-structure-review.md)
+- [Execution internals and limits](../../docs/predict-execution-structure-review.md)
 - [Private API calibration](../../docs/how_to/predict-private-api-tests.md)
 - [Historical live evidence](../../docs/reference/predict-live-evidence.md)
 

@@ -48,6 +48,7 @@ struct Continuous {
     rounds: usize,
     taker: bool,
     hold: bool,
+    native_depth: bool,
     books_seen: usize,
     journal: Rc<RefCell<Journal>>,
     probe: PredictLatency,
@@ -77,11 +78,29 @@ impl Continuous {
             rounds,
             taker,
             hold,
+            native_depth: false,
             books_seen: 0,
             journal,
             probe,
         }
     }
+    fn with_depth(mut self, enabled: bool) -> Self {
+        self.native_depth = enabled;
+        self
+    }
+
+    fn book_signal(&mut self) -> anyhow::Result<()> {
+        self.books_seen += 1;
+        if self.current.is_none() {
+            if !self.hold || self.books_seen > 1 {
+                self.submit_next();
+            }
+        } else if self.hold {
+            self.cancel_order(self.current.unwrap(), Some(ClientId::from("PREDICT")), None)?;
+        }
+        Ok(())
+    }
+
     fn submit_next(&mut self) {
         if self.round == self.rounds {
             return;
@@ -140,12 +159,23 @@ impl Continuous {
 }
 impl DataActor for Continuous {
     fn on_start(&mut self) -> anyhow::Result<()> {
-        self.subscribe_quotes(self.instrument, Some(ClientId::from("PREDICT")), None);
-        self.subscribe_data(
-            predict_orderbook_data_type(42),
-            Some(ClientId::from("PREDICT")),
-            None,
-        );
+        if self.native_depth {
+            self.subscribe_book_depth(
+                self.instrument,
+                nautilus_model::enums::BookType::L2_MBP,
+                None,
+                Some(ClientId::from("PREDICT")),
+                true,
+                None,
+            );
+        } else {
+            self.subscribe_quotes(self.instrument, Some(ClientId::from("PREDICT")), None);
+            self.subscribe_data(
+                predict_orderbook_data_type(42),
+                Some(ClientId::from("PREDICT")),
+                None,
+            );
+        }
         self.subscribe_data(
             predict_settlement_data_type(account_id(), self.strategy_id().unwrap()),
             None,
@@ -154,12 +184,16 @@ impl DataActor for Continuous {
         Ok(())
     }
     fn on_stop(&mut self) -> anyhow::Result<()> {
-        self.unsubscribe_quotes(self.instrument, Some(ClientId::from("PREDICT")), None);
-        self.unsubscribe_data(
-            predict_orderbook_data_type(42),
-            Some(ClientId::from("PREDICT")),
-            None,
-        );
+        if self.native_depth {
+            self.unsubscribe_book_depth(self.instrument, Some(ClientId::from("PREDICT")), None);
+        } else {
+            self.unsubscribe_quotes(self.instrument, Some(ClientId::from("PREDICT")), None);
+            self.unsubscribe_data(
+                predict_orderbook_data_type(42),
+                Some(ClientId::from("PREDICT")),
+                None,
+            );
+        }
         self.unsubscribe_data(
             predict_settlement_data_type(account_id(), self.strategy_id().unwrap()),
             None,
@@ -167,6 +201,28 @@ impl DataActor for Continuous {
         );
         Ok(())
     }
+    fn on_book_depth(
+        &mut self,
+        depth: &nautilus_model::data::OrderBookDepth,
+    ) -> anyhow::Result<()> {
+        assert!(self.native_depth);
+        assert_eq!(depth.instrument_id, self.instrument);
+        {
+            let cache = self.cache();
+            let book = cache
+                .order_book(&self.instrument)
+                .expect("managed book before callback");
+            let quote = cache
+                .quote(&self.instrument)
+                .expect("Native quote before first MARKET submission");
+            assert_eq!(book.best_bid_price(), Some(quote.bid_price));
+            assert_eq!(book.best_ask_price(), Some(quote.ask_price));
+            assert_eq!(quote.bid_price, depth.bids[0].price);
+            assert_eq!(quote.ask_price, depth.asks[0].price);
+        }
+        self.book_signal()
+    }
+
     fn on_data(&mut self, data: &CustomData) -> anyhow::Result<()> {
         if let Some(update) = data.data.as_any().downcast_ref::<PredictSettlementUpdate>() {
             self.probe.strategy_settlement_callback(update);
@@ -183,14 +239,11 @@ impl DataActor for Continuous {
                 .as_decimal();
             self.journal.borrow_mut().rows.push(json!({"type":"settlement","id":update.client_order_id.to_string(),"status":format!("{:?}",update.status),"settlement":update.settlement_id,"nativeFilledQty":qty.to_string(),"rawSize":update.executed_size_wei}));
         } else if data.data_type == predict_orderbook_data_type(42) {
-            self.books_seen += 1;
-            if self.current.is_none() {
-                if !self.hold || self.books_seen > 1 {
-                    self.submit_next();
-                }
-            } else if self.hold {
-                self.cancel_order(self.current.unwrap(), Some(ClientId::from("PREDICT")), None)?;
-            }
+            assert!(
+                !self.native_depth,
+                "depth-only subscription must not receive unsolicited snapshots"
+            );
+            self.book_signal()?;
         }
         Ok(())
     }
@@ -311,6 +364,25 @@ async fn run_interleaved(
     background: usize,
     held_refresh: bool,
 ) -> Value {
+    run_market_data(
+        taker,
+        rounds,
+        check_submitted_open,
+        background,
+        held_refresh,
+        false,
+    )
+    .await
+}
+
+async fn run_market_data(
+    taker: bool,
+    rounds: usize,
+    check_submitted_open: bool,
+    background: usize,
+    held_refresh: bool,
+    native_depth: bool,
+) -> Value {
     assert!(!held_refresh || !taker);
     let HostFixture {
         backing,
@@ -373,6 +445,10 @@ async fn run_interleaved(
         stdout_level,
         ..Default::default()
     })
+    .with_data_engine_config(nautilus_live::node::config::LiveDataEngineConfig {
+        emit_quotes_from_book: native_depth,
+        ..Default::default()
+    })
     .with_risk_engine_config(nautilus_live::node::config::LiveRiskEngineConfig {
         max_order_submit_rate: "10000/00:00:01".into(),
         ..Default::default()
@@ -410,23 +486,22 @@ async fn run_interleaved(
     .unwrap();
     let target = Rc::new(RefCell::new(Journal::default()));
     let other = Rc::new(RefCell::new(Journal::default()));
-    node.add_strategy(Continuous::new(
-        instrument_id(1),
-        rounds,
-        taker,
-        false,
-        target.clone(),
-        probe.clone(),
-    ))
+    node.add_strategy(
+        Continuous::new(
+            instrument_id(1),
+            rounds,
+            taker,
+            false,
+            target.clone(),
+            probe.clone(),
+        )
+        .with_depth(native_depth),
+    )
     .unwrap();
-    node.add_strategy(Continuous::new(
-        instrument_id(2),
-        1,
-        false,
-        true,
-        other.clone(),
-        probe,
-    ))
+    node.add_strategy(
+        Continuous::new(instrument_id(2), 1, false, true, other.clone(), probe)
+            .with_depth(native_depth),
+    )
     .unwrap();
     let cache = node.kernel().cache.clone();
     let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
@@ -1002,4 +1077,10 @@ async fn benchmark_active_order_callback_scaling() {
 #[tokio::test(flavor = "current_thread")]
 async fn maker_replacement_keeps_external_open_during_suspended_account_refresh() {
     run_interleaved(false, 20, true, 1000, true).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_depth_maker_taker_reuses_managed_book_quotes_before_first_submit() {
+    run_market_data(false, 10, false, 0, false, true).await;
+    run_market_data(true, 100, false, 0, false, true).await;
 }

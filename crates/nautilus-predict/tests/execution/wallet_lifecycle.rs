@@ -503,3 +503,71 @@ async fn native_position_snapshot_before_owned_wallet_fill_does_not_double_inven
     );
     client.disconnect().await.unwrap();
 }
+
+#[tokio::test]
+async fn wallet_message_market_and_outcome_must_match_native_order() {
+    for outcome in [1, 2] {
+        for foreign_market in [false, true] {
+            let server = server(vec![]).await;
+            let (mut client, mut rx, cache) = client(&server);
+            for index in [1, 2] {
+                cache
+                    .borrow_mut()
+                    .add_instrument(InstrumentAny::BinaryOption(instrument(index)))
+                    .unwrap();
+            }
+            let mut foreign = instrument(outcome);
+            foreign.id = format!("43-{outcome}.PREDICT").parse().unwrap();
+            cache
+                .borrow_mut()
+                .add_instrument(InstrumentAny::BinaryOption(foreign))
+                .unwrap();
+            let own = order(outcome);
+            cache
+                .borrow_mut()
+                .add_order(own.clone(), None, None, false)
+                .unwrap();
+            seed_account(&cache);
+            client.connect().await.unwrap();
+            let mut wrong = event("orderCancelled", outcome);
+            if foreign_market {
+                wrong["details"]["marketId"] = json!(43);
+            } else {
+                let other = 3 - outcome;
+                wrong["details"]["outcome"] = json!(if other == 1 { "YES" } else { "NO" });
+                wrong["details"]["outcomeIndex"] = json!(other);
+            }
+            server.wallet(wrong);
+            exit_orders::barrier("mismatched wallet identity requires reconciliation", || {
+                requires_reconciliation(&client)
+            })
+            .await;
+            assert!(rx.try_recv().is_err());
+            assert_eq!(
+                cache
+                    .borrow()
+                    .order(&own.client_order_id())
+                    .unwrap()
+                    .status(),
+                own.status()
+            );
+            // The same consumer must still deliver a matching terminal fact.
+            server.wallet(event("orderCancelled", outcome));
+            let ExecutionEvent::Order(terminal @ OrderEventAny::Canceled(_)) = next(&mut rx).await
+            else {
+                panic!("matching cancellation must remain deliverable")
+            };
+            let mut engine = cancellations::engine(&cache);
+            engine.process(&terminal);
+            assert_eq!(
+                cache
+                    .borrow()
+                    .order(&own.client_order_id())
+                    .unwrap()
+                    .status(),
+                OrderStatus::Canceled
+            );
+            client.disconnect().await.unwrap();
+        }
+    }
+}

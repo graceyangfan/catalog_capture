@@ -63,7 +63,8 @@ nautilus-model.workspace = true
 nautilus-network = { workspace = true, optional = true }
 nautilus-serialization.workspace = true
 nautilus-live = { workspace = true, optional = true }
-rust_decimal.workspace = true
+# Venue JSON numbers must reach Decimal without an intermediate f64.
+rust_decimal = { workspace = true, features = ["serde-arbitrary-precision"] }
 serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 thiserror = { workspace = true, optional = true }

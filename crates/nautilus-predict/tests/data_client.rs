@@ -4,7 +4,7 @@
 //  you may not use this file except in compliance with the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Public adapter regression against a local REST/WebSocket venue, without credentials.
+//! Public adapter regression; mainnet probes require explicit ignored-test selection.
 #![cfg(feature = "live")]
 
 use std::{
@@ -299,3 +299,9 @@ async fn public_client_preserves_bootstrap_snapshots_heartbeat_reconnect_and_ref
 
 #[path = "data_client/quotes.rs"]
 mod quotes;
+
+#[path = "data_client/strategy.rs"]
+mod strategy;
+
+#[path = "data_client/mainnet.rs"]
+mod mainnet;

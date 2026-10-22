@@ -13,6 +13,13 @@ use nautilus_model::{
 
 use super::*;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NativeInterest {
+    Quotes,
+    Depth,
+    Both,
+}
+
 fn quote_subscribe(client: &mut PredictDataClient, id: InstrumentId) {
     client
         .subscribe_quotes(SubscribeQuotes::new(
@@ -41,6 +48,14 @@ fn quote_unsubscribe(client: &mut PredictDataClient, id: InstrumentId) {
 }
 #[tokio::test(flavor = "current_thread")]
 async fn quotes_and_custom_share_reconnect_topic_with_either_last_owner() {
+    shared_native_subscriptions(NativeInterest::Quotes).await;
+}
+#[tokio::test(flavor = "current_thread")]
+async fn depth_custom_and_quote_subscriptions_share_reconnect_and_last_owner() {
+    shared_native_subscriptions(NativeInterest::Depth).await;
+    shared_native_subscriptions(NativeInterest::Both).await;
+}
+async fn shared_native_subscriptions(mode: NativeInterest) {
     for (custom_last, custom_at_start, backend) in [
         (true, true, TransportBackend::default()),
         (false, true, TransportBackend::default()),
@@ -99,9 +114,9 @@ async fn quotes_and_custom_share_reconnect_topic_with_either_last_owner() {
         if custom_at_start {
             subscribe(&mut client);
         }
-        quote_subscribe(&mut client, yes);
-        quote_subscribe(&mut client, yes);
-        quote_subscribe(&mut client, no);
+        native_subscribe(&mut client, mode, yes);
+        native_subscribe(&mut client, mode, yes);
+        native_subscribe(&mut client, mode, no);
         let mut recorded = vec![];
         tokio::time::timeout(Duration::from_secs(10), async {
             while recorded
@@ -117,9 +132,11 @@ async fn quotes_and_custom_share_reconnect_topic_with_either_last_owner() {
         .unwrap();
         let mut quotes = vec![];
         let mut snapshots = 0;
+        let mut depths = vec![];
         while let Ok(event) = events.try_recv() {
             match event {
                 DataEvent::Data(Data::Quote(q)) => quotes.push(q),
+                DataEvent::Data(Data::BookDepth(depth)) => depths.push(depth),
                 DataEvent::Data(Data::Custom(_)) => snapshots += 1,
                 other => panic!("unexpected quote replay event {other:?}"),
             }
@@ -131,9 +148,25 @@ async fn quotes_and_custom_share_reconnect_topic_with_either_last_owner() {
         );
         assert_eq!(
             quotes.len(),
-            2,
+            if mode == NativeInterest::Depth { 0 } else { 2 },
             "one quote per outcome; duplicate and replay suppressed"
         );
+        assert_eq!(
+            depths.len(),
+            if mode == NativeInterest::Quotes { 0 } else { 4 },
+            "each complete depth frame is preserved across reconnect"
+        );
+        for depth in depths {
+            assert_eq!(depth.ts_event, UnixNanos::from_millis(1_700_000_000_123));
+            assert_eq!(depth.sequence, 0);
+            let (bid, ask) = if depth.instrument_id == yes {
+                (Price::from("0.62"), Price::from("0.63"))
+            } else {
+                assert_eq!(depth.instrument_id, no);
+                (Price::from("0.37"), Price::from("0.38"))
+            };
+            assert_eq!((depth.bids[0].price, depth.asks[0].price), (bid, ask));
+        }
         for q in quotes {
             assert_eq!(q.ts_event, UnixNanos::from_millis(1_700_000_000_123));
             if q.instrument_id == yes {
@@ -165,9 +198,9 @@ async fn quotes_and_custom_share_reconnect_topic_with_either_last_owner() {
         if custom_at_start && !custom_last {
             unsubscribe(&mut client);
         }
-        quote_unsubscribe(&mut client, yes);
-        quote_unsubscribe(&mut client, yes);
-        quote_unsubscribe(&mut client, no);
+        native_unsubscribe(&mut client, mode, yes);
+        native_unsubscribe(&mut client, mode, yes);
+        native_unsubscribe(&mut client, mode, no);
         if custom_at_start && custom_last {
             unsubscribe(&mut client);
         }
@@ -230,5 +263,45 @@ async fn quotes_and_custom_share_reconnect_topic_with_either_last_owner() {
         );
         client.disconnect().await.unwrap();
         server.abort();
+    }
+}
+
+fn native_subscribe(client: &mut PredictDataClient, mode: NativeInterest, id: InstrumentId) {
+    if mode != NativeInterest::Depth {
+        quote_subscribe(client, id);
+    }
+    if mode != NativeInterest::Quotes {
+        client
+            .subscribe_book_depth(nautilus_common::messages::data::SubscribeBookDepth::new(
+                id,
+                nautilus_model::enums::BookType::L2_MBP,
+                Some(ClientId::from("PREDICT")),
+                None,
+                UUID4::new(),
+                UnixNanos::default(),
+                None,
+                false,
+                None,
+                None,
+            ))
+            .unwrap();
+    }
+}
+fn native_unsubscribe(client: &mut PredictDataClient, mode: NativeInterest, id: InstrumentId) {
+    if mode != NativeInterest::Depth {
+        quote_unsubscribe(client, id);
+    }
+    if mode != NativeInterest::Quotes {
+        client
+            .unsubscribe_book_depth(&nautilus_common::messages::data::UnsubscribeBookDepth::new(
+                id,
+                Some(ClientId::from("PREDICT")),
+                None,
+                UUID4::new(),
+                UnixNanos::default(),
+                None,
+                None,
+            ))
+            .unwrap();
     }
 }

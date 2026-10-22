@@ -117,6 +117,14 @@ pub(super) fn parse_wallet_report_with_confirmed_qty(
         wallet,
         ts_init,
         WalletReportEvidence {
+            venue_id: VenueOrderId::new(format!("{:#x}", event.order.order_hash)),
+            instrument_id: instrument_id_from_outcome(
+                event.order.details.market_id,
+                match event.order.details.outcome {
+                    PredictWalletOutcome::Yes => 1,
+                    PredictWalletOutcome::No => 2,
+                },
+            )?,
             confirmed_qty,
             registered: None,
             queued_acceptance: None,
@@ -126,8 +134,10 @@ pub(super) fn parse_wallet_report_with_confirmed_qty(
     )
 }
 
-/// Previously queued native facts, not a second order status or quantity owner.
+/// Message-derived identity and queued Native facts, without retained execution state.
 pub(super) struct WalletReportEvidence {
+    pub venue_id: VenueOrderId,
+    pub instrument_id: InstrumentId,
     pub confirmed_qty: Quantity,
     pub registered: Option<VenueOrderId>,
     pub queued_acceptance: Option<UnixNanos>,
@@ -145,6 +155,8 @@ pub(super) fn parse_wallet_report_with_registration(
     evidence: WalletReportEvidence,
 ) -> anyhow::Result<Option<ExecutionReport>> {
     let WalletReportEvidence {
+        venue_id,
+        instrument_id: id,
         confirmed_qty,
         registered,
         queued_acceptance,
@@ -157,7 +169,6 @@ pub(super) fn parse_wallet_report_with_registration(
                 || (registered.is_some() && order.account_id().is_none())),
         "Predict wallet/account context mismatch"
     );
-    let venue_id = VenueOrderId::new(format!("{:#x}", event.order.order_hash));
     anyhow::ensure!(
         order.venue_order_id() == Some(venue_id)
             || (registered == Some(venue_id) && order.venue_order_id().is_none()),
@@ -167,7 +178,6 @@ pub(super) fn parse_wallet_report_with_registration(
         PredictWalletOutcome::Yes => 1,
         PredictWalletOutcome::No => 2,
     };
-    let id = instrument_id_from_outcome(event.order.details.market_id, index)?;
     let side = match event.order.details.quote_type {
         PredictWalletQuoteType::Bid => OrderSide::Buy,
         PredictWalletQuoteType::Ask => OrderSide::Sell,

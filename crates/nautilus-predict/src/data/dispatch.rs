@@ -21,8 +21,7 @@ use nautilus_network::{RECONNECTED, transport::Message};
 
 use super::runtime::PredictDataSession;
 use crate::{
-    PredictOrderbookSnapshot, PredictOrderbookWire, predict_crypto_up_down_orderbook_data_type,
-    predict_orderbook_data_type,
+    PredictOrderbookSnapshot, PredictOrderbookWire,
     websocket::parse::{
         PredictWebSocketMessage, heartbeat_message, parse_message, parse_topic_market_id,
     },
@@ -87,29 +86,40 @@ impl PredictDataSession {
                     .find(|q| q.context.market_id == market_id)
                     .map(|q| q.context.clone())
             })
+            .or_else(|| {
+                self.depths
+                    .values()
+                    .find(|d| d.context.market_id == market_id)
+                    .map(|d| d.context.clone())
+            })
             .with_context(|| format!("Predict frame for unconfigured market {market_id}"))?;
         let wire: PredictOrderbookWire =
-            serde_json::from_value(data.context("Predict market frame is missing data")?)
+            serde_json::from_str(data.context("Predict market frame is missing data")?.get())
                 .context("failed to decode Predict orderbook snapshot")?;
         let snapshot =
             PredictOrderbookSnapshot::from_wire(&context, wire, self.clock.get_time_ns())?;
-        // One custom-data identity per market frame: rolling and explicit snapshot
-        // ownership must not overlap; see DataClient::subscribe's usage contract.
-        let data_type = self
-            .dynamic_subscriptions
-            .iter()
-            .find(|(_, state)| {
-                state.current_market_id == Some(market_id)
-                    || state.pending_market_id == Some(market_id)
-            })
-            .map(|(key, _)| predict_crypto_up_down_orderbook_data_type(market_id, key))
-            .unwrap_or_else(|| predict_orderbook_data_type(market_id));
-        let mut quote_owners = 0;
+        let mut native_owners = 0;
+        for id in [context.yes_instrument_id, context.no_instrument_id] {
+            if let Some(subscription) = self.depths.get_mut(&id) {
+                native_owners += 1;
+                if subscription
+                    .last_timestamp
+                    .is_some_and(|last| snapshot.ts_event < last)
+                {
+                    continue;
+                }
+                let depth =
+                    super::depth::depth_from_snapshot(&snapshot, &context, id, subscription.depth)?;
+                self.data_sender
+                    .send(DataEvent::Data(Data::BookDepth(Box::new(depth))))?;
+                subscription.last_timestamp = Some(snapshot.ts_event);
+            }
+        }
         for id in [context.yes_instrument_id, context.no_instrument_id] {
             let Some(subscription) = self.quotes.get_mut(&id) else {
                 continue;
             };
-            quote_owners += 1;
+            native_owners += 1;
             if let Some(quote) = super::quotes::quote_from_snapshot(&snapshot, &context, id)? {
                 if subscription.last_quote.is_some_and(|last| {
                     quote.ts_event < last.ts_event
@@ -125,10 +135,11 @@ impl PredictDataSession {
                 subscription.last_quote = Some(quote);
             }
         }
-        // Quote-only interest must not create an unsolicited custom-data stream.
-        if self.subscriptions[&market_id] > quote_owners {
+        // Native-only interest must not create an unsolicited custom-data stream.
+        let subscription = &self.subscriptions[&market_id];
+        if subscription.owners > native_owners {
             self.data_sender.send(DataEvent::Data(Data::Custom(
-                snapshot.into_custom_data_with_type(data_type),
+                snapshot.into_custom_data_with_type(subscription.data_type.clone()),
             )))?;
         }
         self.confirm_dynamic_snapshot(market_id).await?;

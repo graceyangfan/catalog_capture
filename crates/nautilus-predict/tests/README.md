@@ -118,6 +118,11 @@ cargo bench -p nautilus-predict --features native-quantity-commission --locked -
 cargo bench -p nautilus-predict --features native-quantity-commission --locked --bench latency
 ```
 
+The routing benchmark includes strict numeric-ID parsing for ordinary decimal IDs
+and the uint256 maximum, in addition to retained-population insertion. Filter with
+`execution/rest_numeric_id_parse` to isolate codec cost; it excludes WS transport,
+Native dispatch and strategy callbacks.
+
 Named ignored release tests write create_new JSON. Choose a fresh output file under
 ignored data/predict-validation/<run-id>/; an existing file must fail, not overwrite
 evidence. Do not run performance exporters alongside compilation/full suites.
@@ -201,6 +206,39 @@ exporters exclude setup and Native application. Keep each JSON's declared bounda
 a repeated cold capture is a stress control, not normal live frequency. The
 [telemetry contract](../../../docs/predict-execution-adapter-design.md#optional-latency-telemetry)
 requires nonblocking collection, actual callback correlation and explicit losses.
+
+## Market-data delivery
+
+The data-client suite covers CustomSnapshot, unmanaged depth, managed depth with
+Native quotes, and combined consumers on one physical topic. It checks both
+transport backends, reconnect/reset, last-owner unsubscribe, rolling instrument
+ownership and rejection of older native depth without changing recorded CustomData.
+The execution replay verifies managed books and risk quotes before the first
+maker/taker submission. Complete recording and frozen rollover fixtures remain
+independent checks.
+
+Market-data timing probes, the dedicated CPU benchmark and latency JSON exporter
+were retired after validation. Historical measurements, source/executable hashes and
+measurement boundaries remain in the
+[validation record](../../../docs/reference/predict-execution-validation.md#public-snapshot-and-native-depth-delivery)
+and its ignored evidence archives. The ordinary strategy test retains callback
+counts, canonical data identity and managed-book/quote ordering assertions without
+measuring callback duration. Execution timing instrumentation remains independent.
+
+The explicit public-mainnet probe installs a data client and Rust strategy only:
+
+```bash
+PREDICT_PUBLIC_EVIDENCE_PATH=data/predict-validation/my-review/public-mainnet.json cargo test --release -p nautilus-predict --features native-quantity-commission --locked --test data_client mainnet::mainnet_custom_depth_lifecycle_read_only -- --ignored --exact --test-threads=1
+```
+
+It loads only env/predictfun.toml (override PREDICT_API_KEY_FILE), discovers current
+BTC 5m/15m markets and exercises combined, depth-only, YES-only and resubscribed
+Custom callbacks on both backends. It has no execution client, signer, account RPC
+or order writes. The optional PREDICT_PUBLIC_WS_URL routes unchanged traffic through
+an operator's local recorder; omit it for direct venue WS. JSON output is create_new.
+This short probe does not wait for natural rollover or force reconnect. Existing
+frozen/offline tests cover those transitions. Do not infer exchange network latency
+from venue timestamps or compare heavily journaled live callbacks as a CPU bench.
 
 ## Fixtures and captures
 

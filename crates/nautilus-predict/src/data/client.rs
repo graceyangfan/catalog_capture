@@ -90,6 +90,28 @@ impl PredictDataClient {
         })
     }
 
+    pub(super) fn instrument_context(
+        &self,
+        id: InstrumentId,
+    ) -> anyhow::Result<crate::PredictMarketContext> {
+        self.provider
+            .contexts()
+            .values()
+            .find(|c| c.yes_instrument_id == id || c.no_instrument_id == id)
+            .cloned()
+            .or_else(|| {
+                self.dynamic_registry
+                    .read()
+                    .expect("Predict dynamic registry lock poisoned")
+                    .markets
+                    .values()
+                    .map(|m| &m.context)
+                    .find(|c| c.yes_instrument_id == id || c.no_instrument_id == id)
+                    .cloned()
+            })
+            .with_context(|| format!("Predict instrument {id} was not loaded"))
+    }
+
     pub(super) async fn bootstrap_markets(&mut self) -> anyhow::Result<()> {
         self.provider.clear();
         for market_id in &self.config.market_ids {

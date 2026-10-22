@@ -157,6 +157,7 @@ async fn socket(s: WebSocket, v: VenueState) {
 struct Probe {
     core: StrategyCore,
     phase: Rc<Cell<u8>>,
+    depth: bool,
     journal: Rc<RefCell<Vec<Value>>>,
     owned: BTreeSet<InstrumentId>,
     audit: Option<ShareableMessageHandler>,
@@ -183,7 +184,18 @@ impl DataActor for Probe {
     }
     fn on_instrument(&mut self, i: &InstrumentAny) -> anyhow::Result<()> {
         if self.owned.insert(i.id()) {
-            self.subscribe_quotes(i.id(), Some(ClientId::new("PREDICT")), None);
+            if self.depth {
+                self.subscribe_book_depth(
+                    i.id(),
+                    nautilus_model::enums::BookType::L2_MBP,
+                    None,
+                    Some(ClientId::new("PREDICT")),
+                    true,
+                    None,
+                );
+            } else {
+                self.subscribe_quotes(i.id(), Some(ClientId::new("PREDICT")), None);
+            }
             self.journal
                 .borrow_mut()
                 .push(json!({"type":"instrument","id":i.id().to_string()}));
@@ -205,6 +217,22 @@ impl DataActor for Probe {
         }
         Ok(())
     }
+    fn on_book_depth(
+        &mut self,
+        depth: &nautilus_model::data::OrderBookDepth,
+    ) -> anyhow::Result<()> {
+        assert!(self.depth);
+        let quote = {
+            let cache = self.cache();
+            let book = cache.order_book(&depth.instrument_id).unwrap();
+            let quote = cache.quote(&depth.instrument_id).unwrap();
+            assert_eq!(book.best_bid_price(), Some(depth.bids[0].price));
+            assert_eq!(quote.bid_price, depth.bids[0].price);
+            quote
+        };
+        self.on_quote(&quote)
+    }
+
     fn on_quote(&mut self, q: &QuoteTick) -> anyhow::Result<()> {
         self.journal.borrow_mut().push(json!({"type":"quote","id":q.instrument_id.to_string(),"ts":q.ts_event.as_u64(),"bid":q.bid_price.to_string(),"ask":q.ask_price.to_string()}));
         let target = match self.phase.get() {
@@ -215,7 +243,11 @@ impl DataActor for Probe {
         if let Some(id) = target
             && self.owned.remove(&id)
         {
-            self.unsubscribe_quotes(id, Some(ClientId::new("PREDICT")), None);
+            if self.depth {
+                self.unsubscribe_book_depth(id, Some(ClientId::new("PREDICT")), None);
+            } else {
+                self.unsubscribe_quotes(id, Some(ClientId::new("PREDICT")), None);
+            }
             self.journal
                 .borrow_mut()
                 .push(json!({"type":"release","id":id.to_string()}));
@@ -224,7 +256,11 @@ impl DataActor for Probe {
     }
     fn on_stop(&mut self) -> anyhow::Result<()> {
         for id in std::mem::take(&mut self.owned) {
-            self.unsubscribe_quotes(id, Some(ClientId::new("PREDICT")), None);
+            if self.depth {
+                self.unsubscribe_book_depth(id, Some(ClientId::new("PREDICT")), None);
+            } else {
+                self.unsubscribe_quotes(id, Some(ClientId::new("PREDICT")), None);
+            }
         }
         self.unsubscribe_data(responses(), None, None);
         self.unsubscribe_data(selector(), Some(ClientId::new("PREDICT")), None);
@@ -251,6 +287,9 @@ async fn barrier(label: &str, mut p: impl FnMut() -> bool) {
     .unwrap_or_else(|_| panic!("dynamic quote barrier: {label}"));
 }
 async fn run(backend: TransportBackend, saved: Option<Value>) -> Value {
+    run_with_depth(backend, saved, false).await
+}
+async fn run_with_depth(backend: TransportBackend, saved: Option<Value>, depth: bool) -> Value {
     nautilus_predict::register_predict_custom_data();
     let start = chrono::DateTime::parse_from_rfc3339("2026-10-03T22:00:00Z")
         .unwrap()
@@ -300,6 +339,10 @@ async fn run(backend: TransportBackend, saved: Option<Value>) -> Value {
     let mut node = LiveNode::builder(TraderId::new("QUOTES-001"), Environment::Live)
         .unwrap()
         .with_name("PredictDynamicQuotesOffline")
+        .with_data_engine_config(nautilus_live::node::config::LiveDataEngineConfig {
+            emit_quotes_from_book: depth,
+            ..Default::default()
+        })
         .with_timeout_connection(5)
         .with_delay_post_stop_secs(0)
         .with_exec_engine_config(LiveExecutionEngineConfig {
@@ -332,6 +375,7 @@ async fn run(backend: TransportBackend, saved: Option<Value>) -> Value {
             ..Default::default()
         }),
         phase: phase.clone(),
+        depth,
         journal: journal.clone(),
         owned: BTreeSet::new(),
         audit: None,
@@ -516,6 +560,17 @@ async fn dynamic_quote_owners_survive_rollover_then_last_release_drops_late_fram
                 .collect::<Vec<_>>()
         };
         assert_eq!(observed(&actual), observed(expected));
+        let native = run_with_depth(backend, None, true).await;
+        // Depth also delivers unchanged snapshots, so the strategy may release an
+        // owner earlier than the quote-only fixture. Final ownership must agree;
+        // run_with_depth checks Native book/quote facts and last-owner wire removal.
+        let releases = |s: &Value| {
+            observed(s)
+                .into_iter()
+                .filter(|r| r["type"] == "release")
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(releases(&native), releases(expected));
     }
 }
 #[tokio::test(flavor = "current_thread")]

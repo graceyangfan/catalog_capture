@@ -166,6 +166,8 @@ impl WalletReportContext {
             *wallet,
             clock.get_time_ns(),
             super::parse::WalletReportEvidence {
+                venue_id: id,
+                instrument_id,
                 confirmed_qty: confirmed,
                 registered,
                 queued_acceptance: order.queued_acceptance(),
