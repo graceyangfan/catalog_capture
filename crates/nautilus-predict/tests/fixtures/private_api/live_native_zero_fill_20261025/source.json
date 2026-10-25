@@ -1,0 +1,97 @@
+{
+  "source": "Derived index of actual Native mainnet zero-fill command captures; copied source bytes remain unchanged",
+  "catalogCommit": "9f83d4e6c955963f45cda7b1ef2d74143da7516e",
+  "nativeRepository": "graceyangfan/nautilus_trader",
+  "nativeCommit": "c9bbbcd89421245fa86286caaa173c6524638461",
+  "files": [
+    {
+      "path": "limit/http_responses.json",
+      "bytes": 6564,
+      "sha256": "6d07e29aac3bdfe0604503235b3f2b6d43a83bb17a6e4e87234e0490bb94de0f"
+    },
+    {
+      "path": "limit/native_feedback.json",
+      "bytes": 11027,
+      "sha256": "a4e5aab2dce96ea912d4683b6a7fc152656c52a5a2b45898d795c9fad0215a60"
+    },
+    {
+      "path": "limit/result.json",
+      "bytes": 769,
+      "sha256": "f29acc4f35c76e34b0824fd3efd100365cabd5dc988d4b26dc0ef11ba27b0062"
+    },
+    {
+      "path": "limit/run_metadata.json",
+      "bytes": 1262,
+      "sha256": "7c83cc2e2f46c074ec512cca2aec5a7713e6ab34f5836d09f81588b405b109ba"
+    },
+    {
+      "path": "limit/supervisor_cleanup.json",
+      "bytes": 116,
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "limit/independent_terminal_check.json",
+      "bytes": 623,
+      "sha256": "be5f5b56027f8f6686c10e1943ec6f6ce0dea6631c00ef264c407d8ce0cd8007"
+    },
+    {
+      "path": "limit/collector.log",
+      "bytes": 481,
+      "sha256": "0b3975d3e1fec5c970679bc80ed7507a3ab54388c723a8e66ac93cbc3cf81a15"
+    },
+    {
+      "path": "market/http_responses.json",
+      "bytes": 13617,
+      "sha256": "f7aa6c8a5beabbc9e609579fc73b71c8c30df8ab8ecfdf49e3fa91be168ed543"
+    },
+    {
+      "path": "market/native.json",
+      "bytes": 19238,
+      "sha256": "77a28af0e703151e5c2d359f1d0f2d3581bb887a4e0429891654fae9a854af4c"
+    },
+    {
+      "path": "market/sdk_comparison.json",
+      "bytes": 4366,
+      "sha256": "5e7e4eb76fb54ae45c7d23660e4f40033a528c8472c8cfaa1d209e701899c75c"
+    },
+    {
+      "path": "market/summary.json",
+      "bytes": 3901,
+      "sha256": "85f5979ee9be535933a773d5da8f517dad398b7674b828a142f284c5aaac9262"
+    }
+  ],
+  "limits": {
+    "ordersPerType": 2,
+    "maxSignedPrincipalUsdtPerOrder": "1",
+    "chainWrites": 0
+  },
+  "observed": {
+    "limit": {
+      "nativeAccepted": 2,
+      "nativeCanceled": 2,
+      "nativeModifyRejected": 2,
+      "fills": 0,
+      "finalOpenOrders": 0,
+      "independentCollectorComplete": false,
+      "collectorFailure": "ProxyError during final read-only snapshot",
+      "independentTerminalCompletion": true
+    },
+    "market": {
+      "nativeAccepted": 2,
+      "nativeRejected": 2,
+      "nativeCancelIntents": 2,
+      "removeRequests": 1,
+      "removed": 0,
+      "noop": 1,
+      "fills": 0,
+      "finalOpenOrders": 0,
+      "walletReason": "noMarketMatch",
+      "restTerminal": "CANCELLED"
+    }
+  },
+  "limitations": [
+    "MARKET no-match rejection resolves the cancellation race; no successful MARKET removal was observed.",
+    "The LIMIT independent wallet/calibration capture is incomplete; the separate terminal GETs do not reconstruct missing wallet data.",
+    "The MARKET supervision relay performs explicit SDK/book validation; timings are not an uninstrumented production latency benchmark."
+  ]
+}

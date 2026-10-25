@@ -156,8 +156,11 @@ fills or pending risk ownership. It does not assert that the venue removed an or
 | Transaction Submitted / Failed | Optional settlement CustomData; no economic fill |
 | Transaction Success | Confirmed FillReport with actual execution and fee facts |
 
-Native applies events/reports before publishing strategy callbacks. A cancellation
-callback does not assert that all fills have arrived. Late confirmed fills remain
+Native applies events/reports before publishing strategy callbacks. Typed handlers
+run before `on_order_event`. A command issued inside a typed handler can advance
+the Cache synchronously, so a generic observer may see a newer pending state than
+the event it is recording. Do not restore an older state to make them equal.
+A cancellation callback does not assert that all fills have arrived. Late confirmed fills remain
 applicable after cancellation or instrument expiry. Missing acceptance required
 for hash binding or the Native Expired transition uses the existing queued proof.
 Known cancellation/expiry and real executions never wait for unrelated history or

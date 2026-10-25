@@ -1,0 +1,385 @@
+{
+  "source": "official mainnet HTTP via test-only loopback relay; requests/responses forwarded unchanged, no POST retries",
+  "events": [
+    {
+      "observedAtUtc": "2026-10-25T14:13:41.294112+00:00",
+      "observedMonotonicNs": 34082288867208,
+      "method": "GET",
+      "path": "/v1/auth/message",
+      "status": 200,
+      "upstreamElapsedNs": 408959792,
+      "completedAtUtc": "2026-10-25T14:13:41.703096+00:00",
+      "relayBeforeResponseNs": 409048708
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:41.703827+00:00",
+      "observedMonotonicNs": 34082698578958,
+      "method": "POST",
+      "path": "/v1/auth",
+      "status": 200,
+      "upstreamElapsedNs": 187156708,
+      "completedAtUtc": "2026-10-25T14:13:41.891001+00:00",
+      "relayBeforeResponseNs": 187236416
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:41.892363+00:00",
+      "observedMonotonicNs": 34082887116000,
+      "method": "GET",
+      "path": "/v1/markets/2508071",
+      "status": 200,
+      "upstreamElapsedNs": 160425375,
+      "completedAtUtc": "2026-10-25T14:13:42.052802+00:00",
+      "responseBody": {
+        "data": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-bnb-hit-700-or-900",
+          "conditionId": "0x536d3d8fdba911c95fb5fef31186ea280c8538b0c48c4f4226ce06ca9755f5ed",
+          "createdAt": "2026-09-21T16:06:35.556Z",
+          "decimalPrecision": 2,
+          "description": "This market will resolve to the lower price in the title if BNB\u2019s price dips to that level or below before it hits the higher title price between the creation of this market and December 31, 2026 at 11:59 PM ET. It will resolve to the higher price in the title if BNB\u2019s price first reaches that level or above before it dips to the lower title price during the same period.\n\nIf neither price level is reached within the market timeframe, the market will resolve 50\u201350.\n\nThe resolution source for this market is Binance, specifically the BNB/USDT \"High\" and \"Low\" prices currently available at https://www.binance.com/en/trade/BNB_USDT with \u201c1m\u201d and \u201cCandles\u201d selected on the top bar.\n\nPlease note that this market is about the price according to Binance BNB/USDT, not according to other sources or spot markets.",
+          "feeRateBps": 200,
+          "id": 2508071,
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "makerFeeBps": 0,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0xd720ff0d9240d2dd39e7193ed51757cfc3d8f1115ae325d430458d149b9a471c",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.84,
+                "size": 503.8095238095238
+              },
+              "bestBid": {
+                "price": 0.79,
+                "size": 101.91
+              },
+              "indexSet": 1,
+              "onChainId": "53041617298155882833513813829107031991938603210120735479978149505019847463868",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.21,
+                "size": 101.91
+              },
+              "bestBid": {
+                "price": 0.16,
+                "size": 503.8095238095238
+              },
+              "indexSet": 2,
+              "onChainId": "84226431991235132379742641347884854913483510205754824937864520643708846826780",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [],
+          "question": "Will BNB hit $700 or $900 first?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "[redacted-address]",
+          "rewards": {
+            "current": {
+              "endsAt": "2027-01-01T05:00:00.000Z",
+              "hourlyRate": 50,
+              "startsAt": "2026-10-01T04:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-10-01T04:00:00.000Z",
+                "hourlyRate": 500,
+                "startsAt": "2026-09-21T16:07:45.726Z"
+              },
+              {
+                "endsAt": "2027-01-01T05:00:00.000Z",
+                "hourlyRate": 50,
+                "startsAt": "2026-10-01T04:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will BNB hit $700 or $900 first?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "success": true
+      },
+      "relayBeforeResponseNs": 160717417
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:42.053544+00:00",
+      "observedMonotonicNs": 34083048298750,
+      "method": "GET",
+      "path": "/v1/markets/2508071/orderbook",
+      "status": 200,
+      "upstreamElapsedNs": 172195666,
+      "completedAtUtc": "2026-10-25T14:13:42.225755+00:00",
+      "responseBody": {
+        "data": {
+          "asks": [
+            [
+              0.84,
+              503.8095238095238
+            ],
+            [
+              0.95,
+              200
+            ],
+            [
+              0.97,
+              2174.933
+            ],
+            [
+              0.98,
+              12.58
+            ],
+            [
+              0.99,
+              500
+            ]
+          ],
+          "bids": [
+            [
+              0.79,
+              101.91
+            ],
+            [
+              0.55,
+              90.89
+            ]
+          ],
+          "lastOrderSettled": {
+            "id": "6168425285",
+            "kind": "LIMIT",
+            "marketId": 2508071,
+            "outcome": "No",
+            "price": "0.79",
+            "side": "Ask"
+          },
+          "marketId": 2508071,
+          "updateTimestampMs": 1792937184990
+        },
+        "success": true
+      },
+      "relayBeforeResponseNs": 172278875
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:44.439647+00:00",
+      "observedMonotonicNs": 34085434423375,
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200,
+      "upstreamElapsedNs": 160497791,
+      "completedAtUtc": "2026-10-25T14:13:44.600171+00:00",
+      "responseBody": {
+        "data": {
+          "address": "[redacted-address]"
+        },
+        "success": true
+      },
+      "relayBeforeResponseNs": 160610458
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:45.493706+00:00",
+      "observedMonotonicNs": 34086488490916,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "upstreamElapsedNs": 162877500,
+      "completedAtUtc": "2026-10-25T14:13:45.656618+00:00",
+      "responseBody": {
+        "cursor": null,
+        "data": [],
+        "success": true
+      },
+      "relayBeforeResponseNs": 163019500
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:46.802314+00:00",
+      "observedMonotonicNs": 34087797112416,
+      "method": "GET",
+      "path": "/v1/markets/2508071",
+      "status": 200,
+      "upstreamElapsedNs": 165739375,
+      "completedAtUtc": "2026-10-25T14:13:46.968092+00:00",
+      "responseBody": {
+        "data": {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "will-bnb-hit-700-or-900",
+          "conditionId": "0x536d3d8fdba911c95fb5fef31186ea280c8538b0c48c4f4226ce06ca9755f5ed",
+          "createdAt": "2026-09-21T16:06:35.556Z",
+          "decimalPrecision": 2,
+          "description": "This market will resolve to the lower price in the title if BNB\u2019s price dips to that level or below before it hits the higher title price between the creation of this market and December 31, 2026 at 11:59 PM ET. It will resolve to the higher price in the title if BNB\u2019s price first reaches that level or above before it dips to the lower title price during the same period.\n\nIf neither price level is reached within the market timeframe, the market will resolve 50\u201350.\n\nThe resolution source for this market is Binance, specifically the BNB/USDT \"High\" and \"Low\" prices currently available at https://www.binance.com/en/trade/BNB_USDT with \u201c1m\u201d and \u201cCandles\u201d selected on the top bar.\n\nPlease note that this market is about the price according to Binance BNB/USDT, not according to other sources or spot markets.",
+          "feeRateBps": 200,
+          "id": 2508071,
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "makerFeeBps": 0,
+          "marketType": null,
+          "marketVariant": "DEFAULT",
+          "oracleQuestionId": "0xd720ff0d9240d2dd39e7193ed51757cfc3d8f1115ae325d430458d149b9a471c",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.84,
+                "size": 503.8095238095238
+              },
+              "bestBid": {
+                "price": 0.79,
+                "size": 101.91
+              },
+              "indexSet": 1,
+              "onChainId": "53041617298155882833513813829107031991938603210120735479978149505019847463868",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.21,
+                "size": 101.91
+              },
+              "bestBid": {
+                "price": 0.16,
+                "size": 503.8095238095238
+              },
+              "indexSet": 2,
+              "onChainId": "84226431991235132379742641347884854913483510205754824937864520643708846826780",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [],
+          "question": "Will BNB hit $700 or $900 first?",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "[redacted-address]",
+          "rewards": {
+            "current": {
+              "endsAt": "2027-01-01T05:00:00.000Z",
+              "hourlyRate": 50,
+              "startsAt": "2026-10-01T04:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-10-01T04:00:00.000Z",
+                "hourlyRate": 500,
+                "startsAt": "2026-09-21T16:07:45.726Z"
+              },
+              {
+                "endsAt": "2027-01-01T05:00:00.000Z",
+                "hourlyRate": 50,
+                "startsAt": "2026-10-01T04:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "stats": null,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Will BNB hit $700 or $900 first?",
+          "tradingStatus": "OPEN",
+          "variantData": null
+        },
+        "success": true
+      },
+      "relayBeforeResponseNs": 165940625
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:47.171993+00:00",
+      "observedMonotonicNs": 34088166784541,
+      "method": "POST",
+      "path": "/v1/orders",
+      "status": 201,
+      "requestTerms": {
+        "salt": "1295637188",
+        "nonce": "0",
+        "expiration": 1792937927,
+        "feeRateBps": "200",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "1250000000000000000",
+        "hash": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227"
+      },
+      "upstreamElapsedNs": 201972333,
+      "completedAtUtc": "2026-10-25T14:13:47.704165+00:00",
+      "responseBody": {
+        "data": {
+          "code": "OK",
+          "orderHash": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227",
+          "orderId": "6268912364",
+          "removalLockedUntil": null
+        },
+        "success": true
+      },
+      "relayBeforeResponseNs": 532267625
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:48.017422+00:00",
+      "observedMonotonicNs": 34089012220833,
+      "method": "POST",
+      "path": "/v1/orders/remove",
+      "status": 200,
+      "requestIds": [
+        "6268912364"
+      ],
+      "removalIntent": true,
+      "upstreamElapsedNs": 166974542,
+      "completedAtUtc": "2026-10-25T14:13:48.186006+00:00",
+      "responseBody": {
+        "noop": [
+          "6268912364"
+        ],
+        "rejected": [],
+        "removed": [],
+        "success": true
+      },
+      "relayBeforeResponseNs": 403125750
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:13:48.078631+00:00",
+      "observedMonotonicNs": 34089073431333,
+      "method": "POST",
+      "path": "/v1/orders",
+      "status": 201,
+      "requestTerms": {
+        "salt": "1293397486",
+        "nonce": "0",
+        "expiration": 1792937928,
+        "feeRateBps": "200",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "1250000000000000000",
+        "hash": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb"
+      },
+      "upstreamElapsedNs": 1141898375,
+      "completedAtUtc": "2026-10-25T14:13:49.562171+00:00",
+      "responseBody": {
+        "data": {
+          "code": "OK",
+          "orderHash": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb",
+          "orderId": "6268914199",
+          "removalLockedUntil": null
+        },
+        "success": true
+      },
+      "relayBeforeResponseNs": 1483637000
+    }
+  ]
+}

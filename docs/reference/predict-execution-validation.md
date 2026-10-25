@@ -21,8 +21,10 @@ Use the pinned APIs directly; no legacy fee mode or compatibility branch exists.
 | Predict retains unresolved cancel/modify commands and emits CommandRecoveryExhausted | ExecutionClient contract, live manager and node/msgbus |
 | Confirmed FILLED quantity normalization while a command is pending | Execution reconciliation and regression tests |
 
-All CI jobs use the same fork and SHA. Bootstrap checks out that revision before
-building. Verify a release from clean sibling checkouts and keep the installation
+All CI jobs use the same fork and SHA. The pre-commit and test jobs share
+dependency caches keyed by that revision; default Clippy runs once in pre-commit,
+with a separate execution-feature pass in the test job. Bootstrap checks out the
+pinned revision before building. Verify a release from clean sibling checkouts and keep the installation
 reference aligned with CI; local uncommitted changes are not a dependency version.
 
 Native owns quantity commission, exact gross/order scale alignment, checked report
@@ -68,6 +70,7 @@ venue creates derived replay, even when all economic fields come from real fills
 | native_non_fok_full_plan_two_settlements_20261025.json | market_recorded_fill | Exact two-settlement gross/net, mint evidence and cash arithmetic |
 | native_market_filled_atomic_remainder_20261025.json | terminal_recovery | Native FILLED recovery, one-wei remainder, pending commands, exact fees, replay and original signed terms |
 | live_chain_atomic_rounding_20261025.json | chain_recorded_rounding | Public transaction inputs/receipts reproduce the one-wei split; chain remaining uses maker-asset units and does not override CLOB FILLED |
+| live_native_zero_fill_20261025/ | Explicit Native live probes; source index and immutable manifests | LIMIT accepted/canceled twice; MARKET FOK/GTC accepted then noMarketMatch/Rejected; zero fills, no residual OPEN; LIMIT collector incomplete and independently checked afterward |
 
 The [MARKET](predict-immediate-order-validation.md) and
 [maker](predict-maker-order-validation.md) references delimit the corresponding

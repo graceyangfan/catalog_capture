@@ -1,0 +1,19 @@
+{
+  "startedAtUtc": "2026-10-25T14:04:20.905489+00:00",
+  "case": "yes-gtd",
+  "features": "execution",
+  "measureLatency": false,
+  "buildProfile": "debug",
+  "sourceCommit": "9f83d4e6c955963f45cda7b1ef2d74143da7516e",
+  "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "fileSha256": {
+    "Cargo.lock": "948dced98ab002e04e1c43b1705de9725072a8ddb596a66999189163663c7870",
+    "tests/run_predict_resting_live.py": "64b2bdac00872089ccb7476954fa87264482f59b30551508792fb9be3531cfb7",
+    "tests/predict_resting_evidence.py": "2b5b1a99a1edcb7ed4409d37714c45a71a8acfe02c4d31dd33f9b4aac163b466",
+    "crates/nautilus-predict/tests/support/resting_live.rs": "e45da5d9679a1ecf23aac344c5c06d773a7044bc52836d6537f0e3d319c85aa3",
+    "crates/nautilus-predict/tests/support/strategy.rs": "9b7f1f4c492d1b0feb30aaaadd1008edb8ef8067cc499b871648e5824d2bf096",
+    "crates/nautilus-predict/src/latency.rs": "421f01785c1ec10eab1a4fe681d94502bbb1f7cd6d7f9bff2071f07633c2e76e",
+    "crates/nautilus-predict/src/execution/submitter.rs": "68e986848c6b0dfb18c9103f672395f26d11033d2a0ca052afc258a9cc7883a7",
+    "crates/nautilus-predict/src/execution/cancellations.rs": "d4277af79f875f48f9adc24c722b0e834a60ef642822182c66f2cb142e1a7ebf"
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "marketId": 2508071,
+  "price": ".80",
+  "quantity": "1.25",
+  "maxSignedUSDTPerOrder": "1",
+  "maxOrders": 2,
+  "parameterMatrix": false,
+  "nodeExitCode": 0,
+  "cleanup": {
+    "verifiedOpenOrders": 0,
+    "verifiedRunOpenOrders": 0,
+    "unrelatedOpenOrders": 0,
+    "fallbackRemovedIds": []
+  },
+  "finalOrders": [
+    {
+      "hash": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb",
+      "status": "CANCELLED",
+      "amountFilled": "0"
+    },
+    {
+      "hash": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227",
+      "status": "CANCELLED",
+      "amountFilled": "0"
+    }
+  ],
+  "walletEvents": [
+    {
+      "details": {
+        "categorySlug": "will-bnb-hit-700-or-900",
+        "marketId": 2508071,
+        "marketQuestion": "Will BNB hit $700 or $900 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$700",
+        "price": "0.800",
+        "quantity": "1.250",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227",
+      "orderId": "6268912364",
+      "timestamp": 1792937627965,
+      "type": "orderAccepted",
+      "walletAddress": "[redacted]",
+      "observedAtUtc": "2026-10-25T14:13:47.980466+00:00"
+    },
+    {
+      "details": {
+        "categorySlug": "will-bnb-hit-700-or-900",
+        "marketId": 2508071,
+        "marketQuestion": "Will BNB hit $700 or $900 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$700",
+        "price": "0.800",
+        "quantity": "1.250",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227",
+      "orderId": "6268912364",
+      "reason": "noMarketMatch",
+      "settlementId": null,
+      "timestamp": 1792937628217,
+      "type": "orderNotAccepted",
+      "walletAddress": "[redacted]",
+      "observedAtUtc": "2026-10-25T14:13:47.980644+00:00"
+    },
+    {
+      "details": {
+        "categorySlug": "will-bnb-hit-700-or-900",
+        "marketId": 2508071,
+        "marketQuestion": "Will BNB hit $700 or $900 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$700",
+        "price": "0.800",
+        "quantity": "1.250",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb",
+      "orderId": "6268914199",
+      "timestamp": 1792937629823,
+      "type": "orderAccepted",
+      "walletAddress": "[redacted]",
+      "observedAtUtc": "2026-10-25T14:13:50.028644+00:00"
+    },
+    {
+      "details": {
+        "categorySlug": "will-bnb-hit-700-or-900",
+        "marketId": 2508071,
+        "marketQuestion": "Will BNB hit $700 or $900 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$700",
+        "price": "0.800",
+        "quantity": "1.250",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb",
+      "orderId": "6268914199",
+      "reason": "noMarketMatch",
+      "settlementId": null,
+      "timestamp": 1792937630074,
+      "type": "orderNotAccepted",
+      "walletAddress": "[redacted]",
+      "observedAtUtc": "2026-10-25T14:13:50.028859+00:00"
+    }
+  ],
+  "walletObserver": {
+    "heartbeats": 0,
+    "seconds": 14.313255332999688,
+    "received": 4
+  }
+}

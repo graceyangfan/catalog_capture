@@ -1107,6 +1107,78 @@
       "sha256": "eec4f4efa78f33164f5d9145408b3c176c88397f616d3f83bfba7e368ac41e88"
     },
     {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/collector.log",
+      "tier": "primary_capture",
+      "bytes": 481,
+      "sha256": "0b3975d3e1fec5c970679bc80ed7507a3ab54388c723a8e66ac93cbc3cf81a15"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 6564,
+      "sha256": "6d07e29aac3bdfe0604503235b3f2b6d43a83bb17a6e4e87234e0490bb94de0f"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/independent_terminal_check.json",
+      "tier": "primary_capture",
+      "bytes": 623,
+      "sha256": "be5f5b56027f8f6686c10e1943ec6f6ce0dea6631c00ef264c407d8ce0cd8007"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/native_feedback.json",
+      "tier": "primary_capture",
+      "bytes": 11027,
+      "sha256": "a4e5aab2dce96ea912d4683b6a7fc152656c52a5a2b45898d795c9fad0215a60"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/result.json",
+      "tier": "primary_capture",
+      "bytes": 769,
+      "sha256": "f29acc4f35c76e34b0824fd3efd100365cabd5dc988d4b26dc0ef11ba27b0062"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/run_metadata.json",
+      "tier": "primary_capture",
+      "bytes": 1262,
+      "sha256": "7c83cc2e2f46c074ec512cca2aec5a7713e6ab34f5836d09f81588b405b109ba"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/supervisor_cleanup.json",
+      "tier": "primary_capture",
+      "bytes": 116,
+      "sha256": "48b5cb5226fbb35f7cd4e4ebd27f822457f92ef408f70c97b5c995ade5e39fc3"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/market/http_responses.json",
+      "tier": "synthetic",
+      "bytes": 13617,
+      "sha256": "f7aa6c8a5beabbc9e609579fc73b71c8c30df8ab8ecfdf49e3fa91be168ed543"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/market/native.json",
+      "tier": "primary_capture",
+      "bytes": 19238,
+      "sha256": "77a28af0e703151e5c2d359f1d0f2d3581bb887a4e0429891654fae9a854af4c"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/market/sdk_comparison.json",
+      "tier": "primary_capture",
+      "bytes": 4366,
+      "sha256": "5e7e4eb76fb54ae45c7d23660e4f40033a528c8472c8cfaa1d209e701899c75c"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/market/summary.json",
+      "tier": "primary_capture",
+      "bytes": 3901,
+      "sha256": "85f5979ee9be535933a773d5da8f517dad398b7674b828a142f284c5aaac9262"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/source.json",
+      "tier": "derived",
+      "bytes": 3210,
+      "sha256": "dd69840252f1b066867184056101bd245d23dcbe2d6626dbd125ead84b43bec2"
+    },
+    {
       "path": "tests/fixtures/private_api/live_order_lifecycle_survey_20261025.json",
       "tier": "primary_capture",
       "bytes": 423398,

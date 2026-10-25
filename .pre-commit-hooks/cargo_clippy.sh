@@ -24,4 +24,5 @@ cargo clippy \
   -p catalog-capture-runtime-adapter \
   -p catalog-capture-cli \
   --all-targets \
+  --locked \
   -- -D warnings

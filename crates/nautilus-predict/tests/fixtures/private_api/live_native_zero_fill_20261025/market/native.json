@@ -1,0 +1,538 @@
+{
+  "marketId": 2508071,
+  "marketFlags": {
+    "isNegRisk": false,
+    "isYieldBearing": true
+  },
+  "journal": [
+    {
+      "type": "NativeSubmitIntent",
+      "case": "base_fok_zero",
+      "clientOrderId": "O-20261025-141347-001-001-1",
+      "orderType": "MARKET",
+      "timeInForce": "FOK",
+      "quantity": "1.25",
+      "quoteQuantity": false,
+      "market_price": "0.80",
+      "market_order_slippage_bps": 0,
+      "signedBound": "0.80",
+      "observedBid": "0.79",
+      "observedBidSize": "101.9100000000000000",
+      "observedAsk": "0.84",
+      "observedAskSize": "503.8095238095238000",
+      "quoteTsEvent": 1792937184990000000,
+      "quoteTsInit": 1792937627118792000,
+      "observedNs": 1792937627170910000,
+      "ofi": {
+        "definition": "L1 event OFI over five seconds, divided by mean L1 depth; not traded-volume OFI",
+        "events": 0,
+        "spanNs": 0,
+        "sumShares": "0",
+        "normalized": "0",
+        "eligible": false
+      }
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "Initialized": {
+          "type": "OrderInitialized",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141347-001-001-1",
+          "order_side": "BUY",
+          "order_type": "MARKET",
+          "quantity": "1.25",
+          "time_in_force": "FOK",
+          "post_only": false,
+          "reduce_only": false,
+          "quote_quantity": false,
+          "reconciliation": false,
+          "event_id": "99da8461-95a8-4bac-90f3-621f7b667264",
+          "ts_event": 1792937627170905000,
+          "ts_init": 1792937627170905000,
+          "price": null,
+          "activation_price": null,
+          "trigger_price": null,
+          "trigger_type": "NO_TRIGGER",
+          "limit_offset": null,
+          "trailing_offset": null,
+          "trailing_offset_type": "NO_TRAILING_OFFSET",
+          "expire_time": null,
+          "display_qty": null,
+          "emulation_trigger": "NO_TRIGGER",
+          "trigger_instrument_id": null,
+          "contingency_type": "NO_CONTINGENCY",
+          "order_list_id": null,
+          "linked_order_ids": null,
+          "parent_order_id": null,
+          "exec_algorithm_id": null,
+          "exec_algorithm_params": null,
+          "exec_spawn_id": null,
+          "tags": null
+        }
+      },
+      "observedNs": 1792937627171202000
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "Submitted": {
+          "type": "OrderSubmitted",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141347-001-001-1",
+          "account_id": "PREDICT-native-market-probe",
+          "event_id": "6a9ab995-750c-4ec1-9a12-366e23d751e6",
+          "ts_event": 1792937627171366000,
+          "ts_init": 1792937627171366000
+        }
+      },
+      "observedNs": 1792937627171482000
+    },
+    {
+      "type": "StrategyOrderAccepted",
+      "clientOrderId": "O-20261025-141347-001-001-1",
+      "observedNs": 1792937628016766000
+    },
+    {
+      "type": "NativeCancelRequested",
+      "clientOrderId": "O-20261025-141347-001-001-1",
+      "observedNs": 1792937628016801000
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "PendingCancel": {
+          "type": "OrderPendingCancel",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141347-001-001-1",
+          "account_id": "PREDICT-native-market-probe",
+          "event_id": "b19322f7-c132-4795-859e-6af8fcc6c652",
+          "ts_event": 1792937628016807000,
+          "ts_init": 1792937628016807000,
+          "reconciliation": false,
+          "venue_order_id": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227"
+        }
+      },
+      "observedNs": 1792937628016859000
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "Accepted": {
+          "type": "OrderAccepted",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141347-001-001-1",
+          "venue_order_id": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227",
+          "account_id": "PREDICT-native-market-probe",
+          "event_id": "319e3a94-da25-4f2a-a9f9-e9b91713594f",
+          "ts_event": 1792937627965000000,
+          "ts_init": 1792937628016499000,
+          "reconciliation": false
+        }
+      },
+      "observedNs": 1792937628016883000
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "Rejected": {
+          "type": "OrderRejected",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141347-001-001-1",
+          "account_id": "PREDICT-native-market-probe",
+          "reason": "Predict no market match",
+          "event_id": "388cd7d7-65ce-4dcd-a493-1189ad3db5f8",
+          "ts_event": 1792937628217000000,
+          "ts_init": 1792937628020576000,
+          "reconciliation": false,
+          "due_post_only": false
+        }
+      },
+      "observedNs": 1792937628020697000
+    },
+    {
+      "type": "NativeSubmitIntent",
+      "case": "base_gtc_zero",
+      "clientOrderId": "O-20261025-141348-001-001-2",
+      "orderType": "MARKET",
+      "timeInForce": "GTC",
+      "quantity": "1.25",
+      "quoteQuantity": false,
+      "market_price": "0.80",
+      "market_order_slippage_bps": 0,
+      "signedBound": "0.80",
+      "observedBid": "0.79",
+      "observedBidSize": "101.9100000000000000",
+      "observedAsk": "0.84",
+      "observedAskSize": "503.8095238095238000",
+      "quoteTsEvent": 1792937184990000000,
+      "quoteTsInit": 1792937627118792000,
+      "observedNs": 1792937628077195000,
+      "ofi": {
+        "definition": "L1 event OFI over five seconds, divided by mean L1 depth; not traded-volume OFI",
+        "events": 0,
+        "spanNs": 0,
+        "sumShares": "0",
+        "normalized": "0",
+        "eligible": false
+      }
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "Initialized": {
+          "type": "OrderInitialized",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141348-001-001-2",
+          "order_side": "BUY",
+          "order_type": "MARKET",
+          "quantity": "1.25",
+          "time_in_force": "GTC",
+          "post_only": false,
+          "reduce_only": false,
+          "quote_quantity": false,
+          "reconciliation": false,
+          "event_id": "c71467f9-4964-46d4-8517-b04a62173378",
+          "ts_event": 1792937628077187000,
+          "ts_init": 1792937628077187000,
+          "price": null,
+          "activation_price": null,
+          "trigger_price": null,
+          "trigger_type": "NO_TRIGGER",
+          "limit_offset": null,
+          "trailing_offset": null,
+          "trailing_offset_type": "NO_TRAILING_OFFSET",
+          "expire_time": null,
+          "display_qty": null,
+          "emulation_trigger": "NO_TRIGGER",
+          "trigger_instrument_id": null,
+          "contingency_type": "NO_CONTINGENCY",
+          "order_list_id": null,
+          "linked_order_ids": null,
+          "parent_order_id": null,
+          "exec_algorithm_id": null,
+          "exec_algorithm_params": null,
+          "exec_spawn_id": null,
+          "tags": null
+        }
+      },
+      "observedNs": 1792937628077291000
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "Submitted": {
+          "type": "OrderSubmitted",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141348-001-001-2",
+          "account_id": "PREDICT-native-market-probe",
+          "event_id": "47050797-27ea-412d-9b0a-409365cab45f",
+          "ts_event": 1792937628077426000,
+          "ts_init": 1792937628077426000
+        }
+      },
+      "observedNs": 1792937628077523000
+    },
+    {
+      "type": "StrategyOrderAccepted",
+      "clientOrderId": "O-20261025-141348-001-001-2",
+      "observedNs": 1792937630029014000
+    },
+    {
+      "type": "NativeCancelRequested",
+      "clientOrderId": "O-20261025-141348-001-001-2",
+      "observedNs": 1792937630029022000
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "PendingCancel": {
+          "type": "OrderPendingCancel",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141348-001-001-2",
+          "account_id": "PREDICT-native-market-probe",
+          "event_id": "63cc24be-4957-4729-b271-d323a16b57a5",
+          "ts_event": 1792937630029033000,
+          "ts_init": 1792937630029033000,
+          "reconciliation": false,
+          "venue_order_id": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb"
+        }
+      },
+      "observedNs": 1792937630029075000
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "Accepted": {
+          "type": "OrderAccepted",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141348-001-001-2",
+          "venue_order_id": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb",
+          "account_id": "PREDICT-native-market-probe",
+          "event_id": "eeb19547-c1c2-4c49-b915-d711ac608201",
+          "ts_event": 1792937629823000000,
+          "ts_init": 1792937630028646000,
+          "reconciliation": false
+        }
+      },
+      "observedNs": 1792937630029097000
+    },
+    {
+      "type": "NativeOrderEvent",
+      "event": {
+        "Rejected": {
+          "type": "OrderRejected",
+          "trader_id": "NATIVE-MARKET-001",
+          "strategy_id": "MARKET-PROBE-001",
+          "instrument_id": "2508071-1.PREDICT",
+          "client_order_id": "O-20261025-141348-001-001-2",
+          "account_id": "PREDICT-native-market-probe",
+          "reason": "Predict no market match",
+          "event_id": "7bb964e7-31a1-464a-a163-4b6318a0da78",
+          "ts_event": 1792937630074000000,
+          "ts_init": 1792937630028704000,
+          "reconciliation": false,
+          "due_post_only": false
+        }
+      },
+      "observedNs": 1792937630029156000
+    }
+  ],
+  "orders": [
+    {
+      "clientOrderId": "O-20261025-141347-001-001-1",
+      "venueOrderId": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227",
+      "status": "REJECTED",
+      "quantity": "1.25",
+      "filled": "0.00",
+      "events": [
+        {
+          "Initialized": {
+            "type": "OrderInitialized",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141347-001-001-1",
+            "order_side": "BUY",
+            "order_type": "MARKET",
+            "quantity": "1.25",
+            "time_in_force": "FOK",
+            "post_only": false,
+            "reduce_only": false,
+            "quote_quantity": false,
+            "reconciliation": false,
+            "event_id": "99da8461-95a8-4bac-90f3-621f7b667264",
+            "ts_event": 1792937627170905000,
+            "ts_init": 1792937627170905000,
+            "price": null,
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "expire_time": null,
+            "display_qty": null,
+            "emulation_trigger": "NO_TRIGGER",
+            "trigger_instrument_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "order_list_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "exec_algorithm_id": null,
+            "exec_algorithm_params": null,
+            "exec_spawn_id": null,
+            "tags": null
+          }
+        },
+        {
+          "Submitted": {
+            "type": "OrderSubmitted",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141347-001-001-1",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "6a9ab995-750c-4ec1-9a12-366e23d751e6",
+            "ts_event": 1792937627171366000,
+            "ts_init": 1792937627171366000
+          }
+        },
+        {
+          "Accepted": {
+            "type": "OrderAccepted",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141347-001-001-1",
+            "venue_order_id": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "319e3a94-da25-4f2a-a9f9-e9b91713594f",
+            "ts_event": 1792937627965000000,
+            "ts_init": 1792937628016499000,
+            "reconciliation": false
+          }
+        },
+        {
+          "PendingCancel": {
+            "type": "OrderPendingCancel",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141347-001-001-1",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "b19322f7-c132-4795-859e-6af8fcc6c652",
+            "ts_event": 1792937628016807000,
+            "ts_init": 1792937628016807000,
+            "reconciliation": false,
+            "venue_order_id": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227"
+          }
+        },
+        {
+          "Rejected": {
+            "type": "OrderRejected",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141347-001-001-1",
+            "account_id": "PREDICT-native-market-probe",
+            "reason": "Predict no market match",
+            "event_id": "388cd7d7-65ce-4dcd-a493-1189ad3db5f8",
+            "ts_event": 1792937628217000000,
+            "ts_init": 1792937628020576000,
+            "reconciliation": false,
+            "due_post_only": false
+          }
+        }
+      ]
+    },
+    {
+      "clientOrderId": "O-20261025-141348-001-001-2",
+      "venueOrderId": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb",
+      "status": "REJECTED",
+      "quantity": "1.25",
+      "filled": "0.00",
+      "events": [
+        {
+          "Initialized": {
+            "type": "OrderInitialized",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141348-001-001-2",
+            "order_side": "BUY",
+            "order_type": "MARKET",
+            "quantity": "1.25",
+            "time_in_force": "GTC",
+            "post_only": false,
+            "reduce_only": false,
+            "quote_quantity": false,
+            "reconciliation": false,
+            "event_id": "c71467f9-4964-46d4-8517-b04a62173378",
+            "ts_event": 1792937628077187000,
+            "ts_init": 1792937628077187000,
+            "price": null,
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "expire_time": null,
+            "display_qty": null,
+            "emulation_trigger": "NO_TRIGGER",
+            "trigger_instrument_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "order_list_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "exec_algorithm_id": null,
+            "exec_algorithm_params": null,
+            "exec_spawn_id": null,
+            "tags": null
+          }
+        },
+        {
+          "Submitted": {
+            "type": "OrderSubmitted",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141348-001-001-2",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "47050797-27ea-412d-9b0a-409365cab45f",
+            "ts_event": 1792937628077426000,
+            "ts_init": 1792937628077426000
+          }
+        },
+        {
+          "Accepted": {
+            "type": "OrderAccepted",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141348-001-001-2",
+            "venue_order_id": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "eeb19547-c1c2-4c49-b915-d711ac608201",
+            "ts_event": 1792937629823000000,
+            "ts_init": 1792937630028646000,
+            "reconciliation": false
+          }
+        },
+        {
+          "PendingCancel": {
+            "type": "OrderPendingCancel",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141348-001-001-2",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "63cc24be-4957-4729-b271-d323a16b57a5",
+            "ts_event": 1792937630029033000,
+            "ts_init": 1792937630029033000,
+            "reconciliation": false,
+            "venue_order_id": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb"
+          }
+        },
+        {
+          "Rejected": {
+            "type": "OrderRejected",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261025-141348-001-001-2",
+            "account_id": "PREDICT-native-market-probe",
+            "reason": "Predict no market match",
+            "event_id": "7bb964e7-31a1-464a-a163-4b6318a0da78",
+            "ts_event": 1792937630074000000,
+            "ts_init": 1792937630028704000,
+            "reconciliation": false,
+            "due_post_only": false
+          }
+        }
+      ]
+    }
+  ],
+  "complete": true,
+  "positions": [],
+  "hasFill": false
+}

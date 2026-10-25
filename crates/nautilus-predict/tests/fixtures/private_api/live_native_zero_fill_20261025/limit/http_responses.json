@@ -1,0 +1,217 @@
+{
+  "source": "official mainnet HTTP via test-only loopback relay; requests/responses forwarded unchanged, no POST retries",
+  "events": [
+    {
+      "observedAtUtc": "2026-10-25T14:04:49.459659+00:00",
+      "observedMonotonicNs": 33550452043291,
+      "method": "GET",
+      "path": "/v1/auth/message",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:04:50.196624+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:50.199049+00:00",
+      "observedMonotonicNs": 33551191427041,
+      "method": "POST",
+      "path": "/v1/auth",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:04:51.511029+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:51.518133+00:00",
+      "observedMonotonicNs": 33552510526833,
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:04:52.259296+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:52.260716+00:00",
+      "observedMonotonicNs": 33553253107500,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:04:53.002937+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:55.419203+00:00",
+      "observedMonotonicNs": 33556411632250,
+      "method": "GET",
+      "path": "/v1/account",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:04:55.763687+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:56.539911+00:00",
+      "observedMonotonicNs": 33557532341583,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:04:57.334899+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:57.966196+00:00",
+      "observedMonotonicNs": 33558958644583,
+      "method": "GET",
+      "path": "/v1/markets/52261",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:04:58.872794+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:59.006698+00:00",
+      "observedMonotonicNs": 33559999144375,
+      "method": "POST",
+      "path": "/v1/orders",
+      "status": 201,
+      "requestTerms": {
+        "salt": "790786039",
+        "nonce": "0",
+        "expiration": 1792937399,
+        "feeRateBps": "200",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "100000000000000000000",
+        "hash": "0x9c5736e4e7b00c08da9c323647084f9125697dffaa029c7fcdfa3d427ab21fa2"
+      },
+      "completedAtUtc": "2026-10-25T14:04:59.778870+00:00",
+      "responseBody": {
+        "data": {
+          "code": "OK",
+          "orderHash": "0x9c5736e4e7b00c08da9c323647084f9125697dffaa029c7fcdfa3d427ab21fa2",
+          "orderId": "6268346185",
+          "removalLockedUntil": null
+        },
+        "success": true
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:58.967754+00:00",
+      "observedMonotonicNs": 33559960202125,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:04:59.764131+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:04:59.966839+00:00",
+      "observedMonotonicNs": 33560959293500,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:05:00.292438+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:00.967800+00:00",
+      "observedMonotonicNs": 33561960267333,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:05:01.304366+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:01.778429+00:00",
+      "observedMonotonicNs": 33562770898541,
+      "method": "POST",
+      "path": "/v1/orders/remove",
+      "status": 200,
+      "requestIds": [
+        "6268346185"
+      ],
+      "removalIntent": true,
+      "completedAtUtc": "2026-10-25T14:05:02.520878+00:00",
+      "responseBody": {
+        "noop": [],
+        "rejected": [],
+        "removed": [
+          "6268346185"
+        ],
+        "success": true
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:02.529893+00:00",
+      "observedMonotonicNs": 33563522365666,
+      "method": "POST",
+      "path": "/v1/orders",
+      "status": 201,
+      "requestTerms": {
+        "salt": "1215277032",
+        "nonce": "0",
+        "expiration": 1792937402,
+        "feeRateBps": "200",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "50000000000000000000",
+        "hash": "0x6e7d04438db04cbb82299a7e8e12676ccefc1f945b0269c4b0cd31e7d35bdf34"
+      },
+      "completedAtUtc": "2026-10-25T14:05:03.668164+00:00",
+      "responseBody": {
+        "data": {
+          "code": "OK",
+          "orderHash": "0x6e7d04438db04cbb82299a7e8e12676ccefc1f945b0269c4b0cd31e7d35bdf34",
+          "orderId": "6268351340",
+          "removalLockedUntil": null
+        },
+        "success": true
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:01.967263+00:00",
+      "observedMonotonicNs": 33562959733958,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:05:02.702979+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:02.969757+00:00",
+      "observedMonotonicNs": 33563962253333,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:05:05.301181+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:05.379562+00:00",
+      "observedMonotonicNs": 33566372063791,
+      "method": "POST",
+      "path": "/v1/orders/remove",
+      "status": 200,
+      "requestIds": [
+        "6268351340"
+      ],
+      "removalIntent": true,
+      "completedAtUtc": "2026-10-25T14:05:06.270943+00:00",
+      "responseBody": {
+        "noop": [],
+        "rejected": [],
+        "removed": [
+          "6268351340"
+        ],
+        "success": true
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:05.304194+00:00",
+      "observedMonotonicNs": 33566296688458,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:05:06.138888+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:06.142217+00:00",
+      "observedMonotonicNs": 33567134720041,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:05:06.857306+00:00"
+    },
+    {
+      "observedAtUtc": "2026-10-25T14:05:23.979713+00:00",
+      "observedMonotonicNs": 33584972354458,
+      "method": "GET",
+      "path": "/v1/orders",
+      "status": 200,
+      "completedAtUtc": "2026-10-25T14:05:24.322960+00:00"
+    }
+  ]
+}

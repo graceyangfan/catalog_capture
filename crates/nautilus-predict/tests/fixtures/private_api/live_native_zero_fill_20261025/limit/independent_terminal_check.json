@@ -1,0 +1,21 @@
+{
+  "observedAtUtc": "2026-10-25T14:08:26.885517+00:00",
+  "source": "Independent read-only completion after collector ProxyError; not a replacement for its missing capture",
+  "orderWrites": 0,
+  "orders": [
+    {
+      "hash": "0x6e7d04438db04cbb82299a7e8e12676ccefc1f945b0269c4b0cd31e7d35bdf34",
+      "status": "CANCELLED",
+      "amountFilled": "0",
+      "orderHashMatches": true
+    },
+    {
+      "hash": "0x9c5736e4e7b00c08da9c323647084f9125697dffaa029c7fcdfa3d427ab21fa2",
+      "status": "CANCELLED",
+      "amountFilled": "0",
+      "orderHashMatches": true
+    }
+  ],
+  "openOrders": 0,
+  "runOpenOrders": 0
+}

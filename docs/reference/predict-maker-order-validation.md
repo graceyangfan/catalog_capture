@@ -60,6 +60,12 @@ contains a real post-only rejection; its subsequent SDK exit has separate proven
 A bounded read-only 500-market sample exposed no lock metadata; absent fields do
 not establish that no lock exists. No known positive-lock live case is claimed.
 
+The [Native zero-fill capsule](../../crates/nautilus-predict/tests/fixtures/private_api/live_native_zero_fill_20261025/README.md)
+records two post-only GTD orders, expected unsupported-modify rejections and two
+confirmed cancellations. Native callbacks and follow-up REST checks showed zero
+fills and zero OPEN orders, without fallback removal. The independent collector
+failed on its final read-only snapshot; that capture remains incomplete.
+
 ## Native callback and replacement verification
 
 ```bash

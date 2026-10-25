@@ -1,0 +1,147 @@
+[
+  {
+    "index": 0,
+    "passed": true,
+    "validationStartedAtUtc": "2026-10-25T14:13:47.172012+00:00",
+    "checks": {
+      "bounded_count": true,
+      "market_open": true,
+      "market_identity": true,
+      "price_gap": true,
+      "account": true,
+      "outcome": true,
+      "side": true,
+      "fee": true,
+      "amounts": true,
+      "strategy": true,
+      "reference": true,
+      "slippage": true,
+      "minimum_out": true,
+      "fok": true,
+      "no_post_only": true,
+      "expiration": true,
+      "hash": true,
+      "signature": true
+    },
+    "observedAsk": "0.84",
+    "case": {
+      "name": "base_fok_zero",
+      "bps": 0,
+      "fok": true,
+      "quote": false
+    },
+    "signedBound": "0.8",
+    "officialHelperFromRealBook": {
+      "pricePerShare": "840000000000000000",
+      "lastPrice": "840000000000000000",
+      "makerAmount": "1050000000000000000",
+      "takerAmount": "1250000000000000000",
+      "amount": "1250000000000000000",
+      "note": "Read-only comparison; not substituted into intentionally bounded probe"
+    },
+    "marketFlags": {
+      "isNegRisk": false,
+      "isYieldBearing": true,
+      "feeRateBps": 200
+    },
+    "verifyingContract": "0x6bEb5a40C032AFc305961162d8204CDA16DECFa5",
+    "request": {
+      "data": {
+        "pricePerShare": "800000000000000000",
+        "strategy": "MARKET",
+        "isFillOrKill": true,
+        "slippageBps": "0",
+        "isMinAmountOut": false,
+        "order": {
+          "salt": "1295637188",
+          "maker": "[redacted-address]",
+          "signer": "[redacted-address]",
+          "taker": "[redacted-address]",
+          "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868",
+          "makerAmount": "1000000000000000000",
+          "takerAmount": "1250000000000000000",
+          "expiration": 1792937927,
+          "nonce": "0",
+          "feeRateBps": "200",
+          "side": 0,
+          "signatureType": 0,
+          "hash": "0x333592c9559f4cba4a76f74526d39206bfe6f539501a0aa1b316a1baca435227",
+          "signature": "[redacted-signature]"
+        }
+      }
+    },
+    "validationCompletedAtUtc": "2026-10-25T14:13:47.501118+00:00"
+  },
+  {
+    "index": 1,
+    "passed": true,
+    "validationStartedAtUtc": "2026-10-25T14:13:48.078649+00:00",
+    "checks": {
+      "bounded_count": true,
+      "market_open": true,
+      "market_identity": true,
+      "price_gap": true,
+      "account": true,
+      "outcome": true,
+      "side": true,
+      "fee": true,
+      "amounts": true,
+      "strategy": true,
+      "reference": true,
+      "slippage": true,
+      "minimum_out": true,
+      "fok": true,
+      "no_post_only": true,
+      "expiration": true,
+      "hash": true,
+      "signature": true
+    },
+    "observedAsk": "0.84",
+    "case": {
+      "name": "base_gtc_zero",
+      "bps": 0,
+      "fok": false,
+      "quote": false
+    },
+    "signedBound": "0.8",
+    "officialHelperFromRealBook": {
+      "pricePerShare": "840000000000000000",
+      "lastPrice": "840000000000000000",
+      "makerAmount": "1050000000000000000",
+      "takerAmount": "1250000000000000000",
+      "amount": "1250000000000000000",
+      "note": "Read-only comparison; not substituted into intentionally bounded probe"
+    },
+    "marketFlags": {
+      "isNegRisk": false,
+      "isYieldBearing": true,
+      "feeRateBps": 200
+    },
+    "verifyingContract": "0x6bEb5a40C032AFc305961162d8204CDA16DECFa5",
+    "request": {
+      "data": {
+        "pricePerShare": "800000000000000000",
+        "strategy": "MARKET",
+        "slippageBps": "0",
+        "isMinAmountOut": false,
+        "order": {
+          "salt": "1293397486",
+          "maker": "[redacted-address]",
+          "signer": "[redacted-address]",
+          "taker": "[redacted-address]",
+          "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868",
+          "makerAmount": "1000000000000000000",
+          "takerAmount": "1250000000000000000",
+          "expiration": 1792937928,
+          "nonce": "0",
+          "feeRateBps": "200",
+          "side": 0,
+          "signatureType": 0,
+          "hash": "0x24ccd742c4bac383b575a5366d8d9c882b71a792cca3cf432a435652700679cb",
+          "signature": "[redacted-signature]"
+        }
+      }
+    },
+    "validationCompletedAtUtc": "2026-10-25T14:13:48.418967+00:00"
+  }
+]
