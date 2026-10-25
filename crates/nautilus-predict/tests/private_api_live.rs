@@ -21,6 +21,8 @@ mod discovery;
 mod fill_live;
 #[path = "support/fill_session.rs"]
 mod fill_session;
+#[path = "support/market_probe_live.rs"]
+mod market_probe_live;
 #[path = "support/node.rs"]
 mod node;
 #[path = "support/resting_live.rs"]
@@ -66,6 +68,109 @@ fn root() -> PathBuf {
 }
 fn operator_settings() -> anyhow::Result<PredictExecutionSettings> {
     PredictExecutionSettings::load(&root().join("env/predict-execution.toml"))
+}
+
+#[path = "support/history_survey.rs"]
+mod history_survey;
+
+#[tokio::test]
+#[ignore = "explicit bounded read-only survey through a write-blocking loopback relay"]
+async fn mainnet_record_order_lifecycle_survey_readonly() -> anyhow::Result<()> {
+    history_survey::run().await
+}
+
+#[tokio::test]
+#[ignore = "explicit read-only historical order recording through a write-blocking loopback relay"]
+async fn mainnet_record_historical_order_semantics_readonly() -> anyhow::Result<()> {
+    use nautilus_predict::signing::PredictOrderHasher;
+    use serde_json::{Value, json};
+    let origin = std::env::var("PREDICT_HISTORY_READONLY_HTTP_ORIGIN")?;
+    anyhow::ensure!(
+        origin.starts_with("http://127.0.0.1:"),
+        "history recorder requires loopback relay"
+    );
+    let output = std::env::var("PREDICT_HISTORY_READONLY_FEEDBACK")?;
+    let settings = operator_settings()?;
+    let wallet = settings.signer()?;
+    let mut config = settings.private_config()?;
+    config.base_url_http = Some(origin);
+    let session = nautilus_predict::http::PredictPrivateHttpClient::new(config)?
+        .authenticate(&wallet)
+        .await?;
+    session.request_account().await?;
+    let hasher = PredictOrderHasher::new(session.environment());
+    let matrix: Value = serde_json::from_str(include_str!(
+        "fixtures/private_api/market_parameter_matrix_no_match_20261024.json"
+    ))?;
+    let mut targets = matrix["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|case| case["request"]["isMinAmountOut"] != true)
+        .map(|case| {
+            (
+                case["name"].as_str().unwrap().to_owned(),
+                case["request"]["hash"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let atomic: Value = serde_json::from_str(include_str!(
+        "fixtures/private_api/native_market_filled_atomic_remainder_20261025.json"
+    ))?;
+    targets.push((
+        "native_buy_atomic_remainder".into(),
+        atomic["orderHash"].as_str().unwrap().into(),
+    ));
+    let full: Value = serde_json::from_str(include_str!(
+        "fixtures/private_api/native_non_fok_full_plan_two_settlements_20261025.json"
+    ))?;
+    targets.push((
+        "native_buy_full_plan".into(),
+        full["request"]["data"]["order"]["hash"]
+            .as_str()
+            .unwrap()
+            .into(),
+    ));
+    let exit = full["sdkExit"]["walletEvents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|event| event["orderHash"].as_str())
+        .ok_or_else(|| anyhow::anyhow!("recorded SELL hash missing"))?;
+    targets.push(("sdk_sell_full_plan".into(), exit.into()));
+    let mut feedback = json!({"source":"Read-only own-crate queries of nine previously recorded orders; raw HTTP retained independently by write-blocking relay",
+        "orderWrites":0,"chainWrites":0,"orders":[]});
+    for (name, hash) in targets {
+        let hash = hash.parse()?;
+        let result = session.request_order(hash).await;
+        let observation = match result {
+            Ok(row) => {
+                let exchange =
+                    nautilus_predict::common::contracts::PredictExchangeType::from_market_flags(
+                        row.is_neg_risk,
+                        row.is_yield_bearing,
+                    );
+                anyhow::ensure!(
+                    hasher.order_hash(&row.order.fields, exchange) == hash,
+                    "historical signed terms do not reproduce requested hash"
+                );
+                json!({"name":name,"hash":hash,"status":format!("{:?}",row.status),"strategy":format!("{:?}",row.strategy),
+                    "side":format!("{:?}",row.order.fields.side),"amount":row.amount,"amountFilled":row.amount_filled,
+                    "makerAmount":row.order.fields.maker_amount.to_string(),"takerAmount":row.order.fields.taker_amount.to_string(),
+                    "nativeHashVerified":true,"snapshotAtUtc":chrono::Utc::now().to_rfc3339()})
+            }
+            Err(error) => {
+                json!({"name":name,"hash":hash,"queryError":error.to_string(),"interpretation":"No inferred order outcome from a failed historical lookup"})
+            }
+        };
+        feedback["orders"].as_array_mut().unwrap().push(observation);
+        std::fs::write(&output, serde_json::to_vec_pretty(&feedback)?)?;
+    }
+    anyhow::ensure!(
+        feedback["orders"].as_array().unwrap().len() == 9,
+        "historical target count changed"
+    );
+    Ok(())
 }
 
 #[test]
@@ -274,7 +379,7 @@ async fn mainnet_privy_private_api_and_native_account_read_only() -> anyhow::Res
         ))
         .ok_or_else(|| anyhow::anyhow!("native position report task unavailable"))?;
     tokio::spawn(task.collection).await?;
-    let reports = task.result.await?;
+    let reports = (task.finish)()?;
     let cash = state
         .balances
         .iter()
@@ -560,7 +665,7 @@ async fn read_only_strategy_observation_with_reconciliation(
         .api_key
         .ok_or_else(|| anyhow::anyhow!("mainnet API key required"))?;
     anyhow::ensure!(
-        execution.submission.is_none(),
+        execution.submission_signer.is_none(),
         "read-only host must not install a submission signer"
     );
     let mut live = node::build_node_with_engine(
@@ -768,7 +873,7 @@ async fn mainnet_product_host_account_scope_read_only_capture() -> anyhow::Resul
     profile.node.exec_engine.reconciliation_startup_delay_secs = 0.0;
     profile.node.delay_post_stop = std::time::Duration::from_secs(1);
     anyhow::ensure!(
-        profile.predict.submission.is_none() && !profile.predict.orderbook_removal_enabled,
+        !profile.predict.submission_enabled && !profile.predict.orderbook_removal_enabled,
         "read-only profile required"
     );
     let key = settings

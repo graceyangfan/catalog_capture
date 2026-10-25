@@ -4,9 +4,9 @@ import json
 import os
 import re
 import threading
-from time import perf_counter_ns
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from time import monotonic_ns, perf_counter_ns
 from urllib.parse import urlsplit
 
 import requests
@@ -45,6 +45,7 @@ def receipt_evidence(payload, secrets):
         "removalLockedUntil",
         "removed",
         "noop",
+        "rejected",
     }
 
     def project(value):
@@ -108,7 +109,12 @@ class PrivateHttpRecorder:
     """Forwards unchanged requests once to a fixed HTTPS origin; never retries POST."""
 
     def __init__(
-        self, output, submission_policy=None, record_reads=False, measure_latency=False
+        self,
+        output,
+        submission_policy=None,
+        record_reads=False,
+        measure_latency=False,
+        full_responses=False,
     ):
         if output.exists():
             raise FileExistsError("refusing to replace retained HTTP evidence")
@@ -159,6 +165,7 @@ class PrivateHttpRecorder:
                 parsed = json.loads(body) if body else {}
                 event = {
                     "observedAtUtc": datetime.now(UTC).isoformat(),
+                    "observedMonotonicNs": monotonic_ns(),
                     "method": self.command,
                     "path": path,
                     "status": None,
@@ -171,6 +178,17 @@ class PrivateHttpRecorder:
                         and all(isinstance(x, str) and x.isdecimal() for x in ids)
                         else []
                     )
+                    # Preserve cancellation intent before I/O, including unknown
+                    # transport outcomes; a later wallet terminal is not proof
+                    # that the venue terminated the order without our request.
+                    event["removalIntent"] = True
+                    with recorder.lock:
+                        recorder.events.append(event)
+                        try:
+                            recorder.persist()
+                        except OSError:
+                            self.send_error(503)
+                            return
                 if self.command == "POST" and path == "/v1/orders":
                     data = parsed.get("data", {})
                     order = data.get("order", {})
@@ -255,9 +273,11 @@ class PrivateHttpRecorder:
                 except requests.RequestException:
                     with recorder.lock:
                         event["transportError"] = True
-                        if "requestTerms" not in event:
+                        if "requestTerms" not in event and not event.get(
+                            "removalIntent"
+                        ):
                             recorder.events.append(event)
-                        if not measure_latency:
+                        if not measure_latency or self.command == "POST":
                             recorder.persist()
                     self.send_error(502)
                     return
@@ -275,7 +295,11 @@ class PrivateHttpRecorder:
                     "/v1/orders",
                     "/v1/orders/remove",
                 }:
-                    event["responseBody"] = receipt_evidence(payload, secrets)
+                    event["responseBody"] = (
+                        read_response_evidence(payload, secrets)
+                        if full_responses
+                        else receipt_evidence(payload, secrets)
+                    )
                 if (
                     record_reads
                     and self.command == "GET"
@@ -283,11 +307,13 @@ class PrivateHttpRecorder:
                 ):
                     event["responseBody"] = read_response_evidence(payload, secrets)
                 with recorder.lock:
-                    if "requestTerms" not in event:
+                    if "requestTerms" not in event and not event.get("removalIntent"):
                         recorder.events.append(event)
                     if measure_latency:
                         event["relayBeforeResponseNs"] = perf_counter_ns() - started
-                    else:
+                    if not measure_latency or self.command == "POST":
+                        # Completed writes must survive a crash independently of
+                        # close(); initial intent alone is not the remote outcome.
                         recorder.persist()
                 self.send_response(response.status_code)
                 self.send_header(

@@ -302,7 +302,7 @@ async fn run_lifecycle(
         PredictEnvironment::BnbMainnet,
         format!("{}/rpc", private.http).into(),
     ));
-    assert!(cfg.submission.is_none() && !cfg.orderbook_removal_enabled);
+    assert!(cfg.submission_signer.is_none() && !cfg.orderbook_removal_enabled);
     if recover_and_cancel {
         cfg.orderbook_removal_enabled = true;
         cfg.reconnect_reconciliation_interval_secs = Some(1);
@@ -502,7 +502,7 @@ async fn run_lifecycle(
                 .send(Message::Close(None))
                 .unwrap();
             barrier(
-                "recovered external LIMIT is gated during disconnect",
+                "restored external LIMIT observes transport disconnect",
                 || {
                     !engine
                         .borrow()
@@ -516,29 +516,14 @@ async fn run_lifecycle(
                 private.state.sockets.lock().unwrap().len() > connections
             })
             .await;
-            barrier(
-                "QueryAccount verifies non-post-only LIMIT after native recovery",
-                || {
-                    let engine = engine.borrow();
-                    let client = engine.get_client(&ClientId::new("PREDICT")).unwrap();
-                    if recovery == RecoveryCheck::Purge && !client.is_connected() {
-                        // Manual hosts retry after reconnect; the client coalesces
-                        // queries while collection owns the recovery snapshot.
-                        client
-                            .query_account(QueryAccount::new(
-                                trader_id(),
-                                Some(ClientId::new("PREDICT")),
-                                account_id(),
-                                UUID4::new(),
-                                get_atomic_clock_realtime().get_time_ns(),
-                                None,
-                                None,
-                            ))
-                            .unwrap();
-                    }
-                    client.is_connected()
-                },
-            )
+            // A new server socket is not yet proof that the client's new epoch
+            // is installed. Use a same-socket round trip before explicit recovery.
+            wallet_processed(&private).await;
+            barrier("restored external LIMIT transport is authenticated", || {
+                let engine = engine.borrow();
+                let client = engine.get_client(&ClientId::new("PREDICT")).unwrap();
+                client.is_connected()
+            })
             .await;
             assert!(
                 !journal
@@ -572,13 +557,7 @@ async fn run_lifecycle(
                         .len(),
                     1
                 );
-                let before = cache
-                    .borrow()
-                    .account(&account_id())
-                    .unwrap()
-                    .last_event()
-                    .unwrap()
-                    .event_id;
+                let before = private.state.rpc_methods.lock().unwrap().len();
                 engine
                     .borrow()
                     .get_client(&ClientId::new("PREDICT"))
@@ -594,17 +573,8 @@ async fn run_lifecycle(
                     ))
                     .unwrap();
                 barrier(
-                    "entry retirement preserves current holding and active SELL",
-                    || {
-                        cache
-                            .borrow()
-                            .account(&account_id())
-                            .unwrap()
-                            .last_event()
-                            .unwrap()
-                            .event_id
-                            != before
-                    },
+                    "entry retirement preserves account refresh and active SELL",
+                    || private.state.rpc_methods.lock().unwrap().len() > before,
                 )
                 .await;
                 assert_eq!(
@@ -775,23 +745,26 @@ async fn run_lifecycle(
                 // Beyond Native retention, no local owner remains. Do not infer a fresh
                 // order/fill from a late message or create an adapter tombstone ledger.
                 private.wallet(late);
-                barrier(
-                    "purged unknown wallet identity gates rather than resurrecting order",
-                    || {
-                        engine
-                            .borrow()
-                            .get_client(&ClientId::new("PREDICT"))
-                            .unwrap()
-                            .submit_order(submissions::submit(&order(1)))
-                            .is_err_and(|e| e.to_string().contains("stream gap"))
-                    },
-                )
-                .await;
+                // A same-socket heartbeat proves the unknown late replay was consumed.
+                wallet_processed(&private).await;
+                assert!(
+                    engine
+                        .borrow()
+                        .get_client(&ClientId::new("PREDICT"))
+                        .unwrap()
+                        .is_connected()
+                );
+                assert!(
+                    cache
+                        .borrow()
+                        .orders(None, None, None, None, None)
+                        .is_empty()
+                );
                 journal
                     .borrow_mut()
                     .push(json!({"type":"NativeOrderContextsRetired",
                     "purgedNativeOrders":before,"remainingNativeOrders":0,"netPosition":"0",
-                    "locked":"0","lateUnknownMessageGated":true,"newOrders":0}));
+                    "locked":"0","lateUnknownMessageIgnored":true,"newOrders":0}));
             }
         }
         handle.stop();
@@ -1115,13 +1088,11 @@ async fn cold_reports_validate_external_identity_terms_and_complete_fills_before
     }
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 async fn exit_only_cold_start_adopts_existing_take_profit_without_buy_or_duplicate_exit() {
     run_case(true, false, false, true).await;
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "offline exit-only adoption JSON; create_new only"]
 async fn record_exit_only_cold_start() {

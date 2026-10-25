@@ -1,0 +1,566 @@
+{
+  "source": "actual readonly REST/RPC response JSON relayed unchanged to Rust; credential/profile redaction only in retained copy",
+  "transforms": [
+    "wallet and contract addresses anonymized, including query parameters and ABI calldata",
+    "signatures, JWT, authentication requests and account profile omitted",
+    "SDK hash verification performed before redaction"
+  ],
+  "events": [
+    {
+      "sequence": 0,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:51.462860+00:00",
+      "method": "GET",
+      "path": "/v1/auth/message",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "data": {
+          "message": "[redacted]"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:14:52.330665+00:00"
+    },
+    {
+      "sequence": 1,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:52.333944+00:00",
+      "method": "POST",
+      "path": "/v1/auth",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "authenticationBodyOmitted": true
+      },
+      "completedAtUtc": "2026-10-25T13:14:53.508054+00:00"
+    },
+    {
+      "sequence": 2,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:53.512113+00:00",
+      "method": "GET",
+      "path": "/v1/account",
+      "query": {},
+      "status": 200,
+      "responseBody": {
+        "success": true,
+        "data": {
+          "address": "0x0000000000000000000000000000000000000022"
+        },
+        "profileFieldsOmitted": true
+      },
+      "completedAtUtc": "2026-10-25T13:14:54.315173+00:00"
+    },
+    {
+      "sequence": 3,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:54.319357+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0xe39b0f0eda45035d652ed5495ba56451a77f1b6d20a00de07e03d7fc413ee22f",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "100000000000000000000",
+          "amountFilled": "0",
+          "currency": "USDT",
+          "id": "6189555484",
+          "isNegRisk": false,
+          "isYieldBearing": true,
+          "marketId": 2508071,
+          "order": {
+            "expiration": 1792850622,
+            "feeRateBps": "200",
+            "hash": "0xe39b0f0eda45035d652ed5495ba56451a77f1b6d20a00de07e03d7fc413ee22f",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "1000000000000000000",
+            "nonce": "0",
+            "salt": "654897777",
+            "side": 0,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868"
+          },
+          "rewardEarningRate": 0,
+          "status": "CANCELLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:14:55.929435+00:00"
+    },
+    {
+      "sequence": 4,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:55.931829+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0xb8988793fe6e801fa09f27acce8d30a152c0e814a194e7f2caec998d765ad0e5",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "100000000000000000000",
+          "amountFilled": "0",
+          "currency": "USDT",
+          "id": "6189556171",
+          "isNegRisk": false,
+          "isYieldBearing": true,
+          "marketId": 2508071,
+          "order": {
+            "expiration": 1792850623,
+            "feeRateBps": "200",
+            "hash": "0xb8988793fe6e801fa09f27acce8d30a152c0e814a194e7f2caec998d765ad0e5",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "1000000000000000000",
+            "nonce": "0",
+            "salt": "1693636077",
+            "side": 0,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868"
+          },
+          "rewardEarningRate": 0,
+          "status": "CANCELLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:14:56.831139+00:00"
+    },
+    {
+      "sequence": 5,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:56.834974+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0x23e828f2419d41750d3a3ddbd09160cc8ab6add5aacfa3a10cc83155e60aa5a9",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "100000000000000000000",
+          "amountFilled": "0",
+          "currency": "USDT",
+          "id": "6189557007",
+          "isNegRisk": false,
+          "isYieldBearing": true,
+          "marketId": 2508071,
+          "order": {
+            "expiration": 1792850624,
+            "feeRateBps": "200",
+            "hash": "0x23e828f2419d41750d3a3ddbd09160cc8ab6add5aacfa3a10cc83155e60aa5a9",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "1000000000000000000",
+            "nonce": "0",
+            "salt": "826035521",
+            "side": 0,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868"
+          },
+          "rewardEarningRate": 0,
+          "status": "CANCELLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:14:57.671473+00:00"
+    },
+    {
+      "sequence": 6,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:57.676130+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0xa0b6a7ae47b8de69831be5bfa0c22c155d8f654e786aca1fd88590ef13592209",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "100000000000000000000",
+          "amountFilled": "0",
+          "currency": "USDT",
+          "id": "6189560964",
+          "isNegRisk": false,
+          "isYieldBearing": true,
+          "marketId": 2508071,
+          "order": {
+            "expiration": 1792850627,
+            "feeRateBps": "200",
+            "hash": "0xa0b6a7ae47b8de69831be5bfa0c22c155d8f654e786aca1fd88590ef13592209",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "1000000000000000000",
+            "nonce": "0",
+            "salt": "596504802",
+            "side": 0,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868"
+          },
+          "rewardEarningRate": 0,
+          "status": "CANCELLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:14:58.874673+00:00"
+    },
+    {
+      "sequence": 7,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:58.876088+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0x5bc80149cdfee0a2e66250fc92fbce9ac0ec5b1914a20120a6e505c62322dac5",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "100000000000000000000",
+          "amountFilled": "0",
+          "currency": "USDT",
+          "id": "6189561827",
+          "isNegRisk": false,
+          "isYieldBearing": true,
+          "marketId": 2508071,
+          "order": {
+            "expiration": 1792850628,
+            "feeRateBps": "200",
+            "hash": "0x5bc80149cdfee0a2e66250fc92fbce9ac0ec5b1914a20120a6e505c62322dac5",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "1000000000000000000",
+            "nonce": "0",
+            "salt": "371380201",
+            "side": 0,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868"
+          },
+          "rewardEarningRate": 0,
+          "status": "CANCELLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:14:59.707224+00:00"
+    },
+    {
+      "sequence": 8,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:14:59.711643+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0x488b362a001777a3888b493d58240c3b9fad679eebe8f8ff2b3bd312c51ea873",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "50000000000000000000",
+          "amountFilled": "0",
+          "currency": "USDT",
+          "id": "6189562818",
+          "isNegRisk": false,
+          "isYieldBearing": true,
+          "marketId": 2508071,
+          "order": {
+            "expiration": 1792850629,
+            "feeRateBps": "200",
+            "hash": "0x488b362a001777a3888b493d58240c3b9fad679eebe8f8ff2b3bd312c51ea873",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "1000000000000000000",
+            "nonce": "0",
+            "salt": "972747053",
+            "side": 0,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "50000000000000000000",
+            "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868"
+          },
+          "rewardEarningRate": 0,
+          "status": "CANCELLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:15:01.189882+00:00"
+    },
+    {
+      "sequence": 9,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:15:01.195223+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0xfff9420c5f1ff2da006eb09bb30a08d8119364af03e5c30e0b90b46c25950581",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "7650000000000000000",
+          "amountFilled": "7649999999999999999",
+          "currency": "USDT",
+          "id": "6253307486",
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "marketId": 3736304,
+          "order": {
+            "expiration": 1792918866,
+            "feeRateBps": "200",
+            "hash": "0xfff9420c5f1ff2da006eb09bb30a08d8119364af03e5c30e0b90b46c25950581",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "1989000000000000000",
+            "nonce": "0",
+            "salt": "2019369706",
+            "side": 0,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "7650000000000000000",
+            "tokenId": "108534050325035373170665696270833566584770316601881259742345020393148041224641"
+          },
+          "rewardEarningRate": 0,
+          "status": "FILLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:15:02.382410+00:00"
+    },
+    {
+      "sequence": 10,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:15:02.383816+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "5830000000000000000",
+          "amountFilled": "5830000000000000000",
+          "currency": "USDT",
+          "id": "6249650751",
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "marketId": 3734852,
+          "order": {
+            "expiration": 1792913291,
+            "feeRateBps": "200",
+            "hash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "1399200000000000000",
+            "nonce": "0",
+            "salt": "243658872",
+            "side": 0,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "5830000000000000000",
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668"
+          },
+          "rewardEarningRate": 0,
+          "status": "FILLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:15:03.582969+00:00"
+    },
+    {
+      "sequence": 11,
+      "phase": "historical-order-query",
+      "startedAtUtc": "2026-10-25T13:15:03.584546+00:00",
+      "method": "GET",
+      "path": "/v1/orders/0x0bc04d9a2b2c7f562f29037823452c5b07d83cecdc92a51c3da0df444f70f30a",
+      "query": {},
+      "status": 200,
+      "officialSdkHashVerifiedBeforeRedaction": true,
+      "responseBody": {
+        "data": {
+          "amount": "5713400000000000000",
+          "amountFilled": "5713400000000000000",
+          "currency": "USDT",
+          "id": "6249655469",
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "marketId": 3734852,
+          "order": {
+            "expiration": 1792913299,
+            "feeRateBps": "200",
+            "hash": "0x0bc04d9a2b2c7f562f29037823452c5b07d83cecdc92a51c3da0df444f70f30a",
+            "maker": "0x0000000000000000000000000000000000000022",
+            "makerAmount": "5713400000000000000",
+            "nonce": "0",
+            "salt": "1909468621",
+            "side": 1,
+            "signature": "redacted-signature",
+            "signatureType": 0,
+            "signer": "0x0000000000000000000000000000000000000022",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "takerAmount": "1163819580000000000",
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668"
+          },
+          "rewardEarningRate": 0,
+          "status": "FILLED",
+          "strategy": "MARKET"
+        },
+        "success": true
+      },
+      "completedAtUtc": "2026-10-25T13:15:04.426947+00:00"
+    }
+  ],
+  "rustFeedback": {
+    "source": "Read-only own-crate queries of nine previously recorded orders; raw HTTP retained independently by write-blocking relay",
+    "orderWrites": 0,
+    "chainWrites": 0,
+    "orders": [
+      {
+        "name": "baseline_fok",
+        "hash": "0xe39b0f0eda45035d652ed5495ba56451a77f1b6d20a00de07e03d7fc413ee22f",
+        "status": "Cancelled",
+        "strategy": "Market",
+        "side": "Buy",
+        "amount": "100000000000000000000",
+        "amountFilled": "0",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "100000000000000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:14:55.930248+00:00"
+      },
+      {
+        "name": "fok_omitted",
+        "hash": "0xb8988793fe6e801fa09f27acce8d30a152c0e814a194e7f2caec998d765ad0e5",
+        "status": "Cancelled",
+        "strategy": "Market",
+        "side": "Buy",
+        "amount": "100000000000000000000",
+        "amountFilled": "0",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "100000000000000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:14:56.831756+00:00"
+      },
+      {
+        "name": "fok_false",
+        "hash": "0x23e828f2419d41750d3a3ddbd09160cc8ab6add5aacfa3a10cc83155e60aa5a9",
+        "status": "Cancelled",
+        "strategy": "Market",
+        "side": "Buy",
+        "amount": "100000000000000000000",
+        "amountFilled": "0",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "100000000000000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:14:57.672320+00:00"
+      },
+      {
+        "name": "slippage_omitted",
+        "hash": "0xa0b6a7ae47b8de69831be5bfa0c22c155d8f654e786aca1fd88590ef13592209",
+        "status": "Cancelled",
+        "strategy": "Market",
+        "side": "Buy",
+        "amount": "100000000000000000000",
+        "amountFilled": "0",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "100000000000000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:14:58.874950+00:00"
+      },
+      {
+        "name": "minimum_out_omitted",
+        "hash": "0x5bc80149cdfee0a2e66250fc92fbce9ac0ec5b1914a20120a6e505c62322dac5",
+        "status": "Cancelled",
+        "strategy": "Market",
+        "side": "Buy",
+        "amount": "100000000000000000000",
+        "amountFilled": "0",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "100000000000000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:14:59.708020+00:00"
+      },
+      {
+        "name": "price_quantity_pair",
+        "hash": "0x488b362a001777a3888b493d58240c3b9fad679eebe8f8ff2b3bd312c51ea873",
+        "status": "Cancelled",
+        "strategy": "Market",
+        "side": "Buy",
+        "amount": "50000000000000000000",
+        "amountFilled": "0",
+        "makerAmount": "1000000000000000000",
+        "takerAmount": "50000000000000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:15:01.191076+00:00"
+      },
+      {
+        "name": "native_buy_atomic_remainder",
+        "hash": "0xfff9420c5f1ff2da006eb09bb30a08d8119364af03e5c30e0b90b46c25950581",
+        "status": "Filled",
+        "strategy": "Market",
+        "side": "Buy",
+        "amount": "7650000000000000000",
+        "amountFilled": "7649999999999999999",
+        "makerAmount": "1989000000000000000",
+        "takerAmount": "7650000000000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:15:02.382730+00:00"
+      },
+      {
+        "name": "native_buy_full_plan",
+        "hash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+        "status": "Filled",
+        "strategy": "Market",
+        "side": "Buy",
+        "amount": "5830000000000000000",
+        "amountFilled": "5830000000000000000",
+        "makerAmount": "1399200000000000000",
+        "takerAmount": "5830000000000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:15:03.583283+00:00"
+      },
+      {
+        "name": "sdk_sell_full_plan",
+        "hash": "0x0bc04d9a2b2c7f562f29037823452c5b07d83cecdc92a51c3da0df444f70f30a",
+        "status": "Filled",
+        "strategy": "Market",
+        "side": "Sell",
+        "amount": "5713400000000000000",
+        "amountFilled": "5713400000000000000",
+        "makerAmount": "5713400000000000000",
+        "takerAmount": "1163819580000000000",
+        "nativeHashVerified": true,
+        "snapshotAtUtc": "2026-10-25T13:15:04.427366+00:00"
+      }
+    ]
+  },
+  "passed": true,
+  "orderWrites": 0,
+  "chainWrites": 0,
+  "nativeDependencyModified": false,
+  "recordingLogicModified": false,
+  "sourceCapture": "data/predict-validation/order_history_readonly_20261025T131449914965Z/http_responses.json",
+  "sourceSHA256": "b6db065303185898519b3b13bef1816059f4f586772d35c5eb13a5c1538eea60"
+}

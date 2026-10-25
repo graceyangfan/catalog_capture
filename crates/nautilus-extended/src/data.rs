@@ -177,24 +177,34 @@ impl ExtendedDataClient {
     fn subscribe_topic(
         &self,
         kind: ExtendedDataKind,
-        instrument_id: InstrumentId,
+        instrument_ids: &[InstrumentId],
     ) -> anyhow::Result<()> {
-        self.require_instrument(instrument_id)?;
-        self.send_command(ExtendedCommand::Subscribe(ExtendedTopic::new(
-            kind,
-            instrument_id,
-        )?))
+        let topics = instrument_ids
+            .iter()
+            .map(|&id| {
+                self.require_instrument(id)?;
+                ExtendedTopic::new(kind, id)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for topic in topics {
+            self.send_command(ExtendedCommand::Subscribe(topic))?;
+        }
+        Ok(())
     }
 
     fn unsubscribe_topic(
         &self,
         kind: ExtendedDataKind,
-        instrument_id: InstrumentId,
+        instrument_ids: &[InstrumentId],
     ) -> anyhow::Result<()> {
-        self.send_command(ExtendedCommand::Unsubscribe(ExtendedTopic::new(
-            kind,
-            instrument_id,
-        )?))
+        let topics = instrument_ids
+            .iter()
+            .map(|&id| ExtendedTopic::new(kind, id))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for topic in topics {
+            self.send_command(ExtendedCommand::Unsubscribe(topic))?;
+        }
+        Ok(())
     }
 
     fn require_instrument(&self, instrument_id: InstrumentId) -> anyhow::Result<InstrumentAny> {
@@ -297,8 +307,14 @@ impl DataClient for ExtendedDataClient {
     }
 
     fn subscribe_instrument(&mut self, subscription: SubscribeInstrument) -> anyhow::Result<()> {
-        let instrument = self.require_instrument(subscription.instrument_id)?;
-        self.data_sender.send(DataEvent::Instrument(instrument))?;
+        let instruments = subscription
+            .instrument_ids
+            .into_iter()
+            .map(|id| self.require_instrument(id))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for instrument in instruments {
+            self.data_sender.send(DataEvent::Instrument(instrument))?;
+        }
         Ok(())
     }
 
@@ -318,57 +334,60 @@ impl DataClient for ExtendedDataClient {
             subscription.depth.is_none(),
             "Extended full L2 does not support a finite depth selector",
         );
-        self.subscribe_topic(ExtendedDataKind::OrderBook, subscription.instrument_id)
+        self.subscribe_topic(ExtendedDataKind::OrderBook, &subscription.instrument_ids)
     }
 
     fn unsubscribe_book_deltas(
         &mut self,
         unsubscription: &UnsubscribeBookDeltas,
     ) -> anyhow::Result<()> {
-        self.unsubscribe_topic(ExtendedDataKind::OrderBook, unsubscription.instrument_id)
+        self.unsubscribe_topic(ExtendedDataKind::OrderBook, &unsubscription.instrument_ids)
     }
 
     fn subscribe_trades(&mut self, subscription: SubscribeTrades) -> anyhow::Result<()> {
-        self.subscribe_topic(ExtendedDataKind::Trades, subscription.instrument_id)
+        self.subscribe_topic(ExtendedDataKind::Trades, &subscription.instrument_ids)
     }
 
     fn unsubscribe_trades(&mut self, unsubscription: &UnsubscribeTrades) -> anyhow::Result<()> {
-        self.unsubscribe_topic(ExtendedDataKind::Trades, unsubscription.instrument_id)
+        self.unsubscribe_topic(ExtendedDataKind::Trades, &unsubscription.instrument_ids)
     }
 
     fn subscribe_mark_prices(&mut self, subscription: SubscribeMarkPrices) -> anyhow::Result<()> {
-        self.subscribe_topic(ExtendedDataKind::MarkPrice, subscription.instrument_id)
+        self.subscribe_topic(ExtendedDataKind::MarkPrice, &subscription.instrument_ids)
     }
 
     fn unsubscribe_mark_prices(
         &mut self,
         unsubscription: &UnsubscribeMarkPrices,
     ) -> anyhow::Result<()> {
-        self.unsubscribe_topic(ExtendedDataKind::MarkPrice, unsubscription.instrument_id)
+        self.unsubscribe_topic(ExtendedDataKind::MarkPrice, &unsubscription.instrument_ids)
     }
 
     fn subscribe_index_prices(&mut self, subscription: SubscribeIndexPrices) -> anyhow::Result<()> {
-        self.subscribe_topic(ExtendedDataKind::IndexPrice, subscription.instrument_id)
+        self.subscribe_topic(ExtendedDataKind::IndexPrice, &subscription.instrument_ids)
     }
 
     fn unsubscribe_index_prices(
         &mut self,
         unsubscription: &UnsubscribeIndexPrices,
     ) -> anyhow::Result<()> {
-        self.unsubscribe_topic(ExtendedDataKind::IndexPrice, unsubscription.instrument_id)
+        self.unsubscribe_topic(ExtendedDataKind::IndexPrice, &unsubscription.instrument_ids)
     }
 
     fn subscribe_funding_rates(
         &mut self,
         subscription: SubscribeFundingRates,
     ) -> anyhow::Result<()> {
-        self.subscribe_topic(ExtendedDataKind::FundingRate, subscription.instrument_id)
+        self.subscribe_topic(ExtendedDataKind::FundingRate, &subscription.instrument_ids)
     }
 
     fn unsubscribe_funding_rates(
         &mut self,
         unsubscription: &UnsubscribeFundingRates,
     ) -> anyhow::Result<()> {
-        self.unsubscribe_topic(ExtendedDataKind::FundingRate, unsubscription.instrument_id)
+        self.unsubscribe_topic(
+            ExtendedDataKind::FundingRate,
+            &unsubscription.instrument_ids,
+        )
     }
 }

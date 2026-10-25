@@ -123,18 +123,29 @@ impl LighterBinaryDataClient {
         })
     }
 
-    fn subscribe_topic(&self, kind: Kind, instrument_id: InstrumentId) -> anyhow::Result<()> {
-        self.require_instrument(instrument_id)?;
-        self.send_command(Command::Subscribe(Topic {
-            kind,
-            market: market_id(instrument_id)?,
-        }))
+    fn subscribe_topic(&self, kind: Kind, instrument_ids: &[InstrumentId]) -> anyhow::Result<()> {
+        let markets = instrument_ids
+            .iter()
+            .map(|&id| {
+                self.require_instrument(id)?;
+                market_id(id)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for market in markets {
+            self.send_command(Command::Subscribe(Topic { kind, market }))?;
+        }
+        Ok(())
     }
-    fn unsubscribe_topic(&self, kind: Kind, instrument_id: InstrumentId) -> anyhow::Result<()> {
-        self.send_command(Command::Unsubscribe(Topic {
-            kind,
-            market: market_id(instrument_id)?,
-        }))
+
+    fn unsubscribe_topic(&self, kind: Kind, instrument_ids: &[InstrumentId]) -> anyhow::Result<()> {
+        let markets = instrument_ids
+            .iter()
+            .map(|&id| market_id(id))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for market in markets {
+            self.send_command(Command::Unsubscribe(Topic { kind, market }))?;
+        }
+        Ok(())
     }
 
     fn require_instrument(&self, instrument_id: InstrumentId) -> anyhow::Result<InstrumentAny> {
@@ -349,7 +360,9 @@ impl DataClient for LighterBinaryDataClient {
                 }
                 Err(error) => {
                     log::warn!("Lighter universe discovery failed: {error:#}");
-                    response_params.insert("lighter_error".into(), serde_json::json!(format!("{error:#}")));
+                    let mut params = indexmap::IndexMap::clone(&response_params);
+                    params.insert("lighter_error".into(), serde_json::json!(format!("{error:#}")));
+                    response_params = nautilus_core::Params::new(params);
                     Vec::new()
                 }
             };
@@ -372,13 +385,14 @@ impl DataClient for LighterBinaryDataClient {
             request.client_id.is_none_or(|id| id == self.client_id),
             "instrument request targets another client"
         );
-        let instrument = self.require_instrument(request.instrument_id)?;
+        let instrument_id = request.single_instrument_id()?;
+        let instrument = self.require_instrument(instrument_id)?;
         self.data_sender
             .send(DataEvent::Response(DataResponse::Instrument(Box::new(
                 InstrumentResponse::new(
                     request.request_id,
                     self.client_id,
-                    request.instrument_id,
+                    instrument_id,
                     instrument,
                     nautilus_core::datetime::datetime_to_unix_nanos(request.start),
                     nautilus_core::datetime::datetime_to_unix_nanos(request.end),
@@ -390,22 +404,37 @@ impl DataClient for LighterBinaryDataClient {
     }
 
     fn subscribe_instrument(&mut self, subscription: SubscribeInstrument) -> anyhow::Result<()> {
-        let instrument = self.require_instrument(subscription.instrument_id)?;
-        self.data_sender.send(DataEvent::Instrument(instrument))?;
-        self.send_command(Command::Definition {
-            market: market_id(subscription.instrument_id)?,
-            subscribe: true,
-        })
+        let definitions = subscription
+            .instrument_ids
+            .iter()
+            .map(|&id| Ok((self.require_instrument(id)?, market_id(id)?)))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for (instrument, market) in definitions {
+            self.data_sender.send(DataEvent::Instrument(instrument))?;
+            self.send_command(Command::Definition {
+                market,
+                subscribe: true,
+            })?;
+        }
+        Ok(())
     }
 
     fn unsubscribe_instrument(
         &mut self,
         unsubscription: &UnsubscribeInstrument,
     ) -> anyhow::Result<()> {
-        self.send_command(Command::Definition {
-            market: market_id(unsubscription.instrument_id)?,
-            subscribe: false,
-        })
+        let markets = unsubscription
+            .instrument_ids
+            .iter()
+            .map(|&id| market_id(id))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for market in markets {
+            self.send_command(Command::Definition {
+                market,
+                subscribe: false,
+            })?;
+        }
+        Ok(())
     }
 
     fn subscribe_book_deltas(&mut self, subscription: SubscribeBookDeltas) -> anyhow::Result<()> {
@@ -417,33 +446,33 @@ impl DataClient for LighterBinaryDataClient {
             subscription.depth.is_none(),
             "LighterBinary full L2 does not support a finite depth selector",
         );
-        self.subscribe_topic(Kind::Book, subscription.instrument_id)
+        self.subscribe_topic(Kind::Book, &subscription.instrument_ids)
     }
 
     fn unsubscribe_book_deltas(
         &mut self,
         unsubscription: &UnsubscribeBookDeltas,
     ) -> anyhow::Result<()> {
-        self.unsubscribe_topic(Kind::Book, unsubscription.instrument_id)
+        self.unsubscribe_topic(Kind::Book, &unsubscription.instrument_ids)
     }
 
     fn subscribe_trades(&mut self, subscription: SubscribeTrades) -> anyhow::Result<()> {
-        self.subscribe_topic(Kind::Trades, subscription.instrument_id)
+        self.subscribe_topic(Kind::Trades, &subscription.instrument_ids)
     }
 
     fn unsubscribe_trades(&mut self, unsubscription: &UnsubscribeTrades) -> anyhow::Result<()> {
-        self.unsubscribe_topic(Kind::Trades, unsubscription.instrument_id)
+        self.unsubscribe_topic(Kind::Trades, &unsubscription.instrument_ids)
     }
 
     fn subscribe_index_prices(&mut self, subscription: SubscribeIndexPrices) -> anyhow::Result<()> {
-        self.subscribe_topic(Kind::Oracle, subscription.instrument_id)
+        self.subscribe_topic(Kind::Oracle, &subscription.instrument_ids)
     }
 
     fn unsubscribe_index_prices(
         &mut self,
         unsubscription: &UnsubscribeIndexPrices,
     ) -> anyhow::Result<()> {
-        self.unsubscribe_topic(Kind::Oracle, unsubscription.instrument_id)
+        self.unsubscribe_topic(Kind::Oracle, &unsubscription.instrument_ids)
     }
 
     fn subscribe(&mut self, cmd: SubscribeCustomData) -> anyhow::Result<()> {
@@ -452,7 +481,7 @@ impl DataClient for LighterBinaryDataClient {
             .contexts
             .get_cloned(&market)
             .context("OI market is not configured")?;
-        self.subscribe_topic(Kind::OpenInterest, context.instrument.id())
+        self.subscribe_topic(Kind::OpenInterest, &[context.instrument.id()])
     }
     fn unsubscribe(&mut self, cmd: &UnsubscribeCustomData) -> anyhow::Result<()> {
         let market = open_interest_market(&cmd.data_type)?;

@@ -926,18 +926,22 @@ impl CatalogCaptureActor {
 /// ID that the adapter discovers at runtime. This is a message-bus subscription only, never an
 /// adapter command.
 fn predict_dynamic_output_data_type(selector_key: &CryptoUpDownSelectorKey) -> DataType {
-    let mut metadata = Params::new();
-    metadata.insert(
-        PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
-        selector_key.price_feed_symbol().to_string().into(),
-    );
-    metadata.insert(
-        PREDICT_SELECTOR_TITLE_ASSET.to_string(),
-        selector_key.title_asset().to_string().into(),
-    );
-    metadata.insert(
-        PREDICT_SELECTOR_INTERVAL_SECS.to_string(),
-        selector_key.interval_secs().to_string().into(),
+    let metadata = Params::new(
+        [
+            (
+                PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
+                selector_key.price_feed_symbol().to_string().into(),
+            ),
+            (
+                PREDICT_SELECTOR_TITLE_ASSET.to_string(),
+                selector_key.title_asset().to_string().into(),
+            ),
+            (
+                PREDICT_SELECTOR_INTERVAL_SECS.to_string(),
+                selector_key.interval_secs().to_string().into(),
+            ),
+        ]
+        .into(),
     );
     DataType::new("PredictOrderbookSnapshot", Some(metadata), None)
 }
@@ -965,13 +969,17 @@ mod tests {
         assert_eq!(output.type_name(), "PredictOrderbookSnapshot");
         assert_eq!(output.identifier(), None);
 
-        let mut metadata = Params::new();
-        metadata.insert(
-            PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
-            "BTCUSDT".into(),
+        let metadata = Params::new(
+            [
+                (
+                    PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
+                    "BTCUSDT".into(),
+                ),
+                (PREDICT_SELECTOR_TITLE_ASSET.to_string(), "bitcoin".into()),
+                (PREDICT_SELECTOR_INTERVAL_SECS.to_string(), "300".into()),
+            ]
+            .into(),
         );
-        metadata.insert(PREDICT_SELECTOR_TITLE_ASSET.to_string(), "bitcoin".into());
-        metadata.insert(PREDICT_SELECTOR_INTERVAL_SECS.to_string(), "300".into());
         let concrete = DataType::new(
             "PredictOrderbookSnapshot",
             Some(metadata),

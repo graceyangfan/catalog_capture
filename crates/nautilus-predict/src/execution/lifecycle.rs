@@ -54,7 +54,7 @@ pub(super) struct OrderLookups {
         >,
     >,
     rest_order_ids: super::routing::RestOrderIds,
-    reconciliation_required: Arc<std::sync::atomic::AtomicBool>,
+    account_refresh_required: Arc<std::sync::atomic::AtomicBool>,
     cursor: std::rc::Rc<std::cell::Cell<(usize, usize)>>,
 }
 
@@ -241,6 +241,7 @@ impl PredictExecutionClient {
                             previous.as_deref(),
                         ));
                         if order.is_closed() {
+                            sync.order_status_requests.remove(&order.client_order_id());
                             pending_cancels
                                 .lock()
                                 .expect("pending cancels poisoned")
@@ -250,12 +251,13 @@ impl PredictExecutionClient {
                             .lock()
                             .expect("order snapshots poisoned")
                             .insert(order.client_order_id(), Arc::clone(&order));
-                        if matches!(event, OrderEventAny::Filled(_))
+                        if (matches!(event, OrderEventAny::Filled(_))
+                            || matches!(event, OrderEventAny::Updated(update) if update.reconciliation))
                             && order.status() == nautilus_model::enums::OrderStatus::Filled
                             && !account::is_synthetic_order(&order)
                             && let Some(id) = order.venue_order_id().or(registered)
                         {
-                            // A complete confirmed fill retires a stale OPEN reservation without a GET.
+                            // Confirmed fills or a terminal reconciliation retire a stale OPEN reservation.
                             sync.confirmed_terminal.insert(id);
                         }
                         if order.is_closed() {
@@ -391,7 +393,7 @@ impl PredictExecutionClient {
             fill_evidence: self.fill_evidence.clone(),
             instruments: self.instruments.clone(),
             rest_order_ids: self.rest_order_ids.clone(),
-            reconciliation_required: self.reconciliation_required.clone(),
+            account_refresh_required: self.account_refresh_required.clone(),
             cursor: self.cleanup_cursor.clone(),
         }
     }
@@ -523,7 +525,7 @@ impl PredictExecutionClient {
         ws.wait_until_subscribed().await?;
         self.wallet_auth = Some(ws.authentication_tracker());
         self.wallet_epoch = Some(ws.connection_epoch_handle());
-        self.verified_epoch.store(0, Ordering::Release);
+        self.refreshed_epoch.store(0, Ordering::Release);
         // Preserve ambiguous identities/budgets, but never reuse another transport's live-fill marker.
         for entry in self
             .pending_submissions
@@ -534,8 +536,8 @@ impl PredictExecutionClient {
         {
             entry.wallet_epoch = None;
         }
-        // A new transport restarts its epoch at zero. Nonces belong to this
-        // connection setup, not to an equal counter from a previous connection.
+        // Explicit connection setup starts fresh account/signing observations.
+        // Automatic WS reconnect keeps this client generation and its valid nonces.
         self.account_sync
             .state
             .lock()
@@ -545,17 +547,18 @@ impl PredictExecutionClient {
         self.start_recovery_timer()?;
         if self.config.account_state_mode == PredictAccountStateMode::Reported {
             let reporter = self.account_reporter()?;
+            let (reported, ()) = tokio::try_join!(reporter.refresh(), reporter.refresh_nonces())?;
             anyhow::ensure!(
-                reporter.refresh().await?,
+                reported,
                 "Predict native account context changed during initialization"
             );
             self.await_account_registered().await?;
-            self.account_task = Some(self.tasks.spawn_named(
+            self.tasks.spawn_named(
                 "predict-account-reports",
                 account::run(reporter, self.tasks.cancellation_token()),
-            )?);
+            )?;
         }
-        if self.config.submission.is_some() {
+        if self.config.submission_signer.is_some() {
             let epoch = self.wallet_epoch.as_ref().expect("wallet connected");
             super::metadata::prepare(&self.config, &self.instruments, self.clock, epoch).await;
             self.tasks.spawn_named(
@@ -591,7 +594,7 @@ impl PredictExecutionClient {
                     sync: Arc::clone(&self.account_sync),
                     pending: Arc::clone(&self.pending_submissions),
                     fill_evidence: Arc::clone(&self.fill_evidence),
-                    reconciliation_required: Arc::clone(&self.reconciliation_required),
+                    account_refresh_required: Arc::clone(&self.account_refresh_required),
                     allow_share_fees: self.config.account_state_mode
                         == PredictAccountStateMode::Reported,
                     emitter: self.emitter.clone(),
@@ -599,7 +602,7 @@ impl PredictExecutionClient {
                     wallet: self.config.session.account_address(),
                     clock: self.clock,
                     latency: self.config.latency.clone(),
-                    settlement_sender: self.settlement_sender.clone(),
+                    data_sender: self.data_sender.clone(),
                 },
             ),
         );
@@ -622,7 +625,6 @@ impl PredictExecutionClient {
             .finish_shutdown(Duration::from_secs(2), Duration::from_secs(2))
             .await?;
         self.stream_task = None;
-        self.account_task = None;
         self.wallet_auth = None;
         self.wallet_epoch = None;
         Ok(())
@@ -681,7 +683,7 @@ impl OrderLookups {
                 if let Some(hash) = hash
                     && evidence.has_unapplied(hash, &order)
                 {
-                    self.reconciliation_required.store(true, Ordering::Release);
+                    self.account_refresh_required.store(true, Ordering::Release);
                     continue;
                 }
                 order
@@ -724,7 +726,7 @@ impl OrderLookups {
             if let Some(hash) = hash
                 && evidence.has_unapplied(hash, &order)
             {
-                self.reconciliation_required.store(true, Ordering::Release);
+                self.account_refresh_required.store(true, Ordering::Release);
                 continue;
             }
             if let Some(hash) = hash {

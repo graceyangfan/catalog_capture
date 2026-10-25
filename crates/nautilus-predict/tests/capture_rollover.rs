@@ -191,10 +191,14 @@ async fn original_btc_profile_rolls_seals_reads_back_and_removes_recordings() {
     let selectors = profile["capture"]["custom_data"].as_array().unwrap();
     assert_eq!(selectors.len(), 1);
     let selector = &selectors[0];
-    let mut metadata = Params::new();
-    for (key, value) in selector["metadata"].as_table().unwrap() {
-        metadata.insert(key.clone(), json!(value.as_str().unwrap()));
-    }
+    let metadata = Params::new(
+        selector["metadata"]
+            .as_table()
+            .unwrap()
+            .iter()
+            .map(|(key, value)| (key.clone(), json!(value.as_str().unwrap())))
+            .collect(),
+    );
     assert_eq!(metadata["interval_secs"], "300");
     let plan = CapturePlan {
         custom_data: vec![CustomDataCaptureSpec {

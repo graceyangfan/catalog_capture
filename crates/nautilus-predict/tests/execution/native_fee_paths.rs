@@ -135,20 +135,22 @@ fn binary_adjustments(include_disposal_pnl: bool, maker_second: bool) -> Value {
             let avg = Decimal::from_str_exact(&position.avg_px_open.to_string()).unwrap();
             let disposal_pnl = include_disposal_pnl
                 .then(|| Money::from_decimal(shares * (price - avg), Currency::USDT()).unwrap());
-            position.apply_adjustment(PositionAdjusted::new(
-                position.trader_id,
-                position.strategy_id,
-                position.instrument_id,
-                position.id,
-                position.account_id,
-                PositionAdjustmentType::Commission,
-                Some(-shares),
-                disposal_pnl,
-                Some("offline-model-fee-probe".into()),
-                UUID4::new(),
-                UnixNanos::from(sequence * 1000 + 1),
-                UnixNanos::from(sequence * 1000 + 1),
-            ));
+            position
+                .apply_adjustment(PositionAdjusted::new(
+                    position.trader_id,
+                    position.strategy_id,
+                    position.instrument_id,
+                    position.id,
+                    position.account_id,
+                    PositionAdjustmentType::Commission,
+                    Some(-shares),
+                    disposal_pnl,
+                    Some("offline-model-fee-probe".into()),
+                    UUID4::new(),
+                    UnixNanos::from(sequence * 1000 + 1),
+                    UnixNanos::from(sequence * 1000 + 1),
+                ))
+                .unwrap();
         }
     }
     let mut position = position.unwrap();
@@ -191,7 +193,12 @@ fn quantity_only_adjustment_does_not_complete_binary_fee_cost_accounting() {
         Decimal::from_str_exact(result["cashPnL"].as_str().unwrap()).unwrap(),
         Decimal::new(106, 4)
     );
-    assert_eq!(result["nativeRealizedPnL"], "0.01044214");
+    assert!(
+        (Decimal::from_str_exact(result["nativeRealizedPnL"].as_str().unwrap()).unwrap()
+            - Decimal::from_str_exact("0.010442135186355").unwrap())
+        .abs()
+            < Decimal::new(1, 15)
+    );
     assert_eq!(result["matchesCash"], false);
 }
 
@@ -232,6 +239,7 @@ pub(super) fn inventory_fees(events: Vec<&OrderEventAny>) -> Decimal {
             OrderEventAny::Filled(fill) => fill.quantity_commission,
             _ => None,
         })
+        .map(|fee| fee.as_decimal())
         .sum()
 }
 
@@ -244,4 +252,25 @@ pub(super) fn project_inventory_fee(quantity: Decimal, precision: u8) -> Decimal
 
 pub(super) fn inventory_fee_residual(quantity: Decimal, precision: u8) -> Decimal {
     project_inventory_fee(quantity, precision) - quantity
+}
+
+/// Sum original persisted fee facts to verify replay without a duplicate accounting ledger.
+pub(super) fn quantity_fees(position: &Position) -> Option<Decimal> {
+    position
+        .events
+        .iter()
+        .filter_map(|fill| fill.quantity_commission)
+        .map(|fee| fee.as_decimal())
+        .reduce(|a, b| a + b)
+}
+
+pub(super) fn quantity_fee_value(position: &Position) -> Option<Decimal> {
+    position
+        .events
+        .iter()
+        .filter_map(|fill| {
+            fill.quantity_commission
+                .map(|fee| fee.as_decimal() * fill.last_px.as_decimal())
+        })
+        .reduce(|a, b| a + b)
 }

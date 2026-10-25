@@ -13,15 +13,20 @@ the pinned Native dependency.
 | --- | --- |
 | live (default) | Public data, discovery and WebSocket transports |
 | high-precision (default) | Native model/quantity/persistence precision |
-| execution | Private REST/wallet WS, signing and Native commands/reports; writes remain explicit opt-ins |
-| native-quantity-commission | Inventory-fee mapping for gross order progress, net BUY shares and SELL quote fees |
+| execution | Private REST/wallet WS, signing, Native commands/reports and exact inventory-fee mapping; writes remain explicit opt-ins |
 
-The workspace pins the repaired project Nautilus fork, including the Native APIs
-and account/purge behavior required by execution. It is not an unmodified upstream
+The workspace pins the project Nautilus fork containing the live reported-cash
+quantity-fee implementation linked from RFC #5418. It is not an unmodified upstream
 feature. See the [dependency contract](../../docs/reference/predict-execution-validation.md#two-repository-handoff).
-Historical mainnet captures used their recorded revisions and do not establish new
-MARKET BUY or latency behavior. Legacy execution reconciliation is a separate fee
-mapping; use native-quantity-commission for the documented maker/taker contract.
+Historical mainnet captures apply to their recorded revisions and combinations;
+the 2026-10-25 positive MARKET BUY capture is identified separately below. They
+do not establish general latency behavior. Execution always uses the RFC #5418 quantity-fee
+contract; the previous monetary-only SHARES fee mode has been removed.
+
+Rust enables submission by injecting `submission_signer: Some(signer)`; session
+renewal uses the independent auth_signer. Product TOML uses submission_enabled
+(default false). The host forwards Native risk and recovery policy without extra
+admission rules.
 
 ## Native interaction
 
@@ -31,9 +36,46 @@ local signing, exact raw evidence and authenticated facts. Normal submission has
 no balance/OPEN/metadata/orderbook preflight. Known-ID cancellation is one remove
 POST. Modify is unsupported; use explicit cancel then a new order.
 
+Maker LIMIT supports typed `self_trade_prevention` in SubmitOrder params while
+post-only and GTC/GTD remain Native fields. Subscribe to
+`predict_limit_order_receipt_data_type(account,strategy)` without a client selector
+for transport metadata, including the optional removal lock deadline. See the
+[maker contract and zero-fill live evidence](../../docs/reference/predict-maker-order-validation.md).
+
+Native `Market + TimeInForce::Fok` maps to Predict MARKET with
+`isFillOrKill=true`; the FOK flag never goes in `params`. Existing MARKET GTC
+behavior is retained with the field omitted. LIMIT FOK and IOC remain rejected.
+Live evidence includes zero-match termination and one actual Native MARKET BUY
+FOK full fill: 3.5 shares at .40 within a .4017 signed cap, with .07 shares fee.
+This confirms that combination, not general all-or-none enforcement across every
+liquidity shape. Its post-only TP rejection reached the strategy normally; the
+subsequent SELL used an explicitly identified SDK fallback. See the
+[recording and offline replay](tests/README.md#layers-and-focused-replays) and
+[positive validation record](../../docs/reference/predict-immediate-order-validation.md#recorded-venue-observations).
+
 Both MARKET sides require params["market_price"] as a strategy-supplied decimal
-reference. Native MarketOrder has no price field. The adapter applies configured
-slippage once; there is no execution-book fallback.
+reference before slippage. Native MarketOrder has no price field. Optional
+params["market_order_slippage_bps"] is a JSON integer in 0..9999, matching the
+Native Hyperliquid parameter name. Omission means zero extra slippage, matching
+the official Predict SDK. No client-level slippage setting is applied.
+The adapter applies the resolved value once to signed amounts and HTTP metadata;
+there is no execution-book fallback. Invalid values and LIMIT usage are denied.
+HTTP slippageBps is not accepted as a Native param. This remains MARKET, not a
+Native LIMIT or a verified per-match execution-price guarantee.
+The current Native amount model is explicitly non minimum-out. Passing
+isMinAmountOut or is_min_amount_out in params is denied before submission;
+the flag changes signed BUY economics and cannot be silently ignored or
+enabled by forwarding an HTTP field alone.
+
+Native MARKET BUY also accepts `quote_quantity=true`: quantity is the maximum
+USDT principal budget, not shares. Supply market_price and a resolved slippage of
+zero (typically params["market_order_slippage_bps"]=0). The first version follows
+the official SDK's value calculation at that single reference level, floors shares
+to five significant digits, and publishes a Native OrderUpdated to base shares
+before Submitted. OrderInitialized retains the original quote budget for recovery.
+This is local budget-to-share preparation, not a new venue quote-amount field;
+it can leave unspent dust. Quote SELL/LIMIT and positive-slippage quote BUY are
+explicitly denied. See the [quote BUY contract](../../docs/predict-execution-adapter-design.md#market-buy-quote-sizing).
 
 Early settlement Submitted/Confirmed/Failed uses account/strategy-scoped
 PredictSettlementUpdate CustomData. Only confirmed fills update Native economic
@@ -67,6 +109,7 @@ mock venues and recorders belong under tests or the application assembly layer.
 No test strategy or recorder runs in production src.
 
 - [Tests, fixtures and explicit benchmark exporters](tests/README.md)
+- [Execution lifecycle simplification and validation](../../docs/plans/predict-execution-lifecycle-refactor.md)
 - [Execution internals and limits](../../docs/predict-execution-structure-review.md)
 - [Private API calibration](../../docs/how_to/predict-private-api-tests.md)
 - [Historical live evidence](../../docs/reference/predict-live-evidence.md)

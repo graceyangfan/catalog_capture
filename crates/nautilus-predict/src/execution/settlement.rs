@@ -209,17 +209,6 @@ impl SettlementNotifications {
                         == fill.executed_value_wei),
             "Predict settlement notification has inconsistent atomic amounts"
         );
-        let px = crate::common::parse::exact_wei(fill.executed_price_wei)?;
-        anyhow::ensure!(
-            order.price().is_none_or(|limit| {
-                if order.order_side() == nautilus_model::enums::OrderSide::Buy {
-                    px <= limit.as_decimal()
-                } else {
-                    px >= limit.as_decimal()
-                }
-            }),
-            "Predict settlement notification violates order price"
-        );
         let applied = order.has_applied_fill(id);
         anyhow::ensure!(
             status != PredictSettlementStatus::Failed || !applied,

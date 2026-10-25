@@ -238,10 +238,14 @@ mod tests {
     #[test]
     fn control_feed_aliases_enter_the_session_as_one_canonical_feed() {
         for feed in ["BTCUSDT", "BTC/USDT", " btc/usdt "] {
-            let mut metadata = Params::new();
-            metadata.insert("price_feed_symbol".into(), feed.into());
-            metadata.insert("title_asset".into(), "Bitcoin".into());
-            metadata.insert("interval_secs".into(), "300".into());
+            let metadata = Params::new(
+                [
+                    ("price_feed_symbol".into(), feed.into()),
+                    ("title_asset".into(), "Bitcoin".into()),
+                    ("interval_secs".into(), "300".into()),
+                ]
+                .into(),
+            );
             let selector = PredictDataClient::dynamic_selector(&DataType::new(
                 "PredictCryptoUpDown",
                 Some(metadata),

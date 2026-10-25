@@ -1,0 +1,168 @@
+{
+  "provenance": {
+    "sourceDirectory": "data/predict-validation/native_partial_market_20261025T085549162663Z",
+    "sourceSHA256": {
+      "wallet_events.json": "b2213ceedf2d8d1ad3df6de9a24ab3756cd19509699e00b93cf05aa379b718f1",
+      "summary.json": "c7f1a7038d0798852e014e674b507f4593f7e4271886a3cd72751955b9bc9090",
+      "rest.json": "80d12f6d1a496ba3155f0839a7a32e316808083b7d0c32a190beabcec2eefb5f",
+      "native_checkpoint.json": "27c5893ded9359298ad34528e69db8dd680606116021f1d5e8021eab8e9494d1",
+      "http_responses.json": "17666057a2830226810c28789ec72b114cfc07242e474dfad17968d8b0901693",
+      "node.log": "eaf5864da8a93db8a1a05c8957d8255db94902494bec7d4c0d50e9b141e2fa60",
+      "sdk_oracle.json": "619bec7b3b71da52214ca747d70aa3c78eb8ca01bb6620c3cdde1cfb1705e618",
+      "quote_intent.json": "867bee6e0a82981ab15a4ed016bc5ccfe71d4f447e98f57b6f97b485f5affcad",
+      "run_metadata.json": "675f6116aa54b6cedc788ca294cccdd5e4bce9c4e9f2dc7dadec9b95ce635d68",
+      "chain_after_entry.json": "9e87b186e87b926794516f41a341f50d8db944aabf7b4a1ce3a585d5668039d9",
+      "emergency_rest.json": "563b0db764c8a516d3019b88b96d3806213b20806b42fcfd80872a282d2d9d7d",
+      "emergency_summary.json": "552a563734778525721eef6a134829ff57c20411e29b6d9d1ca8151b147b3e2a"
+    },
+    "scope": "Recorded values with expected recovery semantics; not an executed regression result"
+  },
+  "orderHash": "0xfff9420c5f1ff2da006eb09bb30a08d8119364af03e5c30e0b90b46c25950581",
+  "request": {
+    "quantity": "7.65",
+    "timeInForce": "GTC",
+    "FOKField": "omitted"
+  },
+  "matchPlan": {
+    "amount": "7650000000000000000",
+    "amountFilled": "0",
+    "details": {
+      "categorySlug": "btc-updown-5m-1792918500",
+      "marketId": 3736304,
+      "marketQuestion": "Bitcoin Up or Down - October 25, 4:55AM-5AM ET",
+      "outcome": "NO",
+      "outcomeIndex": 2,
+      "outcomeName": "Down",
+      "price": "0.260",
+      "quantity": "7.650",
+      "quantityFilled": "0.000",
+      "quoteType": "BID",
+      "strategyType": "MARKET",
+      "value": "1.99",
+      "valueFilled": "0.00"
+    },
+    "orderHash": "0xfff9420c5f1ff2da006eb09bb30a08d8119364af03e5c30e0b90b46c25950581",
+    "orderId": "6253307486",
+    "plannedFill": "7649999999999999999",
+    "remainderCancelled": "1",
+    "settlementIds": [
+      "01a17246-39fc-7c20-bd6e-8f7c3f1232d4",
+      "01a17246-39fc-7c20-bd6e-8f811386b49a"
+    ],
+    "timestamp": 1792918567420,
+    "type": "orderMarketMatchPlan",
+    "walletAddress": "[redacted]",
+    "observedAtUtc": "2026-10-25T08:56:07.471687+00:00",
+    "observedMonotonicNs": 15028331434000
+  },
+  "successfulSettlements": [
+    {
+      "details": {
+        "categorySlug": "btc-updown-5m-1792918500",
+        "marketId": 3736304,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 4:55AM-5AM ET",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "Down",
+        "price": "0.260",
+        "quantity": "7.650",
+        "quantityFilled": "7.650",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.99",
+        "valueFilled": "1.99"
+      },
+      "fee": {
+        "amountWei": "45875692307692307",
+        "type": "SHARES"
+      },
+      "fill": {
+        "executedPriceWei": "260000000000000000",
+        "executedSizeWei": "2293784615384615382",
+        "executedValueWei": "596383999999999999"
+      },
+      "isMaker": false,
+      "orderHash": "0xfff9420c5f1ff2da006eb09bb30a08d8119364af03e5c30e0b90b46c25950581",
+      "orderId": "6253307486",
+      "settlementId": "01a17246-39fc-7c20-bd6e-8f811386b49a",
+      "timestamp": 1792918567000,
+      "type": "orderTransactionSuccess",
+      "walletAddress": "[redacted]",
+      "observedAtUtc": "2026-10-25T08:56:09.005168+00:00",
+      "observedMonotonicNs": 15029864933375
+    },
+    {
+      "details": {
+        "categorySlug": "btc-updown-5m-1792918500",
+        "marketId": 3736304,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 4:55AM-5AM ET",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "Down",
+        "price": "0.260",
+        "quantity": "7.650",
+        "quantityFilled": "7.650",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.99",
+        "valueFilled": "1.99"
+      },
+      "fee": {
+        "amountWei": "107124307692307692",
+        "type": "SHARES"
+      },
+      "fill": {
+        "executedPriceWei": "260000000000000000",
+        "executedSizeWei": "5356215384615384617",
+        "executedValueWei": "1392616000000000000"
+      },
+      "isMaker": false,
+      "orderHash": "0xfff9420c5f1ff2da006eb09bb30a08d8119364af03e5c30e0b90b46c25950581",
+      "orderId": "6253307486",
+      "settlementId": "01a17246-39fc-7c20-bd6e-8f7c3f1232d4",
+      "timestamp": 1792918567000,
+      "type": "orderTransactionSuccess",
+      "walletAddress": "[redacted]",
+      "observedAtUtc": "2026-10-25T08:56:09.013430+00:00",
+      "observedMonotonicNs": 15029873188750
+    }
+  ],
+  "restFinalOrder": {
+    "amount": "7650000000000000000",
+    "amountFilled": "7649999999999999999",
+    "currency": "USDT",
+    "id": "6253307486",
+    "isNegRisk": false,
+    "isYieldBearing": false,
+    "marketId": 3736304,
+    "order": {
+      "expiration": 1792918866,
+      "feeRateBps": "200",
+      "hash": "0xfff9420c5f1ff2da006eb09bb30a08d8119364af03e5c30e0b90b46c25950581",
+      "maker": "[redacted]",
+      "makerAmount": "1989000000000000000",
+      "nonce": "0",
+      "salt": "2019369706",
+      "side": 0,
+      "signature": "[redacted-signature]",
+      "signatureType": 0,
+      "signer": "[redacted]",
+      "taker": "[redacted-address]",
+      "takerAmount": "7650000000000000000",
+      "tokenId": "108534050325035373170665696270833566584770316601881259742345020393148041224641"
+    },
+    "rewardEarningRate": 0,
+    "status": "FILLED",
+    "strategy": "MARKET"
+  },
+  "expectedAfterRepair": {
+    "nativeStatus": "FILLED",
+    "initialQuantity": "7.65",
+    "terminalWorkingQuantity": "7.649999999999999999",
+    "filledQuantity": "7.649999999999999999",
+    "netPositionQuantity": "7.497",
+    "newFillEventsRequired": 0,
+    "terminalUpdateReconciliation": true
+  },
+  "validation": "NOT RUN"
+}

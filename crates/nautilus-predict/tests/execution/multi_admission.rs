@@ -14,7 +14,6 @@
 
 //! Protocol ownership and concurrent dispatch independent of Native RiskEngine, loopback only.
 use nautilus_model::{events::OrderEventAny, identifiers::ClientOrderId};
-use nautilus_predict::PredictSubmissionConfig;
 
 use super::*;
 
@@ -62,18 +61,14 @@ async fn run(case: &str) -> Value {
         format!("{}/rpc", private.http).into(),
     ));
     cfg.report_timeout_secs = 3;
-    cfg.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            nautilus_predict::signing::PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = Some(Arc::new(
+        nautilus_predict::signing::PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let core = ExecutionClientCore::new(
         trader_id(),
         ClientId::new("PREDICT"),

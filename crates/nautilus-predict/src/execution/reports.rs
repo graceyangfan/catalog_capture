@@ -15,7 +15,7 @@
 //! Owned HTTP collection followed by Nautilus core-thread cache-dependent finalization.
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{Arc, atomic::Ordering},
 };
 
@@ -47,14 +47,16 @@ use crate::{
     },
 };
 
-/// Both explicit queries and report tasks collect one fenced target. The venue's
+/// Explicit queries and report tasks collect independent order and trade observations. The venue's
 /// amountFilled unit is unspecified: use zero/nonzero, never compare it to shares.
 async fn collect_target_order(
     config: &PredictExecutionClientConfig,
     hash: B256,
+    on_order: impl Fn(&PredictOrderData) -> anyhow::Result<()>,
 ) -> anyhow::Result<(PredictOrderData, Vec<PredictMatchData>)> {
     config.session.ensure_account_identity().await?;
     let row = config.session.request_order(hash).await?;
+    on_order(&row)?;
     let matched = rust_decimal::Decimal::from_str_exact(&row.amount_filled)?;
     anyhow::ensure!(
         matched >= rust_decimal::Decimal::ZERO,
@@ -64,12 +66,78 @@ async fn collect_target_order(
         return Ok((row, Vec::new()));
     }
     let matches = super::matches::collect_matches(config, Some(row.market_id)).await?;
-    let fence = config.session.request_order(hash).await?;
-    anyhow::ensure!(
-        super::reconciliation::same_order(&row, &fence),
-        "Predict order changed during match collection; query again"
-    );
     Ok((row, matches))
+}
+
+// A terminal lifecycle fact is not a cumulative fill snapshot. Publish events so
+// a concurrent wallet fill cannot be voided by a quantity sampled before this IO.
+fn publish_terminal(
+    row: &PredictOrderData,
+    context: &super::matches::MatchContext<Arc<super::context::WorkerOrder>>,
+    hasher: &crate::signing::PredictOrderHasher,
+    emitter: &nautilus_live::ExecutionEventEmitter,
+    sync: &super::account::AccountSync,
+    observed: nautilus_core::UnixNanos,
+) -> anyhow::Result<()> {
+    if rust_decimal::Decimal::from_str_exact(&row.amount_filled)?.is_zero() {
+        return Ok(());
+    }
+    if !matches!(
+        row.status,
+        crate::http::account_models::PredictOrderStatus::Cancelled
+            | crate::http::account_models::PredictOrderStatus::Expired
+    ) {
+        return Ok(());
+    }
+    let id = nautilus_model::identifiers::VenueOrderId::new(format!(
+        "{:#x}",
+        row.order
+            .hash
+            .ok_or_else(|| anyhow::anyhow!("Predict terminal row lacks hash"))?
+    ));
+    let order = context
+        .orders
+        .get(&id)
+        .ok_or_else(|| anyhow::anyhow!("Predict terminal row lost its Native owner"))?;
+    let Some(InstrumentAny::BinaryOption(instrument)) =
+        context.instruments.get(&order.instrument_id())
+    else {
+        anyhow::bail!("Predict terminal instrument is missing");
+    };
+    let report = super::reconciliation::status_report(
+        row,
+        order,
+        instrument,
+        context,
+        hasher,
+        &[],
+        observed,
+    )?;
+    sync.confirm_report(&report);
+    if order.is_closed() {
+        return Ok(());
+    }
+    let factory = nautilus_common::factories::OrderEventFactory::new(
+        emitter.trader_id(),
+        context.account_id,
+        nautilus_model::enums::AccountType::Cash,
+        None,
+    );
+    if (report.order_status == nautilus_model::enums::OrderStatus::Expired
+        || order.venue_order_id().is_none())
+        && order.ts_accepted().is_none()
+        && order.queued_acceptance().is_none()
+    {
+        emitter.try_send_order_event(order.accepted(&factory, id, observed, observed))?;
+        order.record_acceptance(observed);
+    }
+    let event = if report.order_status == nautilus_model::enums::OrderStatus::Expired {
+        order.expired(&factory, Some(id), observed, observed)
+    } else {
+        order.canceled(&factory, Some(id), observed, observed)
+    };
+    emitter.try_send_order_event(event)?;
+    Ok(())
 }
 
 /// Conversion is shared; callers retain their Native delivery/commit boundaries.
@@ -101,8 +169,19 @@ fn prepare_target_report(
         None,
         None,
     );
-    let fills =
+    let mut fills =
         super::matches::prepare_match_reports(matches, observed, context, &scope, evidence, false)?;
+    // A wallet fill queued before this report is also a confirmed fact. Include it
+    // so the Native snapshot cannot void it merely because REST history is lagging.
+    let mut ids = fills
+        .iter()
+        .map(|fill| fill.report.trade_id)
+        .collect::<HashSet<_>>();
+    for fill in evidence.pending_for(order, venue_id) {
+        if ids.insert(fill.report.trade_id) {
+            fills.push(fill.clone());
+        }
+    }
     let report = super::reconciliation::status_report(
         row,
         order,
@@ -168,12 +247,59 @@ pub(super) fn order_report_task(
     })();
     let wallet = config.session.account_address();
     let account_id = config.account_id;
+    let collection_orders = observed_orders.clone();
+    let collection_instruments = client.instruments.clone();
+    let collection_emitter = emitter.clone();
+    let collection_sync = account_sync.clone();
+    let collection_hasher = hasher.clone();
+    let collection_cancellation = cancellation.clone();
     ExecutionReportTask::new(
         async move {
             let (client_id, venue_id, hash) = target?;
             let (row, matches) = tokio::time::timeout(
                 std::time::Duration::from_secs(config.report_timeout_secs),
-                collect_target_order(&config, hash),
+                collect_target_order(&config, hash, |row| {
+                    anyhow::ensure!(
+                        !collection_cancellation.is_cancelled(),
+                        "Predict order report generation stopped"
+                    );
+                    if !matches!(
+                        row.status,
+                        crate::http::account_models::PredictOrderStatus::Cancelled
+                            | crate::http::account_models::PredictOrderStatus::Expired
+                    ) {
+                        return Ok(());
+                    }
+                    let Some(current) = collection_orders
+                        .lock()
+                        .expect("order snapshots poisoned")
+                        .get(&client_id)
+                        .cloned()
+                    else {
+                        return Ok(());
+                    };
+                    let Some(definition) =
+                        collection_instruments.get_cloned(&current.instrument_id())
+                    else {
+                        return Ok(());
+                    };
+                    let instrument = definition.instrument;
+                    let context = super::matches::MatchContext {
+                        account_id,
+                        wallet,
+                        shares_allowed: false,
+                        orders: std::iter::once((venue_id, current)).collect(),
+                        instruments: std::iter::once((instrument.id(), instrument)).collect(),
+                    };
+                    publish_terminal(
+                        row,
+                        &context,
+                        &collection_hasher,
+                        &collection_emitter,
+                        &collection_sync,
+                        clock.get_time_ns(),
+                    )
+                }),
             )
             .await
             .map_err(|_| anyhow::anyhow!("Predict order report collection timed out"))??;
@@ -238,7 +364,7 @@ pub(super) fn order_report_task(
                     .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?,
                 observed,
             )?;
-            super::routing::register(&rest_ids, venue_id, super::routing::parse_id(&row.id)?)?;
+            super::routing::observe(&rest_ids, venue_id, &row.id);
             drop(order);
             drop(cache);
             account_sync.confirm_report(&report);
@@ -266,6 +392,18 @@ pub(super) fn position_report_task(
     let instrument_id = cmd.instrument_id;
     let historical = cmd.start.is_some() || cmd.end.is_some();
     let account_id = config.account_id;
+    let expirations = core
+        .cache()
+        .instruments(&core.venue, None)
+        .into_iter()
+        .filter_map(|i| {
+            if let InstrumentAny::BinaryOption(binary) = i {
+                Some((binary.id(), binary.expiration_ns.as_u64()))
+            } else {
+                None
+            }
+        })
+        .collect();
     ExecutionReportTask::new(
         async move {
             anyhow::ensure!(
@@ -280,7 +418,8 @@ pub(super) fn position_report_task(
                 std::time::Duration::from_secs(config.report_timeout_secs),
                 async {
                     config.session.ensure_account_identity().await?;
-                    collect_positions(&config, market_id).await
+                    let rows = collect_positions(&config, market_id).await?;
+                    active_holdings(&config, rows, &expirations, clock.get_time_ns()).await
                 },
             )
             .await
@@ -305,6 +444,9 @@ pub(super) fn position_report_task(
                 let Some(InstrumentAny::BinaryOption(instrument)) = cache.instrument(&id) else {
                     anyhow::bail!("Predict holding instrument is missing from the Nautilus cache");
                 };
+                if instrument.expiration_ns.as_u64() <= observed.as_u64() {
+                    continue;
+                }
                 reports.push(parse_position_status_report(
                     &row, instrument, account_id, observed,
                 )?);
@@ -312,6 +454,46 @@ pub(super) fn position_report_task(
             Ok(reports)
         },
     )
+}
+
+/// Position reports describe trading exposure, not expired tokens awaiting auto-redemption.
+/// Only unknown markets need a metadata read; YES/NO share one read per collection.
+pub(super) async fn active_holdings(
+    config: &PredictExecutionClientConfig,
+    rows: Vec<PredictPositionData>,
+    expirations: &HashMap<nautilus_model::identifiers::InstrumentId, u64>,
+    observed: nautilus_core::UnixNanos,
+) -> anyhow::Result<Vec<PredictPositionData>> {
+    let mut markets = HashMap::new();
+    let mut active = Vec::new();
+    for row in rows {
+        if row.amount.is_zero() {
+            continue;
+        }
+        let id = instrument_id_from_outcome(row.market.id, u8::try_from(row.outcome.index_set)?)?;
+        let expired = if row.outcome.status.is_some() {
+            true // WON/LOST are final outcomes; redemption can lag.
+        } else if let Some(expiration) = expirations.get(&id) {
+            *expiration <= observed.as_u64()
+        } else if let Some(expired) = markets.get(&row.market.id) {
+            *expired
+        } else {
+            let market = config
+                .session
+                .request_market_definition(row.market.id)
+                .await?;
+            let expired = crate::providers::market_window(&market, observed)?
+                .is_some_and(|window| window.end_ns <= observed.as_u64());
+            markets.insert(row.market.id, expired);
+            expired
+        };
+        if expired {
+            log::debug!("Skipping expired Predict holding {id}");
+        } else {
+            active.push(row);
+        }
+    }
+    Ok(active)
 }
 
 // The enclosing report/recovery operation validates session identity once before collection.
@@ -388,19 +570,14 @@ impl super::PredictExecutionClient {
         drop(cache);
         let orders = Arc::clone(&self.account_orders);
         let account_sync = Arc::clone(&self.account_sync);
+        let rest_ids = Arc::clone(&self.rest_order_ids);
         let hasher = self.order_hasher.clone();
         let instruments = Arc::clone(&self.instruments);
-        let healthy = Arc::clone(&self.healthy);
         let recovery_read =
-            self.reconciliation_required.load(Ordering::Acquire) || !self.is_connected();
+            self.account_refresh_required.load(Ordering::Acquire) || !self.is_connected();
         if recovery_read {
-            self.reconciliation_required.store(true, Ordering::Release);
+            self.account_refresh_required.store(true, Ordering::Release);
         }
-        let epoch = self
-            .wallet_epoch
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("Predict order query lacks connection identity"))?;
-        let query_epoch = epoch.load(Ordering::Acquire);
         let evidence = Arc::clone(&self.fill_evidence);
         let shares_allowed = self.config.account_state_mode
             == crate::config::PredictAccountStateMode::Reported
@@ -413,26 +590,24 @@ impl super::PredictExecutionClient {
         let emitter = self.emitter.clone();
         let clock = self.clock;
         let cancellation = self.tasks.cancellation_token();
-        if !self
-            .order_queries
-            .lock()
-            .expect("Predict query tasks poisoned")
-            .insert(client_id)
-        {
-            return Ok(());
-        }
-        let guard = QueryGuard {
-            tasks: self.order_queries.clone(),
-            id: client_id,
-        };
         self.tasks.spawn_named("predict-query-order", async move {
-            let _guard = guard;
-            let collection = collect_target_order(&config, hash);
+            let collection = collect_target_order(&config, hash, |row| {
+                anyhow::ensure!(!cancellation.is_cancelled(), "Predict order query generation stopped");
+                if !matches!(row.status, crate::http::account_models::PredictOrderStatus::Cancelled | crate::http::account_models::PredictOrderStatus::Expired) { return Ok(()); }
+                let current = orders.lock().expect("order snapshots poisoned").get(&client_id).cloned().ok_or_else(|| anyhow::anyhow!("Predict terminal query lost Native context"))?;
+                let instrument = instruments.get_cloned(&current.instrument_id()).ok_or_else(|| anyhow::anyhow!("Predict terminal instrument is missing"))?.instrument;
+                let context = super::matches::MatchContext {
+                    account_id: config.account_id, wallet: config.session.account_address(), shares_allowed,
+                    orders: std::iter::once((venue_id, current)).collect(),
+                    instruments: std::iter::once((instrument.id(), instrument)).collect(),
+                };
+                publish_terminal(row, &context, &hasher, &emitter, &account_sync, clock.get_time_ns())
+            });
             let result = tokio::select! { biased;
                 _ = cancellation.cancelled() => return,
                 result = tokio::time::timeout(std::time::Duration::from_secs(config.report_timeout_secs), collection) => result,
             };
-            if (!recovery_read && !healthy.load(Ordering::Acquire)) || epoch.load(Ordering::Acquire) != query_epoch { return; }
+            if cancellation.is_cancelled() { return; }
             let report = (|| -> anyhow::Result<_> {
                 let (row, matches) = result.map_err(|_| anyhow::anyhow!("Predict targeted query timed out"))??;
                 let current = orders.lock().expect("order snapshots poisoned").get(&client_id).cloned()
@@ -453,6 +628,7 @@ impl super::PredictExecutionClient {
                 let (report, fills) = prepare_target_report(
                     venue_id, &row, matches, &context, &hasher, &facts, clock.get_time_ns(),
                 )?;
+                super::routing::observe(&rest_ids, venue_id, &row.id);
                 if fills.is_empty() { return Ok(Some(report)); }
                 facts.validate_commit(&fills)?;
                 let terminal = matches!(report.order_status,
@@ -476,19 +652,6 @@ impl super::PredictExecutionClient {
     }
 }
 
-struct QueryGuard {
-    tasks: Arc<std::sync::Mutex<HashSet<nautilus_model::identifiers::ClientOrderId>>>,
-    id: nautilus_model::identifiers::ClientOrderId,
-}
-impl Drop for QueryGuard {
-    fn drop(&mut self) {
-        self.tasks
-            .lock()
-            .expect("Predict query tasks poisoned")
-            .remove(&self.id);
-    }
-}
-
 /// Markets required to interpret the account's current orders and holdings at host startup.
 ///
 /// This only collects identities. InstrumentProvider/DataClient load definitions and Native
@@ -505,6 +668,13 @@ pub async fn reconciliation_market_ids(
             config.session.ensure_account_identity().await?;
             let orders = super::reconciliation::collect_orders(config, true).await?;
             let positions = collect_positions(config, None).await?;
+            let positions = active_holdings(
+                config,
+                positions,
+                &HashMap::new(),
+                nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+            )
+            .await?;
             let mut ids = std::collections::BTreeSet::new();
             for order in orders {
                 anyhow::ensure!(
@@ -518,13 +688,7 @@ pub async fn reconciliation_market_ids(
                 ids.insert(order.market_id);
             }
             for position in positions {
-                if !position.amount.is_zero() {
-                    crate::common::instrument_id_from_outcome(
-                        position.market.id,
-                        u8::try_from(position.outcome.index_set)?,
-                    )?;
-                    ids.insert(position.market.id);
-                }
+                ids.insert(position.market.id);
             }
             Ok(ids.into_iter().collect())
         },

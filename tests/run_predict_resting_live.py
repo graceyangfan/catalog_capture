@@ -172,7 +172,7 @@ CASES = (
 def run(case="auto", features="execution", measure_latency=False):
     if case not in CASES:
         raise CaptureError("unsupported resting case")
-    if features not in {"execution", "native-quantity-commission"}:
+    if features not in {"execution"}:
         raise CaptureError("unsupported Native feature configuration")
     if measure_latency and case not in {"yes-gtd", "no-gtd"}:
         raise CaptureError("latency measurement requires one bounded GTD resting case")
@@ -410,7 +410,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--features",
-        choices=("execution", "native-quantity-commission"),
+        choices=("execution",),
         default="execution",
     )
     args = parser.parse_args()

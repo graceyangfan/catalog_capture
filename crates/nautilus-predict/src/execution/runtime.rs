@@ -32,12 +32,14 @@ use nautilus_model::{
 };
 use tokio_util::sync::CancellationToken;
 
+use super::context::OrderView;
 use crate::{
     common::instrument_id_from_outcome,
     websocket::{
         PredictWalletWebSocketClient,
         private_messages::{
-            PredictWalletEventKind, PredictWalletOutcome, PredictWalletStreamMessage,
+            PredictWalletEventKind, PredictWalletOutcome, PredictWalletRejectionReason,
+            PredictWalletStreamMessage,
         },
     },
 };
@@ -50,7 +52,7 @@ impl Drop for HealthGuard {
 }
 
 pub(super) struct WalletReportContext {
-    pub settlement_sender:
+    pub data_sender:
         Option<nautilus_common::live::sender::EventSender<nautilus_common::messages::DataEvent>>,
     pub instruments: Arc<AtomicMap<InstrumentId, super::types::ExecutionInstrument>>,
     pub orders: super::types::OrderSnapshots<VenueOrderId>,
@@ -58,7 +60,7 @@ pub(super) struct WalletReportContext {
     pub rest_ids: super::routing::RestOrderIds,
     pub sync: Arc<super::account::AccountSync>,
     pub fill_evidence: super::precision::SharedFillEvidence,
-    pub reconciliation_required: Arc<AtomicBool>,
+    pub account_refresh_required: Arc<AtomicBool>,
     pub allow_share_fees: bool,
     pub emitter: ExecutionEventEmitter,
     pub account: AccountId,
@@ -86,11 +88,10 @@ impl WalletReportContext {
             ..
         } = self;
         let id = VenueOrderId::new(format!("{:#x}", event.order.order_hash));
-        let needs_fills = !matches!(
+        let needs_fills = matches!(
             event.kind,
-            PredictWalletEventKind::OrderTransactionSubmitted { .. }
-                | PredictWalletEventKind::OrderTransactionFailed { .. }
-                | PredictWalletEventKind::OrderMarketMatchPlan { .. }
+            PredictWalletEventKind::OrderTransactionSuccess { .. }
+                | PredictWalletEventKind::OrderNotAccepted { .. }
         );
         let (order, mut evidence) = self.order_snapshot(id)?;
         let outcome = match event.order.details.outcome {
@@ -106,15 +107,19 @@ impl WalletReportContext {
             anyhow::bail!("Predict wallet instrument is absent from the Nautilus cache context");
         };
         let mut confirmed = order.filled_qty().as_decimal();
+        let mut confirmed_precision = instrument
+            .size_precision()
+            .max(order.filled_qty().precision);
         if needs_fills {
             for fill in evidence.pending_for(&order, id) {
+                confirmed_precision = confirmed_precision.max(fill.report.last_qty.precision);
                 confirmed = confirmed
                     .checked_add(fill.report.last_qty.as_decimal())
                     .ok_or_else(|| anyhow::anyhow!("Predict confirmed fill aggregate overflow"))?;
             }
         }
         let confirmed =
-            Quantity::from_decimal_dp(confirmed, instrument.size_precision()).map_err(|_| {
+            Quantity::from_decimal_dp(confirmed, confirmed_precision).map_err(|_| {
                 anyhow::anyhow!("Predict confirmed fill aggregate exceeds Nautilus range")
             })?;
         let (registered, live_submission) = pending
@@ -129,35 +134,6 @@ impl WalletReportContext {
                 )
             })
             .unwrap_or((None, false));
-        let historical_ack = matches!(event.kind, PredictWalletEventKind::OrderAccepted)
-            && order.ts_accepted().or(order.queued_acceptance()).is_some()
-            && event.order.timestamp_ns()?
-                <= order
-                    .ts_last()
-                    .max(order.queued_acceptance().unwrap_or_default())
-            && (event.order.details.quantity_filled < confirmed.as_decimal()
-                || order.is_closed()
-                    && order.status() != nautilus_model::enums::OrderStatus::Filled
-                    && event.order.details.quantity_filled <= confirmed.as_decimal());
-        if needs_fills
-            && !historical_ack
-            && !matches!(
-                event.kind,
-                PredictWalletEventKind::OrderTransactionSuccess { .. }
-            )
-        {
-            if let Some(raw) = evidence.confirmed_raw(&order, id)? {
-                anyhow::ensure!(
-                    crate::common::parse::exact_wei(raw)? == event.order.details.quantity_filled,
-                    "Predict lifecycle includes unresolved raw cumulative fills"
-                );
-            } else {
-                anyhow::ensure!(
-                    event.order.details.quantity_filled == confirmed.as_decimal(),
-                    "Predict lifecycle lacks raw settlement prefix evidence"
-                );
-            }
-        }
         let Some(report) = super::parse::parse_wallet_report_with_registration(
             event,
             &order,
@@ -169,6 +145,7 @@ impl WalletReportContext {
                 venue_id: id,
                 instrument_id,
                 confirmed_qty: confirmed,
+                pending_settlement: evidence.notifications.has_pending(id),
                 registered,
                 queued_acceptance: order.queued_acceptance(),
                 normalize: true,
@@ -189,8 +166,7 @@ impl WalletReportContext {
             )?;
             return Ok(());
         };
-        let rest_id = super::routing::parse_id(&event.order.order_id)?;
-        super::routing::register(rest_ids, id, rest_id)?;
+        super::routing::observe(rest_ids, id, &event.order.order_id);
         if let ExecutionReport::Fill(native) = report {
             let mut fill = super::precision::BufferedFill::from_wallet(*native, event)?;
             evidence
@@ -207,32 +183,33 @@ impl WalletReportContext {
                     .last_qty
                     .as_decimal()
                     .checked_add(confirmed.as_decimal())
-                    .is_some_and(|total| total <= order.quantity().as_decimal()),
+                    .is_some_and(|total| total <= order.submitted_quantity().as_decimal()),
                 "Predict confirmed fills exceed cached order quantity"
             );
             if live_submission
                 && wallet_epoch.load(Ordering::Acquire) == connection_epoch
                 && registered.is_some()
                 && !order.is_closed()
-                && !self.reconciliation_required.load(Ordering::Acquire)
-            {
-                if self.send_acceptance(
+                && self.send_acceptance(
                     &order,
                     id,
                     fill.report.ts_event,
                     order.queued_acceptance().is_some(),
-                )? {
-                    order.record_acceptance(fill.report.ts_event);
-                }
-                self.send_fill(&fill.report, &order, instrument.quote_currency(), received)?;
-            } else {
-                // Recovery owns position-snapshot replay suppression for restored/gap fills.
-                self.send_report(
-                    ExecutionReport::Fill(Box::new(fill.report.clone())),
-                    received,
-                )?;
+                )?
+            {
+                order.record_acceptance(fill.report.ts_event);
             }
+            // Native report ingestion owns snapshot coverage and fee preflight for both
+            // current wallet fills and restored/gap fills. A direct OrderFilled bypasses
+            // its snapshot-covered inventory suppression on this dependency revision.
+            self.send_report(
+                ExecutionReport::Fill(Box::new(fill.report.clone())),
+                received,
+            )?;
             evidence.queue_wallet(&fill)?;
+            // Native infers acceptance when applying a gap fill report. Retain that
+            // queued fact so a late HTTP error cannot reject the same order first.
+            order.record_acceptance(fill.report.ts_event);
             drop(evidence);
             self.settlement(event, &order, connection_epoch, received)?;
         } else {
@@ -251,24 +228,64 @@ impl WalletReportContext {
         received: Option<std::time::Instant>,
         live: bool,
     ) -> anyhow::Result<()> {
+        if let PredictWalletEventKind::OrderNotAccepted { reason } = &event.kind {
+            let reason = match reason {
+                PredictWalletRejectionReason::NoMarketMatch => "noMarketMatch",
+                PredictWalletRejectionReason::RejectedDuplicate => "rejectedDuplicate",
+                PredictWalletRejectionReason::RejectedPostOnly => "rejectedPostOnly",
+                PredictWalletRejectionReason::Unknown => "unknown",
+            };
+            let update = super::rejection::PredictOrderRejectionUpdate {
+                account_id: self.account,
+                strategy_id: order.strategy_id(),
+                instrument_id: order.instrument_id(),
+                client_order_id: order.client_order_id(),
+                venue_order_id: id,
+                reason: reason.to_string(),
+                reported_quantity_filled: event.order.details.quantity_filled.to_string(),
+                native_filled_quantity: order.filled_qty().as_decimal().to_string(),
+                native_status: order.status(),
+                requires_reconciliation: !order.is_closed(),
+                connection_epoch: epoch,
+                ts_event: event.order.timestamp_ns()?,
+                ts_init: self.clock.get_time_ns(),
+            };
+            if let Some(sender) = &self.data_sender
+                && sender
+                    .send(nautilus_common::messages::DataEvent::Data(
+                        nautilus_model::data::Data::Custom(update.into_custom_data()),
+                    ))
+                    .is_err()
+            {
+                log::warn!("Predict order rejection metadata channel closed");
+            }
+            if !order.is_closed() {
+                self.sync
+                    .state
+                    .lock()
+                    .expect("account sync poisoned")
+                    .order_status_requests
+                    .insert(order.client_order_id());
+                log::warn!(
+                    "Predict {reason} does not prove the original order terminated; requesting Native order status for {}",
+                    order.client_order_id()
+                );
+            }
+            return Ok(());
+        }
         self.settlement(event, order, epoch, received)?;
         if matches!(
             event.kind,
             PredictWalletEventKind::OrderTransactionSubmitted { .. }
                 | PredictWalletEventKind::OrderTransactionFailed { .. }
         ) {
-            super::routing::register(
-                &self.rest_ids,
-                id,
-                super::routing::parse_id(&event.order.order_id)?,
-            )?;
+            super::routing::observe(&self.rest_ids, id, &event.order.order_id);
         }
         if matches!(
             event.kind,
             PredictWalletEventKind::OrderTransactionSubmitted { .. }
         ) && live
             && !order.is_closed()
-            && !self.reconciliation_required.load(Ordering::Acquire)
             && self.send_acceptance(
                 order,
                 id,
@@ -323,15 +340,18 @@ impl WalletReportContext {
             .expect("fill evidence poisoned")
             .notifications
             .update(event, order, self.account, epoch, self.clock.get_time_ns())?;
-        if let (Some(sender), Some(update)) = (&self.settlement_sender, update) {
+        if let (Some(sender), Some(update)) = (&self.data_sender, update) {
             if let Some((probe, received)) = self.latency.as_ref().zip(received) {
                 probe.match_feedback(&update, received, std::time::Instant::now());
             }
-            sender
+            if sender
                 .send(nautilus_common::messages::DataEvent::Data(
                     nautilus_model::data::Data::Custom(update.into_custom_data()),
                 ))
-                .map_err(|_| anyhow::anyhow!("Predict settlement data channel closed"))?;
+                .is_err()
+            {
+                log::warn!("Predict settlement metadata channel closed");
+            }
         }
         Ok(())
     }
@@ -360,8 +380,7 @@ impl WalletReportContext {
         ))?;
         Ok(true)
     }
-    // Like Polymarket dispatch: parse venue facts once, then emit native events for
-    // tracked orders. Reports remain the recovery and raw-fill reconciliation path.
+    // Lifecycle facts use native events; confirmed fills use report ingestion.
     fn send_lifecycle(
         &self,
         report: ExecutionReport,
@@ -375,6 +394,16 @@ impl WalletReportContext {
         self.sync.confirm_report(status);
         if order.is_closed() {
             return Ok(());
+        }
+        // Bind a missing venue hash, or supply acceptance required before Expired.
+        // Reuse the existing queued proof; Canceled with a known hash needs no bootstrap.
+        if (status.order_status == OrderStatus::Expired
+            || status.order_status == OrderStatus::Canceled && order.venue_order_id().is_none())
+            && order.ts_accepted().is_none()
+            && !acceptance_queued
+            && self.send_acceptance(order, status.venue_order_id, status.ts_last, false)?
+        {
+            order.record_acceptance(status.ts_last);
         }
         let factory = OrderEventFactory::new(
             self.emitter.trader_id(),
@@ -461,34 +490,6 @@ impl WalletReportContext {
         Ok(())
     }
 
-    fn send_fill(
-        &self,
-        report: &nautilus_model::reports::FillReport,
-        order: &super::context::WorkerOrder,
-        currency: nautilus_model::types::Currency,
-        received: Option<std::time::Instant>,
-    ) -> anyhow::Result<()> {
-        let factory = OrderEventFactory::new(
-            self.emitter.trader_id(),
-            self.account,
-            AccountType::Cash,
-            None,
-        );
-        let event = order.filled(&factory, report, currency);
-        let timing = self
-            .latency
-            .as_ref()
-            .zip(received)
-            .and_then(|(probe, received)| {
-                probe.prepare_fill_feedback(report, received, std::time::Instant::now())
-            });
-        self.emitter.try_send_order_event(event)?;
-        if let (Some(probe), Some(timing)) = (&self.latency, timing) {
-            probe.feedback(timing);
-        }
-        Ok(())
-    }
-
     pub(super) fn order_snapshot(
         &self,
         id: VenueOrderId,
@@ -532,7 +533,7 @@ pub(super) async fn run_wallet(
     healthy.store(false, Ordering::Release);
     if !cancellation.is_cancelled() {
         context
-            .reconciliation_required
+            .account_refresh_required
             .store(true, Ordering::Release);
     }
     if let Err(error) = result {
@@ -556,11 +557,9 @@ async fn consume(
             } => {}
             PredictWalletStreamMessage::Subscribed { .. } => {
                 context
-                    .reconciliation_required
+                    .account_refresh_required
                     .store(true, Ordering::Release);
-                log::info!(
-                    "Predict wallet resubscribed; submissions remain gated pending REST reconciliation"
-                );
+                log::info!("Predict wallet resubscribed; requesting account refresh");
             }
             PredictWalletStreamMessage::Wallet {
                 event,
@@ -569,13 +568,13 @@ async fn consume(
                 let result =
                     context.process_wallet(&event, connection_epoch, received, &wallet_epoch);
                 if let Err(error) = result {
-                    // Missing external context and contradictory evidence gate submissions,
+                    // Missing external context and contradictory evidence request a refresh,
                     // but never kill the consumer needed to reconcile subsequent own events.
                     let mut state = context.sync.state.lock().expect("account sync poisoned");
                     state.revision = state.revision.wrapping_add(1);
                     state.resource_revision = state.resource_revision.wrapping_add(1);
                     context
-                        .reconciliation_required
+                        .account_refresh_required
                         .store(true, Ordering::Release);
                     log::warn!("Predict wallet event requires reconciliation: {error}");
                 }

@@ -46,6 +46,20 @@ impl NativeInputJournal {
             "RawPositionStatusReport"
         );
         let output = rows.clone();
+        let commands = ShareableMessageHandler::from_typed(
+            move |diagnostic: &nautilus_live::execution::command::CommandRecoveryExhausted| {
+                output.borrow_mut().push(
+                    json!({"phase":phase,"type":"NativeCommandRecoveryExhausted",
+                "clientOrderId":diagnostic.client_order_id.to_string(),
+                "venueOrderId":diagnostic.venue_order_id.map(|id|id.to_string()),
+                "status":diagnostic.order_status.to_string(),"retryCount":diagnostic.retry_count}),
+                );
+            },
+        );
+        let topic = MessagingSwitchboard::command_recovery_exhausted_topic().to_string();
+        msgbus::subscribe_any(topic.clone().into(), commands.clone(), None);
+        reports.push((topic, commands));
+        let output = rows.clone();
         let orders = TypedHandler::from(move |e: &OrderEventAny| {
             output.borrow_mut().push(json!({"phase":phase,"type":"NativeOrderEvent","observedNs":get_atomic_clock_realtime().get_time_ns().as_u64(),"kind":format!("{:?}",e.event_type()),"clientOrderId":e.client_order_id().to_string(),"venueOrderId":e.venue_order_id().map(|id|id.to_string()),"tsEvent":e.ts_event().as_u64()}));
         });

@@ -88,7 +88,7 @@ fn instrument(outcome: u8) -> InstrumentId {
 }
 fn request(instrument_id: InstrumentId) -> RequestInstrument {
     RequestInstrument::new(
-        instrument_id,
+        [instrument_id],
         None,
         None,
         None,
@@ -105,8 +105,7 @@ async fn venue_request_preserves_correlation_and_does_not_require_preloading() {
     replace_data_event_sender(tx);
     let mut client = PredictDataClient::new(ClientId::new("PREDICT"), config).unwrap();
     let mut command = request(instrument(2));
-    let mut params = Params::new();
-    params.insert("force_instrument_update".into(), json!(true));
+    let params = Params::new([("force_instrument_update".into(), json!(true))].into());
     command.params = Some(params.clone());
     command.start = Some("2020-01-01T00:00:00Z".parse().unwrap());
     command.end = Some("2020-01-02T00:00:00Z".parse().unwrap());
@@ -161,6 +160,19 @@ async fn invalid_identity_and_stopped_generation_cannot_publish_a_response() {
                 .is_err()
         );
     }
+    let multi = RequestInstrument::new(
+        [instrument(1), instrument(2)],
+        None,
+        None,
+        None,
+        UUID4::new(),
+        UnixNanos::default(),
+        None,
+    );
+    assert!(
+        client.request_instrument(multi).is_err(),
+        "direct multi-member requests must not silently lose an ID"
+    );
     let mut wrong_client = request(instrument(1));
     wrong_client.client_id = Some(ClientId::new("OTHER"));
     assert!(client.request_instrument(wrong_client).is_err());
@@ -189,7 +201,7 @@ impl DataActor for RequestStrategy {
         assert!(self.cache().instrument(&instrument(1)).is_none());
         for outcome in [1, 2] {
             self.request_instrument(
-                instrument(outcome),
+                [instrument(outcome)],
                 None,
                 None,
                 Some(ClientId::new("PREDICT")),
@@ -210,7 +222,7 @@ impl DataActor for RequestStrategy {
 nautilus_strategy!(RequestStrategy);
 
 #[tokio::test(flavor = "current_thread")]
-async fn rust_strategy_livenode_instrument_requests_complete_native_callbacks_once() {
+async fn rust_strategy_livenode_single_member_requests_complete_native_callbacks_once() {
     let (config, server) = venue(Venue::default()).await;
     let mut node = LiveNode::builder(TraderId::new("REQUEST-001"), Environment::Live)
         .unwrap()

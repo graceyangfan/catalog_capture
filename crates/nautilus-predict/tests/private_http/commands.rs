@@ -34,6 +34,12 @@ async fn official_error_envelope_preserves_safe_diagnostics_without_echoed_crede
             PredictApiErrorReason::ExpiryTooSoon,
         ),
         (
+            400,
+            json!({"success":false,"code":400,"error":"create_order_fill_or_kill_not_supported","message":"fill-or-kill is only supported for MARKET orders"}),
+            PredictApiErrorKind::InvalidRequest,
+            PredictApiErrorReason::FillOrKillUnsupported,
+        ),
+        (
             422,
             json!({"success":false,"code":422,"error":API_KEY,"message":TOKEN,"trace":PUBLIC_TEST_KEY}),
             PredictApiErrorKind::Unknown,
@@ -450,4 +456,237 @@ async fn post_redirects_cannot_forward_wallet_signatures_or_session_credentials(
         assert_eq!(source.requests.lock().unwrap().len(), 1);
         assert!(destination.requests.lock().unwrap().is_empty());
     }
+}
+
+#[tokio::test]
+async fn limit_stp_options_preserve_signed_economics_and_post_only() {
+    use alloy::primitives::U256;
+    use nautilus_predict::http::command_models::PredictCreateOrderRequest;
+    use nautilus_predict::{PredictLimitOrderOptions, PredictSelfTradePrevention};
+    for sell in [false, true] {
+        let signed = limit_signed_order(None, PredictEnvironment::BnbMainnet, sell);
+        let price = U256::from(620_000_000_000_000_000u64);
+        let ordinary =
+            serde_json::to_value(PredictCreateOrderRequest::limit(&signed, price, true).unwrap())
+                .unwrap();
+        for (stp, wire) in [
+            (PredictSelfTradePrevention::CancelMaker, "CANCEL_MAKER"),
+            (PredictSelfTradePrevention::CancelTaker, "CANCEL_TAKER"),
+            (PredictSelfTradePrevention::CancelBoth, "CANCEL_BOTH"),
+        ] {
+            let mut reply = Reply::json(
+                json!({"success":true,"data":{"code":"opaque","orderId":"12345","orderHash":signed.hash()}}),
+            );
+            reply.status = 201;
+            let server = server(vec![reply]).await;
+            let session = transport(&server)
+                .authenticated(
+                    PredictAuthToken::new(TOKEN.into()).unwrap(),
+                    signed.order().maker,
+                )
+                .unwrap();
+            session
+                .request_create_limit_order_with_options(
+                    &signed,
+                    price,
+                    PredictLimitOrderOptions {
+                        is_post_only: true,
+                        self_trade_prevention: Some(stp),
+                    },
+                )
+                .await
+                .unwrap();
+            let requests = server.requests.lock().unwrap();
+            assert_eq!(requests.len(), 1);
+            let mut expected = ordinary.clone();
+            expected["data"]["selfTradePrevention"] = json!(wire);
+            assert_eq!(requests[0].body, expected);
+        }
+    }
+}
+
+#[test]
+fn receipt_lock_timestamp_is_exact_and_absence_is_unknown() {
+    use nautilus_predict::http::command_models::PredictCreateOrderReceipt;
+    for (wire, expected) in [
+        (None, Some(None)),
+        (
+            Some("1970-01-01T00:00:01.123456789Z"),
+            Some(Some(1_123_456_789)),
+        ),
+        (
+            Some("1970-01-01T08:00:01.123456789+08:00"),
+            Some(Some(1_123_456_789)),
+        ),
+        (Some("1969-12-31T23:59:59Z"), None),
+        (Some("9999-12-31T00:00:00Z"), None),
+        (Some("not-a-timestamp"), None),
+    ] {
+        let receipt:PredictCreateOrderReceipt=serde_json::from_value(json!({"code":"opaque","orderId":"12345","orderHash":format!("0x{}","11".repeat(32)),"removalLockedUntil":wire})).unwrap();
+        match expected {
+            Some(expected) => assert_eq!(
+                receipt
+                    .removal_lock_deadline()
+                    .unwrap()
+                    .map(|time| time.as_u64()),
+                expected
+            ),
+            None => assert!(receipt.removal_lock_deadline().is_err()),
+        }
+    }
+}
+
+#[tokio::test]
+async fn recorded_unexecutable_limit_and_market_errors_have_explicit_native_reasons() {
+    use alloy::primitives::U256;
+    use nautilus_predict::{
+        common::{enums::PredictOrderSide, market::PredictMarketOrderAmounts},
+        http::error::{PredictApiErrorKind, PredictApiErrorReason},
+    };
+    let saved: Value = serde_json::from_str(include_str!(
+        "../fixtures/private_api/live_unexecutable_rejections_20261025.json"
+    ))
+    .unwrap();
+    let signed = limit_signed_order(None, PredictEnvironment::BnbMainnet, false);
+    let price = U256::from(620_000_000_000_000_000u64);
+    let amounts = PredictMarketOrderAmounts::from_price(
+        PredictOrderSide::Buy,
+        signed.order().taker_amount,
+        price,
+        0,
+    )
+    .unwrap();
+    let mut count = 0;
+    for run in saved["runs"].as_array().unwrap() {
+        let expected = if run["phase"] == "invalid_signature" {
+            PredictApiErrorReason::InvalidSignature
+        } else {
+            PredictApiErrorReason::ExpiryTooSoon
+        };
+        for case in run["cases"].as_array().unwrap() {
+            let server = server(vec![Reply {
+                status: 400,
+                body: case["response"].to_string(),
+                headers: vec![],
+            }])
+            .await;
+            let session = transport(&server)
+                .authenticated(
+                    PredictAuthToken::new(TOKEN.into()).unwrap(),
+                    OWNER.parse().unwrap(),
+                )
+                .unwrap();
+            let request = &case["request"]["data"];
+            let result = if request["strategy"] == "LIMIT" {
+                session
+                    .request_create_limit_order(&signed, price, true)
+                    .await
+            } else if request["isFillOrKill"] == true {
+                session
+                    .request_create_market_fok_order(&signed, &amounts)
+                    .await
+            } else {
+                session.request_create_market_order(&signed, &amounts).await
+            };
+            let error = result.unwrap_err();
+            assert!(
+                matches!(error, Error::Api {status:400,kind:PredictApiErrorKind::InvalidRequest,reason,..} if reason==expected),
+                "{error}"
+            );
+            assert_eq!(
+                server.requests.lock().unwrap().len(),
+                1,
+                "no automatic POST retry"
+            );
+            count += 1;
+        }
+        assert!(run["walletEvents"].as_array().unwrap().is_empty());
+        assert!(
+            run["restByHash"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|row| row["httpStatus"] == 404)
+        );
+    }
+    assert_eq!(count, 10);
+}
+
+#[tokio::test]
+async fn recorded_crate_signed_parameter_errors_keep_their_business_reason() {
+    use alloy::primitives::U256;
+    use nautilus_predict::{
+        common::{enums::PredictOrderSide, market::PredictMarketOrderAmounts},
+        http::error::PredictApiErrorKind,
+    };
+    let saved: Value = serde_json::from_str(include_str!(
+        "../fixtures/private_api/live_crate_signed_parameter_rejections_20261025.json"
+    ))
+    .unwrap();
+    let signed = limit_signed_order(None, PredictEnvironment::BnbMainnet, false);
+    let price = U256::from(620_000_000_000_000_000u64);
+    let amounts = PredictMarketOrderAmounts::from_price(
+        PredictOrderSide::Buy,
+        signed.order().taker_amount,
+        price,
+        0,
+    )
+    .unwrap();
+    let cases = saved["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 4);
+    for case in cases {
+        let expected = match case["name"].as_str().unwrap() {
+            "limit_fok" => "FillOrKillUnsupported",
+            "market_post_only" => "PostOnlyUnsupported",
+            "limit_slippage" | "market_slippage_out_of_range" => {
+                assert_eq!(case["targetMaskedByExpiry"], true);
+                "ExpiryTooSoon"
+            }
+            _ => panic!("unreviewed recorded parameter case"),
+        };
+        assert_eq!(case["request"]["data"]["order"]["expiration"], 1);
+        let server = server(vec![Reply {
+            status: case["httpStatus"].as_u64().unwrap().try_into().unwrap(),
+            body: case["response"].to_string(),
+            headers: vec![],
+        }])
+        .await;
+        let session = transport(&server)
+            .authenticated(
+                PredictAuthToken::new(TOKEN.into()).unwrap(),
+                OWNER.parse().unwrap(),
+            )
+            .unwrap();
+        // Replay the original response through the public client. Production DTOs
+        // intentionally cannot express the malformed outer options used by the probe.
+        let result = if case["request"]["data"]["strategy"] == "MARKET" {
+            session.request_create_market_order(&signed, &amounts).await
+        } else {
+            session
+                .request_create_limit_order(&signed, price, false)
+                .await
+        };
+        let error = result.unwrap_err();
+        let Error::Api {
+            status,
+            kind,
+            reason,
+            ..
+        } = &error
+        else {
+            panic!("recorded business error was lost: {error}");
+        };
+        assert_eq!(*status, 400);
+        assert_eq!(*kind, PredictApiErrorKind::InvalidRequest);
+        assert_eq!(format!("{reason:?}"), expected);
+        assert_eq!(server.requests.lock().unwrap().len(), 1);
+    }
+    assert!(saved["walletEvents"].as_array().unwrap().is_empty());
+    assert!(
+        saved["restByHash"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["httpStatus"] == 404)
+    );
 }

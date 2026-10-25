@@ -18,12 +18,23 @@ use alloy::primitives::U256;
 use rust_decimal::Decimal;
 
 pub(crate) fn exact_wei(value: U256) -> anyhow::Result<Decimal> {
-    let divisor = U256::from(1_000_000_000_000_000_000u64);
-    let whole = value / divisor;
-    let fraction = (value % divisor).to::<u64>();
-    let text = format!("{whole}.{fraction:018}");
-    Decimal::from_str_exact(text.trim_end_matches('0').trim_end_matches('.'))
+    // Remove only insignificant atomic zeros, preserving the exact Decimal domain
+    // and scale without allocating and parsing a decimal string for every fill.
+    let mut fraction = (value % U256::from(1_000_000_000_000_000_000u64)).to::<u64>();
+    let mut scale = 18;
+    while scale > 0 && fraction.is_multiple_of(10) {
+        fraction /= 10;
+        scale -= 1;
+    }
+    let mantissa = i128::try_from(value / U256::from(10u64.pow(18 - scale)))
+        .map_err(|_| anyhow::anyhow!("Predict wei amount exceeds decimal precision or range"))?;
+    Decimal::try_from_i128_with_scale(mantissa, scale)
         .map_err(|_| anyhow::anyhow!("Predict wei amount exceeds decimal precision or range"))
+}
+
+/// Preserves the actual inventory fee, including all 18 atomic decimals.
+pub(crate) fn exact_wei_quantity(value: U256) -> anyhow::Result<nautilus_model::types::Quantity> {
+    Ok(nautilus_model::types::Quantity::from_u256(value, 18)?)
 }
 
 /// Floors positive atomic shares at the native instrument precision before constructing Quantity.
@@ -51,3 +62,7 @@ pub(crate) fn decimal_to_wei(value: Decimal) -> anyhow::Result<U256> {
         .checked_mul(U256::from(10u64.pow(18 - value.scale())))
         .ok_or_else(|| anyhow::anyhow!("Predict atomic amount overflow"))
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/amounts.rs"]
+mod tests;

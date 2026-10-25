@@ -22,9 +22,7 @@ use nautilus_model::{
     events::{OrderEventAny, OrderModifyRejected},
     identifiers::{ClientOrderId, StrategyId},
 };
-use nautilus_predict::{
-    PredictDataClientConfig, PredictSubmissionConfig, predict_orderbook_data_type,
-};
+use nautilus_predict::{PredictDataClientConfig, predict_orderbook_data_type};
 use nautilus_trading::{Strategy, StrategyConfig, StrategyCore, nautilus_strategy};
 
 use super::*;
@@ -279,18 +277,14 @@ async fn run_with_saved(case: Case, saved: Option<&Value>) -> Value {
     ));
     exec.orderbook_removal_enabled = !case.is_preflight();
     exec.account_refresh_interval_secs = 1;
-    exec.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            nautilus_predict::signing::PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    exec.submission_signer = Some(Arc::new(
+        nautilus_predict::signing::PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let mut node = node::build_node(
         trader_id(),
         PredictDataClientConfig {

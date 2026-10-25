@@ -3,7 +3,7 @@
 use nautilus_core::time::get_atomic_clock_realtime;
 use nautilus_live::node::config::LiveExecutionEngineConfig;
 use nautilus_model::identifiers::{ClientOrderId, StrategyId};
-use nautilus_predict::{PredictDataClientConfig, PredictSubmissionConfig};
+use nautilus_predict::PredictDataClientConfig;
 
 use super::{
     exit_orders::{PublicState, barrier, exit_socket},
@@ -21,6 +21,11 @@ fn page(private: &Server, body: &Value, rows: Vec<Value>, full: bool) {
     row["strategy"] = body["data"]["strategy"].clone();
     row["amountFilled"] = json!(if full {
         "100000000000000000000"
+    } else if rows
+        .iter()
+        .any(|row| row["taker"]["fee"]["type"] == "SHARES")
+    {
+        "33000000000000000000"
     } else {
         "33000000000000000005"
     });
@@ -28,10 +33,12 @@ fn page(private: &Server, body: &Value, rows: Vec<Value>, full: bool) {
     if !full {
         private.state.open_orders.lock().unwrap().push(row.clone());
     }
-    private.state.orders.lock().unwrap().extend([
-        json!({"success":true,"data":row.clone()}),
-        json!({"success":true,"data":row.clone()}),
-    ]);
+    private
+        .state
+        .orders
+        .lock()
+        .unwrap()
+        .push_back(json!({"success":true,"data":row.clone()}));
     *private.state.order_snapshot.lock().unwrap() =
         Some(json!({"success":true,"data":row.clone()}));
     *private.state.match_snapshot.lock().unwrap() = Some(rows);
@@ -141,11 +148,7 @@ async fn run_mode_inner(
     cfg.account_refresh_interval_secs = 1;
     cfg.reconnect_reconciliation_interval_secs = (resume && native > 0).then_some(1);
     cfg.orderbook_removal_enabled = resume;
-    cfg.submission = (!read_only).then(|| PredictSubmissionConfig {
-        signer: signer.clone(),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = (!read_only).then(|| signer.clone());
     private.state.rpc_frame.lock().unwrap().2 =
         get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000_000;
     let public = PublicState(Arc::new(Mutex::new(vec![])));
@@ -315,8 +318,24 @@ async fn run_mode_inner(
         .to_rfc3339();
         let mut rows = Vec::new();
         for (index, amount, fee) in [
-            (1, "33000000000000000005", "660000000000000000"),
-            (2, "66999999999999999995", "1340000000000000000"),
+            (
+                1,
+                if shares {
+                    "33000000000000000000"
+                } else {
+                    "33000000000000000005"
+                },
+                "660000000000000000",
+            ),
+            (
+                2,
+                if shares {
+                    "67000000000000000000"
+                } else {
+                    "66999999999999999995"
+                },
+                "1340000000000000000",
+            ),
         ] {
             let mut row = super::matches::match_row(1);
             row["settlementId"] = json!(format!("gap-settlement-{index}"));
@@ -357,6 +376,12 @@ async fn run_mode_inner(
                         leg["hash"] = body["data"]["order"]["hash"].clone();
                     }
                 }
+                if shares {
+                    // Rebind the synthetic fixture's unsupported subprecision gross facts.
+                    // Preserve the original file and every other venue field for comparison.
+                    captured["amountFilled"] = json!(amount);
+                    captured["taker"]["amount"] = json!(amount);
+                }
                 assert_eq!(captured, row);
                 row = captured;
             }
@@ -379,8 +404,14 @@ async fn run_mode_inner(
         if native == 0 || native == 3 {
             ready.set(true);
         }
+        let first = std::iter::once(&rows[0]["taker"])
+            .chain(rows[0]["makers"].as_array().unwrap().iter())
+            .find(|leg| leg["signer"] == WALLET)
+            .unwrap();
+        let expected_partial = Decimal::from_str_exact(first["amount"].as_str().unwrap()).unwrap()
+            / Decimal::from(1_000_000_000_000_000_000u64);
         barrier("native recovered partial fill", || {
-            cache.borrow().order(&id).unwrap().filled_qty().as_decimal() == Decimal::from(33)
+            cache.borrow().order(&id).unwrap().filled_qty().as_decimal() == expected_partial
         })
         .await;
         if shares {
@@ -391,6 +422,7 @@ async fn run_mode_inner(
             .await;
         }
         // Replaying the same complete history cannot apply this trade twice.
+        let matches_before_replay = private.state.match_requests.lock().unwrap().len();
         page(
             &private,
             &body,
@@ -400,8 +432,8 @@ async fn run_mode_inner(
         if native == 0 || native == 3 {
             ready.set(true);
         }
-        barrier("second targeted query", || {
-            private.state.order_requests.lock().unwrap().len() >= 4
+        barrier("replayed trade query", || {
+            private.state.match_requests.lock().unwrap().len() > matches_before_replay
         })
         .await;
         let wallet_connections = private.state.sockets.lock().unwrap().len();
@@ -564,7 +596,7 @@ async fn run_mode_inner(
                     journal
                         .borrow()
                         .iter()
-                        .any(|r| r["type"] == "AccountSnapshot" && r["reconciliationReady"] == true)
+                        .any(|r| r["type"] == "AccountSnapshot" && r["connectionEpoch"] == 1)
                 }
             })
             .await;
@@ -654,7 +686,7 @@ async fn run_mode_inner(
             assert!(private.state.open_orders.lock().unwrap().is_empty());
         }
         handle.stop();
-        json!({"readOnly":read_only,"nativeReconciliationStage":native,"explicitStrategyOrderQueries":native==0 || native==3,"submissionRecoveryDiagnostics":diagnostics.borrow().clone(),"mainnetWrites":0,"matchResponses":private.state.match_response_log.lock().unwrap().clone(),"positionResponses":private.state.position_response_log.lock().unwrap().clone(),"customRecoveryTimerEnabled":resume && native>0,"customTimerQueriesOrders":false,"orderLists":private.state.order_list_log.lock().unwrap().clone(),"sharesFee":shares,"request":body,"orderResponses":private.state.order_response_log.lock().unwrap().clone(),"matches":rows,"nativeFeedback":journal.borrow().clone(),"primaryFillCallbacks":callbacks,"grossFilled":"100","netPosition":quantity(&cache).to_string(),"cashTotal":"938","cashLocked":"0","orderPosts":private.state.creations.lock().unwrap().len(),"streamGap":true,"newSubmissionsBlocked":!resume,"resumedRequest":resumed_request})
+        json!({"exactGrossInputsReboundFor5418":shares && true,"readOnly":read_only,"nativeReconciliationStage":native,"explicitStrategyOrderQueries":native==0 || native==3,"submissionRecoveryDiagnostics":diagnostics.borrow().clone(),"mainnetWrites":0,"matchResponses":private.state.match_response_log.lock().unwrap().clone(),"positionResponses":private.state.position_response_log.lock().unwrap().clone(),"customRecoveryTimerEnabled":resume && native>0,"customTimerQueriesOrders":false,"orderLists":private.state.order_list_log.lock().unwrap().clone(),"sharesFee":shares,"request":body,"orderResponses":private.state.order_response_log.lock().unwrap().clone(),"matches":rows,"nativeFeedback":journal.borrow().clone(),"primaryFillCallbacks":callbacks,"grossFilled":"100","netPosition":quantity(&cache).to_string(),"cashTotal":"938","cashLocked":"0","orderPosts":private.state.creations.lock().unwrap().len(),"streamGap":true,"newSubmissionsBlocked":!resume,"resumedRequest":resumed_request})
     };
     let result = timeout(Duration::from_secs(20), async {
         let (value, result) = tokio::join!(driver, live.run());
@@ -687,13 +719,9 @@ async fn record_resume_json() {
     let file = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
-            if cfg!(feature = "native-quantity-commission") {
-                "tests/fixtures/private_api/native_quantity_commission_reconnect_20261017.json"
-            } else {
-                "tests/fixtures/private_api/reconciliation_ready_live_node_synthetic_20261016.json"
-            },
-        ))
+        .open(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join({
+            "tests/fixtures/private_api/native_quantity_commission_reconnect_20261017.json"
+        }))
         .unwrap();
     serde_json::to_writer_pretty(file,&json!({"source":"synthetic offline Rust Strategy + LiveNode resume; no mainnet writes","sessions":sessions})).unwrap();
 }

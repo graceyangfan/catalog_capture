@@ -8,7 +8,7 @@ use nautilus_common::msgbus::TypedHandler;
 use nautilus_core::time::get_atomic_clock_realtime;
 use nautilus_live::node::config::LiveExecutionEngineConfig;
 use nautilus_model::{data::QuoteTick, events::OrderEventAny};
-use nautilus_predict::{PredictDataClientConfig, PredictSubmissionConfig};
+use nautilus_predict::PredictDataClientConfig;
 use nautilus_testkit::testers::{ExecTester, ExecTesterConfig};
 
 use super::{
@@ -114,18 +114,14 @@ async fn run(case: &str, saved: Option<&Value>) -> Value {
     ));
     cfg.account_refresh_interval_secs = 1;
     cfg.orderbook_removal_enabled = true;
-    cfg.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            nautilus_predict::signing::PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = Some(Arc::new(
+        nautilus_predict::signing::PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let public = PublicState(Arc::new(Mutex::new(vec![])));
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();

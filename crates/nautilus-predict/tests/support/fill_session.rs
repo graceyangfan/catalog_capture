@@ -33,6 +33,15 @@ impl SessionObservation {
 /// A failed exit is not an instruction to wait indefinitely for profit.
 pub fn strategy_failed(events: &[Value], entry_id: &str) -> bool {
     events.iter().any(|event| match event["type"].as_str() {
+        Some("Rejected")
+            if events.iter().any(|handled| {
+                handled["type"] == "PostOnlyRejectedExitRequested"
+                    && handled["clientOrderId"] == event["clientOrderId"]
+                    && event["reason"] == "Predict post-only order rejected"
+            }) =>
+        {
+            false
+        }
         Some(
             "Denied"
             | "Rejected"
@@ -180,6 +189,39 @@ mod tests {
         ] {
             assert!(strategy_failed(&[event], "entry"));
         }
+    }
+
+    #[test]
+    fn acknowledged_post_only_rejection_can_continue_only_its_requested_exit() {
+        let rejection = json!({"type":"Rejected","clientOrderId":"profit","reason":"Predict post-only order rejected"});
+        let handled = json!({"type":"PostOnlyRejectedExitRequested","clientOrderId":"profit"});
+        assert!(strategy_failed(std::slice::from_ref(&rejection), "entry"));
+        assert!(!strategy_failed(
+            &[rejection.clone(), handled.clone()],
+            "entry"
+        ));
+        assert!(strategy_failed(
+            &[
+                rejection.clone(),
+                json!({"type":"PostOnlyRejectedExitRequested","clientOrderId":"another"})
+            ],
+            "entry"
+        ));
+        assert!(strategy_failed(
+            &[
+                json!({"type":"Rejected","clientOrderId":"profit","reason":"Predict no market match"}),
+                handled.clone()
+            ],
+            "entry"
+        ));
+        assert!(strategy_failed(
+            &[
+                rejection,
+                handled,
+                json!({"type":"StopAttemptLimitReached"})
+            ],
+            "entry"
+        ));
     }
 
     #[test]

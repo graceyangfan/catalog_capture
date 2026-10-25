@@ -6,13 +6,23 @@
 
 #![cfg(feature = "execution")]
 
-#[cfg(feature = "native-quantity-commission")]
 #[path = "execution/quantity_commission.rs"]
 mod quantity_commission;
 
-#[cfg(feature = "native-quantity-commission")]
 #[path = "execution/quantity_fee_cost.rs"]
 mod quantity_fee_cost;
+
+#[path = "execution/ingestion_contract.rs"]
+mod ingestion_contract;
+
+#[path = "execution/terminal_recovery.rs"]
+mod terminal_recovery;
+
+#[path = "execution/history_survey.rs"]
+mod history_survey;
+
+#[path = "execution/factual_precision.rs"]
+mod factual_precision;
 
 #[path = "support/fill_session.rs"]
 mod fill_session;
@@ -247,6 +257,7 @@ fn lifecycle_fixture() -> Value {
 fn holding(index: u8) -> Value {
     let mut row = lifecycle_fixture()["holding"].clone();
     row["id"] = json!(format!("holding-{index}"));
+    row["outcome"]["status"] = Value::Null;
     row["outcome"]["indexSet"] = json!(index);
     row["outcome"]["onChainId"] = json!(if index == 1 { "11" } else { "22" });
     row["market"]["outcomes"] = json!([row["outcome"].clone()]);
@@ -280,7 +291,7 @@ async fn next(rx: &mut mpsc::UnboundedReceiver<ExecutionEvent>) -> ExecutionEven
 }
 
 #[tokio::test]
-async fn owned_position_reports_finalize_against_current_core_cache_and_preserve_lost_holdings() {
+async fn owned_position_reports_finalize_against_current_core_cache() {
     let server = server(vec![
         json!({"success":true,"cursor":"+/=&", "data":[holding(1)]}),
         json!({"success":true,"data":[holding(2)]}),
@@ -305,7 +316,7 @@ async fn owned_position_reports_finalize_against_current_core_cache_and_preserve
             .add_instrument(InstrumentAny::BinaryOption(instrument(index)))
             .unwrap();
     }
-    let reports = task.result.await.unwrap();
+    let reports = (task.finish)().unwrap();
     assert_eq!(reports.len(), 2);
     assert!(
         reports
@@ -606,7 +617,7 @@ fn fill_mapping_keeps_outcome_price_unknown_liquidity_and_exact_representation()
 }
 
 #[tokio::test]
-async fn ambiguous_wallet_evidence_faults_the_client_without_publishing_a_fill() {
+async fn ambiguous_wallet_evidence_does_not_publish_a_fill_or_disconnect_transport() {
     let server = server(vec![]).await;
     let (mut client, mut rx, cache) = client(&server);
     cache
@@ -623,13 +634,7 @@ async fn ambiguous_wallet_evidence_faults_the_client_without_publishing_a_fill()
     data.as_object_mut().unwrap().remove("fee");
     data.as_object_mut().unwrap().remove("isMaker");
     server.wallet(data);
-    timeout(Duration::from_secs(3), async {
-        while !requires_reconciliation(&client) {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .unwrap();
+    wallet_processed(&server).await;
     assert!(rx.try_recv().is_err());
     assert!(
         client.is_connected(),
@@ -691,7 +696,7 @@ async fn burst_fill_and_cancel_reports_preserve_core_cache_ownership_and_causal_
 }
 
 #[tokio::test]
-async fn conflicting_settlement_replay_and_connection_gaps_invalidate_execution_readiness() {
+async fn conflicting_settlement_replay_and_connection_gaps_preserve_stream_recovery() {
     for gap in [false, true] {
         let server = server(vec![]).await;
         let (mut client, mut rx, cache) = client(&server);
@@ -722,17 +727,19 @@ async fn conflicting_settlement_replay_and_connection_gaps_invalidate_execution_
             conflict["fill"]["executedSizeWei"] = json!("18000000000000000000");
             server.wallet(conflict);
         }
-        timeout(Duration::from_secs(3), async {
-            while if gap {
-                client.is_connected()
-            } else {
-                !requires_reconciliation(&client)
-            } {
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-        })
-        .await
-        .unwrap();
+        if gap {
+            exit_orders::barrier("wallet reconnect", || {
+                server.state.sockets.lock().unwrap().len() >= 2
+            })
+            .await;
+        }
+        wallet_processed(&server).await;
+        if !gap {
+            assert!(
+                client.is_connected(),
+                "history errors do not disconnect the transport"
+            );
+        }
         assert!(rx.try_recv().is_err());
         client.disconnect().await.unwrap();
     }
@@ -823,7 +830,7 @@ async fn rest_order_reports_finalize_on_core_and_reconcile_through_native_engine
         .borrow_mut()
         .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
         .unwrap();
-    let report = task.result.await.unwrap().unwrap();
+    let report = (task.finish)().unwrap().unwrap();
     assert_eq!(report.order_status, OrderStatus::Canceled);
     assert_eq!(report.ts_accepted, UnixNanos::from(100u64));
     assert_eq!(report.ts_last, UnixNanos::from(OBSERVED));
@@ -975,7 +982,7 @@ async fn order_report_commands_validate_targets_and_recheck_cache_after_collecti
     );
     cache.borrow_mut().update_order(&canceled).unwrap();
     assert!(
-        task.result.await.is_err(),
+        (task.finish)().is_err(),
         "a stale OPEN snapshot cannot reopen a terminal native order"
     );
 }
@@ -1055,7 +1062,7 @@ async fn rest_snapshot_cannot_erase_fills_applied_during_collection() {
     let mut engine = ExecutionEngine::new(Rc::new(RefCell::new(clock)), cache.clone(), None);
     engine.reconcile_execution_report(&report);
     assert!(
-        task.result.await.is_err(),
+        (task.finish)().is_err(),
         "zero REST amount cannot supersede a confirmed fill in current Cache"
     );
     let cache = cache.borrow();
@@ -1852,7 +1859,7 @@ mod market_replay;
 mod maker_lifecycle;
 
 #[tokio::test]
-async fn confirmed_fill_rejects_inconsistent_value_and_limit_price_before_native_updates() {
+async fn confirmed_fill_rejects_inconsistent_raw_value_before_native_updates() {
     let native = order(1);
     for (field, value) in [
         ("executedValueWei", "10540000000000000001"),
@@ -1999,7 +2006,7 @@ fn maker_fee_evidence_preserves_native_fill_quantity_and_rejects_contradictions(
             } else {
                 data.as_object_mut().unwrap().remove("isMaker");
             }
-            if fee_type.is_none() || identity == Some(false) {
+            if fee_type.is_none() {
                 let event = serde_json::from_value(data.clone()).unwrap();
                 assert!(
                     parse_wallet_report(
@@ -2052,10 +2059,16 @@ mod precision;
 #[path = "execution/exit_orders.rs"]
 mod exit_orders;
 
+#[path = "execution/maker_options.rs"]
+mod maker_options;
+#[path = "execution/market_fok.rs"]
+mod market_fok;
 #[path = "execution/market_preparation.rs"]
 mod market_preparation;
 #[path = "execution/market_taker.rs"]
 mod market_taker;
+#[path = "execution/market_value.rs"]
+mod market_value;
 
 #[path = "execution/wallet_lifecycle.rs"]
 mod wallet_lifecycle;
@@ -2134,7 +2147,7 @@ mod query_recorded;
 mod batch_recorded;
 
 #[tokio::test]
-async fn unknown_wallet_order_gates_new_submissions_but_keeps_consuming_owned_fills() {
+async fn unknown_wallet_order_does_not_prevent_consuming_owned_fills() {
     let server = server(vec![]).await;
     let (mut client, mut rx, cache) = client(&server);
     cache
@@ -2155,18 +2168,11 @@ async fn unknown_wallet_order_gates_new_submissions_but_keeps_consuming_owned_fi
         panic!("owned fill must still arrive")
     };
     assert_eq!(fill.last_qty, Quantity::from(17));
-    assert!(requires_reconciliation(&client));
     assert!(
         client.is_connected(),
         "transport remains available for Native recovery"
     );
     client.disconnect().await.unwrap();
-}
-
-fn requires_reconciliation(client: &PredictExecutionClient) -> bool {
-    client
-        .submit_order(submissions::submit(&order(1)))
-        .is_err_and(|error| error.to_string().contains("stream gap"))
 }
 
 #[allow(dead_code)]
@@ -2344,3 +2350,37 @@ async fn local_lifecycle_reuses_cash_without_rest_and_preserves_external_open_re
     assert_eq!(server.state.requests.lock().unwrap().len(), open_before);
     client.disconnect().await.unwrap();
 }
+
+#[path = "execution/expiry_scope.rs"]
+mod expiry_scope;
+
+/// Same-socket round trip proves earlier wallet messages were consumed without using a trading gate.
+async fn wallet_processed(venue: &Server) {
+    let marker = UUID4::new().to_string();
+    venue
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Text(
+            json!({"type":"M","topic":"heartbeat","data":marker})
+                .to_string()
+                .into(),
+        ))
+        .unwrap();
+    exit_orders::barrier("wallet messages consumed", || {
+        venue
+            .state
+            .ws_requests
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|r| r["method"] == "heartbeat" && r["data"] == marker)
+    })
+    .await;
+}
+
+#[path = "execution/feedback_delivery.rs"]
+mod feedback_delivery;

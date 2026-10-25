@@ -92,9 +92,13 @@ fn build_deribit_book_summary(
             );
         }
     }
-    let mut params = Params::new();
-    params.insert("currency".to_string(), JsonValue::String(currency));
-    params.insert("kind".to_string(), JsonValue::String(kind));
+    let params = Params::new(
+        [
+            ("currency".to_string(), JsonValue::String(currency)),
+            ("kind".to_string(), JsonValue::String(kind)),
+        ]
+        .into(),
+    );
     Ok((
         DataType::new("DeribitBookSummary", Some(params), Some(expected_id)),
         Some("DERIBIT".to_string()),

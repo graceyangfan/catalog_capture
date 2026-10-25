@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Native private reports, reported cash, bounded order commands and verified reconnect recovery.
+//! Native reports, reported cash, bounded commands and execution-session refresh.
 
 mod account;
 mod authentication;
@@ -28,10 +28,11 @@ mod order_builder;
 mod orders;
 pub mod parse;
 mod precision;
-mod readiness;
+pub mod receipt;
 mod reconciliation;
 mod reconnect;
 mod recovery;
+pub mod rejection;
 mod reports;
 mod resources;
 mod routing;
@@ -84,7 +85,7 @@ use crate::{
 };
 
 /// Incremental execution adapter with native account/order/position ownership.
-/// Connectivity includes verified wallet continuity; submission also requires configured admission.
+/// Connectivity describes authenticated execution transport, not account refresh progress.
 ///
 /// Predict's public API and official SDK expose no atomic order amendment operation.
 /// `ModifyOrder` emits `OrderModifyRejected`; callers must explicitly cancel the old order
@@ -99,20 +100,18 @@ pub struct PredictExecutionClient {
     chain: Option<crate::blockchain::PredictChainClient>,
     clock: &'static AtomicTime,
     emitter: ExecutionEventEmitter,
-    settlement_sender:
+    data_sender:
         Option<nautilus_common::live::sender::EventSender<nautilus_common::messages::DataEvent>>,
     tasks: TaskGroup,
     stream_task: Option<TaskRef>,
-    account_task: Option<TaskRef>,
     account_query_active: Arc<AtomicBool>,
-    order_queries: Arc<std::sync::Mutex<std::collections::HashSet<ClientOrderId>>>,
     account_orders: types::OrderSnapshots<ClientOrderId>,
     account_sync: Arc<account::AccountSync>,
     healthy: Arc<AtomicBool>,
-    reconciliation_required: Arc<AtomicBool>,
+    account_refresh_required: Arc<AtomicBool>,
     wallet_auth: Option<AuthTracker>,
     wallet_epoch: Option<Arc<AtomicU64>>,
-    verified_epoch: Arc<AtomicU64>,
+    refreshed_epoch: Arc<AtomicU64>,
     recovery_clock: Option<std::rc::Rc<std::cell::RefCell<dyn nautilus_common::clock::Clock>>>,
     instruments: Arc<AtomicMap<InstrumentId, types::ExecutionInstrument>>,
     orders: types::OrderSnapshots<VenueOrderId>,
@@ -155,11 +154,10 @@ impl PredictExecutionClient {
         let order_hasher = Arc::new(crate::signing::PredictOrderHasher::new(
             config.session.environment(),
         ));
-        let order_signer = config.submission.as_ref().map(|policy| {
-            Arc::new(crate::signing::PredictOrderSigner::new(Arc::clone(
-                &policy.signer,
-            )))
-        });
+        let order_signer = config
+            .submission_signer
+            .as_ref()
+            .map(|signer| Arc::new(crate::signing::PredictOrderSigner::new(Arc::clone(signer))));
         let mut chain = config
             .chain
             .clone()
@@ -201,19 +199,17 @@ impl PredictExecutionClient {
             chain,
             clock,
             emitter,
-            settlement_sender: nautilus_common::live::runner::try_get_data_event_sender(),
+            data_sender: nautilus_common::live::runner::try_get_data_event_sender(),
             tasks: TaskGroup::new(),
             stream_task: None,
-            account_task: None,
             account_query_active: Arc::new(AtomicBool::new(false)),
-            order_queries: Default::default(),
             account_orders: Default::default(),
             account_sync: Arc::new(account::AccountSync::default()),
             healthy: Arc::new(AtomicBool::new(false)),
-            reconciliation_required: Arc::new(AtomicBool::new(false)),
+            account_refresh_required: Arc::new(AtomicBool::new(false)),
             wallet_auth: None,
             wallet_epoch: None,
-            verified_epoch: Arc::new(AtomicU64::new(0)),
+            refreshed_epoch: Arc::new(AtomicU64::new(0)),
             recovery_clock: None,
             instruments: Arc::new(AtomicMap::new()),
             orders: Default::default(),
@@ -264,13 +260,12 @@ impl PredictExecutionClient {
             .await
     }
 
-    /// Whether both the wallet session and applied-state reconciliation permit new submissions.
+    /// Whether submission is enabled and the authenticated execution transport is available.
     #[must_use]
     pub fn is_submission_ready(&self) -> bool {
-        self.config.submission.is_some()
+        self.config.submission_signer.is_some()
             && self.config.account_state_mode == PredictAccountStateMode::Reported
             && self.is_connected()
-            && !self.reconciliation_required.load(Ordering::Acquire)
     }
 }
 
@@ -292,12 +287,7 @@ impl ExecutionClient for PredictExecutionClient {
                 .wallet_auth
                 .as_ref()
                 .is_some_and(AuthTracker::is_authenticated)
-            && self.wallet_epoch.as_ref().is_some_and(|epoch| {
-                epoch.load(Ordering::Acquire) == self.verified_epoch.load(Ordering::Acquire)
-            })
             && self.stream_task.as_ref().is_some_and(TaskRef::is_active)
-            && (self.config.account_state_mode == PredictAccountStateMode::Disabled
-                || self.account_task.as_ref().is_some_and(TaskRef::is_active))
     }
     fn client_id(&self) -> ClientId {
         self.core.client_id
@@ -317,6 +307,10 @@ impl ExecutionClient for PredictExecutionClient {
     fn retain_unresolved_submissions(&self) -> bool {
         true
     }
+
+    fn retain_unresolved_commands(&self) -> bool {
+        true
+    }
     fn provides_bulk_position_coverage(&self, _: InstrumentId) -> bool {
         false
     }
@@ -327,7 +321,7 @@ impl ExecutionClient for PredictExecutionClient {
         let sender = try_get_exec_event_sender()
             .ok_or_else(|| anyhow::anyhow!("Nautilus execution event sender is not installed"))?;
         self.emitter.set_sender(sender);
-        self.settlement_sender = nautilus_common::live::runner::try_get_data_event_sender();
+        self.data_sender = nautilus_common::live::runner::try_get_data_event_sender();
         self.core.set_started();
         Ok(())
     }
@@ -339,7 +333,7 @@ impl ExecutionClient for PredictExecutionClient {
                 .expect("order snapshots poisoned")
                 .is_empty()
         {
-            self.reconciliation_required.store(true, Ordering::Release);
+            self.account_refresh_required.store(true, Ordering::Release);
         }
         self.healthy.store(false, Ordering::Release);
         self.core.set_disconnected();
@@ -390,7 +384,8 @@ impl ExecutionClient for PredictExecutionClient {
             .expect("REST order IDs poisoned")
             .clear();
         self.fill_evidence = Default::default();
-        self.reconciliation_required.store(false, Ordering::Release);
+        self.account_refresh_required
+            .store(false, Ordering::Release);
         self.account_orders
             .lock()
             .expect("order snapshots poisoned")
@@ -459,7 +454,7 @@ impl ExecutionClient for PredictExecutionClient {
         self.prune_order_lookups_on_request();
         let task = position_report_task(self.config.clone(), self.core.clone(), self.clock, cmd);
         task.collection.await;
-        task.result.await
+        (task.finish)()
     }
     fn generate_order_status_report_task(
         &self,
@@ -473,7 +468,7 @@ impl ExecutionClient for PredictExecutionClient {
     ) -> anyhow::Result<Option<OrderStatusReport>> {
         let task = order_report_task(self, cmd);
         task.collection.await;
-        task.result.await
+        (task.finish)()
     }
     fn generate_order_status_reports_task(
         &self,
@@ -482,7 +477,7 @@ impl ExecutionClient for PredictExecutionClient {
         let task = reconciliation::bulk_task(self, cmd, false, None);
         Some(ExecutionReportTask {
             collection: task.collection,
-            result: Box::pin(async move { Ok(task.result.await?.0) }),
+            finish: Box::new(move || Ok((task.finish)()?.0)),
         })
     }
     async fn generate_order_status_reports(
@@ -491,7 +486,7 @@ impl ExecutionClient for PredictExecutionClient {
     ) -> anyhow::Result<Vec<OrderStatusReport>> {
         let task = reconciliation::bulk_task(self, cmd, false, None);
         task.collection.await;
-        Ok(task.result.await?.0)
+        Ok((task.finish)()?.0)
     }
     fn generate_fill_reports_task(
         &self,
@@ -521,7 +516,7 @@ impl ExecutionClient for PredictExecutionClient {
             &cmd,
         );
         task.collection.await;
-        task.result.await
+        (task.finish)()
     }
     async fn generate_mass_status(
         &self,
@@ -555,7 +550,7 @@ impl ExecutionClient for PredictExecutionClient {
         );
         let task = reconciliation::bulk_task(self, &cmd, true, lookback_start);
         task.collection.await;
-        let (orders, fills) = task.result.await?;
+        let (orders, fills) = (task.finish)()?;
         let positions_cmd = GeneratePositionStatusReports::new(
             nautilus_core::UUID4::new(),
             now,
@@ -634,43 +629,40 @@ impl ExecutionClient for PredictExecutionClient {
             "Predict reported account client generation is not active"
         );
         self.prune_order_lookups_on_request();
-        if self.reconciliation_required.load(Ordering::Acquire) || !self.is_connected() {
-            self.reconciliation_required.store(true, Ordering::Release);
+        if self.account_refresh_required.load(Ordering::Acquire) || !self.is_connected() {
+            self.account_refresh_required.store(true, Ordering::Release);
             let Some(guard) = account::AccountQueryGuard::acquire(&self.account_query_active)
             else {
                 return Ok(());
             };
-            let check = match readiness::ReadinessCheck::new(self) {
-                Ok(check) => Some(check),
-                Err(error) => {
-                    // An explicit query still refreshes cash across a wallet gap.
-                    // Automatic retries skip unresolved commands before enqueueing.
-                    log::warn!("Predict readiness snapshot is not eligible: {error}");
-                    None
-                }
-            };
             let mut reporter = self.account_reporter()?;
             reporter.allow_stream_gap = true;
             let cancellation = self.tasks.cancellation_token();
+            let epoch = self
+                .wallet_epoch
+                .clone()
+                .ok_or_else(|| anyhow::anyhow!("Predict account refresh lacks wallet epoch"))?;
+            let refreshed_epoch = self.refreshed_epoch.clone();
+            let requested = self.account_refresh_required.clone();
+            let metadata_notify = self.metadata_notify.clone();
             self.tasks
                 .spawn_named("predict-gap-account-query", async move {
                     let _guard = guard;
                     for _ in 0..5 {
                         let result = tokio::select! {biased;
                             _ = cancellation.cancelled() => return,
-                            result = reporter.refresh_for_readiness() => result,
+                            result = reporter.refresh_snapshot() => result,
                         };
                         match result {
                             Ok(Some(snapshot)) => {
-                                let result = tokio::select! {biased;
-                                    _ = cancellation.cancelled() => return,
-                                    result = async { match check { Some(check) => check.confirm(snapshot).await, None => Ok(()) } } => result,
-                                };
-                                if let Err(error) = result {
-                                    log::warn!(
-                                        "Predict submission readiness remains gated: {error}"
-                                    );
+                                if epoch.load(Ordering::Acquire) != snapshot.epoch {
+                                    return;
                                 }
+                                // Refresh cash/OPEN only; signing inputs are prepared independently. Per-market
+                                // metadata is prepared independently and checked by its order.
+                                refreshed_epoch.store(snapshot.epoch, Ordering::Release);
+                                requested.store(false, Ordering::Release);
+                                metadata_notify.notify_one();
                                 return;
                             }
                             Ok(None) => continue,

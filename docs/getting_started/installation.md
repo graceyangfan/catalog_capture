@@ -28,15 +28,20 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `edd0b0f1588f241690f578ef8b141a947997486a` |
+| 0.1.x / main | `c9bbbcd89421245fa86286caaa173c6524638461` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
-The workspace uses a pinned project fork. `native-quantity-commission` enables
+This project-fork baseline includes official develop
+`7cebe282353615d4f7b6fcdabde2911ba621516c` and the project's quantity-fee support.
+Predict targets these Native APIs directly. See the
+[upstream adaptation plan](../plans/predict-execution-lifecycle-refactor.md).
+
+The workspace uses a pinned project fork. `execution` enables
 its experimental inventory-fee mapping; this is not an unmodified upstream
 develop build.
 
-This pin includes the Native event/history, account publication and purge repairs
-required by Predict execution. No local patch application is needed. See the
+This pin contains the live reported-cash quantity-fee implementation discussed in
+upstream RFC #5418. Predict execution uses the matching Native APIs directly. See the
 [dependency contract](../reference/predict-execution-validation.md#two-repository-handoff).
 
 ## Toolchain

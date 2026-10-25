@@ -1,162 +1,161 @@
 # Predict adapter tests
 
-Normal tests use immutable fixtures and loopback HTTP/WS/RPC. They do not load
-operator credentials or submit venue orders. Run only named ignored exporters or
-probes; never run the entire ignored set. Current behavior is defined in the
-[architecture](../../../docs/predict-execution-adapter-design.md); accepted results
-and source/evidence limits are in the
-[validation record](../../../docs/reference/predict-execution-validation.md).
-
-## Test layers
-
-| Location | Boundary |
-| --- | --- |
-| unit/ | Private precision, resources, account, routing, settlement and lifecycle helpers via cfg(test) |
-| private_http/, private_ws.rs, blockchain.rs, http_security.rs | Wire schema, authentication, pagination, canonical chain reads |
-| execution/mock_venue.rs | Shared local venue, configurable faults and observed requests |
-| execution.rs, execution/ | Native execution/Portfolio, commands/reports and ownership |
-| execution/node_host.rs and support/ | Product factories, LiveNode, Rust strategies and actual callbacks |
-| data_client/, instrument_requests.rs | Discovery, subscriptions, reconnect and data responses |
-| capture_rollover.rs, catalog_readback.rs, quote_rollover.rs | Expiry handover and persisted public data |
-| private_api_live.rs | Explicit read-only or supervised live probes; ignored by default |
-
-Direct-client tests deliberately bypass RiskEngine for protocol/ambiguous-outcome
-coverage. LiveNode tests assert real Native risk/state and strategy callbacks.
-Neither substitutes for the other. Benchmark/exporter tests are reproducible tools,
-not temporary files merely because they are ignored by default.
+Ordinary tests use immutable fixtures and loopback HTTP/WS/RPC, without credentials
+or venue orders. The [architecture](../../../docs/predict-execution-adapter-design.md)
+defines behavior; the [validation matrix](../../../docs/reference/predict-execution-validation.md)
+links sources, real JSON and known limits. Use the matching
+[Native dependency](../../../docs/reference/predict-execution-validation.md#two-repository-handoff).
 
 ## Run offline tests
 
-Run from the repository root against the matching repaired Native sibling tree.
-See the [dependency handoff](../../../docs/reference/predict-execution-validation.md#two-repository-handoff).
-Serial scheduling is the accepted full-suite baseline; business-internal WS/HTTP/
-strategy concurrency still runs within these scenarios.
-
 ```bash
-cargo test -p nautilus-predict --features native-quantity-commission --locked -- --test-threads=1
-cargo clippy -p nautilus-predict --features native-quantity-commission --all-targets --locked -- -D warnings
-cargo check -p nautilus-predict --no-default-features --features native-quantity-commission --locked --lib
-cargo check -p catalog-capture-cli --no-default-features --features predict-execution,nautilus-predict/native-quantity-commission --locked
-```
-
-Legacy reconciliation can be checked separately with --features execution. It is
-not the same inventory-fee mapping or the current maker/taker validation target.
-Set NO_PROXY=127.0.0.1,localhost if local proxies interfere with loopback services.
-Do not use a full ignored run as a replacement for either offline command.
-
-Python supervisor/evidence tests are offline (HTTP recorder tests use localhost):
-
-```bash
-PYTHONPATH=tests uv run --python 3.12 --with requests --with websocket-client --with websockets --with python-dotenv --with predict-sdk==0.0.22 python -m unittest test_predict_evidence test_predict_private_http_recorder test_predict_resting_live test_predict_batch_live
+cargo test -p nautilus-predict --features execution --locked -- --test-threads=1
+cargo clippy -p nautilus-predict --features execution --all-targets --locked -- -D warnings
+cargo check -p nautilus-predict --no-default-features --features execution --locked --lib
+cargo check --workspace --all-targets --features catalog-capture-cli/predict-execution --locked
 python3 tests/predict_evidence.py
 ```
 
-The supervisor tests require Python 3.11+; the command selects 3.12 and its
-dependencies explicitly rather than macOS system Python. The manifest verifier
-alone needs only the standard library. No live supervisor entry point is invoked.
+Serial full-suite scheduling isolates process-global fixtures; HTTP/WS/strategy
+concurrency still runs inside scenarios. Set NO_PROXY=127.0.0.1,localhost if local
+proxies interfere. Execution has one fee contract, including no-default-feature
+builds. Ignored tests are not part of this baseline: never run the entire ignored set.
 
-## Execution regressions
+## Layers and focused replays
 
-| Area | Tests and observable contract |
+| Location | Boundary |
 | --- | --- |
-| Submission and risk | submissions, multi_admission, node_host: no funds/OPEN preflight, venue rejection forwarded, Native notional denial before POST, independent maker/taker intent |
-| MARKET preparation | market_preparation, market_taker, market_orders: exact strategy reference, BUY/SELL/YES/NO amounts, one slippage application, no book GET, cold/expired readiness denial, TTL-zero rejection |
-| Wallet lifecycle | wallet_lifecycle: direct Native events, typed reasons, Cache applied before callback, duplicate/queued acceptance suppression, one terminal callback |
-| Precision and fees | unit/precision, execution/precision, quantity_commission, quantity_fee_cost: exact raw wei, cumulative rounding, net BUY shares, SELL collateral fee, atomic conflict checks |
-| Early matching | unit/settlement and node_host/continuous: actual on_data before Success, Submitted/Failed without economic fill, scoped routing, duplicate/late callbacks |
-| Accounts | unit/account, snapshot_multi, continuous: held RPC does not block lifecycle, per-order projection, tight-cash callback replacement, no stale relocking or cross-strategy release |
-| Recovery | query_recovery, bulk_reports, recovery_live, strategy_lifecycle: explicit QueryAccount, missing WS, terminal late fills, stable IDs, bounded owner scope, post-IO fences |
-| Retention | unit/lookup and in_service: Native purge, pending/unapplied owner protection, cutoff identity, bounded retirement, actual timer and strategy delivery |
+| unit/ | Private protocol/evidence, resources, routing, nonce and mirror retention |
+| private_http/, private_ws.rs, blockchain.rs, http_security.rs | Wire schemas, authentication, pagination and canonical chain reads |
+| execution/ | Native execution/Portfolio, order/report application and subscriber-visible state |
+| execution/node_host.rs and support/ | Factories, RiskEngine, Rust Strategy and LiveNode callbacks |
+| data_client/, instrument_requests.rs | Discovery/subscriptions, current request API, both transports and reconnect |
+| capture_rollover.rs, catalog_readback.rs, quote_rollover.rs | Expiry handover and persisted public data |
+| private_api_live.rs | Explicit operator probes, ignored by default |
 
-Confirmed cash refresh is asynchronous; no ordinary Accepted/confirmed cancel
-forces OPEN/RPC. Synthetic Native cancellation cannot release a real remote OPEN
-row. Freshness, precision, ownership and batch atomicity checks remain. Unit work
-counters/negative controls establish removed copies/scans; short continuous orders
-alone do not prove long-history behavior.
-
-Focused examples:
+Direct-client tests intentionally bypass RiskEngine for protocol fault cases.
+LiveNode scenarios separately exercise Native risk and strategy flow. Neither
+layer substitutes for the other. Select focused replay without exporting new JSON:
 
 ```bash
-cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution market_preparation::
-cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution wallet_lifecycle::
-cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution node_host::continuous:: -- --test-threads=1
-cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution node_host::in_service:: -- --test-threads=1
+cargo test -p nautilus-predict --features execution --test market_recorded_fill --locked
+cargo test -p nautilus-predict --features execution --test execution recorded_startup:: --locked
+cargo test -p nautilus-predict --features execution --test execution batch_recorded:: --locked
+cargo test -p nautilus-predict --features execution --test execution terminal_recovery:: --locked
+cargo test -p nautilus-predict --features execution --test execution expiry_scope:: --locked
+cargo test -p nautilus-predict --features execution --test execution feedback_delivery:: --locked
 ```
 
-### Cancellation coverage
+Recorded startup/roundtrip uses captured entry, share fee, TP cancellation and SELL
+through current Native Strategy/LiveNode. Batch replay uses retained adoption and
+removal responses. Atomic terminal replay uses the real two-settlement remainder
+incident through reconciliation. Identity/time/signing changes are labeled derived;
+replay does not establish new venue behavior. See the validation matrix for exact
+fixture names and remaining live evidence.
 
-node_cancellations covers removed/noop/rejected partitions, wallet gaps, real HTTP
-timeouts, QueryOrder/periodic recovery, duplicate reports and Native retry exhaustion.
-Noop is not a cancellation receipt; unknown write outcomes are not automatically
-resent. Read the [Native cancellation limit](../../../docs/predict-execution-adapter-design.md#native-cancellation-recovery-limit)
-before interpreting timeout-derived Canceled as proof of venue removal.
+`terminal_recovery` also combines the retained atomic settlement and no-match JSON
+as derived scheduling controls: ambiguous rejection before/after partial settlement, independent terminal confirmation, pending
+cancel/update, rounded/exact/stale display cumulative, duplicate replay, and an OPEN
+REST observation followed by wallet cancellation/expiry while trade history is held.
+Subscriber assertions check closure, exact gross/net quantity, original fees and
+absence of fabricated or voided fills. Duplicate/unknown rejection preserves an active original; the existing timer dispatches a coalesced Native status query. These combinations are not additional live
+observations of Predict remainder behavior.
 
-### Recovery and retirement controls
+`feedback_delivery` controls held IO, late/duplicate fills, route anomalies, missing
+ACK, expired definitions and closed optional metadata channels. `expiry_scope`
+checks historical residual restart and new-market independence. Nonce controls in
+submissions verify per-contract invalidation and independent cash/nonce IO.
+Native pending-command retention and terminal quantity normalization require the
+paired framework changes documented in the dependency handoff.
 
-- unresolved_commands_prevent_automatic_readiness_capture: installed VirtualClock
-  timer queues nothing for three unresolved ticks, then resumes when resolved.
-- automatic_gap_with_unacknowledged_order_avoids_io_but_explicit_account_query_refreshes:
-  actual reconnect makes no futile automatic IO; explicit query still reads/publishes.
-- reset_preserves_unresolved_cancel_ownership_until_reconciled: restored order without
-  local submit context retains ambiguous cancellation across rejected reset.
-- cold_membership_does_not_hold_account_or_order_registry_locks and
-  changed_worker_view_between_proof_and_retirement_is_retained: worker interleaving
-  probes real guard ownership and preserves a concurrently replaced owner.
-- retirement_membership_cursor_does_not_substitute_zero_raw_economics: membership
-  proof never supplies zero monetary normalization.
-- Position purge tests establish both forward links through Native add_position_id
-  before checking their removal; empty links cannot make the assertion pass.
+## Pre-live checks without venue orders
+
+Run the ordinary suite first, then select these additional offline integrations:
+
+```bash
+cargo test -p nautilus-predict --features execution --locked --test execution restart_live::native_restart_ -- --ignored --test-threads=1
+cargo test -p nautilus-predict --features execution --locked --test private_ws repeated_reconnects_deliver_each_epoch_once_and_close_the_session -- --ignored --exact --test-threads=1
+```
+
+Restart tests launch an isolated loopback Redis and use new LiveNode/Cache/strategy
+instances; they do not simulate an OS crash or Redis data loss. A repeated order
+query reads one status and, for a matched order, its trade history. Final Native
+trade IDs, quantities, cash and exit counts must remain unchanged by duplicate
+recovery. Snapshot signals use distinct venue millisecond timestamps.
+
+The reconnect check exercises 16 connections on each supported transport, stale
+ACK rejection, per-epoch delivery and close. It preserves Native's reconnect
+backoff, including its 10-second cap, and takes several minutes.
+
+`continuous::extended_callbacks_with_suspended_recovery` reuses the existing
+Strategy/LiveNode replay for 1,000 maker replacements with 1,000 retained active
+orders, and 500 simulated taker commands, each with a baseline and a held-query
+case. It checks callbacks, request counts, final state and telemetry loss. This is
+a finite synthetic workload, not production latency or unattended uptime evidence.
+Actual read-only authentication/query probes are documented in the
+[probe guide](../../../docs/how_to/predict-private-api-tests.md); real matching
+and settlement remain separate supervised validation.
+
+## Evidence and Python controls
+
+[fixtures/evidence_manifest.json](fixtures/evidence_manifest.json) records bytes,
+SHA-256 and evidence tiers. Primary captures are immutable. Synthetic faults,
+derived replay, SDK vectors and analysis remain separately labeled. Add only
+completed distinct captures with `python3 tests/predict_evidence.py --refresh`.
+Review a completed resting recording with --run <directory>; do not rerun its
+live supervisor to inspect old evidence.
+
+Python supervisor/evidence controls are offline; recorder tests use localhost:
+
+```bash
+PYTHONPATH=tests uv run --python 3.12 --with requests --with websocket-client --with websockets --with python-dotenv --with predict-sdk==0.0.22 python -m unittest test_predict_evidence test_predict_private_http_recorder test_predict_resting_live test_predict_batch_live
+```
+
+The manifest verifier needs only the standard library. Supervisors require Python
+3.11+. Live operators should consult the
+[probe guide](../../../docs/how_to/predict-private-api-tests.md) and
+[existing venue evidence](../../../docs/reference/predict-live-evidence.md) before
+requesting a new funded case. No-submit preparation is not fill evidence.
 
 ## Benchmarks and explicit JSON exporters
 
-Criterion-compatible benchmarks use local services, without venue credentials:
+Benchmarks use local services and do not submit venue orders:
 
 ```bash
-cargo bench -p nautilus-predict --features native-quantity-commission --locked --bench routing
-cargo bench -p nautilus-predict --features native-quantity-commission --locked --bench execution_entry -- execution/market_to_post_strategy_price
-cargo bench -p nautilus-predict --features native-quantity-commission --locked --bench execution_entry -- execution/cancel_to_reported_cash_rpc_5ms
-cargo bench -p nautilus-predict --features native-quantity-commission --locked --bench latency
+cargo bench -p nautilus-predict --features execution --locked --bench routing
+cargo bench -p nautilus-predict --features execution --locked --bench execution_entry
+cargo bench -p nautilus-predict --features execution --locked --bench latency
 ```
 
-The routing benchmark includes strict numeric-ID parsing for ordinary decimal IDs
-and the uint256 maximum, in addition to retained-population insertion. Filter with
-`execution/rest_numeric_id_parse` to isolate codec cost; it excludes WS transport,
-Native dispatch and strategy callbacks.
-
-Named ignored release tests write create_new JSON. Choose a fresh output file under
-ignored data/predict-validation/<run-id>/; an existing file must fail, not overwrite
-evidence. Do not run performance exporters alongside compilation/full suites.
+For report CPU costs, measure collection, synchronous finalization and result
+disposal separately, using a fresh output file:
 
 ```bash
-mkdir -p data/predict-validation/my-review
-PREDICT_TIMER_EVIDENCE_PATH=data/predict-validation/my-review/timer.json cargo test --release -p nautilus-predict --features native-quantity-commission --locked --lib execution::lifecycle::tests::benchmark_native_timer_evidence_sweeps -- --ignored --exact --test-threads=1
-PREDICT_LIVE_TIMER_PATH=data/predict-validation/my-review/live-timer.json cargo test --release -p nautilus-predict --features native-quantity-commission --locked --test execution node_host::in_service::benchmark_real_timer_evidence_strategy_delivery -- --ignored --exact --test-threads=1
-PREDICT_CONTINUOUS_PATH=data/predict-validation/my-review/callbacks.json cargo test --release -p nautilus-predict --features native-quantity-commission --locked --test execution node_host::continuous::benchmark_warmed_callback_immediate_maker_and_taker -- --ignored --exact --test-threads=1
+mkdir -p data
+PREDICT_REPORT_STAGES_PATH=data/report-stages.json cargo test --release -p nautilus-predict --features execution --locked --test execution matches::benchmark_report_collection_finish_and_drop -- --ignored --exact --test-threads=1
 ```
 
-The timer CPU fixture measures cold/verified 1×100,000 and 32×9,999-fill owners,
-including destructors. The actual LiveClock fixture imports 100,000 REST facts,
-receives independent WS books and observes Rust strategy callbacks. Periodic account
-IO participates; its waiting window is not timer CPU. The continuous fixture reports
-paired actual Filled/cancel-replacement spans separately from setup and shutdown.
-Every sent book must arrive; the timer evidence replay permits zero create/remove
-writes. None measures venue network latency or proves a hard pause deadline.
+This replay covers 1 through 100,000 fills, first collection and duplicate replay,
+without a retained Native order. It asserts exact report facts and no execution
+event application. The in-service exporter separately includes retained Native
+histories and real Strategy callbacks. Use release results for optimized CPU
+comparisons: the repository's debug/test profile deliberately leaves local code
+unoptimized. Collection wall time includes loopback HTTP and is not core-thread
+CPU time.
 
-Retained unit exporter index (each name is under execution::<module>::tests in --lib):
+For an ignored exporter, select its exact test and a fresh output path; names
+below are under execution::<module>::tests in --lib:
 
 | Module | Ignored test | Output environment variable |
 | --- | --- | --- |
 | account | benchmark_open_owner_retirement | PREDICT_OPEN_RETIRE_PATH |
-| account | benchmark_readiness_account_capture | PREDICT_ACCOUNT_CAPTURE_PATH |
 | account | benchmark_pending_account_projection | PREDICT_DEFERRED_PROJECTION_PATH |
-| account | benchmark_retained_readiness_construction_and_release | PREDICT_RETAINED_READINESS_PATH |
 | precision | benchmark_wallet_fill_history | PREDICT_FILL_BENCH_PATH |
 | precision | benchmark_wallet_pending_work | PREDICT_PENDING_PATH |
 | precision | benchmark_native_order_snapshot_copy | PREDICT_SNAPSHOT_COPY_PATH |
 | precision | benchmark_native_worker_observation | PREDICT_OBSERVER_BENCH_PATH |
 | precision | benchmark_lifecycle_raw_history | PREDICT_RAW_BENCH_PATH |
 | precision | benchmark_advancing_wallet_prefix | PREDICT_ADVANCING_PREFIX_PATH |
-| precision | benchmark_recovery_match_fence | PREDICT_RECOVERY_FENCE_PATH |
 | precision | benchmark_applied_fill_inspection | PREDICT_APPLIED_INSPECTION_PATH |
 | lifecycle | benchmark_native_lookup_retirement | PREDICT_CLEANUP_BENCH_PATH |
 | lifecycle | benchmark_cold_instrument_cleanup | PREDICT_INSTRUMENT_CLEANUP_PATH |
@@ -167,106 +166,34 @@ Retained unit exporter index (each name is under execution::<module>::tests in -
 | lifecycle | benchmark_native_position_purge_history | PREDICT_POSITION_PURGE_PATH |
 | lifecycle | benchmark_native_timer_evidence_sweeps | PREDICT_TIMER_EVIDENCE_PATH |
 
-For matched callback comparisons, prebuild both source revisions, then alternate
-saved test executables in ABBA order with one excluded warmup each. Keep the same
-Native revision, strategy/mock source, rounds, feature set and output policy; never
-compile or run another suite during measurement. Use fresh output paths and retain
-all captures. Each default taker capture has 201 fills, so its p99 is the
-third-largest observation; use repeated capture/block comparisons rather than a
-single before/after number. Report segment quantiles separately, without summing
-or pooling them.
 
-The existing continuous exporter accepts a test-only logging control:
+Actual Strategy exporters under --test execution include:
 
-```bash
-PREDICT_CONTINUOUS_LOG_LEVEL=WARN PREDICT_CONTINUOUS_PATH=data/predict-validation/my-review/callbacks-warn.json cargo test --release -p nautilus-predict --features native-quantity-commission --locked --test execution node_host::continuous::benchmark_warmed_callback_immediate_maker_and_taker -- --ignored --exact --test-threads=1
-```
-
-INFO remains the default. Run both INFO and WARN for both source revisions; WARN
-is a diagnostic factor, not a replacement baseline. The output records the selected
-level. Producer telemetry, callbacks, API counts and economic assertions remain
-identical. Normal production logging is configured through Native LoggerConfig.
-
-Other strategy exporters under --test execution:
-
-| Test under node_host | Output variable |
+| Test under node_host | Output environment variable |
 | --- | --- |
+| continuous::benchmark_warmed_callback_immediate_maker_and_taker | PREDICT_CONTINUOUS_PATH |
+| continuous::extended_callbacks_with_suspended_recovery | PREDICT_SUSTAINED_PATH |
 | continuous::benchmark_active_order_callback_scaling | PREDICT_ACTIVE_PATH |
+| in_service::benchmark_real_timer_evidence_strategy_delivery | PREDICT_LIVE_TIMER_PATH |
 | in_service::benchmark_in_service_strategy_pauses | PREDICT_INSERVICE_PAUSE_PATH |
 
-The pending exporter crosses 0/1,000/9,999 applied fills with 0/1/32/256 queued
-fills. It measures wallet preparation and lifecycle raw summation independently;
-fixture seeding, transport, Native application and actual callbacks are excluded.
-Wallet parsing, initial normalized-quantity aggregation and snapshot locking are
-also outside this CPU window. Use the continuous strategy exporter for callback
-spans, not the CPU numbers.
-
-The purge/retirement CPU exporters include complete cleanup, whereas copy/normalization
-exporters exclude setup and Native application. Keep each JSON's declared boundaries;
-a repeated cold capture is a stress control, not normal live frequency. The
-[telemetry contract](../../../docs/predict-execution-adapter-design.md#optional-latency-telemetry)
-requires nonblocking collection, actual callback correlation and explicit losses.
-
-## Market-data delivery
-
-The data-client suite covers CustomSnapshot, unmanaged depth, managed depth with
-Native quotes, and combined consumers on one physical topic. It checks both
-transport backends, reconnect/reset, last-owner unsubscribe, rolling instrument
-ownership and rejection of older native depth without changing recorded CustomData.
-The execution replay verifies managed books and risk quotes before the first
-maker/taker submission. Complete recording and frozen rollover fixtures remain
-independent checks.
-
-Market-data timing probes, the dedicated CPU benchmark and latency JSON exporter
-were retired after validation. Historical measurements, source/executable hashes and
-measurement boundaries remain in the
-[validation record](../../../docs/reference/predict-execution-validation.md#public-snapshot-and-native-depth-delivery)
-and its ignored evidence archives. The ordinary strategy test retains callback
-counts, canonical data identity and managed-book/quote ordering assertions without
-measuring callback duration. Execution timing instrumentation remains independent.
-
-The explicit public-mainnet probe installs a data client and Rust strategy only:
-
-```bash
-PREDICT_PUBLIC_EVIDENCE_PATH=data/predict-validation/my-review/public-mainnet.json cargo test --release -p nautilus-predict --features native-quantity-commission --locked --test data_client mainnet::mainnet_custom_depth_lifecycle_read_only -- --ignored --exact --test-threads=1
-```
-
-It loads only env/predictfun.toml (override PREDICT_API_KEY_FILE), discovers current
-BTC 5m/15m markets and exercises combined, depth-only, YES-only and resubscribed
-Custom callbacks on both backends. It has no execution client, signer, account RPC
-or order writes. The optional PREDICT_PUBLIC_WS_URL routes unchanged traffic through
-an operator's local recorder; omit it for direct venue WS. JSON output is create_new.
-This short probe does not wait for natural rollover or force reconnect. Existing
-frozen/offline tests cover those transitions. Do not infer exchange network latency
-from venue timestamps or compare heavily journaled live callbacks as a CPU bench.
-
-## Fixtures and captures
-
-[evidence_manifest.json](fixtures/evidence_manifest.json) records SHA-256, size and
-provenance. python3 tests/predict_evidence.py verifies it without network or mutation.
-
-| Tier | Meaning |
-| --- | --- |
-| primary_capture | Sanitized venue messages actually observed |
-| derived | Scenarios constructed from recorded facts |
-| synthetic | Controlled local protocol/failure cases |
-| reference | SDK vectors and other reference inputs |
-| review | Analysis, not raw venue evidence |
-
-Primary captures are immutable. Refresh adds distinct captures and refuses to replace
-registered primary bytes. Operational recordings/logs/source archives stay ignored
-under data/predict-validation/ and are not automatically promoted to fixtures.
-Review completed resting captures offline using python3 tests/predict_evidence.py
---run <directory>; rerunning the supervisor would place new live orders. Consult
-[existing coverage](../../../docs/reference/predict-live-evidence.md#choose-tests-without-repeating-funded-runs)
-before repeating a funded case. Read-only/private probes are documented in the
-[operator guide](../../../docs/how_to/predict-private-api-tests.md).
+Prebuild revisions and alternate matched executables in ABBA order with warmups
+excluded. Keep Native source, logger, harness, features and output policy fixed;
+avoid concurrent builds/tests during measurement. PREDICT_CONTINUOUS_LOG_LEVEL
+allows matched INFO/WARN controls. CPU exporters exclude different work from
+end-to-end callbacks: preserve each output's declared boundary, report losses,
+and never sum independent percentiles. Cold-history and purge stress tests do
+not establish normal HFT p99 or constant-time disposal. Exporters assert delivery
+and final state, not a latency budget: a passing exporter can still reveal an
+unacceptable pause. The timer exporter labels report collection/finalization,
+wallet validation and retirement windows separately; overlapping backlog is not
+CPU time attributable to the timer. See
+[telemetry](../../../docs/predict-execution-adapter-design.md#optional-latency-telemetry).
 
 ## Add a scenario
 
-Reuse the existing venue and Native helpers in the smallest owning layer. Prefer
-observable events/barriers to fixed sleeps. Assert actual request fields, state and
-subscriber callbacks; money-sensitive failures need zero writes and a nonempty valid
-control. Preserve two-owner, duplicate, reset, late-fill and conflict coverage where
-relevant. Do not export another production API, clone a whole suite or change recorded
-expectations merely to pass. A mock request is not evidence of venue acceptance.
+Reuse the smallest owning harness and causal barriers. Assert request fields/counts,
+actual Native state and subscriber callbacks. Preserve captured economic facts and
+label transformations. Money-sensitive failures need zero writes and a valid
+nonempty control. Do not add a production accessor, second harness/state machine,
+or change historical expectations simply to make a regression pass.

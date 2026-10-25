@@ -42,7 +42,7 @@ the default. Native formats/logs order events before calling strategy hooks, so
 logging belongs to WS-to-strategy latency. Rust strategies can also use Native
 StrategyConfig.log_events and log_commands to control their event/command logs.
 Keep logging identical between compared source versions and record the setting.
-The [matched callback validation](../reference/predict-execution-validation.md#matched-taker-callback-comparison)
+The [matched callback validation](../reference/predict-execution-validation.md#historical-measurements)
 distinguishes logger cost from run-to-run tail variation; lowering log output does
 not establish a universal p99 improvement.
 
@@ -100,8 +100,8 @@ rollover sealing remain unchanged.
 ## Offline scenarios
 
 ```bash
-CARGO_INCREMENTAL=0 cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution rust_strategy_livenode -- --test-threads=4
-CARGO_INCREMENTAL=0 cargo test -p nautilus-predict --features native-quantity-commission --locked --test execution recorded_startup:: -- --test-threads=4
+CARGO_INCREMENTAL=0 cargo test -p nautilus-predict --features execution --locked --test execution rust_strategy_livenode -- --test-threads=4
+CARGO_INCREMENTAL=0 cargo test -p nautilus-predict --features execution --locked --test execution recorded_startup:: -- --test-threads=4
 ```
 
 The [test guide](../../crates/nautilus-predict/tests/README.md) describes the layers
@@ -141,13 +141,13 @@ The exit strategy reuses its already-validated snapshot depth walk to select the
 worst consumed bid as a SELL MARKET reference. It passes the decimal string
 through Native `SubmitOrder.params["market_price"]`, including `close_position`.
 For example, `params.insert("market_price".into(), serde_json::json!("0.020"))`.
-This is a reference before the configured `market_slippage_bps`, not a guaranteed
+This is a reference before per-order `params["market_order_slippage_bps"]`, not a guaranteed
 fill price. It eliminates the adapter's extra execution-book GET. The strategy
 still checks snapshot freshness and depth before deciding. Both MARKET BUY and
 SELL require this parameter; omitting it produces Native Denied before Submitted.
 Taker entry selects the worst consumed ask (NO uses its own outcome prices),
 while exit selects the worst consumed bid. Signed BUY collateral includes the
-configured slippage and the SDK's one-USDT-per-share protocol ceiling.
+per-order slippage and the SDK's one-USDT-per-share protocol ceiling.
 
 Predict amend is not implemented. `modify_order` produces OrderModifyRejected;
 replacement uses a new ClientOrderId and signed hash. Unknown submission or
@@ -162,9 +162,8 @@ Native quote realized PnL and all-fee cash return are distinct measures.
 ## Quantity fees and settlement callbacks
 
 This strategy contract uses the repaired `quantity_commission` Native dependency
-and the explicit `native-quantity-commission` build feature. Enabling only
-`execution` does not enable that feature. Compatibility builds are not an
-alternative fee policy for this strategy.
+and the `execution` build feature, which always enables Native `defi` support and
+exact inventory-fee mapping. There is no alternative legacy execution fee policy.
 
 For a BUY-entry / SELL-exit strategy, charged BUY fills deduct shares from received
 inventory; charged SELL fills deduct USDT from sale proceeds. These labels describe
@@ -247,7 +246,7 @@ loop. Account reporting remains asynchronous and Native risk still admits comman
 Keep `test.allow_order_writes = false` and `strategy.phase = "observe"`:
 
 ```bash
-cargo test -p nautilus-predict --features native-quantity-commission --locked --test private_api_live mainnet_rust_strategy_livenode_observe -- --ignored --nocapture
+cargo test -p nautilus-predict --features execution --locked --test private_api_live mainnet_rust_strategy_livenode_observe -- --ignored --nocapture
 ```
 
 This named probe discovers a market, authenticates, runs the snapshot strategy
@@ -262,7 +261,7 @@ The root `tests/run_predict_resting_live.py`, `run_predict_fill_live.py` and
 arguments, selected mode and monetary bounds before use. A successful offline
 run or a TOML write flag alone is not authorization for another funded test.
 
-The resting supervisor accepts `--features native-quantity-commission` for the
+The resting supervisor accepts `--features execution` for the
 pinned fork. Its `--execute-minimum-resting` flag explicitly selects a separate
 one-run profile with two orders capped at 1 USDT each and 2 USDT in total; these
 are not the ordinary read-only profile's 0.10/0.20 USDT limits. Prefer the bounded
@@ -273,8 +272,8 @@ For one bounded latency pilot, prebuild before starting the wallet collector, th
 select one GTD case (the same two-order 1/2 USDT limits apply):
 
 ```bash
-cargo test --release -p nautilus-predict --features native-quantity-commission --locked --test private_api_live --no-run
-uv run --python 3.12 --with predict-sdk==0.0.22 --with websocket-client --with python-dotenv --with requests python tests/run_predict_resting_live.py --execute-minimum-resting --case yes-gtd --features native-quantity-commission --measure-latency
+cargo test --release -p nautilus-predict --features execution --locked --test private_api_live --no-run
+uv run --python 3.12 --with predict-sdk==0.0.22 --with websocket-client --with python-dotenv --with requests python tests/run_predict_resting_live.py --execute-minimum-resting --case yes-gtd --features execution --measure-latency
 ```
 
 This attaches the optional probe to execution and the real typed strategy

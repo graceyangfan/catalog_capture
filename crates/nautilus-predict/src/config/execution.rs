@@ -20,14 +20,6 @@ use nautilus_model::identifiers::AccountId;
 
 use crate::signing::PredictAuthSigner;
 
-/// Signing and protocol defaults for LIMIT/MARKET orders. Native owns risk policy.
-#[derive(Clone, Debug)]
-pub struct PredictSubmissionConfig {
-    pub signer: Arc<PredictAuthSigner>,
-    /// SDK default quantity-based MARKET BUY/SELL slippage, in basis points.
-    pub market_slippage_bps: u32,
-}
-
 use super::{PredictChainClientConfig, PredictWalletWebSocketConfig};
 use crate::http::PredictAuthenticatedHttpClient;
 
@@ -44,7 +36,7 @@ pub enum PredictAccountStateMode {
 #[derive(Clone, Debug)]
 pub struct PredictExecutionClientConfig {
     /// None disables SubmitOrder. No credentials are implicitly acquired by the client.
-    pub submission: Option<PredictSubmissionConfig>,
+    pub submission_signer: Option<Arc<PredictAuthSigner>>,
     /// Optional bounded telemetry. The host owns/drains the collector away from trading callbacks.
     pub latency: Option<crate::latency::PredictLatency>,
     /// Optional authentication authority, independent of permission to submit orders.
@@ -61,21 +53,21 @@ pub struct PredictExecutionClientConfig {
     pub orderbook_removal_enabled: bool,
     /// Periodic refresh also covers deposits and withdrawals outside the wallet event stream.
     /// Order events and connected `QueryAccount` commands wake the same refresh loop;
-    /// they do not create additional periodic timers. Signing nonces are prepared
-    /// at initialization, wallet epoch changes, nonce rejection and periodic refresh;
-    /// ordinary order events reproject local reservations without collecting cash/OPEN.
+    /// they do not create additional periodic timers. Missing signing nonces are prepared
+    /// independently at initialization or after nonce rejection; the same periodic cadence
+    /// retries missing entries. Ordinary order events only reproject local reservations.
     pub account_refresh_interval_secs: u64,
-    /// Gap account-verification cadence (default one second); Native owns order/position
-    /// application, including confirmed late fills found during verification.
-    /// The same Native timer retires purged worker contexts at the account-refresh cadence.
-    /// None requires host QueryAccount after reconciliation; context cleanup then runs
-    /// at instrument, report and explicit account-query boundaries.
+    /// Account refresh cadence after wallet transport changes (default one second).
+    /// Native owns order, fill and position recovery. This timer also retires purged
+    /// worker contexts at the account-refresh cadence; it never scans historical holdings.
+    /// None requires explicit host QueryAccount after a transport change; context cleanup
+    /// then runs at instrument, report and account-query boundaries.
     pub reconnect_reconciliation_interval_secs: Option<u64>,
     /// Maximum age of strict execution-market metadata in the Native instrument worker view.
     /// Preparation runs at connection, instrument updates and before expiry, sharing YES/NO.
     /// Valid range 1..=300 seconds. Zero is invalid. Cold/expired commands fail promptly;
     /// only background preparation queries market metadata.
-    /// Definition changes, recovery and wallet epoch changes invalidate it.
+    /// Definition changes and TTL expiry invalidate it; wallet resubscription preserves it.
     pub market_metadata_ttl_secs: u64,
     pub report_page_size: u32,
     pub max_report_pages: usize,
@@ -91,7 +83,7 @@ impl PredictExecutionClientConfig {
         websocket: PredictWalletWebSocketConfig,
     ) -> Self {
         Self {
-            submission: None,
+            submission_signer: None,
             latency: None,
             auth_signer: None,
             account_id,
@@ -117,15 +109,11 @@ impl PredictExecutionClientConfig {
                 "Predict authentication signer differs from session"
             );
         }
-        if let Some(submission) = &self.submission {
+        if let Some(signer) = &self.submission_signer {
             anyhow::ensure!(
-                submission.signer.environment() == self.session.environment()
-                    && submission.signer.account_address() == self.session.account_address(),
+                signer.environment() == self.session.environment()
+                    && signer.account_address() == self.session.account_address(),
                 "Predict submission signer differs from the authenticated account/environment"
-            );
-            anyhow::ensure!(
-                submission.market_slippage_bps < 10_000,
-                "invalid Predict market slippage"
             );
         }
         anyhow::ensure!(

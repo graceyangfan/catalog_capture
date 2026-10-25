@@ -20,9 +20,7 @@ use nautilus_core::time::get_atomic_clock_realtime;
 use nautilus_infrastructure::redis::cache::RedisCacheConfig;
 use nautilus_live::node::{LiveNode, config::LiveExecutionEngineConfig};
 use nautilus_model::identifiers::{ClientOrderId, StrategyId};
-use nautilus_predict::{
-    PredictDataClientConfig, PredictDataClientFactory, PredictSubmissionConfig,
-};
+use nautilus_predict::{PredictDataClientConfig, PredictDataClientFactory};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use super::{
@@ -115,17 +113,15 @@ fn node(private: &Server, public_port: u16, redis_port: u16, read_only: bool) ->
     ));
     cfg.account_refresh_interval_secs = 1;
     cfg.orderbook_removal_enabled = true;
-    cfg.submission = (!read_only).then(|| PredictSubmissionConfig {
-        signer: Arc::new(
+    cfg.submission_signer = (!read_only).then(|| {
+        Arc::new(
             nautilus_predict::signing::PredictAuthSigner::new(
                 submissions::PUBLIC_KEY.into(),
                 PredictEnvironment::BnbMainnet,
                 Some(WALLET),
             )
             .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
+        )
     });
     LiveNode::builder(trader_id(), Environment::Live)
         .unwrap()
@@ -508,10 +504,12 @@ async fn run(case: Case) -> Value {
         // A native re-query repeats history for filled orders without reapplying trades.
         let order = restored_cache.borrow().order_owned(&maker_id).unwrap();
         let reads = private.state.order_requests.lock().unwrap().len();
+        let histories = private.state.match_response_log.lock().unwrap().len();
         second_query(&engine, &order);
         barrier("repeated native maker query", || {
-            private.state.order_requests.lock().unwrap().len()
-                >= reads + if offline_fill > 0 { 2 } else { 1 }
+            private.state.order_requests.lock().unwrap().len() == reads + 1
+                && (offline_fill == 0
+                    || private.state.match_response_log.lock().unwrap().len() > histories)
         })
         .await;
         assert_eq!(
@@ -537,6 +535,13 @@ async fn run(case: Case) -> Value {
             json!({"success":true,"removed":["12345"],"noop":[]}),
             0,
         ));
+        // The venue timestamps snapshots in milliseconds. Distinct signal prices
+        // need distinct timestamps even when the replay runs within one clock tick.
+        let previous_book_ms = books.last().unwrap()["updateTimestampMs"].as_u64().unwrap();
+        barrier("stop snapshot has a newer venue timestamp", || {
+            get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000 > previous_book_ms
+        })
+        .await;
         books.push(book(&private, &public, "0.008", None));
         barrier("strategy cancels original TP", || {
             private.state.removals.lock().unwrap().len() == 2

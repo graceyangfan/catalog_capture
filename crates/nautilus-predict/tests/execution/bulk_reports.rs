@@ -34,6 +34,15 @@ async fn bulk_and_mass_reports_preserve_precision_and_duplicate_trade_identity()
     run("valid").await;
 }
 #[tokio::test]
+async fn mass_status_preserves_changed_terminal_and_confirmed_trades_without_status_probe() {
+    run("unstable").await;
+}
+
+#[tokio::test]
+async fn mass_status_recovers_active_market_without_querying_unrelated_retired_history() {
+    run("retired_history").await;
+}
+#[tokio::test]
 async fn bulk_fill_recovery_preserves_millisecond_venue_time_before_native_submission() {
     run("submillisecond").await;
 }
@@ -48,7 +57,7 @@ async fn bulk_and_mass_fail_closed_on_incomplete_conflicting_and_unverified_sour
         "generation",
         "bad_external_hash",
         "conflicting",
-        "unstable",
+        "foreign_match",
         "incomplete",
     ] {
         run(case).await;
@@ -169,6 +178,14 @@ async fn run(case: &str) -> Value {
             bad["makers"][0]["amount"] = json!("32000000000000000000");
             matches.push(bad);
         }
+        "foreign_match" => {
+            for matched in &mut matches {
+                matched["taker"]["signer"] = json!("0x9999999999999999999999999999999999999999");
+                for leg in matched["makers"].as_array_mut().unwrap() {
+                    leg["signer"] = json!("0x9999999999999999999999999999999999999999");
+                }
+            }
+        }
         "unstable" => {
             let mut changed = row.clone();
             changed["status"] = json!("CANCELLED");
@@ -183,6 +200,12 @@ async fn run(case: &str) -> Value {
             matches.pop();
         }
         "generation" => {}
+        "retired_history" => {
+            let mut old = matches[0].clone();
+            old["market"]["id"] = json!(3707656);
+            old["settlementId"] = Value::Null;
+            matches.push(old);
+        }
         "valid" | "submillisecond" => {
             matches.push(matches[0].clone());
         }
@@ -206,7 +229,7 @@ async fn run(case: &str) -> Value {
             .unwrap();
         tokio::spawn(task.collection).await.unwrap();
         client.disconnect().await.unwrap();
-        let error = task.result.await.unwrap_err();
+        let error = (task.finish)().unwrap_err();
         while rx.try_recv().is_ok() {}
         connect_reported(&mut client, &mut rx).await;
         Err(error)
@@ -214,9 +237,33 @@ async fn run(case: &str) -> Value {
         client.generate_mass_status(None).await
     };
     let mut output = json!({"case":case,"request":body,"matches":matches,"nativeStatusBefore":cache.borrow().order(&order.client_order_id()).unwrap().status().to_string(),"mainnetWrites":0});
-    if matches!(case, "valid" | "submillisecond") {
+    if case == "unstable" {
+        let mass = result.unwrap().unwrap();
+        let report = mass.order_reports().values().next().unwrap().clone();
+        assert_eq!(report.order_status, OrderStatus::Canceled);
+        assert_eq!(report.filled_qty, Quantity::from(100));
+        assert_eq!(mass.fill_reports().values().map(Vec::len).sum::<usize>(), 2);
+        assert_eq!(
+            private.state.order_requests.lock().unwrap().len(),
+            1,
+            "only the missing retained order is looked up"
+        );
+        output["massStatus"] = serde_json::to_value(&mass).unwrap();
+        client.disconnect().await.unwrap();
+        return output;
+    }
+    if matches!(case, "valid" | "submillisecond" | "retired_history") {
         let mass = result.unwrap().unwrap();
         assert!(mass.reports_complete());
+        assert!(
+            private
+                .state
+                .match_requests
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|query| query.get("marketId").map(String::as_str) == Some("42"))
+        );
         let reports = mass.order_reports();
         let fills = mass.fill_reports();
         assert_eq!(reports.len(), 1);
@@ -360,7 +407,7 @@ async fn run(case: &str) -> Value {
                 }
                 assert_eq!(
                     private.state.order_requests.lock().unwrap().len() - orders_before,
-                    2
+                    1
                 );
                 let requests = private.state.match_requests.lock().unwrap();
                 assert_eq!(requests.len() - matches_before, 1);
@@ -444,6 +491,7 @@ async fn run(case: &str) -> Value {
             "generation" => "generation stopped",
             "bad_external_hash" => "signed hash",
             "conflicting" => "contradictory",
+            "foreign_match" => "returned account differs from the authenticated wallet",
             "unstable" => "changed during bulk",
             "incomplete" => "complete confirmed inventory prefix",
             _ => unreachable!(),

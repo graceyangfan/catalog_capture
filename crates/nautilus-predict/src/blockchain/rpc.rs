@@ -274,30 +274,53 @@ impl PredictChainClient {
         })
     }
 
-    // Account collection prepares signing nonces outside the command path, at the
-    // same canonical block as cash. No allowances or token inventory are queried.
-    pub(crate) async fn request_execution_account_snapshot(
+    // Signing inputs have a contract/account lifetime, independent of OPEN and cash reports.
+    // Read only missing entries; a failed contract read must not discard other entries.
+    pub(crate) async fn request_signing_nonces(
         &self,
         account: Address,
-        clock: &'static AtomicTime,
-        signing: bool,
-    ) -> anyhow::Result<(PredictBalanceSnapshot, Option<[U256; 4]>)> {
-        let (snapshot, timestamp, nonces) = self
-            .collect_account(account, clock, &[], true, signing)
-            .await?;
-        let balance = PredictBalanceSnapshot {
-            environment: snapshot.environment,
-            account_address: snapshot.account_address,
-            collateral: snapshot.collateral,
-            block_number: snapshot.block_number,
-            block_hash: snapshot.block_hash,
-            block_timestamp: timestamp
-                .ok_or_else(|| anyhow::anyhow!("Predict balance block timestamp is missing"))?,
-            decimals: snapshot.decimals,
-            balance_wei: snapshot.balance_wei,
-            ts_observed: snapshot.ts_observed,
-        };
-        Ok((balance, signing.then_some(nonces)))
+        missing: [bool; 4],
+    ) -> anyhow::Result<[Option<U256>; 4]> {
+        anyhow::ensure!(!account.is_zero(), "Predict nonce account cannot be zero");
+        tokio::time::timeout(
+            std::time::Duration::from_secs(self.config.timeout_secs),
+            async {
+                let block = self.read_block().await?;
+                let values =
+                    futures_util::future::join_all(ALL_EXCHANGES.map(|exchange| async move {
+                        if !missing[exchange.cache_index()] {
+                            return None;
+                        }
+                        match self
+                            .call(
+                                exchange.contract(self.environment()),
+                                noncesCall { owner: account },
+                                block.hash,
+                            )
+                            .await
+                        {
+                            Ok(value) => Some(value),
+                            Err(error) => {
+                                log::warn!(
+                                    "Predict signing nonce read failed for {exchange:?}: {error}"
+                                );
+                                None
+                            }
+                        }
+                    }))
+                    .await;
+                let current: Block = self
+                    .request("eth_getBlockByNumber", json!([block.number, false]))
+                    .await?;
+                anyhow::ensure!(
+                    current.hash == block.hash && current.number == block.number,
+                    PredictBlockChanged
+                );
+                Ok([values[0], values[1], values[2], values[3]])
+            },
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("Predict signing nonce collection timed out"))?
     }
 
     async fn collect(
@@ -307,24 +330,6 @@ impl PredictChainClient {
         exchanges: &[PredictExchangeType],
         verify_final: bool,
     ) -> anyhow::Result<(PredictCollateralSnapshot, Option<nautilus_core::UnixNanos>)> {
-        let (snapshot, timestamp, _) = self
-            .collect_account(account, clock, exchanges, verify_final, false)
-            .await?;
-        Ok((snapshot, timestamp))
-    }
-
-    async fn collect_account(
-        &self,
-        account: Address,
-        clock: &'static AtomicTime,
-        exchanges: &[PredictExchangeType],
-        verify_final: bool,
-        signing: bool,
-    ) -> anyhow::Result<(
-        PredictCollateralSnapshot,
-        Option<nautilus_core::UnixNanos>,
-        [U256; 4],
-    )> {
         anyhow::ensure!(
             !account.is_zero(),
             "Predict collateral account cannot be zero"
@@ -336,24 +341,9 @@ impl PredictChainClient {
                 let block_number = quantity(&block.number)?;
                 let block_timestamp = block_timestamp(&block)?;
                 let collateral = collateral_contract(self.environment());
-                let (balance_wei, nonces) = tokio::try_join!(
-                    self.call(collateral, balanceOf_0Call { owner: account }, block.hash),
-                    async {
-                        if !signing {
-                            return Ok([U256::ZERO; 4]);
-                        }
-                        let values =
-                            futures_util::future::try_join_all(ALL_EXCHANGES.map(|exchange| {
-                                self.call(
-                                    exchange.contract(self.environment()),
-                                    noncesCall { owner: account },
-                                    block.hash,
-                                )
-                            }))
-                            .await?;
-                        Ok::<_, anyhow::Error>([values[0], values[1], values[2], values[3]])
-                    },
-                )?;
+                let balance_wei = self
+                    .call(collateral, balanceOf_0Call { owner: account }, block.hash)
+                    .await?;
                 let mut allowances = ALL_EXCHANGES.map(|exchange| (exchange, U256::ZERO));
                 for (exchange, value) in &mut allowances {
                     if !exchanges.contains(exchange) {
@@ -392,7 +382,6 @@ impl PredictChainClient {
                         ts_observed: clock.get_time_ns(),
                     },
                     block_timestamp,
-                    nonces,
                 ))
             },
         )

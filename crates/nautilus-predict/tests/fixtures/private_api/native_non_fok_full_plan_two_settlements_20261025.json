@@ -1,0 +1,968 @@
+{
+  "source": "Actual Native MARKET GTC/FOK-omitted mainnet BUY, full match plan, two settlements and separate official SDK exit. Not an unmatched partial-tail observation.",
+  "provenance": {
+    "directory": "data/predict-validation/native_partial_market_20261025T072222942454Z",
+    "walletIdentityRebound": "Only walletAddress is rebound to a public test identity for parsing; original raw source remains unchanged. Reusable signatures remain redacted.",
+    "oracleRedaction": "Original boolean signature check was sanitized and token check omitted; no value is fabricated."
+  },
+  "marketId": 3734852,
+  "outcome": 1,
+  "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+  "activationNs": 1792912500000000000,
+  "expirationNs": 1792913400000000000,
+  "request": {
+    "data": {
+      "pricePerShare": "240000000000000000",
+      "strategy": "MARKET",
+      "slippageBps": "0",
+      "isMinAmountOut": false,
+      "order": {
+        "salt": "243658872",
+        "maker": "[redacted-address]",
+        "signer": "[redacted-address]",
+        "taker": "[redacted-address]",
+        "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+        "makerAmount": "1399200000000000000",
+        "takerAmount": "5830000000000000000",
+        "expiration": 1792913291,
+        "nonce": "0",
+        "feeRateBps": "200",
+        "side": 0,
+        "signatureType": 0,
+        "hash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+        "signature": "[redacted-signature]"
+      }
+    }
+  },
+  "nativeEvents": [
+    {
+      "Initialized": {
+        "type": "OrderInitialized",
+        "trader_id": "NATIVE-MARKET-001",
+        "strategy_id": "MARKET-PROBE-001",
+        "instrument_id": "3734852-1.PREDICT",
+        "client_order_id": "O-20261025-072311-001-001-1",
+        "order_side": "BUY",
+        "order_type": "MARKET",
+        "quantity": "5.83",
+        "time_in_force": "GTC",
+        "post_only": false,
+        "reduce_only": false,
+        "quote_quantity": false,
+        "reconciliation": false,
+        "event_id": "3737161a-e28b-410b-af53-4ec6cf87584b",
+        "ts_event": 1792912991970352000,
+        "ts_init": 1792912991970352000,
+        "price": null,
+        "activation_price": null,
+        "trigger_price": null,
+        "trigger_type": "NO_TRIGGER",
+        "limit_offset": null,
+        "trailing_offset": null,
+        "trailing_offset_type": "NO_TRAILING_OFFSET",
+        "expire_time": null,
+        "display_qty": null,
+        "emulation_trigger": "NO_TRIGGER",
+        "trigger_instrument_id": null,
+        "contingency_type": "NO_CONTINGENCY",
+        "order_list_id": null,
+        "linked_order_ids": null,
+        "parent_order_id": null,
+        "exec_algorithm_id": null,
+        "exec_algorithm_params": null,
+        "exec_spawn_id": null,
+        "tags": null
+      }
+    },
+    {
+      "Submitted": {
+        "type": "OrderSubmitted",
+        "trader_id": "NATIVE-MARKET-001",
+        "strategy_id": "MARKET-PROBE-001",
+        "instrument_id": "3734852-1.PREDICT",
+        "client_order_id": "O-20261025-072311-001-001-1",
+        "account_id": "PREDICT-native-market-probe",
+        "event_id": "c3eecbfc-773b-4fd1-a3d7-733faf147762",
+        "ts_event": 1792912991970585000,
+        "ts_init": 1792912991970585000
+      }
+    },
+    {
+      "Accepted": {
+        "type": "OrderAccepted",
+        "trader_id": "NATIVE-MARKET-001",
+        "strategy_id": "MARKET-PROBE-001",
+        "instrument_id": "3734852-1.PREDICT",
+        "client_order_id": "O-20261025-072311-001-001-1",
+        "venue_order_id": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+        "account_id": "PREDICT-native-market-probe",
+        "event_id": "ff8c0b9f-f76c-4f70-9ed6-3d4f63471ec5",
+        "ts_event": 1792912992502000000,
+        "ts_init": 1792912992635488000,
+        "reconciliation": false
+      }
+    },
+    {
+      "Filled": {
+        "type": "OrderFilled",
+        "trader_id": "NATIVE-MARKET-001",
+        "strategy_id": "MARKET-PROBE-001",
+        "instrument_id": "3734852-1.PREDICT",
+        "client_order_id": "O-20261025-072311-001-001-1",
+        "venue_order_id": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+        "account_id": "PREDICT-native-market-probe",
+        "trade_id": "PF-9bf7044b23f5e6a317090f8f56786746",
+        "order_side": "BUY",
+        "order_type": "MARKET",
+        "last_qty": "5.0000000000000000",
+        "last_px": "0.24",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "bfff7ad7-a871-45f5-a985-00f2370f2dcb",
+        "ts_event": 1792912992000000000,
+        "ts_init": 1792912994185140000,
+        "reconciliation": true,
+        "position_id": "3734852-1.PREDICT-MARKET-PROBE-001",
+        "commission": "0.00000000 USDT",
+        "quantity_commission": "0.100000000000000000",
+        "info": null
+      }
+    },
+    {
+      "Filled": {
+        "type": "OrderFilled",
+        "trader_id": "NATIVE-MARKET-001",
+        "strategy_id": "MARKET-PROBE-001",
+        "instrument_id": "3734852-1.PREDICT",
+        "client_order_id": "O-20261025-072311-001-001-1",
+        "venue_order_id": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+        "account_id": "PREDICT-native-market-probe",
+        "trade_id": "PF-07498a05a81806ea4786a34b4e8c7ef0",
+        "order_side": "BUY",
+        "order_type": "MARKET",
+        "last_qty": "0.8300000000000000",
+        "last_px": "0.24",
+        "currency": "USDT",
+        "liquidity_side": "TAKER",
+        "event_id": "9376393f-3de6-44ea-9f49-62b1e8fdea33",
+        "ts_event": 1792912992000000000,
+        "ts_init": 1792912994185926000,
+        "reconciliation": true,
+        "position_id": "3734852-1.PREDICT-MARKET-PROBE-001",
+        "commission": "0.00000000 USDT",
+        "quantity_commission": "0.016600000000000000",
+        "info": null
+      }
+    }
+  ],
+  "walletEvents": [
+    {
+      "details": {
+        "categorySlug": "btc-updown-15m-1792912500",
+        "marketId": 3734852,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "Up",
+        "price": "0.240",
+        "quantity": "5.830",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.40",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+      "orderId": "6249650751",
+      "timestamp": 1792912992502,
+      "type": "orderAccepted",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "observedAtUtc": "2026-10-25T07:23:12.639141+00:00",
+      "observedMonotonicNs": 9453453093791
+    },
+    {
+      "amount": "5830000000000000000",
+      "amountFilled": "0",
+      "details": {
+        "categorySlug": "btc-updown-15m-1792912500",
+        "marketId": 3734852,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "Up",
+        "price": "0.240",
+        "quantity": "5.830",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.40",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+      "orderId": "6249650751",
+      "plannedFill": "5830000000000000000",
+      "remainderCancelled": "0",
+      "settlementIds": [
+        "01a171f1-298d-7bb0-9f71-ca993fead95b",
+        "01a171f1-298d-7bb0-9f71-caa59bd05975"
+      ],
+      "timestamp": 1792912992653,
+      "type": "orderMarketMatchPlan",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "observedAtUtc": "2026-10-25T07:23:12.640582+00:00",
+      "observedMonotonicNs": 9453454517041
+    },
+    {
+      "details": {
+        "categorySlug": "btc-updown-15m-1792912500",
+        "marketId": 3734852,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "Up",
+        "price": "0.240",
+        "quantity": "5.830",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.40",
+        "valueFilled": "0.00"
+      },
+      "fill": {
+        "executedPriceWei": "240000000000000000",
+        "executedSizeWei": "830000000000000000",
+        "executedValueWei": "199200000000000000"
+      },
+      "isMaker": false,
+      "kind": "PURCHASE",
+      "orderHash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+      "orderId": "6249650751",
+      "settlementId": "01a171f1-298d-7bb0-9f71-caa59bd05975",
+      "timestamp": 1792912992653,
+      "type": "orderTransactionSubmitted",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "observedAtUtc": "2026-10-25T07:23:12.722847+00:00",
+      "observedMonotonicNs": 9453536791583
+    },
+    {
+      "details": {
+        "categorySlug": "btc-updown-15m-1792912500",
+        "marketId": 3734852,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "Up",
+        "price": "0.240",
+        "quantity": "5.830",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.40",
+        "valueFilled": "0.00"
+      },
+      "fill": {
+        "executedPriceWei": "240000000000000000",
+        "executedSizeWei": "5000000000000000000",
+        "executedValueWei": "1200000000000000000"
+      },
+      "isMaker": false,
+      "kind": "PURCHASE",
+      "orderHash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+      "orderId": "6249650751",
+      "settlementId": "01a171f1-298d-7bb0-9f71-ca993fead95b",
+      "timestamp": 1792912992653,
+      "type": "orderTransactionSubmitted",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "observedAtUtc": "2026-10-25T07:23:12.723713+00:00",
+      "observedMonotonicNs": 9453537648333
+    },
+    {
+      "details": {
+        "categorySlug": "btc-updown-15m-1792912500",
+        "marketId": 3734852,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "Up",
+        "price": "0.240",
+        "quantity": "5.830",
+        "quantityFilled": "5.830",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.40",
+        "valueFilled": "1.40"
+      },
+      "fee": {
+        "amountWei": "100000000000000000",
+        "type": "SHARES"
+      },
+      "fill": {
+        "executedPriceWei": "240000000000000000",
+        "executedSizeWei": "5000000000000000000",
+        "executedValueWei": "1200000000000000000"
+      },
+      "isMaker": false,
+      "orderHash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+      "orderId": "6249650751",
+      "settlementId": "01a171f1-298d-7bb0-9f71-ca993fead95b",
+      "timestamp": 1792912992000,
+      "type": "orderTransactionSuccess",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "observedAtUtc": "2026-10-25T07:23:14.186126+00:00",
+      "observedMonotonicNs": 9455000086000
+    },
+    {
+      "details": {
+        "categorySlug": "btc-updown-15m-1792912500",
+        "marketId": 3734852,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "Up",
+        "price": "0.240",
+        "quantity": "5.830",
+        "quantityFilled": "5.830",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.40",
+        "valueFilled": "1.40"
+      },
+      "fee": {
+        "amountWei": "16600000000000000",
+        "type": "SHARES"
+      },
+      "fill": {
+        "executedPriceWei": "240000000000000000",
+        "executedSizeWei": "830000000000000000",
+        "executedValueWei": "199200000000000000"
+      },
+      "isMaker": false,
+      "orderHash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+      "orderId": "6249650751",
+      "settlementId": "01a171f1-298d-7bb0-9f71-caa59bd05975",
+      "timestamp": 1792912992000,
+      "type": "orderTransactionSuccess",
+      "walletAddress": "0x1111111111111111111111111111111111111111",
+      "observedAtUtc": "2026-10-25T07:23:14.188034+00:00",
+      "observedMonotonicNs": 9455001982833
+    }
+  ],
+  "entryMatches": [
+    {
+      "market": {
+        "id": 3734852,
+        "title": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "question": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+        "tradingStatus": "OPEN",
+        "status": "REGISTERED",
+        "isVisible": true,
+        "isNegRisk": false,
+        "isYieldBearing": false,
+        "feeRateBps": 200,
+        "makerFeeBps": 0,
+        "resolution": null,
+        "oracleQuestionId": "0xfe3614766d80e53c92b2ad4bcc8414cf8f2d2d462543a0a75381f2b0c696d54c",
+        "conditionId": "0x448817197fee420b255bf071993bfeb36f47c581c28be15a10b60f774aec1fd5",
+        "resolverAddress": "[redacted-address]",
+        "outcomes": [
+          {
+            "indexSet": 1,
+            "onChainId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "status": null,
+            "bestBid": {
+              "price": 0.13,
+              "size": 58.38
+            },
+            "bestAsk": {
+              "price": 0.14,
+              "size": 3.8372
+            },
+            "team": null,
+            "variantData": null
+          },
+          {
+            "indexSet": 2,
+            "onChainId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "status": null,
+            "bestBid": {
+              "price": 0.86,
+              "size": 3.8372
+            },
+            "bestAsk": {
+              "price": 0.87,
+              "size": 58.38
+            },
+            "team": null,
+            "variantData": null
+          }
+        ],
+        "questionIndex": null,
+        "spreadThreshold": 0.06,
+        "shareThreshold": 100,
+        "isBoosted": true,
+        "boostStartsAt": "2026-10-25T07:15:00.000Z",
+        "boostEndsAt": "2026-10-25T07:30:00.000Z",
+        "polymarketConditionIds": [],
+        "kalshiMarketTicker": null,
+        "categorySlug": "btc-updown-15m-1792912500",
+        "seriesSlug": "btc-updown-15m",
+        "createdAt": "2026-10-24T07:15:07.000Z",
+        "decimalPrecision": 2,
+        "marketVariant": "CRYPTO_UP_DOWN",
+        "variantData": {
+          "type": "CRYPTO_UP_DOWN",
+          "priceFeedProvider": "CHAINLINK",
+          "startPrice": 80626.295,
+          "endPrice": null,
+          "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+          "priceFeedSymbol": "BTCUSDT"
+        },
+        "team": null,
+        "marketType": null,
+        "rewards": {
+          "current": {
+            "hourlyRate": 3000,
+            "startsAt": "2026-10-25T07:15:00.000Z",
+            "endsAt": "2026-10-25T07:30:00.000Z"
+          },
+          "schedule": [
+            {
+              "hourlyRate": 3000,
+              "startsAt": "2026-10-25T07:15:00.000Z",
+              "endsAt": "2026-10-25T07:30:00.000Z"
+            }
+          ]
+        }
+      },
+      "taker": {
+        "quoteType": "Bid",
+        "amount": "830000000000000000",
+        "price": "240000000000000000",
+        "outcome": {
+          "indexSet": 1,
+          "onChainId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+          "status": null,
+          "bestBid": {
+            "price": 0.13,
+            "size": 58.38
+          },
+          "bestAsk": {
+            "price": 0.14,
+            "size": 3.8372
+          },
+          "team": null,
+          "variantData": null
+        },
+        "signer": "[redacted]",
+        "hash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+        "fee": {
+          "amount": "16600000000000000",
+          "type": "SHARES"
+        }
+      },
+      "amountFilled": "830000000000000000",
+      "priceExecuted": "240000000000000000",
+      "makers": [
+        {
+          "quoteType": "Bid",
+          "amount": "830000000000000000",
+          "price": "760000000000000000",
+          "outcome": {
+            "indexSet": 2,
+            "onChainId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "status": null,
+            "bestBid": {
+              "price": 0.86,
+              "size": 3.8372
+            },
+            "bestAsk": {
+              "price": 0.87,
+              "size": 58.38
+            },
+            "team": null,
+            "variantData": null
+          },
+          "signer": "[redacted-address]",
+          "hash": "0x95e20ad5a8280e339a2a15d306bc81ae397e25e7bc43b0412f9105f88f45871b",
+          "fee": {
+            "amount": "0",
+            "type": "SHARES"
+          }
+        }
+      ],
+      "transactionHash": "0x08a4b7dc54206151f0fb2d0cec3caa9779775b67e71d511a79ef3d768a881026",
+      "settlementId": "01a171f1-298d-7bb0-9f71-caa59bd05975",
+      "executedAt": "2026-10-25T07:23:12.000Z"
+    },
+    {
+      "market": {
+        "id": 3734852,
+        "title": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "question": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+        "description": "This market will resolve to \"Up\" if the BTC/USDT price at the end of the time range specified in the title is greater than the price at the beginning of that range.\r\n\r\nIt will resolve to \"Down\" if the BTC/USDT price at the end of the time range is lower than the price at the beginning of that range.\r\n\r\nIf the two prices are exactly equal, the market will resolve 50-50.\r\n\r\nThe primary resolution source for this market is Chainlink, specifically the BTC/USDT data stream available at https://data.chain.link/streams/btc-usdt-topofbook-datalink?timeframe=1d&chart=candlestick.\r\n\r\nTo verify the final price, use the close price of the 5m candlestick just before the market's end time. For example, for a market running from 1:00 to 1:15 PM ET or 1:10 to 1:15 PM ET, use the close price of the 1:10 PM candlestick as the final price.\r\n\r\nThe Chainlink stream uses the mid-price, which is calculated as the average price between the bid and ask prices from Binance's Top of Book, converted into the quote currency.\r\n\r\nThis market is based solely on the price reported by the Chainlink BTC/USDT data stream, not on other sources or spot markets.\r\n\r\nIf Chainlink data is unavailable or otherwise unusable for resolution, the market will resolve based on a consensus of reliable sources.",
+        "tradingStatus": "OPEN",
+        "status": "REGISTERED",
+        "isVisible": true,
+        "isNegRisk": false,
+        "isYieldBearing": false,
+        "feeRateBps": 200,
+        "makerFeeBps": 0,
+        "resolution": null,
+        "oracleQuestionId": "0xfe3614766d80e53c92b2ad4bcc8414cf8f2d2d462543a0a75381f2b0c696d54c",
+        "conditionId": "0x448817197fee420b255bf071993bfeb36f47c581c28be15a10b60f774aec1fd5",
+        "resolverAddress": "[redacted-address]",
+        "outcomes": [
+          {
+            "indexSet": 1,
+            "onChainId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "status": null,
+            "bestBid": {
+              "price": 0.13,
+              "size": 58.38
+            },
+            "bestAsk": {
+              "price": 0.14,
+              "size": 3.8372
+            },
+            "team": null,
+            "variantData": null
+          },
+          {
+            "indexSet": 2,
+            "onChainId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "status": null,
+            "bestBid": {
+              "price": 0.86,
+              "size": 3.8372
+            },
+            "bestAsk": {
+              "price": 0.87,
+              "size": 58.38
+            },
+            "team": null,
+            "variantData": null
+          }
+        ],
+        "questionIndex": null,
+        "spreadThreshold": 0.06,
+        "shareThreshold": 100,
+        "isBoosted": true,
+        "boostStartsAt": "2026-10-25T07:15:00.000Z",
+        "boostEndsAt": "2026-10-25T07:30:00.000Z",
+        "polymarketConditionIds": [],
+        "kalshiMarketTicker": null,
+        "categorySlug": "btc-updown-15m-1792912500",
+        "seriesSlug": "btc-updown-15m",
+        "createdAt": "2026-10-24T07:15:07.000Z",
+        "decimalPrecision": 2,
+        "marketVariant": "CRYPTO_UP_DOWN",
+        "variantData": {
+          "type": "CRYPTO_UP_DOWN",
+          "priceFeedProvider": "CHAINLINK",
+          "startPrice": 80626.295,
+          "endPrice": null,
+          "priceFeedId": "0x0003ef42b4d20a19409a187c39670a6f5be7ce17fc78c290d25eb45bbf769d37",
+          "priceFeedSymbol": "BTCUSDT"
+        },
+        "team": null,
+        "marketType": null,
+        "rewards": {
+          "current": {
+            "hourlyRate": 3000,
+            "startsAt": "2026-10-25T07:15:00.000Z",
+            "endsAt": "2026-10-25T07:30:00.000Z"
+          },
+          "schedule": [
+            {
+              "hourlyRate": 3000,
+              "startsAt": "2026-10-25T07:15:00.000Z",
+              "endsAt": "2026-10-25T07:30:00.000Z"
+            }
+          ]
+        }
+      },
+      "taker": {
+        "quoteType": "Bid",
+        "amount": "5000000000000000000",
+        "price": "240000000000000000",
+        "outcome": {
+          "indexSet": 1,
+          "onChainId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+          "status": null,
+          "bestBid": {
+            "price": 0.13,
+            "size": 58.38
+          },
+          "bestAsk": {
+            "price": 0.14,
+            "size": 3.8372
+          },
+          "team": null,
+          "variantData": null
+        },
+        "signer": "[redacted]",
+        "hash": "0x0c9ec905067bd55a842d4c626b01666b0491b4c083e9a7c8b2d6b56bd05df367",
+        "fee": {
+          "amount": "100000000000000000",
+          "type": "SHARES"
+        }
+      },
+      "amountFilled": "5000000000000000000",
+      "priceExecuted": "240000000000000000",
+      "makers": [
+        {
+          "quoteType": "Bid",
+          "amount": "5000000000000000000",
+          "price": "760000000000000000",
+          "outcome": {
+            "indexSet": 2,
+            "onChainId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "status": null,
+            "bestBid": {
+              "price": 0.86,
+              "size": 3.8372
+            },
+            "bestAsk": {
+              "price": 0.87,
+              "size": 58.38
+            },
+            "team": null,
+            "variantData": null
+          },
+          "signer": "[redacted-address]",
+          "hash": "0xcdf2a3a27a232c366b0c4d1a934fe919d65363d4c9c17ae99e2913cad741b0ec",
+          "fee": {
+            "amount": "0",
+            "type": "SHARES"
+          }
+        }
+      ],
+      "transactionHash": "0x175c228491818237e7c7e1a7e508d06f8097466f8474ab801d636db68c96fa13",
+      "settlementId": "01a171f1-298d-7bb0-9f71-ca993fead95b",
+      "executedAt": "2026-10-25T07:23:12.000Z"
+    }
+  ],
+  "sdkExit": {
+    "source": "official SDK cleanup, not Native exit",
+    "request": {
+      "data": {
+        "strategy": "MARKET",
+        "pricePerShare": "210000000000000000",
+        "slippageBps": "300",
+        "isMinAmountOut": false,
+        "isFillOrKill": true,
+        "order": {
+          "salt": "1909468621",
+          "maker": "[redacted]",
+          "signer": "[redacted]",
+          "taker": "[redacted-address]",
+          "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+          "makerAmount": "5713400000000000000",
+          "takerAmount": "1163819580000000000",
+          "expiration": 1792913299,
+          "nonce": "0",
+          "feeRateBps": "200",
+          "side": 1,
+          "signatureType": 0,
+          "hash": "0x0bc04d9a2b2c7f562f29037823452c5b07d83cecdc92a51c3da0df444f70f30a",
+          "signature": "[redacted-signature]"
+        }
+      }
+    },
+    "walletEvents": [
+      {
+        "details": {
+          "categorySlug": "btc-updown-15m-1792912500",
+          "marketId": 3734852,
+          "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Up",
+          "price": "0.210",
+          "quantity": "5.713",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "1.20",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0x0bc04d9a2b2c7f562f29037823452c5b07d83cecdc92a51c3da0df444f70f30a",
+        "orderId": "6249655469",
+        "timestamp": 1792912999554,
+        "type": "orderAccepted",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "observedAtUtc": "2026-10-25T07:23:19.724591+00:00",
+        "observedMonotonicNs": 9460538594416
+      },
+      {
+        "amount": "5713400000000000000",
+        "amountFilled": "0",
+        "details": {
+          "categorySlug": "btc-updown-15m-1792912500",
+          "marketId": 3734852,
+          "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Up",
+          "price": "0.210",
+          "quantity": "5.713",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "1.20",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0x0bc04d9a2b2c7f562f29037823452c5b07d83cecdc92a51c3da0df444f70f30a",
+        "orderId": "6249655469",
+        "plannedFill": "5713400000000000000",
+        "remainderCancelled": "0",
+        "settlementIds": [
+          "01a171f1-4519-78d3-a18f-985849c89937"
+        ],
+        "timestamp": 1792912999705,
+        "type": "orderMarketMatchPlan",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "observedAtUtc": "2026-10-25T07:23:19.726394+00:00",
+        "observedMonotonicNs": 9460540388000
+      },
+      {
+        "details": {
+          "categorySlug": "btc-updown-15m-1792912500",
+          "marketId": 3734852,
+          "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Up",
+          "price": "0.210",
+          "quantity": "5.713",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "1.20",
+          "valueFilled": "0.00"
+        },
+        "fill": {
+          "executedPriceWei": "210000000000000000",
+          "executedSizeWei": "5713400000000000000",
+          "executedValueWei": "1199814000000000000"
+        },
+        "isMaker": false,
+        "kind": "SALE",
+        "orderHash": "0x0bc04d9a2b2c7f562f29037823452c5b07d83cecdc92a51c3da0df444f70f30a",
+        "orderId": "6249655469",
+        "settlementId": "01a171f1-4519-78d3-a18f-985849c89937",
+        "timestamp": 1792912999705,
+        "type": "orderTransactionSubmitted",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "observedAtUtc": "2026-10-25T07:23:19.856265+00:00",
+        "observedMonotonicNs": 9460670277916
+      },
+      {
+        "details": {
+          "categorySlug": "btc-updown-15m-1792912500",
+          "marketId": 3734852,
+          "marketQuestion": "Bitcoin Up or Down - October 25, 3:15AM-3:30AM ET",
+          "outcome": "YES",
+          "outcomeIndex": 1,
+          "outcomeName": "Up",
+          "price": "0.210",
+          "quantity": "5.713",
+          "quantityFilled": "5.713",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "1.20",
+          "valueFilled": "1.20"
+        },
+        "fee": {
+          "amountWei": "23996280000000000",
+          "type": "COLLATERAL"
+        },
+        "fill": {
+          "executedPriceWei": "210000000000000000",
+          "executedSizeWei": "5713400000000000000",
+          "executedValueWei": "1199814000000000000"
+        },
+        "isMaker": false,
+        "orderHash": "0x0bc04d9a2b2c7f562f29037823452c5b07d83cecdc92a51c3da0df444f70f30a",
+        "orderId": "6249655469",
+        "settlementId": "01a171f1-4519-78d3-a18f-985849c89937",
+        "timestamp": 1792913000000,
+        "type": "orderTransactionSuccess",
+        "walletAddress": "0x1111111111111111111111111111111111111111",
+        "observedAtUtc": "2026-10-25T07:23:21.457948+00:00",
+        "observedMonotonicNs": 9462271974000
+      }
+    ],
+    "finalChain": {
+      "observedAtUtc": "2026-10-25T07:23:21.590448+00:00",
+      "tokenWei": "0",
+      "cashWei": "50260784277339536131"
+    }
+  },
+  "expected": {
+    "gross": "5.83",
+    "net": "5.7134",
+    "shareFee": "0.1166",
+    "entryCash": "1.3992",
+    "exitGross": "1.199814",
+    "exitFee": "0.02399628",
+    "cashDelta": "-0.22338228",
+    "planRemainderCancelled": "0",
+    "cancelRequests": 0,
+    "partialTailValidated": false
+  },
+  "mintEvidence": {
+    "source": "ERC1155 TransferSingle/TransferBatch decoded directly from public successful BSC receipts",
+    "matches": [
+      {
+        "settlementId": "01a171f1-298d-7bb0-9f71-caa59bd05975",
+        "transactionHash": "0x08a4b7dc54206151f0fb2d0cec3caa9779775b67e71d511a79ef3d768a881026",
+        "receiptStatus": 1,
+        "takerOutcomeIndexSet": 1,
+        "takerQuoteType": "Bid",
+        "takerPriceWei": "240000000000000000",
+        "makers": [
+          {
+            "outcomeIndexSet": 2,
+            "quoteType": "Bid",
+            "priceWei": "760000000000000000",
+            "amountWei": "830000000000000000"
+          }
+        ],
+        "transfers": [
+          {
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "quantityWei": "830000000000000000",
+            "isMintFromZero": true,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 379
+          },
+          {
+            "tokenId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "quantityWei": "830000000000000000",
+            "isMintFromZero": true,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 379
+          },
+          {
+            "tokenId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "quantityWei": "824757894736842106",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 381
+          },
+          {
+            "tokenId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "quantityWei": "5242105263157894",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 382
+          },
+          {
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "quantityWei": "813400000000000000",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 385
+          },
+          {
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "quantityWei": "16600000000000000",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 386
+          },
+          {
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "quantityWei": "4150000000000000",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 390
+          },
+          {
+            "tokenId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "quantityWei": "5242105263157894",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 392
+          }
+        ]
+      },
+      {
+        "settlementId": "01a171f1-298d-7bb0-9f71-ca993fead95b",
+        "transactionHash": "0x175c228491818237e7c7e1a7e508d06f8097466f8474ab801d636db68c96fa13",
+        "receiptStatus": 1,
+        "takerOutcomeIndexSet": 1,
+        "takerQuoteType": "Bid",
+        "takerPriceWei": "240000000000000000",
+        "makers": [
+          {
+            "outcomeIndexSet": 2,
+            "quoteType": "Bid",
+            "priceWei": "760000000000000000",
+            "amountWei": "5000000000000000000"
+          }
+        ],
+        "transfers": [
+          {
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "quantityWei": "5000000000000000000",
+            "isMintFromZero": true,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 358
+          },
+          {
+            "tokenId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "quantityWei": "5000000000000000000",
+            "isMintFromZero": true,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 358
+          },
+          {
+            "tokenId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "quantityWei": "4968421052631578948",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 360
+          },
+          {
+            "tokenId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "quantityWei": "31578947368421052",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 361
+          },
+          {
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "quantityWei": "4900000000000000000",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 364
+          },
+          {
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "quantityWei": "100000000000000000",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 365
+          },
+          {
+            "tokenId": "24748879490095079476957637988607665068606152679890799884852082156067326680668",
+            "quantityWei": "25000000000000000",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 369
+          },
+          {
+            "tokenId": "3414079756813998612805974535140032453369516296272422238538483714308443916154",
+            "quantityWei": "31578947368421052",
+            "isMintFromZero": false,
+            "contract": "0x22DA1810B194ca018378464a58f6Ac2B10C9d244",
+            "logIndex": 371
+          }
+        ]
+      }
+    ]
+  }
+}

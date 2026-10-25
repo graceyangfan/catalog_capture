@@ -145,7 +145,10 @@ impl DataClient for PredictDataClient {
     }
 
     fn subscribe_instrument(&mut self, subscription: SubscribeInstrument) -> anyhow::Result<()> {
-        self.publish_instrument(subscription.instrument_id)
+        for id in subscription.instrument_ids {
+            self.publish_instrument(id)?;
+        }
+        Ok(())
     }
 
     fn subscribe_instruments(&mut self, _subscription: SubscribeInstruments) -> anyhow::Result<()> {
@@ -174,26 +177,41 @@ impl DataClient for PredictDataClient {
             command.book_type == nautilus_model::enums::BookType::L2_MBP,
             "Predict supports only L2_MBP depth snapshots"
         );
-        let id = command.instrument_id;
-        self.send_command(PredictCommand::SubscribeDepth(
-            id,
-            self.instrument_context(id)?,
-            command.depth,
-        ))
+        let contexts = command
+            .instrument_ids
+            .into_iter()
+            .map(|id| Ok((id, self.instrument_context(id)?)))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for (id, context) in contexts {
+            self.send_command(PredictCommand::SubscribeDepth(id, context, command.depth))?;
+        }
+        Ok(())
     }
 
     fn unsubscribe_book_depth(&mut self, command: &UnsubscribeBookDepth) -> anyhow::Result<()> {
-        self.send_command(PredictCommand::UnsubscribeDepth(command.instrument_id))
+        for &id in &command.instrument_ids {
+            self.send_command(PredictCommand::UnsubscribeDepth(id))?;
+        }
+        Ok(())
     }
 
     fn subscribe_quotes(&mut self, command: SubscribeQuotes) -> anyhow::Result<()> {
-        let id = command.instrument_id;
-        let context = self.instrument_context(id)?;
-        self.send_command(PredictCommand::SubscribeQuotes(id, context))
+        let contexts = command
+            .instrument_ids
+            .into_iter()
+            .map(|id| Ok((id, self.instrument_context(id)?)))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for (id, context) in contexts {
+            self.send_command(PredictCommand::SubscribeQuotes(id, context))?;
+        }
+        Ok(())
     }
 
     fn unsubscribe_quotes(&mut self, command: &UnsubscribeQuotes) -> anyhow::Result<()> {
-        self.send_command(PredictCommand::UnsubscribeQuotes(command.instrument_id))
+        for &id in &command.instrument_ids {
+            self.send_command(PredictCommand::UnsubscribeQuotes(id))?;
+        }
+        Ok(())
     }
 
     // Use either explicit snapshots or one rolling selector for a given market.

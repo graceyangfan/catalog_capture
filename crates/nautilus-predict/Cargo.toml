@@ -12,6 +12,8 @@ default = ["high-precision", "live"]
 # Private authentication is opt-in; capture builds retain their existing feature graph.
 execution = [
   "live",
+  "nautilus-model/defi",
+  "nautilus-serialization/high-precision",
   "dep:base64",
   "dep:indexmap",
   "dep:alloy",
@@ -21,8 +23,6 @@ execution = [
   "dep:futures-util",
   "dep:nautilus-execution",
 ]
-# Experimental Native RFC prototype; excluded from default execution builds.
-native-quantity-commission = ["execution"]
 # Core uses common venue rules with default features disabled.
 live = [
   "dep:ahash",

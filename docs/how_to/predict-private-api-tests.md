@@ -87,15 +87,17 @@ uv run --python 3.12 --with predict-sdk==0.0.22 --with websocket-client --with w
 uv run --python 3.12 --with predict-sdk==0.0.22 --with websocket-client --with websockets --with python-dotenv --with requests python tests/run_predict_queries_readonly.py
 ```
 
-Use `--features native-quantity-commission` to run either wrapper against the
+Use `--features execution` to run either wrapper against the
 quantity-fee configuration. Add `--output-dir data/predict-validation/<run-id>`
 to group new redacted recordings by run. The default is the ignored
 `data/predict-validation/` directory. Both options
 preserve the read-only relay restrictions.
 
 The session probe requires a flat account without active orders. Two early token
-renewals exercise wallet subscribe ACK, heartbeat echo, QueryAccount and Native
-readiness. It verifies the renewal path without waiting for natural expiry.
+renewals exercise wallet subscribe ACK, heartbeat echo and a strategy QueryAccount
+whose canonical cash snapshot reaches Native and the strategy. Connectivity follows
+the authenticated transport; account refresh is not an additional trading gate.
+This verifies the renewal path without waiting for natural expiry.
 
 The query probe checks explicit QueryAccount and QueryOrder. A real historical
 Canceled response repairs deliberately stale local state, and a repeated query
@@ -104,6 +106,24 @@ of an active order. Outputs preserve protocol quantities with identities and
 credentials redacted; new captures do not overwrite existing files.
 
 ## Offline replay and supervised execution
+
+For a bounded survey of existing order and match history, use the crate recorder:
+
+```bash
+uv run --python 3.12 tests/record_predict_order_history_readonly.py --survey
+```
+
+The Rust collector authenticates through the write-blocking relay, reads two
+eight-row pages per maker/taker/order filter, checks signed order hashes, and
+looks up at most 24 distinct historical orders and eight markets. Raw responses
+and page-cap/end markers are saved in a fresh directory under
+`data/predict-validation/order_history_readonly_*`. No order is created, removed
+or signed for submission. Failed lookups remain failures, not inferred terminals.
+The order-list filter supports OPEN/FILLED; canceled/expired orders require a
+known hash. A later snapshot cannot recover an absent wallet event or establish
+who initiated a cancellation. Consult the
+[remaining evidence gaps](../reference/predict-immediate-order-validation.md#remaining-venue-evidence)
+before scheduling another live capture.
 
 Normal regressions use saved JSON and loopback services, with no operator key.
 They cover resource bounds, standard rejections, partial fills, replay deduplication,

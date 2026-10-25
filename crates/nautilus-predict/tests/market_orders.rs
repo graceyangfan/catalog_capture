@@ -217,3 +217,61 @@ fn strategy_price_uses_sdk_single_level_amounts_with_slippage_once() {
             .is_err()
     );
 }
+
+#[test]
+fn quote_value_reference_amounts_match_official_unsigned_sdk_vectors() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/market_value_amounts.json")).unwrap();
+    let vectors = fixture["vectors"].as_array().unwrap();
+    assert_eq!(vectors.len(), 7);
+    for vector in vectors {
+        let budget = wei(vector["value"].as_str().unwrap());
+        let amounts = PredictMarketOrderAmounts::from_value_price(
+            budget,
+            wei(vector["price"].as_str().unwrap()),
+        )
+        .unwrap();
+        amounts.validate().unwrap();
+        assert_eq!(amounts.maker_amount.to_string(), vector["makerAmount"]);
+        assert_eq!(amounts.taker_amount.to_string(), vector["takerAmount"]);
+        assert_eq!(amounts.amount.to_string(), vector["amount"]);
+        assert_eq!(amounts.price_per_share.to_string(), vector["pricePerShare"]);
+        assert_eq!(amounts.slippage_bps, 0);
+        assert!(amounts.maker_amount <= budget);
+    }
+    for (value, price) in [
+        (wei("0.99"), wei(".01")),
+        (wei("1"), U256::ZERO),
+        (wei("1"), wei("1.01")),
+        (U256::MAX, wei(".01")),
+    ] {
+        assert!(PredictMarketOrderAmounts::from_value_price(value, price).is_err());
+    }
+}
+
+#[test]
+fn zero_slippage_single_reference_is_not_full_depth_market_preparation() {
+    // Shape observed by a read-only market snapshot: one minimum-notional
+    // order cannot fit at the displayed best ask. This asserts arithmetic,
+    // not a venue fill or a promise about MARKET remainder handling.
+    let qty = wei("8.11");
+    let native =
+        PredictMarketOrderAmounts::from_price(PredictOrderSide::Buy, qty, wei(".148"), 0).unwrap();
+    let depth = PredictMarketOrderAmounts::from_levels(
+        PredictOrderSide::Buy,
+        qty,
+        &[(wei(".148"), wei("5")), (wei(".149"), wei("3.11"))],
+        0,
+    )
+    .unwrap();
+    assert_eq!(native.maker_amount, wei("1.20028"));
+    assert_eq!(depth.maker_amount, wei("1.20839"));
+    assert_eq!(depth.price_per_share, wei(".148383477188655980"));
+    assert_eq!(depth.last_price, wei(".149"));
+    assert!(
+        native.maker_amount < wei("1.20339"),
+        "reference-only payment cannot cover visible aggregate cost"
+    );
+    assert_eq!(native.slippage_bps, depth.slippage_bps);
+    assert_ne!(native.price_per_share, depth.price_per_share);
+}

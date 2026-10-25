@@ -88,6 +88,7 @@ pub struct ExitStrategy {
     entry: ClientOrderId,
     native_entry: Option<(Price, Quantity)>,
     taker_entry: bool,
+    market_entry: bool,
     native_quotes: bool,
     native_close: bool,
     close_reduce_only: Option<bool>,
@@ -146,6 +147,7 @@ impl ExitStrategy {
             entry: ClientOrderId::new("EXIT-ENTRY-001"),
             native_entry: None,
             taker_entry: false,
+            market_entry: false,
             native_quotes: false,
             native_close: false,
             close_reduce_only: Some(false),
@@ -204,6 +206,11 @@ impl ExitStrategy {
     }
     pub fn with_taker_entry(mut self) -> Self {
         self.taker_entry = true;
+        self
+    }
+    /// Opt-in mainnet quote diagnostic; existing LIMIT replay entry remains unchanged.
+    pub fn with_market_entry(mut self) -> Self {
+        self.market_entry = true;
         self
     }
     /// Runtime discovery supplies identity and an entry deadline; holdings have no time exit.
@@ -275,7 +282,11 @@ impl ExitStrategy {
         let now = self.clock().timestamp_ns().as_u64();
         if !self.recorded_exit_signal.as_ref().is_some_and(|s| s.get())
             && now
-                .checked_sub(book.ts_event.as_u64())
+                .checked_sub(if self.market_entry {
+                    book.ts_init.as_u64()
+                } else {
+                    book.ts_event.as_u64()
+                })
                 .is_none_or(|age| age > self.stale_after_ms * 1_000_000)
         {
             return Ok(());
@@ -316,18 +327,57 @@ impl ExitStrategy {
                     let (Some(bid), Some(ask)) = (bids.first(), asks.first()) else {
                         return Ok(());
                     };
-                    if !live_entry_admissible(
-                        price.as_decimal(),
+                    let admission_price = if self.market_entry {
+                        let reference = px(ask.price);
+                        if reference > Decimal::new(48, 2)
+                            || reference * quantity.as_decimal() * Decimal::new(103, 2)
+                                > Decimal::new(150, 2)
+                        {
+                            return Ok(());
+                        }
+                        reference
+                    } else {
+                        price.as_decimal()
+                    };
+                    if !live_entry_admissible_with_depth(
+                        admission_price,
                         quantity.as_decimal(),
                         (px(bid.price), bid.quantity.as_decimal()),
                         (px(ask.price), ask.quantity.as_decimal()),
                         self.fee_bps,
                         self.max_loss,
+                        Decimal::from(if self.market_entry { 3 } else { 5 }),
                     ) {
                         return Ok(());
                     }
                 }
                 self.entry_sent = true;
+                if self.market_entry {
+                    let order = self.order().market(
+                        self.instrument,
+                        OrderSide::Buy,
+                        quantity,
+                        Some(TimeInForce::Fok),
+                        None,
+                        Some(false),
+                        None,
+                        None,
+                        None,
+                        Some(self.entry),
+                    );
+                    let quote = self.cache().quote(&self.instrument).unwrap();
+                    let reference = quote.ask_price.to_string();
+                    self.journal.borrow_mut().push(json!({"type":"NativeMarketEntrySubmitted","clientOrderId":self.entry.to_string(),"reference":reference,"quantity":quantity.to_string(),"slippageBps":300,"observedBid":quote.bid_price.to_string(),"observedAsk":quote.ask_price.to_string(),"tsInit":quote.ts_init.as_u64()}));
+                    let params = nautilus_core::Params::new(
+                        [
+                            ("market_price".into(), json!(reference)),
+                            ("market_order_slippage_bps".into(), json!(300)),
+                        ]
+                        .into(),
+                    );
+                    self.submit_order(order, None, Some(ClientId::new("PREDICT")), Some(params))?;
+                    return Ok(());
+                }
                 let order = self.order().limit(
                     self.instrument,
                     OrderSide::Buy,
@@ -477,10 +527,18 @@ impl ExitStrategy {
                 return Ok(());
             }
             self.stop_attempts += 1;
-            let mut params = nautilus_core::Params::new();
             // The signal already walked this fresh snapshot's depth. Its worst tier
-            // supplies the reference; the adapter applies configured slippage once.
-            params.insert("market_price".into(), json!(market_price.to_string()));
+            // supplies the reference; the command supplies extra slippage once.
+            let params = nautilus_core::Params::new(
+                [
+                    ("market_price".into(), json!(market_price.to_string())),
+                    (
+                        "market_order_slippage_bps".into(),
+                        json!(if self.market_entry { 300 } else { 100 }),
+                    ),
+                ]
+                .into(),
+            );
             if self.native_close {
                 let positions = self.cache().positions_open(
                     None,
@@ -649,6 +707,26 @@ fn live_entry_admissible(
     fee_bps: u32,
     max_loss: Decimal,
 ) -> bool {
+    live_entry_admissible_with_depth(
+        price,
+        quantity,
+        bid,
+        ask,
+        fee_bps,
+        max_loss,
+        Decimal::from(5),
+    )
+}
+
+fn live_entry_admissible_with_depth(
+    price: Decimal,
+    quantity: Decimal,
+    bid: (Decimal, Decimal),
+    ask: (Decimal, Decimal),
+    fee_bps: u32,
+    max_loss: Decimal,
+    depth_multiple: Decimal,
+) -> bool {
     if quantity <= Decimal::ZERO || price <= Decimal::ZERO || fee_bps > 10_000 {
         return false;
     }
@@ -659,8 +737,8 @@ fn live_entry_admissible(
     ask.0 <= price
         && bid.0 > Decimal::ZERO
         && bid.0 < ask.0
-        && ask.1 >= quantity * Decimal::from(5)
-        && bid.1 >= net * Decimal::from(5)
+        && ask.1 >= quantity * depth_multiple
+        && bid.1 >= net * depth_multiple
         && price * quantity - proceeds <= max_loss * Decimal::from(2) / Decimal::from(3)
         && floor >= Decimal::new(105, 2)
 }
@@ -957,11 +1035,14 @@ nautilus_strategy!(ExitStrategy, {
         {
             self.entry_qty += fill.last_qty.as_decimal();
             self.entry_cost += fill.last_qty.as_decimal() * fill.last_px.as_decimal();
-            self.entry_fee_shares += fill.quantity_commission.unwrap_or_else(|| {
-                fill.commission.map_or(Decimal::ZERO, |v| {
-                    v.as_decimal() / fill.last_px.as_decimal()
-                })
-            });
+            self.entry_fee_shares += fill
+                .quantity_commission
+                .map(|fee| fee.as_decimal())
+                .unwrap_or_else(|| {
+                    fill.commission.map_or(Decimal::ZERO, |v| {
+                        v.as_decimal() / fill.last_px.as_decimal()
+                    })
+                });
         }
         if let OrderEventAny::Filled(fill) = &event
             && (self.maker == Some(id) || self.taker == Some(id))
@@ -998,7 +1079,22 @@ nautilus_strategy!(ExitStrategy, {
                 | OrderEventAny::Rejected(_)
                 | OrderEventAny::CancelRejected(_)
         ) {
-            self.failed = true;
+            if self.market_entry
+                && self.maker == Some(id)
+                && matches!(&event, OrderEventAny::Rejected(rejected) if rejected.due_post_only)
+                && self.cache().order(&id).is_some_and(|o| o.is_closed())
+            {
+                // A moving bid can cross a post-only SELL before the venue sees it.
+                // This bounded test must still close its actual net inventory.
+                self.maker = None;
+                self.stop = true;
+                self.cancel_sent = false;
+                self.journal.borrow_mut().push(
+                    json!({"type":"PostOnlyRejectedExitRequested","clientOrderId":id.to_string()}),
+                );
+            } else {
+                self.failed = true;
+            }
         }
         if self.maker == Some(id)
             && matches!(event, OrderEventAny::Canceled(_) | OrderEventAny::Filled(_))

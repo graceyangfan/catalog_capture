@@ -83,11 +83,12 @@ pub(crate) fn parse_custom_data_specs(
             let metadata = if item.metadata.is_empty() {
                 None
             } else {
-                let mut params = Params::new();
-                for (key, value) in &item.metadata {
-                    params.insert(key.clone(), JsonValue::String(value.clone()));
-                }
-                Some(params)
+                Some(Params::new(
+                    item.metadata
+                        .iter()
+                        .map(|(key, value)| (key.clone(), JsonValue::String(value.clone())))
+                        .collect(),
+                ))
             };
             Ok(CustomDataCaptureSpec {
                 data_type: DataType::new(&item.type_name, metadata, item.identifier.clone()),

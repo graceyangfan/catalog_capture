@@ -52,6 +52,7 @@ def capture(
     live_resting=False,
     calibration_name=None,
     stop_file=None,
+    calibration_market_id=None,
 ):
     if stop_file is not None and (not calibrate or calibration_name is None):
         raise CaptureError("continuous observation requires a new named calibration")
@@ -143,8 +144,9 @@ def capture(
 
         # The production recorder is untouched. This opt-in test collector retains
         # each wallet event before waiting further; a disconnect cannot erase them.
-        from contextlib import nullcontext
         import os
+        from contextlib import nullcontext
+
         from predict_private_http_recorder import read_response_evidence
 
         stream = (
@@ -177,6 +179,7 @@ def capture(
                     on_subscribed=subscribed,
                     stop_requested=stop_file.exists if stop_file is not None else None,
                     on_wallet_event=observed,
+                    market_id=calibration_market_id,
                 )
             }
     elif history:
@@ -339,6 +342,7 @@ if __name__ == "__main__":
         help="60-second read-only wallet/REST/chain calibration; preserves prior fixtures",
     )
     parser.add_argument("--calibration-seconds", type=int, default=60)
+    parser.add_argument("--calibration-market-id", type=int)
     parser.add_argument(
         "--until-stop-file",
         type=Path,
@@ -374,6 +378,7 @@ if __name__ == "__main__":
             live_resting=args.live_resting,
             calibration_name=args.calibration_name,
             stop_file=args.until_stop_file,
+            calibration_market_id=args.calibration_market_id,
         )
     except Exception as error:  # noqa: BLE001 - remote exceptions may contain credentials
         import traceback

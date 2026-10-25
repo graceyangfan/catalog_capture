@@ -7,7 +7,7 @@ use alloy::primitives::U256;
 use nautilus_model::{enums::TimeInForce, identifiers::InstrumentId, types::Quantity};
 use nautilus_network::websocket::TransportBackend;
 use nautilus_predict::{
-    PredictDataClientConfig, PredictSubmissionConfig,
+    PredictDataClientConfig,
     blockchain::PredictChainClient,
     http::{
         PredictAuthenticatedHttpClient, account_models::PredictRestOrder,
@@ -280,11 +280,7 @@ async fn mainnet_rust_strategy_quiet_resting_cancel_replace() -> anyhow::Result<
     execution.account_refresh_interval_secs = 1;
     execution.report_timeout_secs = settings.network.timeout_secs;
     execution.orderbook_removal_enabled = true;
-    execution.submission = Some(PredictSubmissionConfig {
-        signer,
-
-        market_slippage_bps: 100,
-    });
+    execution.submission_signer = Some(signer);
     let key = settings
         .private_config()?
         .api_key

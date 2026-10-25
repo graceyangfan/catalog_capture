@@ -270,7 +270,7 @@ class HostTests(unittest.TestCase):
             self.assertNotIn("--", command)
             args = build.call_args.args[0]
             self.assertIn("--no-run", args)
-            self.assertIn("native-quantity-commission", args)
+            self.assertIn("execution", args)
             self.assertIn("fill_live::mainnet_wait_for_strategy_exit", command)
 
     def test_failed_or_ambiguous_build_never_starts_the_host(self):

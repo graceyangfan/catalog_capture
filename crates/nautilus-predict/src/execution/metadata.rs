@@ -79,13 +79,11 @@ impl ExecutionInstrument {
 
     pub fn cached_market(
         &self,
-        epoch: u64,
         now: UnixNanos,
         max_age_ns: u64,
     ) -> anyhow::Result<Option<MarketMetadata>> {
         let cached = self.market.lock().expect("market metadata poisoned");
         if let Some(value) = cached.as_ref()
-            && value.epoch == epoch
             && now
                 .as_u64()
                 .checked_sub(value.observed.as_u64())
@@ -110,7 +108,7 @@ impl ExecutionInstrument {
             self.is_current(definitions),
             "Predict market definition was replaced before collection"
         );
-        if let Some(value) = self.cached_market(expected_epoch, clock.get_time_ns(), max_age_ns)? {
+        if let Some(value) = self.cached_market(clock.get_time_ns(), max_age_ns)? {
             return Ok(value);
         }
         // Keep a still-valid value available while background refresh is in flight.
@@ -168,7 +166,6 @@ impl ExecutionInstrument {
         let value = MarketMetadata {
             market: Arc::new(market),
             observed,
-            epoch: expected_epoch,
         };
         *self.market.lock().expect("market metadata poisoned") = Some(value.clone());
         Ok(value)
@@ -181,7 +178,7 @@ pub(super) async fn prepare(
     clock: &'static AtomicTime,
     epoch: &Arc<AtomicU64>,
 ) {
-    if config.submission.is_none() {
+    if config.submission_signer.is_none() {
         return;
     }
     let mut seen = HashSet::new();

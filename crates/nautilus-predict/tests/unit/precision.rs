@@ -54,7 +54,7 @@ fn report(raw: U256, id: u32, dp: u8) -> BufferedFill {
 }
 
 #[test]
-fn cumulative_floor_carries_for_native_precisions_and_freezes_reordered_allocations() {
+fn atomic_quantities_preserve_finer_executions_and_reordered_allocations() {
     let scale = U256::from(1_000_000_000_000_000_000u64);
     for dp in [3, 9, 16] {
         let unit = U256::from(10u64.pow(18 - u32::from(dp)));
@@ -70,8 +70,14 @@ fn cumulative_floor_carries_for_native_precisions_and_freezes_reordered_allocati
                 |_| dp,
             )
             .unwrap();
-        assert_eq!(reports[0].report.last_qty, Quantity::from(17));
-        assert_eq!(reports[1].report.last_qty, Quantity::from(83));
+        assert_eq!(
+            reports[0].report.last_qty,
+            Quantity::from_u256(first, 18).unwrap()
+        );
+        assert_eq!(
+            reports[1].report.last_qty,
+            Quantity::from_u256(second, 18).unwrap()
+        );
         evidence.commit(&reports).unwrap();
         reports.reverse();
         evidence
@@ -82,13 +88,18 @@ fn cumulative_floor_carries_for_native_precisions_and_freezes_reordered_allocati
                 |_| dp,
             )
             .unwrap();
-        assert_eq!(reports[0].report.last_qty, Quantity::from(83));
-        assert_eq!(reports[1].report.last_qty, Quantity::from(17));
+        assert_eq!(
+            reports[0].report.last_qty,
+            Quantity::from_u256(second, 18).unwrap()
+        );
+        assert_eq!(
+            reports[1].report.last_qty,
+            Quantity::from_u256(first, 18).unwrap()
+        );
         assert_eq!(evidence.entries.len(), 2);
     }
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[test]
 fn collateral_atomic_fees_accumulate_and_duplicate_replay_keeps_allocations() {
     let quantity = U256::from(1_225_000_000_250u64);
@@ -146,7 +157,7 @@ fn collateral_atomic_fees_accumulate_and_duplicate_replay_keeps_allocations() {
 }
 
 #[test]
-fn one_wei_terminal_settlement_can_release_a_carried_native_quantum() {
+fn one_wei_settlement_is_not_inflated_to_an_instrument_quantum() {
     let mut reports = vec![
         report(U256::from(17_000_000_000_000_000_099u128), 1, 16),
         report(U256::from(1), 2, 16),
@@ -160,10 +171,13 @@ fn one_wei_terminal_settlement_can_release_a_carried_native_quantum() {
             |_| 16,
         )
         .unwrap();
-    assert_eq!(reports[0].report.last_qty, Quantity::from(17));
+    assert_eq!(
+        reports[0].report.last_qty,
+        Quantity::from("17.000000000000000099")
+    );
     assert_eq!(
         reports[1].report.last_qty,
-        Quantity::from("0.0000000000000001")
+        Quantity::from("0.000000000000000001")
     );
     assert_eq!(
         reports
@@ -175,7 +189,7 @@ fn one_wei_terminal_settlement_can_release_a_carried_native_quantum() {
 }
 
 #[test]
-fn different_orders_do_not_share_rounding_carry_and_dust_never_becomes_a_zero_fill() {
+fn independent_orders_and_zero_fee_dust_preserve_atomic_quantities() {
     let mut reports = vec![
         report(U256::from(17_000_000_000_000_000_099u128), 1, 16),
         report(U256::from(5_000_000_000_000_000_099u128), 2, 16),
@@ -190,22 +204,66 @@ fn different_orders_do_not_share_rounding_carry_and_dust_never_becomes_a_zero_fi
             |_| 16,
         )
         .unwrap();
-    assert_eq!(reports[0].report.last_qty, Quantity::from(17));
-    assert_eq!(reports[1].report.last_qty, Quantity::from(5));
-    let mut dust = vec![report(U256::from(1), 3, 16)];
-    assert!(
+    assert_eq!(
+        reports[0].report.last_qty,
+        Quantity::from("17.000000000000000099")
+    );
+    assert_eq!(
+        reports[1].report.last_qty,
+        Quantity::from("5.000000000000000099")
+    );
+    for fee_type in [PredictFeeType::Shares, PredictFeeType::Collateral] {
+        let mut dust = vec![report(U256::from(1), 3, 16)];
+        dust[0].raw.fee_type = fee_type;
         evidence
             .prepare(
                 &mut dust,
                 &HashMap::<VenueOrderId, OrderAny>::new(),
                 &[],
-                |_| 16
+                |_| 16,
             )
-            .unwrap_err()
-            .to_string()
-            .contains("below native quantity quantum")
-    );
+            .unwrap();
+        assert_eq!(
+            dust[0].report.last_qty,
+            Quantity::from("0.000000000000000001")
+        );
+        assert!(dust[0].report.quantity_commission.is_none());
+    }
     assert!(evidence.entries.is_empty());
+}
+
+#[test]
+fn legacy_projected_allocations_keep_their_carry_and_replay_identity() {
+    let first = U256::from(17_000_000_000_000_000_099u128);
+    let second = U256::from(100_000_000_000_000_000_000u128) - first;
+    let legacy = report(first, 1, 16);
+    assert_eq!(legacy.report.last_qty, Quantity::from(17));
+    let mut evidence = FillEvidence::default();
+    evidence.commit(std::slice::from_ref(&legacy)).unwrap();
+    let mut fills = vec![legacy.clone(), report(second, 2, 16)];
+    evidence
+        .prepare(
+            &mut fills,
+            &HashMap::<VenueOrderId, OrderAny>::new(),
+            &[],
+            |_| 16,
+        )
+        .unwrap();
+    assert_eq!(fills[0], legacy);
+    assert_eq!(fills[1].report.last_qty, Quantity::from(83));
+    evidence.commit(&fills).unwrap();
+    let expected = fills.clone();
+    fills.reverse();
+    evidence
+        .prepare(
+            &mut fills,
+            &HashMap::<VenueOrderId, OrderAny>::new(),
+            &[],
+            |_| 16,
+        )
+        .unwrap();
+    fills.reverse();
+    assert_eq!(fills, expected);
 }
 
 #[test]
@@ -265,7 +323,7 @@ fn private_raw_conflicts_cannot_hide_behind_identical_native_projections() {
 fn private_replay() -> serde_json::Value {
     use serde_json::json;
     let scale = U256::from(1_000_000_000_000_000_000u64);
-    let first = U256::from(17_000_000_000_000_000_099u128);
+    let first = U256::from(17_000_000_000_000_000_000u128);
     let mut reports = vec![
         report(first, 1, 16),
         report(scale * U256::from(100) - first, 2, 16),
@@ -277,15 +335,15 @@ fn private_replay() -> serde_json::Value {
             fill.raw.fee,
             fill.raw.fee_type,
             fill.raw.gross_shares,
-            fill.raw.price,
             nautilus_model::enums::OrderSide::Buy,
             nautilus_model::enums::LiquiditySide::Taker,
             true,
         )
         .unwrap();
-        if cfg!(feature = "native-quantity-commission") {
+
+        {
             fill.report.quantity_commission =
-                Some(crate::common::parse::exact_wei(fill.raw.fee).unwrap());
+                Some(crate::common::parse::exact_wei_quantity(fill.raw.fee).unwrap());
         }
     }
     let mut evidence = FillEvidence::default();
@@ -345,22 +403,22 @@ fn private_replay_path() -> std::path::PathBuf {
 }
 #[test]
 fn private_share_fee_evidence_replays_without_native_info() {
-    let mut saved: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(private_replay_path()).unwrap()).unwrap();
-    if cfg!(feature = "native-quantity-commission") {
-        for index in 0..2 {
-            let raw: U256 = saved["privateEvidence"][index]["feeWei"]
-                .as_str()
-                .unwrap()
-                .parse()
-                .unwrap();
-            saved["nativeReports"][index]["commission"] =
-                serde_json::json!(Money::zero(Currency::USDT()).to_string());
-            saved["nativeReports"][index]["quantity_commission"] =
-                serde_json::json!(crate::common::parse::exact_wei(raw).unwrap().to_string());
+    {
+        let actual = private_replay();
+        assert_eq!(actual["evidenceEntries"], 2);
+        assert_eq!(actual["duplicateReplayAllocationsUnchanged"], true);
+        for (index, gross, fee) in [
+            (0, "17000000000000000000", "0.340000000000000000"),
+            (1, "83000000000000000000", "1.660000000000000000"),
+        ] {
+            assert_eq!(actual["privateEvidence"][index]["grossSharesWei"], gross);
+            assert_eq!(actual["nativeReports"][index]["quantity_commission"], fee);
+            assert_eq!(
+                actual["nativeReports"][index]["commission"],
+                "0.00000000 USDT"
+            );
         }
     }
-    assert_eq!(private_replay(), saved);
 }
 #[test]
 #[ignore = "explicit synthetic raw evidence capture; create_new only"]
@@ -397,7 +455,6 @@ fn retired_order_evidence_releases_capacity_without_eviction_of_other_orders() {
     assert!(evidence.entries.contains_key(&other.report.trade_id));
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[test]
 fn representable_subcurrency_fees_use_native_exact_money_without_currency_rounding() {
     let scale = U256::from(1_000_000_000_000_000_000u64);
@@ -1360,65 +1417,6 @@ fn verified_prefix_checks_appended_overflow_without_advancing_verified_facts() {
 }
 
 #[test]
-fn recovery_fence_matches_reordered_facts_and_rejects_missing_duplicate_or_changed_facts() {
-    use crate::execution::{context::WorkerOrder, readiness::verify_match_fence};
-    let (evidence, native, _) = wallet_history(64);
-    let orders = HashMap::from([(
-        native.venue_order_id().unwrap(),
-        WorkerOrder::capture(&native),
-    )]);
-    let fills = evidence.entries.values().cloned().collect::<Vec<_>>();
-    let mut fence = fills.clone();
-    fence.reverse();
-    verify_match_fence(&fills, &fence, &orders).unwrap();
-    assert!(verify_match_fence(&fills, &fence[..63], &orders).is_err());
-    let mut duplicate = fence.clone();
-    duplicate[0] = duplicate[1].clone();
-    assert!(verify_match_fence(&fills, &duplicate, &orders).is_err());
-    let mut changed = fence.clone();
-    changed[0].report.last_qty = Quantity::from(2);
-    assert!(verify_match_fence(&fills, &changed, &orders).is_err());
-    let mut foreign = fence;
-    foreign[0].report.venue_order_id = "FOREIGN".into();
-    assert!(verify_match_fence(&fills, &foreign, &orders).is_err());
-}
-
-#[test]
-#[ignore = "explicit recovery fence CPU benchmark; PREDICT_RECOVERY_FENCE_PATH create_new JSON"]
-fn benchmark_recovery_match_fence() {
-    use crate::execution::{context::WorkerOrder, readiness::verify_match_fence};
-    use std::{hint::black_box, time::Instant};
-    let mut rows = Vec::new();
-    for retained in [1, 1000, 10000] {
-        let (evidence, native, _) = wallet_history(retained);
-        let orders = HashMap::from([(
-            native.venue_order_id().unwrap(),
-            WorkerOrder::capture(&native),
-        )]);
-        let fills = evidence.entries.values().cloned().collect::<Vec<_>>();
-        let mut fence = fills.clone();
-        fence.reverse();
-        let mut samples = Vec::new();
-        for iteration in 0..23 {
-            let started = Instant::now();
-            verify_match_fence(black_box(&fills), black_box(&fence), black_box(&orders)).unwrap();
-            let ns = started.elapsed().as_nanos() as u64;
-            if iteration >= 3 {
-                samples.push(ns);
-            }
-        }
-        samples.sort_unstable();
-        rows.push(serde_json::json!({"fills":retained,"samples_ns":samples,"p50_ns":samples[9],"p95_ns":samples[18],"p99_ns":samples[19]}));
-    }
-    let file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(std::env::var("PREDICT_RECOVERY_FENCE_PATH").unwrap())
-        .unwrap();
-    serde_json::to_writer_pretty(file,&serde_json::json!({"source":"production parsed recovery fill fence plus Native validation; 3 warmups and 20 samples; parsing/transport/Native application excluded; p99 maximum","rows":rows})).unwrap();
-}
-
-#[test]
 fn applied_fill_inspection_borrows_native_events_and_preserves_cutoff_and_conflicts() {
     use crate::execution::context::{APPLIED_FILL_CLONES, WorkerOrder};
     let (mut evidence, native, _) = wallet_history(64);
@@ -1460,7 +1458,7 @@ fn applied_fill_inspection_borrows_native_events_and_preserves_cutoff_and_confli
     changed.last_px = Price::from("0.140");
     assert!(crate::execution::parse::validate_applied_fill(&changed, &old).is_err());
     changed = applied.report.clone();
-    changed.quantity_commission = Some(Decimal::ONE);
+    changed.quantity_commission = Some(Quantity::from(1));
     assert!(crate::execution::parse::validate_applied_fill(&changed, &old).is_err());
     changed = applied.report.clone();
     changed.account_id = "PREDICT-other".into();
@@ -1564,6 +1562,36 @@ fn benchmark_applied_fill_inspection() {
 }
 
 #[test]
+fn replayed_commit_reuses_existing_ids_and_preserves_atomic_conflict_checks() {
+    let first = report(U256::from(1_000_000_000_000_000_000u64), 1, 16);
+    let second = report(first.raw.gross_shares, 2, 16);
+    let mut evidence = FillEvidence::default();
+    evidence.commit(&[first.clone(), second.clone()]).unwrap();
+    COMMIT_BATCH_IDS.with(|n| n.set(0));
+    evidence
+        .commit(&[first.clone(), second.clone(), first.clone()])
+        .unwrap();
+    assert_eq!(COMMIT_BATCH_IDS.with(|n| n.get()), 0);
+    assert_eq!(evidence.entries.len(), 2);
+    assert_eq!(evidence.by_order[&first.report.venue_order_id].ids.len(), 2);
+    assert_eq!(evidence.entries[&first.report.trade_id], first);
+    assert_eq!(evidence.entries[&second.report.trade_id], second);
+
+    let third = report(first.raw.gross_shares, 3, 16);
+    let mut changed = second.clone();
+    changed.raw.gross_shares += U256::from(1);
+    assert!(evidence.commit(&[third.clone(), changed]).is_err());
+    assert!(!evidence.entries.contains_key(&third.report.trade_id));
+    let mut conflicting_new = third.clone();
+    conflicting_new.raw.gross_shares += U256::from(1);
+    assert!(evidence.commit(&[third, conflicting_new]).is_err());
+    assert_eq!(evidence.entries.len(), 2);
+    assert_eq!(evidence.entries[&first.report.trade_id], first);
+    assert_eq!(evidence.entries[&second.report.trade_id], second);
+    assert!(evidence.queued.is_empty());
+}
+
+#[test]
 fn wallet_commit_avoids_batch_index_and_preserves_atomic_replay_validation() {
     let mut evidence = FillEvidence::default();
     let first = report(U256::from(1_000_000_000_000_000_000u64), 1, 16);
@@ -1593,7 +1621,7 @@ fn wallet_commit_avoids_batch_index_and_preserves_atomic_replay_validation() {
 
     let second = report(first.raw.gross_shares, 2, 16);
     evidence.queue(&[first.clone(), second.clone()]).unwrap();
-    assert_eq!(COMMIT_BATCH_IDS.with(|n| n.get()), 2);
+    assert_eq!(COMMIT_BATCH_IDS.with(|n| n.get()), 1);
     assert_eq!(
         evidence.queued[&second.report.venue_order_id][&second.report.trade_id],
         None
@@ -1910,4 +1938,32 @@ fn benchmark_wallet_pending_work() {
         .open(std::env::var("PREDICT_PENDING_PATH").unwrap())
         .unwrap();
     serde_json::to_writer_pretty(file, &serde_json::json!({"source":"release production wallet pending lookup + preparation and lifecycle pending lookup + raw sum; 10 warmups + 100 samples; excludes seeding, transport, Native application and callbacks", "rows":rows})).unwrap();
+}
+
+#[test]
+fn quantity_fee_preserves_atomic_gross_without_projection() {
+    let mut fill = report(U256::from(17_000_000_000_000_000_099u128), 1, 16);
+    fill.raw.fee_type = PredictFeeType::Shares;
+    fill.raw.fee = U256::from(340_000_000_000_000_001u64);
+    fill.report.quantity_commission =
+        Some(crate::common::parse::exact_wei_quantity(fill.raw.fee).unwrap());
+    let evidence = FillEvidence::default();
+    let mut reports = [fill];
+    evidence
+        .prepare(
+            &mut reports,
+            &HashMap::<VenueOrderId, OrderAny>::new(),
+            &[],
+            |_| 16,
+        )
+        .unwrap();
+    assert_eq!(
+        reports[0].report.last_qty.as_decimal(),
+        Decimal::from_str_exact("17.000000000000000099").unwrap()
+    );
+    assert_eq!(
+        reports[0].report.quantity_commission.unwrap().as_decimal(),
+        Decimal::from_str_exact("0.340000000000000001").unwrap()
+    );
+    assert!(evidence.entries.is_empty());
 }

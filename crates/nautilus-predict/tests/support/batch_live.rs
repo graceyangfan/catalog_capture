@@ -4,9 +4,7 @@ use std::{cell::Cell, time::Duration};
 
 use nautilus_live::node::config::LiveExecutionEngineConfig;
 use nautilus_model::identifiers::{InstrumentId, StrategyId};
-use nautilus_predict::{
-    PredictDataClientConfig, PredictSubmissionConfig, blockchain::PredictChainClient,
-};
+use nautilus_predict::{PredictDataClientConfig, blockchain::PredictChainClient};
 use nautilus_trading::{StrategyConfig, StrategyCore};
 use rust_decimal::Decimal;
 use serde_json::{Value, json};
@@ -123,11 +121,7 @@ async fn mainnet_rust_strategy_batch_restart() -> anyhow::Result<()> {
         execution.account_refresh_interval_secs = 1;
         execution.report_timeout_secs = settings.network.timeout_secs;
         execution.orderbook_removal_enabled = true;
-        execution.submission = Some(PredictSubmissionConfig {
-            signer: signer.clone(),
-
-            market_slippage_bps: 100,
-        });
+        execution.submission_signer = Some(signer.clone());
         let key = settings
             .private_config()?
             .api_key
@@ -235,7 +229,7 @@ async fn mainnet_rust_strategy_batch_restart() -> anyhow::Result<()> {
         profile.node.exec_engine.reconciliation_startup_delay_secs = 0.0;
         profile.node.delay_post_stop = Duration::from_secs(1);
         anyhow::ensure!(
-            profile.predict.submission.is_none(),
+            !profile.predict.submission_enabled,
             "restart must not install a submission signer"
         );
         let prepared = product_host::prepare(profile, key, signer).await?;

@@ -28,7 +28,7 @@ use crate::{
     http::account_models::{PredictOrderData, PredictOrderStatus},
 };
 
-/// Validate the supported OPEN resource view before reporting or command admission.
+/// Validate the supported OPEN resource view before account reporting.
 /// These are original signed amounts, not remaining quantity: partial fills do not
 /// reduce them. A zero amount cannot describe a supported priced order. Refuse an
 /// unaccountable resource snapshot rather than treating it as available capacity.
@@ -68,6 +68,7 @@ fn native_buy_price(order: &impl super::context::OrderView) -> anyhow::Result<Pr
     }
 }
 
+#[cfg(test)]
 pub(super) fn native_inventory(order: &impl super::context::OrderView) -> Decimal {
     if order.order_side() == OrderSide::Sell {
         order.leaves_qty().as_decimal()
@@ -90,7 +91,7 @@ pub(super) fn native_reservation(
         return Ok(Money::zero(Currency::USDT()));
     }
     if order.order_type() == OrderType::Market {
-        if let Some(collateral) = market_buy_collateral {
+        if let Some(collateral) = market_buy_collateral.or_else(|| order.quote_buy_budget()) {
             // Native filled/leaves quantities are gross shares. The immutable signed
             // budget bounds the unfilled fraction; REST amountFilled units are unused.
             let quantity = crate::common::parse::decimal_to_wei(order.quantity().as_decimal())?;

@@ -7,7 +7,8 @@ account_id = "PREDICT-001"
 privy_credentials_file = "predict-node-privy.toml"
 environment = "mainnet"
 rpc_url = "https://bsc-dataseed.bnbchain.org"
-# No submission section: adapter SubmitOrder is disabled. REST removal is independently disabled.
+# Submission and REST removal are independent opt-ins.
+submission_enabled = false
 orderbook_removal_enabled = false
 
 [discovery]

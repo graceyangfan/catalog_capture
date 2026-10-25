@@ -4,7 +4,7 @@
 //  See https://www.gnu.org/licenses/LICENSE-3.0.html for license details.
 // -------------------------------------------------------------------------------------------------
 
-//! Synthetic responses based on the pinned official OpenAPI schemas, not live private data.
+//! Schema fault controls and explicitly retained, sanitized private venue responses.
 
 use std::collections::HashMap;
 
@@ -25,6 +25,81 @@ use super::*;
 const NEXT: &str = "cursor+/=&? 中文";
 const HASH: &str = "0x17e3c43e261d9a73f845b38845f06f52589bcb64a82f70831f4acbc818df1dfc";
 const OTHER_HASH: &str = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+#[tokio::test]
+async fn recorded_market_history_preserves_side_units_and_filled_atomic_remainder() {
+    use nautilus_predict::common::enums::PredictOrderSide;
+    let saved: Value = serde_json::from_str(include_str!(
+        "../fixtures/private_api/live_market_history_readonly_20261025.json"
+    ))
+    .unwrap();
+    let rows = saved["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|event| {
+            event["method"] == "GET" && event["path"].as_str().unwrap().starts_with("/v1/orders/0x")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), 9);
+    let mut statuses = [0, 0];
+    let mut sides = [0, 0];
+    let mut atomic_remainders = 0;
+    for event in rows {
+        assert_eq!(event["status"], 200);
+        assert_eq!(event["officialSdkHashVerifiedBeforeRedaction"], true);
+        let raw = &event["responseBody"];
+        let data = &raw["data"];
+        let hash: B256 = data["order"]["hash"].as_str().unwrap().parse().unwrap();
+        let server = server(vec![Reply::json(raw.clone())]).await;
+        let session = transport(&server)
+            .authenticated(
+                PredictAuthToken::new(TOKEN.into()).unwrap(),
+                data["order"]["maker"].as_str().unwrap().parse().unwrap(),
+            )
+            .unwrap();
+        let row = session.request_order(hash).await.unwrap();
+        assert_eq!(row.strategy, PredictOrderStrategy::Market);
+        let shares = match row.order.fields.side {
+            PredictOrderSide::Buy => {
+                sides[0] += 1;
+                row.order.fields.taker_amount
+            }
+            PredictOrderSide::Sell => {
+                sides[1] += 1;
+                row.order.fields.maker_amount
+            }
+        };
+        assert_eq!(row.amount.parse::<U256>().unwrap(), shares);
+        let filled: U256 = row.amount_filled.parse().unwrap();
+        match row.status {
+            PredictOrderStatus::Cancelled => {
+                statuses[0] += 1;
+                assert!(filled.is_zero());
+            }
+            PredictOrderStatus::Filled => {
+                statuses[1] += 1;
+                assert!(filled <= shares);
+                if filled < shares {
+                    assert_eq!(shares - filled, U256::from(1));
+                    assert_eq!(shares, U256::from(7_650_000_000_000_000_000u64));
+                    atomic_remainders += 1;
+                }
+            }
+            _ => panic!("historical terminal changed in the frozen capture"),
+        }
+        assert_eq!(row.amount, data["amount"].as_str().unwrap());
+        assert_eq!(row.amount_filled, data["amountFilled"].as_str().unwrap());
+        let requests = server.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_authenticated(&requests[0]);
+    }
+    assert_eq!(statuses, [6, 3]);
+    assert_eq!(sides, [8, 1]);
+    assert_eq!(atomic_remainders, 1);
+    assert_eq!(saved["orderWrites"], 0);
+    assert_eq!(saved["chainWrites"], 0);
+}
 
 #[tokio::test]
 async fn captured_sanitized_private_pages_replay_without_operator_credentials() {

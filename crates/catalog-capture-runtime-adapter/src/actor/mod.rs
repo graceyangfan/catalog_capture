@@ -853,10 +853,14 @@ mod tests {
         ));
         let _ = fs::remove_dir_all(&catalog_dir);
         fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
-        let mut metadata = Params::new();
-        metadata.insert("price_feed_symbol".to_string(), "BTC/USDT".into());
-        metadata.insert("title_asset".to_string(), "Bitcoin".into());
-        metadata.insert("interval_secs".to_string(), "300".into());
+        let metadata = Params::new(
+            [
+                ("price_feed_symbol".to_string(), "BTC/USDT".into()),
+                ("title_asset".to_string(), "Bitcoin".into()),
+                ("interval_secs".to_string(), "300".into()),
+            ]
+            .into(),
+        );
         let plan = CapturePlan {
             custom_data: vec![CustomDataCaptureSpec {
                 data_type: DataType::new("PredictCryptoUpDown", Some(metadata), None),
@@ -894,10 +898,14 @@ mod tests {
         let _ = fs::remove_dir_all(&catalog_dir);
         fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
         let selector = |price_feed_symbol: &str, title_asset: &str| {
-            let mut metadata = Params::new();
-            metadata.insert("price_feed_symbol".to_string(), price_feed_symbol.into());
-            metadata.insert("title_asset".to_string(), title_asset.into());
-            metadata.insert("interval_secs".to_string(), "300".into());
+            let metadata = Params::new(
+                [
+                    ("price_feed_symbol".to_string(), price_feed_symbol.into()),
+                    ("title_asset".to_string(), title_asset.into()),
+                    ("interval_secs".to_string(), "300".into()),
+                ]
+                .into(),
+            );
             CustomDataCaptureSpec {
                 data_type: DataType::new("PredictCryptoUpDown", Some(metadata), None),
             }
@@ -1585,8 +1593,7 @@ mod tests {
             };
             binary.id = InstrumentId::from(format!("{market}-BINARY.LIGHTER").as_str());
             binary.expiration_ns = UnixNanos::from(1);
-            let mut info = Params::new();
-            info.insert("market_id".into(), serde_json::json!(market));
+            let info = Params::new([("market_id".into(), serde_json::json!(market))].into());
             binary.info = Some(info);
             let instrument = InstrumentAny::BinaryOption(binary);
             cache

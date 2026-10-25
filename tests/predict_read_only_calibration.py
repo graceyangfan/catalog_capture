@@ -109,6 +109,7 @@ def collect(
     on_subscribed=None,
     stop_requested=None,
     on_wallet_event=None,
+    market_id=None,
 ):
     web3 = Web3(
         Web3.HTTPProvider(
@@ -124,7 +125,12 @@ def collect(
     def snapshot():
         block = web3.eth.get_block("latest")
         block_id = block["number"]
-        matches = complete_pages(request, "/v1/orders/matches", signerAddress=identity)
+        matches = complete_pages(
+            request,
+            "/v1/orders/matches",
+            signerAddress=identity,
+            **({"marketId": market_id} if market_id is not None else {}),
+        )
         positions = complete_pages(request, "/v1/positions", includeLost="true")
         orders = complete_pages(request, "/v1/orders")
         cash = web3.eth.contract(address=contracts.usdt.address, abi=contracts.usdt.abi)

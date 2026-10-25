@@ -88,7 +88,7 @@ async fn strategy_query_recovers_acceptance_then_modify_reject_and_cancel_callba
 
 async fn run_node(from_saved: bool) -> Value {
     use nautilus_core::time::get_atomic_clock_realtime;
-    use nautilus_predict::{PredictDataClientConfig, PredictSubmissionConfig};
+    use nautilus_predict::PredictDataClientConfig;
 
     use super::exit_orders::{PublicState, barrier, exit_socket};
     let private = server(vec![]).await;
@@ -106,18 +106,14 @@ async fn run_node(from_saved: bool) -> Value {
     ));
     cfg.orderbook_removal_enabled = true;
     cfg.account_refresh_interval_secs = 1;
-    cfg.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            nautilus_predict::signing::PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = Some(Arc::new(
+        nautilus_predict::signing::PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     private.state.rpc_frame.lock().unwrap().2 =
         get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000_000;
     let public = PublicState(Arc::new(Mutex::new(vec![])));
@@ -438,6 +434,20 @@ async fn run(case: &str, from_saved: bool) -> Value {
         })
         .await
         .unwrap();
+    } else if case == "terminal" {
+        timeout(Duration::from_secs(3), async {
+            while cache
+                .borrow()
+                .order(&order.client_order_id())
+                .unwrap()
+                .status()
+                != OrderStatus::Canceled
+            {
+                submissions::apply(&mut engine, &next(&mut rx).await);
+            }
+        })
+        .await
+        .unwrap();
     } else {
         // Failure is observable as preserved Submitted/reserved state, never a fabricated reject.
         assert!(
@@ -459,7 +469,7 @@ async fn run(case: &str, from_saved: bool) -> Value {
         .borrow()
         .order_owned(&order.client_order_id())
         .unwrap();
-    let resolved = case == "open" || case == "wallet_wins";
+    let resolved = matches!(case, "open" | "wallet_wins" | "terminal");
     assert_eq!(
         native.status(),
         if resolved {

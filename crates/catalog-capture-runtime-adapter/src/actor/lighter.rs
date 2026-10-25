@@ -126,27 +126,31 @@ impl CatalogCaptureActor {
             self.lighter.next_refresh_ns = 0;
         }
         if self.lighter.pending.is_none() && now >= self.lighter.next_refresh_ns {
-            let mut params = Params::new();
-            params.insert(
-                "updown_tags".into(),
-                json!(
-                    self.lighter
-                        .configs
-                        .iter()
-                        .map(|c| c.tag.clone())
-                        .collect::<Vec<_>>()
-                ),
-            );
-            params.insert(
-                "prefetch_secs".into(),
-                json!(
-                    self.lighter
-                        .configs
-                        .iter()
-                        .map(|c| c.prefetch_secs)
-                        .max()
-                        .unwrap()
-                ),
+            let params = Params::new(
+                [
+                    (
+                        "updown_tags".into(),
+                        json!(
+                            self.lighter
+                                .configs
+                                .iter()
+                                .map(|c| c.tag.clone())
+                                .collect::<Vec<_>>()
+                        ),
+                    ),
+                    (
+                        "prefetch_secs".into(),
+                        json!(
+                            self.lighter
+                                .configs
+                                .iter()
+                                .map(|c| c.prefetch_secs)
+                                .max()
+                                .unwrap()
+                        ),
+                    ),
+                ]
+                .into(),
             );
             let request = self.request_instruments(
                 Some(Venue::new("LIGHTER")),

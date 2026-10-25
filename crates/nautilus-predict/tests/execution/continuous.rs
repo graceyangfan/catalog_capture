@@ -146,8 +146,13 @@ impl Continuous {
         let at = Instant::now();
         self.probe.decision(order.client_order_id(), at);
         self.journal.borrow_mut().decisions.push(at);
-        let mut params = nautilus_core::Params::new();
-        params.insert("market_price".into(), json!("0.020"));
+        let params = nautilus_core::Params::new(
+            [
+                ("market_price".into(), json!("0.020")),
+                ("market_order_slippage_bps".into(), json!(100)),
+            ]
+            .into(),
+        );
         self.submit_order(
             order,
             None,
@@ -371,6 +376,7 @@ async fn run_interleaved(
         background,
         held_refresh,
         false,
+        false,
     )
     .await
 }
@@ -382,6 +388,7 @@ async fn run_market_data(
     background: usize,
     held_refresh: bool,
     native_depth: bool,
+    held_report: bool,
 ) -> Value {
     assert!(!held_refresh || !taker);
     let HostFixture {
@@ -391,6 +398,10 @@ async fn run_market_data(
         task,
         ..
     } = fixture(true, rounds + 1).await;
+    let report_gate = Arc::new(tokio::sync::Notify::new());
+    if held_report {
+        *backing.state.match_gate.lock().unwrap() = Some(report_gate.clone());
+    }
     // Unique numeric venue IDs make routing retention part of this continuous run.
     backing
         .state
@@ -410,7 +421,10 @@ async fn run_market_data(
         (if taker { 1000u128 } else { 2 } + background as u128 + external as u128)
             * 1_000_000_000_000_000_000;
     let profile = host::NodeProfile::parse(&profile).unwrap();
-    let (probe, mut collector) = PredictLatency::channel(trader_id(), account_id(), 16384).unwrap();
+    // Explicit extended replays collect after the run, away from callbacks.
+    let telemetry_capacity = if rounds > 200 { 65536 } else { 16384 };
+    let (probe, mut collector) =
+        PredictLatency::channel(trader_id(), account_id(), telemetry_capacity).unwrap();
     let mut exec = config(&backing);
     exec.latency = Some(probe.clone());
     exec.account_state_mode = PredictAccountStateMode::Reported;
@@ -419,17 +433,14 @@ async fn run_market_data(
         format!("{}/rpc", backing.http).into(),
     ));
     exec.orderbook_removal_enabled = true;
-    exec.submission = Some(nautilus_predict::PredictSubmissionConfig {
-        signer: Arc::new(
-            PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-        market_slippage_bps: 100,
-    });
+    exec.submission_signer = Some(Arc::new(
+        PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     // An explicit benchmark control; ordinary tests retain Native's INFO default.
     let stdout_level = std::env::var("PREDICT_CONTINUOUS_LOG_LEVEL")
         .unwrap_or_else(|_| "INFO".into())
@@ -456,7 +467,9 @@ async fn run_market_data(
     .with_exec_engine_config(nautilus_live::node::config::LiveExecutionEngineConfig {
         reconciliation: false,
         inflight_check_interval_ms: 0,
-        open_check_interval_secs: None,
+        open_check_interval_secs: held_report.then_some(0.01),
+        open_check_open_only: !held_report,
+        open_check_threshold_ms: 0,
         position_check_interval_secs: None,
         ..Default::default()
     })
@@ -624,6 +637,16 @@ async fn run_market_data(
         })
         .await;
         let initial = backing.state.creations.lock().unwrap().clone();
+        if held_report {
+            for (index, body) in initial.iter().enumerate() {
+                let mut row = live_node::rest_row(body, "OPEN");
+                row["id"] = json!((10001 + index).to_string());
+                backing.state.orders_by_hash.lock().unwrap().insert(
+                    body["data"]["order"]["hash"].as_str().unwrap().to_owned(),
+                    json!({"success":true,"data":row}),
+                );
+            }
+        }
         let companion = initial
             .iter()
             .position(|body| body["data"]["order"]["tokenId"] == "22")
@@ -674,6 +697,14 @@ async fn run_market_data(
                     && backing.state.rpc_latest_gate.lock().unwrap().is_none()
             })
             .await;
+        }
+        if held_report {
+            barrier(
+                "LiveNode automatically starts recovery and HTTP remains suspended",
+                || !backing.state.match_requests.lock().unwrap().is_empty(),
+            )
+            .await;
+            assert!(backing.state.match_response_log.lock().unwrap().is_empty());
         }
         let baseline_open = open_reads(&backing);
         let baseline_rpc = backing.state.rpc_methods.lock().unwrap().len();
@@ -892,6 +923,12 @@ async fn run_market_data(
                 "cancel replacements must do zero RPCs"
             );
         }
+        if held_report {
+            assert!(
+                backing.state.match_response_log.lock().unwrap().is_empty(),
+                "all command callbacks completed before recovery HTTP"
+            );
+        }
         if held_refresh {
             let before = cache
                 .borrow()
@@ -996,6 +1033,10 @@ async fn run_market_data(
         cleanup = json!({"native_orders_before":before,"native_order_purge_ns":order_purge_ns,"native_position_purge_ns":position_purge_ns,"query_account_cleanup_boundary_ns":worker_cleanup_started.elapsed().as_nanos() as u64});
         gate.notify_waiters();
         handle.stop();
+        if held_report {
+            *backing.state.match_gate.lock().unwrap() = None;
+            report_gate.notify_one();
+        }
     };
     timeout(Duration::from_secs(60), async {
         let (result, ()) = tokio::join!(node.run(), driver);
@@ -1054,6 +1095,46 @@ async fn benchmark_warmed_callback_immediate_maker_and_taker() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+#[ignore = "explicit extended loopback replay; PREDICT_SUSTAINED_PATH is create_new JSON"]
+async fn extended_callbacks_with_suspended_recovery() {
+    let mut sessions = Vec::new();
+    for (taker, rounds, background, held_refresh, held_report) in [
+        (false, 1000, 1000, false, false),
+        (false, 1000, 1000, true, false),
+        (true, 500, 0, false, false),
+        (true, 500, 0, false, true),
+    ] {
+        let started = Instant::now();
+        let session = run_market_data(
+            taker,
+            rounds,
+            false,
+            background,
+            held_refresh,
+            true,
+            held_report,
+        )
+        .await;
+        sessions.push(json!({
+            "held_cash_refresh":held_refresh,
+            "held_order_history":held_report,
+            "elapsed_ns":started.elapsed().as_nanos() as u64,
+            "result":session,
+        }));
+    }
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(std::env::var("PREDICT_SUSTAINED_PATH").unwrap())
+        .unwrap();
+    serde_json::to_writer_pretty(file, &json!({
+        "source":"synthetic loopback; current Rust strategies and Native LiveNode; finite extended replay, not unattended live duration or production latency",
+        "sessions":sessions,
+    }))
+    .unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn maker_replacement_keeps_other_native_active_orders_and_tight_cash() {
     run_active(false, 10, false, 100).await;
 }
@@ -1081,6 +1162,12 @@ async fn maker_replacement_keeps_external_open_during_suspended_account_refresh(
 
 #[tokio::test(flavor = "current_thread")]
 async fn native_depth_maker_taker_reuses_managed_book_quotes_before_first_submit() {
-    run_market_data(false, 10, false, 0, false, true).await;
-    run_market_data(true, 100, false, 0, false, true).await;
+    run_market_data(false, 10, false, 0, false, true, false).await;
+    run_market_data(true, 100, false, 0, false, true, false).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn suspended_native_report_does_not_delay_maker_cancel_or_taker_fill_callbacks() {
+    run_market_data(false, 20, false, 0, false, false, true).await;
+    run_market_data(true, 20, false, 0, false, false, true).await;
 }

@@ -76,6 +76,8 @@ pub(super) struct WorkerOrder {
     venue_order_id: Option<VenueOrderId>,
     filled_qty: Quantity,
     leaves_qty: Quantity,
+    quote_buy_budget: Option<rust_decimal::Decimal>,
+    submitted_quantity: Quantity,
     expire_time: Option<UnixNanos>,
     ts_submitted: Option<UnixNanos>,
     ts_accepted: Option<UnixNanos>,
@@ -91,10 +93,66 @@ pub(super) struct WorkerOrder {
     // Emitted, not necessarily applied yet. Shared by snapshots until Native purge.
     acceptance: Arc<OnceLock<UnixNanos>>,
 }
+fn event_id(event: &OrderEventAny) -> nautilus_core::UUID4 {
+    match event {
+        OrderEventAny::Initialized(event) => event.event_id,
+        OrderEventAny::Denied(event) => event.event_id,
+        OrderEventAny::Emulated(event) => event.event_id,
+        OrderEventAny::Released(event) => event.event_id,
+        OrderEventAny::Submitted(event) => event.event_id,
+        OrderEventAny::Accepted(event) => event.event_id,
+        OrderEventAny::Rejected(event) => event.event_id,
+        OrderEventAny::Canceled(event) => event.event_id,
+        OrderEventAny::Expired(event) => event.event_id,
+        OrderEventAny::Triggered(event) => event.event_id,
+        OrderEventAny::PendingUpdate(event) => event.event_id,
+        OrderEventAny::PendingCancel(event) => event.event_id,
+        OrderEventAny::ModifyRejected(event) => event.event_id,
+        OrderEventAny::CancelRejected(event) => event.event_id,
+        OrderEventAny::Updated(event) => event.event_id,
+        OrderEventAny::Filled(event) => event.event_id,
+        OrderEventAny::FillVoided(event) => event.event_id,
+    }
+}
+
+fn original_quote_buy_budget(order: &OrderAny) -> Option<rust_decimal::Decimal> {
+    let init = order.init_event();
+    (init.quote_quantity
+        && init.order_type == OrderType::Market
+        && init.order_side == OrderSide::Buy)
+        .then(|| init.quantity.as_decimal())
+}
+
+// A terminal reconciliation can reduce the working quantity to confirmed fills.
+// Signed REST/wallet terms still refer to the quantity actually submitted.
+fn submitted_base_quantity(order: &OrderAny) -> Quantity {
+    let init = order.init_event();
+    if !init.quote_quantity {
+        return init.quantity;
+    }
+    let mut quantity = Order::quantity(order);
+    for event in order.events() {
+        match event {
+            OrderEventAny::Submitted(_) => break,
+            OrderEventAny::Updated(update) if !update.is_quote_quantity => {
+                quantity = update.quantity;
+            }
+            _ => {}
+        }
+    }
+    quantity
+}
+
 impl WorkerOrder {
     /// Initial/recovery capture may read history once; normal observations copy only scalars.
     pub fn capture(order: &OrderAny) -> Self {
-        let mut result = Self::scalars(order, Arc::default(), UnixNanos::default(), Arc::default());
+        let mut result = Self::scalars(
+            order,
+            Arc::default(),
+            UnixNanos::default(),
+            Arc::default(),
+            submitted_base_quantity(order),
+        );
         for event in order.events() {
             if let OrderEventAny::Filled(fill) = event {
                 #[cfg(test)]
@@ -108,7 +166,7 @@ impl WorkerOrder {
     /// Restored or not-yet-observed orders retain the cold Native capture path.
     pub fn snapshot(order: &OrderAny, previous: Option<&Arc<Self>>) -> Arc<Self> {
         let previous = previous
-            .filter(|view| view.source_event_id == order.last_event().id())
+            .filter(|view| view.source_event_id == event_id(order.last_event()))
             .cloned();
         match previous {
             Some(previous) => previous,
@@ -124,6 +182,11 @@ impl WorkerOrder {
             Arc::clone(&previous.fills),
             previous.latest_fill,
             Arc::clone(&previous.acceptance),
+            if previous.ts_submitted.is_some() {
+                previous.submitted_quantity
+            } else {
+                submitted_base_quantity(order)
+            },
         );
         if let OrderEventAny::Filled(fill) = event {
             result.record_fill(fill);
@@ -135,6 +198,7 @@ impl WorkerOrder {
         fills: Arc<Mutex<AppliedFills>>,
         latest_fill: UnixNanos,
         acceptance: Arc<OnceLock<UnixNanos>>,
+        submitted_quantity: Quantity,
     ) -> Self {
         let cutoff = fills
             .lock()
@@ -143,11 +207,13 @@ impl WorkerOrder {
             .len();
         Self {
             context: OrderContext::from(order),
-            source_event_id: order.last_event().id(),
+            source_event_id: event_id(order.last_event()),
             account_id: Order::account_id(order),
             venue_order_id: Order::venue_order_id(order),
             filled_qty: Order::filled_qty(order),
             leaves_qty: Order::leaves_qty(order),
+            quote_buy_budget: original_quote_buy_budget(order),
+            submitted_quantity,
             expire_time: Order::expire_time(order),
             ts_submitted: Order::ts_submitted(order),
             ts_accepted: Order::ts_accepted(order),
@@ -357,37 +423,6 @@ impl WorkerOrder {
             Some(factory.account_id()),
         ))
     }
-    pub fn filled(
-        &self,
-        factory: &nautilus_common::factories::OrderEventFactory,
-        report: &nautilus_model::reports::FillReport,
-        currency: nautilus_model::types::Currency,
-    ) -> OrderEventAny {
-        let mut fill = OrderFilled::new(
-            factory.trader_id(),
-            self.strategy_id(),
-            self.instrument_id(),
-            self.client_order_id(),
-            report.venue_order_id,
-            factory.account_id(),
-            report.trade_id,
-            self.order_side(),
-            self.order_type(),
-            report.last_qty,
-            report.last_px,
-            currency,
-            report.liquidity_side,
-            nautilus_core::UUID4::new(),
-            report.ts_event,
-            report.ts_init,
-            false,
-            report.venue_position_id,
-            Some(report.commission),
-            None,
-        );
-        fill.quantity_commission = report.quantity_commission;
-        OrderEventAny::Filled(fill)
-    }
     pub fn queued_acceptance(&self) -> Option<UnixNanos> {
         self.acceptance.get().copied()
     }
@@ -511,6 +546,7 @@ pub(super) trait OrderView {
     fn order_side(&self) -> OrderSide;
     fn order_type(&self) -> OrderType;
     fn quantity(&self) -> Quantity;
+    fn submitted_quantity(&self) -> Quantity;
     fn filled_qty(&self) -> Quantity;
     fn leaves_qty(&self) -> Quantity;
     fn price(&self) -> Option<Price>;
@@ -523,6 +559,7 @@ pub(super) trait OrderView {
     fn is_post_only(&self) -> bool;
     fn is_reduce_only(&self) -> bool;
     fn is_quote_quantity(&self) -> bool;
+    fn quote_buy_budget(&self) -> Option<rust_decimal::Decimal>;
     fn is_open(&self) -> bool;
     fn is_closed(&self) -> bool;
     fn is_synthetic(&self) -> bool;
@@ -578,6 +615,9 @@ impl OrderView for OrderAny {
     fn quantity(&self) -> Quantity {
         Order::quantity(self)
     }
+    fn submitted_quantity(&self) -> Quantity {
+        submitted_base_quantity(self)
+    }
     fn filled_qty(&self) -> Quantity {
         Order::filled_qty(self)
     }
@@ -613,6 +653,9 @@ impl OrderView for OrderAny {
     }
     fn is_quote_quantity(&self) -> bool {
         Order::is_quote_quantity(self)
+    }
+    fn quote_buy_budget(&self) -> Option<rust_decimal::Decimal> {
+        original_quote_buy_budget(self)
     }
     fn is_open(&self) -> bool {
         Order::is_open(self)
@@ -682,6 +725,9 @@ impl OrderView for WorkerOrder {
     fn quantity(&self) -> Quantity {
         Self::quantity(self)
     }
+    fn submitted_quantity(&self) -> Quantity {
+        self.submitted_quantity
+    }
     fn filled_qty(&self) -> Quantity {
         Self::filled_qty(self)
     }
@@ -717,6 +763,9 @@ impl OrderView for WorkerOrder {
     }
     fn is_quote_quantity(&self) -> bool {
         Self::is_quote_quantity(self)
+    }
+    fn quote_buy_budget(&self) -> Option<rust_decimal::Decimal> {
+        self.quote_buy_budget
     }
     fn is_open(&self) -> bool {
         Self::is_open(self)
@@ -779,6 +828,9 @@ impl<T: OrderView> OrderView for Arc<T> {
     fn quantity(&self) -> Quantity {
         self.as_ref().quantity()
     }
+    fn submitted_quantity(&self) -> Quantity {
+        self.as_ref().submitted_quantity()
+    }
     fn filled_qty(&self) -> Quantity {
         self.as_ref().filled_qty()
     }
@@ -814,6 +866,9 @@ impl<T: OrderView> OrderView for Arc<T> {
     }
     fn is_quote_quantity(&self) -> bool {
         self.as_ref().is_quote_quantity()
+    }
+    fn quote_buy_budget(&self) -> Option<rust_decimal::Decimal> {
+        self.as_ref().quote_buy_budget()
     }
     fn is_open(&self) -> bool {
         self.as_ref().is_open()

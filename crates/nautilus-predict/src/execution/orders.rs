@@ -76,55 +76,6 @@ impl PredictExecutionClient {
     /// No modification request is sent to the venue. Publish a native rejection so callers
     /// can resolve PendingUpdate before explicitly cancelling and replacing an order.
     pub(super) fn modify_order_command(&self, cmd: &ModifyOrder) -> anyhow::Result<()> {
-        match self.try_modify_order_command(cmd) {
-            Ok(()) => Ok(()),
-            Err(error) => {
-                let cache = self.core.cache();
-                let Some(order) = cache.order_owned(&cmd.client_order_id) else {
-                    return Err(error);
-                };
-                if cmd.trader_id != self.core.trader_id
-                    || order.trader_id() != self.core.trader_id
-                    || cmd.strategy_id != order.strategy_id()
-                    || cmd.instrument_id != order.instrument_id()
-                    || cmd.client_id.is_some_and(|id| id != self.core.client_id)
-                    || cmd
-                        .venue_order_id
-                        .is_some_and(|id| Some(id) != order.venue_order_id())
-                    || order.account_id() != Some(self.core.account_id)
-                    || cache
-                        .client_id(&cmd.client_order_id)
-                        .is_some_and(|id| *id != self.core.client_id)
-                    || order.is_closed()
-                {
-                    return Err(error);
-                }
-                drop(cache);
-                let now = self.clock.get_time_ns();
-                let factory = OrderEventFactory::new(
-                    self.core.trader_id,
-                    self.core.account_id,
-                    self.core.account_type,
-                    self.core.base_currency,
-                );
-                self.emitter
-                    .try_send_order_event(factory.generate_order_modify_rejected(
-                        &order,
-                        order.venue_order_id(),
-                        &error.to_string(),
-                        now,
-                        now,
-                    ))?;
-                Ok(())
-            }
-        }
-    }
-
-    fn try_modify_order_command(&self, cmd: &ModifyOrder) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.is_connected(),
-            "Predict execution session is not connected"
-        );
         let order = self
             .core
             .cache()
@@ -171,36 +122,10 @@ impl PredictExecutionClient {
             .latency
             .as_ref()
             .map(|_| std::time::Instant::now());
-        anyhow::ensure!(
-            !self
-                .reconciliation_required
-                .load(std::sync::atomic::Ordering::Acquire),
-            "Predict stream gap requires reconciliation before new submissions"
-        );
-        // A purged Native owner cannot apply a queued settlement. Check only
-        // unconsumed reports, never all retained orders/fill history on each command.
-        {
-            let cache = self.core.cache();
-            let missing = self
-                .fill_evidence
-                .lock()
-                .expect("fill evidence poisoned")
-                .queued_client_order_ids()
-                .any(|id| id.is_none_or(|id| cache.order(&id).is_none()));
-            if missing {
-                self.reconciliation_required
-                    .store(true, std::sync::atomic::Ordering::Release);
-                anyhow::bail!(
-                    "Predict queued settlement lost its native owner; reconciliation required"
-                );
-            }
-        }
-        let policy = self
-            .config
-            .submission
+        let signer = self
+            .order_signer
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Predict order submission is not enabled"))?
-            .clone();
+            .ok_or_else(|| anyhow::anyhow!("Predict order submission is not enabled"))?;
         anyhow::ensure!(
             self.config.account_state_mode == PredictAccountStateMode::Reported
                 && self.is_connected(),
@@ -233,16 +158,19 @@ impl PredictExecutionClient {
         let instrument = instrument.clone();
         let validated = (|| -> anyhow::Result<_> {
             let market_price = super::order_builder::market_price(cmd.params.as_ref(), &order)?;
+            let slippage_bps =
+                super::order_builder::market_order_slippage_bps(cmd.params.as_ref(), &order)?;
             let values = terms(
                 &order,
                 &instrument,
-                &policy,
+                slippage_bps,
                 self.clock.get_time_ns().as_u64(),
                 market_price,
             )?;
-            Ok(values)
+            let options = super::order_builder::limit_options(cmd.params.as_ref(), &order)?;
+            Ok((values, options))
         })();
-        let terms = match validated {
+        let (terms, limit_options) = match validated {
             Ok(terms) => terms,
             Err(reason) => {
                 let factory = OrderEventFactory::new(
@@ -261,6 +189,40 @@ impl PredictExecutionClient {
             }
         };
         drop(cache);
+        // As in Polymarket, normalize quote sizing through a Native event before
+        // any base-share wallet/fill evidence can arrive. Preserve the quote intent
+        // in OrderInitialized; no separate mutable denomination registry is needed.
+        let mut order = order;
+        let normalization = if order.is_quote_quantity() {
+            let now = self.clock.get_time_ns();
+            let quantity = super::parse::quantity(
+                crate::common::parse::exact_wei(terms.shares)?,
+                instrument.size_precision(),
+            )?;
+            let event = nautilus_model::events::OrderEventAny::Updated(
+                nautilus_model::events::OrderUpdated::new(
+                    order.trader_id(),
+                    order.strategy_id(),
+                    order.instrument_id(),
+                    order.client_order_id(),
+                    quantity,
+                    nautilus_core::UUID4::new(),
+                    now,
+                    now,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                ),
+            );
+            order.apply(event.clone())?;
+            Some(event)
+        } else {
+            None
+        };
         let mut registry = self
             .pending_submissions
             .lock()
@@ -274,7 +236,9 @@ impl PredictExecutionClient {
             Submission {
                 venue_id: None,
                 wallet_epoch: Some(
-                    self.verified_epoch
+                    self.wallet_epoch
+                        .as_ref()
+                        .expect("connected wallet")
                         .load(std::sync::atomic::Ordering::Acquire),
                 ),
                 market_buy_collateral: (terms.market.is_some()
@@ -296,6 +260,9 @@ impl PredictExecutionClient {
             self.core.account_type,
             self.core.base_currency,
         );
+        if let Some(event) = normalization {
+            self.emitter.try_send_order_event(event)?;
+        }
         self.emitter.try_send_order_event(
             factory.generate_order_submitted(&order, self.clock.get_time_ns()),
         )?;
@@ -323,22 +290,20 @@ impl PredictExecutionClient {
             .expect("instrument installed");
         let worker = SubmitWorker {
             command_started,
-            signer: Arc::clone(
-                self.order_signer
-                    .as_ref()
-                    .ok_or_else(|| anyhow::anyhow!("Predict order signer is not configured"))?,
-            ),
+            signer: Arc::clone(signer),
             order: Arc::new(order),
             definition: metadata,
             metadata_notify: Arc::clone(&self.metadata_notify),
             terms,
+            limit_options,
+            data_sender: self.data_sender.clone(),
             // Match the official SDK's default salt range while retaining the complete
             // native command UUID for ownership and duplicate-command protection.
             salt: U256::from(u128::from_be_bytes(cmd.command_id.as_bytes()) % 2_147_483_648),
             pending: Arc::clone(&self.pending_submissions),
             orders: Arc::clone(&self.orders),
             rest_ids: Arc::clone(&self.rest_order_ids),
-            reconciliation_required: Arc::clone(&self.reconciliation_required),
+            account_refresh_required: Arc::clone(&self.account_refresh_required),
             account_sync: Arc::clone(&self.account_sync),
             instruments: Arc::clone(&self.instruments),
             healthy: Arc::clone(&self.healthy),
@@ -347,7 +312,9 @@ impl PredictExecutionClient {
                 .clone()
                 .ok_or_else(|| anyhow::anyhow!("Predict wallet auth is missing"))?,
             admitted_epoch: self
-                .verified_epoch
+                .wallet_epoch
+                .as_ref()
+                .expect("connected wallet")
                 .load(std::sync::atomic::Ordering::Acquire),
             epoch: self
                 .wallet_epoch
@@ -366,7 +333,9 @@ impl PredictExecutionClient {
                 _ = cancellation.cancelled() => return,
                 result = tokio::time::timeout(deadline, worker.run(&mut guard)) => result,
             };
-            if !worker.available() {
+            // A definitive HTTP result belongs to this command even if the wallet
+            // reauthenticates while it is in flight. Only its task lifecycle ends delivery.
+            if cancellation.is_cancelled() {
                 return;
             }
             match result {
@@ -374,13 +343,14 @@ impl PredictExecutionClient {
                 Ok(Err(
                     CommandFailure::NotSent(reason) | CommandFailure::VenueRejected(reason),
                 )) => {
-                    // Native state published before an HTTP reply takes precedence.
-                    let terminal = guard.venue_id.is_some_and(|id| {
+                    // Applied or already queued Native acceptance wins over a late HTTP error.
+                    let known_outcome = guard.venue_id.is_some_and(|id| {
                         worker.orders.lock().expect("order snapshots poisoned").get(&id)
                             .is_some_and(|o| o.client_order_id() == worker.order.client_order_id()
-                                && (o.is_closed() || o.ts_accepted().is_some()))
+                                && (o.is_closed() || o.ts_accepted().is_some()
+                                    || o.queued_acceptance().is_some()))
                     });
-                    if !terminal {
+                    if !known_outcome {
                         let event = worker.factory.generate_order_rejected(
                             &worker.order,
                             &reason,

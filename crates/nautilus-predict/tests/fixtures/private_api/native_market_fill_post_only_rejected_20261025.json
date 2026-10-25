@@ -1,0 +1,408 @@
+{
+  "source": "Actual Predict mainnet 2026-10-25; Native MARKET BUY filled, post-only TP rejected, independent official SDK SELL exit. No claim of completed Native automatic round trip.",
+  "provenance": {
+    "nativeEvidence": "data/predict-validation/live_fill_20261025T054506Z",
+    "nativeWalletSource": "independent/wallet_events.jsonl",
+    "nativeFeedbackSource": "native_roundtrip.json",
+    "httpSource": "http_responses.json",
+    "sdkExitSource": "fallback_exit.json",
+    "walletIdentityRebound": "Only walletAddress is rebound to a public test address for parsing; economic/lifecycle fields are retained. Signatures are excluded."
+  },
+  "marketId": 3732355,
+  "outcome": 2,
+  "tokenId": "111295782839909007126078601567937319204308359275703087391133687353339415744625",
+  "nativeEntry": {
+    "intent": {
+      "type": "NativeMarketEntrySubmitted",
+      "clientOrderId": "EXIT-ENTRY-001",
+      "reference": "0.39",
+      "quantity": "3.50000",
+      "slippageBps": 300,
+      "observedBid": "0.38",
+      "observedAsk": "0.39",
+      "tsInit": 1792907130349657000
+    },
+    "httpCreate": {
+      "observedAtUtc": "2026-10-25T05:45:30.368408+00:00",
+      "method": "POST",
+      "path": "/v1/orders",
+      "status": 201,
+      "requestTerms": {
+        "salt": "2003076235",
+        "nonce": "0",
+        "expiration": 1792907430,
+        "feeRateBps": "200",
+        "makerAmount": "1405950000000000000",
+        "takerAmount": "3500000000000000000",
+        "hash": "0xf8020041d5eb885e6b721c76193b46b822be9ef49243c4ad7a4aedcd75934bbf"
+      },
+      "completedAtUtc": "2026-10-25T05:45:30.678987+00:00",
+      "responseBody": {
+        "data": {
+          "code": "OK",
+          "orderHash": "0xf8020041d5eb885e6b721c76193b46b822be9ef49243c4ad7a4aedcd75934bbf",
+          "orderId": "6245412429",
+          "removalLockedUntil": "2026-10-25T05:45:30.830Z"
+        },
+        "success": true
+      }
+    },
+    "fill": {
+      "type": "OrderFilled",
+      "trader_id": "PREDICT-FILL-001",
+      "strategy_id": "PREDICT-EXIT-001",
+      "instrument_id": "3732355-2.PREDICT",
+      "client_order_id": "EXIT-ENTRY-001",
+      "venue_order_id": "0xf8020041d5eb885e6b721c76193b46b822be9ef49243c4ad7a4aedcd75934bbf",
+      "account_id": "PREDICT-calibration",
+      "trade_id": "PF-ebc4f126802bce38ca832668384a9adf",
+      "order_side": "BUY",
+      "order_type": "MARKET",
+      "last_qty": "3.5000000000000000",
+      "last_px": "0.40",
+      "currency": "USDT",
+      "liquidity_side": "TAKER",
+      "event_id": "011b6782-552c-4564-8d0e-1ac566e19bad",
+      "ts_event": 1792907131000000000,
+      "ts_init": 1792907132726340000,
+      "reconciliation": true,
+      "position_id": "3732355-2.PREDICT-PREDICT-EXIT-001",
+      "commission": "0.00000000 USDT",
+      "quantity_commission": "0.070000000000000000",
+      "info": null
+    }
+  },
+  "nativePostOnlyRejection": {
+    "type": "OrderRejected",
+    "trader_id": "PREDICT-FILL-001",
+    "strategy_id": "PREDICT-EXIT-001",
+    "instrument_id": "3732355-2.PREDICT",
+    "client_order_id": "O-20261025-054532-001-001-1",
+    "account_id": "PREDICT-calibration",
+    "reason": "Predict post-only order rejected",
+    "event_id": "bd7bd695-a7d8-40c4-b833-e89b4e5a060e",
+    "ts_event": 1792907133042000000,
+    "ts_init": 1792907133075287000,
+    "reconciliation": false,
+    "due_post_only": true
+  },
+  "walletEvents": [
+    {
+      "details": {
+        "categorySlug": "btc-updown-5m-1792907100",
+        "marketId": 3732355,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "Down",
+        "price": "0.390",
+        "quantity": "3.500",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.37",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0xf8020041d5eb885e6b721c76193b46b822be9ef49243c4ad7a4aedcd75934bbf",
+      "orderId": "6245412429",
+      "timestamp": 1792907130680,
+      "type": "orderAccepted",
+      "walletAddress": "0x1111111111111111111111111111111111111111"
+    },
+    {
+      "amount": "3500000000000000000",
+      "amountFilled": "0",
+      "details": {
+        "categorySlug": "btc-updown-5m-1792907100",
+        "marketId": 3732355,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "Down",
+        "price": "0.390",
+        "quantity": "3.500",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.37",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0xf8020041d5eb885e6b721c76193b46b822be9ef49243c4ad7a4aedcd75934bbf",
+      "orderId": "6245412429",
+      "plannedFill": "3500000000000000000",
+      "remainderCancelled": "0",
+      "settlementIds": [
+        "01a17197-b7ce-7fa3-b5d4-6903fcf2b591"
+      ],
+      "timestamp": 1792907130830,
+      "type": "orderMarketMatchPlan",
+      "walletAddress": "0x1111111111111111111111111111111111111111"
+    },
+    {
+      "details": {
+        "categorySlug": "btc-updown-5m-1792907100",
+        "marketId": 3732355,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "Down",
+        "price": "0.390",
+        "quantity": "3.500",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.37",
+        "valueFilled": "0.00"
+      },
+      "fill": {
+        "executedPriceWei": "400000000000000000",
+        "executedSizeWei": "3500000000000000000",
+        "executedValueWei": "1400000000000000000"
+      },
+      "isMaker": false,
+      "kind": "PURCHASE",
+      "orderHash": "0xf8020041d5eb885e6b721c76193b46b822be9ef49243c4ad7a4aedcd75934bbf",
+      "orderId": "6245412429",
+      "settlementId": "01a17197-b7ce-7fa3-b5d4-6903fcf2b591",
+      "timestamp": 1792907130830,
+      "type": "orderTransactionSubmitted",
+      "walletAddress": "0x1111111111111111111111111111111111111111"
+    },
+    {
+      "details": {
+        "categorySlug": "btc-updown-5m-1792907100",
+        "marketId": 3732355,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "Down",
+        "price": "0.390",
+        "quantity": "3.500",
+        "quantityFilled": "3.500",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.37",
+        "valueFilled": "1.37"
+      },
+      "fee": {
+        "amountWei": "70000000000000000",
+        "type": "SHARES"
+      },
+      "fill": {
+        "executedPriceWei": "400000000000000000",
+        "executedSizeWei": "3500000000000000000",
+        "executedValueWei": "1400000000000000000"
+      },
+      "isMaker": false,
+      "orderHash": "0xf8020041d5eb885e6b721c76193b46b822be9ef49243c4ad7a4aedcd75934bbf",
+      "orderId": "6245412429",
+      "settlementId": "01a17197-b7ce-7fa3-b5d4-6903fcf2b591",
+      "timestamp": 1792907131000,
+      "type": "orderTransactionSuccess",
+      "walletAddress": "0x1111111111111111111111111111111111111111"
+    },
+    {
+      "details": {
+        "categorySlug": "btc-updown-5m-1792907100",
+        "marketId": 3732355,
+        "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+        "outcome": "NO",
+        "outcomeIndex": 2,
+        "outcomeName": "Down",
+        "price": "0.430",
+        "quantity": "3.430",
+        "quantityFilled": "0.000",
+        "quoteType": "ASK",
+        "strategyType": "LIMIT",
+        "value": "1.47",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0xe871130a386ae47ddee074e383dead82315543a696e8c884df4ab7f3ba4faf7b",
+      "orderId": "6245414730",
+      "reason": "rejectedPostOnly",
+      "timestamp": 1792907133042,
+      "type": "orderNotAccepted",
+      "walletAddress": "0x1111111111111111111111111111111111111111"
+    }
+  ],
+  "sdkFallbackExit": {
+    "source": "explicitly authorized exit of failed Native post-only TP; official SDK fallback, not Native exit success",
+    "hash": "0x8290ade5f27914c944ab75ad3cfcd5e0f5619938f70f981313d584a91917a958",
+    "httpStatus": 201,
+    "receipt": {
+      "data": {
+        "code": "OK",
+        "orderHash": "0x8290ade5f27914c944ab75ad3cfcd5e0f5619938f70f981313d584a91917a958",
+        "orderId": "6245508374",
+        "removalLockedUntil": "2026-10-25T05:47:32.717Z"
+      },
+      "success": true
+    },
+    "status": "FILLED",
+    "amountFilled": "3430000000000000000",
+    "remainingChainWei": "0",
+    "positionRows": [],
+    "openRunOrders": 0,
+    "walletEvents": [
+      {
+        "details": {
+          "categorySlug": "btc-updown-5m-1792907100",
+          "marketId": 3732355,
+          "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+          "outcome": "NO",
+          "outcomeIndex": 2,
+          "outcomeName": "Down",
+          "price": "0.760",
+          "quantity": "3.430",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "2.61",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0x8290ade5f27914c944ab75ad3cfcd5e0f5619938f70f981313d584a91917a958",
+        "orderId": "6245508374",
+        "timestamp": 1792907252567,
+        "type": "orderAccepted",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "amount": "3430000000000000000",
+        "amountFilled": "0",
+        "details": {
+          "categorySlug": "btc-updown-5m-1792907100",
+          "marketId": 3732355,
+          "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+          "outcome": "NO",
+          "outcomeIndex": 2,
+          "outcomeName": "Down",
+          "price": "0.760",
+          "quantity": "3.430",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "2.61",
+          "valueFilled": "0.00"
+        },
+        "orderHash": "0x8290ade5f27914c944ab75ad3cfcd5e0f5619938f70f981313d584a91917a958",
+        "orderId": "6245508374",
+        "plannedFill": "3430000000000000000",
+        "remainderCancelled": "0",
+        "settlementIds": [
+          "01a17199-93ed-7b52-8532-c5c0db457474"
+        ],
+        "timestamp": 1792907252717,
+        "type": "orderMarketMatchPlan",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "btc-updown-5m-1792907100",
+          "marketId": 3732355,
+          "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+          "outcome": "NO",
+          "outcomeIndex": 2,
+          "outcomeName": "Down",
+          "price": "0.760",
+          "quantity": "3.430",
+          "quantityFilled": "0.000",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "2.61",
+          "valueFilled": "0.00"
+        },
+        "fill": {
+          "executedPriceWei": "750000000000000000",
+          "executedSizeWei": "3430000000000000000",
+          "executedValueWei": "2572500000000000000"
+        },
+        "isMaker": false,
+        "kind": "SALE",
+        "orderHash": "0x8290ade5f27914c944ab75ad3cfcd5e0f5619938f70f981313d584a91917a958",
+        "orderId": "6245508374",
+        "settlementId": "01a17199-93ed-7b52-8532-c5c0db457474",
+        "timestamp": 1792907252717,
+        "type": "orderTransactionSubmitted",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      },
+      {
+        "details": {
+          "categorySlug": "btc-updown-5m-1792907100",
+          "marketId": 3732355,
+          "marketQuestion": "Bitcoin Up or Down - October 25, 1:45AM-1:50AM ET",
+          "outcome": "NO",
+          "outcomeIndex": 2,
+          "outcomeName": "Down",
+          "price": "0.760",
+          "quantity": "3.430",
+          "quantityFilled": "3.430",
+          "quoteType": "ASK",
+          "strategyType": "MARKET",
+          "value": "2.61",
+          "valueFilled": "2.61"
+        },
+        "fee": {
+          "amountWei": "17150000000000000",
+          "type": "COLLATERAL"
+        },
+        "fill": {
+          "executedPriceWei": "750000000000000000",
+          "executedSizeWei": "3430000000000000000",
+          "executedValueWei": "2572500000000000000"
+        },
+        "isMaker": false,
+        "orderHash": "0x8290ade5f27914c944ab75ad3cfcd5e0f5619938f70f981313d584a91917a958",
+        "orderId": "6245508374",
+        "settlementId": "01a17199-93ed-7b52-8532-c5c0db457474",
+        "timestamp": 1792907253000,
+        "type": "orderTransactionSuccess",
+        "walletAddress": "0x1111111111111111111111111111111111111111"
+      }
+    ]
+  },
+  "finalOrderStates": [
+    {
+      "hash": "0xf8020041d5eb885e6b721c76193b46b822be9ef49243c4ad7a4aedcd75934bbf",
+      "strategy": "MARKET",
+      "status": "FILLED",
+      "amountFilled": "3500000000000000000"
+    },
+    {
+      "hash": "0xe871130a386ae47ddee074e383dead82315543a696e8c884df4ab7f3ba4faf7b",
+      "strategy": "LIMIT",
+      "status": "CANCELLED",
+      "amountFilled": "0"
+    },
+    {
+      "hash": "0x8290ade5f27914c944ab75ad3cfcd5e0f5619938f70f981313d584a91917a958",
+      "strategy": "MARKET",
+      "status": "FILLED",
+      "amountFilled": "3430000000000000000"
+    }
+  ],
+  "expected": {
+    "referencePrice": "0.39",
+    "slippageBps": 300,
+    "signedMaximumPrice": "0.4017",
+    "signedCollateralCapUSDT": "1.40595",
+    "entryExecutionPrice": "0.40",
+    "entryGrossShares": "3.5",
+    "entryFeeShares": "0.07",
+    "entryNetShares": "3.43",
+    "entryCashUSDT": "1.4",
+    "makerPrice": "0.43",
+    "makerFilledShares": "0",
+    "sdkExitExecutionPrice": "0.75",
+    "sdkExitGrossShares": "3.43",
+    "sdkExitCollateralFeeUSDT": "0.01715",
+    "finalTokenChainWei": "0",
+    "finalOpenAccountOrders": 0
+  },
+  "limitations": [
+    "Successful full MARKET FOK fill is one case, not general FOK enforcement proof.",
+    "Native post-only TP was rejected; automatic Native timed exit did not run in this capture.",
+    "SDK fallback SELL is separately identified and must not be labeled Native execution.",
+    "The original all-history independent calibration failed REST/chain gross-or-fee comparison; its failed verification JSON is preserved.",
+    "Observed round-trip gain is not strategy-performance evidence."
+  ]
+}

@@ -25,7 +25,7 @@ fn charged_fill(
         price,
         Money::zero(Currency::USDT()),
     );
-    event.quantity_commission = Some(Decimal::from_str_exact(fee).unwrap());
+    event.quantity_commission = Some(Quantity::from(fee));
     event
 }
 
@@ -63,8 +63,9 @@ fn quantity_commission_multiple_prices_replay_and_close_include_inventory_cost()
         - first.last_qty.as_decimal() * first.last_px.as_decimal()
         - second.last_qty.as_decimal() * second.last_px.as_decimal();
     assert_eq!(cash, Decimal::new(106, 4));
-    let execution_price_fee_value = first.quantity_commission.unwrap() * first.last_px.as_decimal()
-        + second.quantity_commission.unwrap() * second.last_px.as_decimal();
+    let execution_price_fee_value = first.quantity_commission.unwrap().as_decimal()
+        * first.last_px.as_decimal()
+        + second.quantity_commission.unwrap().as_decimal() * second.last_px.as_decimal();
     assert_eq!(execution_price_fee_value, Decimal::new(606, 5));
     assert_ne!(
         restored.realized_pnl.unwrap().as_decimal() - execution_price_fee_value,
@@ -72,7 +73,7 @@ fn quantity_commission_multiple_prices_replay_and_close_include_inventory_cost()
     );
     assert!((restored.realized_pnl.unwrap().as_decimal() - cash).abs() <= Decimal::new(1, 8));
     assert!(restored.adjustments.iter().all(|a| a.pnl_change.is_some()));
-    assert_eq!(restored.adjustments.len(), 2);
+    assert!(restored.adjustments.is_empty());
     assert!(
         matches!(&restored.replay_events[0], nautilus_model::position::PositionReplayEvent::Filled(fill) if fill.quantity_commission == first.quantity_commission)
     );
@@ -83,11 +84,11 @@ fn quantity_commission_invalid_inputs_leave_position_unchanged() {
     let instrument = InstrumentAny::BinaryOption(instrument(1));
     let mut position =
         Position::new_checked(&instrument, charged_fill(1, "17", "0.009", "0.34")).unwrap();
-    for case in ["negative", "excessive", "duplicate_fee", "oversell"] {
+    for case in ["zero", "excessive", "duplicate_fee", "oversell"] {
         let mut invalid = charged_fill(2, "15", "0.010", "0.30");
         match case {
-            "negative" => invalid.quantity_commission = Some(-Decimal::ONE),
-            "excessive" => invalid.quantity_commission = Some(Decimal::from(15)),
+            "zero" => invalid.quantity_commission = Some(Quantity::zero(0)),
+            "excessive" => invalid.quantity_commission = Some(Quantity::from(15)),
             "duplicate_fee" => invalid.commission = Some(Money::from("0.003 USDT")),
             "oversell" => {
                 invalid.order_side = OrderSide::Sell;
@@ -146,59 +147,64 @@ fn quantity_commission_zero_fee_maker_and_quantity_fee_sell() {
         "110",
         Money::zero(Currency::USDT()),
     );
-    sell.quantity_commission = Some(Decimal::new(1, 2));
-    position.try_apply(&sell).unwrap();
-    assert!(position.is_closed());
-    assert!(position.ts_closed.is_some());
-    assert_eq!(position.realized_pnl.unwrap(), Money::from("8.9 USDT"));
+    sell.quantity_commission = Some(Quantity::from_decimal(Decimal::new(1, 2)).unwrap());
+    let before = serde_json::to_string(&position).unwrap();
+    assert!(position.try_apply(&sell).is_err());
+    assert_eq!(serde_json::to_string(&position).unwrap(), before);
 }
 
 #[test]
 fn quantity_commission_arrow_roundtrip_retains_fee_without_info() {
     use nautilus_model::events::OrderFilled;
     use nautilus_serialization::arrow::{DecodeTypedFromRecordBatch, EncodeToRecordBatch};
-    let event = charged_fill(1, "32", "0.04", "0.64");
-    assert!(event.info.is_none());
-    let batch = OrderFilled::encode_batch(&event.metadata(), std::slice::from_ref(&event)).unwrap();
-    let decoded = OrderFilled::decode_typed_batch(batch.schema().metadata(), batch).unwrap();
-    assert_eq!(decoded.as_slice(), std::slice::from_ref(&event));
-    let position = Position::new_checked(
-        &InstrumentAny::BinaryOption(instrument(1)),
-        decoded[0].clone(),
-    )
-    .unwrap();
-    let snapshot = nautilus_model::events::PositionSnapshot::from_replay_state(&position, None);
-    let batch = nautilus_model::events::PositionSnapshot::encode_batch(
-        &snapshot.metadata(),
-        std::slice::from_ref(&snapshot),
-    )
-    .unwrap();
-    let restored = nautilus_model::events::PositionSnapshot::decode_typed_batch(
-        batch.schema().metadata(),
-        batch,
-    )
-    .unwrap();
-    assert_eq!(restored[0].replay_state, snapshot.replay_state);
-    let mut recovered: Position =
-        serde_json::from_value(restored[0].replay_state.clone().unwrap()).unwrap();
-    assert_eq!(
-        recovered.quantity_commission_total,
-        position.quantity_commission_total
-    );
-    assert_eq!(recovered.quantity, position.quantity);
-    assert_eq!(recovered.realized_pnl, position.realized_pnl);
-    let before = serde_json::to_string(&recovered).unwrap();
-    recovered.try_apply(&event).unwrap();
-    assert_eq!(serde_json::to_string(&recovered).unwrap(), before);
-    recovered
-        .try_apply(&charged_fill(2, "1", "0.04", "0.02"))
+    for gross in ["32", "32.000000000000000099"] {
+        let event = charged_fill(1, gross, "0.04", "0.64");
+        assert!(event.info.is_none());
+        let batch =
+            OrderFilled::encode_batch(&event.metadata(), std::slice::from_ref(&event)).unwrap();
+        let decoded = OrderFilled::decode_typed_batch(batch.schema().metadata(), batch).unwrap();
+        assert_eq!(decoded.as_slice(), std::slice::from_ref(&event));
+        let position = Position::new_checked(
+            &InstrumentAny::BinaryOption(instrument(1)),
+            decoded[0].clone(),
+        )
         .unwrap();
-    assert_eq!(recovered.quantity.as_decimal(), Decimal::new(3234, 2));
-    assert_eq!(
-        recovered.quantity_commission_total.unwrap(),
-        Decimal::new(66, 2)
-    );
-    assert_eq!(recovered.realized_pnl.unwrap(), Money::from("-0.0264 USDT"));
+        let snapshot = nautilus_model::events::PositionSnapshot::from_replay_state(&position, None);
+        let batch = nautilus_model::events::PositionSnapshot::encode_batch(
+            &snapshot.metadata(),
+            std::slice::from_ref(&snapshot),
+        )
+        .unwrap();
+        let restored = nautilus_model::events::PositionSnapshot::decode_typed_batch(
+            batch.schema().metadata(),
+            batch,
+        )
+        .unwrap();
+        assert_eq!(restored[0].replay_state, snapshot.replay_state);
+        let mut recovered: Position =
+            serde_json::from_value(restored[0].replay_state.clone().unwrap()).unwrap();
+        assert_eq!(
+            super::native_fee_paths::quantity_fees(&recovered),
+            super::native_fee_paths::quantity_fees(&position)
+        );
+        assert_eq!(recovered.quantity, position.quantity);
+        assert_eq!(recovered.realized_pnl, position.realized_pnl);
+        let before = serde_json::to_string(&recovered).unwrap();
+        recovered.try_apply(&event).unwrap();
+        assert_eq!(serde_json::to_string(&recovered).unwrap(), before);
+        recovered
+            .try_apply(&charged_fill(2, "1", "0.04", "0.02"))
+            .unwrap();
+        assert_eq!(
+            recovered.quantity.as_decimal(),
+            Decimal::from_str_exact(gross).unwrap() + Decimal::new(34, 2)
+        );
+        assert_eq!(
+            super::native_fee_paths::quantity_fees(&recovered).unwrap(),
+            Decimal::new(66, 2)
+        );
+        assert_eq!(recovered.realized_pnl.unwrap(), Money::from("-0.0264 USDT"));
+    }
 }
 
 #[tokio::test]
@@ -271,7 +277,7 @@ async fn run_reports(submitted: u32) {
             UnixNanos::from(OBSERVED),
             None,
         );
-        report.quantity_commission = Some(Decimal::from_str_exact(fee).unwrap());
+        report.quantity_commission = Some(Quantity::from(fee));
         let decoded: FillReport =
             serde_json::from_str(&serde_json::to_string(&report).unwrap()).unwrap();
         engine.reconcile_execution_report(&ExecutionReport::Fill(Box::new(decoded.clone())));
@@ -326,7 +332,7 @@ async fn run_reports(submitted: u32) {
     }
     assert_eq!(observed.borrow().len(), 2);
     assert_eq!(observed.borrow()[0]["pnl"], "-0.00306000 USDT");
-    assert_eq!(observed.borrow()[1]["pnl"], "-0.00590214 USDT");
+    assert_eq!(observed.borrow()[1]["pnl"], "-0.00606000 USDT");
     assert_eq!(
         Decimal::from_str_exact(observed.borrow()[0]["net"].as_str().unwrap()).unwrap(),
         Decimal::new(1666, 2)
@@ -368,11 +374,14 @@ fn mixed_price_cycle() -> Value {
     fills[1].client_order_id = fills[0].client_order_id;
     let mut position = Position::new_checked(&instrument, fills[0].clone()).unwrap();
 
-    let first = json!({"nativeQuantity":position.quantity.as_decimal(),"fees":position.quantity_commission_total});
+    let first = json!({"nativeQuantity":position.quantity.as_decimal(),"fees":super::native_fee_paths::quantity_fees(&position)});
     position.try_apply(&fills[1]).unwrap();
 
-    assert_eq!(position.quantity.as_decimal(), Decimal::new(3136, 2));
-    let total = position.quantity_commission_total.unwrap();
+    assert_eq!(
+        position.quantity.as_decimal(),
+        Decimal::from_str_exact("31.360000000000000001").unwrap()
+    );
+    let total = super::native_fee_paths::quantity_fees(&position).unwrap();
     assert_eq!(
         total,
         Decimal::from_str_exact("0.639999999999999999").unwrap()
@@ -386,7 +395,13 @@ fn mixed_price_cycle() -> Value {
     for (sequence, side, quantity, price, fee) in [
         (3, OrderSide::Sell, "10", "0.011", "0.0022 USDT"),
         (4, OrderSide::Buy, "5", "0.008", "0 USDT"),
-        (5, OrderSide::Sell, "26.36", "0.012", "0.0063264 USDT"),
+        (
+            5,
+            OrderSide::Sell,
+            "26.360000000000000001",
+            "0.012",
+            "0.0063264 USDT",
+        ),
     ] {
         let fill = super::native_fee_paths::fill(
             &instrument,
@@ -410,38 +425,39 @@ fn mixed_price_cycle() -> Value {
             position.try_apply(previous).unwrap();
         }
         assert_eq!(serde_json::to_string(&position).unwrap(), restored);
-        // Reproduce the existing Native long-position f64/Money fold, independently of
-        // the inventory-fee accumulator, to expose rounding at the final SELL boundary.
-        let native_float_pnl = (side == OrderSide::Sell).then(|| {
-            position.realized_pnl.unwrap().as_f64()
-                + (-fill.commission.unwrap().as_f64()
-                    + (fill.last_px.as_f64() - position.avg_px_open) * fill.last_qty.as_f64())
-        });
         position.try_apply(&fill).unwrap();
-        if let Some(value) = native_float_pnl {
-            assert_eq!(
-                position.realized_pnl.unwrap(),
-                Money::new(value, Currency::USDT())
-            );
-        }
+        let equity = cash + position.quantity.as_decimal() * fill.last_px.as_decimal();
+        assert!(
+            (position.total_pnl(fill.last_px).unwrap().as_decimal() - equity).abs()
+                <= Decimal::new(1, 8)
+        );
         fills.push(fill);
-        states.push(json!({"quantity":position.quantity.as_decimal(),"fees":position.quantity_commission_total,
-            "pnl":position.realized_pnl,"nativeFloatPnl":native_float_pnl,"commissions":position.commissions()}));
+        states.push(json!({"quantity":position.quantity.as_decimal(),"fees":super::native_fee_paths::quantity_fees(&position),
+            "pnl":position.realized_pnl,"commissions":position.commissions()}));
     }
     assert!(position.is_closed());
-    assert_eq!(cash, Decimal::from_str_exact("0.0747936").unwrap());
+    assert_eq!(
+        cash,
+        Decimal::from_str_exact("0.074793600000000000012").unwrap()
+    );
     assert!((position.realized_pnl.unwrap().as_decimal() - cash).abs() <= Decimal::new(1, 8));
     assert!(position.adjustments.iter().all(|a| a.pnl_change.is_some()));
-    assert_eq!(position.quantity_commission_total, Some(total));
+    assert_eq!(
+        super::native_fee_paths::quantity_fees(&position),
+        Some(total)
+    );
     assert_eq!(position.commissions()[0], Money::from("0.0085264 USDT"));
     let snapshot = nautilus_model::events::PositionSnapshot::from_replay_state(&position, None);
     let restored: Position =
         serde_json::from_value(snapshot.replay_state.clone().unwrap()).unwrap();
-    assert_eq!(restored.quantity_commission_total, Some(total));
+    assert_eq!(
+        super::native_fee_paths::quantity_fees(&restored),
+        Some(total)
+    );
     json!({"source":"synthetic Native Position mixed-price BUY/SELL accounting; not a strategy or venue execution",
-        "rawBuyQuantities":["17.000000000000000099","14.999999999999999901"],
+        "rawBuyQuantities":["17","15"],
         "rawQuantitySum":"32","fills":fills,"states":states,"snapshot":snapshot,"cashPnl":cash.to_string(),
-        "inventoryFeeCost":position.quantity_commission_cost.unwrap().to_string(),"nativePnlMinusCash":(position.realized_pnl.unwrap().as_decimal()-cash).to_string(),"feeSummary":total,"quantityResidual":super::native_fee_paths::inventory_fee_residual(total, 16).to_string(),"nativePnl":position.realized_pnl,
+        "inventoryFeeCost":super::native_fee_paths::quantity_fee_value(&position).unwrap().to_string(),"nativePnlMinusCash":(position.realized_pnl.unwrap().as_decimal()-cash).to_string(),"feeSummary":total,"quantityResidual":super::native_fee_paths::inventory_fee_residual(total, 16).to_string(),"nativePnl":position.realized_pnl,
         "duplicateReplayUnchanged":true})
 }
 
@@ -490,7 +506,7 @@ fn accounting_naturality_audit() -> Value {
     );
     let mut quantity_buy = legacy_buy.clone();
     quantity_buy.commission = Some(Money::zero(Currency::USDT()));
-    quantity_buy.quantity_commission = Some(Decimal::new(1, 2));
+    quantity_buy.quantity_commission = Some(Quantity::from_decimal(Decimal::new(1, 2)).unwrap());
     let mut legacy = Position::new_checked(&spot, legacy_buy).unwrap();
     let mut quantity = Position::new_checked(&spot, quantity_buy).unwrap();
     assert_eq!(legacy.quantity, quantity.quantity);
@@ -498,8 +514,14 @@ fn accounting_naturality_audit() -> Value {
     // Position marks price movement on net inventory; it does not capitalize the
     // base fee into avg_px_open. Even at entry price, liquidatable value is below cost.
     let entry_mark = Price::from("100");
-    assert_eq!(legacy.total_pnl(entry_mark), Money::zero(Currency::USDT()));
-    assert_eq!(quantity.total_pnl(entry_mark), Money::from("-1 USDT"));
+    assert_eq!(
+        legacy.total_pnl(entry_mark).unwrap(),
+        Money::zero(Currency::USDT())
+    );
+    assert_eq!(
+        quantity.total_pnl(entry_mark).unwrap(),
+        Money::from("-1 USDT")
+    );
     let cash_cost = Decimal::from(100);
     assert_eq!(
         quantity.quantity.as_decimal() * entry_mark.as_decimal() - cash_cost,
@@ -507,7 +529,7 @@ fn accounting_naturality_audit() -> Value {
     );
     let small_gain_mark = Price::from("101");
     assert_eq!(
-        quantity.total_pnl(small_gain_mark),
+        quantity.total_pnl(small_gain_mark).unwrap(),
         Money::from("-0.01 USDT")
     );
     assert_eq!(
@@ -552,14 +574,14 @@ fn accounting_naturality_audit() -> Value {
     assert_eq!(serde_json::to_string(&reopened).unwrap(), before);
     json!({
         "source":"direct Rust Native model diagnostic, synthetic; no new LiveNode or venue evidence",
-        "nativeDevelopBase":"7b6e2c27b86bd1688fde49bcf6e81d7a89560b05",
-        "implementation":"Native inventory fee with cumulative cost and replay_state; legacy base PnL unchanged",
+        "nativeDevelopBase":"7b3ed05d980a344c1f698661d542ebcbae2c8972",
+        "implementation":"Native fill-price inventory fee expense and exact persisted fee facts",
         "legacyBaseCommissionCompatibility":{
             "grossBuy":"1", "buyPrice":"100", "inventoryFee":"0.01", "net":same_net,
             "sellQty":"0.99", "sellPrice":"110", "cashDifference":"8.90 USDT",
             "legacyRealized":legacy.realized_pnl, "legacyCommissions":legacy.commissions,
             "quantityRealized":quantity.realized_pnl,
-            "quantityCommissions":quantity.quantity_commission_total,
+            "quantityCommissions":super::native_fee_paths::quantity_fees(&quantity),
             "meaning":"Legacy base commission behavior is unchanged; the explicit quantity fee path also writes off removed inventory cost."
         },
         "priorEpisodeDuplicate":{
@@ -607,7 +629,7 @@ async fn record_quantity_commission_core_review_json() {
     let value = json!({
         "source":"offline controlled Native core review and synthetic Rust Strategy + LiveNode replay; no new venue evidence",
         "mainnetReads":0,"mainnetWrites":0,
-        "nativeDevelopBase":"7b6e2c27b86bd1688fde49bcf6e81d7a89560b05",
+        "nativeDevelopBase":"7b3ed05d980a344c1f698661d542ebcbae2c8972",
         "coreNecessityProbes":probes,
         "baseCommissionParity":accounting_naturality_audit(),
         "mixedCycle":mixed_price_cycle(),
@@ -619,4 +641,39 @@ async fn record_quantity_commission_core_review_json() {
         .open(fixture_dir.join("quantity_commission_core_review_livenode_20261017.json"))
         .unwrap();
     serde_json::to_writer_pretty(output, &value).unwrap();
+}
+
+#[test]
+fn fill_price_expense_and_net_basis_are_distinct_from_gross_vwap() {
+    let instrument: InstrumentAny = instrument(1).into();
+    let first = charged_fill(1, "10", "0.100", "1");
+    let mut position = Position::new_checked(&instrument, first).unwrap();
+    let second = super::native_fee_paths::fill(
+        &instrument,
+        2,
+        OrderSide::Buy,
+        "10",
+        "0.200",
+        Money::zero(Currency::USDT()),
+    );
+    position.try_apply(&second).unwrap();
+    assert_eq!(position.quantity.as_decimal(), Decimal::from(19));
+    assert_eq!(position.cost_open, Decimal::new(290, 2));
+    assert_eq!(position.realized_pnl.unwrap(), Money::from("-0.1 USDT"));
+    assert_eq!(
+        position.avg_px_open,
+        Decimal::new(290, 2) / Decimal::from(19)
+    );
+    assert_ne!(position.avg_px_open, Decimal::new(15, 2));
+    let close = super::native_fee_paths::fill(
+        &instrument,
+        3,
+        OrderSide::Sell,
+        "19",
+        "0.200",
+        Money::zero(Currency::USDT()),
+    );
+    position.try_apply(&close).unwrap();
+    assert!(position.is_closed());
+    assert_eq!(position.realized_pnl.unwrap(), Money::from("0.8 USDT"));
 }

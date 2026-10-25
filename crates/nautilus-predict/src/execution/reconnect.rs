@@ -12,15 +12,16 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Core-thread account verification after native order and position reconciliation.
+//! Account refresh, one-shot Native query dispatch and bounded mirror cleanup.
 use std::{rc::Rc, sync::atomic::Ordering};
 
 use nautilus_common::{
-    messages::execution::{QueryAccount, TradingCommand},
+    messages::execution::{QueryAccount, QueryOrder, TradingCommand},
     msgbus::{self, switchboard::MessagingSwitchboard},
     timer::TimeEventCallback,
 };
 use nautilus_core::{DurationNanos, UUID4};
+use nautilus_model::orders::Order;
 
 use super::PredictExecutionClient;
 
@@ -45,16 +46,15 @@ impl PredictExecutionClient {
             .wallet_epoch
             .clone()
             .ok_or_else(|| anyhow::anyhow!("Predict recovery lacks wallet epoch"))?;
-        let verified = self.verified_epoch.clone();
-        let required = self.reconciliation_required.clone();
+        let refreshed = self.refreshed_epoch.clone();
+        let required = self.account_refresh_required.clone();
         let checking = self.account_query_active.clone();
+        let sync = self.account_sync.clone();
+        let core = self.core.clone();
         let healthy = self.healthy.clone();
         let cancellation = self.tasks.cancellation_token();
         let clock = self.clock;
         let lookups = self.order_lookups();
-        let core = self.core.clone();
-        let pending = self.pending_submissions.clone();
-        let cancels = self.pending_cancels.clone();
         let cleanup_interval = self
             .config
             .account_refresh_interval_secs
@@ -87,21 +87,60 @@ impl PredictExecutionClient {
                     });
                 }
                 if !auth.is_authenticated()
-                    || epoch.load(Ordering::Acquire) != verified.load(Ordering::Acquire)
+                    || epoch.load(Ordering::Acquire) != refreshed.load(Ordering::Acquire)
                 {
                     required.store(true, Ordering::Release);
+                }
+                if auth.is_authenticated() {
+                    let requests = std::mem::take(
+                        &mut sync
+                            .state
+                            .lock()
+                            .expect("account sync poisoned")
+                            .order_status_requests,
+                    );
+                    let commands = {
+                        let cache = core.cache();
+                        requests
+                            .into_iter()
+                            .filter_map(|id| {
+                                let order = cache.order(&id)?;
+                                (!order.is_closed() && order.account_id() == Some(account_id)).then(
+                                    || {
+                                        QueryOrder::new(
+                                            trader_id,
+                                            Some(client_id),
+                                            order.strategy_id(),
+                                            order.instrument_id(),
+                                            id,
+                                            order.venue_order_id(),
+                                            UUID4::new(),
+                                            clock.get_time_ns(),
+                                            None,
+                                            None,
+                                        )
+                                    },
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    };
+                    // Dispatch outside all Cache/account borrows: Native owns collection,
+                    // application and any subsequent recovery. No adapter retry loop.
+                    for command in commands {
+                        msgbus::send_trading_command(
+                            MessagingSwitchboard::exec_engine_queue_execute(),
+                            TradingCommand::QueryOrder(command),
+                        );
+                    }
                 }
                 if !required.load(Ordering::Acquire)
                     || !auth.is_authenticated()
                     || checking.load(Ordering::Acquire)
-                    || !super::readiness::ReadinessCheck::commands_resolved(
-                        &core, &pending, &cancels,
-                    )
                 {
                     return;
                 }
-                // LiveNode owns inflight/order/position checks. Only account readiness
-                // needs a core-thread retry after the new wallet epoch and native fills apply.
+                // LiveNode owns order/position recovery. Refresh account resources
+                // independently, including while an order or cancellation is unresolved.
                 let endpoint = MessagingSwitchboard::exec_engine_queue_execute();
                 msgbus::send_trading_command(
                     endpoint,

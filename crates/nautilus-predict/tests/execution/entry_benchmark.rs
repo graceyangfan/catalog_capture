@@ -493,7 +493,7 @@ pub(crate) fn market_preparation(c: &mut Criterion) {
                                 .borrow_mut()
                                 .add_order(own.clone(), None, None, false)
                                 .unwrap();
-                            let command = market_preparation::priced(&own, json!("0.020"));
+                            let command = market_preparation::priced(&own, json!("0.020"), 100);
                             let start = std::time::Instant::now();
                             client.submit_order(command).unwrap();
                             exit_orders::barrier("benchmark priced MARKET arrival", || {

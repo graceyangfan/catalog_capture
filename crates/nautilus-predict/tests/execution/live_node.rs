@@ -11,9 +11,7 @@ pub(super) mod strategy;
 use nautilus_common::enums::Environment;
 use nautilus_core::time::get_atomic_clock_realtime;
 use nautilus_live::node::{LiveNode, config::LiveExecutionEngineConfig};
-use nautilus_predict::{
-    PredictDataClientConfig, PredictDataClientFactory, PredictSubmissionConfig,
-};
+use nautilus_predict::{PredictDataClientConfig, PredictDataClientFactory};
 use strategy::{CalibrationInputs, CalibrationStrategy, Observations, Phase, StrategySettings};
 
 pub(super) async fn public_market() -> Response {
@@ -239,14 +237,9 @@ async fn run_replay_with_latency(
     interleaved: bool,
     latency: Option<nautilus_predict::latency::PredictLatency>,
 ) -> Value {
-    let quantity_mode = cfg!(feature = "native-quantity-commission");
     let history = recovered_quantity.is_some();
     let gross = recovered_quantity.unwrap_or(17);
-    let carry = if wallet_precision && gross < 100 && !multiple_prices {
-        Decimal::new(1, 16)
-    } else {
-        Decimal::ZERO
-    };
+    let carry = { Decimal::ZERO };
     let expected_gross = Decimal::from(gross) + carry;
     let net = Decimal::from(gross) * Decimal::new(98, 2) + carry;
     // The differing-price scenario is synthetic: 17 shares at .009, remainder at .010.
@@ -285,18 +278,14 @@ async fn run_replay_with_latency(
         format!("{}/rpc", private.http).into(),
     ));
     exec.orderbook_removal_enabled = true;
-    exec.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            nautilus_predict::signing::PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    exec.submission_signer = Some(Arc::new(
+        nautilus_predict::signing::PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let mut node = LiveNode::builder(trader_id(), Environment::Live)
         .unwrap()
         .with_name("PredictRustStrategyReplay")
@@ -465,17 +454,13 @@ async fn run_replay_with_latency(
                         chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
                     );
                     let rows = if wallet_precision {
-                        let first = U256::from(if multiple_prices {
-                            17_000_000_000_000_000_000u128
-                        } else {
-                            17_000_000_000_000_000_099u128
-                        });
-                        let second = if multiple_prices {
+                        let first = U256::from(17_000_000_000_000_000_000u128);
+                        let second = if multiple_prices || gross == 100 {
                             U256::from(u128::from(gross) * 1_000_000_000_000_000_000u128) - first
                         } else if gross == 100 {
                             U256::from(100_000_000_000_000_000_000u128) - first
                         } else {
-                            U256::from(5_000_000_000_000_000_099u128)
+                            U256::from(5_000_000_000_000_000_000u128)
                         };
                         let mut rows = vec![];
                         for (index, raw) in [(1, first), (2, second)] {
@@ -559,15 +544,8 @@ async fn run_replay_with_latency(
                 if reconcile {
                     // Synthetic position discrepancy, not evidence of wallet SHARES wire units.
                     let mut row = holding(outcome);
-                    row["amount"] = json!(
-                        (u128::from(gross) * 980_000_000_000_000_000u128
-                            + if wallet_precision && !multiple_prices {
-                                if gross == 100 { 1 } else { 196 }
-                            } else {
-                                0
-                            })
-                        .to_string()
-                    );
+                    row["amount"] =
+                        json!((u128::from(gross) * 980_000_000_000_000_000u128).to_string());
                     let mut pages = private.state.pages.lock().unwrap();
                     pages.clear();
                     if interleaved {
@@ -604,15 +582,7 @@ async fn run_replay_with_latency(
     let observed = observations.borrow();
     assert!(observed.snapshots > 0);
     assert_eq!(observed.submitted, replies);
-    assert_eq!(
-        observed.accepted,
-        replies
-            + if quantity_mode {
-                0
-            } else {
-                usize::from(history) + usize::from(interleaved)
-            }
-    );
+    assert_eq!(observed.accepted, replies);
     assert!(observed.events_with_cached_order >= replies * 3);
     assert!(observed.account_reports_observed >= 1);
     if phase == Phase::Observe {
@@ -657,20 +627,7 @@ async fn run_replay_with_latency(
                 .is_empty()
         );
     } else {
-        assert_eq!(
-            observed.fills,
-            if quantity_mode {
-                if wallet_precision { 2 } else { 1 }
-            } else if interleaved {
-                4
-            } else if wallet_precision {
-                3
-            } else if history {
-                2
-            } else {
-                1
-            }
-        );
+        assert_eq!(observed.fills, if wallet_precision { 2 } else { 1 });
         assert_eq!(observed.canceled, usize::from(gross < 100));
         assert_eq!(
             observed.last_cash_total,
@@ -688,60 +645,31 @@ async fn run_replay_with_latency(
         // Successful history permits correction; unavailable history must preserve state.
         assert_eq!(
             observed.position_events,
-            if quantity_mode {
-                if wallet_precision { 2 } else { 1 }
-            } else if interleaved {
-                4
-            } else if wallet_precision {
-                3
-            } else if history {
-                2
-            } else {
-                1
-            }
+            if wallet_precision { 2 } else { 1 }
         );
         assert!(!private.state.requests.lock().unwrap().is_empty());
         let cache = node.kernel().cache.borrow();
         let orders = cache.orders(None, None, None, None, None);
-        assert_eq!(
-            orders.len(),
-            if quantity_mode {
-                1
-            } else if interleaved {
-                3
-            } else if history {
-                2
-            } else {
-                1
-            }
-        );
+        assert_eq!(orders.len(), 1);
         if history {
             assert_eq!(observed.buy_fill_quantity_sum, expected_gross);
-            assert_eq!(
-                observed.buy_commission_sum,
-                if quantity_mode {
-                    Decimal::ZERO
-                } else {
-                    fee_value.as_decimal()
-                }
-            );
+            assert_eq!(observed.buy_commission_sum, { Decimal::ZERO });
             let positions = cache.positions(None, None, None, None, None);
             assert_eq!(positions.len(), 1);
-            if quantity_mode {
+            {
                 let fees = orders
                     .iter()
                     .flat_map(|o| o.events())
                     .filter_map(|e| match e {
-                        nautilus_model::events::OrderEventAny::Filled(f) => f.quantity_commission,
+                        nautilus_model::events::OrderEventAny::Filled(f) => {
+                            f.quantity_commission.map(|fee| fee.as_decimal())
+                        }
                         _ => None,
                     })
                     .sum::<Decimal>();
-                let totals = positions[0].quantity_commission_total.unwrap();
+                let totals = super::native_fee_paths::quantity_fees(&positions[0]).unwrap();
                 assert_eq!(totals, fees);
-                assert_eq!(
-                    super::native_fee_paths::project_inventory_fee(totals, 16),
-                    expected_gross - positions[0].quantity.as_decimal()
-                );
+                assert_eq!(totals, expected_gross - positions[0].quantity.as_decimal());
                 assert!(
                     super::native_fee_paths::inventory_fee_residual(totals, 16)
                         < Decimal::new(1, 16)
@@ -749,7 +677,7 @@ async fn run_replay_with_latency(
                 assert_eq!(
                     positions[0].realized_pnl.unwrap(),
                     Money::from_decimal(
-                        -positions[0].quantity_commission_cost.unwrap(),
+                        -super::native_fee_paths::quantity_fee_value(&positions[0]).unwrap(),
                         Currency::USDT()
                     )
                     .unwrap()
@@ -760,18 +688,10 @@ async fn run_replay_with_latency(
                         .iter()
                         .all(|a| a.pnl_change.is_some())
                 );
-            } else {
-                assert_eq!(positions[0].realized_pnl.unwrap(), -fee_value);
             }
             assert!(
                 private.state.match_requests.lock().unwrap().len()
-                    >= if quantity_mode {
-                        usize::from(!wallet_precision)
-                    } else if wallet_precision {
-                        1
-                    } else {
-                        2
-                    }
+                    >= usize::from(!wallet_precision)
             );
         }
         assert!(
@@ -814,17 +734,10 @@ async fn run_replay_with_latency(
         let positions = cache.positions(None, None, None, None, None);
         let position = &positions[0];
         let position_average = Decimal::from_str_exact(&position.avg_px_open.to_string()).unwrap();
-        let basis_with_fees = net * position_average
-            + if quantity_mode {
-                -position.realized_pnl.unwrap().as_decimal()
-            } else {
-                fee_value.as_decimal()
-            };
+        let basis_with_fees =
+            net * position_average + { -position.realized_pnl.unwrap().as_decimal() };
         // Characterize a real Native boundary, rather than claiming net quantity alone proves PnL.
-        assert_eq!(
-            (basis_with_fees - cash_debit).abs() > Decimal::new(1, 8),
-            !quantity_mode && interleaved
-        );
+        assert!((basis_with_fees - cash_debit).abs() <= Decimal::new(1, 8));
         // A native Position-only close probe, separate from the LiveNode replay.
         // No order is submitted: measure how this basis would affect realized PnL.
         let mut closed = (**position).clone();
@@ -853,10 +766,7 @@ async fn run_replay_with_latency(
         assert!(closed.is_closed());
         let expected_pnl = net * Decimal::new(1, 2) - cash_debit;
         let native_pnl = closed.realized_pnl.unwrap().as_decimal();
-        assert_eq!(
-            (native_pnl - expected_pnl).abs() > Decimal::new(1, 8),
-            !quantity_mode && interleaved
-        );
+        assert!((native_pnl - expected_pnl).abs() <= Decimal::new(1, 8));
         json!({"source":"synthetic different-price partial-fill Rust Strategy + LiveNode replay; not actual venue fills",
             "outcome":outcome,"submittedQuantity":quantity,"grossFilled":gross,"netPosition":net.to_string(),
             "nativeFilledQuantity":order.filled_qty().to_string(),"nativeOrderStatus":order.status().to_string(),
@@ -865,7 +775,7 @@ async fn run_replay_with_latency(
             "interleavedFeeCorrection":interleaved,"positionAverage":position_average.to_string(),
             "positionBasisPlusCommission":basis_with_fees.to_string(),
             "basisResidualUSDT":(basis_with_fees-cash_debit).to_string(),
-            "pnlConvention":if quantity_mode {"Native cumulative inventory cost is included in quote realized"} else {"legacy quote-fee path"},
+            "pnlConvention":"Native fill-price inventory fee expense is included in quote realized PnL",
             "basisMatchesCash":(basis_with_fees-cash_debit).abs() <= Decimal::new(1,8),
             "positionOnlyExitProbe":{"source":"offline cloned Native Position close; not a strategy or venue SELL",
                 "sellPrice":"0.010","sellFee":"0","expectedCashPnL":expected_pnl.to_string(),
@@ -878,7 +788,7 @@ async fn run_replay_with_latency(
     } else {
         Value::Null
     };
-    if quantity_mode && phase == Phase::Fill {
+    if phase == Phase::Fill {
         let cache = node.kernel().cache.borrow();
         if result.is_null() {
             result = json!({"source":"synthetic 18-decimal wallet partial-fill Rust Strategy + LiveNode replay",
@@ -886,7 +796,7 @@ async fn run_replay_with_latency(
                 "duplicateWalletPackets":true,"grossFilled":expected_gross.to_string()});
         }
         result["feeSummaries"] = json!(cache.positions(None,None,None,None,None).iter().map(|p| {
-            let Some(totals) = p.quantity_commission_total else {
+            let Some(totals) = super::native_fee_paths::quantity_fees(p) else {
                 return json!({"nativeQuantity":p.quantity.as_decimal().to_string(),"fees":null});
             };
             json!({"nativeQuantity":p.quantity.as_decimal().to_string(),"signedDecimalQuantity":p.signed_decimal_qty().to_string(),

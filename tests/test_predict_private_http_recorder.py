@@ -17,7 +17,86 @@ from predict_private_http_recorder import (
 
 
 class RecorderTests(unittest.TestCase):
-    def test_latency_mode_pools_forwards_once_and_defers_completion_writes(self):
+    def test_full_feedback_preserves_unrecognized_protocol_fields_and_redacts_signature(
+        self,
+    ):
+        payload = {
+            "success": True,
+            "removed": [],
+            "noop": [],
+            "rejected": ["123"],
+            "matching": {"pending": True},
+            "signature": "must-not-persist",
+        }
+        response = SimpleNamespace(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            content=json.dumps(payload).encode(),
+            json=lambda: payload,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "http.json"
+            recorder = PrivateHttpRecorder(output, full_responses=True)
+            try:
+                with patch(
+                    "predict_private_http_recorder.requests.request",
+                    return_value=response,
+                ):
+                    connection = http.client.HTTPConnection(
+                        "127.0.0.1", recorder.server.server_port
+                    )
+                    connection.request(
+                        "POST",
+                        "/v1/orders/remove",
+                        body=json.dumps({"data": {"ids": ["123"]}}),
+                    )
+                    reply = connection.getresponse()
+                    self.assertEqual(reply.status, 200)
+                    reply.read()
+                    connection.close()
+                saved = json.loads(output.read_text())["events"][0]["responseBody"]
+                self.assertEqual(saved["matching"], {"pending": True})
+                self.assertEqual(saved["rejected"], ["123"])
+                self.assertNotIn("must-not-persist", json.dumps(saved))
+            finally:
+                recorder.close()
+
+    def test_remove_intent_is_durable_before_unknown_transport_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "http.json"
+
+            def fail(method, url, **kwargs):
+                pending = json.loads(output.read_text())["events"][-1]
+                self.assertTrue(pending["removalIntent"])
+                self.assertEqual(pending["requestIds"], ["123"])
+                self.assertGreater(pending["observedMonotonicNs"], 0)
+                self.assertIsNone(pending["status"])
+                raise requests.ConnectionError("unknown result")
+
+            recorder = PrivateHttpRecorder(output)
+            try:
+                with patch(
+                    "predict_private_http_recorder.requests.request", side_effect=fail
+                ):
+                    connection = http.client.HTTPConnection(
+                        "127.0.0.1", recorder.server.server_port
+                    )
+                    connection.request(
+                        "POST",
+                        "/v1/orders/remove",
+                        body=json.dumps({"data": {"ids": ["123"]}}),
+                    )
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, 502)
+                    response.read()
+                    connection.close()
+                entries = json.loads(output.read_text())["events"]
+                self.assertEqual(len(entries), 1)
+                self.assertTrue(entries[0]["transportError"])
+            finally:
+                recorder.close()
+
+    def test_latency_mode_pools_and_persists_completed_writes(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "http.json"
             order_hash = "0x" + "ab" * 32
@@ -69,9 +148,10 @@ class RecorderTests(unittest.TestCase):
                     response = connection.getresponse()
                     self.assertEqual(response.status, 201)
                     response.read()
-                    self.assertIsNone(
-                        json.loads(output.read_text())["events"][-1]["status"]
-                    )
+                    completed = json.loads(output.read_text())["events"][-1]
+                    self.assertEqual(completed["status"], 201)
+                    self.assertIsNotNone(completed["completedAtUtc"])
+                    self.assertIn("responseBody", completed)
                     self.assertEqual(recorder.submitted_hashes(), {order_hash})
                 finally:
                     connection.close()

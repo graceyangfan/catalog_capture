@@ -32,16 +32,15 @@ use crate::common::instrument_id_from_outcome;
 /// Converts an ERC-1155 holding to a net position for its specific outcome instrument.
 ///
 /// Holdings are interpreted as on-chain shares with the SDK's 18-decimal scale. This must
-/// be confirmed against a real private response before execution activation. Quantities
-/// are floored at native precision; positive subquantum dust is an error, never inferred flat.
+/// be confirmed against a real private response before execution activation. Holdings
+/// retain every atomic digit, including positive dust, independently of order increments.
 /// `ts_init` is the caller's observation time and also `ts_last`, matching the Hyperliquid
 /// snapshot convention; it is not a venue update timestamp. Average price and the REST row
 /// ID are not mapped without verified units and position-ID semantics.
 ///
 /// # Errors
 ///
-/// Returns an error for inconsistent instrument/token metadata, unrepresentable amounts
-/// or positive holdings below one native quantity quantum.
+/// Returns an error for inconsistent instrument/token metadata or unrepresentable amounts.
 pub fn parse_position_status_report(
     position: &PredictPositionData,
     instrument: &BinaryOption,
@@ -65,9 +64,10 @@ pub fn parse_position_status_report(
             "holding and instrument token metadata differ",
         ));
     }
-    let quantity =
-        crate::common::parse::floor_wei_quantity(position.amount, instrument.size_precision())
-            .map_err(|_| Error::Report("holding exceeds Nautilus quantity range"))?;
+
+    let quantity = crate::common::parse::exact_wei_quantity(position.amount)
+        .map_err(|_| Error::Report("holding exceeds Nautilus quantity range"))?;
+
     if !position.amount.is_zero() && quantity.is_zero() {
         return Err(Error::Report(
             "positive holding is below native quantity quantum",
@@ -93,7 +93,8 @@ pub fn parse_position_status_report(
 
 #[cfg(test)]
 mod tests {
-    use nautilus_model::{instruments::InstrumentAny, types::fixed::FIXED_PRECISION};
+    use nautilus_model::instruments::InstrumentAny;
+
     use rust_decimal::Decimal;
     use serde_json::json;
 
@@ -165,32 +166,16 @@ mod tests {
     }
 
     #[test]
-    fn wei_at_fixed_precision_boundary_floor_with_positive_dust_rejected() {
-        let unit = U256::from(10u64.pow(18 - u32::from(FIXED_PRECISION)));
-        let (position, instrument) = fixture(unit, 1);
-        let result = report(&position, &instrument).unwrap();
-        assert_eq!(
-            result.quantity.as_decimal(),
-            Decimal::new(1, u32::from(FIXED_PRECISION))
-        );
-        let (position, instrument) = fixture(unit + U256::from(1), 1);
-        assert_eq!(
-            report(&position, &instrument)
-                .unwrap()
-                .quantity
-                .as_decimal(),
-            Decimal::new(1, u32::from(FIXED_PRECISION))
-        );
-        let (position, instrument) = fixture(unit - U256::from(1), 1);
-        assert!(matches!(
-            report(&position, &instrument),
-            Err(Error::Report(_))
-        ));
-        let (position, instrument) = fixture(U256::from(1), 1);
-        assert!(matches!(
-            report(&position, &instrument),
-            Err(Error::Report(_))
-        ));
+    fn exact_report_keeps_atomic_holdings_and_positive_dust() {
+        for amount in [1u64, 99, 101, 340_000_000_000_000_001] {
+            let (position, instrument) = fixture(U256::from(amount), 1);
+            let report = report(&position, &instrument).unwrap();
+            assert_eq!(
+                report.quantity.as_decimal(),
+                Decimal::from_i128_with_scale(i128::from(amount), 18)
+            );
+            assert_eq!(report.position_side, PositionSide::Long);
+        }
     }
 
     #[test]

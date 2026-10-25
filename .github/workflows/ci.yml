@@ -13,9 +13,9 @@ env:
   CARGO_TERM_COLOR: always
   # Keep in sync with rust-toolchain.toml / workspace.package.rust-version
   RUSTUP_TOOLCHAIN: 1.99.0
-  # Pin sibling nautilus_trader revision (do not track develop tip).
-  # Local checkout used for current adapters: edd0b0f1588f241690f578ef8b141a947997486a
-  NAUTILUS_TRADER_REF: edd0b0f1588f241690f578ef8b141a947997486a
+  # Immutable project fork baseline, shared with bootstrap-deps.sh.
+  NAUTILUS_TRADER_REPOSITORY: graceyangfan/nautilus_trader
+  NAUTILUS_TRADER_REF: c9bbbcd89421245fa86286caaa173c6524638461
 
 jobs:
   pre-commit:
@@ -29,7 +29,7 @@ jobs:
       - name: Checkout nautilus_trader
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: graceyangfan/nautilus_trader
+          repository: ${{ env.NAUTILUS_TRADER_REPOSITORY }}
           ref: ${{ env.NAUTILUS_TRADER_REF }}
           path: nautilus_trader_quantity_commission
           submodules: recursive
@@ -68,7 +68,7 @@ jobs:
       - name: Checkout nautilus_trader
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: graceyangfan/nautilus_trader
+          repository: ${{ env.NAUTILUS_TRADER_REPOSITORY }}
           ref: ${{ env.NAUTILUS_TRADER_REF }}
           path: nautilus_trader_quantity_commission
           submodules: recursive
@@ -87,7 +87,7 @@ jobs:
       # Default features = all-venues (operator-friendly full CLI).
       - name: Run unit tests (default features)
         working-directory: catalog_capture
-        run: cargo test --workspace --lib --bins
+        run: cargo test --workspace --lib --bins --locked
 
       - name: Run Lighter extension offline integration tests
         working-directory: catalog_capture
@@ -99,22 +99,18 @@ jobs:
 
       - name: Run Predict adapter tests
         working-directory: catalog_capture
-        run: cargo test -p nautilus-predict --lib --tests --locked
+        run: cargo test -p nautilus-predict --lib --tests --locked -- --test-threads=1
 
       - name: Verify Predict private execution offline
         working-directory: catalog_capture
         run: |
-          cargo test -p nautilus-predict --features execution --lib --tests --locked
+          cargo test -p nautilus-predict --features execution --lib --tests --locked -- --test-threads=1
           cargo clippy -p nautilus-predict --features execution --all-targets --locked -- -D warnings
           cargo check -p nautilus-predict --lib --no-default-features --features execution --locked
 
       - name: Build Predict API documentation
         working-directory: catalog_capture
         run: cargo doc -p nautilus-predict --no-deps --features execution --locked
-
-      - name: Verify Predict quantity-commission baseline offline
-        working-directory: catalog_capture
-        run: cargo test -p nautilus-predict --features native-quantity-commission --lib --tests --locked
 
       - name: Check Predict domain without live runtime
         working-directory: catalog_capture
@@ -123,11 +119,11 @@ jobs:
       # Slim CLI graph smoke: deribit-only product binary still compiles.
       - name: Check slim venue-deribit CLI
         working-directory: catalog_capture
-        run: cargo check -p catalog-capture-cli --no-default-features --features venue-deribit
+        run: cargo check -p catalog-capture-cli --no-default-features --features venue-deribit --locked
 
       - name: Run clippy
         working-directory: catalog_capture
-        run: cargo clippy -p nautilus-lighter-ext -p nautilus-predict -p catalog-capture-core -p catalog-capture-runtime-adapter -p catalog-capture-cli --all-targets -- -D warnings
+        run: cargo clippy -p nautilus-lighter-ext -p nautilus-predict -p catalog-capture-core -p catalog-capture-runtime-adapter -p catalog-capture-cli --all-targets --locked -- -D warnings
 
   cargo-deny:
     runs-on: ubuntu-latest
@@ -141,7 +137,7 @@ jobs:
       - name: Checkout nautilus_trader
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: graceyangfan/nautilus_trader
+          repository: ${{ env.NAUTILUS_TRADER_REPOSITORY }}
           ref: ${{ env.NAUTILUS_TRADER_REF }}
           path: nautilus_trader_quantity_commission
           submodules: recursive

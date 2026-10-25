@@ -32,9 +32,9 @@ use crate::{
     http::account_models::PredictFeeType,
 };
 
-// Position's signed_qty is f64 in the pinned native model. This small share tolerance
-// avoids repeated synthetic corrections for sub-picounit projection residuals only;
-// raw wei and per-order fill quantities are never compared with this tolerance.
+// Preserve the established reconciliation tolerance for historical projected holdings.
+// Exact atomic fees, raw settlement identity and gross order quantities never use
+// this tolerance; their validation remains exact.
 pub(super) const POSITION_RECONCILIATION_TOLERANCE: Decimal =
     Decimal::from_parts(1, 0, 0, false, 12);
 
@@ -239,8 +239,8 @@ impl FillPrefix {
         let quantity = order.quantity().as_decimal();
         let raw_quantity = decimal_to_wei(quantity)?;
         anyhow::ensure!(
-            self.raw <= raw_quantity,
-            "Predict raw fills exceed cached native order quantity"
+            self.raw <= decimal_to_wei(order.submitted_quantity().as_decimal())?,
+            "Predict raw fills exceed original submitted order quantity"
         );
         anyhow::ensure!(
             self.allocated <= quantity,
@@ -248,8 +248,11 @@ impl FillPrefix {
         );
         if self.allocated == quantity {
             anyhow::ensure!(
-                self.complete && self.raw == raw_quantity,
-                "Predict full fill requires complete exact raw settlement quantity"
+                self.complete
+                    && (self.raw == raw_quantity
+                        || order.status() == nautilus_model::enums::OrderStatus::Filled
+                            && order.quantity() != order.submitted_quantity()),
+                "Predict full fill requires complete raw evidence or verified terminal normalization"
             );
         }
         Ok(())
@@ -275,19 +278,9 @@ fn same_facts(left: &BufferedFill, right: &BufferedFill) -> bool {
 }
 
 impl FillEvidence {
-    /// Only reports still queued to Native, independent of retained history size.
-    pub fn queued_client_order_ids(
-        &self,
-    ) -> impl Iterator<Item = Option<nautilus_model::identifiers::ClientOrderId>> + '_ {
-        self.queued
-            .values()
-            .flat_map(|pending| pending.keys())
-            .filter_map(|id| self.entries.get(id))
-            .map(|fill| fill.report.client_order_id)
-    }
-
     /// Recovery's cross-IO comparison snapshot contains only relevant raw facts,
     /// not another account's orders or custom-data notification/queue state.
+    #[cfg(test)]
     pub fn snapshot_for_orders(&self, owners: impl Iterator<Item = VenueOrderId>) -> Self {
         let mut snapshot = Self::default();
         for owner in owners {
@@ -584,6 +577,46 @@ impl FillEvidence {
             "Predict quantity precision exceeds atomic precision"
         );
         let amount = fill.raw.gross_shares;
+        let atomic = crate::common::parse::exact_wei_quantity(amount)?;
+        let retained_quantity = self
+            .entries
+            .get(&fill.report.trade_id)
+            .map(|previous| previous.report.last_qty)
+            .or_else(|| applied.map(|previous| previous.last_qty));
+        // Only existing projected allocations select the legacy carry path. New
+        // orders retain actual quantities independently of their fee denomination.
+        let projected_prefix = !prefix.complete && !prefix.allocated.is_zero()
+            || prefix.complete && crate::common::parse::exact_wei(prefix.raw)? != prefix.allocated;
+        let projected_fill = retained_quantity.is_some_and(|quantity| quantity != atomic);
+        if fill.report.quantity_commission.is_some() || !projected_prefix && !projected_fill {
+            let unit = U256::from(10u64.pow(18 - u32::from(dp)));
+            let quantity = if amount % unit == U256::ZERO {
+                floor_wei_quantity(amount, dp)?
+            } else {
+                crate::common::parse::exact_wei_quantity(amount)?
+            };
+            anyhow::ensure!(!quantity.is_zero(), "Predict confirmed fill has zero size");
+            if let Some(previous) = self.entries.get(&fill.report.trade_id) {
+                anyhow::ensure!(
+                    same_facts(previous, fill),
+                    "Predict settlement replay contains conflicting raw fill facts"
+                );
+                anyhow::ensure!(
+                    previous.report.last_qty == quantity,
+                    "Predict retained gross quantity differs from atomic settlement"
+                );
+            }
+            fill.report.last_qty = quantity;
+            if fill.raw.fee_type == PredictFeeType::Collateral {
+                self.normalize_collateral_commission(fill, applied, prefix)?;
+            }
+            if let Some(applied) = applied {
+                super::parse::validate_native_fill(&fill.report, applied)?;
+            } else {
+                prefix.include(fill.report.trade_id, quantity.as_decimal(), Some(&fill.raw))?;
+            }
+            return Ok(applied.is_some());
+        }
         let unit = U256::from(10u64.pow(18 - u32::from(dp)));
         let floor = floor_wei_quantity(amount, dp)?.as_decimal();
         let ceiling = floor
@@ -721,6 +754,7 @@ impl FillEvidence {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn confirmed_raw(
         &mut self,
         order: &impl super::context::OrderView,
@@ -749,11 +783,8 @@ impl FillEvidence {
     pub fn validate_commit(&self, reports: &[BufferedFill]) -> anyhow::Result<()> {
         let mut seen = HashMap::new();
         for report in reports {
-            if let Some(old) = self
-                .entries
-                .get(&report.report.trade_id)
-                .or_else(|| seen.get(&report.report.trade_id).copied())
-            {
+            let committed = self.entries.get(&report.report.trade_id);
+            if let Some(old) = committed.or_else(|| seen.get(&report.report.trade_id).copied()) {
                 anyhow::ensure!(
                     same_facts(old, report)
                         && old.report.last_qty == report.report.last_qty
@@ -761,9 +792,9 @@ impl FillEvidence {
                     "Predict settlement allocation changed during replay"
                 );
             }
-            // One wallet fill cannot duplicate itself within the batch. Do not
-            // allocate a temporary ID map for every normal WS settlement.
-            if reports.len() > 1 {
+            // Committed IDs already have an immutable reference to validate against.
+            // Only unseen IDs in a multi-fill batch need a temporary duplicate index.
+            if reports.len() > 1 && committed.is_none() {
                 seen.insert(report.report.trade_id, report);
                 #[cfg(test)]
                 COMMIT_BATCH_IDS.with(|n| n.set(n.get() + 1));
@@ -775,14 +806,16 @@ impl FillEvidence {
     pub fn commit(&mut self, reports: &[BufferedFill]) -> anyhow::Result<()> {
         self.validate_commit(reports)?;
         for report in reports {
-            self.by_order
-                .entry(report.report.venue_order_id)
-                .or_default()
-                .ids
-                .insert(report.report.trade_id);
-            self.entries
-                .entry(report.report.trade_id)
-                .or_insert_with(|| report.clone());
+            if let std::collections::hash_map::Entry::Vacant(entry) =
+                self.entries.entry(report.report.trade_id)
+            {
+                self.by_order
+                    .entry(report.report.venue_order_id)
+                    .or_default()
+                    .ids
+                    .insert(report.report.trade_id);
+                entry.insert(report.clone());
+            }
         }
         Ok(())
     }

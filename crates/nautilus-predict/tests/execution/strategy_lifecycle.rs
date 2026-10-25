@@ -7,7 +7,7 @@
 use nautilus_core::time::get_atomic_clock_realtime;
 use nautilus_live::node::config::LiveExecutionEngineConfig;
 use nautilus_model::identifiers::ClientOrderId;
-use nautilus_predict::{PredictDataClientConfig, PredictSubmissionConfig};
+use nautilus_predict::PredictDataClientConfig;
 
 use super::{
     exit_orders::{
@@ -527,18 +527,14 @@ async fn run(case: Case, from_saved: bool) -> Value {
     cfg.account_refresh_interval_secs = 1;
     cfg.reconnect_reconciliation_interval_secs = reconnect.then_some(1);
     cfg.orderbook_removal_enabled = true;
-    cfg.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            nautilus_predict::signing::PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = Some(Arc::new(
+        nautilus_predict::signing::PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let public = PublicState(Arc::new(Mutex::new(vec![])));
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -596,6 +592,9 @@ async fn run(case: Case, from_saved: bool) -> Value {
             .is_empty()
     );
     let journal = Rc::new(RefCell::new(vec![]));
+    // The fixture controls when a fresh exit signal is actionable. Cancellation
+    // callbacks may precede the deliberately lost fill; they must not be delayed by the adapter.
+    let replay_signal_ready = Rc::new(std::cell::Cell::new(true));
     let strategy = ExitStrategy::new(
         instrument_id(1),
         1,
@@ -632,6 +631,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
     let strategy = if reconnect {
         let engine = engine.clone();
         let observations = journal.clone();
+        let replay_signal_ready = replay_signal_ready.clone();
         let observed = std::cell::Cell::new(None);
         strategy.with_execution_probe(Rc::new(move || {
             let connected = engine.try_borrow_mut().ok().and_then(|mut engine| {
@@ -646,7 +646,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
                     .borrow_mut()
                     .push(json!({"type":"ExecutionConnectionObserved","connected":connected}));
             }
-            connected.unwrap_or(false)
+            connected.unwrap_or(false) && replay_signal_ready.get()
         }))
     } else {
         strategy
@@ -1117,6 +1117,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
                     let race = settlement(&maker, 1, 46, 46, "0.013", "native-cancel-race", true);
                     if case.cancel_gap() {
                         // Preserve the raw wallet JSON but lose this receipt during the gap.
+                        replay_signal_ready.set(false);
                         events.push(race.clone());
                         assert_eq!(
                             cache
@@ -1186,6 +1187,22 @@ async fn run(case: Case, from_saved: bool) -> Value {
                             private.state.sockets.lock().unwrap().len() > count
                         })
                         .await;
+                        // Native's inflight timer owns recovery of this PendingCancel.
+                        let maker_id = native_id(&cache, &maker);
+                        barrier(
+                            "Native query applies cancel-race fill before exit sizing",
+                            || {
+                                cache
+                                    .borrow()
+                                    .order(&maker_id)
+                                    .unwrap()
+                                    .filled_qty()
+                                    .as_decimal()
+                                    == Decimal::from(46)
+                            },
+                        )
+                        .await;
+                        replay_signal_ready.set(true);
                         gate.notify_one();
                         books.push(book(&private, &public, "0.008", saved.as_ref()));
                         barrier("REST restores canceled TP before stop", || {
@@ -2144,7 +2161,7 @@ async fn automatic_reconnect_restores_active_take_profit_without_replacement_the
     run(Case::ReconnectStop, true).await;
 }
 #[tokio::test(flavor = "current_thread")]
-async fn automatic_reconnect_recovers_cancel_fill_race_before_taker_stop() {
+async fn native_inflight_recovers_cancel_fill_race_before_taker_stop() {
     run(Case::ReconnectCancelStop, true).await;
 }
 #[tokio::test(flavor = "current_thread")]

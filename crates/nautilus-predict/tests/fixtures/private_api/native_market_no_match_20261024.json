@@ -1,0 +1,709 @@
+{
+  "source": "Actual mainnet Native Strategy/Risk/Execution using Predict crate; 2026-10-24. Python only verified and forwarded unchanged crate HTTP, observed wallet and checked cleanup.",
+  "marketId": 2508071,
+  "referencePrice": ".80",
+  "quantity": "1.25",
+  "maxSignedUSDTPerOrder": "1",
+  "oracle": [
+    {
+      "index": 0,
+      "passed": true,
+      "checks": {
+        "bounded_count": true,
+        "market_open": true,
+        "market_identity": true,
+        "price_gap": true,
+        "account": true,
+        "outcome": true,
+        "side": true,
+        "fee": true,
+        "amounts": true,
+        "strategy": true,
+        "reference": true,
+        "slippage": true,
+        "minimum_out": true,
+        "fok": true,
+        "no_post_only": true,
+        "expiration": true,
+        "hash": true,
+        "signature": true
+      },
+      "observedAsk": "0.84",
+      "request": {
+        "data": {
+          "pricePerShare": "800000000000000000",
+          "strategy": "MARKET",
+          "isFillOrKill": true,
+          "slippageBps": "0",
+          "isMinAmountOut": false,
+          "order": {
+            "salt": "1279014119",
+            "maker": "[redacted-address]",
+            "signer": "[redacted-address]",
+            "taker": "[redacted-address]",
+            "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "1250000000000000000",
+            "expiration": 1792851517,
+            "nonce": "0",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf",
+            "signature": "[redacted-signature]"
+          }
+        }
+      }
+    },
+    {
+      "index": 1,
+      "passed": true,
+      "checks": {
+        "bounded_count": true,
+        "market_open": true,
+        "market_identity": true,
+        "price_gap": true,
+        "account": true,
+        "outcome": true,
+        "side": true,
+        "fee": true,
+        "amounts": true,
+        "strategy": true,
+        "reference": true,
+        "slippage": true,
+        "minimum_out": true,
+        "fok": true,
+        "no_post_only": true,
+        "expiration": true,
+        "hash": true,
+        "signature": true
+      },
+      "observedAsk": "0.84",
+      "request": {
+        "data": {
+          "pricePerShare": "800000000000000000",
+          "strategy": "MARKET",
+          "slippageBps": "0",
+          "isMinAmountOut": false,
+          "order": {
+            "salt": "326001608",
+            "maker": "[redacted-address]",
+            "signer": "[redacted-address]",
+            "taker": "[redacted-address]",
+            "tokenId": "53041617298155882833513813829107031991938603210120735479978149505019847463868",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "1250000000000000000",
+            "expiration": 1792851518,
+            "nonce": "0",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643",
+            "signature": "[redacted-signature]"
+          }
+        }
+      }
+    }
+  ],
+  "native": {
+    "marketId": 2508071,
+    "marketFlags": {
+      "isNegRisk": false,
+      "isYieldBearing": true
+    },
+    "journal": [
+      {
+        "type": "NativeSubmitIntent",
+        "clientOrderId": "O-20261024-141337-001-001-1",
+        "orderType": "MARKET",
+        "timeInForce": "FOK",
+        "quantity": "1.25",
+        "market_price": "0.80",
+        "market_order_slippage_bps": 0,
+        "observedAsk": "0.84"
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "Initialized": {
+            "type": "OrderInitialized",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141337-001-001-1",
+            "order_side": "BUY",
+            "order_type": "MARKET",
+            "quantity": "1.25",
+            "time_in_force": "FOK",
+            "post_only": false,
+            "reduce_only": false,
+            "quote_quantity": false,
+            "reconciliation": false,
+            "event_id": "627e1a3b-9731-4322-83ce-392d3162dca7",
+            "ts_event": 1792851217605029000,
+            "ts_init": 1792851217605029000,
+            "price": null,
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "expire_time": null,
+            "display_qty": null,
+            "emulation_trigger": "NO_TRIGGER",
+            "trigger_instrument_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "order_list_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "exec_algorithm_id": null,
+            "exec_algorithm_params": null,
+            "exec_spawn_id": null,
+            "tags": null
+          }
+        }
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "Submitted": {
+            "type": "OrderSubmitted",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141337-001-001-1",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "4195cba6-3ad4-436c-9a53-c0586b0a6e80",
+            "ts_event": 1792851217607890000,
+            "ts_init": 1792851217607890000
+          }
+        }
+      },
+      {
+        "type": "StrategyOrderAccepted",
+        "clientOrderId": "O-20261024-141337-001-001-1"
+      },
+      {
+        "type": "NativeCancelRequested",
+        "clientOrderId": "O-20261024-141337-001-001-1"
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "PendingCancel": {
+            "type": "OrderPendingCancel",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141337-001-001-1",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "bbd00c1f-ea72-42fa-b24a-beef893ba8a5",
+            "ts_event": 1792851218757355000,
+            "ts_init": 1792851218757355000,
+            "reconciliation": false,
+            "venue_order_id": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf"
+          }
+        }
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "Accepted": {
+            "type": "OrderAccepted",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141337-001-001-1",
+            "venue_order_id": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "66d1dc0f-d831-417d-ab2f-b01f17c33956",
+            "ts_event": 1792851217241000000,
+            "ts_init": 1792851218756986000,
+            "reconciliation": false
+          }
+        }
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "Rejected": {
+            "type": "OrderRejected",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141337-001-001-1",
+            "account_id": "PREDICT-native-market-probe",
+            "reason": "Predict no market match",
+            "event_id": "a7526b95-cfaa-4f99-8069-79ce92e4631b",
+            "ts_event": 1792851217493000000,
+            "ts_init": 1792851218758923000,
+            "reconciliation": false,
+            "due_post_only": false
+          }
+        }
+      },
+      {
+        "type": "NativeSubmitIntent",
+        "clientOrderId": "O-20261024-141338-001-001-2",
+        "orderType": "MARKET",
+        "timeInForce": "GTC",
+        "quantity": "1.25",
+        "market_price": "0.80",
+        "market_order_slippage_bps": 0,
+        "observedAsk": "0.84"
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "Initialized": {
+            "type": "OrderInitialized",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141338-001-001-2",
+            "order_side": "BUY",
+            "order_type": "MARKET",
+            "quantity": "1.25",
+            "time_in_force": "GTC",
+            "post_only": false,
+            "reduce_only": false,
+            "quote_quantity": false,
+            "reconciliation": false,
+            "event_id": "f9e4422a-6cea-4720-b379-a975388124b7",
+            "ts_event": 1792851218796186000,
+            "ts_init": 1792851218796186000,
+            "price": null,
+            "activation_price": null,
+            "trigger_price": null,
+            "trigger_type": "NO_TRIGGER",
+            "limit_offset": null,
+            "trailing_offset": null,
+            "trailing_offset_type": "NO_TRAILING_OFFSET",
+            "expire_time": null,
+            "display_qty": null,
+            "emulation_trigger": "NO_TRIGGER",
+            "trigger_instrument_id": null,
+            "contingency_type": "NO_CONTINGENCY",
+            "order_list_id": null,
+            "linked_order_ids": null,
+            "parent_order_id": null,
+            "exec_algorithm_id": null,
+            "exec_algorithm_params": null,
+            "exec_spawn_id": null,
+            "tags": null
+          }
+        }
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "Submitted": {
+            "type": "OrderSubmitted",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141338-001-001-2",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "c7a2254c-14ea-45e3-9a6d-14004c1f182f",
+            "ts_event": 1792851218796422000,
+            "ts_init": 1792851218796422000
+          }
+        }
+      },
+      {
+        "type": "StrategyOrderAccepted",
+        "clientOrderId": "O-20261024-141338-001-001-2"
+      },
+      {
+        "type": "NativeCancelRequested",
+        "clientOrderId": "O-20261024-141338-001-001-2"
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "PendingCancel": {
+            "type": "OrderPendingCancel",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141338-001-001-2",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "23af5299-3794-430b-9ece-659f7c0c5f67",
+            "ts_event": 1792851219978220000,
+            "ts_init": 1792851219978220000,
+            "reconciliation": false,
+            "venue_order_id": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643"
+          }
+        }
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "Accepted": {
+            "type": "OrderAccepted",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141338-001-001-2",
+            "venue_order_id": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643",
+            "account_id": "PREDICT-native-market-probe",
+            "event_id": "a19620b6-c7bb-405a-999e-3403632ce03e",
+            "ts_event": 1792851218408000000,
+            "ts_init": 1792851219977643000,
+            "reconciliation": false
+          }
+        }
+      },
+      {
+        "type": "NativeOrderEvent",
+        "event": {
+          "Rejected": {
+            "type": "OrderRejected",
+            "trader_id": "NATIVE-MARKET-001",
+            "strategy_id": "MARKET-PROBE-001",
+            "instrument_id": "2508071-1.PREDICT",
+            "client_order_id": "O-20261024-141338-001-001-2",
+            "account_id": "PREDICT-native-market-probe",
+            "reason": "Predict no market match",
+            "event_id": "87a9d777-9b1e-431d-8c3f-39ea254db2d4",
+            "ts_event": 1792851218660000000,
+            "ts_init": 1792851219978777000,
+            "reconciliation": false,
+            "due_post_only": false
+          }
+        }
+      }
+    ],
+    "orders": [
+      {
+        "clientOrderId": "O-20261024-141337-001-001-1",
+        "venueOrderId": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf",
+        "status": "REJECTED",
+        "quantity": "1.25",
+        "filled": "0.00",
+        "events": [
+          {
+            "Initialized": {
+              "type": "OrderInitialized",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141337-001-001-1",
+              "order_side": "BUY",
+              "order_type": "MARKET",
+              "quantity": "1.25",
+              "time_in_force": "FOK",
+              "post_only": false,
+              "reduce_only": false,
+              "quote_quantity": false,
+              "reconciliation": false,
+              "event_id": "627e1a3b-9731-4322-83ce-392d3162dca7",
+              "ts_event": 1792851217605029000,
+              "ts_init": 1792851217605029000,
+              "price": null,
+              "activation_price": null,
+              "trigger_price": null,
+              "trigger_type": "NO_TRIGGER",
+              "limit_offset": null,
+              "trailing_offset": null,
+              "trailing_offset_type": "NO_TRAILING_OFFSET",
+              "expire_time": null,
+              "display_qty": null,
+              "emulation_trigger": "NO_TRIGGER",
+              "trigger_instrument_id": null,
+              "contingency_type": "NO_CONTINGENCY",
+              "order_list_id": null,
+              "linked_order_ids": null,
+              "parent_order_id": null,
+              "exec_algorithm_id": null,
+              "exec_algorithm_params": null,
+              "exec_spawn_id": null,
+              "tags": null
+            }
+          },
+          {
+            "Submitted": {
+              "type": "OrderSubmitted",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141337-001-001-1",
+              "account_id": "PREDICT-native-market-probe",
+              "event_id": "4195cba6-3ad4-436c-9a53-c0586b0a6e80",
+              "ts_event": 1792851217607890000,
+              "ts_init": 1792851217607890000
+            }
+          },
+          {
+            "Accepted": {
+              "type": "OrderAccepted",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141337-001-001-1",
+              "venue_order_id": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf",
+              "account_id": "PREDICT-native-market-probe",
+              "event_id": "66d1dc0f-d831-417d-ab2f-b01f17c33956",
+              "ts_event": 1792851217241000000,
+              "ts_init": 1792851218756986000,
+              "reconciliation": false
+            }
+          },
+          {
+            "PendingCancel": {
+              "type": "OrderPendingCancel",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141337-001-001-1",
+              "account_id": "PREDICT-native-market-probe",
+              "event_id": "bbd00c1f-ea72-42fa-b24a-beef893ba8a5",
+              "ts_event": 1792851218757355000,
+              "ts_init": 1792851218757355000,
+              "reconciliation": false,
+              "venue_order_id": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf"
+            }
+          },
+          {
+            "Rejected": {
+              "type": "OrderRejected",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141337-001-001-1",
+              "account_id": "PREDICT-native-market-probe",
+              "reason": "Predict no market match",
+              "event_id": "a7526b95-cfaa-4f99-8069-79ce92e4631b",
+              "ts_event": 1792851217493000000,
+              "ts_init": 1792851218758923000,
+              "reconciliation": false,
+              "due_post_only": false
+            }
+          }
+        ]
+      },
+      {
+        "clientOrderId": "O-20261024-141338-001-001-2",
+        "venueOrderId": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643",
+        "status": "REJECTED",
+        "quantity": "1.25",
+        "filled": "0.00",
+        "events": [
+          {
+            "Initialized": {
+              "type": "OrderInitialized",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141338-001-001-2",
+              "order_side": "BUY",
+              "order_type": "MARKET",
+              "quantity": "1.25",
+              "time_in_force": "GTC",
+              "post_only": false,
+              "reduce_only": false,
+              "quote_quantity": false,
+              "reconciliation": false,
+              "event_id": "f9e4422a-6cea-4720-b379-a975388124b7",
+              "ts_event": 1792851218796186000,
+              "ts_init": 1792851218796186000,
+              "price": null,
+              "activation_price": null,
+              "trigger_price": null,
+              "trigger_type": "NO_TRIGGER",
+              "limit_offset": null,
+              "trailing_offset": null,
+              "trailing_offset_type": "NO_TRAILING_OFFSET",
+              "expire_time": null,
+              "display_qty": null,
+              "emulation_trigger": "NO_TRIGGER",
+              "trigger_instrument_id": null,
+              "contingency_type": "NO_CONTINGENCY",
+              "order_list_id": null,
+              "linked_order_ids": null,
+              "parent_order_id": null,
+              "exec_algorithm_id": null,
+              "exec_algorithm_params": null,
+              "exec_spawn_id": null,
+              "tags": null
+            }
+          },
+          {
+            "Submitted": {
+              "type": "OrderSubmitted",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141338-001-001-2",
+              "account_id": "PREDICT-native-market-probe",
+              "event_id": "c7a2254c-14ea-45e3-9a6d-14004c1f182f",
+              "ts_event": 1792851218796422000,
+              "ts_init": 1792851218796422000
+            }
+          },
+          {
+            "Accepted": {
+              "type": "OrderAccepted",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141338-001-001-2",
+              "venue_order_id": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643",
+              "account_id": "PREDICT-native-market-probe",
+              "event_id": "a19620b6-c7bb-405a-999e-3403632ce03e",
+              "ts_event": 1792851218408000000,
+              "ts_init": 1792851219977643000,
+              "reconciliation": false
+            }
+          },
+          {
+            "PendingCancel": {
+              "type": "OrderPendingCancel",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141338-001-001-2",
+              "account_id": "PREDICT-native-market-probe",
+              "event_id": "23af5299-3794-430b-9ece-659f7c0c5f67",
+              "ts_event": 1792851219978220000,
+              "ts_init": 1792851219978220000,
+              "reconciliation": false,
+              "venue_order_id": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643"
+            }
+          },
+          {
+            "Rejected": {
+              "type": "OrderRejected",
+              "trader_id": "NATIVE-MARKET-001",
+              "strategy_id": "MARKET-PROBE-001",
+              "instrument_id": "2508071-1.PREDICT",
+              "client_order_id": "O-20261024-141338-001-001-2",
+              "account_id": "PREDICT-native-market-probe",
+              "reason": "Predict no market match",
+              "event_id": "87a9d777-9b1e-431d-8c3f-39ea254db2d4",
+              "ts_event": 1792851218660000000,
+              "ts_init": 1792851219978777000,
+              "reconciliation": false,
+              "due_post_only": false
+            }
+          }
+        ]
+      }
+    ],
+    "complete": true,
+    "hasFill": false
+  },
+  "walletEvents": [
+    {
+      "details": {
+        "categorySlug": "will-bnb-hit-700-or-900",
+        "marketId": 2508071,
+        "marketQuestion": "Will BNB hit $700 or $900 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$700",
+        "price": "0.800",
+        "quantity": "1.250",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf",
+      "orderId": "6190519047",
+      "timestamp": 1792851217241,
+      "type": "orderAccepted",
+      "walletAddress": "[redacted]"
+    },
+    {
+      "details": {
+        "categorySlug": "will-bnb-hit-700-or-900",
+        "marketId": 2508071,
+        "marketQuestion": "Will BNB hit $700 or $900 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$700",
+        "price": "0.800",
+        "quantity": "1.250",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf",
+      "orderId": "6190519047",
+      "reason": "noMarketMatch",
+      "settlementId": null,
+      "timestamp": 1792851217493,
+      "type": "orderNotAccepted",
+      "walletAddress": "[redacted]"
+    },
+    {
+      "details": {
+        "categorySlug": "will-bnb-hit-700-or-900",
+        "marketId": 2508071,
+        "marketQuestion": "Will BNB hit $700 or $900 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$700",
+        "price": "0.800",
+        "quantity": "1.250",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643",
+      "orderId": "6190519925",
+      "timestamp": 1792851218408,
+      "type": "orderAccepted",
+      "walletAddress": "[redacted]"
+    },
+    {
+      "details": {
+        "categorySlug": "will-bnb-hit-700-or-900",
+        "marketId": 2508071,
+        "marketQuestion": "Will BNB hit $700 or $900 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$700",
+        "price": "0.800",
+        "quantity": "1.250",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643",
+      "orderId": "6190519925",
+      "reason": "noMarketMatch",
+      "settlementId": null,
+      "timestamp": 1792851218660,
+      "type": "orderNotAccepted",
+      "walletAddress": "[redacted]"
+    }
+  ],
+  "finalOrders": [
+    {
+      "hash": "0x92a7613b4642207ffb6547fde8111e4962aa6360d69509a0eea5929507324643",
+      "status": "CANCELLED",
+      "amountFilled": "0"
+    },
+    {
+      "hash": "0x588f4796dc5b6212371f8d7be92f257ede25b3c30ef9d3a53c2930b7f72a7aaf",
+      "status": "CANCELLED",
+      "amountFilled": "0"
+    }
+  ],
+  "cleanup": {
+    "verifiedOpenOrders": 0,
+    "verifiedRunOpenOrders": 0,
+    "unrelatedOpenOrders": 0,
+    "fallbackRemovedIds": []
+  }
+}

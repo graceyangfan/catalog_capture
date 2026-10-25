@@ -478,6 +478,65 @@ async fn reconnect_invalidates_ack_and_requires_fresh_subscription_and_reconcili
 }
 
 #[tokio::test]
+#[ignore = "explicit repeated loopback reconnects, including Native's 10-second backoff cap"]
+async fn repeated_reconnects_deliver_each_epoch_once_and_close_the_session() {
+    for backend in [TransportBackend::Tungstenite, TransportBackend::Sockudo] {
+        let mut server = server().await;
+        let mut client = connect(&server, backend).await;
+        let mut previous: Option<Value> = None;
+        for epoch in 0..16u64 {
+            let connection = timeout(Duration::from_secs(15), server.connections.recv())
+                .await
+                .expect("connection must return within Native's reconnect backoff cap")
+                .unwrap();
+            let (owner, request) = server.request().await;
+            assert_eq!(owner, connection.id);
+            assert_eq!(request["method"], "subscribe");
+            assert_eq!(
+                request["params"],
+                json!([format!("predictWalletEvents/{TOKEN}")])
+            );
+            if let Some(old) = &previous {
+                assert_ne!(request["requestId"], old["requestId"]);
+                connection.ack(old);
+                connection.json(json!({"type":"M","topic":"heartbeat","data":epoch}));
+                let (owner, echo) = server.request().await;
+                assert_eq!(owner, connection.id);
+                assert_eq!(echo["data"], epoch);
+                assert!(matches!(
+                    client.subscription_state(),
+                    PredictWalletSubscriptionState::Subscribing { connection_epoch }
+                        if connection_epoch == epoch
+                ));
+            }
+            connection.ack(&request);
+            assert_eq!(client.wait_until_subscribed().await.unwrap(), epoch);
+            assert!(matches!(
+                next(&mut client).await,
+                PredictWalletStreamMessage::Subscribed {
+                    connection_epoch,
+                    reconciliation_required: true,
+                } if connection_epoch == epoch
+            ));
+            connection.wallet(event("orderAccepted"));
+            assert!(matches!(
+                next(&mut client).await,
+                PredictWalletStreamMessage::Wallet { connection_epoch, .. }
+                    if connection_epoch == epoch
+            ));
+            previous = Some(request);
+            if epoch < 15 {
+                connection.send.send(Message::Close(None)).unwrap();
+            }
+        }
+        client.close().await.unwrap();
+        assert_eq!(server.handshakes.lock().unwrap().len(), 16);
+        assert!(server.connections.try_recv().is_err());
+        assert!(server.requests.try_recv().is_err());
+    }
+}
+
+#[tokio::test]
 async fn rejected_expired_credentials_fail_without_retry_or_echoed_server_text() {
     let mut server = server().await;
     let mut client = connect(&server, TransportBackend::Tungstenite).await;
@@ -1020,7 +1079,7 @@ async fn execution_lifecycle_renews_readonly_authentication_and_cancels_its_work
         )
         .unwrap(),
     ));
-    assert!(cfg.submission.is_none());
+    assert!(cfg.submission_signer.is_none());
     let (sender, _events) = mpsc::unbounded_channel();
     nautilus_common::live::runner::replace_exec_event_sender(sender);
     let mut client = PredictExecutionClient::new(core, cfg).unwrap();
@@ -1048,12 +1107,83 @@ async fn execution_lifecycle_renews_readonly_authentication_and_cancels_its_work
     second.json(json!({"type":"M","topic":"heartbeat","data":"renewal-confirmed"}));
     let (_, echo) = server.request().await;
     assert_eq!(echo["data"], "renewal-confirmed");
-    // An ACK establishes the protocol session, not native reconciliation readiness.
+    // Transport-only diagnostics have no reported account to reconcile.
     assert!(
-        !client.is_connected(),
-        "account verification is still required after renewal"
+        client.is_connected(),
+        "renewed authenticated transport is available"
     );
     client.disconnect().await.unwrap();
     assert!(!client.is_connected());
     assert_eq!(server.handshakes.lock().unwrap().len(), 2);
+}
+
+#[test]
+fn recorded_market_fok_no_match_preserves_acceptance_then_rejection() {
+    use nautilus_predict::websocket::private_messages::{
+        PredictWalletEvent, PredictWalletRejectionReason,
+    };
+    let capture: Value = serde_json::from_str(include_str!(
+        "fixtures/private_api/market_fok_no_match_20261024.json"
+    ))
+    .unwrap();
+    let rows = capture["walletEvents"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    let parsed: Vec<PredictWalletEvent> = rows
+        .iter()
+        .map(|row| {
+            let mut row = row.clone();
+            // Operational evidence redacts identity; substitute the public mock wallet only.
+            row["walletAddress"] = event("orderAccepted")["walletAddress"].clone();
+            serde_json::from_value(row).unwrap()
+        })
+        .collect();
+    assert!(matches!(
+        parsed[0].kind,
+        PredictWalletEventKind::OrderAccepted
+    ));
+    assert!(matches!(
+        parsed[1].kind,
+        PredictWalletEventKind::OrderNotAccepted {
+            reason: PredictWalletRejectionReason::NoMarketMatch
+        }
+    ));
+    assert_eq!(parsed[0].order.order_hash, parsed[1].order.order_hash);
+    assert_eq!(capture["immediateRestStatus"], "OPEN");
+    assert_eq!(capture["finalRestStatus"], "CANCELLED");
+    assert_eq!(capture["finalAmountFilled"], "0");
+    assert_eq!(capture["finalRunOpenOrders"], 0);
+}
+
+#[test]
+fn recorded_post_only_stp_maker_accept_cancel_is_zero_fill() {
+    use nautilus_predict::websocket::private_messages::PredictWalletEvent;
+    let capture: Value = serde_json::from_str(include_str!(
+        "fixtures/private_api/maker_post_only_stp_cancel_20261024.json"
+    ))
+    .unwrap();
+    let rows = capture["walletEvents"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    let events: Vec<PredictWalletEvent> = rows
+        .iter()
+        .map(|row| {
+            let mut row = row.clone();
+            row["walletAddress"] = event("orderAccepted")["walletAddress"].clone();
+            serde_json::from_value(row).unwrap()
+        })
+        .collect();
+    assert!(matches!(
+        events[0].kind,
+        PredictWalletEventKind::OrderAccepted
+    ));
+    assert!(matches!(
+        events[1].kind,
+        PredictWalletEventKind::OrderCancelled { .. }
+    ));
+    assert_eq!(events[0].order.order_hash, events[1].order.order_hash);
+    assert_eq!(capture["request"]["isPostOnly"], true);
+    assert_eq!(capture["request"]["selfTradePrevention"], "CANCEL_TAKER");
+    assert!(capture["removalLockedUntil"].is_null());
+    assert_eq!(capture["finalRestStatus"], "CANCELLED");
+    assert_eq!(capture["finalAmountFilled"], "0");
+    assert_eq!(capture["finalRunOpenOrders"], 0);
 }

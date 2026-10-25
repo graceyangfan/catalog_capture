@@ -28,10 +28,15 @@ pub(super) fn sell(index: u8, number: u32) -> OrderAny {
         .build()
 }
 
-pub(super) fn priced(order: &OrderAny, price: Value) -> SubmitOrder {
+pub(super) fn priced(order: &OrderAny, price: Value, slippage_bps: u32) -> SubmitOrder {
     let mut command = submissions::submit(order);
-    let mut params = Params::new();
-    params.insert("market_price".into(), price);
+    let params = Params::new(
+        [
+            ("market_price".into(), price),
+            ("market_order_slippage_bps".into(), json!(slippage_bps)),
+        ]
+        .into(),
+    );
     command.params = Some(params);
     command
 }
@@ -101,7 +106,9 @@ async fn strategy_market_price_signs_exact_sdk_bounds_without_orderbook_or_fundi
             .borrow_mut()
             .add_order(own.clone(), None, None, false)
             .unwrap();
-        client.submit_order(priced(&own, json!("0.020"))).unwrap();
+        client
+            .submit_order(priced(&own, json!("0.020"), 100))
+            .unwrap();
         exit_orders::barrier("strategy-priced MARKET POST", || {
             !server.state.creations.lock().unwrap().is_empty()
         })
@@ -156,7 +163,7 @@ async fn invalid_strategy_price_is_denied_and_slippage_floor_minimum_still_rejec
             .borrow_mut()
             .add_order(own.clone(), None, None, false)
             .unwrap();
-        client.submit_order(priced(&own, price)).unwrap();
+        client.submit_order(priced(&own, price, 100)).unwrap();
         loop {
             let incoming = next(&mut rx).await;
             let terminal = matches!(
@@ -212,7 +219,9 @@ async fn background_metadata_refresh_does_not_block_valid_commands_and_reuses_in
         .borrow_mut()
         .add_order(first.clone(), None, None, false)
         .unwrap();
-    client.submit_order(priced(&first, json!("0.020"))).unwrap();
+    client
+        .submit_order(priced(&first, json!("0.020"), 100))
+        .unwrap();
     exit_orders::barrier("valid metadata bypasses blocked refresher", || {
         server.state.creations.lock().unwrap().len() == 1
     })
@@ -229,7 +238,7 @@ async fn background_metadata_refresh_does_not_block_valid_commands_and_reuses_in
         .add_order(second.clone(), None, None, false)
         .unwrap();
     client
-        .submit_order(priced(&second, json!("0.020")))
+        .submit_order(priced(&second, json!("0.020"), 100))
         .unwrap();
     let mut engine = submissions::engine(&cache);
     loop {
@@ -248,7 +257,9 @@ async fn background_metadata_refresh_does_not_block_valid_commands_and_reuses_in
         .borrow_mut()
         .add_order(third.clone(), None, None, false)
         .unwrap();
-    client.submit_order(priced(&third, json!("0.020"))).unwrap();
+    client
+        .submit_order(priced(&third, json!("0.020"), 100))
+        .unwrap();
     exit_orders::barrier("new fee used from prepared shared slot", || {
         server.state.creations.lock().unwrap().len() == 2
     })
@@ -303,7 +314,9 @@ async fn expired_instruments_are_not_prewarmed_and_stopped_load_cannot_repopulat
         .borrow_mut()
         .add_order(own.clone(), None, None, false)
         .unwrap();
-    client.submit_order(priced(&own, json!("0.020"))).unwrap();
+    client
+        .submit_order(priced(&own, json!("0.020"), 100))
+        .unwrap();
     exit_orders::barrier("new generation uses its own prepared metadata", || {
         !server.state.creations.lock().unwrap().is_empty()
     })
@@ -342,7 +355,9 @@ async fn background_validation_rejects_invalid_fee_and_sibling_token_before_cach
             .borrow_mut()
             .add_order(own.clone(), None, None, false)
             .unwrap();
-        client.submit_order(priced(&own, json!("0.020"))).unwrap();
+        client
+            .submit_order(priced(&own, json!("0.020"), 100))
+            .unwrap();
         loop {
             if matches!(
                 next(&mut rx).await,
@@ -354,4 +369,116 @@ async fn background_validation_rejects_invalid_fee_and_sibling_token_before_cach
         assert!(server.state.creations.lock().unwrap().is_empty());
         client.disconnect().await.unwrap();
     }
+}
+
+#[tokio::test]
+async fn reconnect_reuses_valid_parameters_while_account_refresh_is_suspended() {
+    let server = server(vec![]).await;
+    let ((mut client, mut rx, cache, clock), _collector) =
+        submissions::setup_metadata_probe(&server, 30);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    // Eligible for background renewal, still inside the original hard TTL.
+    clock.set_time(UnixNanos::from(OBSERVED + 15_000_000_001));
+    let cash_gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_gate.lock().unwrap() = Some(cash_gate.clone());
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    exit_orders::barrier("wallet reconnects", || {
+        server.state.sockets.lock().unwrap().len() == 2
+    })
+    .await;
+    wallet_processed(&server).await;
+    client
+        .query_account(QueryAccount::new(
+            trader_id(),
+            Some(ClientId::new("PREDICT")),
+            account_id(),
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        ))
+        .unwrap();
+    exit_orders::barrier("cash RPC remains suspended", || {
+        server.state.rpc_gate.lock().unwrap().is_none()
+    })
+    .await;
+    let first = sell(1, 1001);
+    cache
+        .borrow_mut()
+        .add_order(first.clone(), None, None, false)
+        .unwrap();
+    client
+        .submit_order(priced(&first, json!("0.020"), 100))
+        .unwrap();
+    exit_orders::barrier("POST before account refresh completes", || {
+        server.state.creations.lock().unwrap().len() == 1
+    })
+    .await;
+    assert!(client.is_submission_ready());
+    assert_eq!(
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["nonce"],
+        "7"
+    );
+    assert_eq!(*server.state.market_requests.lock().unwrap(), 1);
+    assert_eq!(*server.state.book_requests.lock().unwrap(), 0);
+    cash_gate.notify_one();
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn authenticated_reconnect_is_connected_while_account_refresh_is_suspended() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache) = reported_client(&server);
+    let _portfolio = portfolio(&cache);
+    connect_reported(&mut client, &mut rx).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_gate.lock().unwrap() = Some(gate.clone());
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    exit_orders::barrier("new wallet transport", || {
+        server.state.sockets.lock().unwrap().len() == 2
+    })
+    .await;
+    wallet_processed(&server).await;
+    client
+        .query_account(QueryAccount::new(
+            trader_id(),
+            Some(ClientId::new("PREDICT")),
+            account_id(),
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        ))
+        .unwrap();
+    exit_orders::barrier("account RPC is held", || {
+        server.state.rpc_gate.lock().unwrap().is_none()
+    })
+    .await;
+    assert!(
+        client.is_connected(),
+        "account refresh progress is not execution transport connectivity"
+    );
+    gate.notify_one();
+    client.disconnect().await.unwrap();
 }

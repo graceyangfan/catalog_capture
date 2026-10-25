@@ -47,6 +47,12 @@ pub(super) struct VenueState {
     pub(super) rpc_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
     pub(super) rpc_delay_ms: Arc<Mutex<u64>>,
     pub(super) rpc_failure: Arc<Mutex<bool>>,
+    pub(super) nonce_requests: Arc<Mutex<Vec<usize>>>,
+    pub(super) nonce_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
+    pub(super) nonce_started: Arc<tokio::sync::Notify>,
+    pub(super) nonce_failure: Arc<Mutex<Option<usize>>>,
+    pub(super) balance_failure: Arc<Mutex<bool>>,
+    pub(super) open_unavailable: Arc<Mutex<bool>>,
     pub(super) nonce_values: Arc<Mutex<[U256; 4]>>,
     pub(super) remove_replies: Arc<Mutex<VecDeque<(u16, Value, u64)>>>,
     pub(super) removals: Arc<Mutex<Vec<Value>>>,
@@ -59,6 +65,7 @@ pub(super) struct VenueState {
     pub(super) create_order_ids: Arc<Mutex<VecDeque<String>>>,
     pub(super) create_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
     pub(super) create_body: Arc<Mutex<Option<Value>>>,
+    pub(super) market_snapshot: Arc<Mutex<Option<Value>>>,
     pub(super) market_requests: Arc<Mutex<usize>>,
     pub(super) market_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
     pub(super) open_rpc_barrier: Arc<Mutex<Option<Arc<tokio::sync::Barrier>>>>,
@@ -244,6 +251,9 @@ pub(super) async fn open_orders(
         .collect();
     assert!(query.get("status").is_none_or(|status| status == "OPEN"));
     state.requests.lock().unwrap().push(query.clone());
+    if *state.open_unavailable.lock().unwrap() {
+        return axum::http::StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     let barrier = state.open_rpc_barrier.lock().unwrap().clone();
     if let Some(barrier) = barrier {
         barrier.wait().await;
@@ -421,6 +431,11 @@ pub(super) async fn collateral_rpc(
             let amount = if data == "0x313ce567" {
                 U256::from(18)
             } else if data.starts_with("0x70a08231") {
+                if *state.balance_failure.lock().unwrap() {
+                    return json_response(
+                        json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32000,"message":"balance fixture failure"}}),
+                    );
+                }
                 state
                     .rpc_accounts
                     .lock()
@@ -448,7 +463,19 @@ pub(super) async fn collateral_rpc(
                             == format!("{:#x}", exchange.contract(PredictEnvironment::BnbMainnet))
                     })
                     .expect("known signing exchange");
-                state.nonce_values.lock().unwrap()[index]
+                state.nonce_requests.lock().unwrap().push(index);
+                let value = state.nonce_values.lock().unwrap()[index];
+                let gate = state.nonce_gate.lock().unwrap().take();
+                if let Some(gate) = gate {
+                    state.nonce_started.notify_one();
+                    gate.notified().await;
+                }
+                if *state.nonce_failure.lock().unwrap() == Some(index) {
+                    return json_response(
+                        json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32000,"message":"nonce fixture failure"}}),
+                    );
+                }
+                value
             } else {
                 U256::ZERO
             };
@@ -532,6 +559,12 @@ pub(super) async fn server(pages: Vec<Value>) -> Server {
         rpc_gate: Default::default(),
         rpc_delay_ms: Arc::new(Mutex::new(0)),
         rpc_failure: Arc::new(Mutex::new(false)),
+        nonce_requests: Default::default(),
+        nonce_gate: Default::default(),
+        nonce_started: Default::default(),
+        nonce_failure: Default::default(),
+        balance_failure: Default::default(),
+        open_unavailable: Default::default(),
         nonce_values: Arc::new(Mutex::new([U256::from(7); 4])),
         remove_replies: Arc::new(Mutex::new(VecDeque::new())),
         removals: Arc::new(Mutex::new(vec![])),
@@ -544,6 +577,7 @@ pub(super) async fn server(pages: Vec<Value>) -> Server {
         create_order_ids: Default::default(),
         create_gate: Arc::new(Mutex::new(None)),
         create_body: Arc::new(Mutex::new(None)),
+        market_snapshot: Default::default(),
         market_requests: Default::default(),
         market_gate: Default::default(),
         open_rpc_barrier: Default::default(),
@@ -597,6 +631,7 @@ impl Server {
 }
 
 pub(super) async fn execution_market(
+    axum::extract::Path(market_id): axum::extract::Path<u64>,
     State(state): State<VenueState>,
     headers: HeaderMap,
 ) -> Response {
@@ -606,10 +641,13 @@ pub(super) async fn execution_market(
     if let Some(gate) = gate {
         gate.notified().await;
     }
+    if let Some(snapshot) = state.market_snapshot.lock().unwrap().clone() {
+        return json_response(snapshot);
+    }
     json_response(
-        json!({"success":true,"data":{"id":42,"tradingStatus":"OPEN",
+        json!({"success":true,"data":{"id":market_id,"title":"Synthetic event","createdAt":null,"variantData":null,"tradingStatus":"OPEN",
         "isNegRisk":false,"isYieldBearing":*state.market_yield_bearing.lock().unwrap(),"feeRateBps":*state.market_fee.lock().unwrap(),
-        "decimalPrecision":3,"outcomes":[{"indexSet":1,"onChainId":"11"},{"indexSet":2,"onChainId":"22"}]}}),
+        "decimalPrecision":3,"outcomes":[{"name":"Yes","indexSet":1,"onChainId":"11"},{"name":"No","indexSet":2,"onChainId":"22"}]}}),
     )
 }
 

@@ -173,7 +173,7 @@ impl LighterBinaryHttpClient {
             allow_pending || event.start_at <= now.as_u64() / 1_000_000,
             "fixed capture requires an observation window which has started (market {id})"
         );
-        let mut info = Params::new();
+        let mut info = indexmap::IndexMap::new();
         let previous_price = previous
             .filter(|old| old.start_secs == start && old.source == event.metadata.oracle)
             .and_then(|old| old.instrument.info())
@@ -263,7 +263,7 @@ impl LighterBinaryHttpClient {
             .outcome(Ustr::from("Up"))
             .event_id(Ustr::from(event.event_id.to_string().as_str()))
             .description(Ustr::from(event.title.as_str()))
-            .info(info)
+            .info(Params::new(info))
             .ts_event(now)
             .ts_init(now)
             .build()?;

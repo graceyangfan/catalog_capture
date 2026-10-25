@@ -12,6 +12,7 @@ ahash.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 bon.workspace = true
+indexmap = "2"
 log.workspace = true
 nautilus-lighter.workspace = true
 nautilus-common.workspace = true

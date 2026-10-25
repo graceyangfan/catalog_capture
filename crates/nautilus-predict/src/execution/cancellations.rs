@@ -27,10 +27,7 @@ use alloy::primitives::{B256, U256};
 use futures_util::StreamExt;
 use nautilus_common::{
     factories::OrderEventFactory,
-    messages::{
-        ExecutionReport,
-        execution::{BatchCancelOrders, CancelAllOrders, CancelOrder},
-    },
+    messages::execution::{BatchCancelOrders, CancelAllOrders, CancelOrder},
 };
 use nautilus_core::time::AtomicTime;
 use nautilus_live::{ExecutionEventEmitter, execution::failure::CommandFailure};
@@ -488,6 +485,28 @@ impl CancelWorker {
             self.session.account_address(),
         )
         .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
+        if !self.session_active() {
+            return Err(CommandFailure::not_sent(
+                "Predict cancellation generation stopped",
+            ));
+        }
+        if matches!(
+            row.status,
+            PredictOrderStatus::Cancelled | PredictOrderStatus::Expired
+        ) {
+            let now = self.clock.get_time_ns();
+            let event = if row.status == PredictOrderStatus::Cancelled {
+                order.canceled(&self.factory, Some(self.venue_id), now, now)
+            } else {
+                order.expired(&self.factory, Some(self.venue_id), now, now)
+            };
+            self.emitter
+                .try_send_order_event(event)
+                .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
+            self.account_sync
+                .confirm_terminal(self.venue_id, Some(self.client_order_id));
+            return Ok(None);
+        }
         if row.status != PredictOrderStatus::Open {
             return Err(CommandFailure::not_sent(
                 "Predict cancel preflight order is not OPEN; reconciliation required",
@@ -521,10 +540,10 @@ impl CancelWorker {
             timing.finish();
         }
         let receipt = receipt.map_err(|e| classify_http_command_failure(&e))?;
-        self.complete(guard, &receipt, id).await
+        self.complete(guard, &receipt, id)
     }
 
-    async fn complete(
+    fn complete(
         &self,
         guard: &mut CancelGuard,
         receipt: &PredictRemoveOrdersReceipt,
@@ -569,50 +588,11 @@ impl CancelWorker {
             // duplicate command could be sent while the acknowledgement is still queued.
             Ok(())
         } else {
-            // noop can also mean filled. Only a verified cancelled/expired zero-fill snapshot
-            // can resolve it here; wallet evidence handles partial/late settlements normally.
-            let row = self
-                .session
-                .request_order(self.hash)
-                .await
-                .map_err(|e| CommandFailure::Ambiguous(e.to_string()))?;
-            if !self.session_active() {
-                return Err(CommandFailure::ambiguous(
-                    "Predict cancellation generation stopped during reconciliation",
-                ));
-            }
-            let order = self.current_order().ok_or_else(|| {
-                CommandFailure::ambiguous("Predict cancel reconciliation lost native context")
-            })?;
-            if order.is_closed() {
-                guard.retain = false;
-                return Ok(());
-            }
-            if !matches!(
-                row.status,
-                PredictOrderStatus::Cancelled | PredictOrderStatus::Expired
-            ) {
-                return Err(CommandFailure::ambiguous(
-                    "Predict removal noop does not establish cancellation",
-                ));
-            }
-            let report = super::parse::rest_order_report_from_view(
-                &row,
-                &order,
-                &self.instrument,
-                self.factory.account_id(),
-                self.session.account_address(),
-                self.clock.get_time_ns(),
-            )
-            .map_err(|e| CommandFailure::Ambiguous(e.to_string()))?;
-            self.account_sync.confirm_report(&report);
-            self.emitter
-                .try_send_execution_report(ExecutionReport::Order(Box::new(report)))
-                .map_err(|_| {
-                    self.healthy.store(false, Ordering::Release);
-                    CommandFailure::ambiguous("Predict removal reconciliation channel is closed")
-                })?;
-            Ok(())
+            // A noop may mean filled, already cancelled or still unresolved.
+            // Native owns the subsequent report query and its retry/deadline policy.
+            Err(CommandFailure::ambiguous(
+                "Predict removal noop requires Native order recovery",
+            ))
         }
     }
 }
@@ -673,18 +653,10 @@ async fn execute_batch(entries: Vec<(CancelWorker, CancelGuard)>) {
             }
             match result {
                 Ok(Ok(receipt)) => {
-                    let receipt = &receipt;
-                    futures_util::future::join_all(active.into_iter().map(
-                        |(worker, mut guard, id)| async move {
-                            let result = tokio::time::timeout(
-                                worker.timeout,
-                                worker.complete(&mut guard, receipt, id),
-                            )
-                            .await;
-                            worker.resolve(&mut guard, result);
-                        },
-                    ))
-                    .await;
+                    for (worker, mut guard, id) in active {
+                        let result = worker.complete(&mut guard, &receipt, id);
+                        worker.resolve(&mut guard, Ok(result));
+                    }
                 }
                 Ok(Err(error)) => {
                     for (worker, mut guard, _) in active {

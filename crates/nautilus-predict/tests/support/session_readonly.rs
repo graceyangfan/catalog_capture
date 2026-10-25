@@ -157,7 +157,7 @@ pub async fn run(config: RelayConfig) -> anyhow::Result<()> {
     execution.account_refresh_interval_secs = 300;
     execution.reconnect_reconciliation_interval_secs = None; // Exercise the strategy QueryAccount explicitly.
     anyhow::ensure!(
-        execution.submission.is_none() && !execution.orderbook_removal_enabled,
+        execution.submission_signer.is_none() && !execution.orderbook_removal_enabled,
         "read-only capabilities required"
     );
     let mut markets = nautilus_predict::execution::reconciliation_market_ids(&execution).await?;
@@ -231,14 +231,15 @@ pub async fn run(config: RelayConfig) -> anyhow::Result<()> {
                 until("new wallet ACK",||read(&config.wallet_state_file)["acknowledgedConnections"].as_array().is_some_and(|rows| rows.len() > cycle as usize)).await?;
                 // A real venue heartbeat echo is a causal barrier after Native consumed ACK.
                 until("native processed real heartbeat after ACK",||read(&config.wallet_state_file)["heartbeatEchoConnections"].as_array().is_some_and(|rows|rows.contains(&json!(cycle)))).await?;
-                until("native replacement remains gated",||!connected()).await?;
+                until("replacement transport connected after its ACK", connected).await?;
                 let before = account().unwrap();
-                journal.borrow_mut().push(json!({"type":"NewWalletAckBeforeQuery","cycle":cycle,"nativeReady":connected(),"accountEventId":before.event_id}));
-                std::fs::write(&config.phase_file,format!("query-account-{cycle}"))?;
+                journal.borrow_mut().push(json!({"type":"NewWalletAckBeforeQuery","cycle":cycle,"connectionReady":connected(),"accountEventId":before.event_id}));
+                std::fs::write(&config.phase_file,"query-account")?;
                 query.set(cycle);
-                until("QueryAccount and native readiness",||account().is_some_and(|state|state.event_id!=before.event_id && state.info.as_ref().is_some_and(|i|i.get("predict_reconciliation_ready")==Some(&json!(true)) && i.get("predict_connection_epoch").and_then(Value::as_u64).is_some_and(|epoch|epoch>=cycle))) && connected()).await?;
-                until("strategy sees verified account",||journal.borrow().iter().any(|r|r["type"]=="StrategyAccountSnapshot" && r["info"]["predict_connection_epoch"].as_u64().is_some_and(|epoch|epoch>=cycle) && r["info"]["predict_reconciliation_ready"]==true)).await?;
-                journal.borrow_mut().push(json!({"type":"NativeReadyRestored","cycle":cycle,"nativeReady":connected(),"account":account(),"wire":read(&config.wire_state_file),"orders":cache.borrow().orders(None,None,None,None,None).len(),"positions":cache.borrow().positions_open(None,None,None,None,None).len()}));
+                until("QueryAccount applies canonical cash for the current connection",||account().is_some_and(|state|state.event_id!=before.event_id && state.info.as_ref().is_some_and(|i|i.get("predict_block_hash").and_then(Value::as_str).is_some_and(|hash|Some(hash)==read(&config.wire_state_file)["queryAccountBlockHash"].as_str()) && i.get("predict_connection_epoch").and_then(Value::as_u64).is_some_and(|epoch|epoch>=cycle)))).await?;
+                until("strategy sees the refreshed account",||journal.borrow().iter().any(|r|r["type"]=="StrategyAccountSnapshot" && r["querySequence"]==cycle && r["info"]["predict_connection_epoch"].as_u64().is_some_and(|epoch|epoch>=cycle) && r["info"]["predict_block_hash"].is_string())).await?;
+                anyhow::ensure!(connected(),"account refresh must not disconnect the authenticated transport");
+                journal.borrow_mut().push(json!({"type":"NativeAccountRefreshed","cycle":cycle,"connectionReady":connected(),"account":account(),"wire":read(&config.wire_state_file),"orders":cache.borrow().orders(None,None,None,None,None).len(),"positions":cache.borrow().positions_open(None,None,None,None,None).len()}));
             }
             anyhow::ensure!(!journal.borrow().iter().any(|r|r["type"]=="UnexpectedOrderEvent"),"unexpected order event");
             Ok::<_,anyhow::Error>(())

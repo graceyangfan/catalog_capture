@@ -82,6 +82,34 @@ impl PredictMarketOrderAmounts {
         Self::from_levels(side, quantity, &[(price, quantity)], slippage_bps)
     }
 
+    /// SDK value BUY calculation for a single reference level with sufficient depth.
+    /// Keeps the Native quote amount as a hard signed-collateral cap: no extra slippage.
+    /// The SDK rounds estimated shares down to five significant digits.
+    ///
+    /// # Errors
+    /// Rejects budget below one USDT, invalid price, overflow or invalid derived shares.
+    pub fn from_value_price(value: U256, price: U256) -> anyhow::Result<Self> {
+        let scale = U256::from(1_000_000_000_000_000_000u64);
+        anyhow::ensure!(value >= scale, "MARKET BUY quote amount minimum is 1 USDT");
+        anyhow::ensure!(
+            price > U256::ZERO && price <= scale,
+            "MARKET reference price outside (0, 1]"
+        );
+        let raw = value
+            .checked_mul(scale)
+            .ok_or_else(|| anyhow::anyhow!("MARKET value conversion overflow"))?
+            / price;
+        let digits = raw.to_string().len();
+        let divisor = U256::from(10).pow(U256::from(digits.saturating_sub(5)));
+        let shares = raw / divisor * divisor;
+        let amounts = Self::from_price(PredictOrderSide::Buy, shares, price, 0)?;
+        anyhow::ensure!(
+            amounts.maker_amount <= value,
+            "MARKET signed collateral exceeds quote budget"
+        );
+        Ok(amounts)
+    }
+
     /// Matches SDK quantity-based default slippage, preserving the requested base quantity.
     /// Levels must be sorted asks for BUY or sorted bids for SELL, already converted to
     /// the selected outcome. Insufficient depth and SDK quantity truncation fail explicitly.

@@ -26,7 +26,7 @@ impl PredictExecutionClient {
             .wallet_auth
             .clone()
             .ok_or_else(|| anyhow::anyhow!("wallet auth unavailable"))?;
-        let required = self.reconciliation_required.clone();
+        let required = self.account_refresh_required.clone();
         let clock = self.clock;
         self.tasks.spawn_named("predict-authentication", async move {
             loop {
@@ -37,8 +37,8 @@ impl PredictExecutionClient {
                     _ = cancellation.cancelled() => break,
                     _ = tokio::time::sleep(renewal_delay(expiry, now)) => {},
                 }
-                // Pause submissions before publishing a replacement bearer. The wallet ACK
-                // and native reconciliation establish readiness for the new session.
+                // Credential rotation requires the replacement wallet ACK. Account/nonce
+                // refresh remains independent of authenticated transport connectivity.
                 auth.invalidate();
                 required.store(true, Ordering::Release);
                 let mut retry = 1;

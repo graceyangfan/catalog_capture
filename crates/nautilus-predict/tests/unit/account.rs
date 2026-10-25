@@ -129,10 +129,12 @@ impl Fixture {
         };
         let factory =
             OrderEventFactory::new(client.core.trader_id, account_id, AccountType::Cash, None);
-        let mut info = Params::new();
-        info.insert(
-            "predict_requested_lock".into(),
-            serde_json::json!(requested.to_string()),
+        let info = Params::new(
+            [(
+                "predict_requested_lock".into(),
+                serde_json::json!(requested.to_string()),
+            )]
+            .into(),
         );
         let locked = Money::from_decimal_exact(Decimal::from(requested), Currency::USDT()).unwrap();
         let event = factory.generate_account_state(
@@ -608,17 +610,15 @@ fn benchmark_open_owner_retirement() {
 }
 
 #[test]
-fn recovery_queries_coalesce_before_copying_native_cache() {
-    use super::super::readiness::SNAPSHOT_CAPTURES;
+fn recovery_queries_coalesce_without_copying_native_history() {
     use nautilus_common::{clients::ExecutionClient, messages::execution::QueryAccount};
     let mut f = Fixture::new(1000, 0);
     f.watch(&[]);
     f.client.core.set_connected();
     f.client
-        .reconciliation_required
+        .account_refresh_required
         .store(true, Ordering::Release);
     f.client.account_query_active.store(true, Ordering::Release);
-    SNAPSHOT_CAPTURES.with(|n| n.set(0));
     f.client
         .query_account(QueryAccount::new(
             f.client.core.trader_id,
@@ -630,114 +630,10 @@ fn recovery_queries_coalesce_before_copying_native_cache() {
             None,
         ))
         .unwrap();
-    assert_eq!(
-        SNAPSHOT_CAPTURES.with(|n| n.get()),
-        0,
-        "an in-flight recovery owns collection; duplicate queries only advance bounded cleanup"
-    );
     assert!(f.client.account_query_active.load(Ordering::Acquire));
     f.client
         .account_query_active
         .store(false, Ordering::Release);
-}
-
-fn append_account_history(f: &Fixture, count: usize) {
-    let mut cache = f.cache.borrow_mut();
-    let mut account = cache.account_mut(&f.client.core.account_id).unwrap();
-    let event = account.last_event().unwrap();
-    for index in 0..count {
-        let mut next = event.clone();
-        next.event_id = UUID4::new();
-        next.ts_event = (index as u64 + 2).into();
-        next.ts_init = next.ts_event;
-        account.apply(next).unwrap();
-    }
-}
-
-#[test]
-fn readiness_captures_current_cash_and_provenance_without_account_history() {
-    let mut f = Fixture::new(100, 0);
-    f.watch(&[]);
-    append_account_history(&f, 1000);
-    {
-        let mut cache = f.cache.borrow_mut();
-        let mut account = cache.account_mut(&f.client.core.account_id).unwrap();
-        let AccountAny::Cash(cash) = &mut *account else {
-            panic!("cash")
-        };
-        cash.allow_borrowing = true;
-        cash.update_balance_locked(f.instrument.id(), Money::from("5 USDT"))
-            .unwrap();
-    }
-    let before = f
-        .cache
-        .borrow()
-        .account_owned(&f.client.core.account_id)
-        .unwrap();
-    let check = super::super::readiness::ReadinessCheck::new(&f.client).unwrap();
-    assert_eq!(
-        check.account.event_count(),
-        1,
-        "recovery must not copy the account event log"
-    );
-    assert_eq!(check.account.balances(), before.balances());
-    assert!(check.account.allow_borrowing);
-    assert_eq!(
-        check.account.calculated_account_state(),
-        before.calculated_account_state()
-    );
-    assert_eq!(
-        check.account.last_event().unwrap().event_id,
-        before.last_event().unwrap().event_id
-    );
-    assert_eq!(
-        check.account.last_event().unwrap().info,
-        before.last_event().unwrap().info
-    );
-    assert_eq!(
-        check.account.last_event().unwrap().balances[0].locked,
-        Money::from("5 USDT")
-    );
-    assert_eq!(
-        f.cache
-            .borrow()
-            .account_ref(&f.client.core.account_id)
-            .unwrap()
-            .event_count(),
-        1001
-    );
-}
-
-#[test]
-#[ignore = "explicit Native account capture bench; PREDICT_ACCOUNT_CAPTURE_PATH is create_new JSON"]
-fn benchmark_readiness_account_capture() {
-    use std::{hint::black_box, time::Instant};
-    let mut rows = Vec::new();
-    for retained in [1, 1000, 10000] {
-        let mut f = Fixture::new(100, 0);
-        f.watch(&[]);
-        append_account_history(&f, retained - 1);
-        let mut samples = Vec::new();
-        for iteration in 0..23 {
-            let started = Instant::now();
-            let check = super::super::readiness::ReadinessCheck::new(black_box(&f.client)).unwrap();
-            let ns = started.elapsed().as_nanos() as u64;
-            black_box(&check);
-            if iteration >= 3 {
-                samples.push(ns);
-            }
-            // Snapshot destruction is separate from construction timing.
-            drop(check);
-        }
-        samples.sort_unstable();
-        rows.push(serde_json::json!({"retained_account_events":retained,"samples_ns":samples,"p50_ns":samples[9],"p95_ns":samples[18],"p99_ns":samples[19]}));
-    }
-    let file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(std::env::var("PREDICT_ACCOUNT_CAPTURE_PATH").unwrap())
-        .unwrap();
-    serde_json::to_writer_pretty(file,&serde_json::json!({"source":"real ReadinessCheck construction; empty owned-order set isolates account history; setup/drop/IO excluded; 3 warmups + 20 samples; p99 maximum", "rows":rows})).unwrap();
 }
 
 #[test]
@@ -790,127 +686,6 @@ fn benchmark_pending_account_projection() {
     serde_json::to_writer_pretty(file,&serde_json::json!({"source":"production core projection with known unapplied Native event; 10 warmups + 100 samples; setup excluded; no publication/REST/RPC", "rows":rows})).unwrap();
 }
 
-fn retained_readiness_fixture(owners: usize, fills: usize) -> Fixture {
-    use nautilus_model::enums::LiquiditySide;
-    let mut f = Fixture::new(100000, 0);
-    let mut orders = Vec::with_capacity(owners);
-    for n in 0..owners {
-        let mut order = f.order(&format!("RETAINED-{n}"), "0.010", false);
-        let hash = VenueOrderId::new(format!("0x{:064x}", n + 1000));
-        order
-            .apply(
-                f.factory
-                    .generate_order_accepted(&order, hash, 2.into(), 2.into()),
-            )
-            .unwrap();
-        for i in 0..fills {
-            order
-                .apply(f.factory.generate_order_filled(
-                    &order,
-                    hash,
-                    None,
-                    format!("F-{n}-{i}").as_str().into(),
-                    Quantity::from("0.001"),
-                    "0.010".parse().unwrap(),
-                    Currency::USDT(),
-                    Some(Money::zero(Currency::USDT())),
-                    LiquiditySide::Maker,
-                    (i as u64 + 3).into(),
-                    (i as u64 + 3).into(),
-                ))
-                .unwrap();
-        }
-        order
-            .apply(f.factory.generate_order_canceled(
-                &order,
-                Some(hash),
-                (fills as u64 + 4).into(),
-                (fills as u64 + 4).into(),
-            ))
-            .unwrap();
-        orders.push(order);
-    }
-    f.watch(&orders);
-    f
-}
-
-#[test]
-fn readiness_reuses_nonempty_observed_order_histories() {
-    use super::super::context::CAPTURED_FILLS;
-    let f = retained_readiness_fixture(2, 1000);
-    CAPTURED_FILLS.with(|n| n.set(0));
-    let snapshot = super::super::readiness::ReadinessCheck::new(&f.client).unwrap();
-    assert_eq!(
-        CAPTURED_FILLS.with(|n| n.get()),
-        0,
-        "in-service readiness must not clone the observed Native fill histories"
-    );
-    assert_eq!(f.client.account_orders.lock().unwrap().len(), 2);
-    assert!(
-        f.client
-            .account_orders
-            .lock()
-            .unwrap()
-            .values()
-            .all(|o| o.fill_count() == 1000)
-    );
-    assert_eq!(
-        snapshot.account.balances(),
-        f.cache
-            .borrow()
-            .account(&f.client.core.account_id)
-            .unwrap()
-            .balances()
-    );
-    drop(snapshot);
-    assert!(f.client.account_orders.lock().unwrap().values().all(|o| {
-        o.has_applied_fill(
-            format!(
-                "F-{}-999",
-                if o.client_order_id().as_str() == "RETAINED-0" {
-                    0
-                } else {
-                    1
-                }
-            )
-            .as_str()
-            .into(),
-        )
-    }));
-}
-
-#[test]
-#[ignore = "explicit complete readiness snapshot bench; PREDICT_RETAINED_READINESS_PATH create_new JSON"]
-fn benchmark_retained_readiness_construction_and_release() {
-    use super::super::context::CAPTURED_FILLS;
-    use std::{hint::black_box, time::Instant};
-    let mut rows = Vec::new();
-    for (owners, fills) in [(1, 9999), (1000, 4), (10000, 1)] {
-        let f = retained_readiness_fixture(owners, fills);
-        let mut samples = Vec::new();
-        for i in 0..23 {
-            CAPTURED_FILLS.with(|n| n.set(0));
-            let start = Instant::now();
-            let check = super::super::readiness::ReadinessCheck::new(black_box(&f.client)).unwrap();
-            let construction_ns = start.elapsed().as_nanos() as u64;
-            black_box(&check);
-            let release = Instant::now();
-            drop(check);
-            let release_ns = release.elapsed().as_nanos() as u64;
-            if i >= 3 {
-                samples.push(serde_json::json!({"construction_ns":construction_ns,"release_ns":release_ns,"captured_fills":CAPTURED_FILLS.with(|n| n.get())}));
-            }
-        }
-        rows.push(serde_json::json!({"owners":owners,"fills_per_owner":fills,"samples":samples}));
-    }
-    let file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(std::env::var("PREDICT_RETAINED_READINESS_PATH").unwrap())
-        .unwrap();
-    serde_json::to_writer_pretty(file,&serde_json::json!({"source":"complete production ReadinessCheck::new and release on Native thread with nonempty retained Native orders and existing live observer views; 3 warmups + 20 samples; no IO; fixture setup outside timing; Native cache/history remains owned","rows":rows})).unwrap();
-}
-
 #[test]
 fn applied_account_event_flushes_deferred_cancel_projection_without_a_remote_query() {
     use nautilus_common::{
@@ -959,6 +734,10 @@ fn applied_account_event_flushes_deferred_cancel_projection_without_a_remote_que
         MessagingSwitchboard::portfolio_update_account(),
         TypedHandler::from(move |event: &AccountState| {
             cache.borrow_mut().update_account_state(event).unwrap();
+            msgbus::publish_account_state(
+                format!("events.account.{}", event.account_id).into(),
+                event,
+            );
         }),
     );
     // Use the actual Runner routing, not a direct call to the adapter's callback.
@@ -1006,8 +785,7 @@ fn applied_account_event_flushes_deferred_cancel_projection_without_a_remote_que
 }
 
 #[test]
-fn unresolved_commands_prevent_automatic_readiness_capture() {
-    use super::super::readiness::{ReadinessCheck, SNAPSHOT_CAPTURES};
+fn unresolved_commands_do_not_prevent_account_refresh() {
     use nautilus_common::{
         clock::VirtualClock,
         messages::execution::TradingCommand,
@@ -1027,7 +805,7 @@ fn unresolved_commands_prevent_automatic_readiness_capture() {
         f.client.core.set_connected();
         f.client.healthy.store(true, Ordering::Release);
         f.client
-            .reconciliation_required
+            .account_refresh_required
             .store(true, Ordering::Release);
         let clock = Rc::new(RefCell::new(VirtualClock::new()));
         f.client.recovery_clock = Some(clock.clone());
@@ -1037,7 +815,6 @@ fn unresolved_commands_prevent_automatic_readiness_capture() {
             MessagingSwitchboard::exec_engine_queue_execute(),
             TypedIntoHandler::from(move |_: TradingCommand| seen.set(seen.get() + 1)),
         );
-        SNAPSHOT_CAPTURES.with(|n| n.set(0));
         f.client.start_recovery_timer().unwrap();
         for second in 1..=3 {
             let events = clock
@@ -1049,10 +826,9 @@ fn unresolved_commands_prevent_automatic_readiness_capture() {
         }
         assert_eq!(
             queries.get(),
-            0,
-            "automatic retry must not schedule futile account IO"
+            3,
+            "account refresh is independent of unresolved orders and cancels"
         );
-        assert_eq!(SNAPSHOT_CAPTURES.with(|n| n.get()), 0);
         if cancel {
             f.client.pending_cancels.lock().unwrap().clear();
         } else {
@@ -1061,11 +837,6 @@ fn unresolved_commands_prevent_automatic_readiness_capture() {
                     .generate_order_accepted(&order, hash("TARGET"), 2.into(), 2.into()),
             );
         }
-        assert!(ReadinessCheck::commands_resolved(
-            &f.client.core,
-            &f.client.pending_submissions,
-            &f.client.pending_cancels
-        ));
         let events = clock
             .borrow_mut()
             .advance_time(4_000_000_000u64.into(), true);
@@ -1074,8 +845,8 @@ fn unresolved_commands_prevent_automatic_readiness_capture() {
         }
         assert_eq!(
             queries.get(),
-            1,
-            "resolved commands enable the same installed timer"
+            4,
+            "the existing timer keeps refreshing after command resolution"
         );
         f.client.stop_recovery_timer();
     }

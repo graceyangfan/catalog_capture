@@ -27,6 +27,22 @@ use crate::common::{
     enums::PredictOrderSide, market::PredictMarketOrderAmounts, serde::decimal_u256,
 };
 
+/// Venue-specific STP policy; omission preserves the venue default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PredictSelfTradePrevention {
+    CancelMaker,
+    CancelTaker,
+    CancelBoth,
+}
+
+/// LIMIT execution options. Native post-only remains authoritative.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PredictLimitOrderOptions {
+    pub is_post_only: bool,
+    pub self_trade_prevention: Option<PredictSelfTradePrevention>,
+}
+
 /// Borrowed LIMIT or quantity-based MARKET request. Numeric values are exact SDK wei.
 /// Market admission, approvals, fee policy and nonce verification remain the caller's responsibility.
 #[derive(Debug, Serialize)]
@@ -41,6 +57,10 @@ struct PredictCreateOrderData<'a> {
     strategy: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     is_post_only: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_fill_or_kill: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    self_trade_prevention: Option<PredictSelfTradePrevention>,
     #[serde(skip_serializing_if = "Option::is_none")]
     slippage_bps: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -57,6 +77,25 @@ impl<'a> PredictCreateOrderRequest<'a> {
         signed: &'a PredictSignedOrder,
         price_per_share_wei: U256,
         is_post_only: bool,
+    ) -> Result<Self> {
+        Self::limit_with_options(
+            signed,
+            price_per_share_wei,
+            PredictLimitOrderOptions {
+                is_post_only,
+                self_trade_prevention: None,
+            },
+        )
+    }
+
+    /// Constructs a LIMIT envelope with explicit STP without changing signed economics.
+    ///
+    /// # Errors
+    /// The same exact price/amount constraints as `limit` apply.
+    pub fn limit_with_options(
+        signed: &'a PredictSignedOrder,
+        price_per_share_wei: U256,
+        options: PredictLimitOrderOptions,
     ) -> Result<Self> {
         let scale = U256::from(1_000_000_000_000_000_000u64);
         let order = signed.order();
@@ -85,7 +124,9 @@ impl<'a> PredictCreateOrderRequest<'a> {
             data: PredictCreateOrderData {
                 price_per_share: price_per_share_wei.to_string(),
                 strategy: "LIMIT",
-                is_post_only: Some(is_post_only),
+                is_post_only: Some(options.is_post_only),
+                is_fill_or_kill: None,
+                self_trade_prevention: options.self_trade_prevention,
                 slippage_bps: None,
                 is_min_amount_out: None,
                 order: signed.contract_order()?,
@@ -135,11 +176,28 @@ impl<'a> PredictCreateOrderRequest<'a> {
                 price_per_share: amounts.price_per_share.to_string(),
                 strategy: "MARKET",
                 is_post_only: None,
+                is_fill_or_kill: None,
+                self_trade_prevention: None,
                 slippage_bps: Some(amounts.slippage_bps.to_string()),
                 is_min_amount_out: Some(false),
                 order: signed.contract_order()?,
             },
         })
+    }
+
+    /// Constructs a MARKET FOK envelope without changing the signed economic terms.
+    /// Native callers express FOK through TimeInForce::Fok. LIMIT FOK is unsupported.
+    /// A request or receipt alone does not establish all-or-none execution.
+    ///
+    /// # Errors
+    /// Invalid MARKET metadata is rejected before transmission.
+    pub fn market_fok(
+        signed: &'a PredictSignedOrder,
+        amounts: &PredictMarketOrderAmounts,
+    ) -> Result<Self> {
+        let mut request = Self::market(signed, amounts)?;
+        request.data.is_fill_or_kill = Some(true);
+        Ok(request)
     }
 }
 
@@ -153,6 +211,31 @@ pub struct PredictCreateOrderReceipt {
     pub order_hash: B256,
     /// Venue removal lock metadata; absence does not establish immediate removability.
     pub removal_locked_until: Option<String>,
+}
+
+impl PredictCreateOrderReceipt {
+    /// Returns the venue lock deadline. None means unknown, not immediately removable.
+    ///
+    /// # Errors
+    /// Malformed, negative or nanosecond-unrepresentable RFC3339 timestamps fail closed.
+    pub fn removal_lock_deadline(&self) -> Result<Option<nautilus_core::UnixNanos>> {
+        self.removal_locked_until
+            .as_deref()
+            .map(|text| {
+                let nanos = chrono::DateTime::parse_from_rfc3339(text)
+                    .ok()
+                    .and_then(|time| time.timestamp_nanos_opt())
+                    .and_then(|nanos| u64::try_from(nanos).ok())
+                    .ok_or_else(|| {
+                        Error::decode(
+                            "POST /v1/orders",
+                            PredictDecodeErrorKind::InvalidAcknowledgement,
+                        )
+                    })?;
+                Ok(nautilus_core::UnixNanos::from(nanos))
+            })
+            .transpose()
+    }
 }
 
 /// Exact partition returned by /v1/orders/remove, separate from the standard data envelope.

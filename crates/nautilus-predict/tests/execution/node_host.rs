@@ -38,10 +38,10 @@ use super::{
 };
 
 #[test]
-fn product_profile_reuses_native_config_and_rejects_venue_incompatible_overrides() {
+fn product_profile_reuses_native_config_and_rejects_invalid_venue_settings() {
     let source = include_str!("../../../../examples/predict-node.toml.example");
     let profile = host::NodeProfile::parse(source).unwrap();
-    assert!(profile.predict.submission.is_none());
+    assert!(!profile.predict.submission_enabled);
     assert!(!profile.predict.orderbook_removal_enabled);
     assert!(!profile.node.risk_engine.bypass);
     assert!(
@@ -77,18 +77,12 @@ fn product_profile_reuses_native_config_and_rejects_venue_incompatible_overrides
         Some(10)
     );
     for change in [
-        source.replace("bypass = false", "bypass = true"),
         source.replace("environment = \"mainnet\"", "environment = \"testnet\""),
-        source.replace("reconciliation = true", "reconciliation = false"),
         source.replace("interval_secs = 300", "interval_secs = 300\nmarket_id = 42"),
-        source.replace(
-            "reconciliation = true",
-            "reconciliation = true\nreconciliation_instrument_ids = [\"42-1.PREDICT\"]",
-        ),
     ] {
         assert!(host::NodeProfile::parse(&change).is_err());
     }
-    let submission = format!("{source}\n[predict.submission]\nmarket_slippage_bps = 100\n");
+    let submission = source.replace("submission_enabled = false", "submission_enabled = true");
     assert!(host::NodeProfile::parse(&submission).is_ok());
     for removed in [
         "max_order_usdt = \"10\"",
@@ -97,6 +91,89 @@ fn product_profile_reuses_native_config_and_rejects_venue_incompatible_overrides
     ] {
         assert!(host::NodeProfile::parse(&format!("{submission}{removed}\n")).is_err());
     }
+}
+
+#[test]
+fn product_profile_leaves_risk_and_recovery_policy_to_native() {
+    let source = include_str!("../../../../examples/predict-node.toml.example");
+    let source = source
+        .replace("bypass = false", "bypass = true")
+        .replace(
+            "reconciliation = true",
+            "reconciliation = false\nreconciliation_instrument_ids = [\"42-1.PREDICT\"]",
+        )
+        .replace("position_check_interval_secs = 30.0\n", "");
+    let profile = host::NodeProfile::parse(&source).unwrap();
+    assert!(profile.node.risk_engine.bypass);
+    assert!(!profile.node.exec_engine.reconciliation);
+    assert!(
+        profile
+            .node
+            .exec_engine
+            .position_check_interval_secs
+            .is_none()
+    );
+    assert_eq!(
+        profile.node.exec_engine.reconciliation_instrument_ids,
+        Some(vec![instrument_id(1).to_string()])
+    );
+    assert!(!profile.predict.submission_enabled);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn disabled_native_startup_reconciliation_skips_account_discovery() {
+    let HostFixture {
+        backing,
+        config,
+        task,
+        ..
+    } = fixture(false, 0).await;
+    backing
+        .state
+        .account_unavailable
+        .store(true, std::sync::atomic::Ordering::Release);
+    let signer = Arc::new(
+        PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    );
+    let disabled = config.replace("reconciliation = true", "reconciliation = false");
+    let prepared = host::prepare(
+        host::NodeProfile::parse(&disabled).unwrap(),
+        KEY.into(),
+        signer.clone(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(prepared.market_id, 42);
+    assert_eq!(*backing.state.account_requests.lock().unwrap(), 0);
+    assert!(backing.state.requests.lock().unwrap().is_empty());
+    assert!(backing.state.match_requests.lock().unwrap().is_empty());
+    assert!(
+        backing
+            .state
+            .position_response_log
+            .lock()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(backing.state.creations.lock().unwrap().is_empty());
+    drop(prepared);
+    // Nonempty control: enabling recovery still performs authenticated discovery.
+    assert!(
+        host::prepare(
+            host::NodeProfile::parse(&config).unwrap(),
+            KEY.into(),
+            signer
+        )
+        .await
+        .is_err()
+    );
+    assert!(*backing.state.account_requests.lock().unwrap() > 0);
+    task.abort();
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -257,7 +334,7 @@ fn definition() -> Value {
     row
 }
 fn profile(origin: &str, writes: bool) -> String {
-    let mut text = format!(
+    format!(
         r#"
 [predict]
 account_id = "PREDICT-fixture"
@@ -268,6 +345,7 @@ http_url = "{origin}"
 public_ws_url = "{}"
 wallet_ws_url = "{}"
 orderbook_removal_enabled = {writes}
+submission_enabled = {writes}
 [discovery]
 price_feed_symbol = "BTC/USDT"
 title_asset = "Bitcoin"
@@ -287,16 +365,7 @@ position_check_interval_secs = 30.0
 "#,
         origin.replace("http://", "ws://") + "/public-ws",
         origin.replace("http://", "ws://") + "/ws"
-    );
-    if writes {
-        text.push_str(
-            r#"
-[predict.submission]
-market_slippage_bps = 100
-"#,
-        );
-    }
-    text
+    )
 }
 fn path() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

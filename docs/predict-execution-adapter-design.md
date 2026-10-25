@@ -1,292 +1,343 @@
 # Predict adapter architecture
 
-The [execution internals](predict-execution-structure-review.md) describe module
-ownership and implementation limits. [Test commands](../crates/nautilus-predict/tests/README.md)
-and the [validation reference](reference/predict-execution-validation.md) document
-coverage, measurements and evidence boundaries.
-
-The workspace pins the repaired Native fork required by execution. See the
-[dependency contract](reference/predict-execution-validation.md#two-repository-handoff)
-for its revision and validation. Quantity commissions are a downstream extension,
-described in [Inventory-unit commissions](reference/quantity-commission.md).
+Predict translates venue commands and authenticated feedback into Native execution
+messages. Strategy, risk and portfolio policy remain in NautilusTrader. This is
+the behavioral contract; [internals](predict-execution-structure-review.md) describes
+module ownership and [validation](reference/predict-execution-validation.md)
+links executable checks and evidence. Supported Native APIs are documented in the
+[dependency handoff](reference/predict-execution-validation.md#two-repository-handoff).
 
 ## Ownership
 
-| Owner | Responsibility |
+| Component | Responsibility |
 | --- | --- |
-| Strategy | Maker/taker intent, price/depth freshness, size, hedge and replacement policy, exposure limits |
-| Native RiskEngine | Configured notional/rate/funds checks and in-flight reservations |
-| Native Engine/Cache/Portfolio | Order/position state, economic accounting, reconciliation, strategy callbacks and physical purge |
-| Adapter | Predict protocol, exact units, signing, authentication, identities, factual events/reports and raw precision evidence |
-| Host | TOML, factories, instrument discovery, LiveNode assembly, telemetry and supervised test budgets |
+| Strategy | Active market selection, reference prices, exposure, exits, replacement and treatment of residual inventory |
+| RiskEngine | Configured trading state, rate/notional/funds checks and in-flight reservations |
+| Native LiveNode / execution manager | Startup/runtime recovery admission, deadlines, retries and exhaustion diagnostics |
+| Native ExecutionEngine / Cache / Portfolio | Order transitions, report application, balances, positions, deduplication, callbacks and retention |
+| Predict adapter | Authentication, signing, protocol conversion, identity/routing, actual fee facts and asynchronous account reporting |
+| Host | Credentials, node configuration, persistence, monitoring and telemetry collection |
 
-The adapter owns neither a second OMS nor a funds ledger. It has no cumulative
-attempted-BUY budget. A venue rejection remains an ordinary Native rejection;
-normal commands do not first audit balances, allowance or every OPEN order.
+The adapter has no account-wide historical-position readiness gate, cumulative
+BUY budget, replacement policy or second order/position ledger. Connection health
+means authenticated running transport. Cash reporting and recovery continue
+independently; their progress does not redefine connection health.
+
+## Input authority
+
+| Input | Single owner / entry point |
+| --- | --- |
+| MARKET reference and extra slippage | Strategy SubmitOrder.params; absent extra slippage is SDK zero |
+| Quantity / quote budget, TIF, expiry, post-only | Native order fields; no parallel HTTP params |
+| Exposure, replacement, stop-loss and residual policy | Strategy and configured Native risk/execution algorithms |
+| Risk bypass, recovery scope/cadence and position checks | Native node config; host forwards it without extra admission rules |
+| Signing permission | Optional submission_signer; independent of auth_signer for read-only/session renewal |
+| Pagination, timeouts, metadata TTL | Adapter protocol/resource bounds, not strategy risk budgets |
+
+Product TOML uses predict.submission_enabled (default false); credentials alone
+never enable submission. Rust configuration injects submission_signer directly;
+there is no single-field submission-policy wrapper or client trading-policy schema.
+Disabling Native startup reconciliation also skips host account-market discovery.
 
 ## Commands and identity
 
 ```text
-Strategy -> Native risk/execution -> prepared context -> local signing -> create POST
-Known-ID cancel -> remove POST -> definitive receipt -> Native event -> strategy
-Own wallet fact -> Native event/report -> Engine/Cache/Portfolio -> strategy
-Account and recovery queries -> separate background/explicit collection
+Strategy -> RiskEngine -> ExecutionEngine -> prepared context -> sign -> create POST
+CancelOrder -> cached numeric route -> remove POST -> Native event -> strategy
+Wallet execution -> FillReport -> Native Engine/Cache/Portfolio -> strategy callback
+Native recovery/account request -> asynchronous HTTP/RPC collection -> Native application
 ```
 
-Native owns ClientOrderId. VenueOrderId is the signed order hash. Numeric REST IDs
-are endpoint routing values, retained in the existing short-lock lookup; insertion
-does not copy the complete historical map. Conflicting identity is rejected.
+ClientOrderId is Native identity. VenueOrderId is the signed order hash. A numeric
+REST order ID is only endpoint routing, learned from receipts, wallet messages or
+a targeted lookup. Optional route observation cannot veto an otherwise valid
+execution fact; actual routing still rejects conflicting ownership.
 
-| Command | Supported mapping |
+| Command | Mapping |
 | --- | --- |
-| LIMIT BUY/SELL | GTC/GTD, per-order post-only intent, local signing and one create POST |
-| MARKET BUY/SELL | GTC, base shares, mandatory strategy reference price and configured slippage |
-| CancelOrder | Known numeric route: one remove POST; missing route: targeted hash GET first |
-| BatchCancelOrders | Group numeric IDs and interpret each removed/noop/rejected result |
-| CancelAllOrders | Select owned orders and reuse removal, including deferred Submitted orders |
-| ModifyOrder | Native ModifyRejected; caller uses cancel then a new order |
-| OrderList, batch modify, reduce-only, quote-quantity MARKET, IOC/FOK | Explicitly unsupported; no silent intent conversion |
+| LIMIT BUY/SELL | GTC/GTD; Native post-only; optional LIMIT STP |
+| MARKET BUY/SELL, base quantity | GTC or FOK; explicit strategy reference and resolved slippage |
+| MARKET BUY, quote quantity | Native quote budget; GTC/FOK; zero resolved extra slippage |
+| CancelOrder | One remove POST with a cached route; one hash GET first only if the numeric route is absent |
+| BatchCancelOrders / CancelAllOrders | Select owned orders, group routes and interpret individual removal results |
+| ModifyOrder | ModifyRejected; strategy explicitly cancels then submits a new order |
+| OrderList, batch modify, reduce-only, IOC, LIMIT FOK, quote SELL | Unsupported; no silent intent conversion |
 
-Local checks enforce protocol legality, ownership and current prepared context.
-They do not duplicate strategy risk budgets. Unknown POST outcomes retain their
-existing correlation for wallet/Native recovery and are not automatically resent.
+Warm submit performs local preparation and one create POST. It performs no book,
+cash, OPEN, holdings, match-history, metadata or nonce read. Cold signing inputs
+fail promptly and wake existing background preparation. Checks retain ownership,
+protocol legality, current definition, authentication and task lifetime; they do
+not duplicate risk budgets. Ambiguous transmitted writes retain correlation and
+are never automatically resubmitted.
 
 ### MARKET strategy input
 
-Native MarketOrder has no price field. Supply an exact decimal string through
-`SubmitOrder.params["market_price"]`, for example `"0.020"`, for either BUY or SELL.
-It is the selected outcome's reference before `market_slippage_bps`; NO uses its
-own price. This parameter is consumed locally, not added to the venue payload.
-Missing/invalid values produce Native OrderDenied before Submitted. There is no
-orderbook fallback or implicit cached-quote selection.
+Supply an exact decimal string in `SubmitOrder.params["market_price"]`, using the
+selected outcome's price. Native MarketOrder has no price field. The strategy
+owns reference freshness and executable depth; the adapter does not fetch a book.
+`market_order_slippage_bps` is a per-order parameter, using the Native Hyperliquid
+name. Omission means zero extra slippage, as in the official Predict SDK. There is
+no client-level slippage setting. Slippage adjusts signed
+amounts once. Both base-share and quote-budget paths send `isMinAmountOut=false`.
+This is an internal HTTP protocol constant, not a strategy parameter or planned
+order capability. Explicit `isMinAmountOut` / `is_min_amount_out` params are
+rejected; quote-budget BUY is expressed through Native quote_quantity.
 
-Reference price must be positive, at most one and representable in wei. The
-builder follows the supported SDK precision and venue signed-amount minimum;
-these are protocol constraints, not discretionary risk limits. Strategy owns
-executable depth, reference freshness, sizing and any tighter slippage policy.
+For 100 shares at .020 and 100 bps, BUY signs at most 2.02 USDT for 100 shares;
+SELL signs 100 shares for at least 1.98 USDT before fees. These signed terms do
+not promise available liquidity. SDK input constraints include three significant
+price digits, five significant quantity digits, .01-share minimum and 1 USDT
+signed collateral minimum. Execution precision is independent of order-entry
+rounding. LIMIT rejects terms the SDK would silently truncate.
 
-For 100 shares at 0.020 with 100 bps slippage:
+`TimeInForce::Fok` on MARKET maps to `isFillOrKill=true`; GTC omits it. Neither
+FOK nor post-only is a camel-case HTTP command parameter. GTC omission does not
+establish resting-remainder behavior. MARKET signs a five-minute expiration;
+LIMIT GTC uses the SDK's 2100 fallback and GTD uses the Native expiry. Signed order
+expiry, instrument expiry and recovery timeout are separate concepts.
 
-| Side | Signed maker amount | Signed taker amount |
-| --- | --- | --- |
-| BUY | 2.02 USDT maximum, capped at one USDT/share | 100 shares |
-| SELL | 100 shares | 1.98 USDT minimum proceeds, before fees |
+### MARKET BUY quote sizing
 
-Slippage adjusts signed amounts once. The request serializes `slippageBps` as a
-decimal string and uses `isMinAmountOut=false`, matching the quantity-based SDK
-mode. A signed floor/maximum is not a guarantee of liquidity or execution.
-Supported builder inputs use up to three significant price digits and five
-significant quantity digits, a 0.01-share floor and the venue's 1 USDT signed
-collateral minimum. Fill/inventory precision is separate; strategies retain any
-untradeable remainder explicitly. See the
-[pinned SDK comparison](https://github.com/PredictDotFun/sdk-python/blob/6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1/src/predict_sdk/order_builder.py).
+`quote_quantity=true, quantity=X` means maximum principal budget X USDT. At the
+strategy reference, SDK value-mode arithmetic derives shares with five-significant-
+digit flooring. Signed collateral must be representable, at least 1 USDT and no
+more than X. Positive resolved slippage is unsupported for quote sizing.
 
-### Prepared metadata and signing
+Before Submitted, Native OrderUpdated converts the working quantity to base
+shares and clears the quote flag. Initialized retains the original budget;
+worker views and restart validation reuse that history. Subsequent order progress
+uses gross shares. No separate budget registry is maintained. Reservations use
+the immutable signed budget or conservatively the persisted quote cap. Sizing
+from one reference does not guarantee full budget consumption. See
+[SDK and MARKET evidence](reference/predict-immediate-order-validation.md).
 
-Market definitions/fees are prepared at connect, instrument updates and background
-refresh, sharing the existing slot across YES/NO. `market_metadata_ttl_secs` accepts
-1..=300; zero is invalid. Cold/expired metadata denies promptly without a command
-GET. Definition replacement, recovery and wallet epochs invalidate stale context.
+### Maker STP and receipt metadata
 
-Wallet signer, typed-data constants and exchange domains are reused. Signing nonce
-preparation belongs to initialization/background refresh. Invalid-nonce rejection
-requests refresh without automatically retrying the trading POST. There is no
-signer pool or prepared-order grid.
+Native post-only and GTC/GTD remain ordinary order fields. LIMIT accepts
+`params["self_trade_prevention"]`: CANCEL_MAKER, CANCEL_TAKER or CANCEL_BOTH.
+Omission preserves venue defaults; MARKET STP is unsupported. STP is an HTTP
+option outside the signed terms and cannot be inferred from a recovered hash.
+
+Subscribe to `predict_limit_order_receipt_data_type(account, strategy)` with no
+client selector for `PredictLimitOrderReceiptUpdate`. It contains submitted
+options and the optional exact removal-lock deadline. Missing means unknown;
+metadata is transient and not reconstructed after restart. Its delivery failure
+does not change execution outcome. See the [maker contract](reference/predict-maker-order-validation.md).
 
 ### Cancellation
 
-[Orderbook removal](https://dev.predict.fun/remove-orders-from-the-orderbook-25326904e0)
-does not invalidate the signature on-chain or reverse an already matched settlement.
-Single and batch cancellation share result classification:
+A definitive `removed` partition or wallet cancellation publishes Canceled without
+waiting for fills or account refresh. A lock-window `rejected` partition publishes
+CancelRejected and preserves the order. `noop`, timeout and lost responses leave
+outcome unresolved. HTTP 200 alone does not prove cancellation.
 
-| Evidence | Result |
-| --- | --- |
-| Proven not sent or explicit rejection | CancelRejected; retain active reservation |
-| Requested ID in removed, current generation | Canceled, even during a wallet gap; command ownership stays until Native applies it |
-| Requested ID in noop | Targeted hash query; validated terminal evidence may produce a report |
-| Timeout, 5xx, malformed receipt or stale generation after transmission | Unknown outcome; retain intent for wallet/Native reconciliation |
+Submitted-order cancellation uses existing correlation until the route/ownership
+is available. The adapter adds no follow-up polling loop. Native recovery queries
+resolve uncertain outcomes. Predict opts into `retain_unresolved_commands`: Native
+budget exhaustion publishes `CommandRecoveryExhausted` and retains pending state,
+instead of inventing venue cancellation. This opt-in requires the paired Native
+implementation; other clients retain their default behavior. A later actual fact
+or explicit Native query may resolve the order. Unrelated orders continue.
 
-OPEN or unresolved fills do not prove cancellation. Batches are not atomic.
-Reset refuses unresolved submissions or cancellations, including restored orders
-without a local submit entry. Stop/reconnect do not erase ambiguous intent.
-
-### Native cancellation recovery limit
-
-An unchanged OPEN report proves the order remains live. Native preserves
-PendingCancel while checking confirmation. In the compared Native implementation,
-retry exhaustion can synthesize Canceled without a venue terminal fact. This is
-not proof of removal; the adapter keeps the remote OPEN reservation. A terminal
-cached order cannot simply be reopened or canceled by the normal strategy API.
-Resolve venue state before replacement after such an outage. No second order
-state machine or retry scheduler is added to hide this framework limitation.
+Rust hosts can subscribe to `reconciliation.CommandRecoveryExhausted` on the Native
+msgbus and filter by client, account and strategy. This diagnostic is not an order
+event: it ends the automatic retry budget without changing quantity, confirmed
+fills or pending risk ownership. It does not assert that the venue removed an order.
 
 ## Wallet feedback and settlement
 
-Known own Accepted/Canceled/Rejected/Expired facts use `OrderEventFactory` and the
-Native emitter directly. Applied state and one-terminal-callback rules remain
-Native-owned. The once-written Accepted marker follows the order context, including
-queued-before-application races; it is not a 10,000-entry FIFO.
+| Venue fact | Native effect |
+| --- | --- |
+| Create 201 receipt | Routing/optional receipt metadata; no acceptance assertion |
+| Owned Accepted | Immediate Accepted |
+| Owned Canceled / Expired | Immediate terminal lifecycle event; no trade-history wait |
+| noMarketMatch / rejectedPostOnly, no confirmed/reported fill or pending settlement | Rejected with the venue reason |
+| Rejection with confirmed/reported/pending execution, any rejectedDuplicate or unknown reason | Immediate rejection observation; retain Native state and request independent order status |
+| Transaction Submitted / Failed | Optional settlement CustomData; no economic fill |
+| Transaction Success | Confirmed FillReport with actual execution and fee facts |
 
-Confirmed fills retain exact raw quantity/fee normalization on the Native
-execution path. REST/external recovery uses reports. Hash, account, immutable terms, cumulative
-quantity and trade identity are validated. A venue millisecond timestamp is not
-rejected merely for preceding the local nanosecond submission timestamp.
+Native applies events/reports before publishing strategy callbacks. A cancellation
+callback does not assert that all fills have arrived. Late confirmed fills remain
+applicable after cancellation or instrument expiry. Missing acceptance required
+for hash binding or the Native Expired transition uses the existing queued proof.
+Known cancellation/expiry and real executions never wait for unrelated history or
+account collection. An ambiguous rejection does not itself prove original-order closure.
 
-| Wallet message | CustomData status | Economic state |
-| --- | --- | --- |
-| orderTransactionSubmitted | Submitted: matched and submitted for settlement | No Native fill or position increase |
-| orderTransactionSuccess | Confirmed | Normal confirmed Native Filled path |
-| orderTransactionFailed | Failed | No Filled; does not by itself cancel the whole order |
+`orderNotAccepted` with confirmed or reported execution does not independently
+establish cancellation of the remainder. An outstanding
+OrderTransactionSubmitted also prevents a false zero-fill rejection when the display
+cumulative is still zero; it confirms matching intent, not final inventory. Any rejectedDuplicate
+or unrecognized rejection likewise preserves the original order, including a zero-fill
+accepted original. Independent wallet cancellation/expiry or REST terminal evidence
+must establish closure. Confirmed settlements remain independently applicable.
 
-`PredictSettlementUpdate` is published through Native DataEngine/msgbus to the
-owning account/strategy's `on_data(CustomData)`. Subscribe with
-`predict_settlement_data_type(account_id, strategy_id)`. It contains order, trade
-and settlement identity, raw economic facts, timestamp and status. No additional
-REST/RPC or exchange subscription is required.
+Subscribe to `predict_order_rejection_data_type(account, strategy)` for
+`PredictOrderRejectionUpdate`. This immediate observation includes the reason
+classification, displayed cumulative quantity, Native-applied quantity/status and
+`requires_reconciliation`. It is neither an order terminal nor an economic fill.
+Known reasons retain their wire spelling; unrecognized strings are classified as
+`unknown` rather than echoed. Duplicate observations may repeat this transient metadata
+without duplicating Native order or position events.
 
-Early hedging or canceling other risk orders may start at settlement Submitted.
-Track settlement_id, correct the hedge if Failed, and do not hedge twice on
-Confirmed. Submitted lacks final fee facts. Final sellable inventory and PnL use
-`on_order_filled`, position events and Native Cache. Confirmed CustomData is not a
-second fill. The data and execution queues do not guarantee cross-channel order.
-Late Filled may still arrive after cancellation. See the
-[strategy callback contract](how_to/predict-rust-strategy-calibration.md#quantity-fees-and-settlement-callbacks).
+The existing client recovery timer coalesces each affected client-order ID and sends
+one ordinary Native QueryOrder on its next tick (default one second). It maintains
+query intent only, with no parallel order status or retry loop. Native owns collection,
+application and later retries. Explicit terminals retire a queued request. Shutdown
+fences the timer. Hosts disabling that timer retain responsibility for ordinary Native
+queries/reconciliation; a metadata subscriber need not manage another order ledger.
+Optional metadata channel closure cannot suppress genuine execution delivery.
+
+The strategy contract separates remaining order activity from confirmed economic
+execution. Canceled/Expired means the order has stopped working; it does not assert
+zero inventory or a complete settlement history. PartiallyFilled means an incomplete
+working order, whereas a partially executed order whose remainder ended is Canceled
+with its actual fills preserved. Share fees change net inventory, not gross order
+progress. A later genuine settlement may update a closed order and its position.
+
+For a zero-fill MARKET already Rejected by wallet evidence, a subsequent REST
+CANCELLED preserves that Native rejection for both GTC and FOK. Without wallet
+evidence, recovery uses Canceled and does not invent a no-match reason. This is an
+equivalence between two terminal representations, independent of execution TIF.
+
+The official [wallet topic reference](https://dev.predict.fun/subscription-topics-1915507m0)
+defines OrderNotAccepted as rejection and enumerates reasons without explaining their
+combinations with partial settlements or whether a duplicate refusal terminates an
+existing original. SDK 1.3.8 builds/hashes/signs orders and supplies no wallet rejection
+state resolver. Native compatibility in another adapter cannot fill this protocol gap.
+The current adapter preserves uncertainty explicitly until independent status evidence.
+
+Actual execution price, liquidity and fee asset/amount are authoritative. A fill
+is not discarded for differing from limit/post-only intent or the local clock.
+Identity, signed terms, raw arithmetic and conflicting duplicate checks remain.
+Confirmed wallet and REST fills use Native report ingestion, preserving its fee
+preflight and suppression of inventory already covered by position snapshots.
+
+`PredictSettlementUpdate` uses the existing DataEngine/msgbus custom-data route:
+subscribe to `predict_settlement_data_type(account, strategy)`. Submitted may drive
+strategy hedging, but has no final fee and creates no position. Confirmed metadata
+is not a second fill. Cross-channel ordering is not guaranteed. Optional metadata
+receiver failure is logged and cannot suppress execution delivery.
 
 ### Quantity commissions and precision
 
-For `native-quantity-commission`, orders progress on gross executed shares. BUY
-SHARES fees reduce received inventory; SELL COLLATERAL fees reduce cash proceeds.
-The actual reported fee asset/amount is authoritative; do not deduct the USDT
-valuation of a share fee again. Native quote realized PnL is not all-fee cash PnL.
-Legacy execution and quantity-commission reconciliation are different mappings;
-the maker/taker strategy contract targets the latter.
+Gross shares advance orders. Actual SHARES fees reduce received BUY inventory;
+COLLATERAL fees reduce cash proceeds. Native handles quantity commissions, net
+cost basis and PnL. Do not deduct a share fee's USDT valuation again. Zero-fee and
+collateral-fee fills retain exact atomic quantity; actual execution prices need
+not have the same precision as quote ticks. See [quantity commissions](reference/quantity-commission.md).
 
-The existing Native-applied fill index is borrowed by trade ID under immutable
-cutoffs. Repeated live observations reuse it, rather than clone OrderAny history,
-build single-element maps or repeatedly search queued fills. A weak history cursor
-plus complete fact count/cutoff permits reuse of verified raw prefixes. Only newly
-appended IDs need reading on a valid continuation. Cold/replaced/incomplete histories
-retain full validation. Uncommitted facts are not memoized.
+The adapter retains raw economic evidence and queued trade identities for exact
+conversion and deduplication before Native applies them. Immutable Native history
+indexes are reused on valid continuations; cold/replaced histories receive full
+validation. These are protocol evidence, not a second position model. Queued wallet
+fills are included in recovery bundles so lagging REST cannot void genuine fills.
 
-Pending wallet fills borrow the existing queued-ID and committed-fact indexes;
-there is no per-message economic-fact Vec or lifecycle lookup map. The order view
-and evidence guard are sampled under the Native observer's publication lock. That
-account lock is released before normalization; the evidence guard protects the
-borrow through event enqueue and queued marking. Lifecycle/account publication
-occurs after releasing evidence, preserving the observer's lock order. The
-transmitted hash supplies ownership even before Native applies Accepted.
-Wallet dispatch constructs message-derived venue/instrument IDs once and passes
-them to the internal report parser. The parser still checks Native ownership and
-instrument identity. Numeric REST IDs use the shared strict decimal uint256 codec
-directly, without a JSON value or a second string allocation.
+A venue FILLED with complete quantitative evidence may normalize the working
+quantity to confirmed gross via Native reconciliation OrderUpdated. Original signed
+terms remain in history. This handles a one-wei unmatched remainder without
+fabricating a Canceled event, trade or fee. Unknown `amountFilled` units alone
+cannot authorize normalization.
 
-Retirement may reuse a membership-only cursor with no monetary summary. It must
-never substitute zero economic totals. Raw wei evidence and temporary settlement
-notices have distinct purposes and owner-scoped lifetimes; neither is a position
-ledger. Their former two 10,000-entry hard limits have been removed.
+This closing update is published as `OrderUpdated(reconciliation=true)` after the
+cache has reached FILLED; it creates no extra `OrderFilled`. Strategies observing
+terminal state should handle ordinary order events or updates as well as fills.
+Previously projected historical fills retain their allocation and replay identity;
+exact precision for new fills does not rewrite past trades or fees.
 
 ## Accounts and recovery
 
-Remote collection reads cash, OPEN and required nonce context; local projection
-uses the existing baseline plus Native reservations. Submitted capacity belongs to
-Native risk, so it is not reported twice. Ordinary Accepted/confirmed cancellation
-changes local locks without OPEN/RPC. Fills refresh cash asynchronously; periodic,
-explicit account queries and gap recovery perform wider verification.
+Cash and OPEN reservations are collected asynchronously. Ordinary order changes
+reproject Native locks without HTTP/RPC; fills request background cash refresh.
+Submitted capacity remains with Native risk. Known OPEN changes use order-local
+projection when provenance is available; otherwise projection uses the baseline
+and current owners. Allowance is not cash, and an unconfirmed terminal state
+cannot release a real venue reservation.
 
-Known OPEN changes use an order-local projection when the previous revision and
-AccountState are proven applied. Missing provenance falls back to full projection.
-MARKET BUY retains its immutable signed budget; external OPEN rows keep full signed
-budget where progress is unknown. SELL does not lock USDT. Unknown/synthetic cancel
-cannot release a real venue OPEN row. Allowance is not cash.
+Native owns recovery scheduling and report admission. Predict implements the
+current `ExecutionReportTask` collection/finalization API. IO runs on owned worker
+inputs; Cache-dependent finalization runs on the core thread. Target collection
+can publish an already verified terminal lifecycle fact through the emitter before
+reading trades. It does not mutate Cache from the worker. Report collection never
+serializes submit/cancel or wallet callbacks behind its network waits.
 
-The paired Native Runner applies AccountState through Portfolio and publishes the
-standard account topic. Deferred projections flush only after their source event
-is applied. Callback-child ordering preserves timely replacement funds; it does not
-promise every account update is visible inside the preceding order callback. Cash
-freshness remains asynchronous, with block/session/revision checks. No funds ledger,
-ACK protocol or per-command balance query is introduced.
+A target query uses one order GET and market-scoped matches only for nonzero
+reported fills. Each Native QueryOrder executes independently; an older history
+read cannot silently consume a newer query. Query scheduling and frequency limits
+remain with Native. Overlapping results use current Native ownership and standard
+trade deduplication; a stale OPEN snapshot cannot reopen a confirmed canceled order. No second status GET requires the venue to remain unchanged.
+Applied Native quantities plus unseen real trades form cumulative progress; the
+endpoint need not return an already-applied prefix again. Client shutdown fences
+late results; a wallet reconnect alone does not invalidate authenticated HTTP facts.
 
-Automatic gap retries use Native inflight/open indexes and existing command
-registries before enqueueing QueryAccount, then repeat eligibility before capturing
-retained history. Explicit QueryAccount still refreshes when readiness is ineligible.
-Recovery reuses collected account facts and observed order views, with post-IO
-OPEN/match/holdings/block and revision checks where needed. It is intentionally
-broader than ordinary execution. Current inventory, not unrelated closed history,
-determines startup recovery scope. Native external claims preserve strategy ownership.
+An OPEN row is sampled before its trade-history request. If a wallet cancellation
+or expiry reaches Native during that request, the collected real trades still
+apply while preserving the newer terminal state. An older OPEN observation cannot
+reopen the order or veto those executions. Conflicting economic facts and distinct
+terminal assertions remain explicit reconciliation errors.
 
-QueryOrder and single-order report tasks share target HTTP collection and pure
-conversion. Native core-thread finalization and command report delivery remain
-separate. Zero reported fills need one order GET; a nonzero amount requires
-market-scoped matches and a second order GET consistency fence. Predict documents
-amountFilled as a string without a share unit, so it is not compared numerically
-to Native filled_qty. A Filled-only shortcut is deferred: skipping the REST matches
-would also require preserving the existing complete raw-history, signed-term and
-allocation checks without constructing another retained proof/cache.
+Bulk recovery determines scope before fetching matches: OPEN venue orders,
+retained Native recovery orders and unexpired holdings, including position-only
+markets. Empty scope performs no account-wide historical scan. Known orders keep
+late-fill recovery after expiry. Explicit historical queries retain their requested
+scope. Pagination bounds, ownership and actual economic contradictions remain
+report checks, not account-wide order-admission checks.
 
-Ordinary bulk reports with an explicit instrument filter matches by market ID.
-Account-wide and full recovery retain all required markets, including instruments
-with positions and no current order. Explicit fill-report windows and batch
-validation are unchanged.
+### Prepared metadata and signing
 
-A cold capture reconstructs a Native/raw prefix at startup, full client reconnect,
-missing/stale observer context or a separate recovery view. A wallet resubscribe
-alone does not erase the live prefix. Startup may be slower; in-service cold
-reconstruction and large disposal can still pause the Native thread.
+Market/fee metadata is prepared at connection, definition updates and background
+refresh, sharing YES/NO context. TTL is 1..=300 seconds. Warm commands read it
+locally; stale context fails promptly and requests preparation. Wallet resubscribe
+does not invalidate still-valid metadata.
+
+Predict nonce is `nonces(owner)` for the selected verifying contract, not a clock
+or instrument sequence. Cache scope is client environment/account plus one of four
+exchange contracts. Only missing entries are read. InvalidNonce clears the matching
+entry if it still equals the rejected value, then wakes background refresh; other
+contracts remain usable. No guessed increment, time TTL or automatic POST retry.
+
+Nonce IO runs independently of cash/OPEN IO in the existing managed account task.
+The existing periodic cadence retries missing entries; healthy values are not
+polled. Automatic wallet reconnect and instrument retirement preserve valid values;
+full client setup resets connection context. See the [SDK comparison](reference/predict-execution-validation.md#comparison-basis).
 
 ## Retention and public data
 
-Native owns retention. Its existing closed-order/position/account-event purge is
-opt-in; the node example uses one-minute closed-order cadence and a 60-minute
-buffer. Explicit user profiles are not rewritten. Already-purged terminal owners
-retire on the existing recovery timer; manual mode keeps lifecycle/query fallback.
-Active orders, pending notifications and unapplied evidence remain protected.
+Instrument expiry ends new trading on that instrument; it does not cancel an
+order, erase a position or prove automatic redemption has completed. Static expired
+inventory is omitted from trading-position recovery, while definitions and owned
+orders needed for late execution remain under Native retention.
 
-Each adapter cleanup checks at most 128 entries from each existing index and limits
-selected retirement work. Membership is checked before disposal deferral, so an
-unapplied fact gates readiness in the same callback. Proof releases account/client/
-hash locks; selected deletion rechecks ownership/evidence. Final worker-history
-references are released outside shared guards. A single oversized owner, physical
-Native purge, instrument checks and OPEN copy-on-write can still be linear; this is
-not a hard pause deadline or a constant-memory promise for unresolved activity.
+| Ordinary Native purge condition | Effect |
+| --- | --- |
+| Any nonterminal order, including Initialized/Submitted/PendingCancel | Keep definition |
+| Any open position, including expired dust | Keep definition |
+| Only terminal orders and closed positions | Remove definition/market data; retain historical order/position records |
 
-Public CustomSnapshot, native L2 depth and explicit BBO subscriptions share one
-venue book topic. CustomSnapshot is the recording representation; native YES/NO
-depth is an on-demand sorted view, and quotes are an independent BBO projection.
-Managed depth uses Native book/quote maintenance before ordinary strategy callbacks.
-No extra venue subscription or adapter quote stage is required. Market-data timing
-probes have been retired; recording event/init timestamps remain part of the schema.
+No adapter force-purge API or retirement registry is added. Bounded mirror cleanup
+follows Native removal and protects queued/unapplied evidence. Retained old state
+is not an account-wide gate on new markets; genuine shared cash reservations still
+belong to risk/account reporting. An unsafe forced definition removal may prevent
+Native from applying a late fill.
 
-DataClient owns discovery, subscription rollover and expiry handover. The first
-valid successor snapshot completes handover; stale topic/epoch frames are discarded.
-Use an explicit snapshot or one rolling selector per market; overlapping selector
-identities are unsupported. RequestInstrument publishes a correlated response.
-Final instrument retirement follows Native retention and unresolved ownership.
-Public capture and strategy execution share data contracts; the strategy host does
-not record data unless configured to do so.
+Position collection skips zero and final WON/LOST balances before metadata lookup.
+Cached expiry requires no query; unknown nonfinal holdings use one market-window
+lookup per market per collection. Missing instrument is not itself expiry. Expired
+holdings need no historical instrument reconstruction. Active unknown holdings
+still fail the report. `provides_bulk_position_coverage=false` means an omitted
+position is not a flat assertion: no synthetic close, cash credit or payout.
+
+Public CustomSnapshot, native depth and BBO share venue book subscriptions.
+DataClient owns discovery, rollover and subscription handover; final retirement
+follows Native retention. Current batch requests preserve `instrument_ids`;
+single-member boundaries use `single_instrument_id()`. No older-API compatibility
+branch is maintained.
 
 ## Optional latency telemetry
 
-Telemetry is opt-in, bounded and disposable. Producers do not wait for a collector;
-the host drains it away from trading callbacks. Saturation drops measurements and
-reports that loss rather than block execution. It is not a recovery input.
-
-Measure paired command/WS-to-Native/actual-strategy intervals, API attempts and
-metadata hits/misses. Confirmed-fill timing is separate from Accepted and early
-matching. REST confirmations are not relabeled as WS samples. Overlapping spans
-must not be summed. Background/startup counts and per-command counts are reported
-separately. CPU microbenchmarks, timer waiting windows and live network measurements
-have different boundaries; see the validation record for limitations.
-
-## Comparison basis
-
-Maintained Native Polymarket context, dispatch, fills and reports provide the
-ownership/event/report comparison; Bybit, OKX and Binance Spot provide command,
-query and error-handling comparisons. Predict's SDK establishes protocol amount
-and signing behavior, not Native Cache/Portfolio lifecycle. SDK on-chain cancel is
-different from HTTP book removal. Comparisons use the source revisions recorded in
-the validation record; they are not a claim about unfetched upstream HEAD.
-
-[Live evidence](reference/predict-live-evidence.md) separately records observed
-venue behavior. Offline replays and sanitized fixtures do not establish new venue
-acceptance. Long-running unattended validation and universal latency bounds remain
-outside the completed evidence.
+Telemetry is opt-in, bounded and disposable. Producers never wait for collection;
+saturation drops measurements and reports loss. Hosts drain outside callbacks.
+Measure command, venue feedback and actual strategy intervals separately, with API
+counts and metadata hits. CPU microbenchmarks, startup stress, loopback callbacks
+and live network latency are different workloads; overlapping percentiles cannot
+be added. Linear cold history validation and physical purge remain implementation
+limits, not claimed constant-time HFT paths.

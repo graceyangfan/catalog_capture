@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 from datetime import UTC, datetime
+from decimal import ROUND_DOWN
 from decimal import Decimal as D
 from pathlib import Path
 
@@ -25,11 +26,12 @@ from run_predict_resting_live import authenticated_reader, final_cleanup
 
 
 class FillPolicy:
-    def __init__(self, identity, candidate):
+    def __init__(self, identity, candidate, market_entry=False):
         self.identity = identity.lower()
         self.candidate = candidate
         self.token = str(candidate["tokenId"])
         self.plan = candidate["plan"]
+        self.market_entry = market_entry
 
     def terms(self, row):
         fields = row["order"]
@@ -49,6 +51,21 @@ class FillPolicy:
             if int(order["feeRateBps"]) != self.candidate["feeRateBps"]:
                 return False
             if count == 0:
+                if self.market_entry:
+                    reference = D(data["pricePerShare"]) / 10**18
+                    shares = int(D(self.plan["grossQuantity"]) * 10**18)
+                    return (
+                        data["strategy"] == "MARKET"
+                        and data.get("isFillOrKill") is True
+                        and data.get("isMinAmountOut") is False
+                        and data.get("slippageBps") == "300"
+                        and order["side"] == 0
+                        and int(order["takerAmount"]) == shares
+                        and 0 < reference <= D(".48")
+                        and int(order["makerAmount"])
+                        == int(reference * shares * D("1.03"))
+                        and int(order["makerAmount"]) <= 150 * 10**16
+                    )
                 return (
                     data["strategy"] == "LIMIT"
                     and data.get("isPostOnly") is False
@@ -65,7 +82,11 @@ class FillPolicy:
                 <= int(D(self.plan["conservativeNetQuantity"]) * 10**18)
                 and (
                     (data["strategy"] == "LIMIT" and data.get("isPostOnly") is True)
-                    or (data["strategy"] == "MARKET" and data.get("slippageBps") == 100)
+                    or (
+                        data["strategy"] == "MARKET"
+                        and data.get("slippageBps")
+                        == ("300" if self.market_entry else "100")
+                    )
                 )
             )
         except (KeyError, ValueError, TypeError):
@@ -128,6 +149,117 @@ def discover(request):
     if not choices:
         raise CaptureError("no bounded round-trip candidate; no entry")
     return min(choices, key=lambda c: D(c["plan"]["estimatedRoundTripLoss"]))
+
+
+def crypto_plan(bids, asks, fee_bps):
+    """Small long-only round trip with SDK-compatible net shares and exit depth."""
+    if not bids or not asks or not 0 <= fee_bps <= 200:
+        return None
+    bid, bid_qty = (D(str(x)) for x in bids[0])
+    ask, ask_qty = (D(str(x)) for x in asks[0])
+    if not 0 < bid < ask <= D(".48"):
+        return None
+    qty = (D("1.40") / ask).quantize(D(".1"), rounding=ROUND_DOWN)
+    cost, net = qty * ask, qty * (1 - D(fee_bps) / 10000)
+    proceeds = bid * net * (1 - D(fee_bps) / 10000)
+    stress_floor = (bid * net - D(".15")) * D(".97")
+    if (
+        cost < 1
+        or cost * D("1.03") > D("1.50")
+        or bid_qty < net * 3
+        or ask_qty < qty * 3
+        or cost - proceeds > D(".10")
+        or stress_floor < D("1.05")
+        or len(str(net.normalize()).replace(".", "").lstrip("0")) > 5
+    ):
+        return None
+    return {
+        k: str(v)
+        for k, v in {
+            "entryPrice": ask,
+            "grossQuantity": qty,
+            "entryCost": cost,
+            "conservativeNetQuantity": net,
+            "bid": bid,
+            "ask": ask,
+            "immediateNetProceeds": proceeds,
+            "estimatedRoundTripLoss": cost - proceeds,
+            "netExitFloor": stress_floor * (1 - D(fee_bps) / 10000),
+            "maxLoss": D(".15"),
+        }.items()
+    }
+
+
+def discover_crypto(request):
+    matches = request("GET", "/v1/orders/matches", params={"first": 100})["data"]
+    now = datetime.now(UTC)
+    recent = {}
+    for row in matches:
+        m = row["market"]
+        if m.get("marketVariant") != "CRYPTO_UP_DOWN":
+            continue
+        if (now - datetime.fromisoformat(row["executedAt"])).total_seconds() <= 60:
+            recent.setdefault(m["id"], []).append(row["executedAt"])
+    choices = []
+    for mid, executions in recent.items():
+        m = request("GET", f"/v1/markets/{mid}")["data"]
+        schedule = m.get("rewards", {}).get("schedule", [])
+        ends = [datetime.fromisoformat(r["endsAt"]) for r in schedule]
+        if (
+            m["tradingStatus"] != "OPEN"
+            or m.get("resolution") is not None
+            or m.get("makerFeeBps", 0) != 0
+            or not ends
+            or (max(ends) - now).total_seconds() < 120
+        ):
+            continue
+        book = request("GET", f"/v1/markets/{mid}/orderbook")["data"]
+        for outcome in (1, 2):
+            bids = (
+                book["bids"]
+                if outcome == 1
+                else [[str(1 - D(str(p))), q] for p, q in book["asks"]]
+            )
+            asks = (
+                book["asks"]
+                if outcome == 1
+                else [[str(1 - D(str(p))), q] for p, q in book["bids"]]
+            )
+            plan = crypto_plan(bids, asks, m["feeRateBps"])
+            if plan:
+                choices.append(
+                    {
+                        "marketId": mid,
+                        "title": m["title"],
+                        "outcome": outcome,
+                        "tokenId": next(
+                            o["onChainId"]
+                            for o in m["outcomes"]
+                            if o["indexSet"] == outcome
+                        ),
+                        "feeRateBps": m["feeRateBps"],
+                        "plan": plan,
+                        "book": book,
+                        "recentMatchCount": len(executions),
+                        "lastMatchAt": max(executions),
+                        "expiresAt": max(ends).isoformat(),
+                    }
+                )
+    if not choices:
+        raise CaptureError(
+            "no active crypto market meets fee, depth and exit budget bounds"
+        )
+    return min(
+        choices,
+        key=lambda c: (-c["recentMatchCount"], D(c["plan"]["estimatedRoundTripLoss"])),
+    )
+
+
+def historical_inventory(positions):
+    return sorted(
+        (str(p["market"]["id"]), str(p["outcome"]["onChainId"]), str(p["amount"]))
+        for p in positions
+    )
 
 
 def native_account_matches(native, calibration):
@@ -246,7 +378,7 @@ def build_native_host():
             "-p",
             "nautilus-predict",
             "--features",
-            "native-quantity-commission",
+            "execution",
             "--locked",
             "--test",
             "private_api_live",
@@ -285,11 +417,19 @@ def build_native_host():
     ]
 
 
-def run(wait_for_exit=False):
+def run(wait_for_exit=False, market_entry=False):
     native_command = build_native_host() if wait_for_exit else None
+    continuous_observer = wait_for_exit or market_entry
     request, identity = authenticated_reader()
-    if complete_pages(request, "/v1/orders", status="OPEN") or complete_pages(
-        request, "/v1/positions", includeLost="true"
+    positions_before = complete_pages(request, "/v1/positions", includeLost="true")
+    if complete_pages(request, "/v1/orders", status="OPEN") or (
+        any(
+            p["market"].get("status") != "RESOLVED"
+            or p["outcome"].get("status") != "LOST"
+            for p in positions_before
+        )
+        if market_entry
+        else bool(positions_before)
     ):
         raise CaptureError("calibration requires an independently flat account")
     history = complete_pages(request, "/v1/orders/matches", signerAddress=identity)
@@ -297,9 +437,13 @@ def run(wait_for_exit=False):
         raise CaptureError(
             "prior settlements overlap the native one-minute calibration window; no entry"
         )
-    candidate = discover(request)
+    candidate = discover_crypto(request) if market_entry else discover(request)
     name = "live_fill_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    output = ROOT / "crates/nautilus-predict/tests/fixtures/private_api" / name
+    output = (
+        ROOT / "data/predict-validation"
+        if market_entry
+        else ROOT / "crates/nautilus-predict/tests/fixtures/private_api"
+    ) / name
     output.mkdir(exist_ok=False)
     (output / "admission.json").write_text(
         json.dumps(
@@ -333,7 +477,7 @@ def run(wait_for_exit=False):
     recorder = collector = node = None
     status = None
     failure = None
-    policy = FillPolicy(identity, candidate)
+    policy = FillPolicy(identity, candidate, market_entry)
     owned = set()
     try:
         with os.fdopen(
@@ -342,7 +486,7 @@ def run(wait_for_exit=False):
             owned.add(config)
             f.write(source)
         recorder = PrivateHttpRecorder(
-            output / "http_responses.json", policy, record_reads=wait_for_exit
+            output / "http_responses.json", policy, record_reads=continuous_observer
         )
         with os.fdopen(
             os.open(manifest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w"
@@ -352,6 +496,7 @@ def run(wait_for_exit=False):
                 {
                     "origin": recorder.origin,
                     "waitForStrategyExit": wait_for_exit,
+                    "marketEntry": market_entry,
                     "candidate": candidate,
                     "output": str(output),
                 },
@@ -369,7 +514,16 @@ def run(wait_for_exit=False):
                     capture_name,
                     "--calibration-seconds",
                     "180",
-                    *(["--until-stop-file", str(stop_marker)] if wait_for_exit else []),
+                    *(
+                        ["--calibration-market-id", str(candidate["marketId"])]
+                        if market_entry
+                        else []
+                    ),
+                    *(
+                        ["--until-stop-file", str(stop_marker)]
+                        if continuous_observer
+                        else []
+                    ),
                     "--ready-file",
                     str(marker),
                 ],
@@ -392,8 +546,10 @@ def run(wait_for_exit=False):
                     "netExitFloor": candidate["plan"]["netExitFloor"],
                     "maxBuyUsdt": "1.50",
                     "maxLossTrigger": "0.15",
-                    "holdingDeadlineSeconds": None if wait_for_exit else 150,
-                    "entryWindowSeconds": 60,
+                    "holdingDeadlineSeconds": 20
+                    if market_entry
+                    else (None if wait_for_exit else 150),
+                    "entryWindowSeconds": 20 if market_entry else 60,
                     "exitOwner": "Rust strategy: maker profit or taker loss threshold",
                 }
             ),
@@ -465,10 +621,10 @@ def run(wait_for_exit=False):
             )
         finally:
             if collector:
-                if wait_for_exit:
+                if continuous_observer:
                     stop_marker.write_text('{"nodeStopped":true}\n')
                 try:
-                    collector.wait(timeout=60 if wait_for_exit else 205)
+                    collector.wait(timeout=60 if continuous_observer else 205)
                 except subprocess.TimeoutExpired:
                     collector.terminate()
                     collector.wait(timeout=5)
@@ -476,7 +632,12 @@ def run(wait_for_exit=False):
                 control.unlink(missing_ok=True)
     orders = complete_pages(request, "/v1/orders", status="OPEN")
     positions = complete_pages(request, "/v1/positions", includeLost="true")
-    independent = output.parent / capture_name / "calibration.json"
+    independent_dir = (
+        ROOT / "crates/nautilus-predict/tests/fixtures/private_api" / capture_name
+    )
+    if market_entry and independent_dir.exists():
+        independent_dir = independent_dir.rename(output / "independent")
+    independent = independent_dir / "calibration.json"
     calibration = json.loads(independent.read_text()) if independent.exists() else None
     native = (
         json.loads((output / "native_roundtrip.json").read_text())
@@ -488,7 +649,7 @@ def run(wait_for_exit=False):
         cycle_economics(
             native, calibration, recorder.submitted_hashes() if recorder else set()
         )
-        if wait_for_exit
+        if wait_for_exit or market_entry
         else None
     )
     pnl_matches = (
@@ -504,6 +665,9 @@ def run(wait_for_exit=False):
         "economics": economics,
         "openOrders": len(orders),
         "positions": len(positions),
+        "historicalInventoryUnchanged": historical_inventory(positions)
+        == historical_inventory(positions_before),
+        "marketEntry": market_entry,
         "independentSummary": calibration["summary"] if calibration else None,
         "nativeFeedbackAvailable": native is not None,
         "nativeAccountMatchesChain": account_matches,
@@ -513,7 +677,11 @@ def run(wait_for_exit=False):
         and pnl_matches
         and collector.returncode == 0
         and not orders
-        and not positions
+        and (
+            historical_inventory(positions) == historical_inventory(positions_before)
+            if market_entry
+            else not positions
+        )
         and calibration is not None,
     }
     (output / "final_verification.json").write_text(
@@ -531,6 +699,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--execute-bounded-round-trip", action="store_true")
+    mode.add_argument("--execute-crypto-market-round-trip", action="store_true")
     mode.add_argument(
         "--execute-wait-for-strategy-exit",
         action="store_true",
@@ -538,7 +707,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     try:
-        run(wait_for_exit=args.execute_wait_for_strategy_exit)
+        run(
+            wait_for_exit=args.execute_wait_for_strategy_exit,
+            market_entry=args.execute_crypto_market_round_trip,
+        )
     except Exception as error:  # noqa: BLE001 - remote exceptions can contain credentials
         print(
             "Calibration failed:",

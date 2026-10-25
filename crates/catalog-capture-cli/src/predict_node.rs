@@ -33,9 +33,8 @@ use nautilus_predict::{
     PredictAccountStateMode, PredictChainClientConfig, PredictCryptoUpDownSelector,
     PredictDataClientConfig, PredictDataClientFactory, PredictEnvironment,
     PredictExecutionClientConfig, PredictExecutionClientFactory, PredictHttpClient,
-    PredictPrivateClientConfig, PredictSubmissionConfig, PredictWalletWebSocketConfig,
-    discover_crypto_up_down_market, http::PredictPrivateHttpClient, instrument_id_from_outcome,
-    signing::PredictAuthSigner,
+    PredictPrivateClientConfig, PredictWalletWebSocketConfig, discover_crypto_up_down_market,
+    http::PredictPrivateHttpClient, instrument_id_from_outcome, signing::PredictAuthSigner,
 };
 use serde::Deserialize;
 
@@ -62,7 +61,8 @@ pub struct PredictSettings {
     pub timeout_secs: u64,
     #[serde(default)]
     pub orderbook_removal_enabled: bool,
-    pub submission: Option<SubmissionSettings>,
+    #[serde(default)]
+    pub submission_enabled: bool,
 }
 fn timeout() -> u64 {
     15
@@ -82,12 +82,6 @@ impl PredictSettings {
         }
     }
 }
-/// Protocol defaults; Native node risk configuration owns order limits.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SubmissionSettings {
-    pub market_slippage_bps: u32,
-}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Discovery {
@@ -101,34 +95,10 @@ impl NodeProfile {
         let profile: Self = toml::from_str(source)
             .map_err(|_| anyhow::anyhow!("invalid Predict node TOML schema"))?;
         anyhow::ensure!(
-            !profile.node.risk_engine.bypass,
-            "Predict node requires native risk checks"
-        );
-        anyhow::ensure!(
-            profile.node.exec_engine.reconciliation,
-            "Predict node requires native reconciliation"
-        );
-        anyhow::ensure!(
-            profile
-                .node
-                .exec_engine
-                .position_check_interval_secs
-                .is_some(),
-            "Predict node requires native position checks for net holdings"
-        );
-        anyhow::ensure!(
             profile.discovery.interval_secs > 0
                 && !profile.discovery.price_feed_symbol.trim().is_empty()
                 && !profile.discovery.title_asset.trim().is_empty(),
             "Predict discovery selector is empty or invalid"
-        );
-        anyhow::ensure!(
-            profile
-                .node
-                .exec_engine
-                .reconciliation_instrument_ids
-                .is_none(),
-            "Predict node instrument scope comes from discovery/cache, not TOML IDs"
         );
         if matches!(profile.predict.environment, Environment::Testnet) {
             anyhow::ensure!(
@@ -214,6 +184,7 @@ pub async fn prepare(
     signer: Arc<PredictAuthSigner>,
 ) -> Result<PreparedNode> {
     let environment = profile.predict.environment();
+    let reconciliation_enabled = profile.node.exec_engine.reconciliation;
     let builder = LiveNodeBuilder::from_config(profile.node)?;
     let http_origin = profile
         .predict
@@ -262,18 +233,16 @@ pub async fn prepare(
         environment,
         profile.predict.rpc_url.into(),
     ));
-    let mut market_ids = nautilus_predict::execution::reconciliation_market_ids(&execution).await?;
+    let mut market_ids = if reconciliation_enabled {
+        nautilus_predict::execution::reconciliation_market_ids(&execution).await?
+    } else {
+        Vec::new()
+    };
     market_ids.push(selected.market_id);
     market_ids.sort_unstable();
     market_ids.dedup();
     execution.orderbook_removal_enabled = profile.predict.orderbook_removal_enabled;
-    execution.submission = profile
-        .predict
-        .submission
-        .map(|settings| PredictSubmissionConfig {
-            signer,
-            market_slippage_bps: settings.market_slippage_bps,
-        });
+    execution.submission_signer = profile.predict.submission_enabled.then_some(signer);
     let mut node = builder
         .with_name("PredictLiveNode")
         .add_data_client(

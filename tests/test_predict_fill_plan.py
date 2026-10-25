@@ -87,9 +87,11 @@ class RoundTripTests(unittest.TestCase):
         sell["order"]["makerAmount"] = "31360000000000000000"
         sell["strategy"] = "MARKET"
         sell.pop("isPostOnly")
-        sell["slippageBps"] = 100
+        sell["slippageBps"] = "100"
         self.assertTrue(policy(sell, 2))
-        sell["slippageBps"] = 200
+        sell["slippageBps"] = 100
+        self.assertFalse(policy(sell, 2))
+        sell["slippageBps"] = "200"
         self.assertFalse(policy(sell, 2))
 
     def test_actual_first_fill_is_not_a_complete_account_cycle(self):

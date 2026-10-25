@@ -34,7 +34,7 @@ class CleanupTests(unittest.TestCase):
     def test_latency_requires_gtd_before_authentication(self):
         with patch("run_predict_resting_live.authenticated_reader") as authenticate:
             with self.assertRaises(CaptureError):
-                run("yes-gtc", "native-quantity-commission", True)
+                run("yes-gtc", "execution", True)
             authenticate.assert_not_called()
 
     def test_unknown_case_cannot_authenticate_or_write(self):

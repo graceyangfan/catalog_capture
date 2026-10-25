@@ -63,11 +63,19 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
         base.advance_time(UnixNanos::from(OBSERVED), true);
         let clock = Rc::new(RefCell::new(base));
         let mut engine = ExecutionEngine::new(clock.clone(), cache.clone(), None);
-        let vectors: Value = serde_json::from_str(include_str!(
-            "../fixtures/private_api/quantity_precision.json"
-        ))
-        .unwrap();
-        let vector = &vectors[if full { "full" } else { "partial" }];
+        // Native live fees require exact gross execution at the order arithmetic scale.
+        // Keep the historical projection fixture immutable; use exact synthetic inputs here.
+        let vector = json!({
+            "gross_shares_wei": ["17000000000000000000", if full { "83000000000000000000" } else { "5000000000000000000" }],
+            "fee_shares_wei": ["340000000000000000", if full { "1660000000000000000" } else { "100000000000000000" }],
+            "executed_value_wei": ["2210000000000000000", if full { "10790000000000000000" } else { "650000000000000000" }],
+            "native_gross_quantity": if full { "100" } else { "22" },
+            "native_net_report_quantity": if full { "98" } else { "21.56" },
+            "net_shares_wei": if full { "98000000000000000000" } else { "21560000000000000000" },
+            "reported_balance_usdt": if full { "987" } else { "997.14" },
+            "realized_pnl_usdt": if full { "-0.26" } else { "-0.0572" },
+            "commission_usdt": ["0.0442", if full { "0.2158" } else { "0.013" }]
+        });
         let first = vector["gross_shares_wei"][0]
             .as_str()
             .unwrap()
@@ -133,24 +141,18 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
             if full {
                 Quantity::from(83)
             } else {
-                Quantity::from("5.0000000000000001")
+                Quantity::from(5)
             }
         );
-        if cfg!(feature = "native-quantity-commission") {
+        {
             assert!(report1.commission.is_zero() && report2.commission.is_zero());
             assert_eq!(
-                report1.quantity_commission,
+                report1.quantity_commission.map(|fee| fee.as_decimal()),
                 Some(
                     Decimal::from_str_exact(&(first * U256::from(2) / U256::from(100)).to_string())
                         .unwrap()
                         / Decimal::from(1_000_000_000_000_000_000u64)
                 )
-            );
-        } else {
-            assert_eq!(report1.commission, Money::from("0.0442 USDT"));
-            assert_eq!(
-                report2.commission,
-                Money::from(if full { "0.2158 USDT" } else { "0.013 USDT" })
             );
         }
         for report in [&report1, &report2] {
@@ -300,10 +302,7 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
         let queried = std::iter::once(client.client_id()).collect();
         let events =
             manager.reconcile_position_reports(&check, reports, &queried, &Default::default());
-        assert_eq!(
-            events.is_empty(),
-            cfg!(feature = "native-quantity-commission")
-        );
+        assert!(events.is_empty());
         for event in events {
             engine.process(&event);
         }
@@ -368,7 +367,7 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
 }
 
 #[tokio::test]
-async fn missing_raw_partial_prefix_stops_wallet_until_complete_rest_rebuilds_evidence() {
+async fn projected_legacy_fill_cannot_be_reinterpreted_as_atomic_share_fee_history() {
     let server = server(vec![]).await;
     let (mut client, mut rx, cache) = reported_client(&server);
     let _portfolio = portfolio(&cache);
@@ -411,24 +410,6 @@ async fn missing_raw_partial_prefix_stops_wallet_until_complete_rest_rebuilds_ev
     engine.reconcile_execution_report(&ExecutionReport::Fill(Box::new(report)));
     let first = U256::from(17_000_000_000_000_000_099u128);
     let second = U256::from(100_000_000_000_000_000_000u128) - first;
-    server.wallet(wallet_fill(1, second, "prefix-2"));
-    timeout(Duration::from_secs(2), async {
-        while !super::requires_reconciliation(&client) {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    assert_eq!(
-        cache
-            .borrow()
-            .order(&original.client_order_id())
-            .unwrap()
-            .filled_qty(),
-        Quantity::from(17)
-    );
-    client.disconnect().await.unwrap();
-    connect_reported(&mut client, &mut rx).await;
     let mut rows = vec![];
     for (raw, id) in [(second, "prefix-2"), (first, "prefix-1")] {
         let mut row = matches::match_row(1);
@@ -456,7 +437,7 @@ async fn missing_raw_partial_prefix_stops_wallet_until_complete_rest_rebuilds_ev
             None,
         ))
         .await;
-    if cfg!(feature = "native-quantity-commission") {
+    {
         // An old persisted quote-valued fee cannot be silently reinterpreted as quantity fee.
         assert!(
             reports
@@ -473,31 +454,7 @@ async fn missing_raw_partial_prefix_stops_wallet_until_complete_rest_rebuilds_ev
             Quantity::from(17)
         );
         client.disconnect().await.unwrap();
-        return;
     }
-    let reports = reports.unwrap();
-    assert_eq!(reports.len(), 2);
-    assert_eq!(
-        reports
-            .iter()
-            .map(|r| r.last_qty.as_decimal())
-            .sum::<Decimal>(),
-        Decimal::from(100)
-    );
-    server.wallet(wallet_fill(1, second, "prefix-2"));
-    let recovered = next_fill(&mut rx).await;
-    assert_eq!(recovered.last_qty, Quantity::from(83));
-    engine.reconcile_execution_report(&ExecutionReport::Fill(Box::new(recovered)));
-    assert_eq!(
-        cache
-            .borrow()
-            .order(&original.client_order_id())
-            .unwrap()
-            .status(),
-        OrderStatus::Filled
-    );
-    assert!(client.is_connected());
-    client.disconnect().await.unwrap();
 }
 
 #[tokio::test]
@@ -515,7 +472,7 @@ async fn wallet_replay_rejects_one_wei_fee_conflicts_even_when_money_rounding_is
         .add_order(original.clone(), None, None, false)
         .unwrap();
     connect_reported(&mut client, &mut rx).await;
-    let raw = U256::from(17_000_000_000_000_000_099u128);
+    let raw = U256::from(17_000_000_000_000_000_000u128);
     let event = wallet_fill(1, raw, "raw-conflict");
     server.wallet(event.clone());
     let report = next_fill(&mut rx).await;
@@ -524,13 +481,7 @@ async fn wallet_replay_rejects_one_wei_fee_conflicts_even_when_money_rounding_is
     bad["fee"]["amountWei"] =
         json!((raw * U256::from(2) / U256::from(100) + U256::from(1)).to_string());
     server.wallet(bad);
-    timeout(Duration::from_secs(2), async {
-        while !super::requires_reconciliation(&client) {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
+    super::wallet_processed(&server).await;
     while let Ok(event) = rx.try_recv() {
         assert!(matches!(event, ExecutionEvent::Account(_)));
     }
@@ -544,5 +495,83 @@ async fn wallet_replay_rejects_one_wei_fee_conflicts_even_when_money_rounding_is
             .filled_qty()
             .is_zero()
     );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn wallet_atomic_fee_reaches_native_net_inventory_without_rounding_or_double_charge() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache) = reported_client(&server);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let original = order(1);
+    cache
+        .borrow_mut()
+        .add_order(original.clone(), None, None, false)
+        .unwrap();
+    cache
+        .borrow_mut()
+        .add_venue_order_id(&original.client_order_id(), &HASH.into(), false)
+        .unwrap();
+    cache
+        .borrow_mut()
+        .register_external_order_claims(original.strategy_id(), &[instrument_id(1)])
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    let mut engine = ExecutionEngine::new(
+        Rc::new(RefCell::new(VirtualClock::new())),
+        cache.clone(),
+        None,
+    );
+    let mut event = wallet_fill(
+        1,
+        U256::from(17_000_000_000_000_000_000u128),
+        "exact-atomic-fee",
+    );
+    event["fee"]["amountWei"] = json!("340000000000000001");
+    server.wallet(event.clone());
+    let report = next_fill(&mut rx).await;
+    assert_eq!(report.last_qty.as_decimal(), Decimal::from(17));
+    assert_eq!(
+        report.quantity_commission.unwrap().as_decimal(),
+        Decimal::from_str_exact("0.340000000000000001").unwrap()
+    );
+    assert!(report.commission.is_zero());
+    let execution = ExecutionReport::Fill(Box::new(report));
+    engine.reconcile_execution_report(&execution);
+    engine.reconcile_execution_report(&execution);
+    {
+        let cache_ref = cache.borrow();
+        let positions = cache_ref.positions(None, Some(&instrument_id(1)), None, None, None);
+        assert_eq!(positions.len(), 1);
+        assert_eq!(
+            positions[0].quantity.as_decimal(),
+            Decimal::from_str_exact("16.659999999999999999").unwrap()
+        );
+        assert_eq!(positions[0].events.len(), 1);
+        assert_eq!(
+            positions[0].cost_open,
+            Decimal::from_str_exact("2.16579999999999999987").unwrap()
+        );
+        assert_eq!(
+            cache_ref
+                .order(&original.client_order_id())
+                .unwrap()
+                .filled_qty()
+                .as_decimal(),
+            Decimal::from(17)
+        );
+        assert_eq!(
+            cache_ref
+                .account(&account_id())
+                .unwrap()
+                .balance_total(Some(Currency::USDT()))
+                .unwrap(),
+            Money::from("1000 USDT")
+        );
+    }
     client.disconnect().await.unwrap();
 }

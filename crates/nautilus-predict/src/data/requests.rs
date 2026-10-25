@@ -34,7 +34,8 @@ impl PredictDataClient {
             request.client_id.is_none_or(|id| id == self.client_id),
             "Predict instrument request targets another client"
         );
-        let market_id = parse_market_id(&request.instrument_id)?;
+        let instrument_id = request.single_instrument_id()?;
+        let market_id = parse_market_id(&instrument_id)?;
         if request.start.is_some() || request.end.is_some() {
             log::warn!(
                 "Predict supplies current instrument definitions only; request dates have no effect"
@@ -52,7 +53,7 @@ impl PredictDataClient {
                     let (_, instruments) = instruments_from_market(&market, clock.get_time_ns())?;
                     let instrument = instruments
                         .into_iter()
-                        .find(|instrument| instrument.id() == request.instrument_id)
+                        .find(|instrument| instrument.id() == instrument_id)
                         .context("Predict market lacks the requested outcome instrument")?;
                     // Definition publication updates other venue clients; the separate response
                     // completes the initiating actor's request, as in Polymarket.
@@ -61,7 +62,7 @@ impl PredictDataClient {
                         InstrumentResponse::new(
                             request.request_id,
                             client_id,
-                            request.instrument_id,
+                            instrument_id,
                             instrument,
                             datetime_to_unix_nanos(request.start),
                             datetime_to_unix_nanos(request.end),

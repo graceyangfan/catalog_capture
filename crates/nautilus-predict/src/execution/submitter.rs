@@ -24,7 +24,7 @@ use nautilus_common::factories::OrderEventFactory;
 use nautilus_core::{AtomicMap, time::AtomicTime};
 use nautilus_live::{ExecutionEventEmitter, execution::failure::CommandFailure};
 use nautilus_model::{
-    enums::OrderSide,
+    enums::{OrderSide, TimeInForce},
     identifiers::{InstrumentId, VenueOrderId},
     instruments::Instrument,
     orders::{Order, OrderAny},
@@ -50,11 +50,14 @@ pub(super) struct SubmitWorker {
     pub order: Arc<OrderAny>,
     pub definition: super::types::ExecutionInstrument,
     pub terms: super::order_builder::OrderTerms,
+    pub limit_options: crate::http::command_models::PredictLimitOrderOptions,
+    pub data_sender:
+        Option<nautilus_common::live::sender::EventSender<nautilus_common::messages::DataEvent>>,
     pub salt: U256,
     pub pending: PendingSubmissions,
     pub orders: super::types::OrderSnapshots<VenueOrderId>,
     pub rest_ids: super::routing::RestOrderIds,
-    pub reconciliation_required: Arc<AtomicBool>,
+    pub account_refresh_required: Arc<AtomicBool>,
     pub account_sync: Arc<super::account::AccountSync>,
     pub instruments: Arc<AtomicMap<InstrumentId, super::types::ExecutionInstrument>>,
     pub healthy: Arc<AtomicBool>,
@@ -69,8 +72,7 @@ pub(super) struct SubmitWorker {
 
 impl SubmitWorker {
     pub(super) fn available(&self) -> bool {
-        !self.reconciliation_required.load(Ordering::Acquire)
-            && self.healthy.load(Ordering::Acquire)
+        self.healthy.load(Ordering::Acquire)
             && self.authentication.is_authenticated()
             && self.epoch.load(Ordering::Acquire) == self.admitted_epoch
     }
@@ -81,7 +83,6 @@ impl SubmitWorker {
 
     fn execution_market(&self) -> anyhow::Result<super::types::MarketMetadata> {
         if let Some(value) = self.definition.cached_market(
-            self.admitted_epoch,
             self.clock.get_time_ns(),
             self.config
                 .market_metadata_ttl_secs
@@ -179,14 +180,8 @@ impl SubmitWorker {
             .state
             .lock()
             .expect("account sync poisoned")
-            .signing_nonces
-            .filter(|(epoch, _)| *epoch == self.admitted_epoch)
-            .map(|(_, values)| values[metadata.market.exchange().cache_index()])
-            .ok_or_else(|| {
-                CommandFailure::not_sent(
-                    "Predict signing nonce is not prepared for this wallet generation",
-                )
-            })?;
+            .signing_nonces[metadata.market.exchange().cache_index()]
+        .ok_or_else(|| CommandFailure::not_sent("Predict account signing nonce is not prepared"))?;
         if !self.available() || !self.current_definition() {
             return Err(CommandFailure::not_sent(
                 "Predict admission lost wallet or instrument continuity",
@@ -206,10 +201,7 @@ impl SubmitWorker {
                 .state
                 .lock()
                 .expect("account sync poisoned");
-            if sync
-                .signing_nonces
-                .filter(|(epoch, _)| *epoch == self.admitted_epoch)
-                .is_none_or(|(_, values)| values[metadata.market.exchange().cache_index()] != nonce)
+            if sync.signing_nonces[metadata.market.exchange().cache_index()] != Some(nonce)
                 || !self.available()
                 || !self.current_definition()
                 || !self
@@ -269,6 +261,24 @@ impl SubmitWorker {
             self.order.client_order_id(),
             signed.hash(),
         );
+        log::debug!(
+            "Predict prepared order: client_order_id={} order_hash={:#x} instrument_id={} native_order_type={:?} native_tif={:?} initial_quote_quantity={} initial_quantity={} prepared_quantity={} wire_strategy={} is_post_only={:?} is_fill_or_kill={:?} slippage_bps={:?} price_per_share_wei={} maker_amount_wei={} taker_amount_wei={}",
+            self.order.client_order_id(),
+            signed.hash(),
+            self.order.instrument_id(),
+            self.order.order_type(),
+            self.order.time_in_force(),
+            self.order.init_event().quote_quantity,
+            self.order.init_event().quantity,
+            self.order.quantity(),
+            if amounts.is_some() { "MARKET" } else { "LIMIT" },
+            amounts.is_none().then_some(self.limit_options.is_post_only),
+            (amounts.is_some() && self.order.time_in_force() == TimeInForce::Fok).then_some(true),
+            amounts.map(|amounts| amounts.slippage_bps),
+            amounts.map_or(self.terms.price, |amounts| amounts.price_per_share),
+            signed.order().maker_amount,
+            signed.order().taker_amount,
+        );
         let timing = self.config.latency.as_ref().map(|probe| {
             if let Some(started) = self.command_started {
                 probe.post(self.order.client_order_id(), started);
@@ -277,14 +287,25 @@ impl SubmitWorker {
             probe.timer(crate::latency::LatencyMetric::CreateRequest)
         });
         let receipt = if let Some(amounts) = amounts {
-            self.config
-                .session
-                .request_create_market_order(&signed, &amounts)
-                .await
+            if self.order.time_in_force() == TimeInForce::Fok {
+                self.config
+                    .session
+                    .request_create_market_fok_order(&signed, &amounts)
+                    .await
+            } else {
+                self.config
+                    .session
+                    .request_create_market_order(&signed, &amounts)
+                    .await
+            }
         } else {
             self.config
                 .session
-                .request_create_limit_order(&signed, self.terms.price, self.order.is_post_only())
+                .request_create_limit_order_with_options(
+                    &signed,
+                    self.terms.price,
+                    self.limit_options,
+                )
                 .await
         };
         if let Some(timing) = timing {
@@ -302,29 +323,61 @@ impl SubmitWorker {
                         reason: crate::http::error::PredictApiErrorReason::InvalidNonce,
                         ..
                     }
-                ) && self.available()
-                {
+                ) {
                     let mut sync = self
                         .account_sync
                         .state
                         .lock()
                         .expect("account sync poisoned");
-                    if sync.signing_nonces.is_some_and(|(epoch, values)| {
-                        epoch == self.admitted_epoch
-                            && values[metadata.market.exchange().cache_index()] == nonce
-                    }) {
-                        sync.signing_nonces = None;
-                        sync.request_cash();
-                        self.account_sync.notify.notify_one();
+                    let value = &mut sync.signing_nonces[metadata.market.exchange().cache_index()];
+                    if *value == Some(nonce) {
+                        *value = None;
+                        self.account_sync.nonce_notify.notify_one();
                     }
                 }
                 return Err(classify_http_command_failure(&error));
             }
         };
         super::routing::register(&self.rest_ids, id, receipt.order_id).map_err(|error| {
-            self.reconciliation_required.store(true, Ordering::Release);
+            self.account_refresh_required.store(true, Ordering::Release);
             CommandFailure::Ambiguous(error.to_string())
         })?;
+        if self.terms.market.is_none() {
+            let removal_locked_until = receipt.removal_lock_deadline().map_err(|_| {
+                CommandFailure::ambiguous(
+                    "Predict create receipt has invalid removal lock timestamp",
+                )
+            })?;
+            // Receipt metadata uses the existing Native data channel, with no retained OMS.
+            // An old transport generation cannot publish into a renewed session.
+            if self.available()
+                && let Some(sender) = &self.data_sender
+            {
+                let now = self.clock.get_time_ns();
+                let update = super::receipt::PredictLimitOrderReceiptUpdate {
+                    account_id: self.factory.account_id(),
+                    strategy_id: self.order.strategy_id(),
+                    instrument_id: self.order.instrument_id(),
+                    client_order_id: self.order.client_order_id(),
+                    venue_order_id: id,
+                    is_post_only: self.limit_options.is_post_only,
+                    self_trade_prevention: self.limit_options.self_trade_prevention,
+                    removal_locked_until,
+                    connection_epoch: self.admitted_epoch,
+                    ts_event: now,
+                    ts_init: now,
+                };
+                if sender
+                    .send(nautilus_common::messages::DataEvent::Data(
+                        nautilus_model::data::Data::Custom(update.into_custom_data()),
+                    ))
+                    .is_err()
+                {
+                    // Optional metadata delivery does not change the remote order outcome.
+                    log::warn!("Predict LIMIT receipt metadata channel closed");
+                }
+            }
+        }
         // The receipt's opaque code is never interpreted as native acceptance.
         Ok(())
     }

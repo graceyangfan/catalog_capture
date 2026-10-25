@@ -2,7 +2,10 @@
 //! Synthetic recovery replay, not MARKET strategy submission or mainnet fill evidence.
 use nautilus_core::time::get_atomic_clock_realtime;
 use nautilus_live::node::config::LiveExecutionEngineConfig;
-use nautilus_model::identifiers::{ClientOrderId, StrategyId};
+use nautilus_model::{
+    enums::TimeInForce,
+    identifiers::{ClientOrderId, StrategyId},
+};
 use nautilus_predict::PredictDataClientConfig;
 
 use super::{
@@ -14,16 +17,52 @@ use super::{
 };
 
 fn market_order(outcome: u8) -> OrderAny {
+    market_order_with_tif(outcome, TimeInForce::Gtc)
+}
+
+fn market_order_with_tif(outcome: u8, tif: TimeInForce) -> OrderAny {
+    market_order_with_sizing(outcome, tif, false)
+}
+
+fn market_order_with_sizing(outcome: u8, tif: TimeInForce, quote: bool) -> OrderAny {
     let mut order = OrderTestBuilder::new(OrderType::Market)
         .trader_id(trader_id())
         .strategy_id(StrategyId::new("PREDICT-CALIBRATION-001"))
         .client_order_id(ClientOrderId::new("RECOVERED-MARKET-001"))
         .instrument_id(instrument_id(outcome))
         .side(OrderSide::Buy)
-        .quantity(Quantity::from(100))
+        .quantity(if quote {
+            Quantity::from("2.02")
+        } else {
+            Quantity::from(100)
+        })
+        .quote_quantity(quote)
+        .time_in_force(tif)
         .build();
     let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
     let now = get_atomic_clock_realtime().get_time_ns();
+    if quote {
+        let update = nautilus_model::events::OrderUpdated::new(
+            order.trader_id(),
+            order.strategy_id(),
+            order.instrument_id(),
+            order.client_order_id(),
+            Quantity::from(100),
+            UUID4::new(),
+            now,
+            now,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+        );
+        order
+            .apply(nautilus_model::events::OrderEventAny::Updated(update))
+            .unwrap();
+    }
     order
         .apply(factory.generate_order_submitted(&order, now))
         .unwrap();
@@ -121,6 +160,35 @@ async fn run(outcome: u8, exit_price: Option<Decimal>) -> Value {
 }
 
 async fn run_case(outcome: u8, exit_price: Option<Decimal>, from_saved: bool) -> Value {
+    run_case_with_tif(outcome, exit_price, from_saved, TimeInForce::Gtc).await
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn recovered_fok_multiple_settlements_preserve_gross_fills_net_fees_and_native_tif() {
+    run_case_with_tif(1, None, true, TimeInForce::Fok).await;
+}
+
+async fn run_case_with_tif(
+    outcome: u8,
+    exit_price: Option<Decimal>,
+    from_saved: bool,
+    tif: TimeInForce,
+) -> Value {
+    run_case_with_sizing(outcome, exit_price, from_saved, tif, false).await
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn restored_quote_buy_uses_normalized_shares_for_synthetic_settlements() {
+    run_case_with_sizing(1, None, true, TimeInForce::Fok, true).await;
+}
+
+async fn run_case_with_sizing(
+    outcome: u8,
+    exit_price: Option<Decimal>,
+    from_saved: bool,
+    tif: TimeInForce,
+    quote: bool,
+) -> Value {
     let saved = if from_saved {
         let fixture: Value = serde_json::from_str(
             &std::fs::read_to_string(
@@ -155,7 +223,7 @@ async fn run_case(outcome: u8, exit_price: Option<Decimal>, from_saved: bool) ->
         PredictEnvironment::BnbMainnet,
         format!("{}/rpc", private.http).into(),
     ));
-    assert!(execution.submission.is_none());
+    assert!(execution.submission_signer.is_none());
     let (http, ws, public_task) = public_server(outcome).await;
     let mut live = node::build_node_with_engine(
         trader_id(),
@@ -180,7 +248,13 @@ async fn run_case(outcome: u8, exit_price: Option<Decimal>, from_saved: bool) ->
         },
     )
     .unwrap();
-    let recovered = market_order(outcome);
+    let recovered = market_order_with_sizing(outcome, tif, quote);
+    if quote {
+        assert!(recovered.init_event().quote_quantity);
+        assert_eq!(recovered.init_event().quantity, Quantity::from("2.02"));
+        assert!(!recovered.is_quote_quantity());
+        assert_eq!(recovered.quantity(), Quantity::from(100));
+    }
     let shared_cache = live.kernel().cache.clone();
     {
         let mut cache = live.kernel().cache.borrow_mut();
@@ -331,27 +405,13 @@ async fn run_case(outcome: u8, exit_price: Option<Decimal>, from_saved: bool) ->
     assert_eq!(observed.submitted, 0);
     assert_eq!(observed.denied, 0);
     assert_eq!(observed.buy_fill_quantity_sum, Decimal::from(100));
-    assert_eq!(
-        observed.buy_commission_sum,
-        if cfg!(feature = "native-quantity-commission") {
-            Decimal::ZERO
-        } else {
-            Decimal::new(2, 2)
-        }
-    );
+    assert_eq!(observed.buy_commission_sum, Decimal::ZERO);
     let final_cash = exit_price.map_or(Decimal::from(999), |price| {
         Decimal::from(999) + price * Decimal::from(98) * Decimal::new(98, 2)
     });
     assert_eq!(observed.last_cash_total, Some(final_cash));
     assert_eq!(observed.last_cash_locked, Some(Decimal::ZERO));
-    assert_eq!(
-        observed.fills,
-        if cfg!(feature = "native-quantity-commission") {
-            2
-        } else {
-            3
-        } + usize::from(exit_price.is_some())
-    ); // Legacy includes a local net correction.
+    assert_eq!(observed.fills, 2 + usize::from(exit_price.is_some()));
     assert_eq!(
         observed.last_position_qty.unwrap().as_decimal(),
         if exit_price.is_some() {
@@ -363,15 +423,18 @@ async fn run_case(outcome: u8, exit_price: Option<Decimal>, from_saved: bool) ->
     let cache = live.kernel().cache.borrow();
     let order = cache.order(&recovered.client_order_id()).unwrap();
     assert_eq!(order.order_type(), OrderType::Market);
+    assert_eq!(order.time_in_force(), tif);
     assert_eq!(order.status(), OrderStatus::Filled);
     assert_eq!(order.quantity(), Quantity::from(100));
     assert_eq!(order.filled_qty(), Quantity::from(100));
-    if cfg!(feature = "native-quantity-commission") {
+    {
         let fees = order
             .events()
             .iter()
             .filter_map(|event| match event {
-                nautilus_model::events::OrderEventAny::Filled(fill) => fill.quantity_commission,
+                nautilus_model::events::OrderEventAny::Filled(fill) => {
+                    fill.quantity_commission.map(|fee| fee.as_decimal())
+                }
                 _ => None,
             })
             .sum::<Decimal>();

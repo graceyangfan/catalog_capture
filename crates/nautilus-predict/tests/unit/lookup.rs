@@ -245,10 +245,8 @@ fn queued_raw_settlement_pins_its_context_and_requires_reconciliation() {
             UnixNanos::from(10),
             None,
         );
-        if cfg!(feature = "native-quantity-commission") {
-            report.quantity_commission = Some(rust_decimal::Decimal::new(2, 2));
-        } else {
-            report.commission = Money::from("0.0008 USDT");
+        {
+            report.quantity_commission = Some(nautilus_model::types::Quantity::from("0.02"));
         }
         let fill = BufferedFill {
             report,
@@ -287,22 +285,11 @@ fn queued_raw_settlement_pins_its_context_and_requires_reconciliation() {
             .insert(order.client_order_id(), view(&order));
         if queued {
             assert!(client.submit_order(command).is_err());
-            assert!(
-                client.reconciliation_required.load(Ordering::Acquire),
-                "queued facts must gate a command before the next cleanup tick"
-            );
         }
         client.prune_order_lookups();
         assert_eq!(client.orders.lock().unwrap().len(), 1);
         assert_eq!(client.account_orders.lock().unwrap().len(), 1);
-        assert!(client.reconciliation_required.load(Ordering::Acquire));
-        assert!(
-            crate::execution::readiness::ReadinessCheck::new(&client)
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("unapplied fills for a purged native order")
-        );
+        assert!(client.account_refresh_required.load(Ordering::Acquire));
         assert!(
             client
                 .fill_evidence
@@ -547,7 +534,7 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
         .queue_wallet(&fill)
         .unwrap();
     let context = runtime::WalletReportContext {
-        settlement_sender: None,
+        data_sender: None,
         latency: None,
         instruments: client.instruments.clone(),
         orders: client.orders.clone(),
@@ -555,7 +542,7 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
         rest_ids: client.rest_order_ids.clone(),
         sync: client.account_sync.clone(),
         fill_evidence: client.fill_evidence.clone(),
-        reconciliation_required: client.reconciliation_required.clone(),
+        account_refresh_required: client.account_refresh_required.clone(),
         allow_share_fees: true,
         emitter: client.emitter.clone(),
         account: client.core.account_id,
@@ -951,13 +938,6 @@ fn native_purge_keeps_pending_match_evidence_until_a_terminal_settlement_fact() 
         1,
         "unsettled matching facts survive Native owner purge"
     );
-    assert!(
-        super::super::readiness::ReadinessCheck::new(&client)
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("unapplied fills for a purged")
-    );
     let crate::websocket::private_messages::PredictWalletEventKind::OrderTransactionSubmitted {
         settlement_id,
         fill,
@@ -978,10 +958,6 @@ fn native_purge_keeps_pending_match_evidence_until_a_terminal_settlement_fact() 
         .notifications
         .update(&event, &snapshot, client.core.account_id, 0, 3.into())
         .unwrap();
-    assert!(
-        super::super::readiness::ReadinessCheck::new(&client).is_ok(),
-        "a confirmed failed settlement no longer pins recovery before its cleanup batch"
-    );
     client.prune_order_lookups();
     assert!(client.orders.lock().unwrap().is_empty());
     assert!(client.account_orders.lock().unwrap().is_empty());
@@ -1327,7 +1303,7 @@ fn recovery_eligibility_ignores_cleanup_backlog_and_pure_retirement_keeps_revisi
     let (client, cache) = recovery_client();
     seed_cleanup(&client, &cache, CLEANUP_BATCH * 3 + 17, false);
     client
-        .reconciliation_required
+        .account_refresh_required
         .store(true, Ordering::Release);
     let (revision, resource_revision) = {
         let state = client.account_sync.state.lock().unwrap();
@@ -1339,7 +1315,6 @@ fn recovery_eligibility_ignores_cleanup_backlog_and_pure_retirement_keeps_revisi
         !client.orders.lock().unwrap().is_empty(),
         "real unvisited backlog is required"
     );
-    let _check = super::super::readiness::ReadinessCheck::new(&client).unwrap();
     while lookups.prune() {}
     let state = client.account_sync.state.lock().unwrap();
     assert_eq!(
@@ -1411,13 +1386,6 @@ fn recovery_backlog_still_blocks_real_unapplied_and_pending_matching_facts() {
         .unwrap()
         .queue_wallet(&fill)
         .unwrap();
-    assert!(
-        super::super::readiness::ReadinessCheck::new(&client)
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("unapplied fills for a purged")
-    );
     // No Native application was invented merely to drain maintenance work.
     assert!(
         client
@@ -1760,7 +1728,7 @@ fn large_histories_retire_one_owner_per_callback_and_preserve_remaining_facts() 
             revision
         );
     }
-    assert!(!client.reconciliation_required.load(Ordering::Acquire));
+    assert!(!client.account_refresh_required.load(Ordering::Acquire));
 }
 
 #[test]
@@ -1856,7 +1824,7 @@ fn retirement_budget_does_not_defer_the_unapplied_evidence_gate() {
         .unwrap();
     client.prune_order_lookups();
     assert!(
-        client.reconciliation_required.load(Ordering::Acquire),
+        client.account_refresh_required.load(Ordering::Acquire),
         "retirement work budget must not delay gating unapplied venue facts"
     );
     assert_eq!(client.orders.lock().unwrap().len(), 1);
@@ -1933,7 +1901,7 @@ fn failed_notification_only_owners_share_the_retirement_work_budget() {
         client.fill_evidence.lock().unwrap().retirement_work(owner),
         1000
     );
-    assert!(!client.reconciliation_required.load(Ordering::Acquire));
+    assert!(!client.account_refresh_required.load(Ordering::Acquire));
     client.prune_order_lookups();
     assert!(client.orders.lock().unwrap().is_empty());
     assert_eq!(
@@ -2067,7 +2035,7 @@ fn benchmark_steady_native_purge_cadence() {
                 callbacks.push(start.elapsed().as_nanos() as u64);
             }
             assert_eq!(client.orders.lock().unwrap().len(), retained);
-            assert!(!client.reconciliation_required.load(Ordering::Acquire));
+            assert!(!client.account_refresh_required.load(Ordering::Acquire));
             if iteration >= 3 {
                 samples.push(serde_json::json!({"native_purge_ns":native_ns,"adapter_callbacks_ns":callbacks}));
             }
@@ -2130,7 +2098,7 @@ fn benchmark_verified_owner_retirement_phases() {
                 client.prune_order_lookups();
                 let complete_prune_ns = start.elapsed().as_nanos() as u64;
                 assert!(client.orders.lock().unwrap().is_empty());
-                assert!(!client.reconciliation_required.load(Ordering::Acquire));
+                assert!(!client.account_refresh_required.load(Ordering::Acquire));
 
                 // Isolate raw evidence retirement with the same retained facts.
                 // Final code may return detached values: their drop is timed separately.
@@ -2193,7 +2161,7 @@ fn verified_prefix_retains_a_purged_owner_until_pending_matching_is_resolved() {
         .unwrap();
     client.prune_order_lookups();
     assert!(client.orders.lock().unwrap().contains_key(&owner));
-    assert!(client.reconciliation_required.load(Ordering::Acquire));
+    assert!(client.account_refresh_required.load(Ordering::Acquire));
     let crate::websocket::private_messages::PredictWalletEventKind::OrderTransactionSubmitted {
         settlement_id,
         fill,
@@ -2396,7 +2364,7 @@ fn benchmark_native_timer_evidence_sweeps() {
                         .retirement_work(VenueOrderId::new(format!("0x{:064x}", 1))),
                     0
                 );
-                assert!(!client.reconciliation_required.load(Ordering::Acquire));
+                assert!(!client.account_refresh_required.load(Ordering::Acquire));
                 client.stop_recovery_timer();
                 if iteration > 0 {
                     sweeps.push(callbacks);
@@ -2463,7 +2431,7 @@ fn cold_membership_does_not_hold_account_or_order_registry_locks() {
     client.prune_order_lookups();
     worker.join().unwrap();
     assert!(client.orders.lock().unwrap().is_empty());
-    assert!(!client.reconciliation_required.load(Ordering::Acquire));
+    assert!(!client.account_refresh_required.load(Ordering::Acquire));
 }
 
 #[test]

@@ -137,7 +137,7 @@ async fn run_pause_case_with_evidence(
         exec.max_report_pages = owners * fills_per_order / 100 + 2;
         exec.report_timeout_secs = 120;
     }
-    assert!(exec.submission.is_none() && !exec.orderbook_removal_enabled);
+    assert!(exec.submission_signer.is_none() && !exec.orderbook_removal_enabled);
     let mut node = nautilus_live::node::LiveNode::builder(
         trader_id(),
         nautilus_common::enums::Environment::Live,
@@ -378,6 +378,7 @@ async fn run_pause_case_with_evidence(
             );
             // The public live wrapper owns report collection/finalization.
             // Setup has no order commands/fills; account events use Portfolio.
+            let start_ns = get_atomic_clock_realtime().get_time_ns().as_u64();
             let reports = {
                 let engine = engine.borrow();
                 engine
@@ -393,7 +394,9 @@ async fn run_pause_case_with_evidence(
                 "all raw facts populated through actual REST parsing"
             );
             drop(reports);
+            operations.push(json!({"stage":"fill_report_collection_and_finish_window","start_ns":start_ns,"end_ns":get_atomic_clock_realtime().get_time_ns().as_u64(),"scope":"public Native report call including worker IO, core finalization and result disposal; not CPU-only time"}));
             if warm {
+                let start_ns = get_atomic_clock_realtime().get_time_ns().as_u64();
                 for i in 0..owners {
                     let mut ack = maintenance_wallet("orderCancelled", i, fills_per_order);
                     backing.wallet(ack.clone());
@@ -409,6 +412,7 @@ async fn run_pause_case_with_evidence(
                     || settlements.get() == owners,
                 )
                 .await;
+                operations.push(json!({"stage":"wallet_history_validation_window","start_ns":start_ns,"end_ns":get_atomic_clock_realtime().get_time_ns().as_u64(),"scope":"wallet dispatch through strategy settlement marker; not CPU-only time"}));
                 assert!(
                     engine
                         .borrow()
@@ -533,16 +537,13 @@ async fn run_pause_case_with_evidence(
                     .is_some_and(|next| next > next_tick)
             })
             .await;
-            let account_reads = *backing.state.account_requests.lock().unwrap();
-            backing
-                .state
-                .account_unavailable
-                .store(true, Ordering::Release);
+            let account_reads = backing.state.rpc_methods.lock().unwrap().len();
+            *backing.state.rpc_failure.lock().unwrap() = true;
             // Clock advancement can precede dispatch of its queued callback.
             // Historical ACK probes do not warm prefixes or mutate a retained order.
             let mut probes = tokio::time::interval(Duration::from_millis(10));
             timeout(Duration::from_secs(5), async {
-                while *backing.state.account_requests.lock().unwrap() == account_reads {
+                while backing.state.rpc_methods.lock().unwrap().len() == account_reads {
                     probes.tick().await;
                     backing.wallet(maintenance_wallet("orderAccepted", 0, fills_per_order));
                     timer_probes += 1;

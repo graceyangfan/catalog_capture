@@ -121,9 +121,16 @@ async fn actual_flat_account_startup_scopes_history_without_loading_expired_inst
             _ => Some(1),
         };
         let result = client.generate_mass_status(window).await;
-        if matches!(case, "bounded" | "unbounded" | "wide" | "boundary") {
+        if matches!(
+            case,
+            "bounded" | "unbounded" | "wide" | "boundary" | "foreign"
+        ) {
             let mass = result.unwrap().unwrap();
             assert!(mass.reports_complete());
+            assert!(
+                private.state.match_requests.lock().unwrap().is_empty(),
+                "an empty recovery scope must not inspect unrelated history"
+            );
             assert_eq!(
                 mass.lookback_start(),
                 window.map(|mins| UnixNanos::from(now - mins * 60_000_000_000))
@@ -189,7 +196,7 @@ async fn run_node() -> Value {
         PredictEnvironment::BnbMainnet,
         format!("{}/rpc", private.http).into(),
     ));
-    assert!(cfg.submission.is_none());
+    assert!(cfg.submission_signer.is_none());
     let public = PublicState(Arc::new(Mutex::new(vec![])));
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -396,7 +403,7 @@ pub(super) async fn run_trade_flow() -> Value {
 
 pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
     use nautilus_model::types::Price;
-    use nautilus_predict::{PredictSubmissionConfig, signing::PredictAuthSigner};
+    use nautilus_predict::signing::PredictAuthSigner;
 
     use super::exit_orders::strategy::{ExitSettings, ExitStrategy};
     let source = source();
@@ -444,18 +451,14 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
     ));
     cfg.account_refresh_interval_secs = 1;
     cfg.orderbook_removal_enabled = true;
-    cfg.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = Some(Arc::new(
+        PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let public = PublicState(Arc::new(Mutex::new(vec![])));
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -487,11 +490,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
             reconciliation_startup_delay_secs: 0.0,
             reconciliation_lookback_mins: None,
             inflight_check_interval_ms: 0,
-            position_check_interval_secs: if cfg!(feature = "native-quantity-commission") {
-                None
-            } else {
-                Some(0.05)
-            },
+            position_check_interval_secs: { None },
             position_check_lookback_mins: 60,
             position_check_threshold_ms: 0,
             ..Default::default()
@@ -539,18 +538,12 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         recorded.push(wallet(&private, &current[1], &buy));
         rest_state(&private, &buy, "FILLED", "32000000000000000000");
         let entry_cost = if partial_entry {
-            Decimal::from_str_exact("1.262999999999999999").unwrap()
+            Decimal::from_str_exact("1.263").unwrap()
         } else {
             Decimal::new(128, 2)
         };
         super::strategy_lifecycle::cash(&private, -entry_cost);
-        *private.state.sell_inventory.lock().unwrap() = if partial_entry {
-            "31360000000000000001"
-        } else {
-            "31360000000000000000"
-        }
-        .parse()
-        .unwrap();
+        *private.state.sell_inventory.lock().unwrap() = "31360000000000000000".parse().unwrap();
         let mut position = holding(1);
         position["amount"] = json!(private.state.sell_inventory.lock().unwrap().to_string());
         *private.state.position_snapshot.lock().unwrap() = Some(vec![position]);
@@ -558,18 +551,18 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
             for (index, size, price, value, fee, filled) in [
                 (
                     1,
-                    "17000000000000000099",
+                    "17000000000000000000",
                     "39000000000000000",
-                    "663000000000000003",
-                    "340000000000000001",
-                    "17.000000000000000099",
+                    "663000000000000000",
+                    "340000000000000000",
+                    "17",
                 ),
                 (
                     2,
-                    "14999999999999999901",
+                    "15000000000000000000",
                     "40000000000000000",
-                    "599999999999999996",
-                    "299999999999999998",
+                    "600000000000000000",
+                    "300000000000000000",
                     "32",
                 ),
             ] {
@@ -827,7 +820,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         1
     );
     let mut result = json!({"source":"offline Rust Strategy + LiveNode replay derived from actual recorded economic facts; no real order writes","primaryEvidence":"live_fill_20261016T123240Z_independent/calibration.json","transforms":["account/token/market identifiers and signed hashes rebound to loopback signer","event times rebound to causal receipt times","recorded exit decision injected after TP acceptance, without waiting wall-clock hold duration","REST book wrapped in WS test envelope; orderCount unavailable -> 0","historical match times shifted together, preserving ages"],"marketFlags":{"isNegRisk":false,"isYieldBearing":true},"reconciliation":true,"reconciliationLookbackMins":null,"positionCheckLookbackMins":60,"requests":private.state.creations.lock().unwrap().clone(),"walletEvents":recorded,"nativeFeedback":*events,"finalCash":"48.21630840","cycleRealizedPnl":"-0.08142080 USDT","netSharesBeforeSell":"31.36","finalOpenOrders":cache.orders_open(None,None,None,None,None).len(),"finalPositions":0});
-    if cfg!(feature = "native-quantity-commission") {
+    {
         let fills = events
             .iter()
             .filter(|r| r["callback"] == "on_order_filled")
@@ -872,10 +865,10 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         assert_eq!(
             native
                 .iter()
-                .filter_map(|fill| fill.quantity_commission)
+                .filter_map(|fill| fill.quantity_commission.map(|fee| fee.as_decimal()))
                 .sum::<Decimal>(),
             if partial_entry {
-                Decimal::from_str_exact("0.639999999999999999").unwrap()
+                Decimal::from_str_exact("0.64").unwrap()
             } else {
                 Decimal::new(64, 2)
             }
@@ -899,9 +892,9 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         result["nativeCurrencyCommissions"] = json!(currency_fees.to_string());
         result["nativeFills"] = json!(native);
         result["feeSummaries"] = json!(cache.positions(None,None,None,None,None).iter().map(|p| {
-            let totals = p.quantity_commission_total.unwrap();
+            let totals = super::native_fee_paths::quantity_fees(p).unwrap();
             json!({"fees":totals,"quantityResidual":super::native_fee_paths::inventory_fee_residual(totals, p.size_precision),
-                "realizedPnl":p.realized_pnl,"inventoryCost":p.quantity_commission_cost.unwrap().to_string()})
+                "realizedPnl":p.realized_pnl,"inventoryCost":super::native_fee_paths::quantity_fee_value(p).unwrap().to_string()})
         }).collect::<Vec<_>>());
     }
     if partial_entry {
@@ -915,7 +908,7 @@ pub(super) async fn run_trade_flow_variant(partial_entry: bool) -> Value {
         result["duplicateWalletPackets"] = json!(true);
         result["finalCash"] = json!("48.23330840");
         result["cycleRealizedPnl"] = final_position["realizedPnl"].clone();
-        result["venueResidualSharesWei"] = json!("1");
+        result["venueResidualSharesWei"] = json!("0");
         result["matchesCoverage"] = json!(
             "synthetic entry and exit partials tested through wallet WS; complete REST matches replay covered by separate LiveNode cases"
         );
@@ -950,7 +943,6 @@ async fn record_actual_trade_flow_json() {
     serde_json::to_writer_pretty(file, &value).unwrap();
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "explicit recorded-economics Native quantity-fee prototype capture, create_new only"]
 async fn record_quantity_commission_trade_flow_json() {
@@ -965,13 +957,11 @@ async fn record_quantity_commission_trade_flow_json() {
     serde_json::to_writer_pretty(file, &value).unwrap();
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 async fn partial_prices_entry_tp_cancel_sell_updates_native_strategy_and_account() {
     run_trade_flow_variant(true).await;
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "explicit synthetic partial-entry and exit Rust Strategy + LiveNode JSON capture"]
 async fn record_partial_prices_entry_tp_cancel_sell_json() {
@@ -986,7 +976,6 @@ async fn record_partial_prices_entry_tp_cancel_sell_json() {
     serde_json::to_writer_pretty(file, &result).unwrap();
 }
 
-#[cfg(feature = "native-quantity-commission")]
 fn recorded_settlement_truth() -> Value {
     let source = source();
     let scale = U256::from(1_000_000_000_000_000_000u64);
@@ -1071,7 +1060,6 @@ fn recorded_settlement_truth() -> Value {
         "nativeQuoteRealizedPnl":"-0.08142080 USDT","inventoryCostWrittenOff":"0.0256"})
 }
 
-#[cfg(feature = "native-quantity-commission")]
 async fn recorded_lifecycle_audit() -> Value {
     let truth = recorded_settlement_truth();
     let actual = run_trade_flow().await;
@@ -1083,7 +1071,10 @@ async fn recorded_lifecycle_audit() -> Value {
         serde_json::from_value(fills[1].clone()).unwrap();
     assert_eq!(buy.last_qty.as_decimal(), Decimal::from(32));
     assert_eq!(buy.last_px.as_decimal(), Decimal::new(4, 2));
-    assert_eq!(buy.quantity_commission, Some(Decimal::new(64, 2)));
+    assert_eq!(
+        buy.quantity_commission,
+        Some(Quantity::from_decimal(Decimal::new(64, 2)).unwrap())
+    );
     assert!(buy.commission.unwrap().is_zero());
     assert_eq!(sell.last_qty.as_decimal(), Decimal::new(3136, 2));
     assert_eq!(sell.last_px.as_decimal(), Decimal::new(39, 3));
@@ -1114,7 +1105,7 @@ async fn recorded_lifecycle_audit() -> Value {
         .unwrap()
         .parse::<Money>()
         .unwrap();
-    let removed_basis = buy.quantity_commission.unwrap() * buy.last_px.as_decimal();
+    let removed_basis = buy.quantity_commission.unwrap().as_decimal() * buy.last_px.as_decimal();
     assert_eq!(removed_basis, Decimal::new(256, 4));
     assert_eq!(position_pnl.as_decimal(), host_cash);
     assert_eq!(
@@ -1172,13 +1163,11 @@ async fn recorded_lifecycle_audit() -> Value {
         "limits":["identities/timestamps rebound to loopback","historical exit decision injected","maker profit scenario is not actual market profit","legacy bounded mainnet supervisor is not approved for indefinite holding"]})
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 async fn recorded_wallet_rest_chain_economics_match_native_lifecycle_and_maker_profit() {
     recorded_lifecycle_audit().await;
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "explicit previous-mainnet JSON and loopback lifecycle audit; no network orders"]
 async fn record_recorded_lifecycle_fee_profit_json() {
@@ -1200,7 +1189,6 @@ async fn record_recorded_lifecycle_fee_profit_json() {
     );
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "explicit offline continuous-host lifecycle JSON; no mainnet access"]
 async fn record_continuous_host_lifecycle_json() {

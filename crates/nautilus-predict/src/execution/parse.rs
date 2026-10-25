@@ -75,9 +75,17 @@ pub(super) fn price(value: Decimal, precision: u8) -> anyhow::Result<Price> {
         .map_err(|_| anyhow::anyhow!("Predict price exceeds Nautilus range"))
 }
 
+pub(super) fn execution_price(value: Decimal, instrument_precision: u8) -> anyhow::Result<Price> {
+    // Quote increments constrain orders, not the representable precision of a venue execution.
+    let precision = instrument_precision.max(value.normalize().scale().try_into()?);
+    price(value, precision)
+}
+
 /// Parses lifecycle or confirmed fill evidence. Submitted settlements emit no fill report.
-/// Unknown fees, nonzero share fees, missing acceptance evidence and pending cumulative fills
-/// require reconciliation; they are not approximated. Raw venue IDs and hashes stay distinct.
+/// Unknown fees, nonzero share fees, missing acceptance evidence and contradictory rejections
+/// require reconciliation; they are not approximated. Lifecycle acknowledgements do not wait
+/// for missing fills; their reports retain only independently confirmed quantity.
+/// Raw venue IDs and hashes stay distinct.
 ///
 /// # Errors
 /// Returns an error when context, quantities, timestamps or fee semantics are insufficient.
@@ -126,6 +134,7 @@ pub(super) fn parse_wallet_report_with_confirmed_qty(
                 },
             )?,
             confirmed_qty,
+            pending_settlement: false,
             registered: None,
             queued_acceptance: None,
             normalize: false,
@@ -139,6 +148,7 @@ pub(super) struct WalletReportEvidence {
     pub venue_id: VenueOrderId,
     pub instrument_id: InstrumentId,
     pub confirmed_qty: Quantity,
+    pub pending_settlement: bool,
     pub registered: Option<VenueOrderId>,
     pub queued_acceptance: Option<UnixNanos>,
     pub normalize: bool,
@@ -158,6 +168,7 @@ pub(super) fn parse_wallet_report_with_registration(
         venue_id,
         instrument_id: id,
         confirmed_qty,
+        pending_settlement,
         registered,
         queued_acceptance,
         normalize,
@@ -208,11 +219,11 @@ pub(super) fn parse_wallet_report_with_registration(
         details.outcome_index == index
             && details.quantity_filled >= Decimal::ZERO
             && details.quantity_filled <= details.quantity
-            && confirmed_qty <= order.quantity(),
+            && confirmed_qty <= order.submitted_quantity(),
         "Predict order quantities or outcome index are inconsistent"
     );
     anyhow::ensure!(
-        details.quantity == order.quantity().as_decimal(),
+        details.quantity == order.submitted_quantity().as_decimal(),
         "Predict wallet quantity differs from cached order"
     );
     let ts_event = event.order.timestamp_ns()?;
@@ -229,6 +240,21 @@ pub(super) fn parse_wallet_report_with_registration(
         return Ok(None);
     }
     match &event.kind {
+        PredictWalletEventKind::OrderNotAccepted { reason }
+            if pending_settlement
+                || !confirmed_qty.is_zero()
+                || details.quantity_filled > Decimal::ZERO
+                || !matches!(
+                    reason,
+                    PredictWalletRejectionReason::NoMarketMatch
+                        | PredictWalletRejectionReason::RejectedPostOnly
+                ) =>
+        {
+            // The documented rejection envelope does not establish whether a
+            // duplicate attempt or a partially executed original order ended.
+            // Preserve existing execution and require independent lifecycle evidence.
+            Ok(None)
+        }
         PredictWalletEventKind::OrderTransactionSubmitted { .. }
         | PredictWalletEventKind::OrderMarketMatchPlan { .. } => Ok(None),
         PredictWalletEventKind::OrderTransactionFailed { .. } => Ok(None),
@@ -242,10 +268,12 @@ pub(super) fn parse_wallet_report_with_registration(
                 !settlement_id.is_empty(),
                 "Predict fill lacks settlement identity"
             );
-            anyhow::ensure!(
-                !order.is_post_only() || *is_maker != Some(false),
-                "Predict post-only order received taker execution evidence"
-            );
+            if order.is_post_only() && *is_maker == Some(false) {
+                log::warn!(
+                    "Predict confirmed execution reports taker liquidity for post-only {}",
+                    order.client_order_id()
+                );
+            }
             let (fee_amount, fee_type) = match fee {
                 Some(fee) => (fee.amount_wei, fee.fee_type),
                 None if *is_maker == Some(true) => (U256::ZERO, PredictFeeType::Collateral),
@@ -270,28 +298,16 @@ pub(super) fn parse_wallet_report_with_registration(
                 fee_amount,
                 fee_type,
                 fill.executed_size_wei,
-                fill.executed_price_wei,
                 side,
                 liquidity,
                 allow_share_fees,
             )?;
-            // Standalone strict parsing cannot know a subprecision cumulative prefix.
-            let qty = if normalize {
-                crate::common::parse::floor_wei_quantity(
-                    fill.executed_size_wei,
-                    instrument.size_precision(),
-                )?
-            } else {
-                quantity(
-                    exact_wei(fill.executed_size_wei)?,
-                    instrument.size_precision(),
-                )?
-            };
+            let qty = crate::common::parse::exact_wei_quantity(fill.executed_size_wei)?;
             anyhow::ensure!(
                 !fill.executed_size_wei.is_zero(),
                 "Predict confirmed fill has zero size"
             );
-            let px = price(
+            let px = execution_price(
                 exact_wei(fill.executed_price_wei)?,
                 instrument.price_precision(),
             )?;
@@ -304,13 +320,15 @@ pub(super) fn parse_wallet_report_with_registration(
                 product / scale == fill.executed_value_wei,
                 "Predict confirmed fill price, size and value are inconsistent"
             );
-            if let Some(limit) = order.price() {
-                anyhow::ensure!(
-                    match side {
-                        OrderSide::Buy => px <= limit,
-                        OrderSide::Sell => px >= limit,
-                    },
-                    "Predict confirmed fill violates native limit price"
+            if let Some(limit) = order.price()
+                && match side {
+                    OrderSide::Buy => px > limit,
+                    OrderSide::Sell => px < limit,
+                }
+            {
+                log::warn!(
+                    "Predict confirmed execution price differs from limit intent for {}",
+                    order.client_order_id()
                 );
             }
             let mut report = FillReport::new(
@@ -329,26 +347,15 @@ pub(super) fn parse_wallet_report_with_registration(
                 ts_init,
                 None,
             );
-            if cfg!(feature = "native-quantity-commission")
-                && fee_type == PredictFeeType::Shares
-                && !fee_amount.is_zero()
-            {
-                report.quantity_commission = Some(exact_wei(fee_amount)?);
+            if fee_type == PredictFeeType::Shares && !fee_amount.is_zero() {
+                report.quantity_commission =
+                    Some(crate::common::parse::exact_wei_quantity(fee_amount)?);
             }
             Ok(Some(ExecutionReport::Fill(Box::new(report))))
         }
         kind => {
-            anyhow::ensure!(
-                if normalize {
-                    crate::common::parse::floor_wei_quantity(
-                        crate::common::parse::decimal_to_wei(details.quantity_filled)?,
-                        instrument.size_precision(),
-                    )? == confirmed_qty
-                } else {
-                    details.quantity_filled == confirmed_qty.as_decimal()
-                },
-                "Predict lifecycle includes unresolved cumulative fills"
-            );
+            // Acceptance/cancellation/expiry is separate from settlement. Native can
+            // apply late fills independently; never manufacture them here.
             let (status, accepted) = match kind {
                 PredictWalletEventKind::OrderAccepted => (
                     if confirmed_qty == order.quantity() {
@@ -369,22 +376,20 @@ pub(super) fn parse_wallet_report_with_registration(
                 ),
                 PredictWalletEventKind::OrderCancelled { .. } => (
                     OrderStatus::Canceled,
-                    order.ts_accepted().or(queued_acceptance).ok_or_else(|| {
-                        anyhow::anyhow!("Predict cancel lacks acceptance evidence")
-                    })?,
+                    order
+                        .ts_accepted()
+                        .or(queued_acceptance)
+                        .unwrap_or(ts_event),
                 ),
                 PredictWalletEventKind::OrderExpired => (
                     OrderStatus::Expired,
-                    order.ts_accepted().or(queued_acceptance).ok_or_else(|| {
-                        anyhow::anyhow!("Predict expiry lacks acceptance evidence")
-                    })?,
+                    order
+                        .ts_accepted()
+                        .or(queued_acceptance)
+                        .unwrap_or(ts_event),
                 ),
                 _ => anyhow::bail!("unsupported Predict wallet lifecycle event"),
             };
-            anyhow::ensure!(
-                ts_event >= accepted,
-                "Predict lifecycle timestamp precedes acceptance"
-            );
             let mut report = OrderStatusReport::new(
                 account_id,
                 id,
@@ -406,16 +411,12 @@ pub(super) fn parse_wallet_report_with_registration(
             // Native reconciliation uses cancel_reason for both rejection and cancellation,
             // including its post-only rejection flag. Do not drop typed wallet reasons.
             let reason = match kind {
-                PredictWalletEventKind::OrderNotAccepted { reason } => Some(match reason {
-                    PredictWalletRejectionReason::NoMarketMatch => "Predict no market match",
-                    PredictWalletRejectionReason::RejectedDuplicate => {
-                        "Predict duplicate order rejected"
-                    }
-                    PredictWalletRejectionReason::RejectedPostOnly => {
-                        "Predict post-only order rejected"
-                    }
-                    PredictWalletRejectionReason::Unknown => "Predict unknown order rejection",
-                }),
+                PredictWalletEventKind::OrderNotAccepted {
+                    reason: PredictWalletRejectionReason::NoMarketMatch,
+                } => Some("Predict no market match"),
+                PredictWalletEventKind::OrderNotAccepted {
+                    reason: PredictWalletRejectionReason::RejectedPostOnly,
+                } => Some("Predict post-only order rejected"),
                 PredictWalletEventKind::OrderCancelled {
                     reason: Some(reason),
                 } => Some(match reason {
@@ -461,11 +462,12 @@ pub(crate) fn market_id_from_instrument(id: &InstrumentId) -> anyhow::Result<u64
     Ok(market)
 }
 
-/// Maps a current REST snapshot for a known accepted, unfilled native order. Signed
+/// Maps a REST order observation for a known Native order. Signed
 /// maker/taker amounts establish base quantity and the LIMIT price; a recovered MARKET
 /// retains its native missing price instead of inventing a limit. Nonzero `amountFilled` is not
 /// scaled or substituted for confirmed settlements. `ts_last` is observation time, as for other
-/// snapshot reports; the original accepted timestamp and native TIF/flags are retained.
+/// snapshot reports; native TIF/flags are retained. A canceled/expired observation reports
+/// only the known Native filled quantity; production recovery pairs it with actual fills.
 ///
 /// # Errors
 /// Missing context, changed order terms, unresolved fills or invalidation semantics return errors.
@@ -493,9 +495,10 @@ pub(super) fn rest_order_report_from_view(
     )
 }
 
-/// A locally transmitted hash plus authenticated OPEN evidence can recover a missing
-/// wallet acknowledgement. The endpoint has no timestamps: acceptance uses observation
-/// time only on this path; nonzero fills and terminal states remain unresolved.
+/// A locally transmitted hash plus authenticated venue evidence can recover a missing
+/// wallet acknowledgement. Zero-fill terminal MARKET FOK evidence also resolves this
+/// path. The endpoint has no timestamps: acceptance uses observation time only on this
+/// path; nonzero fills require settlement recovery.
 pub(super) fn parse_submitted_order_report(
     row: &PredictOrderData,
     order: &impl super::context::OrderView,
@@ -511,8 +514,13 @@ pub(super) fn parse_submitted_order_report(
         ) && order.ts_submitted().is_some()
             && order.venue_order_id().is_none()
             && order.ts_accepted().is_none()
-            && row.status == PredictOrderStatus::Open,
-        "Predict missing acknowledgement recovery requires a submitted order and OPEN evidence"
+            && matches!(
+                row.status,
+                PredictOrderStatus::Open
+                    | PredictOrderStatus::Cancelled
+                    | PredictOrderStatus::Expired
+            ),
+        "Predict missing acknowledgement recovery requires OPEN or terminal evidence"
     );
     let account_id = order
         .account_id()
@@ -550,7 +558,12 @@ fn rest_order_report(
     let filled = Decimal::from_str_exact(&row.amount_filled)
         .map_err(|_| anyhow::anyhow!("Predict REST filled amount is invalid"))?;
     anyhow::ensure!(
-        filled.is_zero() && order.filled_qty().is_zero(),
+        (matches!(
+            row.status,
+            PredictOrderStatus::Cancelled | PredictOrderStatus::Expired
+        ) && order.status() != OrderStatus::Rejected
+            && filled >= Decimal::ZERO)
+            || filled.is_zero() && order.filled_qty().is_zero(),
         "Predict nonzero REST fills require verified units and settlement reconciliation"
     );
     let status = match row.status {
@@ -560,6 +573,15 @@ fn rest_order_report(
                 "Predict REST open snapshot conflicts with terminal cached order"
             );
             OrderStatus::Accepted
+        }
+        // Wallet noMarketMatch is Rejected, while a zero-fill MARKET can
+        // appear as CANCELLED in REST. Preserve the applied Native terminal fact;
+        // without wallet evidence retain REST cancellation rather than invent a rejection.
+        PredictOrderStatus::Cancelled
+            if order.order_type() == OrderType::Market
+                && order.status() == OrderStatus::Rejected =>
+        {
+            OrderStatus::Rejected
         }
         PredictOrderStatus::Cancelled => OrderStatus::Canceled,
         PredictOrderStatus::Expired => OrderStatus::Expired,
@@ -573,10 +595,10 @@ fn rest_order_report(
             "Predict recovery observation precedes submission"
         );
         observed
+    } else if status == OrderStatus::Rejected {
+        order.ts_accepted().unwrap_or_default()
     } else {
-        order.ts_accepted().ok_or_else(|| {
-            anyhow::anyhow!("Predict REST report lacks original acceptance evidence")
-        })?
+        order.ts_accepted().unwrap_or(observed)
     };
     anyhow::ensure!(
         !order.is_closed() || order.status() == status,
@@ -662,7 +684,7 @@ pub(super) fn validate_rest_order_terms_for_hash(
             || matches!(
                 (row.strategy, order.order_type()),
                 (PredictOrderStrategy::Market, OrderType::Market)
-            ) && order.time_in_force() == TimeInForce::Gtc)
+            ) && matches!(order.time_in_force(), TimeInForce::Gtc | TimeInForce::Fok))
             && !order.is_quote_quantity(),
         "Predict REST reporting requires matching cached base-quantity order strategy"
     );
@@ -689,10 +711,10 @@ pub(super) fn validate_rest_order_terms_for_hash(
     } else {
         (fields.maker_amount, fields.taker_amount)
     };
-    let shares = quantity(exact_wei(shares)?, instrument.size_precision())?;
+    let shares = crate::common::parse::exact_wei_quantity(shares)?;
     anyhow::ensure!(
         !shares.is_zero()
-            && shares == order.quantity()
+            && shares == order.submitted_quantity()
             && !collateral.is_zero()
             && collateral
                 <= match side {
@@ -701,6 +723,12 @@ pub(super) fn validate_rest_order_terms_for_hash(
                 },
         "Predict REST signed quantity or price differs from cached order"
     );
+    if let Some(budget) = order.quote_buy_budget() {
+        anyhow::ensure!(
+            exact_wei(collateral)? <= budget,
+            "Predict REST signed collateral exceeds original Native quote budget"
+        );
+    }
     if let Some(px) = order.price() {
         anyhow::ensure!(
             (Decimal::ZERO..=Decimal::ONE).contains(&px.as_decimal())
@@ -749,7 +777,6 @@ pub(super) fn fill_commission(
     fee: U256,
     asset: PredictFeeType,
     gross: U256,
-    px: U256,
     side: OrderSide,
     liquidity: LiquiditySide,
     allow_share_fees: bool,
@@ -758,7 +785,7 @@ pub(super) fn fill_commission(
         liquidity != LiquiditySide::Maker || fee.is_zero(),
         "Predict maker fill carries an unexpected nonzero fee"
     );
-    let value = if asset == PredictFeeType::Shares && !fee.is_zero() {
+    if asset == PredictFeeType::Shares && !fee.is_zero() {
         anyhow::ensure!(
             side == OrderSide::Buy && liquidity == LiquiditySide::Taker && fee < gross,
             "Predict share fee is incompatible with the fill direction, liquidity or size"
@@ -767,16 +794,8 @@ pub(super) fn fill_commission(
             allow_share_fees,
             "Predict share fee requires a reported cash account without calculated balances"
         );
-        if cfg!(feature = "native-quantity-commission") {
-            return Ok(Money::zero(Currency::USDT()));
-        }
-        fee.checked_mul(px)
-            .ok_or_else(|| anyhow::anyhow!("Predict fee valuation overflows U256"))?
-            / U256::from(1_000_000_000_000_000_000u64)
-    } else {
-        fee
-    };
-    let amount =
-        exact_wei(value)?.round_dp(u32::from(nautilus_model::types::fixed::FIXED_PRECISION));
+        return Ok(Money::zero(Currency::USDT()));
+    }
+    let amount = exact_wei(fee)?.round_dp(u32::from(nautilus_model::types::fixed::FIXED_PRECISION));
     Ok(Money::from_decimal_exact(amount, Currency::USDT())?)
 }

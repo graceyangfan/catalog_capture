@@ -147,7 +147,7 @@ impl DataActor for QueryStrategy {
             && self.last_account != Some(state.event_id)
         {
             self.last_account = Some(state.event_id);
-            self.journal.borrow_mut().push(json!({"type":"AccountSnapshot","reconciliationReady":state.info.as_ref().and_then(|v|v.get("predict_reconciliation_ready")).cloned(),"balances":state.balances.iter().map(|b|json!({"total":b.total.as_decimal().to_string(),"locked":b.locked.as_decimal().to_string()})).collect::<Vec<_>>()}));
+            self.journal.borrow_mut().push(json!({"type":"AccountSnapshot","connectionEpoch":state.info.as_ref().and_then(|v|v.get("predict_connection_epoch")).cloned(),"balances":state.balances.iter().map(|b|json!({"total":b.total.as_decimal().to_string(),"locked":b.locked.as_decimal().to_string()})).collect::<Vec<_>>()}));
         }
 
         if let Some(RecoveryCommands { query, resume }) = &self.resume_control {

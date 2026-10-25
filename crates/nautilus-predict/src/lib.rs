@@ -63,7 +63,7 @@ pub use config::PredictDataClientConfig;
 #[cfg(feature = "execution")]
 pub use config::{
     PredictAccountStateMode, PredictChainClientConfig, PredictExecutionClientConfig,
-    PredictPrivateClientConfig, PredictSubmissionConfig, PredictWalletWebSocketConfig,
+    PredictPrivateClientConfig, PredictWalletWebSocketConfig,
 };
 #[cfg(feature = "live")]
 pub use data::PredictDataClient;
@@ -75,6 +75,12 @@ pub use data_types::{
 #[cfg(feature = "execution")]
 pub use execution::PredictExecutionClient;
 #[cfg(feature = "execution")]
+pub use execution::receipt::{
+    PredictLimitOrderReceiptUpdate, predict_limit_order_receipt_data_type,
+};
+#[cfg(feature = "execution")]
+pub use execution::rejection::{PredictOrderRejectionUpdate, predict_order_rejection_data_type};
+#[cfg(feature = "execution")]
 pub use execution::settlement::{
     PredictSettlementStatus, PredictSettlementUpdate, predict_settlement_data_type,
 };
@@ -84,6 +90,8 @@ pub use factories::PredictDataClientFactory;
 pub use factories::PredictExecutionClientFactory;
 #[cfg(feature = "live")]
 pub use http::PredictHttpClient;
+#[cfg(feature = "execution")]
+pub use http::command_models::{PredictLimitOrderOptions, PredictSelfTradePrevention};
 #[cfg(feature = "live")]
 pub use providers::PredictInstrumentProvider;
 #[cfg(feature = "live")]

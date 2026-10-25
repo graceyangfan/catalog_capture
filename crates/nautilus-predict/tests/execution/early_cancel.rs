@@ -12,9 +12,7 @@ use nautilus_model::{
     events::{OrderEventAny, OrderSubmitted},
     identifiers::StrategyId,
 };
-use nautilus_predict::{
-    PredictDataClientConfig, PredictSubmissionConfig, predict_orderbook_data_type,
-};
+use nautilus_predict::{PredictDataClientConfig, predict_orderbook_data_type};
 use nautilus_trading::{Strategy, StrategyConfig, StrategyCore, nautilus_strategy};
 
 use super::*;
@@ -170,18 +168,14 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
     ));
     cfg.orderbook_removal_enabled = true;
     cfg.account_refresh_interval_secs = 1;
-    cfg.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            nautilus_predict::signing::PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = Some(Arc::new(
+        nautilus_predict::signing::PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let mut live = node::build_node_with_engine(
         trader_id(),
         PredictDataClientConfig {
@@ -297,6 +291,15 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
                 for matched in &mut replay {
                     matched["executedAt"] = generated[0]["executedAt"].clone();
                     matched["makers"][0]["hash"] = body["data"]["order"]["hash"].clone();
+                    // This replay represents active inventory, rather than the saved market's
+                    // later LOST status. Keep all economic and settlement identities unchanged.
+                    for outcome in matched["market"]["outcomes"].as_array_mut().unwrap() {
+                        outcome["status"] = Value::Null;
+                    }
+                    matched["taker"]["outcome"]["status"] = Value::Null;
+                    for maker in matched["makers"].as_array_mut().unwrap() {
+                        maker["outcome"]["status"] = Value::Null;
+                    }
                 }
                 assert_eq!(replay, generated);
                 *private.state.match_snapshot.lock().unwrap() = Some(replay);

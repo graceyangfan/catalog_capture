@@ -1,0 +1,464 @@
+{
+  "source": "Actual mainnet: crate signer/DTO/private HTTP parameter probe; signed expiration=1",
+  "strictZeroFill": true,
+  "signedExpiration": 1,
+  "nativeStrategySubmission": false,
+  "testOnlyOuterOptionInjection": true,
+  "market": {
+    "id": 52261,
+    "imageUrl": "https://static.predict.fun/will-ethereum-hit-1k-or-3k-first-will-ethereum-hit-1-000-or-3-000-first",
+    "title": "Will Ethereum hit $1,000 or $3,000 first?",
+    "question": "Will Ethereum hit $1,000 or $3,000 first?",
+    "description": "This market will resolve to the lower price in the title if Ethereum\u2019s price dips to that level or below before it hits the higher title price between the creation of this market and December 31, 2026 at 11:59 PM ET. It will resolve to the higher price in the title if Ethereum\u2019s price first reaches that level or above before it dips to the lower title price during the same period.\n\nIf neither price level is reached within the market timeframe, the market will resolve 50\u201350.\n\nThe resolution source for this market is Binance, specifically the ETH/USDT \"High\" and \"Low\" prices currently available at https://www.binance.com/en/trade/ETH_USDT with \u201c1m\u201d and \u201cCandles\u201d selected on the top bar.\n\nPlease note that this market is about the price according to Binance ETH/USDT, not according to other sources or spot markets.",
+    "tradingStatus": "OPEN",
+    "status": "REGISTERED",
+    "isVisible": true,
+    "isNegRisk": false,
+    "isYieldBearing": true,
+    "feeRateBps": 200,
+    "makerFeeBps": 0,
+    "resolution": null,
+    "oracleQuestionId": "0xc81244eb54a62a816687f2f38615b15573bbe682ed011b09f866fc83df032d3b",
+    "conditionId": "0xdd426617a2764705411c033903afbaff5339c1bb172d8c640de51f5c02ef50c7",
+    "resolverAddress": "0x947cc06D38d3cB0a2BB5AdFB668b99B4FF53d7B4",
+    "outcomes": [
+      {
+        "name": "$1,000",
+        "indexSet": 1,
+        "onChainId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+        "status": null,
+        "bestBid": {
+          "price": 0.31,
+          "size": 598.5507246376811
+        },
+        "bestAsk": {
+          "price": 0.33,
+          "size": 197.86
+        },
+        "team": null,
+        "variantData": null
+      },
+      {
+        "name": "$3,000",
+        "indexSet": 2,
+        "onChainId": "50652796412610643786819169498783735266437330197922294923802126678209883710070",
+        "status": null,
+        "bestBid": {
+          "price": 0.67,
+          "size": 197.86
+        },
+        "bestAsk": {
+          "price": 0.69,
+          "size": 598.5507246376811
+        },
+        "team": null,
+        "variantData": null
+      }
+    ],
+    "questionIndex": null,
+    "spreadThreshold": 0.06,
+    "shareThreshold": 100,
+    "isBoosted": false,
+    "boostStartsAt": null,
+    "boostEndsAt": null,
+    "polymarketConditionIds": [
+      "0x094725e5691f06b1895496ab0823b3f843c3be680f870cb721958d4e4d280a55"
+    ],
+    "kalshiMarketTicker": null,
+    "categorySlug": "will-ethereum-hit-1k-or-3k-first",
+    "createdAt": "2026-03-12T13:26:02.316Z",
+    "decimalPrecision": 2,
+    "marketVariant": "DEFAULT",
+    "variantData": null,
+    "team": null,
+    "marketType": null,
+    "rewards": {
+      "current": {
+        "hourlyRate": 40,
+        "startsAt": "2026-09-24T14:35:32.310Z",
+        "endsAt": "2027-01-01T05:00:00.000Z"
+      },
+      "schedule": [
+        {
+          "hourlyRate": 600,
+          "startsAt": "2026-08-20T08:11:49.851Z",
+          "endsAt": "2026-08-23T08:11:49.851Z"
+        },
+        {
+          "hourlyRate": 10,
+          "startsAt": "2026-08-23T08:11:49.851Z",
+          "endsAt": "2026-09-21T14:35:32.310Z"
+        },
+        {
+          "hourlyRate": 500,
+          "startsAt": "2026-09-21T14:35:32.310Z",
+          "endsAt": "2026-09-24T14:35:32.310Z"
+        },
+        {
+          "hourlyRate": 40,
+          "startsAt": "2026-09-24T14:35:32.310Z",
+          "endsAt": "2027-01-01T05:00:00.000Z"
+        }
+      ]
+    },
+    "stats": null
+  },
+  "bookBefore": {
+    "data": {
+      "asks": [
+        [
+          0.33,
+          197.86
+        ],
+        [
+          0.34,
+          792.72
+        ],
+        [
+          0.35,
+          3594.1933857142853
+        ],
+        [
+          0.36,
+          31050.92
+        ],
+        [
+          0.37,
+          1006.16
+        ],
+        [
+          0.4,
+          3
+        ],
+        [
+          0.45,
+          478.49
+        ],
+        [
+          0.53,
+          100
+        ],
+        [
+          0.79,
+          91
+        ],
+        [
+          0.8,
+          2.47
+        ],
+        [
+          0.94,
+          332
+        ],
+        [
+          0.95,
+          100
+        ],
+        [
+          0.97,
+          200
+        ],
+        [
+          0.98,
+          400
+        ],
+        [
+          0.99,
+          3736
+        ]
+      ],
+      "bids": [
+        [
+          0.31,
+          598.5507246376811
+        ],
+        [
+          0.3,
+          1014
+        ],
+        [
+          0.29,
+          605.8700000000001
+        ],
+        [
+          0.28,
+          845.1211111111112
+        ],
+        [
+          0.27,
+          600
+        ],
+        [
+          0.26,
+          5
+        ],
+        [
+          0.25,
+          100
+        ],
+        [
+          0.22,
+          118.8
+        ],
+        [
+          0.09,
+          21
+        ],
+        [
+          0.06,
+          100
+        ],
+        [
+          0.05,
+          1000
+        ],
+        [
+          0.04,
+          262
+        ],
+        [
+          0.03,
+          300
+        ],
+        [
+          0.02,
+          400
+        ],
+        [
+          0.01,
+          2099
+        ]
+      ],
+      "lastOrderSettled": {
+        "id": "6184729940",
+        "kind": "LIMIT",
+        "marketId": 52261,
+        "outcome": "No",
+        "price": "0.33",
+        "side": "Bid"
+      },
+      "marketId": 52261,
+      "updateTimestampMs": 1792932512779
+    },
+    "success": true
+  },
+  "cases": [
+    {
+      "name": "limit_fok",
+      "request": {
+        "data": {
+          "pricePerShare": "10000000000000000",
+          "strategy": "LIMIT",
+          "isPostOnly": false,
+          "order": {
+            "salt": "1792932519020632000",
+            "maker": "[redacted]",
+            "signer": "[redacted]",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "expiration": 1,
+            "nonce": "0",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x2015d46da130b6594baf4c336612b5b1e7563852a5e3112330bed97770aa5143",
+            "signature": "[redacted-signature]"
+          },
+          "isFillOrKill": true
+        }
+      },
+      "transmissionIntent": true,
+      "httpStatus": 400,
+      "response": {
+        "success": false,
+        "code": 400,
+        "error": "create_order_fill_or_kill_not_supported",
+        "message": "fill-or-kill is only supported for MARKET orders",
+        "timestamp": "2026-10-25T12:48:39.426034715Z",
+        "trace": "6d4f32d75bccba93149292c7d642851c"
+      },
+      "targetMaskedByExpiry": false,
+      "crateResult": "HTTP 400 at /v1/orders: InvalidRequest, API code Some(400), reason FillOrKillUnsupported"
+    },
+    {
+      "name": "market_post_only",
+      "request": {
+        "data": {
+          "pricePerShare": "10000000000000000",
+          "strategy": "MARKET",
+          "slippageBps": "0",
+          "isMinAmountOut": false,
+          "order": {
+            "salt": "1792932519020632001",
+            "maker": "[redacted]",
+            "signer": "[redacted]",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "expiration": 1,
+            "nonce": "0",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0x7eb2997671eaf6ff65d3dd1fbd7d1ec2d11f219d09603adfcc872838d82a3aba",
+            "signature": "[redacted-signature]"
+          },
+          "isPostOnly": true
+        }
+      },
+      "transmissionIntent": true,
+      "httpStatus": 400,
+      "response": {
+        "success": false,
+        "code": 400,
+        "error": "create_order_post_only_not_supported",
+        "message": "post-only is only supported for LIMIT orders",
+        "timestamp": "2026-10-25T12:48:39.614093591Z",
+        "trace": "198609f1dccdfccf0c2499539180e2c8"
+      },
+      "targetMaskedByExpiry": false,
+      "crateResult": "HTTP 400 at /v1/orders: Unknown, API code Some(400), reason Unknown"
+    },
+    {
+      "name": "limit_slippage",
+      "request": {
+        "data": {
+          "pricePerShare": "10000000000000000",
+          "strategy": "LIMIT",
+          "isPostOnly": false,
+          "order": {
+            "salt": "1792932519020632002",
+            "maker": "[redacted]",
+            "signer": "[redacted]",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "expiration": 1,
+            "nonce": "0",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0xd2a7d053881e44f114367ef21f32c83c921458ff2ebfc674fa4b843fc4231462",
+            "signature": "[redacted-signature]"
+          },
+          "slippageBps": "100"
+        }
+      },
+      "transmissionIntent": true,
+      "httpStatus": 400,
+      "response": {
+        "success": false,
+        "code": 400,
+        "error": "create_order_expiry_too_soon",
+        "message": "expiry is too soon (minimum 2 minutes from now)",
+        "timestamp": "2026-10-25T12:48:39.811824358Z",
+        "trace": "65c7014acbc26e2c461bf65d6a565d9d"
+      },
+      "targetMaskedByExpiry": true,
+      "crateResult": "HTTP 400 at /v1/orders: InvalidRequest, API code Some(400), reason ExpiryTooSoon"
+    },
+    {
+      "name": "market_slippage_out_of_range",
+      "request": {
+        "data": {
+          "pricePerShare": "10000000000000000",
+          "strategy": "MARKET",
+          "slippageBps": "10000",
+          "isMinAmountOut": false,
+          "order": {
+            "salt": "1792932519020632003",
+            "maker": "[redacted]",
+            "signer": "[redacted]",
+            "taker": "0x0000000000000000000000000000000000000000",
+            "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+            "makerAmount": "1000000000000000000",
+            "takerAmount": "100000000000000000000",
+            "expiration": 1,
+            "nonce": "0",
+            "feeRateBps": "200",
+            "side": 0,
+            "signatureType": 0,
+            "hash": "0xbf79ae6aa7573eda95fee787aaef7c3d675ed8f81d87a5804ab8fc40025cc5a0",
+            "signature": "[redacted-signature]"
+          }
+        }
+      },
+      "transmissionIntent": true,
+      "httpStatus": 400,
+      "response": {
+        "success": false,
+        "code": 400,
+        "error": "create_order_expiry_too_soon",
+        "message": "expiry is too soon (minimum 2 minutes from now)",
+        "timestamp": "2026-10-25T12:48:39.998412911Z",
+        "trace": "dcbd56b715660af53734e88463f1b0d3"
+      },
+      "targetMaskedByExpiry": true,
+      "crateResult": "HTTP 400 at /v1/orders: InvalidRequest, API code Some(400), reason ExpiryTooSoon"
+    }
+  ],
+  "walletEvents": [],
+  "restByHash": [
+    {
+      "hash": "0x2015d46da130b6594baf4c336612b5b1e7563852a5e3112330bed97770aa5143",
+      "httpStatus": 404,
+      "response": {
+        "success": false,
+        "code": 404,
+        "error": "not_found",
+        "message": "order not found",
+        "timestamp": "2026-10-25T12:48:40.464361909Z",
+        "trace": "905482ed6dab38f37e23d99ba9301608"
+      }
+    },
+    {
+      "hash": "0x7eb2997671eaf6ff65d3dd1fbd7d1ec2d11f219d09603adfcc872838d82a3aba",
+      "httpStatus": 404,
+      "response": {
+        "success": false,
+        "code": 404,
+        "error": "not_found",
+        "message": "order not found",
+        "timestamp": "2026-10-25T12:48:40.823252221Z",
+        "trace": "e4a4c94a539c9705d76aa4aead2f6fd1"
+      }
+    },
+    {
+      "hash": "0xd2a7d053881e44f114367ef21f32c83c921458ff2ebfc674fa4b843fc4231462",
+      "httpStatus": 404,
+      "response": {
+        "success": false,
+        "code": 404,
+        "error": "not_found",
+        "message": "order not found",
+        "timestamp": "2026-10-25T12:48:40.989371751Z",
+        "trace": "8fc37bcebb114caa67cc17fde3df2e7d"
+      }
+    },
+    {
+      "hash": "0xbf79ae6aa7573eda95fee787aaef7c3d675ed8f81d87a5804ab8fc40025cc5a0",
+      "httpStatus": 404,
+      "response": {
+        "success": false,
+        "code": 404,
+        "error": "not_found",
+        "message": "order not found",
+        "timestamp": "2026-10-25T12:48:41.159134656Z",
+        "trace": "2b0e33a9318f7fe705fe826e94922b93"
+      }
+    }
+  ],
+  "limitations": [
+    "Expired signed orders cannot establish live matching behavior; expiry may mask target parameter checks.",
+    "Wallet observation is a parsed diagnostic projection; HTTP responses retain original JSON fields."
+  ],
+  "stoppedBecause": "two consecutive targets masked by expiry; no change to signed safety boundary",
+  "submittedRequests": 4,
+  "completedAt": "2026-10-25T12:48:43.039457+00:00",
+  "sourceCapture": "data/predict-validation/crate_signed_parameters_20261025T124839013720000Z/capture.json",
+  "sourceSHA256": "6ec8affa9cae9f6b49168bccee500b0927cc9dc9bfb6a4ddb0077a06c89eba08"
+}

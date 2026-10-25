@@ -1,0 +1,65 @@
+{
+  "source": "Official Python SDK 0.0.22 plus authenticated mainnet API, authorized passive BUY then remove; 2026-10-24. STP matching enforcement not tested.",
+  "request": {
+    "strategy": "LIMIT",
+    "isPostOnly": true,
+    "selfTradePrevention": "CANCEL_TAKER",
+    "pricePerShare": "10000000000000000",
+    "makerAmount": "1000000000000000000",
+    "takerAmount": "100000000000000000000",
+    "gtdSeconds": 180
+  },
+  "observedBestAsk": "0.31",
+  "httpStatus": 201,
+  "removalLockedUntil": null,
+  "cleanupHttpStatus": 200,
+  "finalRestStatus": "CANCELLED",
+  "finalAmountFilled": "0",
+  "finalRunOpenOrders": 0,
+  "walletEvents": [
+    {
+      "details": {
+        "categorySlug": "will-ethereum-hit-1k-or-3k-first",
+        "marketId": 52261,
+        "marketQuestion": "Will Ethereum hit $1,000 or $3,000 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$1,000",
+        "price": "0.010",
+        "quantity": "100.000",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "LIMIT",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0xcbf3801b8324deae965743ca7519535567fc760ce0b373d92efda1548e54fcb9",
+      "orderId": "6185481434",
+      "timestamp": 1792845495437,
+      "type": "orderAccepted",
+      "walletAddress": "[redacted]"
+    },
+    {
+      "details": {
+        "categorySlug": "will-ethereum-hit-1k-or-3k-first",
+        "marketId": 52261,
+        "marketQuestion": "Will Ethereum hit $1,000 or $3,000 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$1,000",
+        "price": "0.010",
+        "quantity": "100.000",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "LIMIT",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0xcbf3801b8324deae965743ca7519535567fc760ce0b373d92efda1548e54fcb9",
+      "orderId": "6185481434",
+      "timestamp": 1792845495895,
+      "type": "orderCancelled",
+      "walletAddress": "[redacted]"
+    }
+  ]
+}

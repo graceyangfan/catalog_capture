@@ -257,73 +257,6 @@ async fn removed_ack_preserves_confirmed_partial_fill_and_native_position() {
 }
 
 #[tokio::test]
-async fn noop_is_resolved_only_by_verified_terminal_snapshot() {
-    for status in ["CANCELLED", "FILLED", "OPEN"] {
-        let server = server(vec![]).await;
-        removal(
-            &server,
-            200,
-            json!({"success":true,"removed":[],"noop":["12345"]}),
-            0,
-        );
-        let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
-        server
-            .state
-            .orders
-            .lock()
-            .unwrap()
-            .push_back(json!({"success":true,"data":rest_order_data(status, 1, OrderSide::Buy)}));
-        client.cancel_order(cancel(&order)).unwrap();
-        if status == "CANCELLED" {
-            server.state.open_orders.lock().unwrap().clear();
-            let ExecutionEvent::Report(report) = next(&mut rx).await else {
-                panic!("verified terminal snapshot");
-            };
-            let ExecutionReport::Order(snapshot) = &report else {
-                panic!("order report");
-            };
-            assert_eq!(snapshot.order_status, OrderStatus::Canceled);
-            engine(&cache).reconcile_execution_report(&report);
-            apply_account(&mut rx).await;
-            assert_eq!(
-                cache
-                    .borrow()
-                    .order(&order.client_order_id())
-                    .unwrap()
-                    .status(),
-                OrderStatus::Canceled
-            );
-        } else {
-            wait_for_post(&server).await;
-            assert!(
-                timeout(Duration::from_millis(100), rx.recv())
-                    .await
-                    .is_err()
-            );
-            assert_eq!(
-                cache
-                    .borrow()
-                    .order(&order.client_order_id())
-                    .unwrap()
-                    .status(),
-                OrderStatus::Accepted
-            );
-            assert!(client.cancel_order(cancel(&order)).is_err());
-            assert_eq!(
-                cache
-                    .borrow()
-                    .account(&account_id())
-                    .unwrap()
-                    .balance_locked(Some(Currency::USDT())),
-                Some(Money::from("62 USDT"))
-            );
-        }
-        assert_eq!(server.state.removals.lock().unwrap().len(), 1);
-        client.disconnect().await.unwrap();
-    }
-}
-
-#[tokio::test]
 async fn only_definitive_rejection_emits_cancel_rejected_and_ambiguous_writes_stay_pending() {
     for case in 0..6 {
         let server = server(vec![]).await;
@@ -877,4 +810,208 @@ async fn late_removed_ack_releases_native_only_cancellation_without_another_acco
     );
     // apply_account rejects any duplicate order event before the account publication.
     client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn validated_query_reuses_rest_route_for_cancel_without_another_lookup() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        0,
+    );
+    let mut row = rest_order_data("OPEN", 1, OrderSide::Buy);
+    let hash = nautilus_predict::signing::PredictOrderHasher::new(PredictEnvironment::BnbMainnet)
+        .order_hash(
+            &serde_json::from_value(row["order"].clone()).unwrap(),
+            nautilus_predict::common::contracts::PredictExchangeType::Standard,
+        );
+    let venue_id = VenueOrderId::new(format!("{hash:#x}"));
+    row["order"]["hash"] = json!(venue_id.to_string());
+    server
+        .state
+        .orders_by_hash
+        .lock()
+        .unwrap()
+        .insert(venue_id.to_string(), json!({"success":true,"data":row}));
+    let (mut client, mut rx, cache) = reported_client_with_removal(&server, true);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let original = order(1);
+    let mut native = OrderAny::try_from(original.init_event().clone()).unwrap();
+    for event in original.events().into_iter().skip(1) {
+        let mut event = event.clone();
+        if let OrderEventAny::Accepted(event) = &mut event {
+            event.venue_order_id = venue_id;
+        }
+        native.apply(event).unwrap();
+    }
+    cache
+        .borrow_mut()
+        .add_order(native.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    let mut engine = engine(&cache);
+    client
+        .query_order(nautilus_common::messages::execution::QueryOrder::new(
+            trader_id(),
+            Some(ClientId::new("PREDICT")),
+            native.strategy_id(),
+            native.instrument_id(),
+            native.client_order_id(),
+            Some(venue_id),
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        ))
+        .unwrap();
+    loop {
+        let event = next(&mut rx).await;
+        let report = matches!(&event, ExecutionEvent::Report(_));
+        submissions::apply(&mut engine, &event);
+        if report {
+            break;
+        }
+    }
+    assert_eq!(server.state.order_requests.lock().unwrap().len(), 1);
+    client.cancel_order(cancel(&native)).unwrap();
+    loop {
+        let event = next(&mut rx).await;
+        let canceled = matches!(&event, ExecutionEvent::Order(OrderEventAny::Canceled(_)));
+        submissions::apply(&mut engine, &event);
+        if canceled {
+            break;
+        }
+    }
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&native.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Canceled
+    );
+    assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+    assert_eq!(
+        server.state.order_requests.lock().unwrap().len(),
+        1,
+        "validated QueryOrder already supplied the removal route"
+    );
+    assert!(server.state.match_requests.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn noop_cancel_does_not_start_an_adapter_owned_recovery_query() {
+    let server = server(vec![]).await;
+    removal(
+        &server,
+        200,
+        json!({"success":true,"removed":[],"noop":["12345"]}),
+        0,
+    );
+    let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
+    server.wallet(fill(1));
+    let ExecutionEvent::Report(report @ ExecutionReport::Fill(_)) = next(&mut rx).await else {
+        panic!("verified wallet fill");
+    };
+    let mut engine = engine(&cache);
+    engine.reconcile_execution_report(&report);
+    client.cancel_order(cancel(&order)).unwrap();
+    wait_for_post(&server).await;
+    let _ = timeout(Duration::from_millis(100), async {
+        loop {
+            let event = next(&mut rx).await;
+            assert!(
+                matches!(&event, ExecutionEvent::Account(_)),
+                "noop must not invent a terminal event"
+            );
+            submissions::apply(&mut engine, &event);
+        }
+    })
+    .await;
+    assert!(
+        server.state.order_requests.lock().unwrap().is_empty(),
+        "Native owns recovery of the ambiguous noop"
+    );
+    assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+    assert!(
+        !cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .is_closed()
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn route_lookup_terminal_is_published_without_remove_or_fill_queries() {
+    for (remote, expected) in [
+        ("CANCELLED", OrderStatus::Canceled),
+        ("EXPIRED", OrderStatus::Expired),
+    ] {
+        let private = server(vec![]).await;
+        let (mut client, mut rx, cache, _portfolio, own) = setup(&private).await;
+        private.state.orders.lock().unwrap().clear();
+        let mut terminal = rest_order_data(remote, 1, OrderSide::Buy);
+        terminal["amountFilled"] = json!("17000000000000000000");
+        private
+            .state
+            .orders
+            .lock()
+            .unwrap()
+            .push_back(json!({"success":true,"data":terminal}));
+        let callbacks = Rc::new(RefCell::new(Vec::new()));
+        let handler = nautilus_common::msgbus::TypedHandler::from({
+            let callbacks = callbacks.clone();
+            let cache = cache.clone();
+            let id = own.client_order_id();
+            move |event: &OrderEventAny| {
+                if event.client_order_id() == id {
+                    assert!(!matches!(event, OrderEventAny::CancelRejected(_)));
+                    if matches!(
+                        event,
+                        OrderEventAny::Canceled(_) | OrderEventAny::Expired(_)
+                    ) {
+                        assert_eq!(cache.borrow().order(&id).unwrap().status(), expected);
+                        callbacks.borrow_mut().push(event.event_type());
+                    }
+                }
+            }
+        });
+        let topic = nautilus_common::msgbus::switchboard::get_event_order_topic(own.strategy_id());
+        msgbus::subscribe_order_events(topic.into(), handler.clone(), None);
+        let before = private.state.order_requests.lock().unwrap().len();
+        client.cancel_order(cancel(&own)).unwrap();
+        let mut engine = engine(&cache);
+        timeout(Duration::from_secs(2), async {
+            while callbacks.borrow().is_empty() {
+                submissions::apply(&mut engine, &next(&mut rx).await);
+            }
+        })
+        .await
+        .expect("verified terminal lookup resolves the actual Native order");
+        assert_eq!(
+            private.state.order_requests.lock().unwrap().len(),
+            before + 1
+        );
+        assert!(private.state.removals.lock().unwrap().is_empty());
+        assert!(private.state.match_requests.lock().unwrap().is_empty());
+        assert!(
+            cache
+                .borrow()
+                .order(&own.client_order_id())
+                .unwrap()
+                .filled_qty()
+                .is_zero()
+        );
+        msgbus::unsubscribe_order_events(topic.into(), &handler);
+        client.disconnect().await.unwrap();
+    }
 }

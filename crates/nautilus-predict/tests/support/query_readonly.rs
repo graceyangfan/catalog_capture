@@ -179,7 +179,7 @@ pub async fn run(config: RelayConfig) -> anyhow::Result<()> {
     profile.node.exec_engine.position_check_interval_secs = None;
     profile.node.delay_post_stop = Duration::from_secs(1);
     anyhow::ensure!(
-        profile.predict.submission.is_none() && !profile.predict.orderbook_removal_enabled,
+        !profile.predict.submission_enabled && !profile.predict.orderbook_removal_enabled,
         "read-only host required"
     );
     std::fs::write(&config.phase_file, "startup")?;

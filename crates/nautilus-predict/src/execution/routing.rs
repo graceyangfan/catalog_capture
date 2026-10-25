@@ -35,6 +35,14 @@ pub(super) fn register(ids: &RestOrderIds, hash: VenueOrderId, id: U256) -> anyh
     Ok(())
 }
 
+// Learning a cancel route is optional to an already identified execution fact.
+// Keep strict registration for actual command routing; preserve the existing owner on conflict.
+pub(super) fn observe(ids: &RestOrderIds, hash: VenueOrderId, raw: &str) {
+    if let Err(error) = parse_id(raw).and_then(|id| register(ids, hash, id)) {
+        log::warn!("Predict REST route observation skipped for {hash}: {error}");
+    }
+}
+
 pub(super) fn register_many(
     ids: &RestOrderIds,
     routes: &[(VenueOrderId, U256)],

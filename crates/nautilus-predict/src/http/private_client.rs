@@ -61,6 +61,10 @@ const POSITIONS: &str = "/v1/positions";
 const MATCHES: &str = "/v1/orders/matches";
 const REMOVE_ORDERS: &str = "/v1/orders/remove";
 
+#[cfg(test)]
+#[path = "../../tests/unit/parameter_probe.rs"]
+mod parameter_probe;
+
 /// Private REST transport, independent of the public recording client.
 #[derive(Clone)]
 pub struct PredictPrivateHttpClient {
@@ -248,6 +252,28 @@ pub struct PredictAuthenticatedHttpClient {
 }
 
 impl PredictAuthenticatedHttpClient {
+    /// Reads lifecycle metadata without loading an instrument into Native.
+    pub(crate) async fn request_market_definition(
+        &self,
+        market_id: u64,
+    ) -> Result<super::models::PredictMarket> {
+        const ENDPOINT: &str = "/v1/markets/{id}";
+        let response = self
+            .get(
+                ENDPOINT,
+                &format!("/v1/markets/{market_id}"),
+                None::<&PredictOrdersQuery<'_>>,
+            )
+            .await?;
+        let market: super::models::PredictMarket = decode_response(ENDPOINT, &response)?;
+        if market.id != market_id {
+            return Err(Error::BadRequest(
+                "market lifecycle identity differs from request",
+            ));
+        }
+        Ok(market)
+    }
+
     /// Fetches required admission fields without inventing missing fees or exchange flags.
     ///
     /// # Errors
@@ -311,7 +337,44 @@ impl PredictAuthenticatedHttpClient {
         price_per_share_wei: U256,
         is_post_only: bool,
     ) -> Result<PredictCreateOrderReceipt> {
-        let request = PredictCreateOrderRequest::limit(signed, price_per_share_wei, is_post_only)?;
+        self.request_create_limit_order_with_options(
+            signed,
+            price_per_share_wei,
+            super::command_models::PredictLimitOrderOptions {
+                is_post_only,
+                self_trade_prevention: None,
+            },
+        )
+        .await
+    }
+
+    /// Sends one LIMIT request with typed venue options. No automatic POST retry.
+    ///
+    /// # Errors
+    /// Invalid terms, context, HTTP responses or acknowledgement hashes return errors.
+    pub async fn request_create_limit_order_with_options(
+        &self,
+        signed: &PredictSignedOrder,
+        price_per_share_wei: U256,
+        options: super::command_models::PredictLimitOrderOptions,
+    ) -> Result<PredictCreateOrderReceipt> {
+        let request =
+            PredictCreateOrderRequest::limit_with_options(signed, price_per_share_wei, options)?;
+        self.request_create_order(signed, &request).await
+    }
+
+    /// Sends one MARKET FOK request, without retrying.
+    /// A receipt proves neither FOK enforcement nor zero execution. Reconcile by hash.
+    /// Native submission selects this path from TimeInForce::Fok, never command params.
+    ///
+    /// # Errors
+    /// Invalid terms, mismatched environments and HTTP/receipt failures return errors.
+    pub async fn request_create_market_fok_order(
+        &self,
+        signed: &PredictSignedOrder,
+        amounts: &crate::common::market::PredictMarketOrderAmounts,
+    ) -> Result<PredictCreateOrderReceipt> {
+        let request = PredictCreateOrderRequest::market_fok(signed, amounts)?;
         self.request_create_order(signed, &request).await
     }
 

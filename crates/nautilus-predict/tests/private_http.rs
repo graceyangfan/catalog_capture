@@ -589,6 +589,9 @@ async fn reordered_envelope_keeps_venue_failures_and_schema_diagnostics_safe() {
 #[path = "private_http/queries.rs"]
 mod queries;
 
+#[path = "private_http/history_survey.rs"]
+mod history_survey;
+
 #[path = "private_http/commands.rs"]
 mod commands;
 

@@ -1,193 +1,162 @@
 # Predict adapter validation
 
-This reference records evidence for the [adapter contract](../predict-execution-adapter-design.md).
-[Test commands](../../crates/nautilus-predict/tests/README.md) cover reproducible
-regressions; [live evidence](predict-live-evidence.md) describes venue acceptance.
-Timing results are observations for the stated workload, not production guarantees.
-
-## Source and evidence boundaries
-
-| Experiment | Source and method |
-| --- | --- |
-| Identity/routing | Catalog baseline 2727fdc; same strategy/mock harness and Native edd0b0f; three ABBA blocks, six captures per version |
-| Pending/query and callback comparison | Catalog baseline d1c84bb; matched harness and Native edd0b0f; repeated ABBA blocks with explicit INFO/WARN controls |
-| Purge/timer | Catalog 8de7d28 plus archived working-tree changes; Native 797d986 plus recorded repair files; this source pair differs from the other experiments |
-| Public snapshot/depth | Native edd0b0f; exact numeric decoding on both CPU routes; three independent captures per workload |
-| Signing reference | Predict Python SDK 6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1 |
-
-Sanitized protocol fixtures are versioned and hash-indexed in the
-[evidence manifest](../../crates/nautilus-predict/tests/fixtures/evidence_manifest.json).
-Synthetic failure scenarios, derived replays and real exchange captures are labeled
-separately. Operator source archives, executable hashes, raw logs and measurements
-stay under Git-ignored data/predict-validation/ and are not distributed test inputs.
-Published summaries do not imply access to those local archives.
-
-## Regression coverage
-
-| Boundary | Observable check |
-| --- | --- |
-| Protocol and signing | Exact numeric tokens/raw units, strict decimal IDs, SDK amount/hash/signature vectors and identity conflicts |
-| Public data | Custom/depth/BBO ownership, both transports, reconnect/reset, stale-frame handling, rollover and Parquet readback |
-| Commands | No funds/OPEN/metadata/book preflight; known-ID cancel, explicit unsupported intent and unknown-write handling |
-| Strategy callbacks | Applied Native state, maker cancel/replacement, taker fills, early settlement, duplicate and late messages |
-| Account/recovery | Asynchronous cash, order-local reservations, tight-cash replacement, scoped recovery and post-IO consistency |
-| Retention | Native purge, nonempty position links, unresolved ownership, cold/verified timer retirement and actual strategy delivery |
-
-The accepted full suites recorded 508 Native-feature and 492 legacy-feature tests
-passing. After removing data timing probes, focused recording validation passed
-153 tests and the legacy data-client suite passed four. Strict all-target Clippy,
-minimal core/live builds, repository hooks and all 415 registered fixture hashes
-passed. These counts identify the validation snapshot; the test guide defines the
-commands rather than a permanently fixed expected test count.
-
-## Message identity and numeric routing
-
-The strict decimal uint256 codec avoids a temporary JSON wrapper. Wallet parsing
-reuses message-derived venue/instrument identities while retaining Native ownership
-checks. Six-capture median Criterion mean estimates:
-
-| Numeric ID | DOM/string wrapper, ns | Direct codec, ns |
-| --- | ---: | ---: |
-| 10 digits | 45.97 | 16.61 |
-| uint256 maximum | 180.79 | 159.35 |
-
-Matched actual Rust strategy observations, in microseconds, are medians of each
-capture's nearest-rank p50/p95/p99:
-
-| Segment | Baseline | Direct codec/identity reuse |
-| --- | --- | --- |
-| Confirmed WS fill → Filled callback | 41.81 / 63.19 / 76.27 | 41.31 / 63.85 / 73.04 |
-| Maker cancel confirmation → replacement POST | 254.10 / 299.21 / 329.04 | 252.19 / 296.04 / 323.69 |
-| Taker Filled callback → next POST | 166.52 / 197.54 / 244.00 | 165.90 / 195.19 / 264.29 |
-
-API counts and economic assertions match. Tail observations overlap and move in
-both directions; the small codec gain does not establish a stable end-to-end
-callback improvement or regression.
-
-## Public snapshot and native depth delivery
-
-The recording schema preserves full YES levels in their source order, optional
-settlement fields, fixed-precision normalization, event/init timestamps and rolling
-selector metadata. Numeric JSON tokens are decoded without f64 through
-rust_decimal's standard arbitrary-precision support. A real token
-3900.9999999999995 exposed the former conversion to 3900.9999999999990; a regression
-covers this quantity and long decimal settlement fields. Historical files are not
-rewritten.
-
-The read-only mainnet probe uses Rust LiveNode strategies on BTC 5m/15m markets
-with Sockudo and Tungstenite. Combined Custom + YES/NO depth, depth-only, YES-only
-and resubscribed Custom phases produced 160 Custom and 400 depth callbacks.
-An independent Decimal comparison matched every level and the recorded optional
-fields. All 16 subscription/removal requests received successful venue ACKs;
-partial removal preserved remaining owners. Managed book/BBO prices were available
-inside depth callbacks. No execution client, signer, account RPC or order writes
-participated. This short probe did not force reconnect or cross natural rollover;
-those transitions have separate offline coverage.
-
-Historical CPU measurements include complete Wire-to-snapshot conversion. Both
-routes use exact numeric decoding and synthetic levels matching venue JSON numbers.
-Values are medians of three captures' Criterion median estimates:
-
-| Levels per side | DOM, us | Borrowed payload, us | Reduction |
-| --- | --- | --- | --- |
-| 10 | 17.43 | 7.16 | 58.9% |
-| 100 | 120.41 | 48.15 | 60.0% |
-| 1,000 | 1121.96 | 440.47 | 60.7% |
-
-Separate loopback strategies sent 210 causally acknowledged frames per mode, with
-ten warmups excluded. Medians of three captures' per-capture quantiles:
-
-| Callback mode | p50 / p95 / p99, us |
-| --- | --- |
-| Custom only | 57.12 / 81.50 / 89.79 |
-| Unmanaged depth | 68.29 / 81.75 / 83.71 |
-| Managed depth with Native quotes | 68.42 / 101.75 / 112.29 |
-| Combined: depth callback | 72.88 / 95.29 / 100.62 |
-| Combined: Custom callback | 74.88 / 98.42 / 103.79 |
-
-The interval begins before loopback server send and ends at the first callback
-line, including local transport, parsing and Native dispatch/book maintenance.
-It excludes signal-body work and does not measure exchange network latency.
-Managed-depth p99 ranged 81.96–127.67 us across captures. Mode comparisons are not
-a before/after whole-strategy test; independent percentiles must not be added.
-
-Dedicated market-data timing probes, the CPU benchmark and latency JSON exporter
-were retired after validation. Functional regressions and the opt-in public
-mainnet lifecycle probe remain without callback timing collection. Event/init
-timestamps remain data fields. The measured sources/results are retained in the
-operator's market-data-mainnet-20261022 archive; the earlier quoted-level experiment
-is a different workload and is not used for direct numeric-input comparisons.
-Execution timing instrumentation remains available independently.
-
-## Pending and target-query validation
-
-Target query tests assert one order GET for zero fills and two order GETs plus
-market-scoped matches for nonzero fills. Identity, signed terms and complete raw
-history checks remain. Bulk recovery also covers positions without current orders.
-
-With 9,999 applied fills and 256 pending facts, six-capture median p50 wallet
-preparation decreased from 60.04 to 13.73 us; lifecycle raw summation decreased from
-44.83 to 8.77 us. Zero-pending preparation remained about 1 us. These CPU windows
-exclude parsing, initial quantity aggregation, snapshot locking, transport and
-Native callbacks; short-order replays do not replace long-history measurements.
-
-## Matched taker callback comparison
-
-Release executables use the same Native dependency, strategy/mock source and logger
-level. One warmup is excluded per version/control. Six ABBA blocks per INFO/WARN
-level yield twelve captures per version/level. Each capture has 201 taker fills,
-so nearest-rank p99 is the third-largest observation. Values below are medians of
-capture quantiles; paired intervals bootstrap mean block differences with 10,000
-resamples. They are exploratory intervals, not an equivalence test.
-
-| Logger / segment | Baseline p50 / p95 / p99, us | Optimized p50 / p95 / p99, us | Paired p99 difference 95% interval, us |
-| --- | --- | --- | --- |
-| INFO / WS fill → strategy | 52.19 / 80.58 / 108.29 | 49.56 / 76.79 / 89.69 | -23.77 to 11.67 |
-| WARN / WS fill → strategy | 43.98 / 71.21 / 91.04 | 43.54 / 71.13 / 88.00 | -14.15 to 11.96 |
-| INFO / Filled callback → next POST | 190.92 / 243.90 / 355.85 | 186.17 / 235.81 / 311.56 | -60.07 to 8.22 |
-| WARN / Filled callback → next POST | 170.56 / 217.50 / 310.35 | 171.77 / 216.38 / 294.21 | -63.03 to -1.98 |
-
-WS callback p99 intervals span zero at both logger levels. The comparison does not
-establish a stable adapter regression. Native formats order events before invoking
-strategy hooks: WARN reduced typical callback cost, but its p99 effect also spans
-zero. Native enqueue/scheduling and the loopback driver are included; no OS,
-executor or lock-wait contribution is individually attributed.
-
-API parity and economics hold across captures: maker has 101 creates/101 removals;
-taker has 201 creates/one removal. Each has 201 Filled, 202 early Submitted,
-201 Confirmed and one Failed notice, with no lost/invalid correlations. Metadata
-misses and book GETs are zero; startup/background reads are counted separately.
-Final orders and positions are empty. Results are local; no venue orders were sent.
-
-## Timer CPU comparison
-
-VirtualClock drives the installed production timer. Values are medians of four
-complete sweeps including final destruction; setup and one warmup are excluded.
-The historical source pair is listed above and must not be mixed with other tests.
-
-| Owners × fills | Prefix | Complete sweep before → after, ms | First callback before → after, ms |
-| --- | --- | --- | --- |
-| 1 × 100,000 | Cold | 22.401 → 23.061 | 22.401 → 23.061 |
-| 1 × 100,000 | Verified | 16.120 → 14.603 | 16.120 → 14.603 |
-| 32 × 9,999 | Cold | 316.014 → 78.979 | 23.197 → 20.126 |
-| 32 × 9,999 | Verified | 42.497 → 54.319 | 1.136 → 1.354 |
-
-Repeated cold membership work is reduced; single-owner validation/disposal remains
-linear, and the verified multi-owner observation regressed. These are not universal
-cleanup improvements or pause bounds. A separate actual LiveClock replay imported
-100,000 REST facts, received independent books, retired Native ownership and
-verified delivery. Its waiting window also includes account IO and probe scheduling,
-so wall time is not timer CPU and cannot establish a hard latency guarantee.
+This reference links the [behavioral contract](../predict-execution-adapter-design.md)
+to executable checks and immutable evidence. The [test guide](../../crates/nautilus-predict/tests/README.md)
+contains commands. Correct offline replay does not establish new venue behavior,
+production latency or unattended operating duration.
 
 ## Two-repository handoff
 
-CI, bootstrap and installation pin
-[edd0b0f1588f241690f578ef8b141a947997486a](https://github.com/graceyangfan/nautilus_trader/commit/edd0b0f1588f241690f578ef8b141a947997486a).
-Use make bootstrap-deps for a clean checkout. This fork supplies borrowed history
-access, Portfolio-first account publication, snapshot-covered fill handling and
-physical purge repairs; an arbitrary upstream develop checkout is not equivalent.
+Cargo uses the sibling `nautilus_trader_quantity_commission` checkout. CI and
+bootstrap select the project fork
+[graceyangfan/nautilus_trader](https://github.com/graceyangfan/nautilus_trader)
+at [c9bbbcd8](https://github.com/graceyangfan/nautilus_trader/commit/c9bbbcd89421245fa86286caaa173c6524638461).
+The immutable revision contains the merged official framework, quantity
+commissions, opt-in pending-command retention and terminal quantity normalization.
+These are downstream extensions, not a claim of an unmodified official release.
+Use the pinned APIs directly; no legacy fee mode or compatibility branch exists.
 
-Native dependency validation included 435 Cache tests, 52 order-model tests,
-account publication coverage and twelve snapshot-covered/multi-owner fill cases.
-Publish and validate a dependency update first, then update CI/bootstrap/install
-pins together. Recheck supported features and callbacks against that exact source.
+| Capability | Native owner |
+| --- | --- |
+| Predict retains unresolved cancel/modify commands and emits CommandRecoveryExhausted | ExecutionClient contract, live manager and node/msgbus |
+| Confirmed FILLED quantity normalization while a command is pending | Execution reconciliation and regression tests |
+
+All CI jobs use the same fork and SHA. Bootstrap checks out that revision before
+building. Verify a release from clean sibling checkouts and keep the installation
+reference aligned with CI; local uncommitted changes are not a dependency version.
+
+Native owns quantity commission, exact gross/order scale alignment, checked report
+application and portfolio accounting. See [inventory-unit commissions](quantity-commission.md).
+The current adapter uses ExecutionReportTask collection/finish and batch
+instrument_ids APIs; single-member endpoints validate through single_instrument_id().
+
+## Comparison basis
+
+Comparisons use the pinned Native fork and official TS SDK 1.3.8 at
+[5ff2b4a](https://github.com/PredictDotFun/sdk/tree/5ff2b4a1c54cbbeb0fd661e17246cd12a9af8486).
+They are specific contracts, not assertions that adapters have identical protocols.
+
+| Source path in Native / SDK | Relevant rule applied to Predict |
+| --- | --- |
+| Native adapters/bybit/src/websocket/parse.rs | FillReport uses actual quantity, price, maker/taker and fee; local post-only intent cannot rewrite a fill |
+| Native adapters/bybit/src/websocket/parse.rs, Rejected status mapping | PartiallyFilled cannot transition to Rejected; its venue-specific Canceled conversion does not establish Predict duplicate/partial semantics |
+| Native adapters/deribit/src/websocket/parse.rs | Canceled/Expired directly express venue lifecycle; no trade-history completeness wait |
+| Native adapters/polymarket/src/execution/ | Separate transport receipts, execution facts, reports and explicit cancellation; Native owns final state |
+| Native adapters/bybit and adapters/okx command parsing | Ordinary Native fields plus typed venue-specific parameters; unsupported operations fail explicitly |
+| Native common/src/cache and execution reconciliation | Retention/purge and late-fill application belong to framework lifecycle |
+| Native adapters/hyperliquid/src/signing/nonce.rs | Clock-based nonce is venue-specific; do not copy its freshness policy to Predict |
+| SDK src/OrderBuilder.ts and src/abis/CTFExchange.json | salt, expiration and nonce are separate; nonces(owner)/incrementNonce/InvalidNonce are verifying-contract facts |
+
+Predict therefore caches contract nonces without a clock TTL and invalidates only
+the disproved contract entry. Native API integration and SDK arithmetic have
+different authority: the SDK does not define Cache, portfolio or callback semantics.
+
+## Recorded JSON replay matrix
+
+Fixture paths are relative to
+[private_api](../../crates/nautilus-predict/tests/fixtures/private_api/).
+Original sources remain unchanged. Rebinding identity, signing or time to a local
+venue creates derived replay, even when all economic fields come from real fills.
+
+| Captured input | Executable consumer | Observable result |
+| --- | --- | --- |
+| live_resting_fixed_20261015/ | maker_lifecycle; live_node | Native maker acceptance/cancel/replacement and callbacks |
+| live_resting_batch-restart_20261016T153745Z/ and live_resting_http-batch_20261016T160926Z/ | batch_recorded | Empty-Cache adoption, scoped multi-ID remove, per-order terminal callbacks |
+| live_fill_20261016T123240Z_independent/calibration.json plus admission.json | cold_start; recorded_startup | Old flat cycles do not become active orders; actual BUY/fee/TP/cancel/SELL economics pass through Strategy/LiveNode |
+| live_fill_20261016T122233Z_independent/calibration.json | strategy_lifecycle | Real fill facts inside restart/late-fill and strategy exit scenarios |
+| native_market_fill_post_only_rejected_20261025.json | market_recorded_fill; feedback_delivery; market_taker | Actual 3.5 gross/.07 fee/3.43 net and distinct rejection/SDK-exit provenance |
+| native_non_fok_full_plan_two_settlements_20261025.json | market_recorded_fill | Exact two-settlement gross/net, mint evidence and cash arithmetic |
+| native_market_filled_atomic_remainder_20261025.json | terminal_recovery | Native FILLED recovery, one-wei remainder, pending commands, exact fees, replay and original signed terms |
+| live_chain_atomic_rounding_20261025.json | chain_recorded_rounding | Public transaction inputs/receipts reproduce the one-wei split; chain remaining uses maker-asset units and does not override CLOB FILLED |
+
+The [MARKET](predict-immediate-order-validation.md) and
+[maker](predict-maker-order-validation.md) references delimit the corresponding
+live observations. Saved outputs that merely assert a result are not substitutes
+for replaying source responses through the current adapter and Native.
+
+## Fault and independence checks
+
+| Test area | Required invariant |
+| --- | --- |
+| feedback_delivery | Accepted/terminal/fills survive absent ACK, held POST/history, route anomalies, expiry, clock skew and wallet reconnect; optional metadata receiver closure and a held earlier QueryOrder cannot suppress current callbacks |
+| market_fok per-order slippage; node_host product profile | Omitted/zero/nonzero command params control signed amounts; Native owns risk/recovery policy without host veto; disabled startup recovery skips account discovery |
+| submissions nonce controls | One rejected exchange does not invalidate another; nonce IO/cash IO independent; no normal-command RPC or POST replay |
+| cancellations; maker_lifecycle | Known route avoids GET; a required GET already proving terminal avoids remove/matches; held/rejected/noop results are distinct |
+| expiry_scope; recorded_startup | Historical residuals do not block reports/restart/new market; active unknown holdings remain visible errors; owned late fills survive expiry |
+| ingestion_contract; factual_precision | Cache/positions are applied before subscriber callbacks; exact facts and position-snapshot coverage survive duplicate/gap recovery |
+| recovery_live; feedback_delivery | Incremental REST preserves Native-applied and queued wallet fills; no fake FillVoided from an incomplete snapshot |
+| node_host::cancellations | Native exhaustion diagnostic retains uncertain pending state; other orders and subsequent genuine resolution continue |
+| unit lookup/lifecycle; in_service | Native retention owns mirrors; bounded retirement protects unapplied evidence |
+| restart_live, explicitly selected with isolated Redis | Fresh Native caches restore persisted orders, positions and strategy intent; offline partial/full fills and duplicate history do not create another entry or exit |
+| continuous extended replay; private_ws repeated reconnects | Sustained callback-driven commands continue across suspended cash/history IO; repeated connections require their own ACK and retain Native backoff |
+
+These include synthetic timing/fault inputs. Passing them demonstrates local
+interaction and query counts, not an observed exchange outage or hard p99 bound.
+
+For pre-live validation, run the ordinary suite and the selected offline Redis,
+reconnect and callback exporters in the [test guide](../../crates/nautilus-predict/tests/README.md#pre-live-checks-without-venue-orders).
+Measure Native purge and large-owner disposal separately from command IO: a
+nonblocking network path does not make synchronous lifecycle work constant-time.
+Keep fixture setup, compilation and concurrent tests outside measured runs.
+Read-only venue probes establish authentication, ACK and applied account/report
+delivery; they do not establish matching, partial-tail or delayed-payout behavior.
+
+## Rejection and terminal evidence
+
+Wallet rejection observations, REST lifecycle status and confirmed settlements have
+separate authority. Duplicate/unknown rejection or a rejection accompanied by
+execution does not independently close an accepted original. The existing timer
+sends a coalesced Native QueryOrder; genuine cancellation, expiry and execution
+feedback remain independent. Zero-match wallet rejection followed by REST CANCELLED
+preserves the already-applied rejection for both MARKET GTC and FOK.
+
+| Retained source | What it establishes | Limit |
+| --- | --- | --- |
+| market_parameter_matrix_no_match_20261024.json | Valid requests with no executable match; Accepted, noMarketMatch and terminal REST observations | Does not establish termination of a partially executed remainder or successful FOK enforcement |
+| live_unexecutable_rejections_20261025.json | Gateway expiry/signature validation and exact machine-error mapping | No valid signature or matching execution; validation order for valid orders is unknown |
+| live_crate_signed_parameter_rejections_20261025.json | Signed expired-only requests through the crate; explicit unsupported LIMIT FOK and MARKET post-only errors | Expiry masked other options; amount mismatch was not sent; no Native strategy live run |
+| Native atomic-remainder capture and derived terminal_recovery schedules | Exact gross/net inventory, pending-command recovery, replay and late real fills after a newer terminal | Combined partial/rejection schedules are synthetic, not additional venue observations |
+
+`PostOnlyUnsupported` is distinct from a crossing post-only rejection. Real-response
+replays assert Native rejection callbacks against the already-updated Cache, zero
+fabricated fills and no automatic POST retry. The
+[MARKET evidence](predict-immediate-order-validation.md) explains capture provenance,
+terminal ownership and the remaining matching/settlement gaps.
+
+## Evidence integrity
+
+[evidence_manifest.json](../../crates/nautilus-predict/tests/fixtures/evidence_manifest.json)
+indexes bytes and SHA-256 for primary, derived, synthetic, reference and review
+inputs. Verify with `python3 tests/predict_evidence.py`. New completed fixtures
+can be indexed with --refresh; registered primary bytes cannot be replaced.
+Raw operational logs/source archives stay under ignored data/predict-validation/.
+Published summaries do not imply those archives are distributed test inputs.
+
+## Historical measurements
+
+Performance claims require matched executable revisions, Native dependency,
+features, logging and workload, with compilation and other tests excluded.
+Use the [explicit exporters](../../crates/nautilus-predict/tests/README.md#benchmarks-and-explicit-json-exporters)
+for reproducible CPU and Strategy measurements. Keep collection wall time,
+synchronous finalization, disposal and end-to-end callbacks separate. Overlapping
+percentiles and sampling counts cannot be added.
+
+Debug/test profiles leave local code unoptimized. Production CPU comparisons use
+release builds. Large-history report conversion and Native physical purge remain
+linear; a successful delivery assertion is not an HFT latency guarantee. Full
+local logs, executable hashes and source snapshots belong under ignored
+`data/predict-validation/`, rather than release fixtures or development timelines
+in this reference.
+
+## Public snapshot and native depth delivery
+
+Tests cover exact JSON decimals, CustomSnapshot/depth/BBO subscription sharing,
+managed book/quote state before Strategy callbacks, both transports, reconnect,
+reset, rollover and persisted readback. Offline fault schedules establish those
+local boundaries; read-only venue observations do not prove a forced outage,
+natural rollover, production latency or unattended operating duration.
+
+Event/init timestamps remain schema fields; execution telemetry is independently
+opt-in. Credentials, raw operator recordings, profiler binaries and scratch output
+are excluded from version control. Frozen fixture bytes and their evidence tiers
+remain unchanged when documentation or code is reorganized.

@@ -92,18 +92,22 @@ pub fn predict_crypto_up_down_orderbook_data_type(
     market_id: u64,
     selector: &CryptoUpDownSelectorKey,
 ) -> DataType {
-    let mut metadata = Params::new();
-    metadata.insert(
-        PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
-        Value::String(selector.price_feed_symbol().to_string()),
-    );
-    metadata.insert(
-        PREDICT_SELECTOR_TITLE_ASSET.to_string(),
-        Value::String(selector.title_asset().to_string()),
-    );
-    metadata.insert(
-        PREDICT_SELECTOR_INTERVAL_SECS.to_string(),
-        Value::String(selector.interval_secs().to_string()),
+    let metadata = Params::new(
+        [
+            (
+                PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
+                Value::String(selector.price_feed_symbol().to_string()),
+            ),
+            (
+                PREDICT_SELECTOR_TITLE_ASSET.to_string(),
+                Value::String(selector.title_asset().to_string()),
+            ),
+            (
+                PREDICT_SELECTOR_INTERVAL_SECS.to_string(),
+                Value::String(selector.interval_secs().to_string()),
+            ),
+        ]
+        .into(),
     );
     DataType::new(
         "PredictOrderbookSnapshot",

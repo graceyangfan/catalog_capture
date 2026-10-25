@@ -167,6 +167,49 @@ impl InstrumentProvider for PredictInstrumentProvider {
     }
 }
 
+/// Trading window shared by instrument construction and execution report scope.
+pub(crate) fn market_window(
+    market: &PredictMarket,
+    ts_init: UnixNanos,
+) -> anyhow::Result<Option<crate::common::CryptoUpDownMarketWindow>> {
+    if market
+        .variant_data
+        .as_ref()
+        .is_some_and(|v| v.variant_type == "CRYPTO_UP_DOWN")
+    {
+        // Titles omit the year. Creation metadata anchors historical loads too;
+        // neighbouring years resolve markets advertised across New Year.
+        let anchor = market
+            .created_at
+            .as_deref()
+            .map(DateTime::parse_from_rfc3339)
+            .transpose()?
+            .map(|date| date.with_timezone(&Utc))
+            .unwrap_or(DateTime::<Utc>::from_timestamp_nanos(i64::try_from(
+                ts_init.as_u64(),
+            )?));
+        let anchor_ns = anchor
+            .timestamp_nanos_opt()
+            .and_then(|value| u64::try_from(value).ok())
+            .ok_or_else(|| anyhow::anyhow!("Predict market creation timestamp is out of range"))?;
+        // Do not reinterpret an invalid/ambiguous local time as another year's market.
+        crate::common::parse_crypto_up_down_title(&market.title, anchor.year())?;
+        Ok(Some(
+            [anchor.year() - 1, anchor.year(), anchor.year() + 1]
+                .into_iter()
+                .filter_map(|year| {
+                    crate::common::parse_crypto_up_down_title(&market.title, year).ok()
+                })
+                .min_by_key(|window| window.start_ns.abs_diff(anchor_ns))
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Predict crypto market lacks a valid trading window")
+                })?,
+        ))
+    } else {
+        Ok(None)
+    }
+}
+
 pub(crate) fn instruments_from_market(
     market: &PredictMarket,
     ts_init: UnixNanos,
@@ -209,47 +252,8 @@ pub(crate) fn instruments_from_market(
         .as_ref()
         .filter(|variant| variant.variant_type == "CRYPTO_UP_DOWN")
         .and_then(|variant| variant.start_price)
-        .map(|price| {
-            let mut info = Params::new();
-            info.insert("start_price".into(), price.to_string().into());
-            info
-        });
-    let window = if market
-        .variant_data
-        .as_ref()
-        .is_some_and(|v| v.variant_type == "CRYPTO_UP_DOWN")
-    {
-        // Titles omit the year. Creation metadata anchors historical loads too;
-        // neighbouring years resolve markets advertised across New Year.
-        let anchor = market
-            .created_at
-            .as_deref()
-            .map(DateTime::parse_from_rfc3339)
-            .transpose()?
-            .map(|date| date.with_timezone(&Utc))
-            .unwrap_or(DateTime::<Utc>::from_timestamp_nanos(i64::try_from(
-                ts_init.as_u64(),
-            )?));
-        let anchor_ns = anchor
-            .timestamp_nanos_opt()
-            .and_then(|value| u64::try_from(value).ok())
-            .ok_or_else(|| anyhow::anyhow!("Predict market creation timestamp is out of range"))?;
-        // Do not reinterpret an invalid/ambiguous local time as another year's market.
-        crate::common::parse_crypto_up_down_title(&market.title, anchor.year())?;
-        Some(
-            [anchor.year() - 1, anchor.year(), anchor.year() + 1]
-                .into_iter()
-                .filter_map(|year| {
-                    crate::common::parse_crypto_up_down_title(&market.title, year).ok()
-                })
-                .min_by_key(|window| window.start_ns.abs_diff(anchor_ns))
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Predict crypto market lacks a valid trading window")
-                })?,
-        )
-    } else {
-        None
-    };
+        .map(|price| Params::new([("start_price".into(), price.to_string().into())].into()));
+    let window = market_window(market, ts_init)?;
     let instruments = [yes, no]
         .into_iter()
         .map(|outcome| {

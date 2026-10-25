@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 //! Maker-only LiveNode regressions using retained mainnet wallet shapes and account evidence.
 use nautilus_core::time::get_atomic_clock_realtime;
-use nautilus_predict::{PredictDataClientConfig, PredictSubmissionConfig};
+use nautilus_predict::PredictDataClientConfig;
 
 use super::{
     live_node::{
@@ -22,6 +22,8 @@ enum Scenario {
     ExpiryRejected,
     WalletRejected,
     CancelRejected,
+    RemovalLocked,
+    HttpConfirmed,
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -47,6 +49,16 @@ async fn rust_strategy_livenode_wallet_post_only_rejection_preserves_reason_and_
 #[tokio::test(flavor = "current_thread")]
 async fn rust_strategy_livenode_cancel_rejection_retains_original_order_and_reservation() {
     run(Scenario::CancelRejected).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rust_strategy_livenode_removal_lock_does_not_replace_live_maker() {
+    run(Scenario::RemovalLocked).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rust_strategy_livenode_verified_http_removal_allows_replacement_without_wallet_cancel() {
+    run(Scenario::HttpConfirmed).await;
 }
 
 async fn run(scenario: Scenario) {
@@ -97,11 +109,7 @@ async fn run(scenario: Scenario) {
         format!("{}/rpc", private.http).into(),
     ));
     execution.orderbook_removal_enabled = true;
-    execution.submission = Some(PredictSubmissionConfig {
-        signer,
-
-        market_slippage_bps: 100,
-    });
+    execution.submission_signer = Some(signer);
     let (http, ws, public_task) = captured_resting_public_server().await;
     let mut live = node::build_node(
         trader_id(),
@@ -155,9 +163,13 @@ async fn run(scenario: Scenario) {
     .unwrap();
     let duplicates = matches!(
         scenario,
-        Scenario::CapturedDuplicates | Scenario::GtdDuplicates
+        Scenario::CapturedDuplicates | Scenario::GtdDuplicates | Scenario::HttpConfirmed
     );
     let count = if duplicates { 2 } else { 1 };
+    // A causal barrier keeps the removal request unresolved while Native's
+    // strategy/cache are inspected. No sleep-based assumption about HTTP speed.
+    let removal_gate = Arc::new(tokio::sync::Notify::new());
+    *private.state.remove_gate.lock().unwrap() = Some(removal_gate.clone());
     for index in 0..count {
         private
             .state
@@ -173,9 +185,11 @@ async fn run(scenario: Scenario) {
         private.state.remove_replies.lock().unwrap().push_back((
             if scenario==Scenario::CancelRejected {400} else {200},
             if scenario==Scenario::CancelRejected {json!({"success":false,"code":400,"error":"bad_request","message":"cancel rejected"})}
+            else if scenario==Scenario::RemovalLocked {json!({"success":true,"removed":[],"noop":[],"rejected":[wallet[index*2]["orderId"]]})}
             else {json!({"success":true,"removed":[wallet[index*2]["orderId"]],"noop":[]})},50,
         ));
     }
+    let shared_cache = live.kernel().cache.clone();
     let driver = async {
         for index in 0..count {
             timeout(Duration::from_secs(6), async {
@@ -257,7 +271,36 @@ async fn run(scenario: Scenario) {
             })
             .await
             .unwrap();
-            if scenario == Scenario::CancelRejected {
+            {
+                let cache = shared_cache.borrow();
+                let own = cache.orders(None, None, None, None, None);
+                assert_eq!(own.len(), index + 1);
+                let pending = own
+                    .iter()
+                    .filter(|order| order.status() == OrderStatus::PendingCancel)
+                    .count();
+                assert_eq!(
+                    pending, 1,
+                    "unresolved removal retains Native PendingCancel"
+                );
+                assert_eq!(
+                    private.state.creations.lock().unwrap().len(),
+                    index + 1,
+                    "no replacement while cancellation lacks venue evidence"
+                );
+                assert_eq!(observed.borrow().canceled, index);
+                assert_eq!(
+                    cache
+                        .account(&account_id())
+                        .unwrap()
+                        .balance_locked(Some(Currency::USDT()))
+                        .unwrap()
+                        .as_decimal(),
+                    Decimal::ONE
+                );
+            }
+            removal_gate.notify_one();
+            if matches!(scenario, Scenario::CancelRejected | Scenario::RemovalLocked) {
                 timeout(Duration::from_secs(3), async {
                     while observed.borrow().cancel_rejected == 0 {
                         tokio::task::yield_now().await;
@@ -268,10 +311,14 @@ async fn run(scenario: Scenario) {
                 handle.stop();
                 return;
             }
-            // Race a real cancellation shape and its duplicate with the HTTP removal reply.
-            let canceled = bind(&wallet[index * 2 + 1]);
-            private.wallet(canceled.clone());
-            private.wallet(canceled);
+            if scenario != Scenario::HttpConfirmed {
+                // Race a real cancellation shape and its duplicate with the HTTP removal reply.
+                let canceled = bind(&wallet[index * 2 + 1]);
+                private.wallet(canceled.clone());
+                private.wallet(canceled);
+            }
+            // HttpConfirmed intentionally has no wallet cancellation: the verified
+            // removed partition must drive Native cancellation and permit replacement.
         }
     };
     let deadline = async {
@@ -345,8 +392,21 @@ async fn run(scenario: Scenario) {
                     .as_str()
                     .is_some_and(|v| Decimal::from_str_exact(v).unwrap() == Decimal::ONE)
         }));
-    } else if scenario == Scenario::CancelRejected {
+    } else if matches!(scenario, Scenario::CancelRejected | Scenario::RemovalLocked) {
         assert_eq!(observed.cancel_rejected, 1);
+        assert_eq!(
+            observed.submitted, 1,
+            "rejection cannot authorize replacement"
+        );
+        if scenario == Scenario::RemovalLocked {
+            assert!(
+                observed
+                    .recorded_feedback
+                    .iter()
+                    .any(|row| row["type"] == "CancelRejected"
+                        && row.to_string().contains("removal lock window"))
+            );
+        }
         assert_eq!(observed.accepted, 1);
         assert_eq!(observed.canceled, 0);
         assert_eq!(orders[0].status(), OrderStatus::Accepted);
@@ -410,37 +470,27 @@ fn wallet_rejection_and_cancellation_reasons_reach_native_report_fields() {
         (
             "orderNotAccepted",
             "noMarketMatch",
-            OrderStatus::Rejected,
+            Some(OrderStatus::Rejected),
             "Predict no market match",
         ),
-        (
-            "orderNotAccepted",
-            "rejectedDuplicate",
-            OrderStatus::Rejected,
-            "Predict duplicate order rejected",
-        ),
+        ("orderNotAccepted", "rejectedDuplicate", None, ""),
         (
             "orderNotAccepted",
             "rejectedPostOnly",
-            OrderStatus::Rejected,
+            Some(OrderStatus::Rejected),
             "Predict post-only order rejected",
         ),
-        (
-            "orderNotAccepted",
-            "sensitive-unknown-value",
-            OrderStatus::Rejected,
-            "Predict unknown order rejection",
-        ),
+        ("orderNotAccepted", "sensitive-unknown-value", None, ""),
         (
             "orderCancelled",
             "selfTradePrevention",
-            OrderStatus::Canceled,
+            Some(OrderStatus::Canceled),
             "Predict self-trade prevention",
         ),
         (
             "orderCancelled",
             "sensitive-unknown-value",
-            OrderStatus::Canceled,
+            Some(OrderStatus::Canceled),
             "Predict unknown cancellation reason",
         ),
     ] {
@@ -455,9 +505,15 @@ fn wallet_rejection_and_cancellation_reasons_reach_native_report_fields() {
             WALLET.parse().unwrap(),
             UnixNanos::from(OBSERVED),
         )
-        .unwrap()
         .unwrap();
-        let ExecutionReport::Order(report) = report else {
+        let Some(expected_status) = expected_status else {
+            assert!(
+                report.is_none(),
+                "ambiguous rejection must not terminate the original order"
+            );
+            continue;
+        };
+        let ExecutionReport::Order(report) = report.unwrap() else {
             panic!("expected lifecycle report")
         };
         assert_eq!(report.order_status, expected_status);

@@ -272,7 +272,7 @@ def probe_options():
     )
     parser.add_argument(
         "--features",
-        choices=("execution", "native-quantity-commission"),
+        choices=("execution",),
         default="execution",
     )
     parser.add_argument("--output-dir", type=Path, default=OUTPUT)

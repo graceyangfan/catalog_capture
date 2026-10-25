@@ -13,6 +13,11 @@ config.*.json
 ._*
 *.swp
 *.swo
+# Incomplete probe/recorder output is local; only completed, indexed captures belong in Git.
+*.tmp
+*.pending
+/.predict-*/
+.ruff_cache/
 __pycache__/
 *.pyc
 .env

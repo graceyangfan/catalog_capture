@@ -1,0 +1,61 @@
+{
+  "source": "Official PredictDotFun/sdk-python predict-sdk==0.0.22, unsigned single-reference-level value BUY, zero slippage",
+  "vectors": [
+    {
+      "value": "1",
+      "price": ".01",
+      "makerAmount": "1000000000000000000",
+      "takerAmount": "100000000000000000000",
+      "amount": "100000000000000000000",
+      "pricePerShare": "10000000000000000"
+    },
+    {
+      "value": "2",
+      "price": ".02",
+      "makerAmount": "2000000000000000000",
+      "takerAmount": "100000000000000000000",
+      "amount": "100000000000000000000",
+      "pricePerShare": "20000000000000000"
+    },
+    {
+      "value": "2.000001",
+      "price": ".02",
+      "makerAmount": "2000000000000000000",
+      "takerAmount": "100000000000000000000",
+      "amount": "100000000000000000000",
+      "pricePerShare": "20000000000000000"
+    },
+    {
+      "value": "1",
+      "price": ".31",
+      "makerAmount": "999998000000000000",
+      "takerAmount": "3225800000000000000",
+      "amount": "3225800000000000000",
+      "pricePerShare": "310000000000000000"
+    },
+    {
+      "value": "1.01",
+      "price": ".02",
+      "makerAmount": "1010000000000000000",
+      "takerAmount": "50500000000000000000",
+      "amount": "50500000000000000000",
+      "pricePerShare": "20000000000000000"
+    },
+    {
+      "value": "12.345678",
+      "price": ".37",
+      "makerAmount": "12345420000000000000",
+      "takerAmount": "33366000000000000000",
+      "amount": "33366000000000000000",
+      "pricePerShare": "370000000000000000"
+    },
+    {
+      "value": "1",
+      "price": "1",
+      "makerAmount": "1000000000000000000",
+      "takerAmount": "1000000000000000000",
+      "amount": "1000000000000000000",
+      "pricePerShare": "1000000000000000000"
+    }
+  ]
+}

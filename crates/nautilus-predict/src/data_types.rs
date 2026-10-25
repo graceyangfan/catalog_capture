@@ -228,6 +228,14 @@ pub fn register_predict_custom_data() {
     let _ = nautilus_model::data::ensure_custom_data_json_registered::<
         crate::PredictSettlementUpdate,
     >();
+    #[cfg(feature = "execution")]
+    let _ = nautilus_model::data::ensure_custom_data_json_registered::<
+        crate::PredictLimitOrderReceiptUpdate,
+    >();
+    #[cfg(feature = "execution")]
+    let _ = nautilus_model::data::ensure_custom_data_json_registered::<
+        crate::PredictOrderRejectionUpdate,
+    >();
 }
 
 fn normalize_levels(

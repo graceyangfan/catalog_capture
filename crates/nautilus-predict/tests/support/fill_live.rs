@@ -6,9 +6,7 @@ use nautilus_model::{
     types::{Price, Quantity},
 };
 use nautilus_network::websocket::TransportBackend;
-use nautilus_predict::{
-    PredictDataClientConfig, PredictSubmissionConfig, blockchain::PredictChainClient,
-};
+use nautilus_predict::{PredictDataClientConfig, blockchain::PredictChainClient};
 use rust_decimal::Decimal;
 use serde_json::{Value, json};
 
@@ -23,14 +21,12 @@ async fn mainnet_bounded_round_trip() -> anyhow::Result<()> {
     run_round_trip(false, false).await
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "MAINNET FILLS: explicit supervisor approval required; wait for strategy exit or manual stop"]
 async fn mainnet_wait_for_strategy_exit() -> anyhow::Result<()> {
     run_round_trip(true, false).await
 }
 
-#[cfg(feature = "native-quantity-commission")]
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "MAINNET SELL ONLY: recover existing inventory and exit, no BUY"]
 async fn mainnet_exit_only_restart() -> anyhow::Result<()> {
@@ -68,6 +64,7 @@ async fn run_round_trip(wait_for_exit: bool, exit_only: bool) -> anyhow::Result<
         "refusing to reuse prior node evidence"
     );
     let candidate = &manifest["candidate"];
+    let market_entry = manifest["marketEntry"] == true;
     let market_id = candidate["marketId"]
         .as_u64()
         .ok_or_else(|| anyhow::anyhow!("missing discovered market"))?;
@@ -80,7 +77,12 @@ async fn run_round_trip(wait_for_exit: bool, exit_only: bool) -> anyhow::Result<
         Decimal::from_str_exact(candidate["plan"]["grossQuantity"].as_str().unwrap_or(""))?;
     anyhow::ensure!(
         price > Decimal::ZERO
-            && price <= Decimal::new(1, 1)
+            && price
+                <= if market_entry {
+                    Decimal::new(48, 2)
+                } else {
+                    Decimal::new(1, 1)
+                }
             && quantity * price <= Decimal::new(150, 2),
         "entry cap exceeded"
     );
@@ -124,11 +126,7 @@ async fn run_round_trip(wait_for_exit: bool, exit_only: bool) -> anyhow::Result<
     exec.orderbook_removal_enabled = true;
     exec.account_refresh_interval_secs = 1;
     exec.report_timeout_secs = settings.network.timeout_secs;
-    exec.submission = Some(PredictSubmissionConfig {
-        signer,
-
-        market_slippage_bps: 100,
-    });
+    exec.submission_signer = Some(signer);
     let mut live = node::build_node_with_engine_and_stop_delay(
         TraderId::new("PREDICT-FILL-001"),
         PredictDataClientConfig {
@@ -166,7 +164,13 @@ async fn run_round_trip(wait_for_exit: bool, exit_only: bool) -> anyhow::Result<
     let instrument = InstrumentId::from_as_ref(format!("{market_id}-{outcome}.PREDICT"))?;
     let handle = live.handle();
     let cache = live.kernel().cache.clone();
-    let deadline = get_atomic_clock_realtime().get_time_ns().as_u64() + 60_000_000_000;
+    let deadline = get_atomic_clock_realtime().get_time_ns().as_u64()
+        + if market_entry {
+            20_000_000_000
+        } else {
+            60_000_000_000
+        };
+    let exit_signal = Rc::new(std::cell::Cell::new(false));
     let strategy = exits::ExitStrategy::new(
         instrument,
         outcome,
@@ -184,6 +188,13 @@ async fn run_round_trip(wait_for_exit: bool, exit_only: bool) -> anyhow::Result<
     )
     .with_taker_entry()
     .with_native_quotes();
+    let strategy = if market_entry {
+        strategy
+            .with_market_entry()
+            .with_recorded_exit_signal(exit_signal.clone())
+    } else {
+        strategy
+    };
     let strategy = if exit_only && manifest["exitImmediately"] == true {
         strategy.with_requested_exit()
     } else {
@@ -265,9 +276,20 @@ async fn run_round_trip(wait_for_exit: bool, exit_only: bool) -> anyhow::Result<
     };
     let monitor = async {
         let mut observations = 0;
+        let mut first_fill = None;
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             let report = observe()?;
+            if market_entry && report["entryHasFill"] == true {
+                let first = first_fill.get_or_insert_with(std::time::Instant::now);
+                if first.elapsed() >= std::time::Duration::from_secs(20)
+                    && !exit_signal.replace(true)
+                {
+                    journal
+                        .borrow_mut()
+                        .push(json!({"type":"HoldingDeadlineExitRequested","seconds":20}));
+                }
+            }
             fill_session::checkpoint(&output.join("native_checkpoint.json"), &report)?;
             observations += 1;
             anyhow::ensure!(

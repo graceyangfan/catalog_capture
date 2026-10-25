@@ -75,6 +75,7 @@ async fn native_sell_limit_market_inventory_approval_reservations_and_minimum() 
             market_preparation::priced(
                 &order,
                 json!(if case == "minimum" { "0.009" } else { "0.020" }),
+                100,
             )
         } else {
             submissions::submit(&order)
@@ -153,6 +154,8 @@ async fn native_sell_limit_market_inventory_approval_reservations_and_minimum() 
     }
 }
 
+// Shared with private_api_live, which uses additional diagnostic entry builders.
+#[allow(dead_code)]
 #[path = "../support/exit_strategy.rs"]
 pub(super) mod strategy;
 
@@ -378,7 +381,7 @@ pub(super) async fn run_exit_case(
 
     use nautilus_core::time::get_atomic_clock_realtime;
     use nautilus_live::node::config::LiveExecutionEngineConfig;
-    use nautilus_predict::{PredictDataClientConfig, PredictSubmissionConfig};
+    use nautilus_predict::PredictDataClientConfig;
     let private = server(vec![]).await;
     let now = get_atomic_clock_realtime().get_time_ns();
     *private.state.rpc_frame.lock().unwrap() = (
@@ -395,18 +398,14 @@ pub(super) async fn run_exit_case(
         format!("{}/rpc", private.http).into(),
     ));
     cfg.orderbook_removal_enabled = true;
-    cfg.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            nautilus_predict::signing::PredictAuthSigner::new(
-                submissions::PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = Some(Arc::new(
+        nautilus_predict::signing::PredictAuthSigner::new(
+            submissions::PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let public = PublicState(Arc::new(Mutex::new(vec![])));
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();

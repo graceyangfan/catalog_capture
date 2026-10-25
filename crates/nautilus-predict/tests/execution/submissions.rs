@@ -12,8 +12,9 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+use nautilus_common::msgbus::{TypedHandler, switchboard};
 use nautilus_model::{events::OrderEventAny, identifiers::ClientOrderId};
-use nautilus_predict::{PredictSubmissionConfig, signing::PredictAuthSigner};
+use nautilus_predict::signing::PredictAuthSigner;
 
 use super::*;
 
@@ -80,7 +81,7 @@ fn setup_with_account_interval(
     ttl: u64,
     account_interval: u64,
 ) -> Setup {
-    try_setup(server, now, ttl, account_interval, None).unwrap()
+    try_setup(server, now, ttl, account_interval, None, false).unwrap()
 }
 pub(super) fn setup_metadata_probe(
     server: &Server,
@@ -89,7 +90,7 @@ pub(super) fn setup_metadata_probe(
     let (probe, collector) =
         nautilus_predict::latency::PredictLatency::channel(trader_id(), account_id(), 128).unwrap();
     (
-        try_setup(server, OBSERVED, ttl, 30, Some(probe)).unwrap(),
+        try_setup(server, OBSERVED, ttl, 30, Some(probe), false).unwrap(),
         collector,
     )
 }
@@ -112,6 +113,7 @@ pub(super) fn try_setup(
     ttl: u64,
     account_interval: u64,
     latency: Option<nautilus_predict::latency::PredictLatency>,
+    removal: bool,
 ) -> anyhow::Result<Setup> {
     let (_, rx, cache) = client(server);
     let mut cfg = config(server);
@@ -121,21 +123,18 @@ pub(super) fn try_setup(
         format!("{}/rpc", server.http).into(),
     ));
     cfg.report_timeout_secs = 1;
+    cfg.orderbook_removal_enabled = removal;
     cfg.latency = latency;
     cfg.market_metadata_ttl_secs = ttl;
     cfg.account_refresh_interval_secs = account_interval;
-    cfg.submission = Some(PredictSubmissionConfig {
-        signer: Arc::new(
-            PredictAuthSigner::new(
-                PUBLIC_KEY.into(),
-                PredictEnvironment::BnbMainnet,
-                Some(WALLET),
-            )
-            .unwrap(),
-        ),
-
-        market_slippage_bps: 100,
-    });
+    cfg.submission_signer = Some(Arc::new(
+        PredictAuthSigner::new(
+            PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
     let core = ExecutionClientCore::new(
         trader_id(),
         ClientId::new("PREDICT"),
@@ -266,15 +265,10 @@ async fn wallet_before_http_accepts_yes_and_no_and_preserves_burst_fill_cancel()
                 != OrderStatus::Canceled
             {
                 let event = next(&mut rx).await;
-                if let ExecutionEvent::Order(OrderEventAny::Filled(fill)) = &event {
-                    assert!(!fill.reconciliation);
-                    assert_eq!(fill.client_order_id, order.client_order_id());
+                if let ExecutionEvent::Report(ExecutionReport::Fill(fill)) = &event {
+                    assert_eq!(fill.client_order_id, Some(order.client_order_id()));
                     own_fills += 1;
                 }
-                assert!(
-                    !matches!(event, ExecutionEvent::Report(ExecutionReport::Fill(_))),
-                    "own live fill bypasses reconciliation"
-                );
                 apply(&mut engine, &event);
             }
         })
@@ -438,6 +432,98 @@ async fn explicit_http_rejection_flows_to_native_rejected_state() {
         .await
         .unwrap();
         assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn recorded_parameter_rejections_reach_subscribers_with_closed_cache_and_no_fill() {
+    let saved: Value = serde_json::from_str(include_str!(
+        "../fixtures/private_api/live_crate_signed_parameter_rejections_20261025.json"
+    ))
+    .unwrap();
+    for case in saved["cases"].as_array().unwrap() {
+        let expected = match case["name"].as_str().unwrap() {
+            "limit_fok" => "FillOrKillUnsupported",
+            "market_post_only" => "PostOnlyUnsupported",
+            _ => "ExpiryTooSoon",
+        };
+        let server = server(vec![]).await;
+        *server.state.create_body.lock().unwrap() = Some(case["response"].clone());
+        server
+            .state
+            .create_replies
+            .lock()
+            .unwrap()
+            .push_back((400, 0, vec![]));
+        let (mut client, mut rx, cache, _portfolio, initial) = connected(&server, 1).await;
+        let order = if case["request"]["data"]["strategy"] == "MARKET" {
+            let order = OrderTestBuilder::new(OrderType::Market)
+                .trader_id(trader_id())
+                .instrument_id(instrument_id(1))
+                .client_order_id(ClientOrderId::new("RECORDED-PARAMETERS-001"))
+                .side(OrderSide::Buy)
+                .quantity(Quantity::from(100))
+                .build();
+            cache
+                .borrow_mut()
+                .add_order(order.clone(), None, None, false)
+                .unwrap();
+            order
+        } else {
+            initial
+        };
+        let callbacks = Rc::new(RefCell::new(Vec::new()));
+        let handler = TypedHandler::from({
+            let callbacks = callbacks.clone();
+            let cache = cache.clone();
+            let id = order.client_order_id();
+            move |event: &OrderEventAny| {
+                if event.client_order_id() != id {
+                    return;
+                }
+                if let OrderEventAny::Rejected(rejection) = event {
+                    let cache = cache.borrow();
+                    let order = cache.order(&id).unwrap();
+                    assert_eq!(order.status(), OrderStatus::Rejected);
+                    assert!(order.filled_qty().is_zero());
+                    assert!(rejection.reason.contains(expected));
+                    assert!(
+                        !rejection.due_post_only,
+                        "unsupported option is distinct from crossing liquidity"
+                    );
+                    callbacks.borrow_mut().push(rejection.reason.to_string());
+                }
+                assert!(!matches!(
+                    event,
+                    OrderEventAny::Accepted(_)
+                        | OrderEventAny::Filled(_)
+                        | OrderEventAny::Canceled(_)
+                ));
+            }
+        });
+        let topic = switchboard::get_event_order_topic(order.strategy_id());
+        msgbus::subscribe_order_events(topic.into(), handler.clone(), None);
+        // Replayed response only: no claim that production permits the malformed
+        // options from the private validation probe. No venue IO occurs here.
+        let command = if order.order_type() == OrderType::Market {
+            market_preparation::priced(&order, json!("0.010"), 0)
+        } else {
+            submit(&order)
+        };
+        client.submit_order(command).unwrap();
+        let mut engine = engine(&cache);
+        timeout(Duration::from_secs(3), async {
+            while callbacks.borrow().is_empty() {
+                apply(&mut engine, &next(&mut rx).await);
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(callbacks.borrow().len(), 1);
+        assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+        assert!(server.state.removals.lock().unwrap().is_empty());
+        msgbus::unsubscribe_order_events(topic.into(), &handler);
         client.disconnect().await.unwrap();
     }
 }
@@ -1212,6 +1298,309 @@ fn metadata_order(n: usize, index: u8) -> OrderAny {
         .build()
 }
 
+fn query_nonce_account(client: &PredictExecutionClient) {
+    client
+        .query_account(QueryAccount::new(
+            trader_id(),
+            None,
+            account_id(),
+            UUID4::new(),
+            UnixNanos::default(),
+            None,
+            None,
+        ))
+        .unwrap();
+}
+
+async fn reject_nonce(
+    client: &PredictExecutionClient,
+    server: &Server,
+    cache: &Rc<RefCell<Cache>>,
+    rx: &mut mpsc::UnboundedReceiver<ExecutionEvent>,
+    order: &OrderAny,
+) {
+    *server.state.create_body.lock().unwrap() =
+        Some(json!({"success":false,"code":400,"error":"bad_request","message":"invalid nonce"}));
+    server
+        .state
+        .create_replies
+        .lock()
+        .unwrap()
+        .push_back((400, 0, vec![]));
+    client.submit_order(submit(order)).unwrap();
+    let mut engine = engine(cache);
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let event = next(rx).await;
+            let rejected = matches!(&event, ExecutionEvent::Order(OrderEventAny::Rejected(e)) if e.client_order_id == order.client_order_id());
+            apply(&mut engine, &event);
+            if rejected { break; }
+        }
+    }).await.unwrap();
+    *server.state.create_body.lock().unwrap() = None;
+}
+
+// Each attempt is an explicit new command. A missing parameter must fail promptly,
+// without retaining/replaying the previous command when background preparation finishes.
+async fn post_after_nonce_refresh(
+    client: &PredictExecutionClient,
+    server: &Server,
+    cache: &Rc<RefCell<Cache>>,
+    rx: &mut mpsc::UnboundedReceiver<ExecutionEvent>,
+) {
+    let mut engine = engine(cache);
+    timeout(Duration::from_secs(2), async {
+        for n in 1000.. {
+            metadata_outcome(
+                client,
+                server,
+                cache,
+                rx,
+                &mut engine,
+                &metadata_order(n, 1),
+                2,
+            )
+            .await;
+            if server.state.creations.lock().unwrap().len() == 2 {
+                return;
+            }
+        }
+    })
+    .await
+    .expect("a new command can use the refreshed nonce without waiting for cash");
+    assert_eq!(
+        server.state.creations.lock().unwrap()[1]["data"]["order"]["nonce"],
+        "17"
+    );
+}
+
+#[tokio::test]
+async fn nonce_refresh_survives_open_failure_balance_failure_and_held_cash() {
+    for fault in ["open", "balance", "unrepresentable_cash", "held_cash"] {
+        let server = server(vec![]).await;
+        let (mut client, mut rx, cache, _portfolio, order) = connected(&server, 1).await;
+        server.state.rpc_latest_started.notified().await;
+        *server.state.nonce_values.lock().unwrap() = [17, 18, 19, 20].map(U256::from);
+        *server.state.open_unavailable.lock().unwrap() = fault == "open";
+        *server.state.balance_failure.lock().unwrap() = fault == "balance";
+        if fault == "unrepresentable_cash" {
+            server.state.rpc_frame.lock().unwrap().0 = u128::MAX;
+        }
+        let gate = Arc::new(tokio::sync::Notify::new());
+        if fault == "held_cash" {
+            *server.state.rpc_latest_gate.lock().unwrap() = Some(gate.clone());
+        }
+        query_nonce_account(&client);
+        timeout(
+            Duration::from_secs(2),
+            server.state.rpc_latest_started.notified(),
+        )
+        .await
+        .unwrap();
+        let open_reads = server.state.requests.lock().unwrap().len();
+        let balance_reads = server.state.rpc_accounts.lock().unwrap().len();
+        reject_nonce(&client, &server, &cache, &mut rx, &order).await;
+        post_after_nonce_refresh(&client, &server, &cache, &mut rx).await;
+        let mut requests = server.state.nonce_requests.lock().unwrap().clone();
+        let refreshed = requests.pop().unwrap();
+        requests.sort_unstable();
+        assert_eq!(requests, [0, 1, 2, 3], "{fault}");
+        assert_eq!(
+            refreshed, 0,
+            "only the rejected contract is queried: {fault}"
+        );
+        assert_eq!(
+            server.state.requests.lock().unwrap().len(),
+            open_reads,
+            "nonce recovery must not request OPEN: {fault}"
+        );
+        // A held cash call has not read its balance yet; nonce preparation must still finish.
+        if fault == "held_cash" {
+            assert_eq!(
+                server.state.rpc_accounts.lock().unwrap().len(),
+                balance_reads
+            );
+        }
+        assert!(server.state.order_requests.lock().unwrap().is_empty());
+        assert!(server.state.match_requests.lock().unwrap().is_empty());
+        gate.notify_one();
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn periodic_cash_and_wallet_reconnect_reuse_valid_nonces() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _) = setup_with_account_interval(&server, OBSERVED, 30, 1);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    let state = super::apply_account(&mut rx).await; // An actual periodic cash publication.
+    assert_eq!(state.balances[0].total, Money::from("1000 USDT"));
+    assert!(server.state.rpc_accounts.lock().unwrap().len() >= 2);
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    super::exit_orders::barrier("replacement wallet", || {
+        server.state.sockets.lock().unwrap().len() == 2
+    })
+    .await;
+    wallet_processed(&server).await;
+    query_nonce_account(&client);
+    super::apply_account(&mut rx).await;
+    let mut requests = server.state.nonce_requests.lock().unwrap().clone();
+    requests.sort_unstable();
+    assert_eq!(requests, [0, 1, 2, 3]);
+    let order = metadata_order(150, 1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&order)).unwrap();
+    super::exit_orders::barrier("cached nonce after wallet replacement", || {
+        server.state.creations.lock().unwrap().len() == 1
+    })
+    .await;
+    assert_eq!(
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["nonce"],
+        "7"
+    );
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn failed_nonce_read_does_not_suppress_cash_publication() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _portfolio, order) = connected(&server, 1).await;
+    *server.state.nonce_failure.lock().unwrap() = Some(0);
+    reject_nonce(&client, &server, &cache, &mut rx, &order).await;
+    super::exit_orders::barrier("failed contract read attempted", || {
+        server.state.nonce_requests.lock().unwrap().len() == 5
+    })
+    .await;
+    server.state.rpc_frame.lock().unwrap().0 = 2_000_000_000_000_000_000_000;
+    query_nonce_account(&client);
+    let state = super::apply_account(&mut rx).await;
+    assert_eq!(state.balances[0].total, Money::from("2000 USDT"));
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balance_total(Some(Currency::USDT())),
+        Some(Money::from("2000 USDT"))
+    );
+    assert!(client.is_connected());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn held_nonce_read_does_not_delay_cancel_or_fill_callback_and_cannot_cross_disconnect() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _) = try_setup(&server, OBSERVED, 30, 30, None, true).unwrap();
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let old = order(1);
+    cache
+        .borrow_mut()
+        .add_order(old.clone(), None, None, false)
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.nonce_gate.lock().unwrap() = Some(gate.clone());
+    let rejected = metadata_order(151, 1);
+    cache
+        .borrow_mut()
+        .add_order(rejected.clone(), None, None, false)
+        .unwrap();
+    reject_nonce(&client, &server, &cache, &mut rx, &rejected).await;
+    timeout(
+        Duration::from_secs(2),
+        server.state.nonce_started.notified(),
+    )
+    .await
+    .unwrap();
+    server
+        .state
+        .orders
+        .lock()
+        .unwrap()
+        .push_back(json!({"success":true,"data":rest_order_data("OPEN", 1, OrderSide::Buy)}));
+    server.state.remove_replies.lock().unwrap().push_back((
+        200,
+        json!({"success":true,"removed":["12345"],"noop":[]}),
+        0,
+    ));
+    let callbacks = Rc::new(RefCell::new(Vec::new()));
+    let handler = TypedHandler::from({
+        let callbacks = callbacks.clone();
+        let cache = cache.clone();
+        let id = old.client_order_id();
+        move |event: &OrderEventAny| {
+            if event.client_order_id() == id
+                && matches!(event, OrderEventAny::Canceled(_) | OrderEventAny::Filled(_))
+            {
+                let native = cache.borrow();
+                let order = native.order(&id).unwrap();
+                if matches!(event, OrderEventAny::Filled(_)) {
+                    assert_eq!(order.filled_qty(), Quantity::from(17));
+                } else {
+                    assert_eq!(order.status(), OrderStatus::Canceled);
+                }
+                callbacks.borrow_mut().push(event.event_type());
+            }
+        }
+    });
+    let topic = switchboard::get_event_order_topic(old.strategy_id());
+    msgbus::subscribe_order_events(topic.into(), handler.clone(), None);
+    let mut engine = engine(&cache);
+    client.cancel_order(cancellations::cancel(&old)).unwrap();
+    timeout(Duration::from_secs(2), async {
+        while callbacks.borrow().is_empty() {
+            apply(&mut engine, &next(&mut rx).await);
+        }
+    })
+    .await
+    .unwrap();
+    server.wallet(fill(1));
+    timeout(Duration::from_secs(2), async {
+        while callbacks.borrow().len() < 2 {
+            apply(&mut engine, &next(&mut rx).await);
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(server.state.removals.lock().unwrap().len(), 1);
+    assert_eq!(
+        cache
+            .borrow()
+            .positions_open(None, Some(&instrument_id(1)), None, None, None)[0]
+            .quantity,
+        Quantity::from(17)
+    );
+    msgbus::unsubscribe_order_events(topic.into(), &handler);
+    // The old request captured nonce 7. Draining the TaskGroup must prevent its late result
+    // from overwriting the new explicit connection's nonce 17.
+    client.disconnect().await.unwrap();
+    *server.state.nonce_values.lock().unwrap() = [17, 18, 19, 20].map(U256::from);
+    connect_reported(&mut client, &mut rx).await;
+    gate.notify_one();
+    post_after_nonce_refresh(&client, &server, &cache, &mut rx).await;
+    client.disconnect().await.unwrap();
+}
+
 async fn metadata_outcome(
     client: &PredictExecutionClient,
     server: &Server,
@@ -1409,7 +1798,7 @@ async fn cold_commands_reject_before_held_background_metadata_and_never_replay()
 async fn zero_metadata_ttl_is_a_configuration_error() {
     let server = server(vec![]).await;
     assert!(
-        try_setup(&server, OBSERVED, 0, 30, None)
+        try_setup(&server, OBSERVED, 0, 30, None, false)
             .unwrap_err()
             .to_string()
             .contains("market metadata TTL")
@@ -1639,8 +2028,8 @@ async fn invalid_nonce_rejection_cannot_be_undone_by_an_older_periodic_collectio
         .add_order(order.clone(), None, None, false)
         .unwrap();
     connect_reported(&mut client, &mut rx).await;
-    // Hold the final block check of a periodic snapshot: it has already read
-    // nonce 7, but must not restore it after the venue has explicitly rejected it.
+    // Hold an old cash collection. It must neither query nor restore signing
+    // inputs when the venue rejects nonce 7 during its IO.
     let final_gate = Arc::new(tokio::sync::Notify::new());
     *server.state.rpc_final_gate.lock().unwrap() = Some(final_gate.clone());
     timeout(
@@ -1775,5 +2164,393 @@ async fn accepted_lock_is_queued_on_native_application_before_background_tasks_r
     );
     assert_eq!(server.state.requests.lock().unwrap().len(), reads);
     assert!(server.state.creations.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn submit_rejection_after_wallet_reconnect_does_not_wait_for_recovery_queries() {
+    for status in [400, 500] {
+        let server = server(vec![]).await;
+        let (mut client, mut rx, cache, _portfolio, own) = connected(&server, 1).await;
+        let gate = Arc::new(tokio::sync::Notify::new());
+        *server.state.create_gate.lock().unwrap() = Some(gate.clone());
+        server
+            .state
+            .create_replies
+            .lock()
+            .unwrap()
+            .push_back((status, 0, vec![]));
+        let mut engine = engine(&cache);
+        client.submit_order(submit(&own)).unwrap();
+        apply(&mut engine, &next(&mut rx).await);
+        super::exit_orders::barrier("POST before reconnect", || {
+            !server.state.creations.lock().unwrap().is_empty()
+        })
+        .await;
+        server
+            .state
+            .sockets
+            .lock()
+            .unwrap()
+            .last()
+            .unwrap()
+            .send(Message::Close(None))
+            .unwrap();
+        super::exit_orders::barrier("wallet changed transport epoch", || {
+            server.state.sockets.lock().unwrap().len() == 2
+        })
+        .await;
+        wallet_processed(&server).await;
+        gate.notify_one();
+        if status == 400 {
+            timeout(Duration::from_secs(2), async {
+                loop {
+                    let event = next(&mut rx).await;
+                    let rejected =
+                        matches!(&event, ExecutionEvent::Order(OrderEventAny::Rejected(_)));
+                    apply(&mut engine, &event);
+                    if rejected {
+                        break;
+                    }
+                }
+            })
+            .await
+            .expect("definitive HTTP rejection must survive wallet reconnect");
+        } else {
+            let _ = timeout(Duration::from_millis(100), async {
+                loop {
+                    let event = next(&mut rx).await;
+                    assert!(
+                        !matches!(&event, ExecutionEvent::Order(_) | ExecutionEvent::Report(_)),
+                        "ambiguous 5xx cannot fabricate rejection"
+                    );
+                    apply(&mut engine, &event);
+                }
+            })
+            .await;
+        }
+        assert_eq!(
+            cache
+                .borrow()
+                .order(&own.client_order_id())
+                .unwrap()
+                .status(),
+            if status == 400 {
+                OrderStatus::Rejected
+            } else {
+                OrderStatus::Submitted
+            }
+        );
+        assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+        assert!(server.state.order_requests.lock().unwrap().is_empty());
+        assert!(server.state.match_requests.lock().unwrap().is_empty());
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn submit_rejection_cannot_override_queued_wallet_acceptance() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _portfolio, own) = connected(&server, 1).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.create_gate.lock().unwrap() = Some(gate.clone());
+    server
+        .state
+        .create_replies
+        .lock()
+        .unwrap()
+        .push_back((400, 0, vec![]));
+    let mut engine = engine(&cache);
+    client.submit_order(submit(&own)).unwrap();
+    apply(&mut engine, &next(&mut rx).await);
+    super::exit_orders::barrier("POST registered before wallet ACK", || {
+        !server.state.creations.lock().unwrap().is_empty()
+    })
+    .await;
+    let mut accepted = event("orderAccepted", 1);
+    accepted["orderHash"] =
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["hash"].clone();
+    server.wallet(accepted);
+    wallet_processed(&server).await;
+    let ExecutionEvent::Order(accepted @ OrderEventAny::Accepted(_)) = next(&mut rx).await else {
+        panic!("wallet acceptance");
+    };
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&own.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Submitted
+    );
+    gate.notify_one();
+    let _ = timeout(Duration::from_millis(100), async {
+        loop {
+            let event = next(&mut rx).await;
+            assert!(
+                !matches!(&event, ExecutionEvent::Order(_) | ExecutionEvent::Report(_)),
+                "queued wallet acceptance precedes conflicting HTTP rejection"
+            );
+            apply(&mut engine, &event);
+        }
+    })
+    .await;
+    engine.process(&accepted);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&own.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+    assert!(server.state.order_requests.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn invalid_nonce_response_after_wallet_reconnect_invalidates_prepared_nonce() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _portfolio, own) = connected(&server, 1).await;
+    server.state.rpc_latest_started.notified().await;
+    let cash_gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.nonce_gate.lock().unwrap() = Some(cash_gate.clone());
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.create_gate.lock().unwrap() = Some(gate.clone());
+    *server.state.create_body.lock().unwrap() =
+        Some(json!({"success":false,"code":400,"error":"bad_request","message":"invalid nonce"}));
+    server
+        .state
+        .create_replies
+        .lock()
+        .unwrap()
+        .push_back((400, 0, vec![]));
+    let mut engine = engine(&cache);
+    client.submit_order(submit(&own)).unwrap();
+    apply(&mut engine, &next(&mut rx).await);
+    super::exit_orders::barrier("nonce-bearing POST before reconnect", || {
+        !server.state.creations.lock().unwrap().is_empty()
+    })
+    .await;
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    super::exit_orders::barrier("new wallet before invalid nonce response", || {
+        server.state.sockets.lock().unwrap().len() == 2
+    })
+    .await;
+    wallet_processed(&server).await;
+    gate.notify_one();
+    loop {
+        let event = timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("invalid nonce rejection is independent of wallet epoch")
+            .unwrap();
+        let rejected = matches!(&event, ExecutionEvent::Order(OrderEventAny::Rejected(_)));
+        apply(&mut engine, &event);
+        if rejected {
+            break;
+        }
+    }
+    *server.state.create_gate.lock().unwrap() = None;
+    let next_order = metadata_order(124, 1);
+    cache
+        .borrow_mut()
+        .add_order(next_order.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&next_order)).unwrap();
+    loop {
+        let event = timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("disproved nonce cannot be transmitted again")
+            .unwrap();
+        let rejected = matches!(&event, ExecutionEvent::Order(OrderEventAny::Rejected(e)) if e.client_order_id == next_order.client_order_id() && e.reason.contains("signing nonce is not prepared"));
+        apply(&mut engine, &event);
+        if rejected {
+            break;
+        }
+    }
+    assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+    assert!(server.state.order_requests.lock().unwrap().is_empty());
+    assert!(server.state.match_requests.lock().unwrap().is_empty());
+    cash_gate.notify_one();
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn submit_rejection_cannot_override_confirmed_fill_queued_after_wallet_reconnect() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _portfolio, own) = connected(&server, 1).await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.create_gate.lock().unwrap() = Some(gate.clone());
+    server
+        .state
+        .create_replies
+        .lock()
+        .unwrap()
+        .push_back((400, 0, vec![]));
+    let mut engine = engine(&cache);
+    client.submit_order(submit(&own)).unwrap();
+    apply(&mut engine, &next(&mut rx).await);
+    super::exit_orders::barrier("POST before fill recovery", || {
+        !server.state.creations.lock().unwrap().is_empty()
+    })
+    .await;
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    super::exit_orders::barrier("new wallet before confirmed fill", || {
+        server.state.sockets.lock().unwrap().len() == 2
+    })
+    .await;
+    wallet_processed(&server).await;
+    let mut settled = fill(1);
+    settled["orderHash"] =
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["hash"].clone();
+    settled["timestamp"] = json!(2);
+    settled["isMaker"] = json!(true);
+    settled["fee"]["amountWei"] = json!("0");
+    server.wallet(settled);
+    let report = loop {
+        let event = next(&mut rx).await;
+        if let ExecutionEvent::Report(report @ ExecutionReport::Fill(_)) = event {
+            break report;
+        }
+        assert!(
+            !matches!(&event, ExecutionEvent::Order(_)),
+            "reconnected fill uses Native report ingestion"
+        );
+        apply(&mut engine, &event);
+    };
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&own.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Submitted
+    );
+    gate.notify_one();
+    let _ = timeout(Duration::from_millis(100), async {
+        loop {
+            let event = next(&mut rx).await;
+            assert!(
+                !matches!(&event, ExecutionEvent::Order(_) | ExecutionEvent::Report(_)),
+                "confirmed queued fill precedes conflicting HTTP rejection"
+            );
+            apply(&mut engine, &event);
+        }
+    })
+    .await;
+    engine.reconcile_execution_report(&report);
+    engine.reconcile_execution_report(&report);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&own.client_order_id())
+            .unwrap()
+            .filled_qty(),
+        Quantity::from(17)
+    );
+    assert_eq!(
+        cache
+            .borrow()
+            .positions_open(None, Some(&instrument_id(1)), None, None, None)[0]
+            .quantity,
+        Quantity::from(17)
+    );
+    assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+    assert!(server.state.order_requests.lock().unwrap().is_empty());
+    assert!(server.state.match_requests.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn invalid_nonce_does_not_disable_another_prepared_exchange_while_rpc_is_held() {
+    let server = server(vec![]).await;
+    *server.state.nonce_values.lock().unwrap() = [7, 8, 9, 10].map(U256::from);
+    let ((mut client, mut rx, cache, _clock), mut collector) = setup_metadata_probe(&server, 30);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    server.state.rpc_latest_started.notified().await;
+    let cash_gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_latest_gate.lock().unwrap() = Some(cash_gate.clone());
+    *server.state.create_body.lock().unwrap() =
+        Some(json!({"success":false,"code":400,"error":"bad_request","message":"invalid nonce"}));
+    server
+        .state
+        .create_replies
+        .lock()
+        .unwrap()
+        .push_back((400, 0, vec![]));
+    let first = metadata_order(125, 1);
+    cache
+        .borrow_mut()
+        .add_order(first.clone(), None, None, false)
+        .unwrap();
+    let mut engine = engine(&cache);
+    client.submit_order(submit(&first)).unwrap();
+    loop {
+        let event = next(&mut rx).await;
+        let rejected = matches!(&event, ExecutionEvent::Order(OrderEventAny::Rejected(e)) if e.client_order_id == first.client_order_id());
+        apply(&mut engine, &event);
+        if rejected {
+            break;
+        }
+    }
+    timeout(
+        Duration::from_secs(2),
+        server.state.rpc_latest_started.notified(),
+    )
+    .await
+    .unwrap();
+    *server.state.create_body.lock().unwrap() = None;
+    *server.state.market_yield_bearing.lock().unwrap() = true;
+    let definition = InstrumentAny::BinaryOption(instrument(1));
+    cache
+        .borrow_mut()
+        .add_instrument(definition.clone())
+        .unwrap();
+    client.on_instrument(definition);
+    metadata_collected(&mut collector, 2).await;
+    let second = metadata_order(126, 1);
+    cache
+        .borrow_mut()
+        .add_order(second.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&second)).unwrap();
+    super::exit_orders::barrier(
+        "another valid exchange POST before nonce RPC completes",
+        || server.state.creations.lock().unwrap().len() == 2,
+    )
+    .await;
+    assert_eq!(
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["nonce"],
+        "7"
+    );
+    assert_eq!(
+        server.state.creations.lock().unwrap()[1]["data"]["order"]["nonce"],
+        "9"
+    );
+    assert!(server.state.order_requests.lock().unwrap().is_empty());
+    assert!(server.state.match_requests.lock().unwrap().is_empty());
+    cash_gate.notify_one();
     client.disconnect().await.unwrap();
 }

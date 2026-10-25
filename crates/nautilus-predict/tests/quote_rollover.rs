@@ -59,14 +59,14 @@ fn instrument(market: u64, outcome: u8) -> InstrumentId {
     nautilus_predict::instrument_id_from_outcome(market, outcome).unwrap()
 }
 fn selector() -> DataType {
-    let mut metadata = Params::new();
-    for (k, v) in [
-        ("price_feed_symbol", "BTC/USDT"),
-        ("title_asset", "Bitcoin"),
-        ("interval_secs", "300"),
-    ] {
-        metadata.insert(k.into(), json!(v));
-    }
+    let metadata = Params::new(
+        [
+            ("price_feed_symbol".into(), json!("BTC/USDT")),
+            ("title_asset".into(), json!("Bitcoin")),
+            ("interval_secs".into(), json!("300")),
+        ]
+        .into(),
+    );
     DataType::new("PredictCryptoUpDown", Some(metadata), None)
 }
 fn responses() -> DataType {

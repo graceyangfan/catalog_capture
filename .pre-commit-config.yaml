@@ -7,8 +7,12 @@ repos:
     hooks:
       - id: end-of-file-fixer
         types_or: [rust, python, markdown, toml, yaml]
+        exclude: ^crates/nautilus-predict/(test_data|tests/fixtures)/.*\.(json|jsonl|log)$
       - id: mixed-line-ending
+        # Captured bytes are immutable; predict_evidence.py verifies their integrity.
+        exclude: ^crates/nautilus-predict/(test_data|tests/fixtures)/.*\.(json|jsonl|log)$
       - id: trailing-whitespace
+        exclude: ^crates/nautilus-predict/(test_data|tests/fixtures)/.*\.(json|jsonl|log)$
       - id: detect-private-key
       - id: check-added-large-files
         args: [--maxkb=1024]

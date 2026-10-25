@@ -107,13 +107,11 @@ impl ExitStrategy {
                     if order.order_side() == OrderSide::Buy {
                         gross += fill.last_qty.as_decimal();
                         cost += value;
-                        #[cfg(feature = "native-quantity-commission")]
+
                         {
-                            shares_fee += fill.quantity_commission.unwrap_or(Decimal::ZERO);
-                        }
-                        #[cfg(not(feature = "native-quantity-commission"))]
-                        {
-                            shares_fee += fee / fill.last_px.as_decimal();
+                            shares_fee += fill
+                                .quantity_commission
+                                .map_or(Decimal::ZERO, |fee| fee.as_decimal());
                         }
                     } else {
                         proceeds += value - fee;

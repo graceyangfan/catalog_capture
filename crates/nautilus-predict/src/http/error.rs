@@ -101,6 +101,8 @@ pub enum PredictApiErrorReason {
     PostOnlyWouldCross,
     MarketClosed,
     ExpiryTooSoon,
+    FillOrKillUnsupported,
+    PostOnlyUnsupported,
     Unknown,
 }
 
@@ -123,16 +125,26 @@ fn decode_api_error(endpoint: &'static str, response: &HttpResponse) -> Option<E
     let kind = match wire.error {
         "unauthorized" => PredictApiErrorKind::Unauthorized,
         "forbidden" => PredictApiErrorKind::Forbidden,
-        "bad_request" | "invalid_request" | "validation_error" | "create_order_expiry_too_soon" => {
-            PredictApiErrorKind::InvalidRequest
-        }
+        "bad_request"
+        | "invalid_request"
+        | "validation_error"
+        | "create_order_contract_invalid_signature"
+        | "create_order_expiry_too_soon"
+        | "create_order_fill_or_kill_not_supported"
+        | "create_order_post_only_not_supported" => PredictApiErrorKind::InvalidRequest,
         "not_found" => PredictApiErrorKind::NotFound,
         "conflict" => PredictApiErrorKind::Conflict,
         "internal_server_error" => PredictApiErrorKind::InternalServerError,
         _ => PredictApiErrorKind::Unknown,
     };
-    let reason = if wire.error == "create_order_expiry_too_soon" {
+    let reason = if wire.error == "create_order_contract_invalid_signature" {
+        PredictApiErrorReason::InvalidSignature
+    } else if wire.error == "create_order_expiry_too_soon" {
         PredictApiErrorReason::ExpiryTooSoon
+    } else if wire.error == "create_order_fill_or_kill_not_supported" {
+        PredictApiErrorReason::FillOrKillUnsupported
+    } else if wire.error == "create_order_post_only_not_supported" {
+        PredictApiErrorReason::PostOnlyUnsupported
     } else {
         match wire
             .message

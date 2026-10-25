@@ -33,6 +33,12 @@
       "sha256": "ee22503827605fdf7b32a4ab20a98f1067d64e3fd80412999d453aabb41c4439"
     },
     {
+      "path": "tests/fixtures/market_value_amounts.json",
+      "tier": "reference",
+      "bytes": 1760,
+      "sha256": "7a16d62cba1df4f5d6acaf28db7cad8786f611e93a9e94d1701b49315785a636"
+    },
+    {
       "path": "tests/fixtures/order_vectors.json",
       "tier": "reference",
       "bytes": 36047,
@@ -909,6 +915,18 @@
       "sha256": "cdf0ff430f8296b9e5d954af9303b4d0c3addfb68cac2b9efe6427e5640d5a07"
     },
     {
+      "path": "tests/fixtures/private_api/live_chain_atomic_rounding_20261025.json",
+      "tier": "primary_capture",
+      "bytes": 131819,
+      "sha256": "3dc73f197f79ab09ec4afc1292f88f5fa635ad7a75f5b547926e2bc5b80dd150"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_crate_signed_parameter_rejections_20261025.json",
+      "tier": "primary_capture",
+      "bytes": 14013,
+      "sha256": "562ab96646da10c9a0fe160c013a593c3ae3d207862cd04cd210fddc13ccc0e3"
+    },
+    {
       "path": "tests/fixtures/private_api/live_fill_20261016T122233Z/account_consistency_review.json",
       "tier": "review",
       "bytes": 488,
@@ -1081,6 +1099,18 @@
       "tier": "synthetic",
       "bytes": 56637,
       "sha256": "63d579ae10aae7ec9d9e71cc1d454714040cc709ae178bad29a5ef57454860da"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_market_history_readonly_20261025.json",
+      "tier": "primary_capture",
+      "bytes": 20901,
+      "sha256": "eec4f4efa78f33164f5d9145408b3c176c88397f616d3f83bfba7e368ac41e88"
+    },
+    {
+      "path": "tests/fixtures/private_api/live_order_lifecycle_survey_20261025.json",
+      "tier": "primary_capture",
+      "bytes": 423398,
+      "sha256": "d3c623efde9498ca7f4e6c6d88d96ee8fd693f8892f6adc573a15a1017ce1be5"
     },
     {
       "path": "tests/fixtures/private_api/live_queries_readonly_20261017/node.log",
@@ -1731,6 +1761,12 @@
       "sha256": "dccb8fdb7d7ad355ba3d4054f758e7dbfda6f1aca80c24893def2ef79dfc2a0a"
     },
     {
+      "path": "tests/fixtures/private_api/live_unexecutable_rejections_20261025.json",
+      "tier": "primary_capture",
+      "bytes": 18401,
+      "sha256": "940c95d70c78b7aaf258b56e7ba270f28f4a11a276ddcf5cd165907a3df652fd"
+    },
+    {
       "path": "tests/fixtures/private_api/maker_evidence_manifest_20261015.json",
       "tier": "primary_capture",
       "bytes": 1810,
@@ -1755,6 +1791,12 @@
       "sha256": "deb3004073aebe52f99beb7b5d3cb9ece9b3aef8bee5e98553277a2f45eb870f"
     },
     {
+      "path": "tests/fixtures/private_api/maker_post_only_stp_cancel_20261024.json",
+      "tier": "primary_capture",
+      "bytes": 2074,
+      "sha256": "899bdbad13d1b21745d970302b01d50019525177b341bce79d4f2f31d68a358f"
+    },
+    {
       "path": "tests/fixtures/private_api/maker_read_only_check_20261015.json",
       "tier": "primary_capture",
       "bytes": 306,
@@ -1773,10 +1815,22 @@
       "sha256": "33d5842a5d0dd3a3a5dbb5b64801d73cad855ee4e4169085548209e66d01bf20"
     },
     {
+      "path": "tests/fixtures/private_api/market_fok_no_match_20261024.json",
+      "tier": "primary_capture",
+      "bytes": 2120,
+      "sha256": "58e8ba2e91bae4da9fc364b3526116cff298ae3a3ce08d109789e77b2096c3e5"
+    },
+    {
       "path": "tests/fixtures/private_api/market_live_snapshot_sdk_quotes_20261015.json",
       "tier": "derived",
       "bytes": 10164,
       "sha256": "f48210c96af8584187794341c22cac3fb7c06a0fa115d10843b7a2cd88bde6dd"
+    },
+    {
+      "path": "tests/fixtures/private_api/market_parameter_matrix_no_match_20261024.json",
+      "tier": "primary_capture",
+      "bytes": 17736,
+      "sha256": "e844100bd3604971919642b23b88c7f21bf9e4f3befb18f60fb957e1646502f4"
     },
     {
       "path": "tests/fixtures/private_api/market_read_only_20261015/calibration.json",
@@ -1915,6 +1969,30 @@
       "tier": "synthetic",
       "bytes": 1921,
       "sha256": "170e9ca9a093661b61c7e53cb73aec2f5b54a81cd1a21cdc289e576a660440de"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_market_fill_post_only_rejected_20261025.json",
+      "tier": "primary_capture",
+      "bytes": 14490,
+      "sha256": "fc145a5b4548a809a4f8183662dee4a022ebf8f738a9577bb2a4e929bc4e65d3"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_market_filled_atomic_remainder_20261025.json",
+      "tier": "reference",
+      "bytes": 6210,
+      "sha256": "49793e2bbdc8b4689b3a578953c07bc8fdc0822c9fb0efb8083102fb1e6e05af"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_market_no_match_20261024.json",
+      "tier": "primary_capture",
+      "bytes": 25140,
+      "sha256": "88460a39ec7738d0520390807a03df684fcb21e0d6c98a47294fbe2b925d59ce"
+    },
+    {
+      "path": "tests/fixtures/private_api/native_non_fok_full_plan_two_settlements_20261025.json",
+      "tier": "primary_capture",
+      "bytes": 37127,
+      "sha256": "6f09bc38764434b8ec0beb9df8543d4dd42e5d59ded6481800868be880db0232"
     },
     {
       "path": "tests/fixtures/private_api/native_quantity_commission_partial_exit_live_node_20261017.json",

@@ -13,10 +13,7 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Venue report collection for Nautilus bulk and startup reconciliation. No cache mutation.
-use std::{
-    collections::{HashMap, HashSet},
-    sync::atomic::Ordering,
-};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use nautilus_common::{
     clients::ExecutionReportTask,
@@ -91,7 +88,14 @@ pub(super) fn status_report<O: super::context::OrderView, C>(
         fills.iter().all(|fill| fill.report.venue_order_id == id),
         "Predict report received a different order's match group"
     );
-    if !amount.is_zero() {
+    if !amount.is_zero()
+        && !(fills.is_empty()
+            && matches!(
+                row.status,
+                crate::http::account_models::PredictOrderStatus::Cancelled
+                    | crate::http::account_models::PredictOrderStatus::Expired
+            ))
+    {
         return super::recovery::OrderRecovery {
             order,
             instrument,
@@ -154,19 +158,6 @@ pub(super) async fn collect_orders(
     anyhow::bail!("Predict order pagination exceeded configured bound")
 }
 
-pub(super) fn same_order(a: &PredictOrderData, b: &PredictOrderData) -> bool {
-    a.order.hash == b.order.hash
-        && a.order.fields == b.order.fields
-        && a.id == b.id
-        && a.market_id == b.market_id
-        && a.status == b.status
-        && a.amount_filled == b.amount_filled
-        && a.strategy == b.strategy
-        && a.currency == b.currency
-        && a.is_neg_risk == b.is_neg_risk
-        && a.is_yield_bearing == b.is_yield_bearing
-}
-
 pub(super) fn bulk_task(
     client: &PredictExecutionClient,
     cmd: &GenerateOrderStatusReports,
@@ -186,33 +177,70 @@ pub(super) fn bulk_task(
     let evidence = client.fill_evidence.clone();
     let rest_ids = client.rest_order_ids.clone();
     let account_sync = client.account_sync.clone();
-    let epoch = client.wallet_epoch.clone();
-    let expected_epoch = epoch.as_ref().map(|e| e.load(Ordering::Acquire));
     let cancellation = client.tasks.cancellation_token();
-    let targets = client
+    let expirations = client
         .core
         .cache()
-        .orders_refs(
-            Some(&client.core.venue),
-            None,
-            None,
-            Some(&client.core.account_id),
-            None,
-        )
+        .instruments(&client.core.venue, None)
         .into_iter()
-        .filter(|o| cmd.instrument_id.is_none_or(|id| id == o.instrument_id()))
-        .filter_map(|o| {
-            o.venue_order_id().or_else(|| {
-                pending
-                    .lock()
-                    .expect("submission registry poisoned")
-                    .entries
-                    .get(&o.client_order_id())
-                    .and_then(|entry| entry.venue_id)
-            })
+        .filter_map(|i| {
+            if let InstrumentAny::BinaryOption(binary) = i {
+                Some((binary.id(), binary.expiration_ns.as_u64()))
+            } else {
+                None
+            }
         })
-        .filter(|id| id.as_str().parse::<alloy::primitives::B256>().is_ok())
-        .collect::<HashSet<_>>();
+        .collect();
+    let targets = {
+        let cache = client.core.cache();
+        let observed = observed_orders.lock().expect("order snapshots poisoned");
+        cache
+            .orders_refs(
+                Some(&client.core.venue),
+                None,
+                None,
+                Some(&client.core.account_id),
+                None,
+            )
+            .into_iter()
+            .filter(|o| cmd.instrument_id.is_none_or(|id| id == o.instrument_id()))
+            .filter_map(|o| {
+                let id = o.venue_order_id().or_else(|| {
+                    pending
+                        .lock()
+                        .expect("submission registry poisoned")
+                        .entries
+                        .get(&o.client_order_id())
+                        .and_then(|entry| entry.venue_id)
+                })?;
+                // Native's retained history and lookback define terminal recovery, not
+                // instrument expiry: a cancellation can precede its last confirmed fill.
+                let outside_window = fill_start
+                    .or(cmd.start)
+                    .is_some_and(|start| o.ts_last() < start);
+                if cmd.instrument_id.is_none()
+                    && o.is_closed()
+                    && (outside_window || cache.instrument(&o.instrument_id()).is_none())
+                {
+                    let snapshot = super::context::WorkerOrder::snapshot(
+                        &o,
+                        observed.get(&o.client_order_id()),
+                    );
+                    if !evidence
+                        .lock()
+                        .expect("fill evidence poisoned")
+                        .has_unapplied(id, &snapshot)
+                    {
+                        return None;
+                    }
+                }
+                id.as_str()
+                    .parse::<alloy::primitives::B256>()
+                    .is_ok()
+                    .then_some(id)
+            })
+            .collect::<HashSet<_>>()
+    };
     let instrument_id = cmd.instrument_id;
     let open_only = cmd.open_only;
     let requested_token = instrument_id.and_then(|id| {
@@ -222,9 +250,8 @@ pub(super) fn bulk_task(
     });
     ExecutionReportTask::new(
         async move {
-            // Like Polymarket's current-order list, Predict has no historical order
-            // timestamps. Return current OPEN plus known hashes, regardless of Native's
-            // lookback hint; never fabricate timestamps or adopt closed historical orders.
+            // Venue OPEN orders always participate. Native timestamps scope retained
+            // terminal orders; venue rows do not supply historical order timestamps.
             anyhow::ensure!(
                 instrument_id.is_none() || requested_token.is_some(),
                 "Predict requested bulk instrument is absent"
@@ -284,28 +311,38 @@ pub(super) fn bulk_task(
                         rows.push(config.session.request_order(id.as_str().parse()?).await?);
                     }
                 }
+                // Establish recovery scope before reading history. A retired wallet token
+                // with no retained order must not require an account-wide trade scan.
+                let holdings = if bundle_fills {
+                    let holdings = super::reports::collect_positions(&config, None).await?;
+                    super::reports::active_holdings(
+                        &config,
+                        holdings,
+                        &expirations,
+                        clock.get_time_ns(),
+                    )
+                    .await?
+                } else {
+                    Vec::new()
+                };
                 let matched = !open_only
                     || rows.iter().any(|row| {
                         rust_decimal::Decimal::from_str_exact(&row.amount_filled)
                             .map_or(true, |qty| !qty.is_zero())
                     });
-                let mut matches = if matched {
-                    // Ordinary instrument-scoped reports need only this market. Full
-                    // recovery still includes position-only markets outside order rows.
-                    let market_id = if bundle_fills {
-                        None
-                    } else {
-                        instrument_id
-                            .as_ref()
-                            .map(super::parse::market_id_from_instrument)
-                            .transpose()?
-                    };
-                    super::matches::collect_matches(&config, market_id).await?
-                } else {
-                    vec![]
-                };
+                let markets = rows
+                    .iter()
+                    .map(|row| row.market_id)
+                    .chain(holdings.iter().map(|row| row.market.id))
+                    .collect::<BTreeSet<_>>();
+                let mut matches = Vec::new();
+                if matched {
+                    for market in markets {
+                        matches
+                            .extend(super::matches::collect_matches(&config, Some(market)).await?);
+                    }
+                }
                 if bundle_fills {
-                    let holdings = super::reports::collect_positions(&config, None).await?;
                     let known = hashes
                         .iter()
                         .chain(targets.iter())
@@ -340,20 +377,6 @@ pub(super) fn bulk_task(
                         rows.push(config.session.request_order(id.as_str().parse()?).await?);
                     }
                 }
-                // A second read protects status and raw cumulative interpretation while history is fetched.
-                if matched {
-                    for row in &rows {
-                        let hash = row
-                            .order
-                            .hash
-                            .ok_or_else(|| anyhow::anyhow!("Predict report lacks hash"))?;
-                        let fence = config.session.request_order(hash).await?;
-                        anyhow::ensure!(
-                            same_order(row, &fence),
-                            "Predict order changed during bulk match collection"
-                        );
-                    }
-                }
                 Ok::<_, anyhow::Error>((rows, matches, clock.get_time_ns()))
             };
             tokio::time::timeout(
@@ -365,9 +388,8 @@ pub(super) fn bulk_task(
         },
         move |(rows, matches, now)| {
             anyhow::ensure!(
-                !cancellation.is_cancelled()
-                    && epoch.as_ref().map(|e| e.load(Ordering::Acquire)) == expected_epoch,
-                "Predict bulk report generation stopped or wallet epoch changed"
+                !cancellation.is_cancelled(),
+                "Predict bulk report generation stopped"
             );
             let cache = core.cache();
             let required = rows
@@ -437,7 +459,7 @@ pub(super) fn bulk_task(
                                 .hash
                                 .ok_or_else(|| anyhow::anyhow!("Predict route lacks hash"))?
                         )),
-                        super::routing::parse_id(&row.id)?,
+                        row.id.clone(),
                     ))
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
@@ -461,7 +483,9 @@ pub(super) fn bulk_task(
                 .into_iter()
                 .filter(|(hash, _)| reported.contains(hash))
                 .collect::<Vec<_>>();
-            super::routing::register_many(&rest_ids, &routes)?;
+            for (hash, id) in routes {
+                super::routing::observe(&rest_ids, hash, &id);
+            }
             for report in &result.0 {
                 account_sync.confirm_report(report);
             }
@@ -545,6 +569,27 @@ fn finish(
                 || allow_external && reported_hashes.contains(&f.report.venue_order_id)),
         "Predict mass history contains unclaimed order"
     );
+    // Include already-confirmed wallet reports which Native has not applied yet.
+    // A REST snapshot without them must not void those trades on this Native revision.
+    let mut ids = fills
+        .iter()
+        .map(|fill| fill.report.trade_id)
+        .collect::<HashSet<_>>();
+    {
+        let facts = evidence
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Predict fill evidence poisoned"))?;
+        for (id, order) in &context.orders {
+            if !reported_hashes.contains(id) {
+                continue;
+            }
+            for fill in facts.pending_for(order, *id) {
+                if ids.insert(fill.report.trade_id) {
+                    fills.push(fill.clone());
+                }
+            }
+        }
+    }
     let grouped = fills_by_order(&fills);
     let mut reports = Vec::new();
     for row in rows {

@@ -296,7 +296,7 @@ async fn historical_share_fee_holding_normalizes_down_without_overstating_net_sh
         assert_eq!(reports.len(), 1);
         assert_eq!(
             reports[0].quantity.as_decimal(),
-            Decimal::from_str_exact("27.6770544615384615").unwrap()
+            Decimal::from_i128_with_scale(raw("received_shares_wei").to::<u128>() as i128, 18)
         );
         assert!(
             cache

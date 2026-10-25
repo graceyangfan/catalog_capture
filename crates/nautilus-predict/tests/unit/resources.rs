@@ -132,7 +132,7 @@ fn native_remaining_notional_uses_gross_fills_and_native_cash_math() {
             UnixNanos::from(3),
         );
         if let nautilus_model::events::OrderEventAny::Filled(fill) = &mut fill {
-            fill.quantity_commission = Some(Decimal::new(34, 2));
+            fill.quantity_commission = Some(Quantity::from_decimal(Decimal::new(34, 2)).unwrap());
         }
         order.apply(fill).unwrap();
         let binary = nautilus_model::instruments::BinaryOption::builder()

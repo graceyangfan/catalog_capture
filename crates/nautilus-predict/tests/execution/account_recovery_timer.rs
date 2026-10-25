@@ -99,8 +99,8 @@ async fn account_recovery_timer_does_not_duplicate_order_queries_and_cancels_on_
     .await
     .unwrap();
     assert!(
-        !client.is_connected(),
-        "a new acknowledged epoch is still unverified"
+        client.is_connected(),
+        "authenticated transport does not await account refresh"
     );
     assert_eq!(
         cache
@@ -263,7 +263,8 @@ async fn recorded_flat_history_does_not_block_readonly_reconnect_query_account()
     })
     .await
     .unwrap();
-    assert!(!client.is_connected());
+    assert!(client.is_connected());
+    let matches_before = private.state.match_requests.lock().unwrap().len();
     client
         .query_account(QueryAccount::new(
             trader_id(),
@@ -281,10 +282,10 @@ async fn recorded_flat_history_does_not_block_readonly_reconnect_query_account()
             let ExecutionEvent::Account(state) = rx.recv().await.unwrap() else {
                 panic!("history must not produce order/fill events")
             };
-            ready |= state.info.as_ref().is_some_and(|i| {
-                i.get("predict_reconciliation_ready") == Some(&json!(true))
-                    && i.get("predict_connection_epoch") == Some(&json!(1))
-            });
+            ready |= state
+                .info
+                .as_ref()
+                .is_some_and(|i| i.get("predict_connection_epoch") == Some(&json!(1)));
             msgbus::send_account_state(MessagingSwitchboard::portfolio_update_account(), &state);
         }
     })
@@ -303,8 +304,115 @@ async fn recorded_flat_history_does_not_block_readonly_reconnect_query_account()
             .positions_open(None, None, None, None, None)
             .is_empty()
     );
-    assert!(private.state.match_requests.lock().unwrap().len() >= 2);
+    assert_eq!(
+        private.state.match_requests.lock().unwrap().len(),
+        matches_before,
+        "account refresh does not scan historical matches"
+    );
     assert!(private.state.creations.lock().unwrap().is_empty());
     assert!(private.state.removals.lock().unwrap().is_empty());
     client.disconnect().await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ambiguous_wallet_rejection_requests_one_native_query_without_retrying_or_closing() {
+    let private = server(vec![]).await;
+    let (_, mut rx, cache) = client(&private);
+    let own = order(1);
+    cache
+        .borrow_mut()
+        .add_instrument(instrument(1).into())
+        .unwrap();
+    cache
+        .borrow_mut()
+        .add_order(own.clone(), None, None, false)
+        .unwrap();
+    cache
+        .borrow_mut()
+        .add_venue_order_id(
+            &own.client_order_id(),
+            &own.venue_order_id().unwrap(),
+            false,
+        )
+        .unwrap();
+    let _portfolio = portfolio(&cache);
+    let core = ExecutionClientCore::new(
+        trader_id(),
+        ClientId::new("PREDICT"),
+        *PREDICT_VENUE,
+        OmsType::Netting,
+        account_id(),
+        AccountType::Cash,
+        None,
+        cache.clone(),
+    );
+    let mut cfg = config(&private);
+    cfg.account_state_mode = PredictAccountStateMode::Reported;
+    cfg.chain = Some(PredictChainClientConfig::new(
+        PredictEnvironment::BnbMainnet,
+        format!("{}/rpc", private.http).into(),
+    ));
+    cfg.reconnect_reconciliation_interval_secs = Some(1);
+    let virtual_clock = Rc::new(RefCell::new(VirtualClock::new()));
+    let clock = Box::leak(Box::new(AtomicTime::new(false, OBSERVED.into())));
+    let mut client = PredictExecutionClient::new_with_clock(core, cfg, clock)
+        .unwrap()
+        .with_reconciliation_clock(virtual_clock.clone());
+    let commands = Rc::new(RefCell::new(Vec::new()));
+    msgbus::register_trading_command_endpoint(
+        MessagingSwitchboard::exec_engine_queue_execute(),
+        TypedIntoHandler::from({
+            let commands = commands.clone();
+            move |command: TradingCommand| commands.borrow_mut().push(command)
+        }),
+    );
+    connect_reported(&mut client, &mut rx).await;
+    let fire = |to: u64| {
+        let events = virtual_clock.borrow_mut().advance_time(to.into(), true);
+        let handlers = virtual_clock.borrow().match_handlers(events);
+        for handler in handlers {
+            handler.run();
+        }
+    };
+    let mut engine = cancellations::engine(&cache);
+    let mut duplicate = event("orderNotAccepted", 1);
+    duplicate["reason"] = json!("rejectedDuplicate");
+    private.wallet(duplicate.clone());
+    private.wallet(duplicate.clone());
+    let (control_hash, control) = wallet_lifecycle::control(&mut engine, &duplicate);
+    private.wallet(control);
+    loop {
+        let event = next(&mut rx).await;
+        let barrier = matches!(&event, ExecutionEvent::Order(nautilus_model::events::OrderEventAny::Canceled(e)) if e.venue_order_id == Some(control_hash));
+        submissions::apply(&mut engine, &event);
+        if barrier {
+            break;
+        }
+    }
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&own.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Accepted
+    );
+    fire(1_000_000_000);
+    assert_eq!(commands.borrow().len(), 1);
+    {
+        let captured = commands.borrow();
+        let TradingCommand::QueryOrder(query) = &captured[0] else {
+            panic!("Native order query")
+        };
+        assert_eq!(query.client_order_id, own.client_order_id());
+        assert_eq!(query.strategy_id, own.strategy_id());
+        assert_eq!(query.client_id, Some(ClientId::new("PREDICT")));
+    }
+    fire(2_000_000_000);
+    assert_eq!(commands.borrow().len(), 1, "no adapter retry loop");
+    assert!(private.state.creations.lock().unwrap().is_empty());
+    assert!(private.state.removals.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+    fire(3_000_000_000);
+    assert_eq!(commands.borrow().len(), 1);
 }

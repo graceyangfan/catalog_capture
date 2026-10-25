@@ -71,7 +71,6 @@ pub(super) fn upsert_instrument(
 pub(super) struct MarketMetadata {
     pub market: Arc<PredictExecutionMarket>,
     pub observed: UnixNanos,
-    pub epoch: u64,
 }
 
 pub(super) fn classify_http_command_failure(error: &Error) -> CommandFailure {

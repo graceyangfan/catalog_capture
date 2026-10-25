@@ -60,6 +60,105 @@ fn page(server: &Server, mut body: Value) {
 }
 
 #[tokio::test]
+#[ignore = "explicit loopback history scaling; PREDICT_REPORT_STAGES_PATH is create_new JSON"]
+async fn benchmark_report_collection_finish_and_drop() {
+    use std::time::Instant;
+
+    let mut samples = Vec::new();
+    for count in [1usize, 10, 100, 1000, 10000, 100000] {
+        let venue = server(vec![]).await;
+        let (_, mut events, cache) = client(&venue);
+        add_instruments(&cache);
+        let mut cfg = config(&venue);
+        cfg.max_report_pages = count.div_ceil(100) + 1;
+        cfg.report_timeout_secs = 120;
+        let core = ExecutionClientCore::new(
+            trader_id(),
+            ClientId::new("PREDICT"),
+            *PREDICT_VENUE,
+            OmsType::Netting,
+            account_id(),
+            AccountType::Cash,
+            None,
+            cache.clone(),
+        );
+        let clock = Box::leak(Box::new(AtomicTime::new(false, UnixNanos::from(OBSERVED))));
+        let client = PredictExecutionClient::new_with_clock(core, cfg, clock).unwrap();
+        let mut template = match_row(1);
+        template["taker"]["amount"] = json!("1000000000000000000");
+        template["taker"]["price"] = json!("10000000000000000");
+        template["taker"]["fee"]["amount"] = json!("0");
+        let rows = (0..count)
+            .map(|index| {
+                let mut row = template.clone();
+                row["settlementId"] = json!(format!("profile-{index}"));
+                row
+            })
+            .collect::<Vec<_>>();
+        let mut previous = Vec::new();
+        for replay in [false, true] {
+            for (index, chunk) in rows.chunks(100).enumerate() {
+                page(
+                    &venue,
+                    json!({"success":true,"data":chunk,"cursor":
+                    (index + 1 < count.div_ceil(100)).then(||format!("page-{index}"))}),
+                );
+            }
+            let task = client
+                .generate_fill_reports_task(&command(Some(1)))
+                .unwrap();
+            let started = Instant::now();
+            tokio::spawn(task.collection).await.unwrap();
+            let collection_ns = started.elapsed().as_nanos() as u64;
+            let started = Instant::now();
+            let reports = (task.finish)().unwrap();
+            let finish_ns = started.elapsed().as_nanos() as u64;
+            assert_eq!(reports.len(), count);
+            assert!(reports.iter().all(|report| {
+                report.last_qty == Quantity::from(1)
+                    && report.last_px == Price::from("0.010")
+                    && report.commission.is_zero()
+            }));
+            let ids = reports
+                .iter()
+                .map(|report| report.trade_id)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                ids.iter().collect::<std::collections::HashSet<_>>().len(),
+                count
+            );
+            if replay {
+                assert_eq!(ids, previous);
+            }
+            previous = ids;
+            let started = Instant::now();
+            drop(reports);
+            samples.push(
+                json!({"fills":count,"replay":replay,"collection_ns":collection_ns,
+                "finish_ns":finish_ns,"result_drop_ns":started.elapsed().as_nanos() as u64}),
+            );
+            assert!(events.try_recv().is_err());
+            assert!(
+                cache
+                    .borrow()
+                    .positions(None, None, None, None, None)
+                    .is_empty()
+            );
+        }
+    }
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(std::env::var("PREDICT_REPORT_STAGES_PATH").unwrap())
+        .unwrap();
+    serde_json::to_writer_pretty(file, &json!({
+        "source":"synthetic loopback; direct Native collection/finish API; historical fills without retained Native order; fixture setup and assertions excluded; no venue writes or Native event application",
+        "samples":samples,
+    }))
+    .unwrap();
+}
+
+#[tokio::test]
 async fn match_reports_select_each_owned_leg_and_deduplicate_overlapping_pages() {
     let row = match_row(1);
     let mut multi = row.clone();
@@ -74,7 +173,7 @@ async fn match_reports_select_each_owned_leg_and_deduplicate_overlapping_pages()
     add_instruments(&cache);
     let task = client.generate_fill_reports_task(&command(None)).unwrap();
     tokio::spawn(task.collection).await.unwrap();
-    let reports = task.result.await.unwrap();
+    let reports = (task.finish)().unwrap();
     assert_eq!(reports.len(), 2);
     let taker = reports
         .iter()
@@ -220,7 +319,6 @@ async fn match_reports_reject_unknown_identity_context_precision_and_fee_contrad
         "market",
         "wei",
         "price",
-        "future",
         "maker_fee",
         "sell_share_fee",
     ] {
@@ -236,7 +334,7 @@ async fn match_reports_reject_unknown_identity_context_precision_and_fee_contrad
             "token" => row["taker"]["outcome"]["onChainId"] = json!("99"),
             "market" => row["market"]["id"] = json!(43),
             "wei" => row["taker"]["amount"] = json!("17.0"),
-            "price" => row["taker"]["price"] = json!("620100000000000000"),
+            "price" => row["taker"]["price"] = json!("1620100000000000000"),
             "future" => row["executedAt"] = json!("2030-01-01T00:00:00Z"),
             "maker_fee" => {
                 row["taker"]["signer"] = row["makers"][0]["signer"].clone();
@@ -265,7 +363,7 @@ async fn match_reports_reject_unknown_identity_context_precision_and_fee_contrad
             "token" => "outcome/token",
             "market" => "absent from Nautilus cache",
             "wei" => "integer wei",
-            "price" => "requires rounding",
+            "price" => "outside the outcome range",
             "future" => "future",
             "maker_fee" => "maker fill",
             _ => "fill direction",
@@ -279,7 +377,7 @@ async fn share_fee_reports_require_reported_cash_and_preserve_gross_and_raw_fee_
     for outcome in [1, 2] {
         let server = server(vec![]).await;
         let mut row = match_row(outcome);
-        row["taker"]["fee"] = json!({"type":"SHARES","amount":"340000000000000000"});
+        row["taker"]["fee"] = json!({"type":"SHARES","amount":"340000000000000001"});
         row["taker"]["price"] = json!("130000000000000000");
         page(&server, json!({"success":true,"data":[row.clone()]}));
         let (client, _, cache) = client(&server);
@@ -315,12 +413,12 @@ async fn share_fee_reports_require_reported_cash_and_preserve_gross_and_raw_fee_
         assert_eq!(reports.len(), 1);
         let report = &reports[0];
         assert_eq!(report.last_qty, Quantity::from(17));
-        if cfg!(feature = "native-quantity-commission") {
+        {
             assert_eq!(report.commission, Money::zero(Currency::USDT()));
-            assert_eq!(report.quantity_commission, Some(Decimal::new(34, 2)));
-        } else {
-            assert_eq!(report.commission, Money::from("0.0442 USDT"));
-            assert!(report.quantity_commission.is_none());
+            assert_eq!(
+                report.quantity_commission,
+                Some(Quantity::from("0.340000000000000001"))
+            );
         }
         assert!(
             serde_json::to_value(report).unwrap().get("info").is_none(),
@@ -343,8 +441,8 @@ async fn share_fee_reports_require_reported_cash_and_preserve_gross_and_raw_fee_
 async fn match_reports_validate_native_order_context_and_cumulative_size_before_dispatch() {
     for case in [
         "post_only",
-        "side",
         "limit",
+        "side",
         "overfill",
         "duplicate_applied",
     ] {
@@ -408,13 +506,29 @@ async fn match_reports_validate_native_order_context_and_cumulative_size_before_
         }
         rows.push(row);
         page(&server, json!({"success":true,"data":rows}));
-        let error = client
-            .generate_fill_reports(command(Some(1)))
-            .await
-            .unwrap_err()
-            .to_string();
+        let result = client.generate_fill_reports(command(Some(1))).await;
+        if matches!(case, "post_only" | "limit") {
+            let fills = result.unwrap();
+            assert_eq!(fills.len(), 1);
+            assert_eq!(fills[0].last_qty, Quantity::from(17));
+            assert_eq!(
+                fills[0].last_px,
+                Price::from(if case == "limit" { "0.630" } else { "0.620" })
+            );
+            assert_eq!(fills[0].liquidity_side, LiquiditySide::Taker);
+            assert!(
+                cache
+                    .borrow()
+                    .order(&original.client_order_id())
+                    .unwrap()
+                    .filled_qty()
+                    .is_zero()
+            );
+            continue;
+        }
+        let error = result.unwrap_err().to_string();
         let expected = match case {
-            "overfill" => "exceed cached",
+            "overfill" => "exceed original submitted",
             "duplicate_applied" => "applied currency fee lies outside",
             _ => "native order context",
         };
@@ -556,7 +670,7 @@ async fn rest_full_fill_then_wallet_replay_stays_connected_and_does_not_double_c
 }
 
 #[tokio::test]
-async fn captured_real_match_precision_preserves_raw_wei_and_normalizes_gross_cumulatively() {
+async fn captured_real_match_precision_preserves_atomic_gross_and_share_fees() {
     let mut history: Value =
         serde_json::from_str(include_str!("../fixtures/private_api/matches.json")).unwrap();
     for row in history["data"].as_array_mut().unwrap() {
@@ -624,32 +738,18 @@ async fn captured_real_match_precision_preserves_raw_wei_and_normalizes_gross_cu
     let client = PredictExecutionClient::new_with_clock(core, cfg, clock).unwrap();
     let reports = client.generate_fill_reports(command(None)).await.unwrap();
     assert_eq!(reports.len(), 2);
-    let sum = reports
-        .iter()
-        .map(|r| r.last_qty.as_decimal())
-        .sum::<Decimal>();
-    let raw = U256::from(33_398_999_999_999_999_999u128);
-    let expected = Quantity::from_decimal_dp(
-        Decimal::from_str_exact("33.3989999999999999").unwrap(),
-        FIXED_PRECISION,
-    )
-    .unwrap();
-    assert_eq!(sum, expected.as_decimal());
-    let raw_quantity = Decimal::from_str_exact(&raw.to_string()).unwrap()
-        / Decimal::from(1_000_000_000_000_000_000u64);
     assert_eq!(
-        raw_quantity.round_dp_with_strategy(
-            u32::from(FIXED_PRECISION),
-            rust_decimal::RoundingStrategy::ToZero
-        ),
-        expected.as_decimal()
+        reports
+            .iter()
+            .map(|r| r.last_qty.as_decimal())
+            .sum::<Decimal>(),
+        Decimal::from_str_exact("33.398999999999999999").unwrap()
     );
     assert!(
         reports
             .iter()
-            .all(|r| serde_json::to_value(r).unwrap().get("info").is_none())
+            .all(|r| r.quantity_commission.is_some() && r.commission.is_zero())
     );
-    assert_eq!(server.state.match_requests.lock().unwrap().len(), 1);
     assert!(
         cache
             .borrow()

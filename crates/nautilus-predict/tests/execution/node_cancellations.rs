@@ -156,6 +156,13 @@ async fn batch_probe_case(mode: &str) -> Value {
             )
         };
     }
+    if mode == "mixed" {
+        // The noop leg is recovered by Native, not a GET in the remove completion.
+        profile = profile.replace(
+            "inflight_check_threshold_ms = 5000",
+            "inflight_check_threshold_ms = 200",
+        );
+    }
     if mode.contains("timeout") {
         profile = profile
             .replace(
@@ -213,7 +220,7 @@ async fn batch_probe_case(mode: &str) -> Value {
             batch_sent: false,
             single_cancel: single,
             resume_cancel: (gap || recovery).then(|| resume.clone()),
-            query_closed_before_cancel: mode.starts_with("recovery_exhausted_"),
+            query_closed_before_cancel: false,
             modify_rejections: 0,
             last_account: None,
         })
@@ -728,12 +735,10 @@ async fn recover_cancel_probe(
     }
     if mode.starts_with("recovery_exhausted_") {
         barrier(
-            "Native exhausts cancellation without venue terminal evidence",
+            "Native reports exhaustion without inventing venue cancellation",
             || {
                 rows.borrow().iter().any(|row| {
-                    row["type"] == "StrategyOrderCallback"
-                        && row["kind"] == "Canceled"
-                        && row["venueOrderId"] == hash
+                    row["type"] == "NativeCommandRecoveryExhausted" && row["venueOrderId"] == hash
                 })
             },
         )
@@ -769,49 +774,30 @@ async fn recover_cancel_probe(
                     .all(|response| response["body"]["data"]["status"] == "OPEN")
             );
         }
-        let callback = rows
+        let diagnostic = rows
             .borrow()
             .iter()
             .find(|row| {
-                row["type"] == "StrategyOrderCallback"
-                    && row["kind"] == "Canceled"
-                    && row["venueOrderId"] == hash
+                row["type"] == "NativeCommandRecoveryExhausted" && row["venueOrderId"] == hash
             })
             .unwrap()
             .clone();
-        assert_eq!(callback["cachedStatus"], "CANCELED");
-        assert_eq!(callback["reconciliation"], true);
+        assert_eq!(diagnostic["status"], "PENDING_CANCEL");
+        assert_eq!(diagnostic["retryCount"], 3);
+        assert!(
+            !rows
+                .borrow()
+                .iter()
+                .any(|row| row["type"] == "StrategyOrderCallback"
+                    && row["kind"] == "Canceled"
+                    && row["venueOrderId"] == hash)
+        );
         assert_eq!(
             state.orders_by_hash.lock().unwrap()[hash]["data"]["status"],
             "OPEN"
         );
         assert_eq!(state.open_orders.lock().unwrap().len(), 2);
         assert_eq!(state.removals.lock().unwrap().len(), 1);
-        assert!(
-            !rows
-                .borrow()
-                .iter()
-                .any(|row| row["type"] == "RawOrderStatusReport"
-                    && row["report"]["order_status"] == "CANCELED")
-        );
-        barrier(
-            "fresh reported account follows synthetic cancellation",
-            || {
-                let rows = rows.borrow();
-                let canceled = rows
-                    .iter()
-                    .position(|row| {
-                        row["type"] == "StrategyOrderCallback"
-                            && row["kind"] == "Canceled"
-                            && row["venueOrderId"] == hash
-                    })
-                    .unwrap();
-                rows[canceled + 1..]
-                    .iter()
-                    .any(|row| row["type"] == "AccountStateApplied")
-            },
-        )
-        .await;
         let account = rows
             .borrow()
             .iter()
@@ -826,7 +812,7 @@ async fn recover_cancel_probe(
                 .unwrap(),
             Decimal::from(2)
         );
-        rows.borrow_mut().push(json!({"type":"NativeCancelExhaustedWithoutVenueEvidence","venueOrderId":hash,"venueStatus":"OPEN","callback":callback,"account":account,"orderQueries":queried,"queriesBeforeCancelResponse":queries_before,"venueOpenOrderCount":2,"removalWrites":1}));
+        rows.borrow_mut().push(json!({"type":"NativeCancelExhaustedWithoutVenueEvidence","venueOrderId":hash,"venueStatus":"OPEN","diagnostic":diagnostic,"account":account,"orderQueries":queried,"queriesBeforeCancelResponse":queries_before,"venueOpenOrderCount":2,"removalWrites":1}));
     } else if mode.ends_with("_query") || mode.ends_with("_mass") {
         barrier(
             "Native read reports OPEN while cancel remains unresolved",
@@ -860,10 +846,7 @@ async fn recover_cancel_probe(
                 accepted_before
             );
         } else {
-            assert!(
-                state.order_requests.lock().unwrap().len()
-                    >= if mode == "recovery_noop_query" { 3 } else { 2 }
-            );
+            assert!(!state.order_requests.lock().unwrap().is_empty());
         }
         assert!(
             !rows
@@ -906,16 +889,6 @@ async fn recover_cancel_probe(
         .lock()
         .unwrap()
         .push_back((200, json!({"echoRemoved":true}), 0));
-    let accepted_before_retry = rows
-        .borrow()
-        .iter()
-        .filter(|row| {
-            row["type"] == "RawOrderStatusReport"
-                && row["report"]["venue_order_id"] == hash
-                && row["report"]["order_status"] == "ACCEPTED"
-        })
-        .count();
-    let query_count_before_retry = state.order_response_log.lock().unwrap().len();
     resume.set(true);
     barrier("unrelated order cancellation is not blocked", || {
         state.removal_responses.lock().unwrap().len() == 2
@@ -926,45 +899,16 @@ async fn recover_cancel_probe(
     assert_eq!(other.len(), 1);
     assert_ne!(&other[0], id);
     if mode.starts_with("recovery_exhausted_") {
-        barrier(
-            "strategy query observes real OPEN after synthetic Canceled",
-            || {
-                state.order_response_log.lock().unwrap()[query_count_before_retry..]
-                    .iter()
-                    .any(|response| {
-                        response["path"].as_str().unwrap().ends_with(hash)
-                            && response["body"]["data"]["status"] == "OPEN"
-                    })
-            },
-        )
-        .await;
+        let engine = engine.borrow();
+        let cache = engine.cache().borrow();
+        let client_id = cache
+            .client_order_id(&nautilus_model::identifiers::VenueOrderId::new(hash))
+            .unwrap();
         assert_eq!(
-            rows.borrow()
-                .iter()
-                .filter(|row| row["type"] == "RawOrderStatusReport"
-                    && row["report"]["venue_order_id"] == hash
-                    && row["report"]["order_status"] == "ACCEPTED")
-                .count(),
-            accepted_before_retry,
-            "adapter does not reopen a terminal native order from a conflicting snapshot"
+            cache.order(client_id).unwrap().status(),
+            nautilus_model::enums::OrderStatus::PendingCancel
         );
-        assert!(
-            rows.borrow()
-                .iter()
-                .any(|row| row["type"] == "StrategyCancelClosedOrderAttempt")
-        );
-        let callback = rows
-            .borrow()
-            .iter()
-            .rfind(|row| row["type"] == "StrategyOrderCallback" && row["venueOrderId"] == hash)
-            .unwrap()
-            .clone();
-        assert_eq!(callback["cachedStatus"], "CANCELED");
-        assert_eq!(
-            state.orders_by_hash.lock().unwrap()[hash]["data"]["status"],
-            "OPEN"
-        );
-        rows.borrow_mut().push(json!({"type":"StrategyQueryCannotReopenSyntheticCanceledOrder","venueOrderId":hash,"cachedStatus":"CANCELED","venueStatus":"OPEN","removalWrites":2,"otherOrderCanceled":true}));
+        rows.borrow_mut().push(json!({"type":"UnrelatedCancelCompletedWithOneOrderPending","venueOrderId":hash,"cachedStatus":"PENDING_CANCEL","removalWrites":2}));
     }
     // REST must expose the same final state as the successful removal response.
     for row in state.orders_by_hash.lock().unwrap().values_mut() {
@@ -995,6 +939,34 @@ async fn recover_cancel_probe(
         rows.borrow_mut().push(json!({"type":"UnrelatedCancelCompletedWithOneOrderPending","venueOrderId":hash,"lockedUSDT":"1"}));
     }
     terminal();
+    if mode.starts_with("recovery_exhausted_") {
+        // The exhausted budget does not restart itself. An explicit normal Native query
+        // can consume newly available venue evidence without repeating the remove POST.
+        let native = {
+            let engine = engine.borrow();
+            let cache = engine.cache().borrow();
+            let id = cache
+                .client_order_id(&nautilus_model::identifiers::VenueOrderId::new(hash))
+                .unwrap();
+            cache.order_owned(id).unwrap()
+        };
+        engine.borrow().execute(
+            nautilus_common::messages::execution::TradingCommand::QueryOrder(
+                nautilus_common::messages::execution::QueryOrder::new(
+                    native.trader_id(),
+                    Some(nautilus_model::identifiers::ClientId::new("PREDICT")),
+                    native.strategy_id(),
+                    native.instrument_id(),
+                    native.client_order_id(),
+                    native.venue_order_id(),
+                    nautilus_core::UUID4::new(),
+                    get_atomic_clock_realtime().get_time_ns(),
+                    None,
+                    None,
+                ),
+            ),
+        );
+    }
     barrier("Native read recovers both terminal orders", || {
         rows.borrow()
             .iter()

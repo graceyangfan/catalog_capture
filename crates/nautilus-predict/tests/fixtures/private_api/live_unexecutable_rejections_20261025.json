@@ -1,0 +1,476 @@
+{
+  "source": "Actual mainnet validation-only requests. Every order signature was all-zero; no executable order was signed. Captures sanitized without changing economic/error fields.",
+  "scope": "HTTP validation errors only, not noMarketMatch, original-order duplicate or partial-tail venue semantics.",
+  "runs": [
+    {
+      "sourcePath": "data/predict-validation/unexecutable_feedback_20261025T115838198742Z/capture.json",
+      "sourceSHA256": "fe978bd7344f4210e09b9eab0a630197ccd6a076e9966ff02af2a1be6be17732",
+      "phase": "expired_and_invalid_signature",
+      "marketId": 52261,
+      "cases": [
+        {
+          "name": "limit_invalid_expired",
+          "request": {
+            "data": {
+              "strategy": "LIMIT",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "392900737",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0xacaf09bd55b7a9591a09fd6e5b9ee6797d042578f5958be11d584e96024d87c8",
+                "signature": "[redacted-signature]"
+              },
+              "isPostOnly": true
+            }
+          },
+          "startedAt": "2026-10-25T11:58:38.753327+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_expiry_too_soon",
+            "message": "expiry is too soon (minimum 2 minutes from now)",
+            "timestamp": "2026-10-25T11:58:39.13141853Z",
+            "trace": "d4222aacfd1c9f6d7d73cebec1142e5c"
+          },
+          "completedAt": "2026-10-25T11:58:38.930105+00:00"
+        },
+        {
+          "name": "limit_identical_repeat",
+          "request": {
+            "data": {
+              "strategy": "LIMIT",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "392900737",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0xacaf09bd55b7a9591a09fd6e5b9ee6797d042578f5958be11d584e96024d87c8",
+                "signature": "[redacted-signature]"
+              },
+              "isPostOnly": true
+            }
+          },
+          "startedAt": "2026-10-25T11:58:38.931393+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_expiry_too_soon",
+            "message": "expiry is too soon (minimum 2 minutes from now)",
+            "timestamp": "2026-10-25T11:58:39.301864586Z",
+            "trace": "53d0a396d62f1499d1b7017a89c272c6"
+          },
+          "completedAt": "2026-10-25T11:58:39.100422+00:00"
+        },
+        {
+          "name": "market_gtc_invalid_expired",
+          "request": {
+            "data": {
+              "strategy": "MARKET",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "392900738",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x35364dc462e6376fa2ed941c2194fb31339231663884f5d597e45f10860e1515",
+                "signature": "[redacted-signature]"
+              },
+              "slippageBps": "0",
+              "isMinAmountOut": false
+            }
+          },
+          "startedAt": "2026-10-25T11:58:39.102830+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_expiry_too_soon",
+            "message": "expiry is too soon (minimum 2 minutes from now)",
+            "timestamp": "2026-10-25T11:58:39.478281857Z",
+            "trace": "39b5e6a382a198b38599e1c9b20fbf63"
+          },
+          "completedAt": "2026-10-25T11:58:39.271047+00:00"
+        },
+        {
+          "name": "market_gtc_identical_repeat",
+          "request": {
+            "data": {
+              "strategy": "MARKET",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "392900738",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x35364dc462e6376fa2ed941c2194fb31339231663884f5d597e45f10860e1515",
+                "signature": "[redacted-signature]"
+              },
+              "slippageBps": "0",
+              "isMinAmountOut": false
+            }
+          },
+          "startedAt": "2026-10-25T11:58:39.273864+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_expiry_too_soon",
+            "message": "expiry is too soon (minimum 2 minutes from now)",
+            "timestamp": "2026-10-25T11:58:39.642685266Z",
+            "trace": "5a1ff9de9e92c26a9982b618527b9732"
+          },
+          "completedAt": "2026-10-25T11:58:39.434345+00:00"
+        },
+        {
+          "name": "market_fok_invalid_expired",
+          "request": {
+            "data": {
+              "strategy": "MARKET",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "392900738",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x35364dc462e6376fa2ed941c2194fb31339231663884f5d597e45f10860e1515",
+                "signature": "[redacted-signature]"
+              },
+              "slippageBps": "0",
+              "isMinAmountOut": false,
+              "isFillOrKill": true
+            }
+          },
+          "startedAt": "2026-10-25T11:58:39.436668+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_expiry_too_soon",
+            "message": "expiry is too soon (minimum 2 minutes from now)",
+            "timestamp": "2026-10-25T11:58:39.807468446Z",
+            "trace": "5043ffefb36d1ca2796cc81e60c3ce7c"
+          },
+          "completedAt": "2026-10-25T11:58:39.598599+00:00"
+        }
+      ],
+      "walletEvents": [],
+      "walletObservation": {
+        "events": [],
+        "heartbeats": 0,
+        "elapsed": 5.14739274999738
+      },
+      "restByHash": [
+        {
+          "hash": "0x35364dc462e6376fa2ed941c2194fb31339231663884f5d597e45f10860e1515",
+          "httpStatus": 404,
+          "response": {
+            "success": false,
+            "code": 404,
+            "error": "not_found",
+            "message": "order not found",
+            "timestamp": "2026-10-25T11:58:39.968302019Z",
+            "trace": "427991791bebb63245d2ced72ce43353"
+          }
+        },
+        {
+          "hash": "0xacaf09bd55b7a9591a09fd6e5b9ee6797d042578f5958be11d584e96024d87c8",
+          "httpStatus": 404,
+          "response": {
+            "success": false,
+            "code": 404,
+            "error": "not_found",
+            "message": "order not found",
+            "timestamp": "2026-10-25T11:58:40.129870008Z",
+            "trace": "1453ff363506de8dabfdfc75bc94dd37"
+          }
+        }
+      ],
+      "orderSignaturesCreated": 0
+    },
+    {
+      "sourcePath": "data/predict-validation/unexecutable_feedback_20261025T120027896544Z/capture.json",
+      "sourceSHA256": "62c1c4f213ee286b06eee5dc37648f54c859a14fdd5faeabc3d94c34a4f5f975",
+      "phase": "invalid_signature",
+      "marketId": 52261,
+      "cases": [
+        {
+          "name": "limit_invalid_signature",
+          "request": {
+            "data": {
+              "strategy": "LIMIT",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "255220053",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792929927,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x9743b9fc34adb62146bbfa3bb8d552bb29303d289305abe559d450af411bc139",
+                "signature": "[redacted-signature]"
+              },
+              "isPostOnly": true
+            }
+          },
+          "startedAt": "2026-10-25T12:00:28.461603+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_contract_invalid_signature",
+            "message": "InvalidSignature",
+            "timestamp": "2026-10-25T12:00:28.865434004Z",
+            "trace": "d7feff5cdaa22ce1e1789402fa334270"
+          },
+          "completedAt": "2026-10-25T12:00:28.656673+00:00"
+        },
+        {
+          "name": "limit_identical_repeat",
+          "request": {
+            "data": {
+              "strategy": "LIMIT",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "255220053",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792929927,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0x9743b9fc34adb62146bbfa3bb8d552bb29303d289305abe559d450af411bc139",
+                "signature": "[redacted-signature]"
+              },
+              "isPostOnly": true
+            }
+          },
+          "startedAt": "2026-10-25T12:00:28.658279+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_contract_invalid_signature",
+            "message": "InvalidSignature",
+            "timestamp": "2026-10-25T12:00:29.036372056Z",
+            "trace": "790f773c741f091392215ffeb688fb03"
+          },
+          "completedAt": "2026-10-25T12:00:28.829157+00:00"
+        },
+        {
+          "name": "market_gtc_invalid_signature",
+          "request": {
+            "data": {
+              "strategy": "MARKET",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "255220054",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792929927,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0xc5fe37c9149f06382df3f718875accce96c39fdbade340f473a239309b44d20d",
+                "signature": "[redacted-signature]"
+              },
+              "slippageBps": "0",
+              "isMinAmountOut": false
+            }
+          },
+          "startedAt": "2026-10-25T12:00:28.830938+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_contract_invalid_signature",
+            "message": "InvalidSignature",
+            "timestamp": "2026-10-25T12:00:29.214452478Z",
+            "trace": "36633f320fa8c68a65ca2c0d379b9fc9"
+          },
+          "completedAt": "2026-10-25T12:00:29.006874+00:00"
+        },
+        {
+          "name": "market_gtc_identical_repeat",
+          "request": {
+            "data": {
+              "strategy": "MARKET",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "255220054",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792929927,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0xc5fe37c9149f06382df3f718875accce96c39fdbade340f473a239309b44d20d",
+                "signature": "[redacted-signature]"
+              },
+              "slippageBps": "0",
+              "isMinAmountOut": false
+            }
+          },
+          "startedAt": "2026-10-25T12:00:29.008604+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_contract_invalid_signature",
+            "message": "InvalidSignature",
+            "timestamp": "2026-10-25T12:00:29.381921152Z",
+            "trace": "75dad331cc4fe3620adc5bd543975565"
+          },
+          "completedAt": "2026-10-25T12:00:29.176307+00:00"
+        },
+        {
+          "name": "market_fok_invalid_signature",
+          "request": {
+            "data": {
+              "strategy": "MARKET",
+              "pricePerShare": "10000000000000000",
+              "order": {
+                "salt": "255220054",
+                "maker": "[redacted]",
+                "signer": "[redacted]",
+                "taker": "[redacted-address]",
+                "tokenId": "53727338341141758961983375514819431676140033602166521068469999613293808179494",
+                "makerAmount": "1000000000000000000",
+                "takerAmount": "100000000000000000000",
+                "expiration": 1792929927,
+                "nonce": "0",
+                "feeRateBps": "200",
+                "side": 0,
+                "signatureType": 0,
+                "hash": "0xc5fe37c9149f06382df3f718875accce96c39fdbade340f473a239309b44d20d",
+                "signature": "[redacted-signature]"
+              },
+              "slippageBps": "0",
+              "isMinAmountOut": false,
+              "isFillOrKill": true
+            }
+          },
+          "startedAt": "2026-10-25T12:00:29.178062+00:00",
+          "transmissionIntent": true,
+          "httpStatus": 400,
+          "response": {
+            "success": false,
+            "code": 400,
+            "error": "create_order_contract_invalid_signature",
+            "message": "InvalidSignature",
+            "timestamp": "2026-10-25T12:00:29.572937798Z",
+            "trace": "3932ac61061c6ed3cfe592c05596d453"
+          },
+          "completedAt": "2026-10-25T12:00:29.370220+00:00"
+        }
+      ],
+      "walletEvents": [],
+      "walletObservation": {
+        "events": [],
+        "heartbeats": 0,
+        "elapsed": 5.157219749999058
+      },
+      "restByHash": [
+        {
+          "hash": "0x9743b9fc34adb62146bbfa3bb8d552bb29303d289305abe559d450af411bc139",
+          "httpStatus": 404,
+          "response": {
+            "success": false,
+            "code": 404,
+            "error": "not_found",
+            "message": "order not found",
+            "timestamp": "2026-10-25T12:00:29.742876356Z",
+            "trace": "b15db6683bdb055b33a7f8882ea0e623"
+          }
+        },
+        {
+          "hash": "0xc5fe37c9149f06382df3f718875accce96c39fdbade340f473a239309b44d20d",
+          "httpStatus": 404,
+          "response": {
+            "success": false,
+            "code": 404,
+            "error": "not_found",
+            "message": "order not found",
+            "timestamp": "2026-10-25T12:00:29.900899973Z",
+            "trace": "1da44a28c1f779571838c197fcfa2588"
+          }
+        }
+      ],
+      "orderSignaturesCreated": 0
+    }
+  ]
+}

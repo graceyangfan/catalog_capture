@@ -120,7 +120,8 @@ async fn replay() -> Value {
                         MessagingSwitchboard::portfolio_update_account(),
                         &state,
                     ),
-                    _ => panic!("query unexpectedly emitted a command lifecycle event"),
+                    ExecutionEvent::Order(event) => engine.process(&event),
+                    _ => panic!("unexpected query event"),
                 }
             }
         })

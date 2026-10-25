@@ -1,0 +1,66 @@
+{
+  "source": "Authenticated mainnet probe using official Python SDK 0.0.22; 2026-10-24. Only zero-match MARKET FOK BUY branch verified; not successful all-or-none execution.",
+  "request": {
+    "strategy": "MARKET",
+    "isFillOrKill": true,
+    "isMinAmountOut": false,
+    "slippageBps": "0",
+    "pricePerShare": "10000000000000000",
+    "makerAmount": "1000000000000000000",
+    "takerAmount": "100000000000000000000"
+  },
+  "observedBestAsk": "0.31",
+  "httpStatus": 201,
+  "immediateRestStatus": "OPEN",
+  "finalRestStatus": "CANCELLED",
+  "finalAmountFilled": "0",
+  "finalRunOpenOrders": 0,
+  "walletEvents": [
+    {
+      "details": {
+        "categorySlug": "will-ethereum-hit-1k-or-3k-first",
+        "marketId": 52261,
+        "marketQuestion": "Will Ethereum hit $1,000 or $3,000 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$1,000",
+        "price": "0.010",
+        "quantity": "100.000",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x54dd4cd92fbf98c2e0b5b49a7ed7acd22fc93f07b0bc831130042e9bb3ce796f",
+      "orderId": "6183824180",
+      "timestamp": 1792843320985,
+      "type": "orderAccepted",
+      "walletAddress": "[redacted]"
+    },
+    {
+      "details": {
+        "categorySlug": "will-ethereum-hit-1k-or-3k-first",
+        "marketId": 52261,
+        "marketQuestion": "Will Ethereum hit $1,000 or $3,000 first?",
+        "outcome": "YES",
+        "outcomeIndex": 1,
+        "outcomeName": "$1,000",
+        "price": "0.010",
+        "quantity": "100.000",
+        "quantityFilled": "0.000",
+        "quoteType": "BID",
+        "strategyType": "MARKET",
+        "value": "1.00",
+        "valueFilled": "0.00"
+      },
+      "orderHash": "0x54dd4cd92fbf98c2e0b5b49a7ed7acd22fc93f07b0bc831130042e9bb3ce796f",
+      "orderId": "6183824180",
+      "reason": "noMarketMatch",
+      "settlementId": null,
+      "timestamp": 1792843321235,
+      "type": "orderNotAccepted",
+      "walletAddress": "[redacted]"
+    }
+  ]
+}

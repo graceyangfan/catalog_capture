@@ -49,7 +49,7 @@ fn mixed_cost_audit() -> Value {
         (5, OrderSide::Sell, "26.36", "0.012", None, "0.0063264 USDT"),
     ] {
         let mut fill = fill(sequence, side, qty, px, quote_fee);
-        fill.quantity_commission = shares_fee.map(|v| Decimal::from_str_exact(v).unwrap());
+        fill.quantity_commission = shares_fee.map(Quantity::from);
         if sequence == 4 {
             fill.liquidity_side = nautilus_model::enums::LiquiditySide::Maker;
         }
@@ -66,7 +66,7 @@ fn mixed_cost_audit() -> Value {
         } - fill.commission.unwrap().as_decimal();
         let current = position.as_ref().unwrap();
         let marked_cash = cash + current.quantity.as_decimal() * fill.last_px.as_decimal();
-        let pnl = current.total_pnl(fill.last_px).as_decimal();
+        let pnl = current.total_pnl(fill.last_px).unwrap().as_decimal();
         assert!((pnl - marked_cash).abs() <= Decimal::new(1, 8));
         states.push(
             json!({"quantity":current.quantity,"average":current.avg_px_open,
@@ -112,16 +112,16 @@ fn inventory_fee_cost_preserves_legacy_base_fee_behavior_and_trade_average() {
                 Money::from_decimal(Decimal::new(1, 2), spot.base_currency().unwrap()).unwrap(),
             );
         } else {
-            buy.quantity_commission = Some(Decimal::new(1, 2));
+            buy.quantity_commission = Some(Quantity::from_decimal(Decimal::new(1, 2)).unwrap());
         }
         let mut position = None;
         apply_fill(&mut position, &spot, &buy);
         let current = position.as_ref().unwrap();
-        assert_eq!(current.avg_px_open, 100.0);
+        assert_eq!(current.avg_px_open, Decimal::from(100));
         let expected_entry = if base_fee { "0 USDT" } else { "-1 USDT" };
         assert_eq!(current.realized_pnl.unwrap(), Money::from(expected_entry));
         assert_eq!(
-            current.total_pnl(Price::from("101")),
+            current.total_pnl(Price::from("101")).unwrap(),
             Money::from(if base_fee { "0.99 USDT" } else { "-0.01 USDT" })
         );
         let close = super::native_fee_paths::fill(
@@ -164,7 +164,7 @@ async fn recorded_cost_audit() -> Value {
         Money::from("-0.08142080 USDT")
     );
     assert_eq!(
-        position.quantity_commission_total,
+        super::native_fee_paths::quantity_fees(&position),
         Some(Decimal::new(64, 2))
     );
     json!({
@@ -173,7 +173,7 @@ async fn recorded_cost_audit() -> Value {
         "liveNodeReplay":replay,"costedNativePosition":position,"mixedCostAudit":mixed_cost_audit(),
         "precisionBoundary":subquantum_cost_audit(),
         "limits":["identities and times rebound to loopback", "mixed-price and precision cases are synthetic",
-            "Native floating-point PnL remains subject to Money precision"]
+            "Native checked Decimal products and PnL remainders remain bounded by domain precision"]
     })
 }
 
@@ -210,29 +210,29 @@ fn subquantum_cost_audit() -> Value {
     let mut cumulative_expense = Money::zero(Currency::USDT());
     for sequence in 1..=4 {
         let mut buy = fill(sequence, OrderSide::Buy, "1", "0.04", "0 USDT");
-        buy.quantity_commission = Some(Decimal::new(1, 7));
+        buy.quantity_commission = Some(Quantity::from_decimal(Decimal::new(1, 7)).unwrap());
         apply_fill(&mut position, &instrument, &buy);
-        // Candidate projection only: one Native cumulative cost value would suffice;
-        // the previously projected amount is derived, not separately persisted.
-        let previous = Money::from_decimal(raw_cost_total, Currency::USDT()).unwrap();
-        raw_cost_total += buy.quantity_commission.unwrap() * buy.last_px.as_decimal();
+        // Independent valuation of the original fills; Native owns its PnL remainder.
+        let previous = Money::from_decimal_exact(raw_cost_total, Currency::USDT()).unwrap();
+        raw_cost_total += buy.quantity_commission.unwrap().as_decimal() * buy.last_px.as_decimal();
         cumulative_expense = cumulative_expense
-            + (Money::from_decimal(raw_cost_total, Currency::USDT()).unwrap() - previous);
+            + (Money::from_decimal_exact(raw_cost_total, Currency::USDT()).unwrap() - previous);
     }
     let position = position.unwrap();
     let cash_with_inventory =
         position.quantity.as_decimal() * Decimal::new(4, 2) - Decimal::new(16, 2);
     assert_eq!(cash_with_inventory, Decimal::new(-16, 9));
-    let expected = Money::from_decimal(cash_with_inventory, Currency::USDT()).unwrap();
-    let actual = position.total_pnl(Price::from("0.04"));
+    let expected = Money::from_decimal_exact(cash_with_inventory, Currency::USDT()).unwrap();
+    let actual = position.total_pnl(Price::from("0.04")).unwrap();
     assert_eq!(actual, expected);
     assert!(
-        (position.quantity_commission_cost.unwrap() - raw_cost_total).abs() < Decimal::new(1, 22)
+        (super::native_fee_paths::quantity_fee_value(&position).unwrap() - raw_cost_total).abs()
+            < Decimal::new(1, 22)
     );
-    assert_eq!(expected, Money::from("-0.00000002 USDT"));
-    assert_eq!(cumulative_expense, Money::from("0.00000002 USDT"));
+    assert_eq!(expected.as_decimal(), Decimal::new(-16, 9));
+    assert_eq!(cumulative_expense.as_decimal(), Decimal::new(16, 9));
     assert_eq!(raw_cost_total, -cash_with_inventory);
-    json!({"source":"synthetic cumulative cost projection, not a venue execution",
+    json!({"source":"synthetic original-fill valuation against Native PnL remainders; not a venue execution",
         "fills":4,"feePerFill":"0.0000001","price":"0.04",
         "rawCostTotal":raw_cost_total.to_string(),"nativeExpense":actual,
         "cumulativeProjectedDebits":cumulative_expense,

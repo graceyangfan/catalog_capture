@@ -66,7 +66,7 @@ pub(super) fn latest_venue_fill(order: &impl super::context::OrderView) -> UnixN
     }
 }
 
-// Reservation inputs only; transient status still advances the full readiness revision.
+// Reservation inputs only; transient status still advances the account observation revision.
 pub(super) fn order_resources_changed<
     O: super::context::OrderView,
     P: super::context::OrderView,
@@ -95,6 +95,7 @@ pub(super) fn order_resources_changed<
 pub(super) struct AccountSync {
     pub state: Mutex<AccountSyncState>,
     pub notify: Notify,
+    pub nonce_notify: Notify,
 }
 
 #[derive(Debug, Default)]
@@ -102,11 +103,13 @@ pub(super) struct AccountSyncState {
     pub revision: u64,
     // Local projection depends on reservation inputs, not transient command statuses.
     pub resource_revision: u64,
-    // Epoch-scoped exchange nonces prepared by account initialization/recovery/refresh.
-    // Funds, approvals and inventory remain venue-authoritative for command admission.
-    pub signing_nonces: Option<(u64, [alloy::primitives::U256; 4])>,
+    // Fixed client account/environment; each entry belongs to one verifying contract.
+    // WS epochs and instrument retirement do not change signing inputs.
+    pub signing_nonces: [Option<alloy::primitives::U256>; 4],
     // An index into Native worker snapshots, not a second order or balance model.
     pub active_orders: HashMap<ClientOrderId, Option<VenueOrderId>>,
+    // One-shot Native query intent after a wallet observation lacks terminal evidence.
+    pub order_status_requests: HashSet<ClientOrderId>,
     // Chain freshness must outlive Native's retention of individual settled orders.
     pub latest_fill: UnixNanos,
     pub last_event: Option<UUID4>,
@@ -117,7 +120,7 @@ pub(super) struct AccountSyncState {
     open_collected: u64,
     confirmed: Option<Arc<ConfirmedAccount>>,
     projected_revision: Option<u64>,
-    // Venue facts only: Native can synthesize Canceled on retry exhaustion.
+    // Venue facts only: an unresolved local command cannot release remote OPEN cash.
     pub confirmed_terminal: HashSet<VenueOrderId>,
 }
 
@@ -213,7 +216,7 @@ impl AccountSyncState {
     }
 
     pub fn clear_connection(&mut self) {
-        self.signing_nonces = None;
+        self.signing_nonces = [None; 4];
         self.confirmed = None;
         self.projected_revision = None;
         self.confirmed_terminal.clear();
@@ -247,13 +250,42 @@ impl AccountReporter {
         self.refresh_account(false).await
     }
 
+    pub(super) async fn refresh_nonces(&self) -> anyhow::Result<()> {
+        if self.config.submission_signer.is_none() {
+            return Ok(());
+        }
+        // Initialization precedes run_nonces; only that serialized branch writes
+        // missing entries afterward. Cash queries never restore invalidated values.
+        let prepared = self
+            .sync
+            .state
+            .lock()
+            .expect("account sync poisoned")
+            .signing_nonces;
+        let missing = prepared.map(|value| value.is_none());
+        if !missing.iter().any(|value| *value) {
+            return Ok(());
+        }
+        let values = self
+            .chain
+            .request_signing_nonces(self.config.session.account_address(), missing)
+            .await?;
+        let mut state = self.sync.state.lock().expect("account sync poisoned");
+        for (index, value) in values.into_iter().enumerate() {
+            if missing[index] && state.signing_nonces[index] == prepared[index] {
+                state.signing_nonces[index] = value;
+            }
+        }
+        Ok(())
+    }
+
     async fn refresh_account(&self, periodic: bool) -> anyhow::Result<bool> {
         Ok(self.collect_account(periodic).await?.is_some())
     }
 
     /// Return this collection's immutable OPEN view, not whichever periodic
     /// refresh happens to occupy the shared slot when recovery starts.
-    pub async fn refresh_for_readiness(&self) -> anyhow::Result<Option<Arc<ConfirmedAccount>>> {
+    pub async fn refresh_snapshot(&self) -> anyhow::Result<Option<Arc<ConfirmedAccount>>> {
         self.collect_account(false).await
     }
 
@@ -266,10 +298,9 @@ impl AccountReporter {
             self.allow_stream_gap || self.authentication.is_authenticated(),
             "Predict account reporting requires an acknowledged wallet connection"
         );
-        let (prepared, requested, open_requested, verify_open) = {
+        let (requested, open_requested, verify_open) = {
             let state = self.sync.state.lock().expect("account sync poisoned");
             (
-                state.signing_nonces,
                 state.remote_requested,
                 state.open_requested,
                 periodic
@@ -281,10 +312,6 @@ impl AccountReporter {
                     || state.open_requested != state.open_collected,
             )
         };
-        let signing = self.config.submission.is_some()
-            && (periodic
-                || self.allow_stream_gap
-                || prepared.is_none_or(|(prepared_epoch, _)| prepared_epoch != epoch));
         let collection = tokio::time::timeout(
             Duration::from_secs(self.config.report_timeout_secs),
             async {
@@ -296,10 +323,9 @@ impl AccountReporter {
                             Ok(None)
                         }
                     },
-                    self.chain.request_execution_account_snapshot(
+                    self.chain.request_balance_snapshot(
                         self.config.session.account_address(),
                         self.clock,
-                        signing,
                     ),
                 )
             },
@@ -328,7 +354,7 @@ impl AccountReporter {
         {
             self.sync.notify.notify_one();
         }
-        let (rows, (snapshot, nonces)) =
+        let (rows, snapshot) =
             collected.map_err(|_| anyhow::anyhow!("Predict account collection timed out"))??;
         let rows = rows
             .map(|rows| {
@@ -388,12 +414,6 @@ impl AccountReporter {
             state.confirmed = Some(Arc::clone(&collected));
             state.projected_revision = None;
             state.remote_collected = requested;
-            if let Some(values) = nonces {
-                // A rejection during IO must not restore the disproved signing nonce.
-                if state.signing_nonces == prepared {
-                    state.signing_nonces = Some((epoch, values));
-                }
-            }
             collected
         };
         let result = self.project();
@@ -411,7 +431,6 @@ impl AccountReporter {
             .is_none_or(|base| base.epoch != self.connection_epoch.load(Ordering::Acquire))
             || state.remote_requested != state.remote_collected
             || state.open_requested != state.open_collected
-            || (self.config.submission.is_some() && state.signing_nonces.is_none())
     }
 
     fn project(&self) -> anyhow::Result<bool> {
@@ -803,30 +822,35 @@ impl AccountReporter {
             None,
         );
         let balance = reported_balance(snapshot, locked)?;
-        let mut info = Params::new();
-        info.insert(
-            "predict_block_number".into(),
-            serde_json::json!(snapshot.block_number),
-        );
-        info.insert(
-            "predict_block_hash".into(),
-            serde_json::json!(format!("{:#x}", snapshot.block_hash)),
-        );
-        info.insert(
-            "predict_account_address".into(),
-            serde_json::json!(format!("{:#x}", snapshot.account_address)),
-        );
-        info.insert(
-            "predict_balance_wei".into(),
-            serde_json::json!(snapshot.balance_wei.to_string()),
-        );
-        info.insert(
-            "predict_chain_id".into(),
-            serde_json::json!(snapshot.environment.chain_id()),
-        );
-        info.insert(
-            "predict_requested_lock".into(),
-            serde_json::json!(locked.as_decimal().to_string()),
+        let info = Params::new(
+            [
+                ("predict_connection_epoch".into(), serde_json::json!(epoch)),
+                (
+                    "predict_block_number".into(),
+                    serde_json::json!(snapshot.block_number),
+                ),
+                (
+                    "predict_block_hash".into(),
+                    serde_json::json!(format!("{:#x}", snapshot.block_hash)),
+                ),
+                (
+                    "predict_account_address".into(),
+                    serde_json::json!(format!("{:#x}", snapshot.account_address)),
+                ),
+                (
+                    "predict_balance_wei".into(),
+                    serde_json::json!(snapshot.balance_wei.to_string()),
+                ),
+                (
+                    "predict_chain_id".into(),
+                    serde_json::json!(snapshot.environment.chain_id()),
+                ),
+                (
+                    "predict_requested_lock".into(),
+                    serde_json::json!(locked.as_decimal().to_string()),
+                ),
+            ]
+            .into(),
         );
         let event = factory.generate_account_state(
             vec![balance],
@@ -917,6 +941,31 @@ pub(super) async fn collect_open_orders(
 }
 
 pub(super) async fn run(reporter: AccountReporter, cancellation: CancellationToken) {
+    // One TaskGroup-owned task, independent IO branches; no nonce timer or order wait queue.
+    tokio::join!(
+        run_account(&reporter, &cancellation),
+        run_nonces(&reporter, &cancellation)
+    );
+}
+
+async fn run_nonces(reporter: &AccountReporter, cancellation: &CancellationToken) {
+    loop {
+        tokio::select! { biased;
+            _ = cancellation.cancelled() => return,
+            _ = reporter.sync.nonce_notify.notified() => {}
+        }
+        tokio::select! { biased;
+            _ = cancellation.cancelled() => return,
+            result = reporter.refresh_nonces() => {
+                if let Err(error) = result {
+                    log::warn!("Predict signing nonce refresh failed: {error}");
+                }
+            }
+        }
+    }
+}
+
+async fn run_account(reporter: &AccountReporter, cancellation: &CancellationToken) {
     let mut interval = tokio::time::interval(Duration::from_secs(
         reporter.config.account_refresh_interval_secs,
     ));
@@ -928,6 +977,10 @@ pub(super) async fn run(reporter: AccountReporter, cancellation: CancellationTok
             _ = reporter.sync.notify.notified() => false,
             _ = interval.tick() => true,
         };
+        if periodic {
+            // Retry missing parameters on the existing funding cadence, without polling valid ones.
+            reporter.sync.nonce_notify.notify_one();
+        }
         if !reporter.authentication.is_authenticated() {
             // The private transport owns resubscription; retain this generation across gaps.
             continue;

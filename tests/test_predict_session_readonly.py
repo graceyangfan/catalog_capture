@@ -1,4 +1,5 @@
 """Offline gates for the real private-session probe. LGPL-3.0-or-later."""
+
 import json
 import queue
 import tempfile
@@ -6,9 +7,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from websockets.sync.client import connect
 from run_predict_queries_readonly import ReadOnlyRelay, permitted
 from run_predict_session_readonly import WalletRelay
+from websockets.sync.client import connect
 
 
 class Remote:
@@ -35,7 +36,7 @@ class SessionRelayTests(unittest.TestCase):
         self.assertFalse(permitted("POST", "/rpc", {"method": "eth_sendRawTransaction"}))
         self.assertTrue(permitted("POST", "/v1/auth", {}))
 
-    def test_actual_two_rotations_restore_native_and_strategy_account_without_trading(self):
+    def test_historical_two_rotation_capture_preserves_its_original_readiness_contract(self):
         source = Path(__file__).resolve().parents[1] / "crates/nautilus-predict/tests/fixtures/private_api/session_readonly_20261017T045625Z_69675.json"
         data = json.loads(source.read_text())
         feedback = data["rustFeedback"]

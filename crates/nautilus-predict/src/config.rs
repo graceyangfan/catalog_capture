@@ -22,9 +22,7 @@ pub use chain::PredictChainClientConfig;
 #[cfg(feature = "execution")]
 mod execution;
 #[cfg(feature = "execution")]
-pub use execution::{
-    PredictAccountStateMode, PredictExecutionClientConfig, PredictSubmissionConfig,
-};
+pub use execution::{PredictAccountStateMode, PredictExecutionClientConfig};
 
 #[cfg(feature = "execution")]
 mod private;

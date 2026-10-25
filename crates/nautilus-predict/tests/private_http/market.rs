@@ -57,3 +57,86 @@ async fn market_transport_preserves_sdk_request_and_never_retries_ambiguous_crea
         assert_eq!(requests[0].path, "/v1/orders");
     }
 }
+
+#[tokio::test]
+async fn market_fok_probe_preserves_signed_terms_and_does_not_retry() {
+    use nautilus_predict::http::command_models::PredictCreateOrderRequest;
+    let fixture: Value =
+        serde_json::from_str(include_str!("../fixtures/market_requests.json")).unwrap();
+    let scale = U256::from(1_000_000_000_000_000_000u64);
+    for side in [PredictOrderSide::Buy, PredictOrderSide::Sell] {
+        let amounts = PredictMarketOrderAmounts::from_price(
+            side,
+            scale * U256::from(100),
+            scale / U256::from(100),
+            0,
+        )
+        .unwrap();
+        let mut order: PredictOrder =
+            serde_json::from_value(fixture["vectors"][0]["body"]["data"]["order"].clone()).unwrap();
+        order.side = side;
+        order.maker_amount = amounts.maker_amount;
+        order.taker_amount = amounts.taker_amount;
+        let signed = PredictOrderSigner::new(Arc::new(
+            PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictEnvironment::BnbTestnet, None)
+                .unwrap(),
+        ))
+        .sign_order(&order, PredictExchangeType::Standard)
+        .unwrap();
+        let ordinary =
+            serde_json::to_value(PredictCreateOrderRequest::market(&signed, &amounts).unwrap())
+                .unwrap();
+        assert!(ordinary["data"].get("isFillOrKill").is_none());
+        for status in [201, 400, 500] {
+            let body = if status == 201 {
+                json!({"success":true,"data":{"code":"opaque","orderId":"12345","orderHash":signed.hash()}})
+            } else {
+                json!({"success":false,"code":status,"error":"bad_request","message":"probe rejection"})
+            };
+            let server = server(vec![Reply {
+                status,
+                body: body.to_string(),
+                headers: vec![],
+            }])
+            .await;
+            let client = http_client(
+                PredictEnvironment::BnbTestnet,
+                Some(API_KEY),
+                Some(&server.url),
+                5,
+            )
+            .unwrap();
+            let session = client
+                .authenticated(PredictAuthToken::new(TOKEN.into()).unwrap(), order.maker)
+                .unwrap();
+            let result = session
+                .request_create_market_fok_order(&signed, &amounts)
+                .await;
+            assert_eq!(result.is_ok(), status == 201);
+            let requests = server.requests.lock().unwrap();
+            assert_eq!(requests.len(), 1);
+            let mut expected = ordinary.clone();
+            expected["data"]["isFillOrKill"] = json!(true);
+            assert_eq!(requests[0].body, expected);
+            assert_eq!(requests[0].path, "/v1/orders");
+        }
+        let server = server(vec![]).await;
+        let session = transport(&server)
+            .authenticated(PredictAuthToken::new(TOKEN.into()).unwrap(), order.maker)
+            .unwrap();
+        assert!(matches!(
+            session
+                .request_create_market_fok_order(&signed, &amounts)
+                .await,
+            Err(Error::BadRequest(_))
+        ));
+        let mainnet = PredictOrderSigner::new(Arc::new(
+            PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictEnvironment::BnbMainnet, None)
+                .unwrap(),
+        ))
+        .sign_order(&order, PredictExchangeType::Standard)
+        .unwrap();
+        assert!(PredictCreateOrderRequest::market_fok(&mainnet, &amounts).is_ok());
+        assert!(server.requests.lock().unwrap().is_empty());
+    }
+}
