@@ -112,6 +112,12 @@ struct VenueState {
     closes: mpsc::UnboundedSender<usize>,
     count: Arc<AtomicUsize>,
     handshakes: Arc<Mutex<Vec<(HeaderMap, String)>>>,
+    auth_gate: Arc<Mutex<Option<Arc<AuthGate>>>>,
+}
+
+struct AuthGate {
+    started: tokio::sync::Notify,
+    release: tokio::sync::Notify,
 }
 
 struct Server {
@@ -120,6 +126,7 @@ struct Server {
     requests: mpsc::UnboundedReceiver<(usize, Value)>,
     closes: mpsc::UnboundedReceiver<usize>,
     handshakes: Arc<Mutex<Vec<(HeaderMap, String)>>>,
+    auth_gate: Arc<Mutex<Option<Arc<AuthGate>>>>,
     task: JoinHandle<()>,
 }
 
@@ -180,6 +187,22 @@ fn json_response(value: Value) -> Response {
         .unwrap()
 }
 
+async fn authenticate(State(state): State<VenueState>) -> Response {
+    let gate = state.auth_gate.lock().unwrap().clone();
+    if let Some(gate) = gate {
+        gate.started.notify_one();
+        gate.release.notified().await;
+    }
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    let now = nautilus_core::time::get_atomic_clock_realtime()
+        .get_time_ns()
+        .as_u64()
+        / 1_000_000_000;
+    json_response(
+        json!({"success":true,"data":{"token":format!("e30.{}.signature",URL_SAFE_NO_PAD.encode(json!({"exp":now+3600}).to_string()))}}),
+    )
+}
+
 async fn server() -> Server {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("ws://{}/ws", listener.local_addr().unwrap());
@@ -187,20 +210,18 @@ async fn server() -> Server {
     let (request_tx, requests) = mpsc::unbounded_channel();
     let (close_tx, closes) = mpsc::unbounded_channel();
     let handshakes = Arc::new(Mutex::new(vec![]));
+    let auth_gate = Arc::new(Mutex::new(None));
     let state = VenueState {
         connections: connection_tx,
         requests: request_tx,
         closes: close_tx,
         count: Arc::new(AtomicUsize::new(0)),
         handshakes: Arc::clone(&handshakes),
+        auth_gate: Arc::clone(&auth_gate),
     };
     let router = Router::new().route("/ws", get(websocket))
         .route("/v1/auth/message", get(|| async { json_response(json!({"success":true,"data":{"message":"rotation challenge"}})) }))
-        .route("/v1/auth", post(|| async {
-            use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-            let now = nautilus_core::time::get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000_000;
-            json_response(json!({"success":true,"data":{"token":format!("e30.{}.signature",URL_SAFE_NO_PAD.encode(json!({"exp":now+3600}).to_string()))}}))
-        }))
+        .route("/v1/auth", post(authenticate))
         .route("/v1/account", get(|| async { json_response(json!({"success":true,"data":{"name":"fixture","address":WALLET,"imageUrl":null,"referral":{"code":null,"status":"LOCKED"},"points":{"total":0}}})) }))
         .with_state(state);
     let task = tokio::spawn(async move {
@@ -212,6 +233,7 @@ async fn server() -> Server {
         requests,
         closes,
         handshakes,
+        auth_gate,
         task,
     }
 }
@@ -1018,6 +1040,11 @@ async fn execution_lifecycle_renews_readonly_authentication_and_cancels_its_work
         signing::{PredictAuthSigner, PredictChain},
     };
     let mut server = server().await;
+    let gate = Arc::new(AuthGate {
+        started: tokio::sync::Notify::new(),
+        release: tokio::sync::Notify::new(),
+    });
+    *server.auth_gate.lock().unwrap() = Some(Arc::clone(&gate));
     let now = nautilus_core::time::get_atomic_clock_realtime()
         .get_time_ns()
         .as_u64()
@@ -1090,6 +1117,14 @@ async fn execution_lifecycle_renews_readonly_authentication_and_cancels_its_work
         (request, first)
     });
     connected.unwrap();
+    timeout(Duration::from_secs(5), gate.started.notified())
+        .await
+        .unwrap();
+    assert!(
+        client.is_connected(),
+        "pending HTTP renewal must not invalidate the old acknowledged wallet"
+    );
+    gate.release.notify_one();
     let second = server.connection().await;
     let (_, replacement) = server.request().await;
     assert_ne!(original["params"], replacement["params"]);

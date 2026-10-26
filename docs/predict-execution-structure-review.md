@@ -44,6 +44,8 @@ default. Report timeouts bound those asynchronous collections, not WS callbacks
 or warm submit/cancel. A known Native MARKET order uses its cached base quantity
 for reports. A venue-only MARKET BUY has no trustworthy fixed base quantity in
 its signed minimum-output terms, so cold recovery must not invent one.
+HTTP token renewal leaves the current acknowledged wallet in service until a
+replacement token is published; the WS handler then requires a new ACK.
 
 Rolling category slugs locate the current and next market; they are venue
 identifiers, not display titles. BinaryOption `description` retains the venue

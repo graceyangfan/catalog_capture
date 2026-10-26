@@ -1,6 +1,6 @@
 // Copyright (C) 2026 yfclark and contributors. LGPL-3.0-or-later.
 //! Account-scoped authentication lifecycle; Native owns all trading recovery.
-use std::{sync::atomic::Ordering, time::Duration};
+use std::time::Duration;
 
 use super::PredictExecutionClient;
 
@@ -22,11 +22,6 @@ impl PredictExecutionClient {
             return Ok(());
         }
         let cancellation = self.tasks.cancellation_token();
-        let auth = self
-            .wallet_auth
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("wallet auth unavailable"))?;
-        let required = self.account_refresh_required.clone();
         let clock = self.clock;
         self.tasks.spawn_named("predict-authentication", async move {
             loop {
@@ -37,10 +32,8 @@ impl PredictExecutionClient {
                     _ = cancellation.cancelled() => break,
                     _ = tokio::time::sleep(renewal_delay(expiry, now)) => {},
                 }
-                // Credential rotation requires the replacement wallet ACK. Account/nonce
-                // refresh remains independent of authenticated transport connectivity.
-                auth.invalidate();
-                required.store(true, Ordering::Release);
+                // Keep the old acknowledged wallet active while HTTP renewal is pending.
+                // Publishing a replacement token makes the WS handler require a fresh ACK.
                 let mut retry = 1;
                 loop {
                     let result = tokio::select! {
