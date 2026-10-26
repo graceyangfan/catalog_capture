@@ -136,7 +136,8 @@ fn crypto_category_slugs(selector: &PredictCryptoUpDownSelector, now_ns: u64) ->
 }
 
 fn interval_slug(interval_secs: u64) -> Option<String> {
-    if interval_secs == 0 {
+    // The date-named daily product does not use the rolling interval slug.
+    if interval_secs == 0 || interval_secs >= 86_400 {
         return None;
     }
     if interval_secs.is_multiple_of(3600) {
@@ -345,6 +346,7 @@ mod tests {
         assert_eq!(interval_slug(5), Some("5s".to_string()));
         assert_eq!(interval_slug(300), Some("5m".to_string()));
         assert_eq!(interval_slug(3600), Some("1h".to_string()));
+        assert_eq!(interval_slug(86_400), None);
         assert_eq!(interval_slug(0), None);
     }
 }
