@@ -15,8 +15,9 @@ issued inside Accepted callbacks can advance Cache to PendingUpdate/PendingCance
 before that Accepted event is logged by the generic handler.
 
 The LIMIT collector failed with ProxyError during its final read-only snapshot.
-Its failure log is retained. Independent follow-up GETs established both order
-terminals and zero OPEN orders; they do not replace the missing wallet capture.
+Its diagnostic log remains in the local run directory. Independent follow-up
+GETs established both order terminals and zero OPEN orders; they do not replace
+the missing wallet capture.
 MARKET has separate wallet observations and an independent SDK request check.
 
 These probes establish no-fill command/rejection/cancellation interactions. They

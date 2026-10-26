@@ -374,7 +374,7 @@ async fn background_validation_rejects_invalid_fee_and_sibling_token_before_cach
 #[tokio::test]
 async fn reconnect_reuses_valid_parameters_while_account_refresh_is_suspended() {
     let server = server(vec![]).await;
-    let ((mut client, mut rx, cache, clock), _collector) =
+    let ((mut client, mut rx, cache, clock), mut collector) =
         submissions::setup_metadata_probe(&server, 30);
     let _portfolio = portfolio(&cache);
     cache
@@ -415,6 +415,7 @@ async fn reconnect_reuses_valid_parameters_while_account_refresh_is_suspended() 
         server.state.rpc_gate.lock().unwrap().is_none()
     })
     .await;
+    let before = collector.snapshot();
     let first = sell(1, 1001);
     cache
         .borrow_mut()
@@ -432,7 +433,16 @@ async fn reconnect_reuses_valid_parameters_while_account_refresh_is_suspended() 
         server.state.creations.lock().unwrap()[0]["data"]["order"]["nonce"],
         "7"
     );
-    assert_eq!(*server.state.market_requests.lock().unwrap(), 1);
+    let after = collector.snapshot();
+    assert_eq!(
+        after.counters["metadata_hit"],
+        before.counters["metadata_hit"] + 1,
+        "submission must use the still-valid prepared market"
+    );
+    assert_eq!(
+        after.counters["metadata_miss"], before.counters["metadata_miss"],
+        "submission must not request market recovery"
+    );
     assert_eq!(*server.state.book_requests.lock().unwrap(), 0);
     cash_gate.notify_one();
     client.disconnect().await.unwrap();

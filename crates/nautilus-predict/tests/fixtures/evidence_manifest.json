@@ -1107,12 +1107,6 @@
       "sha256": "eec4f4efa78f33164f5d9145408b3c176c88397f616d3f83bfba7e368ac41e88"
     },
     {
-      "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/collector.log",
-      "tier": "primary_capture",
-      "bytes": 481,
-      "sha256": "0b3975d3e1fec5c970679bc80ed7507a3ab54388c723a8e66ac93cbc3cf81a15"
-    },
-    {
       "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/limit/http_responses.json",
       "tier": "synthetic",
       "bytes": 6564,
@@ -1175,8 +1169,8 @@
     {
       "path": "tests/fixtures/private_api/live_native_zero_fill_20261025/source.json",
       "tier": "derived",
-      "bytes": 3210,
-      "sha256": "dd69840252f1b066867184056101bd245d23dcbe2d6626dbd125ead84b43bec2"
+      "bytes": 3057,
+      "sha256": "2bf8f42fed7690d67d0649fe03593cc121f494bc482f72b1cf928eb8b60967e0"
     },
     {
       "path": "tests/fixtures/private_api/live_order_lifecycle_survey_20261025.json",

@@ -29,6 +29,29 @@ and numeric REST ID remain separate because they serve different venue endpoints
 Provisional settlement notices and confirmed raw evidence likewise have different
 lifetimes and economic meaning.
 
+## Protocol data boundaries
+
+Public orderbook WS frames decode into `PredictOrderbookWire` with exact Decimal
+tokens. One conversion validates the market and precision, then publishes
+`PredictOrderbookSnapshot` as custom data and derives Native YES/NO quote and
+depth events. Orderbook levels are share quantities; `settlementsPending` levels
+are venue-provided values, so their distinct field names preserve meaning.
+
+Private wallet WS frames supply the primary order lifecycle and confirmed fill
+facts. REST order and match DTOs supply explicit Native reports and recovery;
+the periodic account task reads OPEN orders and chain cash every 30 seconds by
+default. Report timeouts bound those asynchronous collections, not WS callbacks
+or warm submit/cancel. A known Native MARKET order uses its cached base quantity
+for reports. A venue-only MARKET BUY has no trustworthy fixed base quantity in
+its signed minimum-output terms, so cold recovery must not invent one.
+
+Rolling category slugs locate the current and next market; they are venue
+identifiers, not display titles. BinaryOption `description` retains the venue
+title, while optional exact `variantData.startPrice` is available as
+`info.start_price`. The current title-window parser and category evidence cover
+intraday products; a daily product requires its own observed slug and title
+format before claiming discovery support.
+
 ## Retained state and its authority
 
 | State | Why it belongs in the adapter |

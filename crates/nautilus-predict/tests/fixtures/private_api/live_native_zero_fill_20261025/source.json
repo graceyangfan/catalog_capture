@@ -35,11 +35,6 @@
       "sha256": "be5f5b56027f8f6686c10e1943ec6f6ce0dea6631c00ef264c407d8ce0cd8007"
     },
     {
-      "path": "limit/collector.log",
-      "bytes": 481,
-      "sha256": "0b3975d3e1fec5c970679bc80ed7507a3ab54388c723a8e66ac93cbc3cf81a15"
-    },
-    {
       "path": "market/http_responses.json",
       "bytes": 13617,
       "sha256": "f7aa6c8a5beabbc9e609579fc73b71c8c30df8ab8ecfdf49e3fa91be168ed543"
