@@ -16,10 +16,10 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   # Keep in sync with rust-toolchain.toml / workspace.package.rust-version
-  RUSTUP_TOOLCHAIN: 1.99.0
+  RUSTUP_TOOLCHAIN: 1.99.1
   # Immutable project fork baseline, shared with bootstrap-deps.sh.
   NAUTILUS_TRADER_REPOSITORY: graceyangfan/nautilus_trader
-  NAUTILUS_TRADER_REF: c9bbbcd89421245fa86286caaa173c6524638461
+  NAUTILUS_TRADER_REF: acd6c830484c91815fa3bee14ed2fc090bf8b006
 
 jobs:
   pre-commit:
@@ -41,7 +41,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.99.0
+          toolchain: 1.99.1
           components: rustfmt, clippy
 
       - name: Cache cargo
@@ -90,7 +90,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.99.0
+          toolchain: 1.99.1
           components: rustfmt, clippy
 
       - name: Cache cargo
@@ -156,7 +156,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.99.0
+          toolchain: 1.99.1
 
       - name: Install cargo-deny
         run: cargo install cargo-deny --version 0.19.9 --locked
