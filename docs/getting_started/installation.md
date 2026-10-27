@@ -28,13 +28,13 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `c9bbbcd89421245fa86286caaa173c6524638461` |
+| 0.1.x / main | `acd6c830484c91815fa3bee14ed2fc090bf8b006` |
 
 Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
 This project-fork baseline includes official develop
-`7cebe282353615d4f7b6fcdabde2911ba621516c` and the project's quantity-fee support.
+`698d5cc8f7012bdc111b060e97de3210ee0a6002` and the project's quantity-fee support.
 Predict targets these Native APIs directly. See the
-[upstream adaptation plan](../plans/predict-execution-lifecycle-refactor.md).
+[dependency handoff](../reference/predict-execution-validation.md#two-repository-handoff).
 
 The workspace uses a pinned project fork. `execution` enables
 its experimental inventory-fee mapping; this is not an unmodified upstream
@@ -46,11 +46,11 @@ upstream RFC #5418. Predict execution uses the matching Native APIs directly. Se
 
 ## Toolchain
 
-Rust **1.99.0** (`rust-toolchain.toml`):
+Rust **1.99.1** (`rust-toolchain.toml`):
 
 ```bash
-rustup toolchain install 1.99.0
-rustup component add rustfmt clippy --toolchain 1.99.0
+rustup toolchain install 1.99.1
+rustup component add rustfmt clippy --toolchain 1.99.1
 ```
 
 ## Build

@@ -13,7 +13,7 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Measure the production routing insertion with a fixed retained route population.
-#[path = "../src/execution/routing.rs"]
+#[path = "../src/execution/orders/routing.rs"]
 #[allow(dead_code, unused_imports)]
 mod routing;
 

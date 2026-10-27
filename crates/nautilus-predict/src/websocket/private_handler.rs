@@ -25,11 +25,11 @@ use std::{
 };
 
 use alloy::primitives::Address;
-use nautilus_core::string::secret::SecretString;
+use nautilus_core::{string::secret::SecretString, time::get_atomic_clock_realtime};
 use nautilus_network::{
-    RECONNECTED, SocketState, SocketStateSink,
-    transport::{Message, TransportError},
-    websocket::{AuthTracker, SubscriptionState, WebSocketClient, WebSocketConfig},
+    RECONNECTED,
+    transport::Message,
+    websocket::{AuthTracker, WebSocketClient},
 };
 use tokio::{
     sync::{mpsc, watch},
@@ -47,64 +47,6 @@ use crate::{common::credential::PredictAuthToken, config::PredictWalletWebSocket
 
 pub(crate) type TimedWalletMessage = (PredictWalletStreamMessage, Option<std::time::Instant>);
 type Inbound = (u64, Message, Option<std::time::Instant>);
-
-#[expect(
-    clippy::too_many_arguments,
-    reason = "transport generation handles and optional timing"
-)]
-pub(super) async fn connect_transport(
-    config: WebSocketConfig,
-    timeout_secs: u64,
-    connected: Arc<AtomicBool>,
-    epoch: Arc<AtomicU64>,
-    auth_tracker: AuthTracker,
-    overflow: Arc<AtomicBool>,
-    capacity: usize,
-    observe: bool,
-) -> Result<(mpsc::Receiver<Inbound>, WebSocketClient)> {
-    let tracker = auth_tracker.clone();
-    let sink = SocketStateSink::new(move |state| {
-        connected.store(state == SocketState::Connected, Ordering::Release);
-        if state == SocketState::Disconnected {
-            tracker.invalidate();
-        }
-    });
-    let (tx, reader) = mpsc::channel(capacity);
-    let ping_tx = tx.clone();
-    let ping_epoch = epoch.clone();
-    let ping_overflow = overflow.clone();
-    let client = tokio::time::timeout(
-        Duration::from_secs(timeout_secs),
-        WebSocketClient::epoch_builder()
-            .config(config)
-            .state_sink(sink)
-            .epoch_handler(Arc::new(move |generation, message| {
-                let received = observe.then(std::time::Instant::now);
-                epoch.fetch_max(generation, Ordering::AcqRel);
-                if tx.try_send((generation, message, received)).is_err() {
-                    overflow.store(true, Ordering::Release);
-                }
-            }))
-            .epoch_ping_handler(Arc::new(move |generation, data| {
-                ping_epoch.fetch_max(generation, Ordering::AcqRel);
-                if ping_tx
-                    .try_send((generation, Message::Ping(data.into()), None))
-                    .is_err()
-                {
-                    ping_overflow.store(true, Ordering::Release);
-                }
-            }))
-            .connect(),
-    )
-    .await
-    .map_err(|_| PredictWalletWsError::ConnectTimeout)?
-    .map_err(|error| match error {
-        TransportError::UpgradeRejected(status) => PredictWalletWsError::HandshakeRejected(status),
-        _ => PredictWalletWsError::Transport,
-    })?;
-    client.set_auth_tracker(auth_tracker, false);
-    Ok((reader, client))
-}
 
 pub(super) struct PredictWalletHandler {
     client: WebSocketClient,
@@ -126,7 +68,6 @@ pub(super) struct PredictWalletHandler {
     overflow: Arc<AtomicBool>,
     token_updates: watch::Receiver<PredictAuthToken>,
     auth_tracker: AuthTracker,
-    subscriptions: SubscriptionState,
 }
 
 impl PredictWalletHandler {
@@ -144,7 +85,6 @@ impl PredictWalletHandler {
         connected: Arc<AtomicBool>,
         epoch: Arc<AtomicU64>,
         auth_tracker: AuthTracker,
-        subscriptions: SubscriptionState,
     ) -> Self {
         let topic = format!(
             "predictWalletEvents/{}",
@@ -171,7 +111,6 @@ impl PredictWalletHandler {
             overflow,
             token_updates,
             auth_tracker,
-            subscriptions,
         }
     }
 
@@ -184,7 +123,6 @@ impl PredictWalletHandler {
         };
         self.connected.store(false, Ordering::Release);
         self.auth_tracker.fail("Predict wallet session stopped");
-        self.subscriptions.clear();
         self.state.send_replace(match result {
             Ok(()) => PredictWalletSubscriptionState::Closed,
             Err(error) => PredictWalletSubscriptionState::Failed(error),
@@ -195,11 +133,32 @@ impl PredictWalletHandler {
     async fn drive(&mut self) -> Result<()> {
         self.active_epoch = self.client.connection_epoch();
         self.epoch.store(self.active_epoch, Ordering::Release);
+        let mut token_expiry = {
+            let token = self.token_updates.borrow_and_update();
+            self.topic = format!("predictWalletEvents/{}", token.expose_secret()).into();
+            token
+                .expires_at()
+                .map_err(|_| PredictWalletWsError::Protocol)?
+        };
         self.subscribe().await?;
         let mut token_watch_open = true;
         let mut tick = tokio::time::interval(Duration::from_millis(50));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
+            // Expiry can precede a stalled renewal or server disconnect. Keep receiving
+            // venue facts, but retire the old ACK until a replacement token is subscribed.
+            if self.auth_tracker.is_authenticated()
+                && token_expiry.is_some_and(|expiry| {
+                    get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000_000 >= expiry
+                })
+            {
+                self.auth_tracker.invalidate();
+                self.state
+                    .send_replace(PredictWalletSubscriptionState::Subscribing {
+                        connection_epoch: self.active_epoch,
+                    });
+                log::warn!("Predict wallet token expired while awaiting replacement credentials");
+            }
             if self.overflow.load(Ordering::Acquire) {
                 return Err(PredictWalletWsError::QueueOverflow);
             }
@@ -210,8 +169,15 @@ impl PredictWalletHandler {
                 biased;
                 _ = self.output.closed() => return Ok(()),
                 changed = self.token_updates.changed(), if token_watch_open => {
-                    if changed.is_err() { token_watch_open = false; continue; }
-                    self.topic = format!("predictWalletEvents/{}", self.token_updates.borrow_and_update().expose_secret()).into();
+                    if changed.is_err() {
+                        token_watch_open = false;
+                        continue;
+                    }
+                    token_expiry = {
+                        let token = self.token_updates.borrow_and_update();
+                        self.topic = format!("predictWalletEvents/{}", token.expose_secret()).into();
+                        token.expires_at().map_err(|_| PredictWalletWsError::Protocol)?
+                    };
                     self.reset_subscription();
                     self.rotating = true;
                     self.active_epoch = self.client.connection_epoch();
@@ -220,8 +186,12 @@ impl PredictWalletHandler {
                 _ = tick.tick() => {},
                 raw = self.reader.recv() => {
                     let (epoch, message, received) = raw.ok_or(PredictWalletWsError::Closed)?;
-                    if epoch < self.epoch.load(Ordering::Acquire) { continue; }
-                    if self.rotating && epoch == self.active_epoch { continue; }
+                    if epoch < self.epoch.load(Ordering::Acquire) {
+                        continue;
+                    }
+                    if self.rotating && epoch == self.active_epoch {
+                        continue;
+                    }
                     if epoch != self.active_epoch {
                         self.rotating = false;
                         self.active_epoch = epoch;
@@ -268,7 +238,6 @@ impl PredictWalletHandler {
 
     fn reset_subscription(&mut self) {
         self.auth_tracker.invalidate();
-        self.subscriptions.reset_after_reconnect();
         self.state
             .send_replace(PredictWalletSubscriptionState::Reconnecting);
         self.pending_request = None;
@@ -306,8 +275,6 @@ impl PredictWalletHandler {
             }
             return Err(PredictWalletWsError::Transport);
         }
-        // Track a non-secret logical channel: JWT-bearing wire topics must never be interned.
-        self.subscriptions.mark_subscribe("predictWalletEvents");
         Ok(())
     }
 
@@ -320,7 +287,7 @@ impl PredictWalletHandler {
         let text = message.as_text().ok_or(PredictWalletWsError::Decode)?;
         match parse_frame(text, self.topic.expose_secret(), self.account)? {
             PredictWalletFrame::Heartbeat(data) => {
-                let reply = format!(r#"{{"method":"heartbeat","data":{}}}"#, data.get());
+                let reply = super::parse::heartbeat_message(data);
                 let result = self
                     .client
                     .send_text_on_connection(reply, None, epoch)
@@ -336,7 +303,6 @@ impl PredictWalletHandler {
                     return Ok(());
                 }
                 if !success {
-                    self.subscriptions.mark_failure("predictWalletEvents");
                     self.auth_tracker
                         .fail("Predict wallet subscription rejected");
                     return Err(PredictWalletWsError::SubscriptionRejected(code));
@@ -346,7 +312,6 @@ impl PredictWalletHandler {
                 self.emit(
                     PredictWalletStreamMessage::Subscribed {
                         connection_epoch: epoch,
-                        reconciliation_required: true,
                     },
                     None,
                 )?;
@@ -359,7 +324,6 @@ impl PredictWalletHandler {
                         received,
                     )?;
                 }
-                self.subscriptions.confirm_subscribe("predictWalletEvents");
                 self.auth_tracker.succeed();
                 self.state
                     .send_replace(PredictWalletSubscriptionState::Subscribed {

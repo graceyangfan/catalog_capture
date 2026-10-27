@@ -1,16 +1,9 @@
 # Extended Public Capture Design
 
-Status: implemented public-data adapter; this document records its protocol
-evidence, invariants, and acceptance boundary.
-
-This integration is implemented inside this repository. The legacy
-Extended workspace is protocol reference material only; this project
-will not depend on that workspace or link its crate.
-
-The venue crate is named `nautilus-extended`. It is a long-lived Nautilus
-adapter boundary, not a catalog-specific helper: public data capture is its
-first consumer, while a future `ExecutionClient` and private/account support
-can be added without renaming or moving the protocol implementation.
+The `nautilus-extended` crate provides public market data through Nautilus
+interfaces. This document defines wire semantics, state ownership and lifecycle
+requirements. The legacy Extended workspace supplies protocol references only;
+it is not a linked dependency.
 
 ## Goal
 
@@ -24,7 +17,7 @@ already used by the capture actor:
 - `index_prices`
 - `funding_rates`
 
-The first release is a read-only market-data adapter. It does not include
+The supported scope is read-only market data. It does not include
 order signing, account streams, execution, RFQ trading, private data, BBO, or
 candles.
 
@@ -95,7 +88,7 @@ In particular, the Rust adapter must not copy these SDK behaviors:
 The adapter implements the official SDK's RPC v2 public stream only. It does
 not implement v1 fallback or expose a user-selectable transport switch.
 Extended does not currently state that one public transport is recommended or
-that v1 is deprecated; this is our product decision based on the SDK and
+that v1 is deprecated; the adapter selects RPC v2 based on the SDK and
 mainnet evidence:
 
 - one connection covers all five required families and reduces socket/task
@@ -682,18 +675,13 @@ final book is non-empty when the venue stream supplied levels
 ```
 
 The funding path additionally needs a run long enough to observe at least one
-real hourly event. Only after these probes are stable should we add more markets
-or an all-market subscription mode.
+real hourly event. Multi-market validation must preserve these same subscription and replay
+invariants.
 
-## Implementation Status
+## Supported scope
 
-The adapter crate, exact models, RPC lifecycle, public data families, CLI
-feature, and BTC profile described above are implemented. The remaining
-release evidence is operational rather than architectural: periodic mainnet
-soaks should continue to cover forced reconnect reconciliation, natural
-snapshot replacement, catalog readback, and a funding window long enough to
-observe at least one real event.
-
-The first production slice is the public-data side of a long-lived Nautilus
-adapter. Execution and private account support can be added later in the same
-`nautilus-extended` crate without changing this capture contract.
+The crate implements exact RPC models, public data families, Native lifecycle
+integration, a CLI feature and a BTC capture profile. Operational validation must
+cover forced reconnect reconciliation, snapshot replacement, catalog readback
+and a funding window long enough to observe an actual event. Private account
+streams and execution are outside this public capture contract.

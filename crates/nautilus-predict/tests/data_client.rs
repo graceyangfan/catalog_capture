@@ -153,8 +153,8 @@ fn unsubscribe(client: &mut PredictDataClient) {
 #[tokio::test(flavor = "current_thread")]
 async fn public_client_preserves_bootstrap_snapshots_heartbeat_reconnect_and_reference_counts() {
     nautilus_predict::register_predict_custom_data();
-    let selector: nautilus_predict::common::CryptoUpDownSelectorKey =
-        catalog_capture_core::CryptoUpDownSelectorKey::new("BTC/USDT", "Bitcoin", 300).unwrap();
+    let selector =
+        nautilus_predict::common::CryptoUpDownSelectorKey::new("BTC/USDT", "Bitcoin", 300).unwrap();
     assert_eq!(
         nautilus_predict::predict_crypto_up_down_orderbook_data_type(MARKET_ID, &selector)
             .identifier(),
@@ -184,9 +184,7 @@ async fn public_client_preserves_bootstrap_snapshots_heartbeat_reconnect_and_ref
         dynamic_refresh_secs: 1,
         transport_backend: TransportBackend::default(),
     };
-    // Old imports resolve to the same implementation and catalog type.
-    let mut client: nautilus_predict::data_client::PredictDataClient =
-        PredictDataClient::new(ClientId::new("PREDICT"), config).unwrap();
+    let mut client = PredictDataClient::new(ClientId::new("PREDICT"), config).unwrap();
     client.connect().await.unwrap();
     assert!(client.is_connected());
     for expected in [

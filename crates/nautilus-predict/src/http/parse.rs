@@ -31,12 +31,9 @@ use crate::common::instrument_id_from_outcome;
 
 /// Converts an ERC-1155 holding to a net position for its specific outcome instrument.
 ///
-/// Holdings are interpreted as on-chain shares with the SDK's 18-decimal scale. This must
-/// be confirmed against a real private response before execution activation. Holdings
-/// retain every atomic digit, including positive dust, independently of order increments.
-/// `ts_init` is the caller's observation time and also `ts_last`, matching the Hyperliquid
-/// snapshot convention; it is not a venue update timestamp. Average price and the REST row
-/// ID are not mapped without verified units and position-ID semantics.
+/// Retains the holding's 18-decimal share quantity, including representable dust.
+/// Both `ts_init` and `ts_last` use the caller's observation time because the endpoint
+/// supplies no update timestamp. Average price and the REST row ID are not mapped.
 ///
 /// # Errors
 ///

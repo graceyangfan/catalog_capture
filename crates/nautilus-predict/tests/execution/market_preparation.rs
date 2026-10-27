@@ -54,13 +54,16 @@ async fn wallet_gap_during_initial_preparation_cannot_publish_a_healthy_connecti
     *server.state.market_gate.lock().unwrap() = Some(gate.clone());
     client.start().unwrap();
     let interrupt = async {
-        // Apply the initial account as Native would, then hold only metadata.
-        while *server.state.market_requests.lock().unwrap() == 0 {
+        // Signing preparation and cash collection start independently. Wait for
+        // both facts before interrupting the original acknowledged connection.
+        let mut account_applied = false;
+        while !account_applied || *server.state.market_requests.lock().unwrap() == 0 {
             if let Ok(ExecutionEvent::Account(state)) = rx.try_recv() {
                 msgbus::send_account_state(
                     MessagingSwitchboard::portfolio_update_account(),
                     &state,
                 );
+                account_applied = true;
             }
             tokio::task::yield_now().await;
         }
@@ -145,7 +148,7 @@ async fn invalid_strategy_price_is_denied_and_slippage_floor_minimum_still_rejec
         .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
         .unwrap();
     connect_reported(&mut client, &mut rx).await;
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = super::cancellations::engine(&cache);
     for (n, price) in [
         json!(0.02),
         json!(null),

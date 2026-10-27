@@ -246,7 +246,7 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
             let amount =
                 (U256::from(filled) * U256::from(1_000_000_000_000_000_000u64)).to_string();
             row["amountFilled"] = json!(amount);
-            let mut matched = matches::match_row(1);
+            let mut matched = super::matches::match_row(1);
             matched["executedAt"] = json!(
                 chrono::DateTime::from_timestamp_nanos(
                     get_atomic_clock_realtime().get_time_ns().as_u64() as i64
@@ -506,7 +506,9 @@ async fn untracked_submitted_order_is_rejected_instead_of_retaining_foreign_canc
         .add_order(order.clone(), None, Some(ClientId::new("PREDICT")), false)
         .unwrap();
     connect_reported(&mut client, &mut rx).await;
-    client.cancel_order(cancellations::cancel(&order)).unwrap();
+    client
+        .cancel_order(super::cancellations::cancel(&order))
+        .unwrap();
     let event = timeout(Duration::from_secs(2), async {
         loop {
             if let ExecutionEvent::Order(OrderEventAny::CancelRejected(event)) =

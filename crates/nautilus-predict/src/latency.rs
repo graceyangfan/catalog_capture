@@ -42,6 +42,10 @@ pub enum LatencyMetric {
     /// Legacy strict-funding path; no observations on the current command path.
     AdmissionWait,
     Preparation,
+    /// Wait for the account projection lock before registering a signed order.
+    SubmissionAccountLockWait,
+    /// Local correlation registration while the account lock is held; no network IO.
+    SubmissionRegistration,
     MarketGet,
     MarketBookGet,
     OpenCollection,
@@ -331,7 +335,7 @@ impl PredictLatency {
             timing.native_send,
         ));
     }
-    fn elapsed(&self, metric: LatencyMetric, start: Instant, end: Instant) {
+    pub(crate) fn elapsed(&self, metric: LatencyMetric, start: Instant, end: Instant) {
         if let Some(elapsed) = end.checked_duration_since(start) {
             self.send(Sample::Duration(metric, nanos(elapsed)));
         }

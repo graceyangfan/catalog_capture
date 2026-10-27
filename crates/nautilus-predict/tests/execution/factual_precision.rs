@@ -80,7 +80,7 @@ async fn atomic_zero_fee_and_collateral_fills_reach_subscribers_without_history_
         wire["fill"] = json!({"executedSizeWei":amount.to_string(),
             "executedPriceWei":price.to_string(),
             "executedValueWei":(U256::from(amount)*U256::from(price)/U256::from(1_000_000_000_000_000_000u64)).to_string()});
-        let mut engine = cancellations::engine(&cache);
+        let mut engine = super::cancellations::engine(&cache);
         private.wallet(wire.clone());
         private.wallet(wire.clone());
         let (control_hash, control) = wallet_lifecycle::control(&mut engine, &wire);

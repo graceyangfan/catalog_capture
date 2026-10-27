@@ -120,57 +120,32 @@ The cross-transport terminal equivalence does not depend on all-or-none executio
 With the wallet message missing,
 recovery uses the actual Canceled snapshot and invents no rejection reason.
 
-The retained parameter matrix already contains this zero-fill sequence for
-`baseline_fok`, `fok_omitted` and `fok_false`. Omission matches the adapter's
-MARKET GTC request convention. This supplies venue evidence beyond the original
-FOK-only capture for the terminal equivalence; another funded no-match probe is
-unnecessary to establish that point. These were accepted requests without an
-executable match, not malformed signatures or identities. They do not establish
-how a partially executed remainder terminates.
-
 ## Who terminated a no-match order
 
-The eight-case SDK matrix has openBeforeCleanup=0 and no run order to remove;
-its Accepted -> noMarketMatch -> REST CANCELLED sequence supplies independent
-zero-match termination evidence. The old Native no-match probe also contains
-StrategyOrderAccepted -> NativeCancelRequested because that test strategy cancels
-inside on_order_accepted. Its final CANCELLED alone cannot prove who terminated
-the order. Exchange event timestamps and local callback timestamps use different
-clocks; their apparent order is not sufficient causal proof.
+The SDK matrix has openBeforeCleanup=0 and no run order to remove. Its Accepted ->
+noMarketMatch -> REST CANCELLED sequence independently establishes zero-match
+termination. The Native probe also contains a cancel intent from its acceptance
+callback, so its final CANCELLED snapshot alone cannot identify the terminating
+actor. Venue and callback timestamps use different clocks.
 
-The production adapter does not issue a remove POST merely because it sees
-Accepted or noMarketMatch. Known zero-fill noMatch with no pending settlement
-maps to OrderRejected and is already closed; do not add a strategy cancel just to
-close it again. If only a REST CANCELLED observation is available, map that venue
-fact to Canceled without inventing the missing rejection reason. If trades or
-pending settlements exist, noMatch alone does not establish the remainder's
-terminal status: retain executions and request independent reconciliation.
+The adapter maps known zero-fill noMatch without pending settlements to
+OrderRejected. Accepted/noMatch does not itself issue a remove POST. A REST-only
+CANCELLED observation maps to Canceled without inventing a rejection reason.
+When executions or pending settlements exist, noMatch alone is insufficient to
+establish the original order's terminal state.
 
-The six recorded default-model cases now replay through actual Native submission,
-wallet parsing, subscriber callbacks and REST recovery. Signed amounts/reference
-are checked against the capture; omitted/false default flags are canonicalized.
-Original wallet events are combined with later real historical REST responses;
-only loopback identities and signing fields are rebound. Callbacks see
-Accepted then Rejected in Cache, and zero removal POSTs throughout. The two SDK
-minimum-out cases remain parser comparisons and never become Native admission
-tests. This derived replay establishes integration behavior, not a new live run
-or an unmatched partially filled tail.
+Six default-model matrix cases replay through Native submission, wallet parsing,
+subscriber callbacks and REST recovery. Economic terms and original wallet facts
+are retained; identities and signing fields are rebound to loopback services.
+Callbacks observe Accepted then Rejected with zero removal POSTs. The two SDK
+minimum-out cases cover parser behavior only.
 
-The later read-only capture queried nine already-known hashes through the crate.
-It contains twelve relayed requests: auth challenge, authentication, account
-identity and nine order GETs; creation, cancellation and chain writes are blocked.
-The official SDK and crate both reproduced all nine original hashes before
-identity redaction. The six default-model no-match snapshots are now used directly
-in the Native replay instead of reconstructing their REST wrappers.
-
-All nine observed MARKET amount fields equal gross share wei: BUY uses signed
-takerAmount and SELL uses signed makerAmount. The six canceled orders have zero
-amountFilled; the two BUY and one SELL terminals use actual gross cumulative
-shares. This supports those concrete default-model samples, not other order
-types/modes or a schema guarantee. Recovery therefore still does not convert an
-arbitrary amountFilled into a fill. The atomic BUY still reports FILLED with
-amount=7650000000000000000 and amountFilled=7649999999999999999. A remainder
-in the plan must not veto that terminal or manufacture an extra execution.
+The read-only history fixture contains nine known MARKET hashes: six zero-filled
+CANCELLED orders and three FILLED orders. Their amount fields equal gross share
+wei in these samples, using BUY takerAmount and SELL makerAmount. This does not
+establish universal units. In the atomic BUY, amount=7650000000000000000 and
+amountFilled=7649999999999999999 coexist with FILLED; the difference cannot
+manufacture another execution or veto the terminal observation.
 
 ## Public chain study of the atomic remainder
 
@@ -256,65 +231,37 @@ For the minimum-out/100-bps case, signed shares are 99 while the reported target
 is 100; setting the flag changes how the backend derives target size. Native
 minimum-out admission remains unsupported.
 
-The next useful valid-signature comparisons, if separately authorized for a
-venue environment that can guarantee no economic execution, are:
+The ErrorCode schema names amount, precision, trading-status and strategy-option
+errors, but does not specify validation order. Local SDK/builder checks and
+zero-match observations do not prove venue rejection of an inconsistent request.
 
-| Priority | Parameter comparison | Documented error vocabulary / question | Current evidence |
-| --- | --- | --- | --- |
-| 1 | LIMIT pricePerShare versus exact signed BUY/SELL amounts | create_order_limit_amounts_mismatch | Local builder rejects mismatch; no recorded venue response |
-| 1 | MARKET price/slippage metadata versus SDK-prepared default-model signed amounts | create_order_market_amounts_mismatch, create_order_invalid_slippage_bps | Six supported-mode no-match cases exist; inconsistent metadata not observed; minimum-out is not a Native capture target |
-| 2 | Order strategy versus FOK, post-only and slippage options | create_order_fill_or_kill_not_supported, create_order_post_only_not_supported, create_order_slippage_non_market | Actual expired-signed controls establish LIMIT FOK and MARKET post-only rejection; LIMIT slippage remains masked by expiry |
-| 2 | Value, share-size and price-precision boundaries | create_order_min_order_value_not_met, create_order_min_order_size_not_met, create_order_price_precision_too_high | SDK arithmetic limits and market metadata are not universal API acceptance guarantees |
-| 3 | Correctly bound outcome token in a non-trading/market-order-disabled market | create_order_market_not_trading, create_order_market_orders_disabled | Capture trading status and token/domain provenance; no arbitrary token substitution |
+The signed expired controls in live_crate_signed_parameter_rejections_20261025.json
+use the crate's signer, HTTP DTOs and wallet client. A test-only outer-option
+injection preserves signed expiration=1; it does not expose a production bypass.
+The observed responses are:
 
-These are capture candidates, not already observed responses or guaranteed
-no-fill orders. The official ErrorCode schema names failures but does not define
-their validation order. Changing an unsigned option does not revoke a valid
-economic signature; an ignored option or moved book can still permit execution.
-A distant LIMIT can rest and fill later. A distant MARKET can match after a book
-change. Immediate cancellation after acceptance cannot guarantee zero execution.
-An expired signed control only establishes expiry rejection when that check masks
-the parameter under investigation. Accordingly, under the operator's current
-strict zero-fill constraint, use existing valid-order recordings and offline
-admission/response replay; do not send these executable candidates to mainnet.
-
-On 2026-10-25, an authorized expired-only probe used the crate's own signer,
-request DTOs, authenticated HTTP transport and wallet client on OPEN ETH market
-52261. The signature covered expiration=1; production DTO admission was not
-weakened. An ignored, test-only module changed outer request options and called
-the same private secret-body POST function, with no exported bypass API. Thus
-this is crate HTTP/signing evidence, not a full Native strategy run. It sent:
-
-| Case | Actual HTTP 400 error | Interpretation |
+| Case | HTTP 400 error | Evidence limit |
 | --- | --- | --- |
-| LIMIT + isFillOrKill=true | create_order_fill_or_kill_not_supported | Explicit MARKET-only option rejection |
-| MARKET + isPostOnly=true | create_order_post_only_not_supported | Explicit LIMIT-only option rejection |
-| LIMIT + slippageBps=100 | create_order_expiry_too_soon | Target slippage rule not reached/proven |
-| MARKET + slippageBps=10000 | create_order_expiry_too_soon | Target slippage range not reached/proven |
+| LIMIT + isFillOrKill=true | create_order_fill_or_kill_not_supported | Explicit strategy-option rejection |
+| MARKET + isPostOnly=true | create_order_post_only_not_supported | Explicit strategy-option rejection |
+| LIMIT + slippageBps=100 | create_order_expiry_too_soon | Slippage validation was masked |
+| MARKET + slippageBps=10000 | create_order_expiry_too_soon | Slippage validation was masked |
 
-After two consecutive expiry-masked targets, the probe stopped. Amount-mismatch
-cases were not transmitted. Four order-hash lookups returned 404; no corresponding
-parsed wallet event was observed. HTTP JSON responses, the sanitized signed-term
-projection, market/book and historical crate diagnostics are retained unchanged.
-Wallet collection is a finite parsed diagnostic projection, not a raw-frame
-recording. Signing locally and matching SDK vectors does not prove that the
-venue reached cryptographic validation after the earlier parameter/expiry error.
+The four hash lookups returned 404 and no corresponding parsed wallet event was
+observed. Amount-mismatch requests were not transmitted. The wallet diagnostic
+is a finite parsed projection, not a raw-frame recording. These controls establish
+HTTP/signing behavior, not Native strategy matching or validation precedence for
+unexpired orders.
 
-The observed MARKET post-only response exposed a missing typed classification:
-the old crate reported Unknown/Unknown. It now reports InvalidRequest with
-PostOnlyUnsupported. This is distinct from PostOnlyWouldCross or a wallet
-rejectedPostOnly event. Two offline regressions fail on the old mapping: private
-HTTP replay and subscriber-visible Native rejection. The latter checks that Cache
-is already Rejected with zero fills inside the callback, due_post_only is false,
-and no acceptance, cancellation, fill or automatic POST retry is fabricated.
+MARKET post-only maps to InvalidRequest/PostOnlyUnsupported, distinct from
+PostOnlyWouldCross and wallet rejectedPostOnly. HTTP replay and Native subscriber
+checks assert a Rejected Cache state with zero fills and due_post_only=false;
+they produce no acceptance, cancellation or automatic POST retry.
 
-For any future authorized capture, vary one parameter at a time and preserve
-the exact request, SDK amounts, matching outcome book and trading status, HTTP
-body, ordered wallet messages, per-order REST status/matches and scoped removal
-result. Distinguish automatic noMatch termination from a caller's removal POST.
-A 201 followed by removed, without observing matching, proves neither fillability
-nor a parameter fault. Keep raw primary recordings immutable; label reordered
-or identity-rebound replays as derived.
+A distant price, immediate cancellation or an unsigned option cannot guarantee
+zero economic execution. Live probes require the explicit scope and controls in
+the [operator guide](../how_to/predict-rust-strategy-calibration.md#supervised-funded-runs).
+Use the retained recordings for ordinary offline validation.
 
 ## Offline verification
 
@@ -341,79 +288,44 @@ envelope identity and does not claim Native minimum-out submission support.
 
 ### Bounded historical survey
 
-The new survey records actual responses through the crate's private HTTP client;
-the relay blocks creation, removal and chain writes. All 45 requests returned
-200: authentication/account (3), match pages (6), order-list pages (4), by-hash
-lookups (24), and market metadata (8). Maker history ended after nine rows;
-unfiltered/taker history reached the two-page cap. Twenty-six distinct order
-hashes were discovered; only the first 24 were looked up. This is not a complete
-account-history claim. Default and OPEN order-list queries were empty at this
-observation; the FILLED filter returned 16 LIMIT orders over two pages.
+live_order_lifecycle_survey_20261025.json contains bounded maker/taker and order
+pages, 24 hash lookups and market metadata. The taker/unfiltered queries reached
+their page caps; the recording is not complete account history.
 
-A real LIMIT SELL of 4.1748 shares has three distinct maker settlements at .50:
-1.51999, .89 and 1.76481 shares, each with zero COLLATERAL commission. The final
-REST state is FILLED. Two enclosing match events have aggregate amountFilled=5
-shares, which must not be substituted for this maker's smaller execution leg.
-Across maker queries, four BUY legs report zero SHARES fees and five SELL legs
-report zero COLLATERAL fees. Native replay preserves the own leg, exact amounts,
-liquidity role and fee, then the order model naturally progresses through
-PartiallyFilled, PartiallyFilled, Filled. Overlapping pages are deliberately
-introduced only in the offline replay to check that three executions stay three;
-that scheduling is not an observed live duplicate.
+One LIMIT SELL of 4.1748 shares has three distinct maker settlements at .50:
+1.51999, .89 and 1.76481, each with zero COLLATERAL commission. Enclosing match
+amountFilled=5 is an aggregate and cannot replace this order's smaller execution
+leg. Derived replay preserves the own leg, liquidity role and fee, progressing
+through PartiallyFilled, PartiallyFilled and Filled. Synthetic page overlap tests
+keep these three executions distinct.
 
-The survey also preserves a zero-fill CANCELLED LIMIT and two MARKET BUYs whose
-FILLED cumulative amounts are one wei below their requests (7.65 and 33.399).
-Later signed expiration or current market CLOSED metadata must not rewrite those
-existing terminal facts. No meaningful unmatched remainder, canceled partial
-LIMIT, EXPIRED/INVALIDATED terminal, rejectedDuplicate, failed settlement or
-partial-fill noMarketMatch sequence was established by this survey. There is no
-new production mapping change based on these missing observations.
+The survey also retains a zero-fill CANCELLED LIMIT and two FILLED MARKET BUYs
+short by one wei. A later signed expiry or CLOSED market does not rewrite those
+terminal facts. The original captures remain separate from replay schedules.
 
-### Highest-value capture gaps
+### Coverage gaps
 
-| Priority | Missing situation | What a useful recording must distinguish | Current evidence / action |
-| --- | --- | --- | --- |
-| 1 | Supported MARKET reference/slippage boundary against changing depth | Selected-outcome reference, signed ratio and actual per-match prices; coherent but uncompetitive quote versus inconsistent metadata | Existing .80/.84 no-match and .39 +300-bps/.40 fill are different observations, not a controlled threshold experiment; no new executable order under strict zero-fill |
-| 1 | Real partial match with economically meaningful remainder | plannedFill, remainderCancelled, Submitted/Success, true terminal, and whether any remove POST preceded it | Full plans and one-wei residual exist; neither establishes general non-FOK partial-tail behavior |
-| 1 | noMarketMatch after a partial fill or a match plan but before settlement completion | Confirmed fills versus display quantityFilled=0; original-order disposition versus remainder rejection | No original JSON recording of this sequence; derived schedules do not prove it occurs; retain independent terminal evidence |
-| 2 | rejectedDuplicate for a valid original | Rejected attempt versus original order; same full hash/terms and independent original status | No original recorded duplicate feedback; expired/invalid repeats do not test this; do not infer original closure |
-| 2 | TransactionFailed and any subsequent retry | Settlement identity, real on-chain outcome, later Success under same/new ID, and final order state | No original failed-settlement event found; observe naturally rather than deliberately causing a funded failed settlement |
-| 2 | Natural GTD/market end and removal lock rejection | Order expiry versus instrument close versus caller cancel; removed/noop/rejected and positive lock deadline | Cancellation evidence exists; no original wallet orderExpired or positive-lock rejection found; historical/read-only supplementation first |
-| 3 | STP-triggered cancellation | Policy in the request, both owned order hashes, reason and actual fill/terminal consequences | STP option acceptance is recorded; actual STP enforcement is not; do not manufacture a self-match |
+| Situation | Established evidence | Unproven boundary |
+| --- | --- | --- |
+| Reference/slippage versus depth | Separate no-match and positive-fill observations | Controlled price-distance thresholds and universal per-match enforcement |
+| Economically meaningful partial tail | Full plans and one-wei residual | General non-FOK unmatched-remainder lifecycle |
+| noMarketMatch with executions or pending settlement | Synthetic ordering controls | Original wallet sequence and disposition of the original order |
+| Duplicate of a valid original | Invalid/expired repeat controls | Real rejectedDuplicate behavior and original-order status |
+| Failed settlement followed by retry | Synthetic settlement schedules | Original TransactionFailed and later Success identities |
+| Natural expiry and positive removal lock | Explicit cancellation captures | Natural GTD/market-end termination and lock rejection |
+| STP enforcement | Submitted-option acceptance | Actual cancellation/matching consequences |
+| FOK execution | Zero-match and one full-fill example | General all-or-none and SELL parity |
 
-The inspected registered primary recordings contain only zero-display noMatch
-rejections, and searches of the original operational JSON found no
-rejectedDuplicate, orderTransactionFailed or orderExpired envelope. This is an
-evidence gap, not proof that the exchange never emits them. The inspected
-Subscription Topics documentation lists those types but not orderMarketMatchPlan.
-The latter must remain a recorded observation, not a complete documented terminal
-contract. In original retained partial-probe wallet files, the three distinct
-plans satisfy plannedFill + remainderCancelled = amount; the residuals are zero,
-zero and one wei. Do not extrapolate this to economically partial execution.
+These gaps do not prove that the exchange lacks the listed behavior. Multiple
+settlements do not establish an unmatched partial order. IOC/FAK and minimum-out
+remain unsupported Native mappings.
 
-Read-only historical GETs can supplement final states and signed terms. They
-cannot recover an absent wallet event: wallet subscriptions have no snapshot.
-For a later naturally observed case, keep raw wallet JSON, HTTP replies, Native
-events and every create/remove transmission intent in one collector sequence
-with receive-monotonic timestamps. Venue timestamps alone cannot establish
-whether the strategy canceled first. Include selected instrument/token, YES/NO
-book transformation, reference age, quantity mode, signed amounts, fee mode and
-settlement IDs. This is evidence collection, not a new strategy parameter set.
-
-Do not submit another expired control simply to obtain the same front-door
-error. A valid distant LIMIT/MARKET is not guaranteed zero-fill, so the remaining
-matching/duplicate/expiry scenarios are not automatically authorized as live
-tests by a strict zero-fill request. isMinAmountOut remains an internal false
-constant, not a proposed feature or capture target.
-
-Successful FOK all-or-none enforcement, SELL FOK parity, genuinely unmatched
-partial-tail lifecycle and universal per-match price enforcement are not proven
-by zero-match or full-plan captures. Multiple settlements alone do not demonstrate
-a partial unmatched order. IOC/FAK and minimum-out remain unsupported.
-
-Live probe scripts under root tests/ are operator tools with explicit submission
-controls. They are not part of the ordinary offline commands above. Inspect saved
-JSON instead of submitting additional orders to review a historical result.
+Historical GETs can establish final states and signed terms, but cannot recover
+missing wallet events because wallet subscriptions have no snapshot. Causal
+analysis requires raw wallet facts, HTTP responses, Native events and create/remove
+transmission intents with receive-monotonic timestamps. Venue timestamps alone
+cannot establish whether the strategy canceled first. Collection procedures and
+submission controls belong to the operator guide; ordinary tests use saved data.
 
 Primary references: [TS amount builder](https://github.com/PredictDotFun/sdk/blob/5ff2b4a1c54cbbeb0fd661e17246cd12a9af8486/src/OrderBuilder.ts),
 [TS types](https://github.com/PredictDotFun/sdk/blob/5ff2b4a1c54cbbeb0fd661e17246cd12a9af8486/src/Types.ts),

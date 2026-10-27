@@ -486,7 +486,7 @@ async fn run(case: &str) -> Value {
             "duplicate_order" => "duplicate hash",
             "cursor_cycle" => "repeated a cursor",
             "page_failure" => "503",
-            "page_cap" => "exceeded configured bound",
+            "page_cap" => "exceeded configured page bound",
             "holdings_duplicate" => "duplicate outcome holdings",
             "generation" => "generation stopped",
             "bad_external_hash" => "signed hash",

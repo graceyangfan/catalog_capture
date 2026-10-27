@@ -435,7 +435,7 @@ async fn later_native_query_is_not_swallowed_by_earlier_trade_collection() {
     let mut row = rest_order_data("OPEN", 1, OrderSide::Buy);
     row["amountFilled"] = json!("17000000000000000000");
     let own = native_from_row(&mut row);
-    let mut trade = matches::match_row(1);
+    let mut trade = super::matches::match_row(1);
     trade["taker"]["hash"] = json!(own.venue_order_id().unwrap().to_string());
     trade["taker"]["fee"] = json!({"type":"SHARES","amount":"340000000000000000"});
     *private.state.match_snapshot.lock().unwrap() = Some(vec![trade]);
@@ -590,7 +590,7 @@ async fn rest_terminal_precedes_held_trade_history_and_trade_result_survives_wal
             .push_back(json!({"success":true,"data":row}));
         let gate = Arc::new(tokio::sync::Notify::new());
         *private.state.match_gate.lock().unwrap() = Some(gate.clone());
-        let mut traded = matches::match_row(1);
+        let mut traded = super::matches::match_row(1);
         traded["executedAt"] = json!("1970-01-01T00:00:00.003Z"); // venue clock ahead of local observation
         traded["taker"]["hash"] = json!(own.venue_order_id().unwrap().to_string());
         private.state.match_pages.lock().unwrap().push_back((
@@ -769,7 +769,7 @@ async fn incremental_rest_history_preserves_applied_and_queued_wallet_fills_with
         } else {
             None
         };
-        let mut fresh = matches::match_row(1);
+        let mut fresh = super::matches::match_row(1);
         fresh["taker"]["hash"] = json!(own.venue_order_id().unwrap().to_string());
         fresh["settlementId"] = json!("new-rest-settlement");
         // The endpoint omits the already-applied historical trade and the queued wallet trade.

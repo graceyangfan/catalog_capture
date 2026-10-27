@@ -14,8 +14,7 @@
 
 //! Authentication, private queries and explicit order requests using Nautilus HTTP transport.
 //!
-//! Authentication creates an account-scoped session rather than mutating global default headers.
-//! Cloned account sessions share explicit token rotation; independently authenticated sessions remain isolated.
+//! Account-scoped sessions share token rotation across clones and isolate independent accounts.
 //! A 401/403 is returned to the caller; token refresh and operation retries are explicit.
 //! Requests run in the caller's future without adapter background tasks. Dropping the future
 //! stops waiting; an already transmitted request cannot be recalled.
@@ -241,7 +240,7 @@ impl fmt::Debug for PredictPrivateHttpClient {
     }
 }
 
-/// Account-scoped bearer session with explicit shared rotation. This is a transport primitive, not a Nautilus execution client.
+/// Account-scoped bearer session with shared token rotation across clones.
 #[derive(Clone, Debug)]
 pub struct PredictAuthenticatedHttpClient {
     transport: PredictPrivateHttpClient,
@@ -259,11 +258,7 @@ impl PredictAuthenticatedHttpClient {
     ) -> Result<super::models::PredictMarket> {
         const ENDPOINT: &str = "/v1/markets/{id}";
         let response = self
-            .get(
-                ENDPOINT,
-                &format!("/v1/markets/{market_id}"),
-                None::<&PredictOrdersQuery<'_>>,
-            )
+            .get(ENDPOINT, &format!("/v1/markets/{market_id}"), None::<&()>)
             .await?;
         let market: super::models::PredictMarket = decode_response(ENDPOINT, &response)?;
         if market.id != market_id {
@@ -274,10 +269,11 @@ impl PredictAuthenticatedHttpClient {
         Ok(market)
     }
 
-    /// Fetches required admission fields without inventing missing fees or exchange flags.
+    /// Fetches required signing metadata, including fees and exchange flags.
     ///
     /// # Errors
-    /// Wrong market identity and incomplete/invalid metadata fail before order submission.
+    ///
+    /// Returns an error for invalid identity, fees, metadata or request failure.
     pub async fn request_execution_market(
         &self,
         market_id: u64,
@@ -287,11 +283,7 @@ impl PredictAuthenticatedHttpClient {
             return Err(Error::BadRequest("invalid execution market ID"));
         }
         let response = self
-            .get(
-                ENDPOINT,
-                &format!("/v1/markets/{market_id}"),
-                None::<&PredictOrdersQuery<'_>>,
-            )
+            .get(ENDPOINT, &format!("/v1/markets/{market_id}"), None::<&()>)
             .await?;
         let market: super::market_models::PredictExecutionMarket =
             decode_response(ENDPOINT, &response)?;
@@ -303,9 +295,10 @@ impl PredictAuthenticatedHttpClient {
         Ok(market)
     }
 
-    /// Fetches fresh native YES depth for SDK MARKET amount preparation.
+    /// Fetches the REST YES orderbook for the requested market.
     ///
     /// # Errors
+    ///
     /// Rejects malformed books and non-success envelopes; callers validate market and timestamp.
     pub async fn request_execution_orderbook(
         &self,
@@ -319,7 +312,7 @@ impl PredictAuthenticatedHttpClient {
             .get(
                 ENDPOINT,
                 &format!("/v1/markets/{market_id}/orderbook"),
-                None::<&PredictOrdersQuery<'_>>,
+                None::<&()>,
             )
             .await?;
         decode_response(ENDPOINT, &response)
@@ -330,6 +323,7 @@ impl PredictAuthenticatedHttpClient {
     /// the submission outcome unknown; reconcile by the locally computed hash before retrying.
     ///
     /// # Errors
+    ///
     /// Invalid local context, HTTP failures and inconsistent acknowledgement hashes return errors.
     pub async fn request_create_limit_order(
         &self,
@@ -351,6 +345,7 @@ impl PredictAuthenticatedHttpClient {
     /// Sends one LIMIT request with typed venue options. No automatic POST retry.
     ///
     /// # Errors
+    ///
     /// Invalid terms, context, HTTP responses or acknowledgement hashes return errors.
     pub async fn request_create_limit_order_with_options(
         &self,
@@ -368,6 +363,7 @@ impl PredictAuthenticatedHttpClient {
     /// Native submission selects this path from TimeInForce::Fok, never command params.
     ///
     /// # Errors
+    ///
     /// Invalid terms, mismatched environments and HTTP/receipt failures return errors.
     pub async fn request_create_market_fok_order(
         &self,
@@ -378,10 +374,11 @@ impl PredictAuthenticatedHttpClient {
         self.request_create_order(signed, &request).await
     }
 
-    /// Sends the SDK quantity-based MARKET envelope once. This low-level transport does
-    /// not enable native strategy submission or establish balance/inventory admission.
+    /// Sends the quantity-based MARKET envelope once, preserving signed amounts.
+    /// Reconcile ambiguous outcomes by order hash; this method does not retry POSTs.
     ///
     /// # Errors
+    ///
     /// Invalid signed context or metadata, transport failures and mismatched receipts fail.
     /// Ambiguous results must be reconciled by hash, never retried blindly.
     pub async fn request_create_market_order(
@@ -429,6 +426,7 @@ impl PredictAuthenticatedHttpClient {
     /// removal endpoint, this endpoint documents an explicit removed/noop/rejected partition.
     ///
     /// # Errors
+    ///
     /// Empty, oversized or duplicate requests and incomplete/foreign acknowledgements are rejected.
     pub async fn request_remove_orders(&self, ids: &[U256]) -> Result<PredictRemoveOrdersReceipt> {
         if ids.is_empty()
@@ -490,6 +488,7 @@ impl PredictAuthenticatedHttpClient {
     /// Re-authenticates without retrying any trading operation, validates identity, then publishes.
     ///
     /// # Errors
+    ///
     /// Returns an error for mismatched identity, failed authentication or unusable expiration.
     pub async fn renew(&self, signer: &PredictAuthSigner) -> Result<()> {
         if signer.account_address() != self.account_address
@@ -540,9 +539,7 @@ impl PredictAuthenticatedHttpClient {
     }
 
     async fn fetch_account(&self) -> Result<PredictAccount> {
-        let response = self
-            .get(ACCOUNT, ACCOUNT, None::<&PredictOrdersQuery<'_>>)
-            .await?;
+        let response = self.get(ACCOUNT, ACCOUNT, None::<&()>).await?;
         let account: PredictAccount = decode_response(ACCOUNT, &response)?;
         if account.address != self.account_address {
             return Err(Error::AccountMismatch);
@@ -575,9 +572,7 @@ impl PredictAuthenticatedHttpClient {
     /// Returns an error on HTTP/decode failure, a foreign order or a different returned hash.
     pub async fn request_order(&self, hash: B256) -> Result<PredictOrderData> {
         let path = format!("{ORDERS}/{hash:#x}");
-        let response = self
-            .get(ORDER, &path, None::<&PredictOrdersQuery<'_>>)
-            .await?;
+        let response = self.get(ORDER, &path, None::<&()>).await?;
         let order: PredictOrderData = decode_response(ORDER, &response)?;
         self.check_order_identity(&order)?;
         if order.order.hash.is_some_and(|returned| returned != hash) {

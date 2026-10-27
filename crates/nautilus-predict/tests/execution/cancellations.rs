@@ -1015,3 +1015,118 @@ async fn route_lookup_terminal_is_published_without_remove_or_fill_queries() {
         client.disconnect().await.unwrap();
     }
 }
+
+#[tokio::test]
+async fn native_batch_modify_fanout_resolves_each_pending_update_without_writes() {
+    use nautilus_common::messages::execution::{BatchModifyOrders, ModifyOrder};
+    use nautilus_model::{events::OrderPendingUpdate, identifiers::ClientOrderId};
+
+    let server = server(vec![]).await;
+    let (client, mut rx, cache) = client(&server);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
+    let mut orders = Vec::new();
+    let mut modifies = Vec::new();
+    for n in 0..2 {
+        let mut order = OrderTestBuilder::new(OrderType::Limit)
+            .trader_id(trader_id())
+            .client_order_id(ClientOrderId::new(format!("NATIVE-BATCH-MODIFY-{n}")))
+            .instrument_id(instrument_id(1))
+            .side(OrderSide::Buy)
+            .quantity(Quantity::from(100))
+            .price(Price::from("0.620"))
+            .build();
+        order
+            .apply(factory.generate_order_submitted(&order, 10.into()))
+            .unwrap();
+        let venue_id = VenueOrderId::new(format!("0x{:064x}", n + 1));
+        order
+            .apply(factory.generate_order_accepted(&order, venue_id, 100.into(), 100.into()))
+            .unwrap();
+        order
+            .apply(OrderEventAny::PendingUpdate(OrderPendingUpdate::new(
+                trader_id(),
+                order.strategy_id(),
+                order.instrument_id(),
+                order.client_order_id(),
+                Some(account_id()),
+                UUID4::new(),
+                OBSERVED.into(),
+                OBSERVED.into(),
+                false,
+                Some(venue_id),
+            )))
+            .unwrap();
+        cache
+            .borrow_mut()
+            .add_order(order.clone(), None, None, false)
+            .unwrap();
+        modifies.push(ModifyOrder::new(
+            trader_id(),
+            Some(ClientId::new("PREDICT")),
+            order.strategy_id(),
+            order.instrument_id(),
+            order.client_order_id(),
+            Some(venue_id),
+            None,
+            Some(Price::from("0.610")),
+            None,
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        ));
+        orders.push(order);
+    }
+    let callbacks = Rc::new(RefCell::new(Vec::new()));
+    let callback_ids = Rc::clone(&callbacks);
+    let callback_cache = Rc::clone(&cache);
+    let handler = msgbus::TypedHandler::from(move |event: &OrderEventAny| {
+        if let OrderEventAny::ModifyRejected(event) = event {
+            let cache = callback_cache.borrow();
+            let order = cache.order(&event.client_order_id).unwrap();
+            assert_eq!(order.status(), OrderStatus::Accepted);
+            assert_eq!(order.price(), Some(Price::from("0.620")));
+            callback_ids.borrow_mut().push(event.client_order_id);
+        }
+    });
+    let topic = format!("events.order.{}", orders[0].strategy_id());
+    msgbus::subscribe_order_events(topic.as_str().into(), handler.clone(), None);
+    client
+        .batch_modify_orders(BatchModifyOrders::new(
+            trader_id(),
+            Some(ClientId::new("PREDICT")),
+            orders[0].strategy_id(),
+            instrument_id(1),
+            modifies,
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        ))
+        .unwrap();
+    let mut engine = engine(&cache);
+    for _ in 0..orders.len() {
+        let ExecutionEvent::Order(event @ OrderEventAny::ModifyRejected(_)) = next(&mut rx).await
+        else {
+            panic!("each Native batch child must receive ModifyRejected");
+        };
+        engine.process(&event);
+    }
+    assert_eq!(
+        *callbacks.borrow(),
+        orders
+            .iter()
+            .map(Order::client_order_id)
+            .collect::<Vec<_>>()
+    );
+    assert!(rx.try_recv().is_err());
+    assert!(server.state.creations.lock().unwrap().is_empty());
+    assert!(server.state.removals.lock().unwrap().is_empty());
+    assert!(server.state.requests.lock().unwrap().is_empty());
+    msgbus::unsubscribe_order_events(topic.as_str().into(), &handler);
+}

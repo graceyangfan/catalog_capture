@@ -13,64 +13,64 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Reported cash accounts: protocol collection, native reservation math and account-state emission.
-//! This is not a second order/position manager and does not submit chain transactions.
 
 use std::{
     collections::{HashMap, HashSet},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
 };
 
 use ahash::AHashMap;
 use alloy::primitives::B256;
-use nautilus_common::factories::OrderEventFactory;
+use anyhow::Context;
+use nautilus_common::{
+    clients::ExecutionClient, factories::OrderEventFactory, messages::execution::QueryAccount,
+};
 use nautilus_core::{AtomicMap, Params, UUID4, UnixNanos, time::AtomicTime};
 use nautilus_live::ExecutionEventEmitter;
+#[cfg(test)]
+use nautilus_model::orders::Order;
 use nautilus_model::{
     accounts::{Account, AccountAny, cash::CashAccount},
-    enums::AccountType,
+    enums::{AccountType, OrderSide, OrderType},
     events::AccountState,
     identifiers::{ClientOrderId, InstrumentId, VenueOrderId},
     instruments::InstrumentAny,
-    types::{Currency, Money},
+    types::{Currency, Money, Price},
 };
 use nautilus_network::websocket::AuthTracker;
+use rust_decimal::Decimal;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
+use crate::execution::{context, metadata, orders, parse};
 use crate::{
     blockchain::{PredictChainClient, parse::parse_balance_snapshot},
-    config::PredictExecutionClientConfig,
-    http::account_models::PredictOrderData,
+    common::{enums::PredictOrderSide, parse::exact_wei},
+    config::{PredictAccountStateMode, PredictExecutionClientConfig},
+    http::account_models::{PredictOrderData, PredictOrderStatus},
 };
+
+// This is not a second order/position manager and does not submit chain transactions.
 
 #[cfg(test)]
 thread_local! {
     static FULL_ORDER_READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-// Native position adjustments change cached holdings, not venue settlement or chain cash.
-// The reconciliation event flag alone also marks real fills recovered through REST.
-pub(super) fn is_synthetic_order(order: &impl super::context::OrderView) -> bool {
-    order.is_synthetic()
-}
-
-pub(super) fn latest_venue_fill(order: &impl super::context::OrderView) -> UnixNanos {
-    if is_synthetic_order(order) {
+pub(super) fn latest_venue_fill(order: &impl context::OrderView) -> UnixNanos {
+    if order.is_synthetic() {
         UnixNanos::default()
     } else {
         order.latest_fill()
     }
 }
 
-// Reservation inputs only; transient status still advances the account observation revision.
-pub(super) fn order_resources_changed<
-    O: super::context::OrderView,
-    P: super::context::OrderView,
->(
+// Compare reservation inputs; transient command status alone does not change reported locks.
+pub(super) fn order_resources_changed<O: context::OrderView, P: context::OrderView>(
     previous: Option<&P>,
     current: &O,
 ) -> bool {
@@ -95,21 +95,14 @@ pub(super) fn order_resources_changed<
 pub(super) struct AccountSync {
     pub state: Mutex<AccountSyncState>,
     pub notify: Notify,
-    pub nonce_notify: Notify,
 }
 
 #[derive(Debug, Default)]
 pub(super) struct AccountSyncState {
-    pub revision: u64,
     // Local projection depends on reservation inputs, not transient command statuses.
     pub resource_revision: u64,
-    // Fixed client account/environment; each entry belongs to one verifying contract.
-    // WS epochs and instrument retirement do not change signing inputs.
-    pub signing_nonces: [Option<alloy::primitives::U256>; 4],
     // An index into Native worker snapshots, not a second order or balance model.
     pub active_orders: HashMap<ClientOrderId, Option<VenueOrderId>>,
-    // One-shot Native query intent after a wallet observation lacks terminal evidence.
-    pub order_status_requests: HashSet<ClientOrderId>,
     // Chain freshness must outlive Native's retention of individual settled orders.
     pub latest_fill: UnixNanos,
     pub last_event: Option<UUID4>,
@@ -216,7 +209,6 @@ impl AccountSyncState {
     }
 
     pub fn clear_connection(&mut self) {
-        self.signing_nonces = [None; 4];
         self.confirmed = None;
         self.projected_revision = None;
         self.confirmed_terminal.clear();
@@ -231,10 +223,10 @@ struct BalanceBlockLag;
 pub(super) struct AccountReporter {
     pub config: PredictExecutionClientConfig,
     pub chain: PredictChainClient,
-    pub instruments: Arc<AtomicMap<InstrumentId, super::types::ExecutionInstrument>>,
-    pub orders: super::types::OrderSnapshots<ClientOrderId>,
-    pub pending: super::orders::PendingSubmissions,
-    pub rest_ids: super::routing::RestOrderIds,
+    pub instruments: Arc<AtomicMap<InstrumentId, metadata::ExecutionInstrument>>,
+    pub orders: context::OrderSnapshots<ClientOrderId>,
+    pub pending: orders::PendingSubmissions,
+    pub rest_ids: orders::RestOrderIds,
     pub sync: Arc<AccountSync>,
     pub emitter: ExecutionEventEmitter,
     pub clock: &'static AtomicTime,
@@ -247,46 +239,7 @@ impl AccountReporter {
     /// Explicit initialization/recovery reads. Ordinary order events only reproject
     /// the last confirmed remote snapshot with current Native reservations.
     pub async fn refresh(&self) -> anyhow::Result<bool> {
-        self.refresh_account(false).await
-    }
-
-    pub(super) async fn refresh_nonces(&self) -> anyhow::Result<()> {
-        if self.config.submission_signer.is_none() {
-            return Ok(());
-        }
-        // Initialization precedes run_nonces; only that serialized branch writes
-        // missing entries afterward. Cash queries never restore invalidated values.
-        let prepared = self
-            .sync
-            .state
-            .lock()
-            .expect("account sync poisoned")
-            .signing_nonces;
-        let missing = prepared.map(|value| value.is_none());
-        if !missing.iter().any(|value| *value) {
-            return Ok(());
-        }
-        let values = self
-            .chain
-            .request_signing_nonces(self.config.session.account_address(), missing)
-            .await?;
-        let mut state = self.sync.state.lock().expect("account sync poisoned");
-        for (index, value) in values.into_iter().enumerate() {
-            if missing[index] && state.signing_nonces[index] == prepared[index] {
-                state.signing_nonces[index] = value;
-            }
-        }
-        Ok(())
-    }
-
-    async fn refresh_account(&self, periodic: bool) -> anyhow::Result<bool> {
-        Ok(self.collect_account(periodic).await?.is_some())
-    }
-
-    /// Return this collection's immutable OPEN view, not whichever periodic
-    /// refresh happens to occupy the shared slot when recovery starts.
-    pub async fn refresh_snapshot(&self) -> anyhow::Result<Option<Arc<ConfirmedAccount>>> {
-        self.collect_account(false).await
+        Ok(self.collect_account(false).await?.is_some())
     }
 
     async fn collect_account(
@@ -313,7 +266,7 @@ impl AccountReporter {
             )
         };
         let collection = tokio::time::timeout(
-            Duration::from_secs(self.config.report_timeout_secs),
+            Duration::from_secs(self.config.request_timeout_secs),
             async {
                 tokio::try_join!(
                     async {
@@ -334,7 +287,8 @@ impl AccountReporter {
         // A slow periodic/query read must not hold up a confirmed cancellation's
         // local account publication. Explicit queries remain counted across IO.
         let collected = loop {
-            tokio::select! { biased;
+            tokio::select! {
+                biased;
                 result = &mut collection => break result,
                 _ = self.sync.notify.notified() => {
                     if let Err(error) = self.project() {
@@ -354,14 +308,13 @@ impl AccountReporter {
         {
             self.sync.notify.notify_one();
         }
-        let (rows, snapshot) =
-            collected.map_err(|_| anyhow::anyhow!("Predict account collection timed out"))??;
+        let (rows, snapshot) = collected.context("Predict account collection timed out")??;
         let rows = rows
             .map(|rows| {
                 let mut by_hash = AHashMap::with_capacity(rows.len());
                 for row in rows {
-                    let hash = super::resources::open_order_hash(&row)?;
-                    super::resources::reported_signed_reservation(&row)?;
+                    let hash = open_order_hash(&row)?;
+                    reported_signed_reservation(&row)?;
                     anyhow::ensure!(
                         by_hash.insert(hash, Arc::new(row)).is_none(),
                         "Predict duplicate OPEN hash"
@@ -463,7 +416,7 @@ impl AccountReporter {
                 && state.remote_requested == state.remote_collected
         };
         if dirty {
-            // The existing core fence verifies Cache application; a topic alone
+            // The core fence verifies Cache application; a topic alone
             // must never release locks from an unapplied account snapshot.
             self.project_on_core(core)?;
         }
@@ -475,8 +428,8 @@ impl AccountReporter {
     pub(super) fn project_order_on_core(
         &self,
         core: &nautilus_live::ExecutionClientCore,
-        previous: Option<&super::context::WorkerOrder>,
-        current: &super::context::WorkerOrder,
+        previous: Option<&context::WorkerOrder>,
+        current: &context::WorkerOrder,
         registered: Option<VenueOrderId>,
         market_buy_collateral: Option<rust_decimal::Decimal>,
     ) -> anyhow::Result<bool> {
@@ -544,7 +497,7 @@ impl AccountReporter {
                 let InstrumentAny::BinaryOption(binary) = &definition.instrument else {
                     anyhow::bail!("Predict reservations require native binary instruments");
                 };
-                super::parse::validate_rest_order_terms_for_hash(
+                parse::validate_rest_order_terms_for_hash(
                     row,
                     current,
                     binary,
@@ -558,24 +511,14 @@ impl AccountReporter {
                 .transpose()?
                 .or(market_buy_collateral);
             let before = if previous.is_open() {
-                super::resources::native_reservation(
-                    cash,
-                    previous,
-                    &definition.instrument,
-                    collateral,
-                )?
+                native_reservation(cash, previous, &definition.instrument, collateral)?
             } else {
                 Money::zero(Currency::USDT())
             };
             let after = if current.is_open() {
-                super::resources::native_reservation(
-                    cash,
-                    current,
-                    &definition.instrument,
-                    collateral,
-                )?
+                native_reservation(cash, current, &definition.instrument, collateral)?
             } else if let Some(row) = row.filter(|_| !terminal && !current.is_inflight()) {
-                super::resources::reported_signed_reservation(row)?
+                reported_signed_reservation(row)?
             } else {
                 Money::zero(Currency::USDT())
             };
@@ -741,7 +684,7 @@ impl AccountReporter {
                 let InstrumentAny::BinaryOption(binary) = instrument else {
                     anyhow::bail!("Predict reservations require native binary instruments");
                 };
-                super::parse::validate_rest_order_terms_for_hash(
+                parse::validate_rest_order_terms_for_hash(
                     row,
                     order,
                     binary,
@@ -751,10 +694,10 @@ impl AccountReporter {
                 )?;
                 routes.push((
                     VenueOrderId::new(format!("{hash:#x}")),
-                    super::routing::parse_id(&row.id)?,
+                    orders::parse_id(&row.id)?,
                 ));
                 if order.is_open() {
-                    super::resources::native_reservation(
+                    native_reservation(
                         &cash,
                         order,
                         instrument,
@@ -770,7 +713,7 @@ impl AccountReporter {
             } else {
                 // Unmanaged or stale external BUYs still consume capacity. The full signed maker
                 // budget is conservative and independent of ambiguous REST filled-amount units.
-                super::resources::reported_signed_reservation(row)?
+                reported_signed_reservation(row)?
             };
             locked = locked
                 .checked_add(reservation)
@@ -794,7 +737,7 @@ impl AccountReporter {
                 )
             })?;
             locked = locked
-                .checked_add(super::resources::native_reservation(
+                .checked_add(native_reservation(
                     &cash,
                     order,
                     &instrument.instrument,
@@ -894,7 +837,7 @@ impl AccountReporter {
                 return Ok(false);
             }
         }
-        super::routing::register_many(&self.rest_ids, routes)?;
+        orders::register_many(&self.rest_ids, routes)?;
         let event_id = event.event_id;
         self.emitter.try_send_account_state(event)?;
         state.record_projection(Arc::clone(base), event_id);
@@ -904,7 +847,7 @@ impl AccountReporter {
 
 // On-chain USDT has 18 decimals; Native fixed-point may have fewer. Floor total at the
 // account boundary so representable free funds never exceed the chain balance. Keep the full
-// raw amount in AccountState info; the strict standalone conversion API remains unchanged.
+// raw amount in AccountState info for exact diagnostics.
 pub(super) fn reported_balance(
     snapshot: &crate::blockchain::models::PredictBalanceSnapshot,
     locked: Money,
@@ -933,66 +876,85 @@ pub(super) async fn collect_open_orders(
         .latency
         .as_ref()
         .map(|probe| probe.timer(crate::latency::LatencyMetric::OpenCollection));
-    let result = super::reconciliation::collect_orders(config, true).await;
+    let result = config
+        .session
+        .collect_open_orders(config.report_page_size, config.max_report_pages, || {
+            if let Some(probe) = &config.latency {
+                probe.count(crate::latency::LatencyCounter::OpenPageRequests);
+            }
+        })
+        .await;
     if let Some(timing) = timing {
         timing.finish();
     }
     result
 }
 
-pub(super) async fn run(reporter: AccountReporter, cancellation: CancellationToken) {
-    // One TaskGroup-owned task, independent IO branches; no nonce timer or order wait queue.
-    tokio::join!(
-        run_account(&reporter, &cancellation),
-        run_nonces(&reporter, &cancellation)
-    );
+pub(super) async fn run(
+    reporter: AccountReporter,
+    cancellation: CancellationToken,
+    active: Arc<AtomicBool>,
+    refreshed_epoch: Arc<AtomicU64>,
+    refresh_required: Arc<AtomicBool>,
+) {
+    run_account(
+        reporter,
+        &cancellation,
+        &active,
+        &refreshed_epoch,
+        &refresh_required,
+    )
+    .await;
 }
 
-async fn run_nonces(reporter: &AccountReporter, cancellation: &CancellationToken) {
-    loop {
-        tokio::select! { biased;
-            _ = cancellation.cancelled() => return,
-            _ = reporter.sync.nonce_notify.notified() => {}
-        }
-        tokio::select! { biased;
-            _ = cancellation.cancelled() => return,
-            result = reporter.refresh_nonces() => {
-                if let Err(error) = result {
-                    log::warn!("Predict signing nonce refresh failed: {error}");
-                }
-            }
-        }
-    }
-}
-
-async fn run_account(reporter: &AccountReporter, cancellation: &CancellationToken) {
+async fn run_account(
+    mut reporter: AccountReporter,
+    cancellation: &CancellationToken,
+    active: &Arc<AtomicBool>,
+    refreshed_epoch: &AtomicU64,
+    refresh_required: &AtomicBool,
+) {
     let mut interval = tokio::time::interval(Duration::from_secs(
         reporter.config.account_refresh_interval_secs,
     ));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     interval.tick().await;
     loop {
-        let periodic = tokio::select! { biased;
-            _ = cancellation.cancelled() => break,
+        let periodic = tokio::select! {
+            biased;
+            () = cancellation.cancelled() => break,
             _ = reporter.sync.notify.notified() => false,
             _ = interval.tick() => true,
         };
-        if periodic {
-            // Retry missing parameters on the existing funding cadence, without polling valid ones.
-            reporter.sync.nonce_notify.notify_one();
-        }
-        if !reporter.authentication.is_authenticated() {
-            // The private transport owns resubscription; retain this generation across gaps.
+        // Only explicit Native QueryAccount may read through an unacknowledged wallet gap.
+        // The request counters survive IO and coalesce with the same account collector.
+        reporter.allow_stream_gap = {
+            let state = reporter.sync.state.lock().expect("account sync poisoned");
+            state.open_requested != state.open_collected
+        };
+        if !reporter.authentication.is_authenticated() && !reporter.allow_stream_gap {
             continue;
         }
+        let Some(_guard) = AccountQueryGuard::acquire(active) else {
+            continue;
+        };
         // Wallet success time can slightly follow its mined block timestamp. Retry this
         // read-only causal lag briefly so cash does not wait for the normal funding poll.
         for attempt in 0..5 {
-            let result = tokio::select! { biased;
-                _ = cancellation.cancelled() => return,
+            let result = tokio::select! {
+                biased;
+                () = cancellation.cancelled() => return,
                 result = async {
                     if periodic || reporter.needs_remote() {
-                        reporter.refresh_account(periodic).await
+                        let snapshot = reporter.collect_account(periodic).await?;
+                        if let Some(snapshot) = &snapshot
+                            && reporter.allow_stream_gap
+                            && reporter.connection_epoch.load(Ordering::Acquire) == snapshot.epoch
+                        {
+                            refreshed_epoch.store(snapshot.epoch, Ordering::Release);
+                            refresh_required.store(false, Ordering::Release);
+                        }
+                        Ok(snapshot.is_some())
                     } else {
                         reporter.project()
                     }
@@ -1007,8 +969,9 @@ async fn run_account(reporter: &AccountReporter, cancellation: &CancellationToke
                     let retry = tokio::time::sleep(Duration::from_secs(1));
                     tokio::pin!(retry);
                     loop {
-                        tokio::select! { biased;
-                            _ = cancellation.cancelled() => return,
+                        tokio::select! {
+                            biased;
+                            () = cancellation.cancelled() => return,
                             _ = &mut retry => break,
                             _ = reporter.sync.notify.notified() => {
                                 if let Err(error) = reporter.project() {
@@ -1024,16 +987,40 @@ async fn run_account(reporter: &AccountReporter, cancellation: &CancellationToke
                     );
                     break;
                 }
+                Ok(false) if reporter.allow_stream_gap && attempt < 4 => continue,
                 Ok(_) => break,
             }
         }
     }
 }
 
-/// Bounds explicit and automatic gap checks to one account collection per generation.
-pub(super) struct AccountQueryGuard(Arc<std::sync::atomic::AtomicBool>);
+impl crate::execution::PredictExecutionClient {
+    pub(super) fn query_account_command(&self, cmd: QueryAccount) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            cmd.account_id == self.core.account_id
+                && cmd.trader_id == self.core.trader_id
+                && cmd.client_id.is_none_or(|id| id == self.core.client_id),
+            "Predict account query identity differs from execution client"
+        );
+        anyhow::ensure!(
+            self.config.account_state_mode == PredictAccountStateMode::Reported
+                && self.core.is_connected()
+                && self.tasks.is_open(),
+            "Predict reported account client generation is not active"
+        );
+        self.prune_mirrors_on_request();
+        if self.account_refresh_required.load(Ordering::Acquire) || !self.is_connected() {
+            self.account_refresh_required.store(true, Ordering::Release);
+        }
+        self.account_sync.request_remote();
+        Ok(())
+    }
+}
+
+/// Marks the single account collector active so maintenance does not dispatch redundant queries.
+struct AccountQueryGuard(Arc<AtomicBool>);
 impl AccountQueryGuard {
-    pub fn acquire(active: &Arc<std::sync::atomic::AtomicBool>) -> Option<Self> {
+    fn acquire(active: &Arc<AtomicBool>) -> Option<Self> {
         active
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .ok()
@@ -1045,6 +1032,118 @@ impl Drop for AccountQueryGuard {
         self.0.store(false, Ordering::Release);
     }
 }
+
+// Reported cash uses Native leaves notional; command admission does not audit funds.
+
+/// Validate the supported OPEN resource view before account reporting.
+/// These are original signed amounts, not remaining quantity: partial fills do not
+/// reduce them. A zero amount cannot describe a supported priced order. Refuse an
+/// unaccountable resource snapshot rather than treating it as available capacity.
+pub(super) fn open_order_hash(row: &PredictOrderData) -> anyhow::Result<B256> {
+    anyhow::ensure!(
+        row.status == PredictOrderStatus::Open
+            && row.currency == "USDT"
+            && !row.order.fields.maker_amount.is_zero()
+            && !row.order.fields.taker_amount.is_zero(),
+        "Predict open-order snapshot has an invalid status, currency or zero signed amount"
+    );
+    row.order
+        .hash
+        .ok_or_else(|| anyhow::anyhow!("Predict open order lacks its exchange hash"))
+}
+
+fn signed_collateral(row: &PredictOrderData) -> anyhow::Result<Decimal> {
+    match row.order.fields.side {
+        PredictOrderSide::Buy => exact_wei(row.order.fields.maker_amount),
+        PredictOrderSide::Sell => Ok(Decimal::ZERO),
+    }
+}
+
+/// Unknown/market BUY budgets are not reduced using ambiguous REST filled-amount units.
+pub(super) fn reported_signed_reservation(row: &PredictOrderData) -> anyhow::Result<Money> {
+    external_reservation(signed_collateral(row)?)
+}
+
+fn native_buy_price(order: &impl context::OrderView) -> anyhow::Result<Price> {
+    if order.order_type() == OrderType::Market {
+        // No signed budget is available: binary BUY cost is bounded by one USDT/share.
+        Ok(Price::from("1"))
+    } else {
+        order.price().ok_or_else(|| {
+            anyhow::anyhow!("Predict local BUY reservation requires an explicit price")
+        })
+    }
+}
+
+#[cfg(test)]
+pub(super) fn native_inventory(order: &impl context::OrderView) -> Decimal {
+    if order.order_side() == OrderSide::Sell {
+        order.leaves_qty().as_decimal()
+    } else {
+        Decimal::ZERO
+    }
+}
+
+pub(super) fn native_reservation(
+    cash: &CashAccount,
+    order: &impl context::OrderView,
+    instrument: &InstrumentAny,
+    market_buy_collateral: Option<Decimal>,
+) -> anyhow::Result<Money> {
+    anyhow::ensure!(
+        matches!(instrument, InstrumentAny::BinaryOption(_)) && !order.is_quote_quantity(),
+        "Predict reservations require native base-quantity binary orders"
+    );
+    if order.order_side() == OrderSide::Sell {
+        return Ok(Money::zero(Currency::USDT()));
+    }
+    if order.order_type() == OrderType::Market {
+        if let Some(collateral) = market_buy_collateral.or_else(|| order.quote_buy_budget()) {
+            // Native filled/leaves quantities are gross shares. The immutable signed
+            // budget bounds the unfilled fraction; REST amountFilled units are unused.
+            let quantity = crate::common::parse::decimal_to_wei(order.quantity().as_decimal())?;
+            let leaves = crate::common::parse::decimal_to_wei(order.leaves_qty().as_decimal())?;
+            let budget = crate::common::parse::decimal_to_wei(collateral)?;
+            let numerator = budget
+                .checked_mul(leaves)
+                .and_then(|value| value.checked_add(quantity - alloy::primitives::U256::from(1)))
+                .ok_or_else(|| anyhow::anyhow!("Predict MARKET reservation overflow"))?;
+            return external_reservation(exact_wei(numerator / quantity)?);
+        }
+        // Recovery can observe a MARKET before the authenticated OPEN snapshot. With
+        // no original signed budget in the native order, reserve the binary maximum
+        // of one USDT/share. Never infer the budget from a current/average quote.
+        return external_reservation(order.leaves_qty().as_decimal());
+    }
+    let price = native_buy_price(order)?;
+    let reservation = cash.calculate_balance_locked(
+        instrument,
+        order.order_side(),
+        order.leaves_qty(),
+        price,
+        None,
+    )?;
+    anyhow::ensure!(
+        reservation.currency == Currency::USDT()
+            && reservation.currency.precision == Currency::USDT().precision,
+        "Predict native reservation has an unexpected currency scale"
+    );
+    Ok(reservation)
+}
+
+fn external_reservation(amount: Decimal) -> anyhow::Result<Money> {
+    let currency = Currency::USDT();
+    let amount = amount.round_dp_with_strategy(
+        u32::from(currency.precision),
+        rust_decimal::RoundingStrategy::ToPositiveInfinity,
+    );
+    Money::from_decimal(amount, currency)
+        .map_err(|_| anyhow::anyhow!("Predict external reservation exceeds native money range"))
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/resources.rs"]
+mod reservation_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/account.rs"]

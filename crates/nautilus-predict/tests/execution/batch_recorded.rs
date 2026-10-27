@@ -25,7 +25,7 @@ fn replay_source(source: Vec<Value>, primary: &str) -> Value {
             .borrow_mut()
             .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
             .unwrap();
-        let mut engine = cancellations::engine(&cache);
+        let mut engine = super::cancellations::engine(&cache);
         let mut orders = vec![];
         for initial in source.iter().filter(|r| {
             r["phase"] == "recover"

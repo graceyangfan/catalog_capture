@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Breaking
+
+- Removed the pass-through Predict exports from `catalog-capture-core`; import
+  venue rules from `nautilus_predict::common`.
+- Removed Predict's `data_client` and root `models` compatibility modules; use
+  `nautilus_predict::data::PredictDataClient` and `nautilus_predict::http::models`.
+- Removed the `PredictChain` alias; use `PredictEnvironment` for the signer and
+  transport environment.
+
 ### Fixed
 
 - **Segment durability tick** no longer calls `ArrowWriter::flush` (that sealed a
@@ -33,7 +42,7 @@ All notable changes to this project are documented in this file.
   how_to / developer_guide / reference). Removed historical plan docs, design dumps,
   `dev/legacy-examples/`, and `research/`.
 - **Tooling:** pre-commit uses stable `cargo fmt` (empty-config pattern) + product-crate
-  clippy; toolchain 1.97.1. Clippy `doc-valid-idents` limited to supported venues only.
+  clippy; toolchain 1.99.1. Clippy `doc-valid-idents` limited to supported venues only.
 
 ### Added
 
@@ -41,7 +50,6 @@ All notable changes to this project are documented in this file.
 - Examples policy: TOML configs only for the single product binary.
 - Community hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `tests/README.md`.
-
 
 ## 0.1.0
 
@@ -80,7 +88,7 @@ optional env credentials, and `metadata/capture_run.json`.
   `nautilus_trader`, else clone `nautechsystems/nautilus_trader` **develop**; optional `--pin-ci`.
 - README first-screen rewrite (Track O4): positioning, boundaries, multi-venue,
   Rust catalog, three happy paths (bootstrap / validate / live).
-- Removed empty `catalog-capture-plugin-adapter` directory (Track O5).
+- Removed empty `catalog-capture-plugin-adapter` directory.
 - Strengthened unofficial / LGPL / trademark language in README, NOTICE, TRADEMARK (O7).
 - C3 tests: bidirectional reject of subscribe vs request custom-data channel misuse.
 
@@ -102,23 +110,13 @@ optional env credentials, and `metadata/capture_run.json`.
 - Crate-level `README.md` files.
 - CI jobs for pre-commit and `cargo deny check licenses`.
 
-### Docs / packaging
+### Documentation and packaging
 
-- Rewrote root `README.md`, crate READMEs, and deployment templates with
-  project-owned voice and repository-relative paths.
-- Smoke tests and catalog probes resolve `../nautilus_trader` via `tests/nautilus_import.py`
-  instead of machine-specific absolute paths.
-- Rewrote `examples/README.md` and `ROADMAP.md` with project-owned voice and
-  repository-relative paths.
-- Rewrote concept docs (`architecture`, `custom-data-contract`, `production-architecture`,
-  `flush-rotation-policy`, `pyo3-surface`, `live-validation`, `implementation-plan`) with
-  project-owned voice and repository-relative paths.
-- Rewrote `docs/rfc.md`, `docs/native-custom-data-targets.md`, and option-universe design
-  docs with project-owned architecture voice.
-- Renamed `docs/upstream-strategy.md` to `docs/integration-strategy.md`.
-- Project license from Apache-2.0 to LGPL-3.0-or-later.
+- Repository-relative documentation, examples, deployment templates and catalog probes.
+- Crate READMEs and operator guides for building, capture and validation.
+- Project license changed from Apache-2.0 to LGPL-3.0-or-later.
 
-### Added (prior)
+### Operator tooling
 
 - `runtime.capture_seconds = 0` daemon mode: run until `SIGTERM` or `Ctrl+C`.
 - Operator configs under `examples/operator/` for Deribit, OKX, and Bybit unattended capture.
@@ -127,7 +125,7 @@ optional env credentials, and `metadata/capture_run.json`.
 - `Makefile` with build, test, soak, and cleanup targets.
 - GitHub Actions CI workflow for workspace unit tests.
 
-### Changed (prior)
+### Dependency layout
 
 - Path dependencies now use `../nautilus_trader` for sibling-repo layouts.
 
@@ -136,7 +134,3 @@ optional env credentials, and `metadata/capture_run.json`.
 - Option-universe readback Tokio nested-runtime panic (readback runs on a dedicated thread).
 - Soak validation no longer requires contract state unless explicitly requested.
 - `rolling-autorefresh` preset defers refresh-change checks to `--require-refresh-change`.
-
-## 0.1.0
-
-- Initial direct runtime-to-catalog capture CLI and option-universe validation suite.

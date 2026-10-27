@@ -100,7 +100,7 @@ async fn wallet_terminal_events_preserve_reasons_and_publish_after_native_cache_
             OrderEventAny::Expired(_) => {}
             _ => panic!("wrong native lifecycle event"),
         }
-        let mut engine = cancellations::engine(&cache);
+        let mut engine = super::cancellations::engine(&cache);
         engine.process(&first);
         engine.process(&second);
         assert_eq!(
@@ -138,7 +138,7 @@ async fn wallet_acceptance_burst_is_emitted_once_before_native_observer_runs() {
         vec!["orderAccepted".into(), "orderAccepted".into()],
     ));
     let (mut client, mut rx, cache, _portfolio, own) = submissions::connected(&server, 1).await;
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = super::cancellations::engine(&cache);
     client.submit_order(submissions::submit(&own)).unwrap();
     let first = loop {
         let incoming = next(&mut rx).await;
@@ -246,7 +246,7 @@ pub(super) fn control(engine: &mut ExecutionEngine, reference: &Value) -> (Venue
 async fn wallet_ack_after_queued_fill_cannot_revert_native_partial_fill_status() {
     let server = server(vec![]).await;
     let (mut client, mut rx, cache, _portfolio, own) = submissions::connected(&server, 1).await;
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = super::cancellations::engine(&cache);
     client.submit_order(submissions::submit(&own)).unwrap();
     loop {
         let incoming = next(&mut rx).await;
@@ -342,7 +342,7 @@ async fn owned_order_after_wallet_gap_or_transport_restart_keeps_recovery_report
             vec!["orderAccepted".into()],
         ));
         let (mut client, mut rx, cache, _portfolio, own) = submissions::connected(&server, 1).await;
-        let mut engine = cancellations::engine(&cache);
+        let mut engine = super::cancellations::engine(&cache);
         client.submit_order(submissions::submit(&own)).unwrap();
         loop {
             let event = next(&mut rx).await;
@@ -444,7 +444,7 @@ async fn snapshot_before_wallet_fill(charged: bool) {
             .add_order(own.clone(), None, None, false)
             .unwrap();
     }
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = super::cancellations::engine(&cache);
     client.submit_order(submissions::submit(&own)).unwrap();
     loop {
         let event = next(&mut rx).await;
@@ -647,7 +647,7 @@ async fn wallet_message_market_and_outcome_must_match_native_order() {
             else {
                 panic!("matching cancellation must remain deliverable")
             };
-            let mut engine = cancellations::engine(&cache);
+            let mut engine = super::cancellations::engine(&cache);
             engine.process(&terminal);
             assert_eq!(
                 cache
@@ -710,7 +710,7 @@ async fn wallet_terminal_callback_precedes_missing_fill_without_http_or_fabricat
         let ExecutionEvent::Order(terminal) = next(&mut rx).await else {
             panic!("confirmed terminal fact must arrive before any fill or query");
         };
-        let mut engine = cancellations::engine(&cache);
+        let mut engine = super::cancellations::engine(&cache);
         engine.process(&terminal);
         assert_eq!(callbacks.borrow().len(), 1);
         assert!(server.state.order_requests.lock().unwrap().is_empty());
@@ -747,7 +747,7 @@ async fn wallet_terminal_callback_precedes_missing_fill_without_http_or_fabricat
 async fn wallet_acceptance_callback_does_not_wait_for_missing_settlement() {
     let server = server(vec![]).await;
     let (mut client, mut rx, cache, _portfolio, own) = submissions::connected(&server, 1).await;
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = super::cancellations::engine(&cache);
     client.submit_order(submissions::submit(&own)).unwrap();
     exit_orders::barrier("signed POST registered", || {
         !server.state.creations.lock().unwrap().is_empty()

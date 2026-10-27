@@ -20,9 +20,9 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, de::Error as _};
 
 use super::error::{PredictWalletWsError, Result};
-use crate::{
-    common::serde::decimal_u256,
-    http::account_models::{PredictFeeType, PredictOrderStrategy},
+use crate::common::{
+    enums::{PredictFeeType, PredictOrderStrategy, PredictQuoteType},
+    serde::decimal_u256,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
@@ -30,13 +30,6 @@ use crate::{
 pub enum PredictWalletOutcome {
     Yes,
     No,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum PredictWalletQuoteType {
-    Ask,
-    Bid,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
@@ -72,7 +65,8 @@ pub struct PredictWalletOrderDetails {
     pub outcome_index: u8,
     pub market_question: String,
     pub outcome: PredictWalletOutcome,
-    pub quote_type: PredictWalletQuoteType,
+    #[serde(deserialize_with = "wallet_quote_type")]
+    pub quote_type: PredictQuoteType,
     #[serde(deserialize_with = "decimal_string")]
     pub quantity: Decimal,
     #[serde(deserialize_with = "decimal_string")]
@@ -102,6 +96,7 @@ impl PredictWalletOrder {
     /// Converts the venue's epoch milliseconds with overflow validation.
     ///
     /// # Errors
+    ///
     /// Returns an error when the timestamp cannot be represented in nanoseconds.
     pub fn timestamp_ns(&self) -> Result<UnixNanos> {
         self.timestamp
@@ -133,7 +128,7 @@ pub struct PredictWalletFee {
 }
 
 /// Submission is pending settlement, success is confirmed, failure does not confirm a fill.
-/// Optional maker/fee fields remain optional rather than implying taker or zero commission.
+/// Missing maker/fee fields do not imply taker liquidity or zero commission.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(
     tag = "type",
@@ -192,10 +187,7 @@ pub struct PredictWalletEvent {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PredictWalletStreamMessage {
     /// Every subscription needs REST reconciliation: the wallet topic provides no snapshot.
-    Subscribed {
-        connection_epoch: u64,
-        reconciliation_required: bool,
-    },
+    Subscribed { connection_epoch: u64 },
     Wallet {
         connection_epoch: u64,
         event: Box<PredictWalletEvent>,
@@ -205,9 +197,7 @@ pub enum PredictWalletStreamMessage {
 impl PredictWalletStreamMessage {
     pub(crate) fn connection_epoch(&self) -> u64 {
         match self {
-            Self::Subscribed {
-                connection_epoch, ..
-            }
+            Self::Subscribed { connection_epoch }
             | Self::Wallet {
                 connection_epoch, ..
             } => *connection_epoch,
@@ -230,4 +220,14 @@ fn decimal_string<'de, D: Deserializer<'de>>(
     }
     Decimal::from_str_exact(&value)
         .map_err(|_| D::Error::custom("wallet decimal exceeds precision or range"))
+}
+
+fn wallet_quote_type<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<PredictQuoteType, D::Error> {
+    match String::deserialize(deserializer)?.as_str() {
+        "ASK" => Ok(PredictQuoteType::Ask),
+        "BID" => Ok(PredictQuoteType::Bid),
+        _ => Err(D::Error::custom("wallet quote type requires ASK or BID")),
+    }
 }

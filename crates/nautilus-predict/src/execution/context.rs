@@ -13,6 +13,13 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Read-only worker projection of Native state. No event application or independent FSM.
+
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, OnceLock, Weak},
+};
+
+use alloy::primitives::Address;
 use indexmap::IndexMap;
 use nautilus_core::UnixNanos;
 use nautilus_live::execution::context::OrderContext;
@@ -20,10 +27,41 @@ use nautilus_model::{
     enums::{OrderSide, OrderStatus, OrderType, TimeInForce},
     events::{OrderEventAny, OrderFilled},
     identifiers::{AccountId, ClientOrderId, InstrumentId, StrategyId, TradeId, VenueOrderId},
+    instruments::{Instrument, InstrumentAny},
     orders::{Order, OrderAny},
     types::{Price, Quantity},
 };
-use std::sync::{Arc, Mutex, OnceLock, Weak};
+
+/// Immutable native context; no worker may mutate Cache or adopt an arbitrary venue order.
+pub(super) struct ReportContext<O = OrderAny> {
+    pub account_id: AccountId,
+    pub wallet: Address,
+    pub shares_allowed: bool,
+    pub instruments: HashMap<InstrumentId, InstrumentAny>,
+    pub orders: HashMap<VenueOrderId, O>,
+}
+
+impl<O> ReportContext<O> {
+    pub(super) fn single_order(
+        account_id: AccountId,
+        wallet: Address,
+        shares_allowed: bool,
+        venue_id: VenueOrderId,
+        order: O,
+        instrument: InstrumentAny,
+    ) -> Self {
+        Self {
+            account_id,
+            wallet,
+            shares_allowed,
+            instruments: HashMap::from([(instrument.id(), instrument)]),
+            orders: HashMap::from([(venue_id, order)]),
+        }
+    }
+}
+
+// Async workers hold immutable Native-derived views, never a parallel OMS.
+pub(super) type OrderSnapshots<K> = Arc<Mutex<IndexMap<K, Arc<WorkerOrder>, ahash::RandomState>>>;
 
 #[cfg(test)]
 thread_local! {
@@ -84,7 +122,6 @@ pub(super) struct WorkerOrder {
     ts_last: UnixNanos,
     status: OrderStatus,
     is_open: bool,
-    is_closed: bool,
     is_inflight: bool,
     is_synthetic: bool,
     latest_fill: UnixNanos,
@@ -220,13 +257,8 @@ impl WorkerOrder {
             ts_last: Order::ts_last(order),
             status: Order::status(order),
             is_open: Order::is_open(order),
-            is_closed: Order::is_closed(order),
             is_inflight: Order::is_inflight(order),
-            is_synthetic: order.tags().is_some_and(|tags| {
-                tags.iter().any(|tag| {
-                    tag.as_str() == nautilus_execution::reconciliation::RECONCILIATION_ORDER_TAG
-                })
-            }),
+            is_synthetic: OrderView::is_synthetic(order),
             latest_fill,
             fills,
             cutoff,
@@ -306,7 +338,7 @@ impl WorkerOrder {
         self.is_open
     }
     pub fn is_closed(&self) -> bool {
-        self.is_closed
+        self.status.is_closed()
     }
     pub fn is_inflight(&self) -> bool {
         self.is_inflight

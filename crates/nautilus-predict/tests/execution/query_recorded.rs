@@ -90,7 +90,7 @@ async fn replay() -> Value {
         .add_order(order.clone(), None, None, false)
         .unwrap();
     connect_reported(&mut client, &mut rx).await;
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = super::cancellations::engine(&cache);
     let mut feedback = vec![];
     for _ in 0..2 {
         let current = cache

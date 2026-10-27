@@ -319,9 +319,11 @@ pub(crate) fn cancel_feedback(c: &mut Criterion) {
                     *server.state.rpc_delay_ms.lock().unwrap() = 5;
                     let rpc_before = server.state.rpc_methods.lock().unwrap().len();
                     let open_before = server.state.requests.lock().unwrap().len();
-                    let mut engine = cancellations::engine(&cache);
+                    let mut engine = super::cancellations::engine(&cache);
                     let start = std::time::Instant::now();
-                    client.cancel_order(cancellations::cancel(&order)).unwrap();
+                    client
+                        .cancel_order(super::cancellations::cancel(&order))
+                        .unwrap();
                     let ExecutionEvent::Order(event) = next(&mut rx).await else {
                         panic!("native cancel");
                     };
@@ -405,7 +407,7 @@ pub(crate) fn wallet_dispatch(c: &mut Criterion) {
                             .add_order(own.clone(), None, None, false)
                             .unwrap();
                         seed_account(&cache);
-                        let mut engine = cancellations::engine(&cache);
+                        let mut engine = super::cancellations::engine(&cache);
                         let callback = Rc::new(Cell::new(None));
                         let handler = TypedHandler::from({
                             let callback = callback.clone();
@@ -533,4 +535,152 @@ pub(crate) fn market_preparation(c: &mut Criterion) {
         );
     }
     group.finish();
+}
+
+// Reuse the execution harness and bounded production probe. No private lock accessor
+// or synthetic critical section: every sample registers and sends a real signed order.
+async fn registration_case(
+    retained: usize,
+    batch: usize,
+    samples: usize,
+    held_cash: bool,
+) -> Value {
+    use nautilus_common::messages::execution::QueryAccount;
+    use nautilus_predict::latency::{LatencyMetric, PredictLatency};
+
+    assert_eq!(samples % batch, 0);
+    let server = server(vec![]).await;
+    let (probe, mut collector) = PredictLatency::channel(trader_id(), account_id(), 128).unwrap();
+    let (mut client, mut rx, cache, _) =
+        submissions::try_setup(&server, OBSERVED, 30, 30, Some(probe), false).unwrap();
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    retain_orders(&cache, retained);
+    connect_reported(&mut client, &mut rx).await;
+    server.state.rpc_latest_started.notified().await;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    if held_cash {
+        *server.state.rpc_latest_gate.lock().unwrap() = Some(Arc::clone(&gate));
+        client
+            .query_account(QueryAccount::new(
+                trader_id(),
+                None,
+                account_id(),
+                UUID4::new(),
+                OBSERVED.into(),
+                None,
+                None,
+            ))
+            .unwrap();
+        timeout(
+            Duration::from_secs(2),
+            server.state.rpc_latest_started.notified(),
+        )
+        .await
+        .unwrap();
+    }
+    let rpc_before = server.state.rpc_methods.lock().unwrap().len();
+    let reads_before = server.state.requests.lock().unwrap().len();
+    let socket = server.state.sockets.lock().unwrap().last().unwrap().clone();
+    let mut engine = submissions::engine(&cache);
+    // The exporter retains the last 128 measurements per metric, excluding these
+    // initial 32 commands. The ordinary regression uses a smaller non-performance case.
+    let warmup = 32;
+    let mut accepted = 0;
+    let mut snapshot = collector.snapshot();
+    for offset in (0..warmup + samples).step_by(batch) {
+        let mut orders = Vec::new();
+        for n in offset..offset + batch {
+            let order = OrderTestBuilder::new(OrderType::Limit)
+                .trader_id(trader_id())
+                .client_order_id(format!("REGISTRATION-{n}").into())
+                .instrument_id(instrument_id(1))
+                .side(OrderSide::Buy)
+                .quantity(Quantity::from(100))
+                .price(Price::from("0.010"))
+                .post_only(true)
+                .build();
+            cache
+                .borrow_mut()
+                .add_order(order.clone(), None, None, false)
+                .unwrap();
+            client.submit_order(submissions::submit(&order)).unwrap();
+            orders.push(order);
+        }
+        exit_orders::barrier("registration POSTs arrive", || {
+            while let Ok(event) = rx.try_recv() {
+                submissions::apply(&mut engine, &event);
+            }
+            server.state.creations.lock().unwrap().len() == offset + batch
+        })
+        .await;
+        let bodies = server.state.creations.lock().unwrap()[offset..offset + batch].to_vec();
+        for body in bodies {
+            socket
+                .send(Message::Text(
+                    json!({
+                        "type":"M", "topic":format!("predictWalletEvents/{JWT}"),
+                        "data":exit_orders::wire_event(&body, "orderAccepted", 1, Decimal::ZERO)
+                    })
+                    .to_string()
+                    .into(),
+                ))
+                .unwrap();
+        }
+        exit_orders::barrier("wallet acceptance reaches Native", || {
+            while let Ok(event) = rx.try_recv() {
+                if matches!(&event, ExecutionEvent::Order(event) if matches!(event, nautilus_model::events::OrderEventAny::Accepted(_))) {
+                    accepted += 1;
+                }
+                submissions::apply(&mut engine, &event);
+            }
+            orders.iter().all(|order| cache.borrow().order(&order.client_order_id()).unwrap().status() == OrderStatus::Accepted)
+        }).await;
+        snapshot = collector.snapshot();
+    }
+    assert_eq!(accepted, warmup + samples);
+    assert_eq!(server.state.rpc_methods.lock().unwrap().len(), rpc_before);
+    assert_eq!(server.state.requests.lock().unwrap().len(), reads_before);
+    for metric in [
+        LatencyMetric::SubmissionAccountLockWait,
+        LatencyMetric::SubmissionRegistration,
+    ] {
+        assert_eq!(
+            snapshot.distributions[&metric].completed_observations,
+            (warmup + samples) as u64
+        );
+    }
+    assert_eq!(snapshot.dropped_samples, 0);
+    assert_eq!(snapshot.invalid_intervals, 0);
+    gate.notify_one();
+    client.disconnect().await.unwrap();
+    json!({"retained":retained,"batch":batch,"samples":samples,"warmup":warmup,
+        "held_cash":held_cash,"accepted":accepted,"telemetry":snapshot})
+}
+
+#[tokio::test]
+async fn registration_timings_preserve_native_feedback_while_cash_is_held() {
+    registration_case(0, 4, 8, true).await;
+}
+
+#[tokio::test]
+#[ignore = "Explicit local timing exporter; no venue orders"]
+async fn benchmark_submission_registration() {
+    let path = std::env::var("PREDICT_REGISTRATION_PATH").expect("fresh output path required");
+    let mut cases = Vec::new();
+    for retained in [0, 1_000] {
+        for held_cash in [false, true] {
+            cases.push(registration_case(retained, 8, 128, held_cash).await);
+        }
+    }
+    let output = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .unwrap();
+    serde_json::to_writer_pretty(output, &json!({"profile":if cfg!(debug_assertions) {"debug"} else {"release"},
+        "scope":"loopback registration and Native acceptance; no live latency claim", "cases":cases})).unwrap();
 }

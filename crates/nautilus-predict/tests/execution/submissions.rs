@@ -115,14 +115,13 @@ pub(super) fn try_setup(
     latency: Option<nautilus_predict::latency::PredictLatency>,
     removal: bool,
 ) -> anyhow::Result<Setup> {
-    let (_, rx, cache) = client(server);
     let mut cfg = config(server);
     cfg.account_state_mode = PredictAccountStateMode::Reported;
     cfg.chain = Some(PredictChainClientConfig::new(
         PredictEnvironment::BnbMainnet,
         format!("{}/rpc", server.http).into(),
     ));
-    cfg.report_timeout_secs = 1;
+    cfg.request_timeout_secs = 1;
     cfg.orderbook_removal_enabled = removal;
     cfg.latency = latency;
     cfg.market_metadata_ttl_secs = ttl;
@@ -135,6 +134,15 @@ pub(super) fn try_setup(
         )
         .unwrap(),
     ));
+    setup_with_config(server, now, cfg)
+}
+
+fn setup_with_config(
+    server: &Server,
+    now: u64,
+    cfg: PredictExecutionClientConfig,
+) -> anyhow::Result<Setup> {
+    let (_, rx, cache) = client(server);
     let core = ExecutionClientCore::new(
         trader_id(),
         ClientId::new("PREDICT"),
@@ -175,7 +183,7 @@ pub(super) fn submit(order: &OrderAny) -> SubmitOrder {
     )
 }
 pub(super) fn engine(cache: &Rc<RefCell<Cache>>) -> ExecutionEngine {
-    cancellations::engine(cache)
+    super::cancellations::engine(cache)
 }
 
 pub(super) fn apply(engine: &mut ExecutionEngine, event: &ExecutionEvent) {
@@ -1348,6 +1356,7 @@ async fn post_after_nonce_refresh(
     cache: &Rc<RefCell<Cache>>,
     rx: &mut mpsc::UnboundedReceiver<ExecutionEvent>,
 ) {
+    let expected_posts = server.state.creations.lock().unwrap().len() + 1;
     let mut engine = engine(cache);
     timeout(Duration::from_secs(2), async {
         for n in 1000.. {
@@ -1358,10 +1367,10 @@ async fn post_after_nonce_refresh(
                 rx,
                 &mut engine,
                 &metadata_order(n, 1),
-                2,
+                expected_posts,
             )
             .await;
-            if server.state.creations.lock().unwrap().len() == 2 {
+            if server.state.creations.lock().unwrap().len() == expected_posts {
                 return;
             }
         }
@@ -1369,7 +1378,7 @@ async fn post_after_nonce_refresh(
     .await
     .expect("a new command can use the refreshed nonce without waiting for cash");
     assert_eq!(
-        server.state.creations.lock().unwrap()[1]["data"]["order"]["nonce"],
+        server.state.creations.lock().unwrap()[expected_posts - 1]["data"]["order"]["nonce"],
         "17"
     );
 }
@@ -1379,6 +1388,10 @@ async fn nonce_refresh_survives_open_failure_balance_failure_and_held_cash() {
     for fault in ["open", "balance", "unrepresentable_cash", "held_cash"] {
         let server = server(vec![]).await;
         let (mut client, mut rx, cache, _portfolio, order) = connected(&server, 1).await;
+        exit_orders::barrier("all initial nonce block reads have started", || {
+            server.state.nonce_requests.lock().unwrap().len() == 4
+        })
+        .await;
         server.state.rpc_latest_started.notified().await;
         *server.state.nonce_values.lock().unwrap() = [17, 18, 19, 20].map(U256::from);
         *server.state.open_unavailable.lock().unwrap() = fault == "open";
@@ -1390,7 +1403,12 @@ async fn nonce_refresh_survives_open_failure_balance_failure_and_held_cash() {
         if fault == "held_cash" {
             *server.state.rpc_latest_gate.lock().unwrap() = Some(gate.clone());
         }
+        let open_before_query = server.state.requests.lock().unwrap().len();
         query_nonce_account(&client);
+        exit_orders::barrier("the account query owns its OPEN request", || {
+            server.state.requests.lock().unwrap().len() == open_before_query + 1
+        })
+        .await;
         timeout(
             Duration::from_secs(2),
             server.state.rpc_latest_started.notified(),
@@ -1504,7 +1522,7 @@ async fn failed_nonce_read_does_not_suppress_cash_publication() {
 }
 
 #[tokio::test]
-async fn held_nonce_read_does_not_delay_cancel_or_fill_callback_and_cannot_cross_disconnect() {
+async fn initial_nonce_read_does_not_gate_connect_cancel_fill_or_cross_disconnect() {
     let server = server(vec![]).await;
     let (mut client, mut rx, cache, _) = try_setup(&server, OBSERVED, 30, 30, None, true).unwrap();
     let _portfolio = portfolio(&cache);
@@ -1517,21 +1535,45 @@ async fn held_nonce_read_does_not_delay_cancel_or_fill_callback_and_cannot_cross
         .borrow_mut()
         .add_order(old.clone(), None, None, false)
         .unwrap();
-    connect_reported(&mut client, &mut rx).await;
     let gate = Arc::new(tokio::sync::Notify::new());
-    *server.state.nonce_gate.lock().unwrap() = Some(gate.clone());
-    let rejected = metadata_order(151, 1);
-    cache
-        .borrow_mut()
-        .add_order(rejected.clone(), None, None, false)
-        .unwrap();
-    reject_nonce(&client, &server, &cache, &mut rx, &rejected).await;
+    *server.state.nonce_gate.lock().unwrap() = Some(Arc::clone(&gate));
+    *server.state.nonce_gate_index.lock().unwrap() = Some(0);
+    // Cash/OPEN and wallet ACK are healthy. Signing preparation cannot own connect.
+    timeout(
+        Duration::from_secs(1),
+        connect_reported(&mut client, &mut rx),
+    )
+    .await
+    .expect("a held initial nonce read must not block the execution connection");
+    assert!(client.is_connected());
     timeout(
         Duration::from_secs(2),
         server.state.nonce_started.notified(),
     )
     .await
     .unwrap();
+    let unready = metadata_order(151, 1);
+    cache
+        .borrow_mut()
+        .add_order(unready.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&unready)).unwrap();
+    let mut engine = engine(&cache);
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let event = next(&mut rx).await;
+            let rejected = matches!(&event, ExecutionEvent::Order(OrderEventAny::Rejected(row))
+                if row.client_order_id == unready.client_order_id()
+                && row.reason.as_str().contains("nonce is not prepared"));
+            apply(&mut engine, &event);
+            if rejected {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert!(server.state.creations.lock().unwrap().is_empty());
     server
         .state
         .orders
@@ -1565,8 +1607,9 @@ async fn held_nonce_read_does_not_delay_cancel_or_fill_callback_and_cannot_cross
     });
     let topic = switchboard::get_event_order_topic(old.strategy_id());
     msgbus::subscribe_order_events(topic.into(), handler.clone(), None);
-    let mut engine = engine(&cache);
-    client.cancel_order(cancellations::cancel(&old)).unwrap();
+    client
+        .cancel_order(super::cancellations::cancel(&old))
+        .unwrap();
     timeout(Duration::from_secs(2), async {
         while callbacks.borrow().is_empty() {
             apply(&mut engine, &next(&mut rx).await);
@@ -2014,6 +2057,116 @@ async fn prepared_signing_nonces_are_scoped_to_each_exchange() {
 }
 
 #[tokio::test]
+async fn concurrent_markets_share_contract_nonces_without_serializing_http() {
+    let server = server(vec![]).await;
+    *server.state.nonce_values.lock().unwrap() = [7, 8, 9, 10].map(U256::from);
+    let ((mut client, mut rx, cache, _clock), mut collector) = setup_metadata_probe(&server, 30);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    for (market, token, yield_bearing, collected) in [(43, 33, false, 2), (44, 55, true, 3)] {
+        *server.state.market_snapshot.lock().unwrap() = Some(json!({
+            "success":true,"data":{
+                "id":market,"title":"Independent market","tradingStatus":"OPEN",
+                "isNegRisk":false,"isYieldBearing":yield_bearing,"feeRateBps":0,
+                "decimalPrecision":3,"outcomes":[
+                    {"name":"Yes","indexSet":1,"onChainId":token.to_string()},
+                    {"name":"No","indexSet":2,"onChainId":(token+1).to_string()}
+                ]
+            }
+        }));
+        let mut definition = instrument(1);
+        definition.id = format!("{market}-1.PREDICT").parse().unwrap();
+        definition.raw_symbol = Symbol::new(token.to_string());
+        let definition = InstrumentAny::BinaryOption(definition);
+        cache
+            .borrow_mut()
+            .add_instrument(definition.clone())
+            .unwrap();
+        client.on_instrument(definition);
+        metadata_collected(&mut collector, collected).await;
+    }
+
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.create_gate.lock().unwrap() = Some(Arc::clone(&gate));
+    let mut orders = Vec::new();
+    // Queue all three commands before applying Submitted, while every HTTP reply is held.
+    for market in [42, 43, 44] {
+        let order = OrderTestBuilder::new(OrderType::Limit)
+            .trader_id(trader_id())
+            .instrument_id(format!("{market}-1.PREDICT").parse().unwrap())
+            .client_order_id(ClientOrderId::new(format!("CONCURRENT-MARKET-{market}")))
+            .side(OrderSide::Buy)
+            .quantity(Quantity::from(100))
+            .price(Price::from("0.010"))
+            .post_only(true)
+            .build();
+        cache
+            .borrow_mut()
+            .add_order(order.clone(), None, None, false)
+            .unwrap();
+        // Different native commands deliberately share salt 1. Distinct tokens must
+        // still produce independent hashes when the contract nonce is shared.
+        let mut command = submit(&order);
+        let command_id = format!("{market:08x}-0000-4000-8000-000000000001");
+        command.command_id = UUID4::from(command_id.as_str());
+        client.submit_order(command).unwrap();
+        orders.push(order);
+    }
+    exit_orders::barrier("all markets POST before any HTTP reply", || {
+        server.state.creations.lock().unwrap().len() == 3
+    })
+    .await;
+    {
+        let bodies = server.state.creations.lock().unwrap();
+        let by_token = bodies
+            .iter()
+            .map(|body| {
+                let order = &body["data"]["order"];
+                (order["tokenId"].as_str().unwrap(), order)
+            })
+            .collect::<HashMap<_, _>>();
+        assert_eq!(by_token.len(), 3);
+        assert_eq!(by_token["11"]["nonce"], "7");
+        assert_eq!(by_token["33"]["nonce"], "7");
+        assert_eq!(by_token["55"]["nonce"], "9");
+        assert!(by_token.values().all(|order| order["salt"] == "1"));
+        assert_eq!(
+            bodies
+                .iter()
+                .map(|body| body["data"]["order"]["hash"].as_str().unwrap())
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            3
+        );
+    }
+    let mut engine = engine(&cache);
+    timeout(Duration::from_secs(2), async {
+        while orders.iter().any(|order| {
+            cache
+                .borrow()
+                .order(&order.client_order_id())
+                .unwrap()
+                .status()
+                != OrderStatus::Submitted
+        }) {
+            apply(&mut engine, &next(&mut rx).await);
+        }
+    })
+    .await
+    .unwrap();
+    let mut requests = server.state.nonce_requests.lock().unwrap().clone();
+    requests.sort_unstable();
+    assert_eq!(requests, [0, 1, 2, 3]);
+    assert_eq!(*server.state.market_requests.lock().unwrap(), 3);
+    gate.notify_waiters();
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
 async fn invalid_nonce_rejection_cannot_be_undone_by_an_older_periodic_collection() {
     let server = server(vec![]).await;
     let (mut client, mut rx, cache, _) = setup_with_account_interval(&server, OBSERVED, 30, 1);
@@ -2316,6 +2469,7 @@ async fn invalid_nonce_response_after_wallet_reconnect_invalidates_prepared_nonc
     server.state.rpc_latest_started.notified().await;
     let cash_gate = Arc::new(tokio::sync::Notify::new());
     *server.state.nonce_gate.lock().unwrap() = Some(cash_gate.clone());
+    *server.state.nonce_gate_index.lock().unwrap() = Some(0);
     let gate = Arc::new(tokio::sync::Notify::new());
     *server.state.create_gate.lock().unwrap() = Some(gate.clone());
     *server.state.create_body.lock().unwrap() =
@@ -2552,5 +2706,305 @@ async fn invalid_nonce_does_not_disable_another_prepared_exchange_while_rpc_is_h
     assert!(server.state.order_requests.lock().unwrap().is_empty());
     assert!(server.state.match_requests.lock().unwrap().is_empty());
     cash_gate.notify_one();
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn wallet_ack_refreshes_expired_signing_metadata_while_cash_rpc_is_held() {
+    let server = server(vec![]).await;
+    let ((mut client, mut rx, cache, clock), mut collector) = setup_metadata_probe(&server, 30);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    metadata_collected(&mut collector, 1).await;
+    server.state.rpc_latest_started.notified().await; // Drain initialization.
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_latest_gate.lock().unwrap() = Some(Arc::clone(&gate));
+    query_nonce_account(&client);
+    timeout(
+        Duration::from_secs(2),
+        server.state.rpc_latest_started.notified(),
+    )
+    .await
+    .unwrap();
+    let nonces = server.state.nonce_requests.lock().unwrap().len();
+    let subscriptions = server.state.ws_requests.lock().unwrap().len();
+    clock.set_time((OBSERVED + 31_000_000_000).into());
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    super::exit_orders::barrier("new wallet subscription", || {
+        server.state.ws_requests.lock().unwrap().len() > subscriptions
+    })
+    .await;
+    wallet_processed(&server).await;
+    // The metadata timer is 15 real seconds away. ACK must wake signing preparation
+    // directly, without waiting for the held cash collection to complete.
+    timeout(
+        Duration::from_secs(2),
+        metadata_collected(&mut collector, 2),
+    )
+    .await
+    .unwrap();
+    assert_eq!(server.state.nonce_requests.lock().unwrap().len(), nonces);
+    assert!(client.is_connected());
+    let order = metadata_order(127, 1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    client.submit_order(submit(&order)).unwrap();
+    super::exit_orders::barrier(
+        "POST uses fresh signing metadata before cash completes",
+        || server.state.creations.lock().unwrap().len() == 1,
+    )
+    .await;
+    gate.notify_one();
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn failed_nonce_recovers_while_market_http_is_held_without_replaying_orders() {
+    let server = server(vec![]).await;
+    let mut cfg = config(&server);
+    cfg.account_state_mode = PredictAccountStateMode::Reported;
+    cfg.chain = Some(PredictChainClientConfig::new(
+        PredictEnvironment::BnbMainnet,
+        format!("{}/rpc", server.http).into(),
+    ));
+    cfg.request_timeout_secs = 30;
+    cfg.account_refresh_interval_secs = 86_400;
+    cfg.submission_signer = Some(Arc::new(
+        PredictAuthSigner::new(
+            PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
+    let (mut client, mut rx, cache, _) = setup_with_config(&server, OBSERVED, cfg).unwrap();
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+
+    // Hold another market's HTTP without replacing the target's valid signing inputs.
+    let market_gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.market_gate.lock().unwrap() = Some(Arc::clone(&market_gate));
+    let mut other = instrument(1);
+    other.id = "43-1.PREDICT".parse().unwrap();
+    client.on_instrument(InstrumentAny::BinaryOption(other));
+    exit_orders::barrier("another market HTTP is held", || {
+        *server.state.market_requests.lock().unwrap() == 2
+    })
+    .await;
+
+    let order = metadata_order(200, 1);
+    cache
+        .borrow_mut()
+        .add_order(order.clone(), None, None, false)
+        .unwrap();
+    *server.state.nonce_failure.lock().unwrap() = Some(0);
+    reject_nonce(&client, &server, &cache, &mut rx, &order).await;
+    timeout(Duration::from_secs(2), server.state.nonce_failed.notified())
+        .await
+        .expect("the failed contract read finished before recovery");
+    assert_eq!(server.state.nonce_requests.lock().unwrap().len(), 5);
+    *server.state.nonce_values.lock().unwrap() = [17, 18, 19, 20].map(U256::from);
+    *server.state.nonce_failure.lock().unwrap() = None;
+
+    // Preparation alone must not resend the rejected command. Only a fresh command posts.
+    exit_orders::barrier(
+        "missing nonce retried independently of held market HTTP",
+        || server.state.nonce_requests.lock().unwrap().len() == 6,
+    )
+    .await;
+    assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+    post_after_nonce_refresh(&client, &server, &cache, &mut rx).await;
+    assert_eq!(*server.state.market_requests.lock().unwrap(), 2);
+    assert_eq!(&server.state.nonce_requests.lock().unwrap()[4..], &[0, 0]);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::Rejected
+    );
+    assert!(client.is_connected());
+    market_gate.notify_one();
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn initial_nonce_timeout_cannot_block_other_contracts_or_discard_their_values() {
+    let server = server(vec![]).await;
+    let mut cfg = config(&server);
+    cfg.account_state_mode = PredictAccountStateMode::Reported;
+    let mut chain = PredictChainClientConfig::new(
+        PredictEnvironment::BnbMainnet,
+        format!("{}/rpc", server.http).into(),
+    );
+    chain.timeout_secs = 2;
+    cfg.chain = Some(chain);
+    cfg.account_refresh_interval_secs = 86_400;
+    cfg.submission_signer = Some(Arc::new(
+        PredictAuthSigner::new(
+            PUBLIC_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            Some(WALLET),
+        )
+        .unwrap(),
+    ));
+    *server.state.nonce_values.lock().unwrap() = [7, 8, 9, 10].map(U256::from);
+    *server.state.market_yield_bearing.lock().unwrap() = true;
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.nonce_gate.lock().unwrap() = Some(Arc::clone(&gate));
+    *server.state.nonce_gate_index.lock().unwrap() = Some(0);
+    *server.state.nonce_failure.lock().unwrap() = Some(0);
+    let (mut client, mut rx, cache, _) = setup_with_config(&server, OBSERVED, cfg).unwrap();
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    connect_reported(&mut client, &mut rx).await;
+    timeout(
+        Duration::from_secs(2),
+        server.state.nonce_started.notified(),
+    )
+    .await
+    .unwrap();
+    let mut engine = engine(&cache);
+    // This whole first phase must finish before the held Standard contract times out.
+    timeout(Duration::from_secs(1), async {
+        for n in 3000.. {
+            metadata_outcome(
+                &client,
+                &server,
+                &cache,
+                &mut rx,
+                &mut engine,
+                &metadata_order(n, 1),
+                1,
+            )
+            .await;
+            if server.state.creations.lock().unwrap().len() == 1 {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("a prepared YieldBearing nonce must publish while Standard is still held");
+    assert_eq!(
+        server.state.creations.lock().unwrap()[0]["data"]["order"]["nonce"],
+        "9"
+    );
+    // The first Standard attempt actually times out; its retry fails explicitly.
+    exit_orders::barrier(
+        "only the missing contract retries after its timeout",
+        || server.state.nonce_requests.lock().unwrap().len() == 5,
+    )
+    .await;
+    let requests = server.state.nonce_requests.lock().unwrap().clone();
+    for index in 1..4 {
+        assert_eq!(requests.iter().filter(|&&seen| seen == index).count(), 1);
+    }
+    assert_eq!(requests.iter().filter(|&&seen| seen == 0).count(), 2);
+    metadata_outcome(
+        &client,
+        &server,
+        &cache,
+        &mut rx,
+        &mut engine,
+        &metadata_order(4000, 1),
+        2,
+    )
+    .await;
+    assert_eq!(
+        server.state.creations.lock().unwrap()[1]["data"]["order"]["nonce"],
+        "9"
+    );
+    assert!(client.is_connected());
+    timeout(Duration::from_secs(1), client.disconnect())
+        .await
+        .unwrap()
+        .unwrap();
+    gate.notify_one();
+}
+
+#[tokio::test]
+async fn initial_nonce_block_change_preserves_connection_and_recovers_without_stale_values() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache, _) = setup_with_account_interval(&server, OBSERVED, 30, 86_400);
+    let _portfolio = portfolio(&cache);
+    cache
+        .borrow_mut()
+        .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+        .unwrap();
+    let nonce_gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.nonce_gate.lock().unwrap() = Some(Arc::clone(&nonce_gate));
+    *server.state.nonce_gate_index.lock().unwrap() = Some(0);
+    timeout(
+        Duration::from_secs(1),
+        connect_reported(&mut client, &mut rx),
+    )
+    .await
+    .expect("nonce preparation cannot own connection readiness");
+    timeout(
+        Duration::from_secs(2),
+        server.state.nonce_started.notified(),
+    )
+    .await
+    .unwrap();
+    // The initial collection sampled block 1 and nonce 7. Its final block check
+    // must fail; neither an old value nor that error may become connection state.
+    *server.state.nonce_values.lock().unwrap() = [17, 18, 19, 20].map(U256::from);
+    server.state.rpc_frame.lock().unwrap().1 = 2;
+    nonce_gate.notify_one();
+    // Recovery must not need a market notification, account refresh or trading command.
+    query_nonce_account(&client);
+    let account = super::apply_account(&mut rx).await;
+    assert_eq!(account.balances[0].total, Money::from("1000 USDT"));
+    assert!(client.is_connected());
+    exit_orders::barrier(
+        "block verification failure retried without a market wake",
+        || {
+            server
+                .state
+                .nonce_requests
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|&&index| index == 0)
+                .count()
+                == 2
+        },
+    )
+    .await;
+    post_after_nonce_refresh(&client, &server, &cache, &mut rx).await;
+    assert_eq!(server.state.creations.lock().unwrap().len(), 1);
+    assert_eq!(
+        server
+            .state
+            .nonce_requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|&&index| index == 0)
+            .count(),
+        2
+    );
     client.disconnect().await.unwrap();
 }

@@ -374,7 +374,7 @@ async fn ambiguous_wallet_rejection_requests_one_native_query_without_retrying_o
             handler.run();
         }
     };
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = super::cancellations::engine(&cache);
     let mut duplicate = event("orderNotAccepted", 1);
     duplicate["reason"] = json!("rejectedDuplicate");
     private.wallet(duplicate.clone());

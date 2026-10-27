@@ -527,7 +527,7 @@ pub(super) async fn run_exit_case(
         let history = wallet
             .iter()
             .map(|event| {
-                let mut row = matches::match_row(1);
+                let mut row = super::matches::match_row(1);
                 row["taker"]["price"] = event["fill"]["executedPriceWei"].clone();
                 row["taker"]["amount"] = event["fill"]["executedSizeWei"].clone();
                 row["taker"]["fee"] = json!({"type":"SHARES","amount":event["fee"]["amountWei"]});

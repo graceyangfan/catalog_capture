@@ -443,7 +443,7 @@ async fn run_replay_with_latency(
                     private.wallet(settled);
                 }
                 if history {
-                    let mut row = matches::match_row(outcome);
+                    let mut row = super::matches::match_row(outcome);
                     row["taker"]["hash"] = body["data"]["order"]["hash"].clone();
                     row["taker"]["price"] = body["data"]["pricePerShare"].clone();
                     row["taker"]["amount"] =

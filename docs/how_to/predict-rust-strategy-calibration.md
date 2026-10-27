@@ -42,7 +42,7 @@ the default. Native formats/logs order events before calling strategy hooks, so
 logging belongs to WS-to-strategy latency. Rust strategies can also use Native
 StrategyConfig.log_events and log_commands to control their event/command logs.
 Keep logging identical between compared source versions and record the setting.
-The [matched callback validation](../reference/predict-execution-validation.md#historical-measurements)
+The [matched callback validation](../reference/predict-execution-validation.md#measurement-requirements)
 distinguishes logger cost from run-to-run tail variation; lowering log output does
 not establish a universal p99 improvement.
 

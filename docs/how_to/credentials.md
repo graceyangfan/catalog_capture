@@ -96,7 +96,7 @@ canonical 5m/15m profile. Credential paths are passed explicitly; they are not p
 the capture profile or shell history as values.
 
 ```bash
-cargo +1.99.0 build --release -p catalog-capture-cli \
+cargo +1.99.1 build --release -p catalog-capture-cli \
   --no-default-features --features venue-binance,venue-predict
 
 PREDICT_CREDENTIALS_FILE="$PWD/env/predictfun.toml" \

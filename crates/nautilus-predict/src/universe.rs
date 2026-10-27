@@ -9,7 +9,8 @@
 //! Typed discovery for rolling Predict crypto up/down markets.
 
 use anyhow::Context;
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, Duration, Timelike, Utc};
+use chrono_tz::America::New_York;
 
 use crate::{
     common::{
@@ -19,13 +20,7 @@ use crate::{
     http::{PredictHttpClient, models::PredictMarket},
 };
 
-/// Product selector configured by the operator; market ID is intentionally absent.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PredictCryptoUpDownSelector {
-    pub price_feed_symbol: String,
-    pub title_asset: String,
-    pub interval_secs: u64,
-}
+pub use crate::common::CryptoUpDownMarketSelector as PredictCryptoUpDownSelector;
 
 /// One selected market and its title-derived UTC window.
 #[derive(Debug, Clone)]
@@ -40,12 +35,7 @@ pub async fn discover_crypto_up_down_market(
     selector: &PredictCryptoUpDownSelector,
     now_ns: u64,
 ) -> anyhow::Result<SelectedCryptoUpDownMarket> {
-    let now_year = chrono::DateTime::<Utc>::from_timestamp_nanos(now_ns as i64).year();
-    let expected = CryptoUpDownMarketSelector {
-        price_feed_symbol: selector.price_feed_symbol.clone(),
-        title_asset: selector.title_asset.clone(),
-        interval_secs: selector.interval_secs,
-    };
+    i64::try_from(now_ns).context("Predict discovery timestamp exceeds supported range")?;
     // Predict's rolling crypto products use a deterministic category slug,
     // e.g. `btc-updown-5m-<window_start_ts>`. Resolve the current and next
     // windows directly first; this is one bounded request per window and is
@@ -66,7 +56,7 @@ pub async fn discover_crypto_up_down_market(
             }
         }
     }
-    let mut candidates = matching_candidates(&markets, &expected, now_year);
+    let mut candidates = matching_candidates(&markets, selector, now_ns);
     if candidates.is_empty() {
         let query = format!("{} up or down", selector.title_asset.trim());
         let searched_markets = http.request_search_markets(&query, 100).await?;
@@ -74,7 +64,7 @@ pub async fn discover_crypto_up_down_market(
             "Predict market search fallback query={query:?} markets={}",
             searched_markets.len()
         );
-        candidates = matching_candidates(&searched_markets, &expected, now_year);
+        candidates = matching_candidates(&searched_markets, selector, now_ns);
     }
     anyhow::ensure!(
         !candidates.is_empty(),
@@ -84,20 +74,16 @@ pub async fn discover_crypto_up_down_market(
         selector.interval_secs
     );
     candidates.sort_by_key(|(_, window)| window.start_ns);
-    let (_, window) = candidates
+    let (market, window) = candidates
         .iter()
         .find(|(_, window)| window.start_ns <= now_ns && now_ns < window.end_ns)
         .or_else(|| candidates.iter().find(|(_, window)| window.start_ns > now_ns))
         .context("no open Predict crypto up/down market matched the configured feed, title asset, and interval")?;
-    let market_id = candidates
-        .iter()
-        .find(|(_, candidate_window)| candidate_window == window)
-        .expect("selected candidate must exist")
-        .0
-        .id;
+    let market_id = market.id;
     log::info!(
-        "Selected Predict crypto up/down market id={} window={}..{}",
+        "Selected Predict crypto up/down market id={} title={:?} window={}..{}",
         market_id,
+        market.display_title(),
         window.start_ns,
         window.end_ns
     );
@@ -108,6 +94,47 @@ pub async fn discover_crypto_up_down_market(
 }
 
 fn crypto_category_slugs(selector: &PredictCryptoUpDownSelector, now_ns: u64) -> Vec<String> {
+    if matches!(selector.interval_secs, 3600 | 86_400) {
+        let Some(now) = i64::try_from(now_ns)
+            .ok()
+            .map(chrono::DateTime::<Utc>::from_timestamp_nanos)
+        else {
+            return Vec::new();
+        };
+        let now = now.with_timezone(&New_York);
+        let asset = selector
+            .title_asset
+            .trim()
+            .to_ascii_lowercase()
+            .replace(' ', "-");
+        return if selector.interval_secs == 86_400 {
+            let end_date = now.date_naive() + Duration::days(i64::from(now.hour() >= 12));
+            [end_date, end_date + Duration::days(1)]
+                .into_iter()
+                .map(|date| {
+                    format!(
+                        "{asset}-up-or-down-on-{}-{}-{}",
+                        date.format("%B").to_string().to_ascii_lowercase(),
+                        date.day(),
+                        date.year()
+                    )
+                })
+                .collect()
+        } else {
+            [now, now + Duration::hours(1)]
+                .into_iter()
+                .map(|time| {
+                    format!(
+                        "{asset}-up-or-down-{}-{}-{}-{}-et",
+                        time.format("%B").to_string().to_ascii_lowercase(),
+                        time.day(),
+                        time.year(),
+                        time.format("%-I%p").to_string().to_ascii_lowercase()
+                    )
+                })
+                .collect()
+        };
+    }
     // Discovery and routing must agree for canonical and separator-alias feeds.
     // Only recognized quote suffixes support category derivation; other feeds
     // retain the bounded search fallback instead of guessing a base symbol.
@@ -152,16 +179,16 @@ fn interval_slug(interval_secs: u64) -> Option<String> {
 fn resolve_market_window(
     market: &PredictMarket,
     selector: &CryptoUpDownMarketSelector,
-    fallback_year: i32,
+    now_ns: u64,
 ) -> Option<CryptoUpDownMarketWindow> {
     let variant = market.variant_data.as_ref()?;
     let price_feed_symbol = variant.price_feed_symbol.as_deref()?;
-    // Predict titles omit the year. The runtime year is the authoritative first choice;
-    // created_at may be from the previous day and must not shift a current-window title
-    // into the previous year. The neighbouring years cover the New Year boundary.
-    [fallback_year, fallback_year + 1, fallback_year - 1]
+    // Titles omit the year. Resolve the nearest window around the runtime date,
+    // including a next-January market advertised in December and the reverse.
+    let year = chrono::DateTime::<Utc>::from_timestamp_nanos(i64::try_from(now_ns).ok()?).year();
+    [year, year + 1, year - 1]
         .into_iter()
-        .find_map(|title_year| {
+        .filter_map(|title_year| {
             resolve_crypto_up_down_market(
                 CryptoUpDownMarketCandidate {
                     variant_type: &variant.variant_type,
@@ -173,17 +200,24 @@ fn resolve_market_window(
             )
             .ok()
         })
+        .min_by_key(|window| {
+            if window.start_ns <= now_ns && now_ns < window.end_ns {
+                0
+            } else {
+                window.start_ns.abs_diff(now_ns)
+            }
+        })
 }
 
 fn matching_candidates(
     markets: &[PredictMarket],
     selector: &CryptoUpDownMarketSelector,
-    fallback_year: i32,
+    now_ns: u64,
 ) -> Vec<(PredictMarket, CryptoUpDownMarketWindow)> {
     markets
         .iter()
         .filter_map(
-            |market| match resolve_market_window(market, selector, fallback_year) {
+            |market| match resolve_market_window(market, selector, now_ns) {
                 Some(window) => Some((market.clone(), window)),
                 None => {
                     log::debug!(
@@ -211,7 +245,7 @@ mod tests {
     use super::{crypto_category_slugs, interval_slug, resolve_market_window};
     use crate::{
         common::CryptoUpDownMarketSelector,
-        models::{PredictMarket, PredictVariantData},
+        http::models::{PredictMarket, PredictVariantData},
     };
 
     #[test]
@@ -234,7 +268,7 @@ mod tests {
             interval_secs: 300,
         };
         assert_eq!(
-            resolve_market_window(&market, &selector, 2026)
+            resolve_market_window(&market, &selector, 1_791_475_200_000_000_000)
                 .expect("matching market")
                 .duration_secs(),
             300
@@ -260,10 +294,65 @@ mod tests {
             title_asset: "Bitcoin".to_string(),
             interval_secs: 300,
         };
-        let window = resolve_market_window(&market, &selector, 2026)
+        let window = resolve_market_window(&market, &selector, 1_791_475_200_000_000_000)
             .expect("current official category market should match");
         assert_eq!(window.duration_secs(), 300);
         assert_eq!(window.start_ns / 1_000_000_000, 1_791_475_200);
+    }
+
+    #[test]
+    fn daily_and_hourly_slugs_follow_local_boundaries_and_year_rollover() {
+        let mut selector = super::PredictCryptoUpDownSelector {
+            price_feed_symbol: "BTCUSDT".into(),
+            title_asset: "Bitcoin".into(),
+            interval_secs: 86_400,
+        };
+        let nanos = |value| {
+            chrono::DateTime::parse_from_rfc3339(value)
+                .unwrap()
+                .timestamp_nanos_opt()
+                .unwrap() as u64
+        };
+        assert_eq!(
+            crypto_category_slugs(&selector, nanos("2026-10-26T15:59:59Z")),
+            [
+                "bitcoin-up-or-down-on-october-26-2026",
+                "bitcoin-up-or-down-on-october-27-2026"
+            ]
+        );
+        assert_eq!(
+            crypto_category_slugs(&selector, nanos("2026-10-26T16:00:00Z")),
+            [
+                "bitcoin-up-or-down-on-october-27-2026",
+                "bitcoin-up-or-down-on-october-28-2026"
+            ]
+        );
+        assert_eq!(
+            crypto_category_slugs(&selector, nanos("2026-12-31T18:00:00Z")),
+            [
+                "bitcoin-up-or-down-on-january-1-2027",
+                "bitcoin-up-or-down-on-january-2-2027"
+            ]
+        );
+        let mut market: PredictMarket =
+            serde_json::from_str::<crate::http::models::PredictResponse<PredictMarket>>(
+                include_str!("../test_data/market_3759734_daily.json"),
+            )
+            .unwrap()
+            .data;
+        market.title = "Bitcoin Up or Down on January 1?".into();
+        let window =
+            resolve_market_window(&market, &selector, nanos("2026-12-31T18:00:00Z")).unwrap();
+        assert_eq!(window.start_ns, nanos("2026-12-31T17:00:00Z"));
+        assert_eq!(window.end_ns, nanos("2027-01-01T17:00:00Z"));
+        selector.interval_secs = 3600;
+        assert_eq!(
+            crypto_category_slugs(&selector, nanos("2027-01-01T04:30:00Z")),
+            [
+                "bitcoin-up-or-down-december-31-2026-11pm-et",
+                "bitcoin-up-or-down-january-1-2027-12am-et"
+            ]
+        );
     }
 
     #[test]

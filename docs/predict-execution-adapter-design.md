@@ -2,7 +2,7 @@
 
 Predict translates venue commands and authenticated feedback into Native execution
 messages. Strategy, risk and portfolio policy remain in NautilusTrader. This is
-the behavioral contract; [internals](predict-execution-structure-review.md) describes
+the behavioral contract; [internals](reference/predict-execution-internals.md) describes
 module ownership and [validation](reference/predict-execution-validation.md)
 links executable checks and evidence. Supported Native APIs are documented in the
 [dependency handoff](reference/predict-execution-validation.md#two-repository-handoff).
@@ -61,7 +61,8 @@ execution fact; actual routing still rejects conflicting ownership.
 | CancelOrder | One remove POST with a cached route; one hash GET first only if the numeric route is absent |
 | BatchCancelOrders / CancelAllOrders | Select owned orders, group routes and interpret individual removal results |
 | ModifyOrder | ModifyRejected; strategy explicitly cancels then submits a new order |
-| OrderList, batch modify, reduce-only, IOC, LIMIT FOK, quote SELL | Unsupported; no silent intent conversion |
+| BatchModifyOrders | Native default fanout to ModifyOrder; each child receives ModifyRejected, with no venue amendment |
+| OrderList, reduce-only, IOC, LIMIT FOK, quote SELL | Unsupported; no silent intent conversion |
 
 Warm submit performs local preparation and one create POST. It performs no book,
 cash, OPEN, holdings, match-history, metadata or nonce read. Cold signing inputs
@@ -174,10 +175,10 @@ or unrecognized rejection likewise preserves the original order, including a zer
 accepted original. Independent wallet cancellation/expiry or REST terminal evidence
 must establish closure. Confirmed settlements remain independently applicable.
 
-Subscribe to `predict_order_rejection_data_type(account, strategy)` for
-`PredictOrderRejectionUpdate`. This immediate observation includes the reason
-classification, displayed cumulative quantity, Native-applied quantity/status and
-`requires_reconciliation`. It is neither an order terminal nor an economic fill.
+Subscribe to `predict_order_not_accepted_data_type(account, strategy)` for
+`PredictOrderNotAcceptedUpdate`. This immediate observation includes the reason
+classification, displayed cumulative quantity and Native-applied quantity/status.
+It is neither an order terminal nor an economic fill.
 Known reasons retain their wire spelling; unrecognized strings are classified as
 `unknown` rather than echoed. Duplicate observations may repeat this transient metadata
 without duplicating Native order or position events.
@@ -249,7 +250,19 @@ exact precision for new fills does not rewrite past trades or fees.
 
 ## Accounts and recovery
 
-Cash and OPEN reservations are collected asynchronously. Ordinary order changes
+Venue-only MARKET BUY adoption requires a FILLED terminal, complete per-order
+settlement quantity matching both REST and the signed share quantity, and
+executions within the signed price bound. This equality also preserves repeated
+reports after Native adoption without a separate signed-order ledger. The original
+requested quantity is not guessed when these quantities differ. Active, canceled,
+or differently sized external MARKET BUYs remain explicit recovery errors. Known Native orders retain
+their original command terms and existing report path.
+
+Cash and OPEN reservations are collected by one asynchronous account task. Periodic
+refresh and explicit `QueryAccount` share its request counters and collector;
+explicit requests can verify authenticated REST/chain state during a wallet gap.
+An existing read completes or reaches its deadline before the next read starts.
+Ordinary order changes
 reproject Native locks without HTTP/RPC; fills request background cash refresh.
 Submitted capacity remains with Native risk. Known OPEN changes use order-local
 projection when provenance is available; otherwise projection uses the baseline
@@ -298,9 +311,26 @@ exchange contracts. Only missing entries are read. InvalidNonce clears the match
 entry if it still equals the rejected value, then wakes background refresh; other
 contracts remain usable. No guessed increment, time TTL or automatic POST retry.
 
-Nonce IO runs independently of cash/OPEN IO in the existing managed account task.
-The existing periodic cadence retries missing entries; healthy values are not
-polled. Automatic wallet reconnect and instrument retirement preserve valid values;
+Nonce IO runs immediately when the existing signing-metadata task starts, in a
+branch independent of account collection and market HTTP. Explicit connect does
+not await it: nonce errors or slow reads cannot fail an otherwise healthy account
+and acknowledged wallet connection. Only a new order whose contract nonce is
+missing fails locally through the existing Native rejection path, with no POST.
+The first account baseline is still required in reported mode; connection setup
+still performs the existing best-effort market preparation.
+Missing entries retry in the same nonce branch after 1, 2, 4 seconds, with the wait
+capped at 30 seconds after each completed attempt. Targeted invalidation wakes it immediately
+and resets the delay. Once all entries are valid, it waits only for invalidation;
+market HTTP, its refresh cadence and account collection do not schedule nonce
+recovery. Each RPC attempt retains the chain client's configured timeout.
+The same recovery task drives at most four concurrent contract reads. Each read
+has its own deadline and canonical-block verification, then publishes that slot
+without waiting for the other contracts. Errors leave only that slot missing;
+successful and already-prepared slots remain usable. A recovery round completes
+before the existing shared backoff schedules another round.
+Preparing all four contracts uses six more block GETs than a shared batch; these
+checks occur only during preparation or recovery, never on normal submission.
+Automatic wallet reconnect and instrument retirement preserve valid values;
 full client setup resets connection context. See the [SDK comparison](reference/predict-execution-validation.md#comparison-basis).
 
 ## Retention and public data
@@ -344,3 +374,13 @@ counts and metadata hits. CPU microbenchmarks, startup stress, loopback callback
 and live network latency are different workloads; overlapping percentiles cannot
 be added. Linear cold history validation and physical purge remain implementation
 limits, not claimed constant-time HFT paths.
+
+SubmissionAccountLockWait and SubmissionRegistration directly measure the local
+registration boundary; Preparation ends before that boundary. Registration spans
+nested locks and shared-index updates, while CreateRequest starts later. Immutable
+hash formatting and worker snapshot construction belong to Preparation before
+account-lock acquisition.
+The bounded probe publishes these samples only after releasing all registration
+locks. A disabled probe reads no additional clock. These elapsed intervals include
+scheduling effects; do not subtract their independent percentiles to infer lock
+cost. The explicit loopback exporter is documented in the test guide.

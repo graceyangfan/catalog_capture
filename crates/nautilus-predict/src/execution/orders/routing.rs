@@ -12,16 +12,16 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Numeric REST routing IDs. Exchange hashes remain Native VenueOrderId.
+//! Numeric venue IDs for REST removal; signed hashes retain their own identity.
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
 use alloy::primitives::U256;
 use nautilus_model::identifiers::VenueOrderId;
 
-pub(super) type RestOrderIds = Arc<Mutex<AHashMap<VenueOrderId, U256>>>;
+pub(crate) type RestOrderIds = Arc<Mutex<AHashMap<VenueOrderId, U256>>>;
 
-pub(super) fn register(ids: &RestOrderIds, hash: VenueOrderId, id: U256) -> anyhow::Result<()> {
+pub(crate) fn register(ids: &RestOrderIds, hash: VenueOrderId, id: U256) -> anyhow::Result<()> {
     let mut ids = ids.lock().expect("REST order IDs poisoned");
     match ids.entry(hash) {
         std::collections::hash_map::Entry::Occupied(entry) => anyhow::ensure!(
@@ -37,13 +37,13 @@ pub(super) fn register(ids: &RestOrderIds, hash: VenueOrderId, id: U256) -> anyh
 
 // Learning a cancel route is optional to an already identified execution fact.
 // Keep strict registration for actual command routing; preserve the existing owner on conflict.
-pub(super) fn observe(ids: &RestOrderIds, hash: VenueOrderId, raw: &str) {
+pub(crate) fn observe(ids: &RestOrderIds, hash: VenueOrderId, raw: &str) {
     if let Err(error) = parse_id(raw).and_then(|id| register(ids, hash, id)) {
         log::warn!("Predict REST route observation skipped for {hash}: {error}");
     }
 }
 
-pub(super) fn register_many(
+pub(crate) fn register_many(
     ids: &RestOrderIds,
     routes: &[(VenueOrderId, U256)],
 ) -> anyhow::Result<()> {
@@ -68,12 +68,12 @@ pub(super) fn register_many(
     Ok(())
 }
 
-pub(super) fn parse_id(id: &str) -> anyhow::Result<U256> {
+pub(crate) fn parse_id(id: &str) -> anyhow::Result<U256> {
     crate::common::serde::decimal_u256::parse::<serde::de::value::Error>(id).map_err(Into::into)
 }
 
 #[cfg(test)]
-mod tests {
+mod routing_tests {
     use super::*;
 
     #[test]

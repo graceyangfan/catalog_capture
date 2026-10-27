@@ -18,8 +18,6 @@ A historical capture does not establish behavior for a different source revision
 | [Exit-only execution](../../crates/nautilus-predict/tests/fixtures/private_api/exit_only_restart_20261017T053156Z/) | Existing TP canceled; MARKET SELL 31.36 filled; PositionClosed and final flat account | One full exit, not partial-exit or long-outage coverage |
 | [Independent exit collection](../../crates/nautilus-predict/tests/fixtures/private_api/exit_only_restart_20261017T053156Z_independent/) | Wallet, matches and chain transfers corroborate exit economics | Separate collector, with its own provenance |
 | [Read-only session and queries](../../crates/nautilus-predict/tests/fixtures/private_api/live_readonly_resources_20261017T100325Z/) | Early JWT replacement, WS resubscription, QueryAccount/readiness and QueryOrder; 101 and 52 successful requests, zero order/chain writes | Empty account; canceled-order repair combines a real historical response with derived stale local state |
-| Operator-run YES/GTD, 2026-10-20 | Two Accepted, two ModifyRejected with unchanged terms, two Canceled; independent wallet confirmation; zero new matches, cash/holdings unchanged, final OPEN zero | Revalidates one existing maker case; does not extend the matrix or prove callback latency |
-
 
 ## Interpretation and limits
 
@@ -28,13 +26,10 @@ behavior. Historical recordings may contain funds/OPEN preflights, cold market
 GETs or one-second account refreshes that are absent from the current normal submit
 path. Their request counts cannot be used to infer current per-order work.
 
-The representative resting revalidation contains two create/two remove POSTs,
-zero fills and complete independent final OPEN checks. Its relay observed 26 HTTP
-requests; supervisor, independent collector and public discovery/book connections
-were outside that count. Relay HTTP intervals include its forwarding overhead,
-not WS-to-strategy latency. That capture lacks source/features metadata, so it
-cannot support a source-matched performance claim. New runs write source/features,
-tracked-diff, lockfile and harness hashes in run_metadata.json.
+Performance comparisons require source, features, lockfile and harness hashes in
+run_metadata.json. Relay intervals include forwarding overhead and cannot stand
+in for WS-to-strategy latency. Historical request counts and short timing pilots
+do not characterize the current submission path or its tail latency.
 
 Read-only session probes used genuine authentication and early JWT renewals; they
 did not wait for natural expiry. A DNS-stalled observation is not evidence of
@@ -99,23 +94,6 @@ These are one capture's reported amounts, not a fee schedule or return forecast.
 The difference between cash change and Native quote PnL follows the documented
 [inventory-unit commission convention](quantity-commission.md); do not deduct the
 valuation of a share fee twice. Fee asset/amount remain venue facts.
-
-## Historical execution timing pilot
-
-A two-order distant post-only GTD pilot recorded zero fills, unchanged cash/holdings
-and complete independent final OPEN queries. Observed create-client intervals were
-186.813–220.035 ms, cancel-client intervals 176.650–190.700 ms and matched Accepted
-WS-handler-to-strategy intervals 0.338–0.878 ms. Client intervals include the test
-relay and network. With only two samples, p95/p99 are maxima, not tail estimates.
-
-That revision performed per-submit funds checks: 436.247–451.186 ms, accounting
-for almost all warm preparation. Its 51 RPC calls, 16 OPEN attempts, one cold
-metadata miss and one hit describe the historical harness, not current submission.
-A separate read-only Python comparison found no clear batching benefit: three
-parallel reads had median 163.165 ms versus 162.421 ms for one batch. No production
-batching or per-order funds cache was introduced. Current local execution/callback
-comparisons and their boundaries are in the
-[validation reference](predict-execution-validation.md).
 
 ## Venue contract observations
 

@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Nautilus factory for [`PredictDataClient`].
+//! Nautilus data and execution client factories.
 
 use std::{any::Any, cell::RefCell, rc::Rc};
 
@@ -22,9 +22,20 @@ use nautilus_common::{
     clock::Clock,
     factories::{ClientConfig, DataClientFactory},
 };
+#[cfg(feature = "execution")]
+use nautilus_common::{clients::ExecutionClient, factories::ExecutionClientFactory};
+#[cfg(feature = "execution")]
+use nautilus_live::ExecutionClientCore;
 use nautilus_model::identifiers::ClientId;
+#[cfg(feature = "execution")]
+use nautilus_model::{
+    enums::{AccountType, OmsType},
+    identifiers::TraderId,
+};
 
 use crate::{PREDICT, PredictDataClient, PredictDataClientConfig};
+#[cfg(feature = "execution")]
+use crate::{PredictExecutionClient, PredictExecutionClientConfig, common::PREDICT_VENUE};
 
 impl ClientConfig for PredictDataClientConfig {
     fn as_any(&self) -> &dyn Any {
@@ -75,4 +86,61 @@ impl DataClientFactory for PredictDataClientFactory {
 }
 
 #[cfg(feature = "execution")]
-pub use crate::execution::factory::PredictExecutionClientFactory;
+impl ClientConfig for PredictExecutionClientConfig {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[cfg(feature = "execution")]
+#[derive(Debug, Clone, Default)]
+pub struct PredictExecutionClientFactory;
+
+#[cfg(feature = "execution")]
+impl PredictExecutionClientFactory {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "execution")]
+impl ExecutionClientFactory for PredictExecutionClientFactory {
+    fn create(
+        &self,
+        trader_id: TraderId,
+        name: &str,
+        config: &dyn ClientConfig,
+        cache: CacheView,
+        clock: Rc<RefCell<dyn Clock>>,
+    ) -> anyhow::Result<Box<dyn ExecutionClient>> {
+        let config = config
+            .as_any()
+            .downcast_ref::<PredictExecutionClientConfig>()
+            .ok_or_else(|| {
+                anyhow::anyhow!("Predict execution factory requires PredictExecutionClientConfig")
+            })?
+            .clone();
+        let core = ExecutionClientCore::new(
+            trader_id,
+            ClientId::from(name),
+            *PREDICT_VENUE,
+            OmsType::Netting,
+            config.account_id,
+            AccountType::Cash,
+            None,
+            cache,
+        );
+        Ok(Box::new(
+            PredictExecutionClient::new(core, config)?.with_reconciliation_clock(clock),
+        ))
+    }
+
+    fn name(&self) -> &'static str {
+        PREDICT
+    }
+
+    fn config_type(&self) -> &'static str {
+        "PredictExecutionClientConfig"
+    }
+}

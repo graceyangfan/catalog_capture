@@ -12,11 +12,41 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Numeric wire enums for Predict orders.
+//! Venue wire enums and their Nautilus domain conversions.
 
 use serde::{Deserialize, Serialize};
 
 use crate::http::error::{Error, Result};
+
+/// Venue quote side. REST spells these `Ask`/`Bid`; wallet decoding is field-specific.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+pub enum PredictQuoteType {
+    Ask,
+    Bid,
+}
+
+impl From<PredictQuoteType> for nautilus_model::enums::OrderSide {
+    fn from(value: PredictQuoteType) -> Self {
+        match value {
+            PredictQuoteType::Ask => Self::Sell,
+            PredictQuoteType::Bid => Self::Buy,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PredictOrderStrategy {
+    Limit,
+    Market,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PredictFeeType {
+    Collateral,
+    Shares,
+}
 
 /// Venue order side, distinct from Nautilus domain enums.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

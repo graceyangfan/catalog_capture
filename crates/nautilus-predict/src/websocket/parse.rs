@@ -36,7 +36,7 @@ struct Envelope<'a> {
     data: Option<&'a RawValue>,
 }
 
-fn raw_data<'de, D: serde::Deserializer<'de>>(
+pub(super) fn raw_data<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<&'de RawValue>, D::Error> {
     <&RawValue>::deserialize(deserializer).map(Some)

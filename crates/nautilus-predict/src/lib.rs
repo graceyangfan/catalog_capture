@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! NautilusTrader-style Predict adapter primitives.
+//! Predict market-data and execution adapter for NautilusTrader.
 //!
 //! # Feature Flags
 //!
@@ -31,8 +31,6 @@ pub mod common;
 #[cfg(feature = "live")]
 pub mod config;
 pub mod data;
-#[cfg(feature = "live")]
-pub mod data_client;
 pub mod data_types;
 #[cfg(feature = "execution")]
 pub mod execution;
@@ -43,7 +41,6 @@ pub mod fees;
 pub mod http;
 #[cfg(feature = "execution")]
 pub mod latency;
-pub mod models;
 #[cfg(feature = "live")]
 pub mod providers;
 #[cfg(feature = "execution")]
@@ -75,14 +72,10 @@ pub use data_types::{
 #[cfg(feature = "execution")]
 pub use execution::PredictExecutionClient;
 #[cfg(feature = "execution")]
-pub use execution::receipt::{
-    PredictLimitOrderReceiptUpdate, predict_limit_order_receipt_data_type,
-};
-#[cfg(feature = "execution")]
-pub use execution::rejection::{PredictOrderRejectionUpdate, predict_order_rejection_data_type};
-#[cfg(feature = "execution")]
-pub use execution::settlement::{
-    PredictSettlementStatus, PredictSettlementUpdate, predict_settlement_data_type,
+pub use execution::observations::{
+    PredictLimitOrderReceiptUpdate, PredictOrderNotAcceptedUpdate, PredictSettlementStatus,
+    PredictSettlementUpdate, predict_limit_order_receipt_data_type,
+    predict_order_not_accepted_data_type, predict_settlement_data_type,
 };
 #[cfg(feature = "live")]
 pub use factories::PredictDataClientFactory;

@@ -13,8 +13,10 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Venue report collection for Nautilus bulk and startup reconciliation. No cache mutation.
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+use anyhow::Context;
 use nautilus_common::{
     clients::ExecutionReportTask,
     messages::execution::{GenerateFillReports, GenerateOrderStatusReports},
@@ -28,22 +30,21 @@ use nautilus_model::{
     reports::{FillReport, OrderStatusReport},
 };
 
-use super::{
-    PredictExecutionClient,
-    matches::MatchContext,
-    precision::{BufferedFill, SharedFillEvidence},
-};
+use crate::execution::{context, orders, parse, reports};
 use crate::{
     common::contracts::PredictExchangeType,
-    config::PredictExecutionClientConfig,
-    http::{
-        account_models::{PredictMatchData, PredictOrderData},
-        query::PredictOrdersQuery,
+    execution::{
+        PredictExecutionClient,
+        context::ReportContext,
+        fills::{BufferedFill, SharedFillEvidence},
     },
+    http::account_models::{PredictMatchData, PredictOrderData},
     signing::PredictOrderHasher,
 };
 
-pub(super) fn fills_by_order(fills: &[BufferedFill]) -> HashMap<VenueOrderId, Vec<&BufferedFill>> {
+pub(in crate::execution) fn fills_by_order(
+    fills: &[BufferedFill],
+) -> HashMap<VenueOrderId, Vec<&BufferedFill>> {
     let mut grouped = HashMap::<_, Vec<_>>::new();
     for fill in fills {
         grouped
@@ -54,117 +55,13 @@ pub(super) fn fills_by_order(fills: &[BufferedFill]) -> HashMap<VenueOrderId, Ve
     grouped
 }
 
-pub(super) fn status_report<O: super::context::OrderView, C>(
-    row: &PredictOrderData,
-    order: &O,
-    instrument: &nautilus_model::instruments::BinaryOption,
-    context: &MatchContext<C>,
-    hasher: &PredictOrderHasher,
-    fills: &[&BufferedFill],
-    now: UnixNanos,
-) -> anyhow::Result<OrderStatusReport> {
-    let id = VenueOrderId::new(format!(
-        "{:#x}",
-        row.order
-            .hash
-            .ok_or_else(|| anyhow::anyhow!("Predict report lacks signed hash"))?
-    ));
-    let amount = rust_decimal::Decimal::from_str_exact(&row.amount_filled)?;
-    anyhow::ensure!(
-        amount >= rust_decimal::Decimal::ZERO,
-        "Predict negative REST filled amount"
-    );
-    anyhow::ensure!(
-        VenueOrderId::new(format!(
-            "{:#x}",
-            hasher.order_hash(
-                &row.order.fields,
-                PredictExchangeType::from_market_flags(row.is_neg_risk, row.is_yield_bearing)
-            )
-        )) == id,
-        "Predict report fields do not reproduce signed hash"
-    );
-    anyhow::ensure!(
-        fills.iter().all(|fill| fill.report.venue_order_id == id),
-        "Predict report received a different order's match group"
-    );
-    if !amount.is_zero()
-        && !(fills.is_empty()
-            && matches!(
-                row.status,
-                crate::http::account_models::PredictOrderStatus::Cancelled
-                    | crate::http::account_models::PredictOrderStatus::Expired
-            ))
-    {
-        return super::recovery::OrderRecovery {
-            order,
-            instrument,
-            venue_id: id,
-            account_id: context.account_id,
-            wallet: context.wallet,
-            hasher,
-        }
-        .report(row, fills, now);
-    }
-    anyhow::ensure!(
-        fills.is_empty(),
-        "Predict zero REST fill contradicts confirmed matches"
-    );
-    if order.venue_order_id().is_none() {
-        super::parse::parse_submitted_order_report(row, order, instrument, hasher, id, now)
-    } else {
-        super::parse::rest_order_report_from_view(
-            row,
-            order,
-            instrument,
-            context.account_id,
-            context.wallet,
-            now,
-        )
-    }
-}
-
-pub(super) async fn collect_orders(
-    config: &PredictExecutionClientConfig,
-    open_only: bool,
-) -> anyhow::Result<Vec<PredictOrderData>> {
-    let mut rows = Vec::new();
-    let mut after = None;
-    let mut seen = HashSet::new();
-    for _ in 0..config.max_report_pages {
-        if open_only && let Some(probe) = &config.latency {
-            probe.count(crate::latency::LatencyCounter::OpenPageRequests);
-        }
-        let page = config
-            .session
-            .request_orders(&PredictOrdersQuery {
-                first: Some(config.report_page_size),
-                after: after.as_deref(),
-                status: open_only.then_some(crate::http::query::PredictOrderStatusFilter::Open),
-            })
-            .await?;
-        rows.extend(page.data);
-        match page.cursor {
-            None => return Ok(rows),
-            Some(cursor) => {
-                anyhow::ensure!(
-                    seen.insert(cursor.clone()),
-                    "Predict order pagination repeated a cursor"
-                );
-                after = Some(cursor);
-            }
-        }
-    }
-    anyhow::bail!("Predict order pagination exceeded configured bound")
-}
-
-pub(super) fn bulk_task(
+pub(in crate::execution) fn bulk_task(
     client: &PredictExecutionClient,
     cmd: &GenerateOrderStatusReports,
     bundle_fills: bool,
     fill_start: Option<UnixNanos>,
 ) -> ExecutionReportTask<(Vec<OrderStatusReport>, Vec<FillReport>)> {
-    client.prune_order_lookups_on_request();
+    client.prune_mirrors_on_request();
     let config = client.config.clone();
     let core = client.core.clone();
     let observed_orders = client.account_orders.clone();
@@ -222,10 +119,8 @@ pub(super) fn bulk_task(
                     && o.is_closed()
                     && (outside_window || cache.instrument(&o.instrument_id()).is_none())
                 {
-                    let snapshot = super::context::WorkerOrder::snapshot(
-                        &o,
-                        observed.get(&o.client_order_id()),
-                    );
+                    let snapshot =
+                        context::WorkerOrder::snapshot(&o, observed.get(&o.client_order_id()));
                     if !evidence
                         .lock()
                         .expect("fill evidence poisoned")
@@ -258,7 +153,14 @@ pub(super) fn bulk_task(
             );
             let operation = async {
                 config.session.ensure_account_identity().await?;
-                let mut rows = collect_orders(&config, true).await?;
+                let mut rows = config
+                    .session
+                    .collect_open_orders(config.report_page_size, config.max_report_pages, || {
+                        if let Some(probe) = &config.latency {
+                            probe.count(crate::latency::LatencyCounter::OpenPageRequests);
+                        }
+                    })
+                    .await?;
                 if open_only {
                     anyhow::ensure!(
                         rows.iter().all(|row| row.status
@@ -269,7 +171,7 @@ pub(super) fn bulk_task(
                 let mut hashes = HashSet::new();
                 rows.retain(|row| {
                     instrument_id.is_none_or(|id| {
-                        super::parse::market_id_from_instrument(&id).ok() == Some(row.market_id)
+                        parse::market_id_from_instrument(&id).ok() == Some(row.market_id)
                     }) && requested_token
                         .as_ref()
                         .is_none_or(|token| *token == row.order.fields.token_id.to_string())
@@ -314,8 +216,11 @@ pub(super) fn bulk_task(
                 // Establish recovery scope before reading history. A retired wallet token
                 // with no retained order must not require an account-wide trade scan.
                 let holdings = if bundle_fills {
-                    let holdings = super::reports::collect_positions(&config, None).await?;
-                    super::reports::active_holdings(
+                    let holdings = config
+                        .session
+                        .collect_positions(None, config.report_page_size, config.max_report_pages)
+                        .await?;
+                    reports::scope::active_holdings(
                         &config,
                         holdings,
                         &expirations,
@@ -338,8 +243,16 @@ pub(super) fn bulk_task(
                 let mut matches = Vec::new();
                 if matched {
                     for market in markets {
-                        matches
-                            .extend(super::matches::collect_matches(&config, Some(market)).await?);
+                        matches.extend(
+                            config
+                                .session
+                                .collect_matches(
+                                    Some(market),
+                                    config.report_page_size,
+                                    config.max_report_pages,
+                                )
+                                .await?,
+                        );
                     }
                 }
                 if bundle_fills {
@@ -348,9 +261,8 @@ pub(super) fn bulk_task(
                         .chain(targets.iter())
                         .map(|id| id.as_str().parse())
                         .collect::<Result<HashSet<_>, _>>()?;
-                    let selected = super::inventory_scope::required_orders(
-                        &matches, &holdings, wallet, &known, true,
-                    )?;
+                    let selected =
+                        reports::scope::required_orders(&matches, &holdings, wallet, &known, true)?;
                     matches.retain(|row| {
                         std::iter::once(&row.taker)
                             .chain(row.makers.iter())
@@ -380,11 +292,11 @@ pub(super) fn bulk_task(
                 Ok::<_, anyhow::Error>((rows, matches, clock.get_time_ns()))
             };
             tokio::time::timeout(
-                std::time::Duration::from_secs(config.report_timeout_secs),
+                std::time::Duration::from_secs(config.request_timeout_secs),
                 operation,
             )
             .await
-            .map_err(|_| anyhow::anyhow!("Predict bulk report collection timed out"))?
+            .context("Predict bulk report collection timed out")?
         },
         move |(rows, matches, now)| {
             anyhow::ensure!(
@@ -424,10 +336,7 @@ pub(super) fn bulk_task(
                         orders
                             .insert(
                                 id,
-                                super::context::WorkerOrder::snapshot(
-                                    &order,
-                                    observed.get(&client_id)
-                                )
+                                context::WorkerOrder::snapshot(&order, observed.get(&client_id))
                             )
                             .is_none(),
                         "Predict duplicate native hash ownership"
@@ -435,7 +344,7 @@ pub(super) fn bulk_task(
                 }
             }
             drop(observed);
-            let context = MatchContext {
+            let context = ReportContext {
                 account_id: core.account_id,
                 wallet,
                 shares_allowed: cache
@@ -484,7 +393,7 @@ pub(super) fn bulk_task(
                 .filter(|(hash, _)| reported.contains(hash))
                 .collect::<Vec<_>>();
             for (hash, id) in routes {
-                super::routing::observe(&rest_ids, hash, &id);
+                orders::observe(&rest_ids, hash, &id);
             }
             for report in &result.0 {
                 account_sync.confirm_report(report);
@@ -506,7 +415,7 @@ fn finish(
     rows: Vec<PredictOrderData>,
     matches: Vec<PredictMatchData>,
     now: UnixNanos,
-    context: &MatchContext<impl super::context::OrderView>,
+    context: &ReportContext<impl context::OrderView>,
     hasher: &PredictOrderHasher,
     evidence: &SharedFillEvidence,
     instrument_id: Option<nautilus_model::identifiers::InstrumentId>,
@@ -546,13 +455,13 @@ fn finish(
             let id = VenueOrderId::new(format!("{hash:#x}"));
             known |= context.orders.contains_key(&id) || reported_hashes.contains(&id);
         }
-        let timestamp = super::matches::match_timestamp(&row.executed_at)?;
+        let timestamp = reports::trades::match_timestamp(&row.executed_at)?;
         if !known && fill_start.is_some_and(|start| timestamp < start) {
             continue;
         }
         scoped.push(row);
     }
-    let mut fills = super::matches::prepare_match_reports(
+    let mut fills = reports::trades::prepare_match_reports(
         scoped,
         now,
         context,
@@ -613,7 +522,7 @@ fn finish(
                 allow_external,
                 "Predict bulk report has unclaimed venue order"
             );
-            reports.push(super::external::order_report(
+            reports.push(parse::parse_external_order_status_report(
                 &row,
                 context,
                 hasher,
@@ -630,7 +539,7 @@ fn finish(
         else {
             anyhow::bail!("Predict bulk report instrument is absent");
         };
-        let report = status_report(
+        let report = parse::parse_order_status_report(
             &row,
             order,
             instrument,
@@ -653,10 +562,10 @@ fn finish(
 
 /// A status-only reconciliation would infer a new trade ID for any unapplied cumulative
 /// increment. Queue the authoritative native bundle and defer this status-only cycle.
-pub(super) fn publish_unapplied(
+pub(in crate::execution) fn publish_unapplied(
     reports: &[OrderStatusReport],
     fills: &[BufferedFill],
-    context: &MatchContext<impl super::context::OrderView>,
+    context: &ReportContext<impl context::OrderView>,
     evidence: &SharedFillEvidence,
     emitter: &nautilus_live::ExecutionEventEmitter,
 ) -> anyhow::Result<bool> {
@@ -666,7 +575,7 @@ pub(super) fn publish_unapplied(
             .orders
             .get(&fill.report.venue_order_id)
             .ok_or_else(|| anyhow::anyhow!("Predict report fill has no native owner"))?;
-        if !super::parse::validate_applied_fill(&fill.report, order)? {
+        if !parse::validate_applied_fill(&fill.report, order)? {
             targets.insert(fill.report.venue_order_id);
         }
     }

@@ -135,7 +135,7 @@ async fn run_pause_case_with_evidence(
     };
     if evidence_mode.is_some() {
         exec.max_report_pages = owners * fills_per_order / 100 + 2;
-        exec.report_timeout_secs = 120;
+        exec.request_timeout_secs = 120;
     }
     assert!(exec.submission_signer.is_none() && !exec.orderbook_removal_enabled);
     let mut node = nautilus_live::node::LiveNode::builder(
@@ -276,7 +276,7 @@ async fn run_pause_case_with_evidence(
             }
             order.apply(event).unwrap();
             if evidence_mode.is_some() {
-                let mut row = super::super::matches::match_row(1);
+                let mut row = super::matches::match_row(1);
                 row["taker"]["hash"] = json!(hash.as_str());
                 row["taker"]["amount"] = json!("1000000000000000000");
                 row["taker"]["price"] = json!("10000000000000000");
@@ -524,7 +524,7 @@ async fn run_pause_case_with_evidence(
             );
         }
         if evidence_mode.is_some() {
-            let name = "predict-execution-recovery-PREDICT";
+            let name = "predict-execution-maintenance-PREDICT";
             let next_tick = timer_clock
                 .borrow()
                 .next_time_ns(name)

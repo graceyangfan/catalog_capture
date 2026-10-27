@@ -43,7 +43,7 @@ venues → catalog-capture-cli + TOML
 
 ## Quick start
 
-Requires Rust **1.99.0** and sibling `../nautilus_trader_quantity_commission`. Run from the **repo root**.
+Requires Rust **1.99.1** and sibling `../nautilus_trader_quantity_commission`. Run from the **repo root**.
 
 ```bash
 # Clone + checkout the Nautilus revision pinned by CI (recommended)

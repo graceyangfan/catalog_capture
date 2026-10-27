@@ -104,7 +104,7 @@ fn recorded_rows() -> (Value, Vec<Value>) {
         .unwrap()
         .iter()
         .map(|settlement| {
-            let mut row = matches::match_row(1);
+            let mut row = super::matches::match_row(1);
             row["taker"]["hash"] = json!(hash);
             row["taker"]["amount"] = settlement["fill"]["executedSizeWei"].clone();
             row["taker"]["price"] = settlement["fill"]["executedPriceWei"].clone();
@@ -222,7 +222,7 @@ async fn filled_atomic_remainder_closes_pending_commands_and_replays_without_new
                 *server.state.order_snapshot.lock().unwrap() =
                     Some(json!({"success":true,"data":row}));
                 *server.state.match_snapshot.lock().unwrap() = Some(matches);
-                let mut engine = cancellations::engine(&cache);
+                let mut engine = super::cancellations::engine(&cache);
                 let observed = Rc::new(RefCell::new(Vec::new()));
                 let handler = TypedHandler::from({
                     let cache = cache.clone();
@@ -461,7 +461,7 @@ async fn terminal_recovery_waits_for_missing_settlements_without_inventing_fills
         };
         let known_count = known.len();
         *server.state.match_snapshot.lock().unwrap() = Some(known);
-        let mut engine = cancellations::engine(&cache);
+        let mut engine = super::cancellations::engine(&cache);
         let report = recover(&client, &mut rx, &mut engine, &original).await;
         assert_eq!(report.order_status, OrderStatus::Filled);
         assert_eq!(report.quantity, Quantity::from("7.65"));
@@ -668,11 +668,11 @@ async fn recorded_partial_rejection_requires_independent_terminal_confirmation()
                         && let Some(update) =
                             data.data
                                 .as_any()
-                                .downcast_ref::<nautilus_predict::PredictOrderRejectionUpdate>()
+                                .downcast_ref::<nautilus_predict::PredictOrderNotAcceptedUpdate>()
                     {
                         assert_eq!(
                             data.data_type,
-                            nautilus_predict::predict_order_rejection_data_type(
+                            nautilus_predict::predict_order_not_accepted_data_type(
                                 account_id(),
                                 own.strategy_id()
                             )
@@ -684,7 +684,7 @@ async fn recorded_partial_rejection_requires_independent_terminal_confirmation()
             .await
             .expect("unresolved rejection must be observable without a false terminal");
             assert_eq!(observation.reason, "noMarketMatch");
-            assert!(observation.requires_reconciliation);
+            assert!(!observation.native_status.is_closed());
             assert!(
                 !cache
                     .borrow()
@@ -1040,7 +1040,7 @@ async fn duplicate_and_unrecognized_rejections_cannot_terminate_the_original_ord
                         && let Some(update) =
                             data.data
                                 .as_any()
-                                .downcast_ref::<nautilus_predict::PredictOrderRejectionUpdate>()
+                                .downcast_ref::<nautilus_predict::PredictOrderNotAcceptedUpdate>()
                     {
                         break update.clone();
                     }
@@ -1056,7 +1056,7 @@ async fn duplicate_and_unrecognized_rejections_cannot_terminate_the_original_ord
                     "unknown"
                 }
             );
-            assert!(observation.requires_reconciliation);
+            assert!(!observation.native_status.is_closed());
             let (control_hash, control) = wallet_lifecycle::control(&mut engine, &partial);
             private.wallet(control);
             timeout(Duration::from_secs(2), async {
@@ -1124,14 +1124,14 @@ async fn zero_display_no_match_cannot_reject_an_order_with_pending_settlement() 
                 && let Some(update) =
                     data.data
                         .as_any()
-                        .downcast_ref::<nautilus_predict::PredictOrderRejectionUpdate>()
+                        .downcast_ref::<nautilus_predict::PredictOrderNotAcceptedUpdate>()
             {
                 assert_eq!(update.reason, "noMarketMatch");
                 assert_eq!(
                     update.reported_quantity_filled.parse::<Decimal>().unwrap(),
                     Decimal::ZERO
                 );
-                assert!(update.requires_reconciliation);
+                assert!(!update.native_status.is_closed());
                 break;
             }
         }

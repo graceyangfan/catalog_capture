@@ -218,6 +218,7 @@ enum RecoveryCheck {
     None,
     Cancel,
     Purge,
+    MarketBuy,
 }
 
 #[expect(
@@ -231,9 +232,12 @@ async fn run_lifecycle(
     exit_only: bool,
     recovery: RecoveryCheck,
 ) -> Value {
-    let recover_and_cancel = recovery != RecoveryCheck::None;
+    let recover_and_cancel = matches!(recovery, RecoveryCheck::Cancel | RecoveryCheck::Purge);
     let private = server(vec![]).await;
-    let buy = row(0);
+    let mut buy = row(0);
+    if recovery == RecoveryCheck::MarketBuy {
+        buy["strategy"] = json!("MARKET");
+    }
     let tp = row(3);
     let confirmed = match_row(&buy);
     for row in [&buy, &tp]
@@ -428,6 +432,13 @@ async fn run_lifecycle(
                 cache.orders_open(None, None, None, None, None).len(),
                 usize::from(!holding_only)
             );
+            if recovery == RecoveryCheck::MarketBuy {
+                let orders = cache.orders(None, None, None, None, None);
+                assert_eq!(orders.len(), 1);
+                assert_eq!(orders[0].order_type(), OrderType::Market);
+                assert_eq!(orders[0].status(), OrderStatus::Filled);
+                assert_eq!(orders[0].filled_qty().as_decimal(), Decimal::from(32));
+            }
         }
         // Query after Native adoption now has real client IDs, with no fabricated local order.
         let mass = {
@@ -870,6 +881,11 @@ async fn run_lifecycle(
     json!({"source":"offline Native cold-start with actual signed order economics and confirmed match/chain transfer; derived time slice, not actual nonempty REST snapshot","olderSyntheticClosedCycle":older_cycle,"history":*private.state.match_snapshot.lock().unwrap(),"claimed":claim,"holdingOnly":holding_only,"transforms":["market/token/wallet rebind and pure SDK-compatible hash recalculation","TP CANCELLED snapshot replayed at earlier Accepted point as OPEN","position shape derived from confirmed net ERC1155 receipt; display value/cost fields unused zero placeholders","historical fill shifted to 120s before startup"],"primaryOrderSource":"cold_start_readonly_20261016T133220Z.json","buy":buy,"takeProfit":tp,"confirmedMatch":confirmed,"position":position(),"nativeFeedback":*journal.borrow(),"repeated":replayed,"initialCacheOrders":0,"initialCachePositions":0,"initialCacheInstruments":0,"finalNetShares":if recovery == RecoveryCheck::Purge { "0" } else { "31.36" },"orderWrites":usize::from(recover_and_cancel),"finalRealizedPnl":cache.positions(None, None, None, None, None)[0].realized_pnl.map(|p|p.to_string()),"finalAccount":cache.account(&account_id()).unwrap().last_event()})
 }
 #[tokio::test(flavor = "current_thread")]
+async fn cold_start_adopts_complete_market_buy_and_replays_without_duplicate_inventory() {
+    run_lifecycle(true, true, false, false, RecoveryCheck::MarketBuy).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn cold_start_current_inventory_excludes_older_same_market_closed_cycle() {
     run_with_closed_history(true, false, true).await;
 }
@@ -985,6 +1001,10 @@ async fn cold_reports_validate_external_identity_terms_and_complete_fills_before
         "missing_matches",
         "overfilled",
         "market_buy",
+        "market_buy_open",
+        "market_buy_missing_prefix",
+        "market_buy_over_budget",
+        "market_buy_smaller_terminal",
         "missing_instrument",
     ] {
         let private = server(vec![]).await;
@@ -1014,6 +1034,25 @@ async fn cold_reports_validate_external_identity_terms_and_complete_fills_before
             }
             "overfilled" => matched["taker"]["amount"] = json!("33000000000000000000"),
             "market_buy" => selected["strategy"] = json!("MARKET"),
+            "market_buy_open" => {
+                selected["strategy"] = json!("MARKET");
+                selected["status"] = json!("OPEN");
+            }
+            "market_buy_missing_prefix" => {
+                selected["strategy"] = json!("MARKET");
+                matched["taker"]["amount"] = json!("16000000000000000000");
+            }
+            "market_buy_over_budget" => {
+                selected["strategy"] = json!("MARKET");
+                matched["taker"]["price"] = json!("990000000000000000");
+            }
+            "market_buy_smaller_terminal" => {
+                selected["strategy"] = json!("MARKET");
+                selected["amountFilled"] = json!("16000000000000000000");
+                matched["taker"]["amount"] = json!("16000000000000000000");
+                matched["taker"]["fee"]["amount"] = json!("320000000000000000");
+                held["amount"] = json!("15680000000000000000");
+            }
             _ => {}
         }
         let hash = buy["order"]["hash"].as_str().unwrap();
@@ -1045,7 +1084,7 @@ async fn cold_reports_validate_external_identity_terms_and_complete_fills_before
         }
         connect_reported(&mut client, &mut rx).await;
         let result = client.generate_mass_status(Some(1)).await;
-        if case == "valid" || case == "partial" {
+        if matches!(case, "valid" | "partial" | "market_buy") {
             let mass = result.unwrap().unwrap();
             assert_eq!(mass.order_reports().len(), 1);
             assert_eq!(mass.fill_reports().values().map(Vec::len).sum::<usize>(), 1);
@@ -1053,6 +1092,14 @@ async fn cold_reports_validate_external_identity_terms_and_complete_fills_before
             let report = reports.values().next().unwrap();
             assert_eq!(report.client_order_id, None);
             assert_eq!(report.quantity.as_decimal(), Decimal::from(32));
+            assert_eq!(
+                report.order_type,
+                if case == "market_buy" {
+                    OrderType::Market
+                } else {
+                    OrderType::Limit
+                }
+            );
             assert_eq!(
                 report.order_status,
                 if case == "partial" {

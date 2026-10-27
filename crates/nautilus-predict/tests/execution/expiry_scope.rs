@@ -145,7 +145,7 @@ async fn retired_inventory_does_not_block_reported_account_restart_or_mass_statu
     retired["market"]["id"] = json!(3707656);
     retired["outcome"]["status"] = json!("LOST");
     *venue.state.position_snapshot.lock().unwrap() = Some(vec![retired]);
-    let mut old = matches::match_row(1);
+    let mut old = super::matches::match_row(1);
     old["market"]["id"] = json!(3707656);
     old["settlementId"] = Value::Null;
     *venue.state.match_snapshot.lock().unwrap() = Some(vec![old]);
@@ -373,7 +373,7 @@ async fn retained_canceled_expired_order_recovers_previously_unseen_fill() {
         .lock()
         .unwrap()
         .insert(venue_id.to_string(), json!({"success":true,"data":row}));
-    let mut fill = matches::match_row(2);
+    let mut fill = super::matches::match_row(2);
     fill["taker"]["hash"] = json!(venue_id.to_string());
     *venue.state.match_snapshot.lock().unwrap() = Some(vec![fill]);
     let mut closed = OrderTestBuilder::new(OrderType::Limit)
@@ -486,7 +486,7 @@ async fn native_startup_with_retired_remote_and_cached_residuals_restarts_withou
     remote["market"]["id"] = json!(3707656);
     remote["outcome"]["status"] = json!("LOST");
     *venue.state.position_snapshot.lock().unwrap() = Some(vec![remote]);
-    let mut old = matches::match_row(1);
+    let mut old = super::matches::match_row(1);
     old["market"]["id"] = json!(3707656);
     old["settlementId"] = Value::Null;
     *venue.state.match_snapshot.lock().unwrap() = Some(vec![old]);
@@ -596,7 +596,7 @@ async fn bounded_inventory_fill_recovery_omits_retired_tokens_without_hiding_exp
     retired["outcome"]["status"] = json!("LOST");
     retired["amount"] = json!("17000000000000000000");
     *venue.state.position_snapshot.lock().unwrap() = Some(vec![retired]);
-    let mut old = matches::match_row(1);
+    let mut old = super::matches::match_row(1);
     old["market"]["id"] = json!(3707656);
     *venue.state.match_snapshot.lock().unwrap() = Some(vec![old]);
     let (mut client, mut rx, _cache, _portfolio, _) = submissions::connected(&venue, 1).await;

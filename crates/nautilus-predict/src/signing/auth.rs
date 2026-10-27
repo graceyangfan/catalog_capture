@@ -29,8 +29,6 @@ use alloy::{
 };
 use nautilus_core::string::secret::SecretString;
 
-/// Compatibility name for callers using the original authentication signing API.
-pub use crate::common::environment::PredictEnvironment as PredictChain;
 use crate::{
     common::environment::PredictEnvironment,
     http::error::{Error, Result},

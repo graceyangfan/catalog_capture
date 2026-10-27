@@ -14,13 +14,18 @@
 
 //! Native command admission and event dispatch; ExecutionEngine remains the only OMS.
 
+pub(in crate::execution) mod cancel;
+mod routing;
+pub(in crate::execution) mod submit;
+pub(in crate::execution) use routing::{RestOrderIds, observe, parse_id, register, register_many};
+
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
-    time::Duration,
 };
 
 use alloy::primitives::U256;
+use anyhow::Context;
 use nautilus_common::{
     clients::ExecutionClient,
     factories::OrderEventFactory,
@@ -34,25 +39,57 @@ use nautilus_model::{
 };
 use rust_decimal::Decimal;
 
-use super::{PredictExecutionClient, order_builder::terms, submitter::SubmitWorker};
-use crate::config::PredictAccountStateMode;
+use self::submit::{SubmitWorker, terms};
+use crate::execution::{metadata, parse};
+use crate::{
+    config::PredictAccountStateMode, execution::PredictExecutionClient, http::error::Error,
+};
+
+// A write can be rejected only with venue proof; transport uncertainty stays ambiguous.
+pub(in crate::execution) fn classify_http_command_failure(error: &Error) -> CommandFailure {
+    let reason = error.to_string();
+    match error {
+        Error::BadRequest(_) | Error::Configuration(_) | Error::Signing => {
+            CommandFailure::NotSent(reason)
+        }
+        Error::Authentication { .. }
+        | Error::RateLimit { .. }
+        | Error::Venue { .. }
+        | Error::Http {
+            status: 400 | 404 | 410 | 422,
+            ..
+        } => CommandFailure::VenueRejected(reason),
+        Error::Api {
+            status: 400 | 404 | 410 | 422,
+            ..
+        }
+        | Error::Api {
+            status: 200..=299,
+            code: Some(400..=499),
+            ..
+        } => CommandFailure::VenueRejected(reason),
+        _ => CommandFailure::Ambiguous(reason),
+    }
+}
 
 #[derive(Debug, Default)]
-pub(super) struct SubmissionRegistry {
+pub(in crate::execution) struct OrderRequests {
+    // One-shot Native query intents also cover restored orders without a local submission.
+    pub order_status_requests: HashSet<ClientOrderId>,
     /// Active submissions by this client; Native terminal events remove entries.
     pub entries: HashMap<ClientOrderId, Submission>,
 }
 #[derive(Clone, Copy, Debug)]
-pub(super) struct Submission {
+pub(in crate::execution) struct Submission {
     pub venue_id: Option<VenueOrderId>,
     // Direct live feedback is scoped to this transport epoch. Setup invalidates old entries.
     pub wallet_epoch: Option<u64>,
     // Immutable signed budget, not a balance/reservation ledger. Retired with this entry.
     pub market_buy_collateral: Option<Decimal>,
 }
-pub(super) type PendingSubmissions = Arc<Mutex<SubmissionRegistry>>;
+pub(in crate::execution) type PendingSubmissions = Arc<Mutex<OrderRequests>>;
 
-pub(super) struct SubmissionGuard {
+pub(in crate::execution) struct SubmissionGuard {
     pub registry: PendingSubmissions,
     pub id: ClientOrderId,
     pub retain: bool,
@@ -75,12 +112,14 @@ impl PredictExecutionClient {
     /// Predict's public API and official SDK expose no atomic amend operation.
     /// No modification request is sent to the venue. Publish a native rejection so callers
     /// can resolve PendingUpdate before explicitly cancelling and replacing an order.
-    pub(super) fn modify_order_command(&self, cmd: &ModifyOrder) -> anyhow::Result<()> {
+    pub(in crate::execution) fn modify_order_command(
+        &self,
+        cmd: &ModifyOrder,
+    ) -> anyhow::Result<()> {
         let order = self
             .core
-            .cache()
-            .order_owned(&cmd.client_order_id)
-            .ok_or_else(|| anyhow::anyhow!("Predict modify requires a cached native order"))?;
+            .get_order(&cmd.client_order_id)
+            .context("Predict modify requires a cached native order")?;
         anyhow::ensure!(
             cmd.trader_id == self.core.trader_id
                 && order.trader_id() == self.core.trader_id
@@ -116,7 +155,10 @@ impl PredictExecutionClient {
         Ok(())
     }
 
-    pub(super) fn submit_order_command(&self, cmd: &SubmitOrder) -> anyhow::Result<()> {
+    pub(in crate::execution) fn submit_order_command(
+        &self,
+        cmd: &SubmitOrder,
+    ) -> anyhow::Result<()> {
         let command_started = self
             .config
             .latency
@@ -157,9 +199,8 @@ impl PredictExecutionClient {
         );
         let instrument = instrument.clone();
         let validated = (|| -> anyhow::Result<_> {
-            let market_price = super::order_builder::market_price(cmd.params.as_ref(), &order)?;
-            let slippage_bps =
-                super::order_builder::market_order_slippage_bps(cmd.params.as_ref(), &order)?;
+            let market_price = submit::market_price(cmd.params.as_ref(), &order)?;
+            let slippage_bps = submit::market_order_slippage_bps(cmd.params.as_ref(), &order)?;
             let values = terms(
                 &order,
                 &instrument,
@@ -167,7 +208,7 @@ impl PredictExecutionClient {
                 self.clock.get_time_ns().as_u64(),
                 market_price,
             )?;
-            let options = super::order_builder::limit_options(cmd.params.as_ref(), &order)?;
+            let options = submit::limit_options(cmd.params.as_ref(), &order)?;
             Ok((values, options))
         })();
         let (terms, limit_options) = match validated {
@@ -195,7 +236,7 @@ impl PredictExecutionClient {
         let mut order = order;
         let normalization = if order.is_quote_quantity() {
             let now = self.clock.get_time_ns();
-            let quantity = super::parse::quantity(
+            let quantity = parse::quantity(
                 crate::common::parse::exact_wei(terms.shares)?,
                 instrument.size_precision(),
             )?;
@@ -254,22 +295,14 @@ impl PredictExecutionClient {
             transmitted: false,
             venue_id: None,
         };
-        let factory = OrderEventFactory::new(
-            self.core.trader_id,
-            self.core.account_id,
-            self.core.account_type,
-            self.core.base_currency,
-        );
         if let Some(event) = normalization {
             self.emitter.try_send_order_event(event)?;
         }
-        self.emitter.try_send_order_event(
-            factory.generate_order_submitted(&order, self.clock.get_time_ns()),
-        )?;
+        self.emitter.try_emit_order_submitted(&order)?;
         guard.retain = true; // A queued native Submitted event must retain ownership through shutdown.
         // Native callbacks replace this view. Avoid rebuilding the read-heavy map and
         // discarding fresh protocol metadata on every command for the same definition.
-        let current = self.instruments.get_cloned(&instrument.id());
+        let current = self.metadata.instruments.get_cloned(&instrument.id());
         if !current.as_ref().is_some_and(|entry| {
             matches!(&entry.instrument, InstrumentAny::BinaryOption(old)
                 if old.event_id == instrument.event_id && old.ts_init == instrument.ts_init
@@ -277,14 +310,12 @@ impl PredictExecutionClient {
                     && old.price_precision == instrument.price_precision
                     && old.expiration_ns == instrument.expiration_ns)
         }) {
-            self.instruments.rcu(|map| {
-                super::types::upsert_instrument(
-                    map,
-                    InstrumentAny::BinaryOption(instrument.clone()),
-                )
+            self.metadata.instruments.rcu(|map| {
+                metadata::upsert_instrument(map, InstrumentAny::BinaryOption(instrument.clone()))
             });
         }
         let metadata = self
+            .metadata
             .instruments
             .get_cloned(&instrument.id())
             .expect("instrument installed");
@@ -293,7 +324,6 @@ impl PredictExecutionClient {
             signer: Arc::clone(signer),
             order: Arc::new(order),
             definition: metadata,
-            metadata_notify: Arc::clone(&self.metadata_notify),
             terms,
             limit_options,
             data_sender: self.data_sender.clone(),
@@ -305,7 +335,7 @@ impl PredictExecutionClient {
             rest_ids: Arc::clone(&self.rest_order_ids),
             account_refresh_required: Arc::clone(&self.account_refresh_required),
             account_sync: Arc::clone(&self.account_sync),
-            instruments: Arc::clone(&self.instruments),
+            metadata: Arc::clone(&self.metadata),
             healthy: Arc::clone(&self.healthy),
             authentication: self
                 .wallet_auth
@@ -321,72 +351,96 @@ impl PredictExecutionClient {
                 .clone()
                 .ok_or_else(|| anyhow::anyhow!("Predict wallet epoch is missing"))?,
             emitter: self.emitter.clone(),
-            factory,
             clock: self.clock,
             config: self.config.clone(),
         };
-        let cancellation = self.tasks.cancellation_token();
-        let deadline = Duration::from_secs(self.config.report_timeout_secs);
-        self.tasks.spawn_named("predict-submit-order", async move {
-            let mut guard = guard;
-            let result = tokio::select! { biased;
-                _ = cancellation.cancelled() => return,
-                result = tokio::time::timeout(deadline, worker.run(&mut guard)) => result,
-            };
-            // A definitive HTTP result belongs to this command even if the wallet
-            // reauthenticates while it is in flight. Only its task lifecycle ends delivery.
-            if cancellation.is_cancelled() {
-                return;
-            }
-            match result {
-                Ok(Ok(())) => {}
-                Ok(Err(
-                    CommandFailure::NotSent(reason) | CommandFailure::VenueRejected(reason),
-                )) => {
-                    // Applied or already queued Native acceptance wins over a late HTTP error.
-                    let known_outcome = guard.venue_id.is_some_and(|id| {
-                        worker.orders.lock().expect("order snapshots poisoned").get(&id)
-                            .is_some_and(|o| o.client_order_id() == worker.order.client_order_id()
-                                && (o.is_closed() || o.ts_accepted().is_some()
-                                    || o.queued_acceptance().is_some()))
-                    });
-                    if !known_outcome {
-                        let event = worker.factory.generate_order_rejected(
-                            &worker.order,
-                            &reason,
-                            worker.clock.get_time_ns(),
-                            worker.clock.get_time_ns(),
-                            false,
-                        );
-                        let _ = worker.emitter.try_send_order_event(event);
-                    }
-                }
-                Ok(Err(CommandFailure::Ambiguous(reason))) if guard.transmitted => {
-                    // `reason` comes only from sanitized typed private HTTP errors. Preserve
-                    // status/decode classification without logging response bodies or signatures.
-                    log::warn!(
-                        "Predict submission outcome is unresolved; client_order_id={} reason={reason}; do not resubmit",
-                        worker.order.client_order_id(),
-                    );
-                }
-                Err(_) if guard.transmitted => {
-                    log::warn!(
-                        "Predict submission outcome is unresolved; client_order_id={} reason=command deadline elapsed after transmission; do not resubmit",
-                        worker.order.client_order_id(),
-                    );
-                }
-                _ => {
-                    let event = worker.factory.generate_order_rejected(
-                        &worker.order,
-                        "Predict preflight did not complete; order was not transmitted",
-                        worker.clock.get_time_ns(),
-                        worker.clock.get_time_ns(),
-                        false,
-                    );
-                    let _ = worker.emitter.try_send_order_event(event);
-                }
-            }
-        })?;
+        self.tasks.spawn_named(
+            "predict-submit-order",
+            worker.run(guard, self.tasks.cancellation_token()),
+        )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::http::error::{PredictDecodeErrorKind, PredictTransportErrorKind};
+
+    #[test]
+    fn only_definitive_evidence_can_reject_a_write() {
+        assert!(matches!(
+            classify_http_command_failure(&Error::BadRequest("invalid price")),
+            CommandFailure::NotSent(_)
+        ));
+        for error in [
+            Error::Authentication {
+                endpoint: "/v1/orders",
+                status: 401,
+            },
+            Error::RateLimit {
+                endpoint: "/v1/orders",
+                retry_after_secs: Some(2),
+            },
+            Error::Venue {
+                endpoint: "/v1/orders",
+            },
+            Error::Http {
+                endpoint: "/v1/orders",
+                status: 400,
+            },
+        ] {
+            assert!(matches!(
+                classify_http_command_failure(&error),
+                CommandFailure::VenueRejected(_)
+            ));
+        }
+        for error in [
+            Error::Timeout {
+                endpoint: "/v1/orders",
+            },
+            Error::Transport {
+                endpoint: "/v1/orders",
+                kind: PredictTransportErrorKind::Network,
+            },
+            Error::Http {
+                endpoint: "/v1/orders",
+                status: 500,
+            },
+            Error::Http {
+                endpoint: "/v1/orders",
+                status: 307,
+            },
+            Error::Http {
+                endpoint: "/v1/orders",
+                status: 409,
+            },
+            Error::decode("/v1/orders", PredictDecodeErrorKind::InvalidAcknowledgement),
+            Error::AccountMismatch,
+        ] {
+            assert!(matches!(
+                classify_http_command_failure(&error),
+                CommandFailure::Ambiguous(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn error_envelopes_never_turn_server_failure_into_definitive_rejection() {
+        use crate::http::error::{PredictApiErrorKind, PredictApiErrorReason};
+        for (status, rejected) in [(400, true), (422, true), (500, false), (503, false)] {
+            let failure = classify_http_command_failure(&Error::Api {
+                endpoint: "/v1/orders",
+                status,
+                code: Some(i64::from(status)),
+                kind: PredictApiErrorKind::InternalServerError,
+                reason: PredictApiErrorReason::OrderCreationFailed,
+            });
+            assert_eq!(
+                matches!(failure, CommandFailure::VenueRejected(_)),
+                rejected
+            );
+            assert_eq!(matches!(failure, CommandFailure::Ambiguous(_)), !rejected);
+        }
     }
 }

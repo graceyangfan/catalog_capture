@@ -1097,7 +1097,7 @@ fn reported_client_with_removal(
         PredictEnvironment::BnbMainnet,
         format!("{}/rpc", server.http).into(),
     ));
-    cfg.report_timeout_secs = 1;
+    cfg.request_timeout_secs = 1;
     let core = ExecutionClientCore::new(
         trader_id(),
         ClientId::new("PREDICT"),
@@ -1932,7 +1932,7 @@ async fn targeted_query_reconciles_known_zero_fill_orders_and_releases_native_ca
         None,
     );
     client.query_order(query).unwrap();
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = self::cancellations::engine(&cache);
     timeout(Duration::from_secs(3), async {
         loop {
             match next(&mut rx).await {

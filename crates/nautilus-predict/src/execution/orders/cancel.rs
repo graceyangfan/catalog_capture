@@ -38,11 +38,13 @@ use nautilus_model::{
 };
 use tokio_util::sync::CancellationToken;
 
-use super::{
-    PredictExecutionClient, parse::validate_rest_order_terms, types::classify_http_command_failure,
-};
+use crate::execution::{account, context, orders};
 use crate::{
     config::PredictAccountStateMode,
+    execution::{
+        PredictExecutionClient, orders::classify_http_command_failure,
+        parse::validate_rest_order_terms,
+    },
     http::{
         PredictAuthenticatedHttpClient, account_models::PredictOrderStatus,
         command_models::PredictRemoveOrdersReceipt,
@@ -51,9 +53,9 @@ use crate::{
 
 // Tracks outstanding commands only, never order status, balances or position state. Ambiguous
 // writes retain ownership until a terminal native event resolves the order.
-pub(super) type PendingCancels = Arc<Mutex<HashSet<ClientOrderId>>>;
+pub(in crate::execution) type PendingCancels = Arc<Mutex<HashSet<ClientOrderId>>>;
 // Only unsent command intent. Native Cache remains authoritative for order state.
-pub(super) type DeferredCancels = Arc<Mutex<HashMap<ClientOrderId, CancelOrder>>>;
+pub(in crate::execution) type DeferredCancels = Arc<Mutex<HashMap<ClientOrderId, CancelOrder>>>;
 
 struct CancelGuard {
     pending: PendingCancels,
@@ -74,7 +76,7 @@ impl Drop for CancelGuard {
 impl PredictExecutionClient {
     /// Uses the official multi-ID removal endpoint after independent per-order preflight.
     /// Each removed/noop result is resolved separately; batch success is not atomic.
-    pub(super) fn batch_cancel_orders_command(
+    pub(in crate::execution) fn batch_cancel_orders_command(
         &self,
         cmd: &BatchCancelOrders,
     ) -> anyhow::Result<()> {
@@ -114,8 +116,9 @@ impl PredictExecutionClient {
             let cancellation = self.tasks.cancellation_token();
             self.tasks
                 .spawn_named("predict-batch-cancel-orders", async move {
-                    tokio::select! { biased;
-                        _ = cancellation.cancelled() => {},
+                    tokio::select! {
+                        biased;
+                        () = cancellation.cancelled() => {},
                         () = execute_batch(entries) => {},
                     }
                 })?;
@@ -128,7 +131,10 @@ impl PredictExecutionClient {
         Ok(())
     }
 
-    pub(super) fn cancel_all_orders_command(&self, cmd: &CancelAllOrders) -> anyhow::Result<()> {
+    pub(in crate::execution) fn cancel_all_orders_command(
+        &self,
+        cmd: &CancelAllOrders,
+    ) -> anyhow::Result<()> {
         anyhow::ensure!(
             cmd.trader_id == self.core.trader_id
                 && cmd.client_id.is_none_or(|id| id == self.core.client_id),
@@ -185,20 +191,17 @@ impl PredictExecutionClient {
         self.dispatch_cancels(&cancels)
     }
 
-    pub(super) fn cancel_order_command(&self, cmd: &CancelOrder) -> anyhow::Result<()> {
+    pub(in crate::execution) fn cancel_order_command(
+        &self,
+        cmd: &CancelOrder,
+    ) -> anyhow::Result<()> {
         let Some((worker, guard)) = self.prepare_cancel_order_command(cmd)? else {
             return Ok(());
         };
-        let cancellation = self.tasks.cancellation_token();
-        self.tasks.spawn_named("predict-cancel-order", async move {
-            let mut guard = guard;
-            tokio::select! { biased;
-                _ = cancellation.cancelled() => {},
-                result = tokio::time::timeout(worker.timeout, worker.execute(&mut guard)) => {
-                    worker.resolve(&mut guard, result);
-                },
-            }
-        })?;
+        self.tasks.spawn_named(
+            "predict-cancel-order",
+            worker.run(guard, self.tasks.cancellation_token()),
+        )?;
         Ok(())
     }
 
@@ -308,7 +311,7 @@ impl PredictExecutionClient {
                 "Predict deferred cancel requires a locally owned pending submission"
             );
             // Like Polymarket, wait for venue identity without another query/retry loop.
-            // The existing native-event observer releases this command or drops it at terminal.
+            // The Native event observer releases this command or drops it at terminal.
             self.deferred_cancels
                 .lock()
                 .expect("deferred cancels poisoned")
@@ -361,7 +364,7 @@ impl PredictExecutionClient {
             ),
             emitter: self.emitter.clone(),
             clock: self.clock,
-            timeout: Duration::from_secs(self.config.report_timeout_secs),
+            timeout: Duration::from_secs(self.config.request_timeout_secs),
             cancellation: self.tasks.cancellation_token(),
             latency: self.config.latency.clone(),
         };
@@ -371,13 +374,13 @@ impl PredictExecutionClient {
 
 struct CancelWorker {
     session: PredictAuthenticatedHttpClient,
-    orders: super::types::OrderSnapshots<VenueOrderId>,
+    orders: context::OrderSnapshots<VenueOrderId>,
     client_order_id: ClientOrderId,
     instrument: BinaryOption,
     venue_id: VenueOrderId,
     hash: B256,
-    rest_ids: super::routing::RestOrderIds,
-    account_sync: Arc<super::account::AccountSync>,
+    rest_ids: orders::RestOrderIds,
+    account_sync: Arc<account::AccountSync>,
     healthy: Arc<AtomicBool>,
     factory: OrderEventFactory,
     emitter: ExecutionEventEmitter,
@@ -388,6 +391,16 @@ struct CancelWorker {
 }
 
 impl CancelWorker {
+    async fn run(self, mut guard: CancelGuard, cancellation: CancellationToken) {
+        tokio::select! {
+            biased;
+            () = cancellation.cancelled() => {}
+            result = tokio::time::timeout(self.timeout, self.execute(&mut guard)) => {
+                self.resolve(&mut guard, result);
+            }
+        }
+    }
+
     fn session_active(&self) -> bool {
         !self.cancellation.is_cancelled()
     }
@@ -405,7 +418,7 @@ impl CancelWorker {
             }
         }
     }
-    fn current_order(&self) -> Option<Arc<super::context::WorkerOrder>> {
+    fn current_order(&self) -> Option<Arc<context::WorkerOrder>> {
         self.orders
             .lock()
             .expect("order snapshots poisoned")
@@ -518,10 +531,10 @@ impl CancelWorker {
             ));
         }
         // REST IDs are a routing detail fetched by hash. They never replace VenueOrderId in OMS.
-        let id = super::routing::parse_id(&row.id).map_err(|_| {
+        let id = orders::parse_id(&row.id).map_err(|_| {
             CommandFailure::not_sent("Predict cancel preflight ID is not a decimal uint256")
         })?;
-        super::routing::register(&self.rest_ids, self.venue_id, id)
+        orders::register(&self.rest_ids, self.venue_id, id)
             .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
         Ok(Some(id))
     }

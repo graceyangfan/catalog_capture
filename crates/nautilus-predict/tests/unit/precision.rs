@@ -331,7 +331,7 @@ fn private_replay() -> serde_json::Value {
     for fill in &mut reports {
         fill.raw.fee = fill.raw.gross_shares / U256::from(50);
         fill.raw.fee_type = PredictFeeType::Shares;
-        fill.report.commission = super::super::parse::fill_commission(
+        fill.report.commission = crate::execution::parse::fill_commission(
             fill.raw.fee,
             fill.raw.fee_type,
             fill.raw.gross_shares,
@@ -1676,7 +1676,7 @@ fn recovery_snapshot_reuses_observed_fills_and_preserves_native_cutoffs() {
     use std::sync::Arc;
     let (_, mut native, incoming) = wallet_history(1000);
     let initial = WorkerOrder::capture(&native);
-    let observed: crate::execution::types::OrderSnapshots<
+    let observed: crate::execution::context::OrderSnapshots<
         nautilus_model::identifiers::ClientOrderId,
     > = Default::default();
     observed

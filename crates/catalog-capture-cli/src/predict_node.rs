@@ -63,9 +63,15 @@ pub struct PredictSettings {
     pub orderbook_removal_enabled: bool,
     #[serde(default)]
     pub submission_enabled: bool,
+    /// Cash/OPEN refresh cadence; Native config separately controls order/position checks.
+    #[serde(default = "account_refresh_interval")]
+    pub account_refresh_interval_secs: u64,
 }
 fn timeout() -> u64 {
     15
+}
+fn account_refresh_interval() -> u64 {
+    30
 }
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -99,6 +105,10 @@ impl NodeProfile {
                 && !profile.discovery.price_feed_symbol.trim().is_empty()
                 && !profile.discovery.title_asset.trim().is_empty(),
             "Predict discovery selector is empty or invalid"
+        );
+        anyhow::ensure!(
+            (1..=86_400).contains(&profile.predict.account_refresh_interval_secs),
+            "Predict account refresh interval must be 1..=86400 seconds"
         );
         if matches!(profile.predict.environment, Environment::Testnet) {
             anyhow::ensure!(
@@ -228,6 +238,7 @@ pub async fn prepare(
     let mut execution =
         PredictExecutionClientConfig::new(profile.predict.account_id, session, wallet);
     execution.auth_signer = Some(signer.clone());
+    execution.account_refresh_interval_secs = profile.predict.account_refresh_interval_secs;
     execution.account_state_mode = PredictAccountStateMode::Reported;
     execution.chain = Some(PredictChainClientConfig::new(
         environment,

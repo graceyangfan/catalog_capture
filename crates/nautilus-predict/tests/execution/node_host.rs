@@ -43,6 +43,22 @@ fn product_profile_reuses_native_config_and_rejects_invalid_venue_settings() {
     let profile = host::NodeProfile::parse(source).unwrap();
     assert!(!profile.predict.submission_enabled);
     assert!(!profile.predict.orderbook_removal_enabled);
+    assert_eq!(profile.predict.account_refresh_interval_secs, 30);
+    let slower = host::NodeProfile::parse(&source.replace(
+        "account_refresh_interval_secs = 30",
+        "account_refresh_interval_secs = 600",
+    ))
+    .unwrap();
+    assert_eq!(slower.predict.account_refresh_interval_secs, 600);
+    for value in [0, 86_401] {
+        assert!(
+            host::NodeProfile::parse(&source.replace(
+                "account_refresh_interval_secs = 30",
+                &format!("account_refresh_interval_secs = {value}")
+            ))
+            .is_err()
+        );
+    }
     assert!(!profile.node.risk_engine.bypass);
     assert!(
         profile

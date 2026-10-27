@@ -31,7 +31,7 @@ use nautilus_predict::{
     common::{credential::PredictAuthToken, environment::PredictEnvironment},
     config::PredictPrivateClientConfig,
     http::{PredictPrivateHttpClient, error::Error, execution_models::PredictReferralStatus},
-    signing::{PredictAuthSigner, PredictChain},
+    signing::PredictAuthSigner,
 };
 use serde_json::{Value, json};
 use tokio::{net::TcpListener, task::JoinHandle};
@@ -180,9 +180,12 @@ async fn authentication_uses_dynamic_sdk_challenges_and_correct_wallet_identity(
         }
         let server = server(replies).await;
         let client = transport(&server);
-        let signer =
-            PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictChain::BnbMainnet, deposit)
-                .unwrap();
+        let signer = PredictAuthSigner::new(
+            PUBLIC_TEST_KEY.into(),
+            PredictEnvironment::BnbMainnet,
+            deposit,
+        )
+        .unwrap();
         for _ in 0..2 {
             let session = client.authenticate(&signer).await.unwrap();
             let account = session.request_account().await.unwrap();
@@ -344,7 +347,8 @@ async fn status_envelope_and_schema_failures_do_not_leak_secrets_or_retry() {
 #[tokio::test]
 async fn authentication_failure_stops_before_creating_a_session() {
     let signer =
-        PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictChain::BnbMainnet, None).unwrap();
+        PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictEnvironment::BnbMainnet, None)
+            .unwrap();
     let challenge = Reply::json(json!({"success": true, "data": {"message": "dynamic nonce"}}));
     let server = server(vec![
         challenge,
@@ -386,7 +390,8 @@ async fn authentication_failure_stops_before_creating_a_session() {
 #[tokio::test]
 async fn empty_or_invalid_challenge_does_not_send_a_signature() {
     let signer =
-        PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictChain::BnbMainnet, None).unwrap();
+        PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictEnvironment::BnbMainnet, None)
+            .unwrap();
     for data in [json!({"message": ""}), json!({"message": 42}), json!({})] {
         let server = server(vec![Reply::json(json!({"success": true, "data": data}))]).await;
         let error = transport(&server).authenticate(&signer).await.unwrap_err();
@@ -636,7 +641,7 @@ async fn renewal_updates_clones_only_after_identity_validation_and_preserves_oth
         .unwrap();
     let signer = PredictAuthSigner::new(
         PUBLIC_TEST_KEY.into(),
-        PredictChain::BnbMainnet,
+        PredictEnvironment::BnbMainnet,
         Some(DEPOSIT),
     )
     .unwrap();
@@ -655,7 +660,8 @@ async fn renewal_updates_clones_only_after_identity_validation_and_preserves_oth
         "invalid replacement must not publish"
     );
     let wrong_signer =
-        PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictChain::BnbMainnet, None).unwrap();
+        PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictEnvironment::BnbMainnet, None)
+            .unwrap();
     assert!(session.renew(&wrong_signer).await.is_err());
     let requests = server.requests.lock().unwrap();
     assert_eq!(requests.len(), 8, "wrong signer must fail without I/O");
@@ -714,7 +720,7 @@ async fn failed_or_expired_renewal_keeps_the_previous_bearer_without_retrying_op
             .unwrap();
         let signer = PredictAuthSigner::new(
             PUBLIC_TEST_KEY.into(),
-            PredictChain::BnbMainnet,
+            PredictEnvironment::BnbMainnet,
             Some(DEPOSIT),
         )
         .unwrap();

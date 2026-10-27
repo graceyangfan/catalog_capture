@@ -119,7 +119,7 @@ async fn mainnet_rust_strategy_batch_restart() -> anyhow::Result<()> {
         );
         execution.chain = Some(settings.chain_config());
         execution.account_refresh_interval_secs = 1;
-        execution.report_timeout_secs = settings.network.timeout_secs;
+        execution.request_timeout_secs = settings.network.timeout_secs;
         execution.orderbook_removal_enabled = true;
         execution.submission_signer = Some(signer.clone());
         let key = settings

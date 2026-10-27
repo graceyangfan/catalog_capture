@@ -139,7 +139,7 @@ impl PredictDataSession {
         let subscription = &self.subscriptions[&market_id];
         if subscription.owners > native_owners {
             self.data_sender.send(DataEvent::Data(Data::Custom(
-                snapshot.into_custom_data_with_type(subscription.data_type.clone()),
+                snapshot.into_custom_data_with_type(subscription.data_type.clone())?,
             )))?;
         }
         self.confirm_dynamic_snapshot(market_id).await?;

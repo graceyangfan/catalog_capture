@@ -145,48 +145,74 @@ pub fn predict_outcome_instrument_id(market_id: u64, outcome_index: u8) -> Resul
     })
 }
 
-/// Parses a Predict title such as
-/// `Bitcoin Up or Down - October 3, 6PM-6:05PM ET`.
+/// Parses Predict minute ranges, single-time hourly titles, and date-only daily titles.
+/// Daily sessions end at ET noon on the title date; hourly titles identify one candle.
 ///
 /// The displayed title does not contain a year, so the caller must supply the
 /// year obtained from the market metadata/discovery context. Time is explicitly
 /// Eastern time, including daylight-saving-time rules. An ambiguous or
 /// nonexistent local timestamp is rejected rather than guessed.
 pub fn parse_crypto_up_down_title(title: &str, year: i32) -> Result<CryptoUpDownMarketWindow> {
-    let (title_asset, schedule) = title
-        .trim()
-        .split_once(" Up or Down - ")
-        .ok_or_else(|| anyhow::anyhow!("invalid crypto up/down title {title:?}"))?;
+    let (title_asset, start, end) = if let Some((asset, date)) =
+        title.trim().split_once(" Up or Down on ")
+    {
+        // Predict's daily Binance product compares consecutive ET noon closes.
+        let date = date
+            .strip_suffix('?')
+            .context("daily crypto up/down title must end with `?`")?;
+        let end_date = NaiveDate::parse_from_str(&format!("{year} {date}"), "%Y %B %d")
+            .with_context(|| format!("invalid daily crypto up/down date in title {title:?}"))?;
+        let start_date = end_date
+            .pred_opt()
+            .context("daily crypto window date underflows")?;
+        let noon = NaiveTime::from_hms_opt(12, 0, 0).expect("valid noon");
+        (
+            asset,
+            eastern_to_utc(start_date.and_time(noon), title)?,
+            eastern_to_utc(end_date.and_time(noon), title)?,
+        )
+    } else {
+        let (asset, schedule) = title
+            .trim()
+            .split_once(" Up or Down - ")
+            .ok_or_else(|| anyhow::anyhow!("invalid crypto up/down title {title:?}"))?;
+        let schedule = schedule.strip_suffix(" ET").ok_or_else(|| {
+            anyhow::anyhow!("crypto up/down title must end with ` ET`: {title:?}")
+        })?;
+        let (date, times) = schedule
+            .split_once(", ")
+            .ok_or_else(|| anyhow::anyhow!("missing date/time separator in title {title:?}"))?;
+        let date = NaiveDate::parse_from_str(&format!("{year} {date}"), "%Y %B %d")
+            .with_context(|| format!("invalid crypto up/down date in title {title:?}"))?;
+        let (start_time, end_time) = times
+            .split_once('-')
+            .map_or((times, None), |(start, end)| (start, Some(end)));
+        let start_time = parse_title_time(start_time)
+            .with_context(|| format!("invalid crypto up/down start time in title {title:?}"))?;
+        let start = eastern_to_utc(date.and_time(start_time), title)?;
+        let end = if let Some(end_time) = end_time {
+            let end_time = parse_title_time(end_time)
+                .with_context(|| format!("invalid crypto up/down end time in title {title:?}"))?;
+            let end_date = if end_time <= start_time {
+                date.succ_opt()
+                    .context("crypto up/down title date overflows")?
+            } else {
+                date
+            };
+            eastern_to_utc(end_date.and_time(end_time), title)?
+        } else {
+            // A single-time title identifies one Binance hourly candle.
+            start
+                .checked_add_signed(Duration::hours(1))
+                .context("hourly crypto window overflows")?
+        };
+        (asset, start, end)
+    };
     let title_asset = title_asset.trim();
-    if title_asset.is_empty() {
-        bail!("crypto up/down title has an empty asset label: {title:?}");
-    }
-
-    let schedule = schedule
-        .strip_suffix(" ET")
-        .ok_or_else(|| anyhow::anyhow!("crypto up/down title must end with ` ET`: {title:?}"))?;
-    let (date, time_range) = schedule
-        .split_once(", ")
-        .ok_or_else(|| anyhow::anyhow!("missing date/time separator in title {title:?}"))?;
-    let (start_time, end_time) = time_range
-        .split_once('-')
-        .ok_or_else(|| anyhow::anyhow!("missing time range in title {title:?}"))?;
-
-    let date = NaiveDate::parse_from_str(&format!("{year} {date}"), "%Y %B %d")
-        .with_context(|| format!("invalid crypto up/down date in title {title:?}"))?;
-    let start_time = parse_title_time(start_time)
-        .with_context(|| format!("invalid crypto up/down start time in title {title:?}"))?;
-    let end_time = parse_title_time(end_time)
-        .with_context(|| format!("invalid crypto up/down end time in title {title:?}"))?;
-
-    let start = eastern_to_utc(NaiveDateTime::new(date, start_time), title)?;
-    let mut end_date = date;
-    if end_time <= start_time {
-        end_date = end_date
-            .checked_add_signed(Duration::days(1))
-            .ok_or_else(|| anyhow::anyhow!("crypto up/down title date overflows: {title:?}"))?;
-    }
-    let end = eastern_to_utc(NaiveDateTime::new(end_date, end_time), title)?;
+    anyhow::ensure!(
+        !title_asset.is_empty(),
+        "crypto up/down title has an empty asset label: {title:?}"
+    );
 
     let start_ns =
         u64::try_from(start.timestamp_nanos_opt().ok_or_else(|| {
@@ -244,7 +270,13 @@ pub fn resolve_crypto_up_down_market(
             candidate.title
         );
     }
-    if window.duration_secs() != selector.interval_secs {
+    // Daily is a calendar session, so DST transitions span 23 or 25 hours.
+    let interval_matches = if candidate.title.contains(" Up or Down on ") {
+        selector.interval_secs == 86_400
+    } else {
+        window.duration_secs() == selector.interval_secs
+    };
+    if !interval_matches {
         bail!(
             "expected a {}-second crypto up/down market, received {} seconds from title {:?}",
             selector.interval_secs,
@@ -308,6 +340,66 @@ mod tests {
             title_asset: "Bitcoin".to_string(),
             interval_secs: 300,
         }
+    }
+
+    #[test]
+    fn daily_noon_sessions_follow_eastern_calendar_across_dst_and_new_year() {
+        for (date, start, end) in [
+            ("October 26", "2026-10-25T16:00:00Z", "2026-10-26T16:00:00Z"),
+            ("March 8", "2026-03-07T17:00:00Z", "2026-03-08T16:00:00Z"),
+            ("November 1", "2026-10-31T16:00:00Z", "2026-11-01T17:00:00Z"),
+            ("January 1", "2025-12-31T17:00:00Z", "2026-01-01T17:00:00Z"),
+        ] {
+            let title = format!("Bitcoin Up or Down on {date}?");
+            let candidate = CryptoUpDownMarketCandidate {
+                variant_type: "CRYPTO_UP_DOWN",
+                price_feed_symbol: "BTCUSDT",
+                title: &title,
+                title_year: 2026,
+            };
+            let selector = CryptoUpDownMarketSelector {
+                price_feed_symbol: "BTCUSDT".into(),
+                title_asset: "Bitcoin".into(),
+                interval_secs: 86_400,
+            };
+            let window = resolve_crypto_up_down_market(candidate, &selector).unwrap();
+            let nanos = |value| {
+                chrono::DateTime::parse_from_rfc3339(value)
+                    .unwrap()
+                    .timestamp_nanos_opt()
+                    .unwrap() as u64
+            };
+            assert_eq!(window.start_ns, nanos(start));
+            assert_eq!(window.end_ns, nanos(end));
+            assert!(
+                resolve_crypto_up_down_market(
+                    candidate,
+                    &CryptoUpDownMarketSelector {
+                        interval_secs: 3600,
+                        ..selector
+                    }
+                )
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn hourly_single_time_titles_cover_one_candle_and_roll_dates() {
+        let window =
+            parse_crypto_up_down_title("Bitcoin Up or Down - December 31, 11PM ET", 2026).unwrap();
+        assert_eq!(window.duration_secs(), 3600);
+        assert_eq!(
+            window.end_ns,
+            Utc.with_ymd_and_hms(2027, 1, 1, 5, 0, 0)
+                .single()
+                .unwrap()
+                .timestamp_nanos_opt()
+                .unwrap() as u64
+        );
+        assert!(
+            parse_crypto_up_down_title("Bitcoin Up or Down - November 1, 1AM ET", 2026).is_err()
+        );
     }
 
     #[test]

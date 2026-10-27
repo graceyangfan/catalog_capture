@@ -54,7 +54,8 @@ pub struct PredictLastOrderSettled {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PredictSettlementPendingLevel {
     pub price: Price,
-    pub value: Quantity,
+    /// The venue does not specify shares or collateral units; preserve the exact value.
+    pub value: Decimal,
 }
 
 /// Pending settlement levels separated by the native YES-book side.
@@ -135,17 +136,20 @@ impl PredictOrderbookSnapshot {
     }
 
     /// Wraps the snapshot with a caller-owned canonical market-scoped identity.
-    #[must_use]
+    ///
+    /// # Errors
+    /// Rejects a type or market identifier that differs from this snapshot.
     pub fn into_custom_data_with_type(
         self,
         data_type: nautilus_model::data::DataType,
-    ) -> CustomData {
-        debug_assert_eq!(data_type.type_name(), "PredictOrderbookSnapshot");
-        debug_assert_eq!(
-            data_type.identifier(),
-            Some(self.market_id.to_string().as_str())
+    ) -> anyhow::Result<CustomData> {
+        anyhow::ensure!(
+            data_type.type_name() == "PredictOrderbookSnapshot"
+                && data_type.identifier() == Some(self.market_id.to_string().as_str()),
+            "Predict orderbook data type does not match snapshot market {}",
+            self.market_id
         );
-        CustomData::new(Arc::new(self), data_type)
+        Ok(CustomData::new(Arc::new(self), data_type))
     }
 }
 
@@ -192,16 +196,7 @@ fn normalize_pending_levels(
                 value >= Decimal::ZERO,
                 "Predict settlementsPending value {value} is negative"
             );
-            let value = normalize_level_value(
-                value,
-                context.size_precision,
-                "settlementsPending value",
-                true,
-            )?;
-            Ok(PredictSettlementPendingLevel {
-                price,
-                value: Quantity::from_decimal_dp(value, context.size_precision)?,
-            })
+            Ok(PredictSettlementPendingLevel { price, value })
         })
         .collect()
 }
@@ -234,7 +229,7 @@ pub fn register_predict_custom_data() {
     >();
     #[cfg(feature = "execution")]
     let _ = nautilus_model::data::ensure_custom_data_json_registered::<
-        crate::PredictOrderRejectionUpdate,
+        crate::PredictOrderNotAcceptedUpdate,
     >();
 }
 

@@ -16,5 +16,5 @@
 
 pub mod auth;
 pub mod order;
-pub use auth::{PredictAuthSigner, PredictChain};
+pub use auth::PredictAuthSigner;
 pub use order::{PredictOrderHasher, PredictOrderSigner};

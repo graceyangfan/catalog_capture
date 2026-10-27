@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Immutable wallet-session WebSocket facade. A handler owns IO and subscription state.
+//! Account-scoped wallet stream with Native transport lifecycle management.
 
 use std::{
     fmt,
@@ -25,20 +25,23 @@ use std::{
 
 use nautilus_live::task::{TaskJoinOutcome, TaskSlot, finish_task};
 use nautilus_network::{
+    SocketState, SocketStateSink,
     http::create_standard_nautilus_headers,
-    websocket::{AuthTracker, SubscriptionState, WebSocketConfig},
+    transport::{Message, TransportError},
+    websocket::{AuthTracker, WebSocketClient, WebSocketConfig},
 };
 use tokio::sync::{mpsc, watch};
 use tokio_util::sync::CancellationToken;
 
 use super::{
     error::{PredictWalletWsError, Result},
-    private_handler::{PredictWalletHandler, TimedWalletMessage, connect_transport},
+    private_handler::{PredictWalletHandler, TimedWalletMessage},
     private_messages::PredictWalletStreamMessage,
 };
 use crate::{config::PredictWalletWebSocketConfig, http::PredictAuthenticatedHttpClient};
 
-/// Subscription confirmation is separate from account reconciliation and trading readiness.
+/// Wallet subscription state for the current transport generation.
+/// A confirmed subscription does not establish account or signing readiness.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PredictWalletSubscriptionState {
     Subscribing { connection_epoch: u64 },
@@ -48,11 +51,11 @@ pub enum PredictWalletSubscriptionState {
     Closed,
 }
 
+/// Wallet stream backed by a Native transport task and generation cancellation.
 pub struct PredictWalletWebSocketClient {
     cancellation: CancellationToken,
     task: TaskSlot<()>,
     auth_tracker: AuthTracker,
-    subscriptions: SubscriptionState,
     state: watch::Receiver<PredictWalletSubscriptionState>,
     output: mpsc::Receiver<TimedWalletMessage>,
     connected: Arc<AtomicBool>,
@@ -75,8 +78,7 @@ impl Drop for PredictWalletWebSocketClient {
 }
 
 impl PredictWalletWebSocketClient {
-    // Read-only integration handles for the execution facade. The tracker remains owned by
-    // the transport/ACK driver; callers outside the adapter cannot mutate these handles.
+    // Execution tasks share these observations; the transport/ACK driver owns writes.
     pub(crate) fn authentication_tracker(&self) -> AuthTracker {
         self.auth_tracker.clone()
     }
@@ -88,6 +90,7 @@ impl PredictWalletWebSocketClient {
     /// The caller's cancellation token controls initial connection and the session lifetime.
     ///
     /// # Errors
+    ///
     /// Returns an error for invalid configuration, mismatched environment or handshake failure.
     pub async fn connect(
         config: PredictWalletWebSocketConfig,
@@ -140,13 +143,53 @@ impl PredictWalletWebSocketClient {
         let connected = Arc::new(AtomicBool::new(false));
         let epoch = Arc::new(AtomicU64::new(0));
         let auth_tracker = AuthTracker::new();
-        let subscriptions = SubscriptionState::new('/');
         let overflow = Arc::new(AtomicBool::new(false));
-        let (reader, client) = tokio::select! {
+        let state_connected = Arc::clone(&connected);
+        let tracker = auth_tracker.clone();
+        let sink = SocketStateSink::new(move |state| {
+            state_connected.store(state == SocketState::Connected, Ordering::Release);
+            if state == SocketState::Disconnected {
+                tracker.invalidate();
+            }
+        });
+        let (tx, reader) = mpsc::channel(config.queue_capacity);
+        let ping_tx = tx.clone();
+        let ping_epoch = Arc::clone(&epoch);
+        let ping_overflow = Arc::clone(&overflow);
+        let message_epoch = Arc::clone(&epoch);
+        let message_overflow = Arc::clone(&overflow);
+        let builder = WebSocketClient::epoch_builder()
+            .config(ws_config)
+            .state_sink(sink)
+            .epoch_handler(Arc::new(move |generation, message| {
+                let received = observe.then(std::time::Instant::now);
+                message_epoch.fetch_max(generation, Ordering::AcqRel);
+                if tx.try_send((generation, message, received)).is_err() {
+                    message_overflow.store(true, Ordering::Release);
+                }
+            }))
+            .epoch_ping_handler(Arc::new(move |generation, data| {
+                ping_epoch.fetch_max(generation, Ordering::AcqRel);
+                if ping_tx
+                    .try_send((generation, Message::Ping(data.into()), None))
+                    .is_err()
+                {
+                    ping_overflow.store(true, Ordering::Release);
+                }
+            }))
+            .cancellation_token(cancellation.clone());
+        let client = tokio::select! {
             biased;
-            _ = cancellation.cancelled() => return Err(PredictWalletWsError::Closed),
-            result = connect_transport(ws_config.clone(), config.connect_timeout_secs, Arc::clone(&connected), Arc::clone(&epoch), auth_tracker.clone(), overflow.clone(), config.queue_capacity, observe) => result?,
+            () = cancellation.cancelled() => return Err(PredictWalletWsError::Closed),
+            result = tokio::time::timeout(Duration::from_secs(config.connect_timeout_secs), builder.connect()) => {
+                result.map_err(|_| PredictWalletWsError::ConnectTimeout)?
+                    .map_err(|error| match error {
+                        TransportError::UpgradeRejected(status) => PredictWalletWsError::HandshakeRejected(status),
+                        _ => PredictWalletWsError::Transport,
+                    })?
+            }
         };
+        client.set_auth_tracker(auth_tracker.clone(), false);
         let (state_tx, state) = watch::channel(PredictWalletSubscriptionState::Subscribing {
             connection_epoch: 0,
         });
@@ -164,7 +207,6 @@ impl PredictWalletWebSocketClient {
             Arc::clone(&connected),
             Arc::clone(&epoch),
             auth_tracker.clone(),
-            subscriptions.clone(),
         );
         let mut task = TaskSlot::new();
         task.spawn(handler.run())
@@ -173,7 +215,6 @@ impl PredictWalletWebSocketClient {
             cancellation,
             task,
             auth_tracker,
-            subscriptions,
             state,
             output,
             connected,
@@ -181,7 +222,7 @@ impl PredictWalletWebSocketClient {
         })
     }
 
-    /// Returns ACK state while immediately invalidating stale connection ownership.
+    /// Returns wallet ACK state for the current transport generation.
     #[must_use]
     pub fn subscription_state(&self) -> PredictWalletSubscriptionState {
         let state = *self.state.borrow();
@@ -199,8 +240,7 @@ impl PredictWalletWebSocketClient {
         }
         if let PredictWalletSubscriptionState::Subscribed { connection_epoch } = state
             && (connection_epoch != self.epoch.load(Ordering::Acquire)
-                || !self.auth_tracker.is_authenticated()
-                || self.subscriptions.len() != 1)
+                || !self.auth_tracker.is_authenticated())
         {
             return PredictWalletSubscriptionState::Subscribing {
                 connection_epoch: self.epoch.load(Ordering::Acquire),
@@ -212,7 +252,8 @@ impl PredictWalletWebSocketClient {
     /// Awaits confirmation for the current connection. This does not establish trading readiness.
     ///
     /// # Errors
-    /// Returns a safe session failure or closure if ACK cannot be confirmed.
+    ///
+    /// Returns an error if the session fails or closes before ACK confirmation.
     pub async fn wait_until_subscribed(&mut self) -> Result<u64> {
         loop {
             match self.subscription_state() {
@@ -235,7 +276,8 @@ impl PredictWalletWebSocketClient {
     /// Re-subscription always reports a reconciliation requirement before fresh wallet events.
     ///
     /// # Errors
-    /// Returns a safe failure on data loss, decode rejection or terminal subscription failure.
+    ///
+    /// Returns an error on data loss, invalid frames or terminal subscription failure.
     pub async fn next_message(&mut self) -> Result<Option<PredictWalletStreamMessage>> {
         Ok(self.next_timed_message().await?.map(|(message, _)| message))
     }
@@ -266,7 +308,8 @@ impl PredictWalletWebSocketClient {
     /// Cancels the handler and joins transport cleanup. Drop also signals cancellation.
     ///
     /// # Errors
-    /// Returns an error if the handler task panicked during cleanup.
+    ///
+    /// Returns an error if task cleanup fails or remains incomplete.
     pub async fn close(&mut self) -> Result<()> {
         self.cancellation.cancel();
         let outcome = finish_task(
@@ -304,7 +347,6 @@ mod tests {
             state,
             output,
             auth_tracker: AuthTracker::new(),
-            subscriptions: SubscriptionState::new('/'),
             connected: Arc::new(AtomicBool::new(false)),
             epoch: Arc::new(AtomicU64::new(0)),
         };

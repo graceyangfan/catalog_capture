@@ -344,7 +344,7 @@ async fn mainnet_privy_private_api_and_native_account_read_only() -> anyhow::Res
     config.chain = Some(settings.chain_config());
     // This diagnostic host explicitly controls read-only queries and has no LiveNode clock.
     config.reconnect_reconciliation_interval_secs = None;
-    config.report_timeout_secs = settings.network.timeout_secs;
+    config.request_timeout_secs = settings.network.timeout_secs;
     // Native submission stays disabled regardless of the operator's test write flag.
     let mut client = PredictExecutionClient::new(core, config)?;
     client.start()?;
@@ -658,7 +658,7 @@ async fn read_only_strategy_observation_with_reconciliation(
         settings.websocket_config()?,
     );
     execution.chain = Some(settings.chain_config());
-    execution.report_timeout_secs = settings.network.timeout_secs;
+    execution.request_timeout_secs = settings.network.timeout_secs;
     execution.account_refresh_interval_secs = 5;
     let key = settings
         .private_config()?

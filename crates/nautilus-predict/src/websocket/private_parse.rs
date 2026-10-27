@@ -47,14 +47,8 @@ struct Envelope<'a> {
     topic: Option<&'a str>,
     // Borrow directly from JSON; internally tagged serde enums buffer data and cannot
     // deserialize a borrowed RawValue. Preserve null and arbitrary heartbeat values.
-    #[serde(borrow, default, deserialize_with = "raw_data")]
+    #[serde(borrow, default, deserialize_with = "super::parse::raw_data")]
     data: Option<&'a RawValue>,
-}
-
-fn raw_data<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> std::result::Result<Option<&'de RawValue>, D::Error> {
-    <&RawValue>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Deserialize)]

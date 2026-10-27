@@ -23,6 +23,8 @@ use serde::Deserialize;
 use super::order_models::PredictOrder;
 use crate::common::serde::decimal_u256;
 
+pub use crate::common::enums::{PredictFeeType, PredictOrderStrategy, PredictQuoteType};
+
 /// One venue page. The opaque cursor is passed unchanged to the next query.
 /// A null cursor (or omitted optional positions cursor) ends pagination; an empty
 /// data page may still have a next cursor.
@@ -42,6 +44,7 @@ pub struct PredictRestOrder {
     pub signature: SecretString,
 }
 
+/// Order lifecycle status returned by private REST endpoints.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PredictOrderStatus {
@@ -50,13 +53,6 @@ pub enum PredictOrderStatus {
     Expired,
     Cancelled,
     Invalidated,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum PredictOrderStrategy {
-    Limit,
-    Market,
 }
 
 /// Order state from `/v1/orders`. Amount strings are preserved as supplied by the venue;
@@ -78,20 +74,21 @@ pub struct PredictOrderData {
     pub reward_earning_rate: Decimal,
 }
 
-/// Execution metadata projected from a market, independent of the capture DTO.
+/// Market metadata embedded in account holdings and match history.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PredictExecutionMarket {
+pub struct PredictAccountMarket {
     pub id: u64,
     pub is_neg_risk: bool,
     pub is_yield_bearing: bool,
     pub decimal_precision: u8,
-    pub outcomes: Vec<PredictExecutionOutcome>,
+    pub outcomes: Vec<PredictAccountOutcome>,
 }
 
+/// Outcome metadata embedded in an account-market projection.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PredictExecutionOutcome {
+pub struct PredictAccountOutcome {
     pub name: String,
     pub index_set: u32,
     #[serde(with = "decimal_u256")]
@@ -99,6 +96,7 @@ pub struct PredictExecutionOutcome {
     pub status: Option<PredictOutcomeStatus>,
 }
 
+/// Resolved outcome result reported by the venue.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PredictOutcomeStatus {
@@ -106,33 +104,19 @@ pub enum PredictOutcomeStatus {
     Lost,
 }
 
-/// ERC-1155 holding. Amount is an integer string; monetary strings remain unscaled until
-/// their units and precision policy are verified. The venue provides no update timestamp.
+/// ERC-1155 holding with an integer share amount and unscaled monetary strings.
+/// The endpoint supplies no update timestamp.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PredictPositionData {
     pub id: String,
-    pub market: PredictExecutionMarket,
-    pub outcome: PredictExecutionOutcome,
+    pub market: PredictAccountMarket,
+    pub outcome: PredictAccountOutcome,
     #[serde(with = "decimal_u256")]
     pub amount: U256,
     pub value_usd: String,
     pub average_buy_price_usd: String,
     pub pnl_usd: String,
-}
-
-/// REST uses title case, unlike the wallet WebSocket's upper-case quote type.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
-pub enum PredictQuoteType {
-    Ask,
-    Bid,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum PredictFeeType {
-    Collateral,
-    Shares,
 }
 
 /// A fee in the asset identified by `fee_type`, not necessarily collateral currency.
@@ -152,7 +136,7 @@ pub struct PredictMatchLeg {
     pub quote_type: PredictQuoteType,
     pub amount: String,
     pub price: String,
-    pub outcome: PredictExecutionOutcome,
+    pub outcome: PredictAccountOutcome,
     pub signer: Address,
     /// Present in OrderFillData, omitted by the match endpoint's inline schema.
     /// Missing hashes prevent reliable FillReport association; no identifier is invented.
@@ -165,7 +149,7 @@ pub struct PredictMatchLeg {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PredictMatchData {
-    pub market: PredictExecutionMarket,
+    pub market: PredictAccountMarket,
     pub taker: PredictMatchLeg,
     pub amount_filled: String,
     pub price_executed: String,

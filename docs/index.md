@@ -61,7 +61,7 @@ boundaries. They are not operator runbooks.
 - [Predict adapter tests](../crates/nautilus-predict/tests/README.md)
 - [Predict live evidence](reference/predict-live-evidence.md)
 - [Inventory-unit commissions](reference/quantity-commission.md)
-- [Predict execution internals](predict-execution-structure-review.md)
+- [Predict execution internals](reference/predict-execution-internals.md)
 - [Predict adapter validation](reference/predict-execution-validation.md)
 - Core API: [crates/catalog-capture-core/README.md](../crates/catalog-capture-core/README.md)
 

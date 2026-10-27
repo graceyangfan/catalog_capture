@@ -46,27 +46,22 @@ cargo test -p nautilus-predict --features execution --test execution expiry_scop
 cargo test -p nautilus-predict --features execution --test execution feedback_delivery:: --locked
 ```
 
-Recorded startup/roundtrip uses captured entry, share fee, TP cancellation and SELL
-through current Native Strategy/LiveNode. Batch replay uses retained adoption and
-removal responses. Atomic terminal replay uses the real two-settlement remainder
-incident through reconciliation. Identity/time/signing changes are labeled derived;
-replay does not establish new venue behavior. See the validation matrix for exact
-fixture names and remaining live evidence.
+| Focused area | Assertions |
+| --- | --- |
+| Recorded startup, strategy lifecycle and batch replay | Captured entry/fees, adoption, removal and exits through Native Strategy/LiveNode |
+| terminal_recovery | Atomic remainder, pending commands, partial/late settlements, duplicate replay and terminal observations while history is held |
+| feedback_delivery | Subscriber-visible applied state despite held IO, missing ACK, route anomalies, expiry or closed optional channels |
+| expiry_scope | Historical residuals and expired definitions remain independent of active-market admission |
+| submissions nonce controls | Contract-local invalidation, concurrent markets, independent RPC deadlines, preserved successful slots, cancellation and generation isolation |
+| feed_discovery | Exact query/path encoding and bounded cursor-cycle rejection |
 
-`terminal_recovery` also combines the retained atomic settlement and no-match JSON
-as derived scheduling controls: ambiguous rejection before/after partial settlement, independent terminal confirmation, pending
-cancel/update, rounded/exact/stale display cumulative, duplicate replay, and an OPEN
-REST observation followed by wallet cancellation/expiry while trade history is held.
-Subscriber assertions check closure, exact gross/net quantity, original fees and
-absence of fabricated or voided fills. Duplicate/unknown rejection preserves an active original; the existing timer dispatches a coalesced Native status query. These combinations are not additional live
-observations of Predict remainder behavior.
-
-`feedback_delivery` controls held IO, late/duplicate fills, route anomalies, missing
-ACK, expired definitions and closed optional metadata channels. `expiry_scope`
-checks historical residual restart and new-market independence. Nonce controls in
-submissions verify per-contract invalidation and independent cash/nonce IO.
-Native pending-command retention and terminal quantity normalization require the
-paired framework changes documented in the dependency handoff.
+Subscriber checks assert exact gross/net quantities, original fees and applied
+Cache state. No replay schedule may fabricate or void an execution. Identity,
+time, signing and delivery-order changes are labeled derived; they do not
+establish additional venue behavior. Fixture provenance is documented in the
+[validation matrix](../../../docs/reference/predict-execution-validation.md).
+Pending-command retention and terminal quantity normalization require its
+[paired framework revision](../../../docs/reference/predict-execution-validation.md#two-repository-handoff).
 
 ## Pre-live checks without venue orders
 
@@ -127,6 +122,23 @@ cargo bench -p nautilus-predict --features execution --locked --bench execution_
 cargo bench -p nautilus-predict --features execution --locked --bench latency
 ```
 
+For local submission registration, use the existing execution harness and a fresh
+output path. Run the prebuilt optimized binary without other builds/tests on the
+host when interpreting timings:
+
+```bash
+PREDICT_REGISTRATION_PATH=data/registration.json cargo test --release -p nautilus-predict --features execution --locked --test execution entry_benchmark::benchmark_submission_registration -- --ignored --exact --test-threads=1
+```
+
+The exporter uses eight-command batches, 0/1,000 retained Native orders and normal
+or held cash RPC. It verifies POSTs and Native wallet acceptance, reports telemetry
+loss and keeps the last 128 measurements after 32 warmup commands. Account-lock
+wait and registration are measured directly; the latter includes nested lock waits
+and shared-index updates; immutable snapshot construction precedes the lock.
+The normal registration regression checks facts
+and sample counts, with no latency threshold. These are finite loopback timings,
+not live Strategy-to-venue latency or a contention guarantee.
+
 For report CPU costs, measure collection, synchronous finalization and result
 disposal separately, using a fresh output file:
 
@@ -150,21 +162,21 @@ below are under execution::<module>::tests in --lib:
 | --- | --- | --- |
 | account | benchmark_open_owner_retirement | PREDICT_OPEN_RETIRE_PATH |
 | account | benchmark_pending_account_projection | PREDICT_DEFERRED_PROJECTION_PATH |
-| precision | benchmark_wallet_fill_history | PREDICT_FILL_BENCH_PATH |
-| precision | benchmark_wallet_pending_work | PREDICT_PENDING_PATH |
-| precision | benchmark_native_order_snapshot_copy | PREDICT_SNAPSHOT_COPY_PATH |
-| precision | benchmark_native_worker_observation | PREDICT_OBSERVER_BENCH_PATH |
-| precision | benchmark_lifecycle_raw_history | PREDICT_RAW_BENCH_PATH |
-| precision | benchmark_advancing_wallet_prefix | PREDICT_ADVANCING_PREFIX_PATH |
-| precision | benchmark_applied_fill_inspection | PREDICT_APPLIED_INSPECTION_PATH |
-| lifecycle | benchmark_native_lookup_retirement | PREDICT_CLEANUP_BENCH_PATH |
-| lifecycle | benchmark_cold_instrument_cleanup | PREDICT_INSTRUMENT_CLEANUP_PATH |
-| lifecycle | benchmark_large_history_cleanup | PREDICT_HISTORY_CLEANUP_PATH |
-| lifecycle | benchmark_native_purge_and_adapter_retirement | PREDICT_NATIVE_PURGE_PATH |
-| lifecycle | benchmark_steady_native_purge_cadence | PREDICT_STEADY_PURGE_PATH |
-| lifecycle | benchmark_verified_owner_retirement_phases | PREDICT_RETIREMENT_PHASE_PATH |
-| lifecycle | benchmark_native_position_purge_history | PREDICT_POSITION_PURGE_PATH |
-| lifecycle | benchmark_native_timer_evidence_sweeps | PREDICT_TIMER_EVIDENCE_PATH |
+| fills | benchmark_wallet_fill_history | PREDICT_FILL_BENCH_PATH |
+| fills | benchmark_wallet_pending_work | PREDICT_PENDING_PATH |
+| fills | benchmark_native_order_snapshot_copy | PREDICT_SNAPSHOT_COPY_PATH |
+| fills | benchmark_native_worker_observation | PREDICT_OBSERVER_BENCH_PATH |
+| fills | benchmark_lifecycle_raw_history | PREDICT_RAW_BENCH_PATH |
+| fills | benchmark_advancing_wallet_prefix | PREDICT_ADVANCING_PREFIX_PATH |
+| fills | benchmark_applied_fill_inspection | PREDICT_APPLIED_INSPECTION_PATH |
+| maintenance | benchmark_native_lookup_retirement | PREDICT_CLEANUP_BENCH_PATH |
+| maintenance | benchmark_cold_instrument_cleanup | PREDICT_INSTRUMENT_CLEANUP_PATH |
+| maintenance | benchmark_large_history_cleanup | PREDICT_HISTORY_CLEANUP_PATH |
+| maintenance | benchmark_native_purge_and_adapter_retirement | PREDICT_NATIVE_PURGE_PATH |
+| maintenance | benchmark_steady_native_purge_cadence | PREDICT_STEADY_PURGE_PATH |
+| maintenance | benchmark_verified_owner_retirement_phases | PREDICT_RETIREMENT_PHASE_PATH |
+| maintenance | benchmark_native_position_purge_history | PREDICT_POSITION_PURGE_PATH |
+| maintenance | benchmark_native_timer_evidence_sweeps | PREDICT_TIMER_EVIDENCE_PATH |
 
 
 Actual Strategy exporters under --test execution include:

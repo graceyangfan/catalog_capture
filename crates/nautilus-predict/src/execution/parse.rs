@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Venue facts mapped to Nautilus reports using immutable snapshots of cached native orders.
+//! Shared wallet and REST conversion from venue facts and immutable Native views.
 
 use alloy::primitives::{Address, B256, Keccak256, U256};
 use nautilus_common::messages::ExecutionReport;
@@ -20,23 +20,413 @@ use nautilus_core::UnixNanos;
 use nautilus_model::{
     enums::{LiquiditySide, OrderSide, OrderStatus, OrderType, TimeInForce},
     identifiers::{AccountId, InstrumentId, TradeId, VenueOrderId},
-    instruments::{BinaryOption, Instrument},
+    instruments::{BinaryOption, Instrument, InstrumentAny},
     orders::{Order, OrderAny},
     reports::{FillReport, OrderStatusReport},
     types::{Currency, Money, Price, Quantity},
 };
 use rust_decimal::Decimal;
 
+use crate::execution::context;
 use crate::{
-    common::{enums::PredictOrderSide, instrument_id_from_outcome, parse::exact_wei},
+    common::{
+        contracts::PredictExchangeType,
+        enums::PredictOrderSide,
+        instrument_id_from_outcome,
+        parse::{decimal_to_wei, exact_wei, floor_wei_quantity},
+    },
+    execution::{context::ReportContext, fills::BufferedFill},
     http::account_models::{
         PredictFeeType, PredictOrderData, PredictOrderStatus, PredictOrderStrategy,
     },
+    signing::PredictOrderHasher,
     websocket::private_messages::{
         PredictWalletCancellationReason, PredictWalletEvent, PredictWalletEventKind,
-        PredictWalletOutcome, PredictWalletQuoteType, PredictWalletRejectionReason,
+        PredictWalletOutcome, PredictWalletRejectionReason,
     },
 };
+
+/// Shared target/bulk conversion; no event publication or evidence commit.
+pub(super) fn parse_order_status_report<O: context::OrderView, C>(
+    row: &PredictOrderData,
+    order: &O,
+    instrument: &BinaryOption,
+    context: &ReportContext<C>,
+    hasher: &PredictOrderHasher,
+    fills: &[&BufferedFill],
+    now: UnixNanos,
+) -> anyhow::Result<OrderStatusReport> {
+    let hash = row
+        .order
+        .hash
+        .ok_or_else(|| anyhow::anyhow!("Predict report lacks signed hash"))?;
+    let amount = Decimal::from_str_exact(&row.amount_filled)?;
+    anyhow::ensure!(
+        amount >= Decimal::ZERO,
+        "Predict negative REST filled amount"
+    );
+    anyhow::ensure!(
+        hasher.order_hash(
+            &row.order.fields,
+            PredictExchangeType::from_market_flags(row.is_neg_risk, row.is_yield_bearing),
+        ) == hash,
+        "Predict report fields do not reproduce signed hash"
+    );
+    let id = VenueOrderId::new(format!("{hash:#x}"));
+    anyhow::ensure!(
+        fills.iter().all(|fill| fill.report.venue_order_id == id),
+        "Predict report received a different order's match group"
+    );
+    if !amount.is_zero()
+        && !(fills.is_empty()
+            && matches!(
+                row.status,
+                PredictOrderStatus::Cancelled | PredictOrderStatus::Expired
+            ))
+    {
+        return filled_order_report(row, order, instrument, context, id, fills, now);
+    }
+    anyhow::ensure!(
+        fills.is_empty(),
+        "Predict zero REST fill contradicts confirmed matches"
+    );
+    if order.venue_order_id().is_none() {
+        parse_submitted_order_report(row, order, instrument, id, now)
+    } else {
+        parse_rest_order_report_from_view(
+            row,
+            order,
+            instrument,
+            context.account_id,
+            context.wallet,
+            now,
+        )
+    }
+}
+
+// The caller has already verified the signed hash and the fill group identity.
+fn filled_order_report<O: context::OrderView, C>(
+    row: &PredictOrderData,
+    order: &O,
+    instrument: &BinaryOption,
+    context: &ReportContext<C>,
+    venue_id: VenueOrderId,
+    fills: &[&BufferedFill],
+    observed: UnixNanos,
+) -> anyhow::Result<OrderStatusReport> {
+    validate_rest_order_terms_for_hash(
+        row,
+        order,
+        instrument,
+        context.account_id,
+        context.wallet,
+        venue_id,
+    )?;
+    anyhow::ensure!(
+        order.venue_order_id() == Some(venue_id)
+            || matches!(
+                order.status(),
+                OrderStatus::Submitted | OrderStatus::PendingCancel
+            ) && order.ts_submitted().is_some()
+                && order.ts_accepted().is_none()
+                && order.venue_order_id().is_none(),
+        "Predict recovery lost native order ownership"
+    );
+    let venue_amount = Decimal::from_str_exact(&row.amount_filled)?;
+    anyhow::ensure!(
+        venue_amount > Decimal::ZERO && !fills.is_empty(),
+        "Predict recovery lacks nonzero match evidence"
+    );
+    let mut raw = U256::ZERO;
+    let mut qty = order.filled_qty().as_decimal();
+    let mut ids = std::collections::HashSet::with_capacity(fills.len());
+    let mut earliest = fills[0].report.ts_event;
+    for fill in fills {
+        ids.insert(fill.report.trade_id);
+        earliest = earliest.min(fill.report.ts_event);
+        anyhow::ensure!(
+            fill.report.client_order_id == Some(order.client_order_id())
+                && fill.report.venue_order_id == venue_id
+                && fill.report.instrument_id == order.instrument_id(),
+            "Predict recovery match belongs to a different order"
+        );
+        raw = raw
+            .checked_add(fill.raw.gross_shares)
+            .ok_or_else(|| anyhow::anyhow!("Predict recovery raw sum overflow"))?;
+        if !order.has_applied_fill(fill.report.trade_id) {
+            qty = qty
+                .checked_add(fill.report.last_qty.as_decimal())
+                .ok_or_else(|| anyhow::anyhow!("Predict recovery quantity overflow"))?;
+        }
+    }
+    let mut complete_history = true;
+    order.for_each_trade_id(|id| {
+        complete_history &= ids.contains(&id);
+        Ok(())
+    })?;
+    let submitted = decimal_to_wei(order.submitted_quantity().as_decimal())?;
+    anyhow::ensure!(
+        raw <= submitted && qty <= order.submitted_quantity().as_decimal(),
+        "Predict recovery history contradicts cumulative native fills"
+    );
+    let status = match row.status {
+        // The order row is sampled before trade history. A wallet terminal
+        // arriving during that IO supersedes OPEN, not the real executions
+        // collected with it. Preserve closure while delivering those fills.
+        PredictOrderStatus::Open
+            if matches!(order.status(), OrderStatus::Canceled | OrderStatus::Expired) =>
+        {
+            order.status()
+        }
+        PredictOrderStatus::Open => OrderStatus::PartiallyFilled,
+        PredictOrderStatus::Filled => OrderStatus::Filled,
+        PredictOrderStatus::Cancelled => OrderStatus::Canceled,
+        PredictOrderStatus::Expired => OrderStatus::Expired,
+        _ => anyhow::bail!("Predict recovery status lacks matching settlement evidence"),
+    };
+    anyhow::ensure!(
+        !order.is_closed()
+            || order.status() == status
+            || status == OrderStatus::Filled
+                && matches!(order.status(), OrderStatus::Canceled | OrderStatus::Expired),
+        "Predict recovery terminal conflicts with confirmed native execution state"
+    );
+    // Venue milliseconds can round below a local nanosecond submission.
+    // Ownership and signed terms above establish association, not clock ordering.
+    let accepted = order.ts_accepted().unwrap_or(earliest);
+    // Preserve atomic allocations, including SHARES fees. Rounding this sum to
+    // instrument precision could manufacture an incremental inferred fill.
+    let precision = fills.iter().fold(
+        instrument
+            .size_precision()
+            .max(order.filled_qty().precision),
+        |precision, fill| precision.max(fill.report.last_qty.precision),
+    );
+    let filled_quantity = Quantity::from_decimal_dp(qty, precision)?;
+    // Follow Polymarket's terminal report normalization: the venue terminal
+    // stays FILLED, real fills stay unchanged, and Native closes via its
+    // reconciliation OrderUpdated. Original signed quantity stays in Native
+    // initialization/conversion history for replay validation.
+    // Where this row explicitly uses signed-share wei for `amount`, its
+    // cumulative provides an additional fence against lagging match history.
+    // Other endpoint amount models are not converted or guessed here.
+    let share_cumulative = row.amount.parse::<U256>().ok() == Some(submitted);
+    let complete_share_cumulative =
+        share_cumulative && row.amount_filled.parse::<U256>().ok() == Some(raw);
+    let complete_terminal_quantity =
+        complete_history && (raw == submitted || complete_share_cumulative);
+    let report_quantity = if status == OrderStatus::Filled && complete_terminal_quantity {
+        filled_quantity
+    } else {
+        order.quantity()
+    };
+    let mut report = OrderStatusReport::new(
+        context.account_id,
+        instrument.id(),
+        Some(order.client_order_id()),
+        venue_id,
+        Some(order.order_side()),
+        order.order_type(),
+        order.time_in_force(),
+        status,
+        report_quantity,
+        filled_quantity,
+        accepted,
+        observed,
+        observed,
+        None,
+    )
+    .with_post_only(order.is_post_only())
+    .with_reduce_only(order.is_reduce_only());
+    if let Some(px) = order.price() {
+        report = report.with_price(px);
+    }
+    report.expire_time = order.expire_time();
+    Ok(report)
+}
+
+/// Converts a venue-only order so Native can adopt its ownership.
+pub(super) fn parse_external_order_status_report(
+    row: &PredictOrderData,
+    context: &ReportContext<impl context::OrderView>,
+    hasher: &PredictOrderHasher,
+    fills: &[&BufferedFill],
+    observed: UnixNanos,
+) -> anyhow::Result<OrderStatusReport> {
+    let fields = &row.order.fields;
+    let hash = row
+        .order
+        .hash
+        .ok_or_else(|| anyhow::anyhow!("Predict external order lacks hash"))?;
+    anyhow::ensure!(
+        !hash.is_zero()
+            && fields.maker == context.wallet
+            && fields.signer == context.wallet
+            && fields.taker.is_zero()
+            && row.currency == "USDT"
+            && fields.fee_rate_bps <= U256::from(10_000)
+            && !fields.maker_amount.is_zero()
+            && !fields.taker_amount.is_zero(),
+        "Predict external order identity or terms are invalid"
+    );
+    anyhow::ensure!(
+        hash == hasher.order_hash(
+            fields,
+            PredictExchangeType::from_market_flags(row.is_neg_risk, row.is_yield_bearing)
+        ),
+        "Predict external order fields do not reproduce signed hash"
+    );
+    // Instrument loading belongs to the provider/DataClient; never invent a binary contract.
+    let instrument = context
+        .instruments
+        .values()
+        .find(|i| {
+            market_id_from_instrument(&i.id()).ok() == Some(row.market_id)
+                && i.raw_symbol().as_str().parse::<U256>().ok() == Some(fields.token_id)
+        })
+        .ok_or_else(|| anyhow::anyhow!("Predict external order instrument is absent"))?;
+    anyhow::ensure!(
+        matches!(instrument, InstrumentAny::BinaryOption(_))
+            && instrument.quote_currency() == Currency::USDT(),
+        "Predict external order requires a USDT binary instrument"
+    );
+    let side = match fields.side {
+        PredictOrderSide::Buy => OrderSide::Buy,
+        PredictOrderSide::Sell => OrderSide::Sell,
+    };
+    let terminal_market_buy =
+        row.strategy == PredictOrderStrategy::Market && side == OrderSide::Buy;
+    let (order_type, raw_quantity) = match (row.strategy, side) {
+        (PredictOrderStrategy::Limit, OrderSide::Buy) => (OrderType::Limit, fields.taker_amount),
+        (PredictOrderStrategy::Limit, OrderSide::Sell) => (OrderType::Limit, fields.maker_amount),
+        (PredictOrderStrategy::Market, OrderSide::Sell) => (OrderType::Market, fields.maker_amount),
+        (PredictOrderStrategy::Market, OrderSide::Buy) => {
+            anyhow::ensure!(
+                row.status == PredictOrderStatus::Filled && !fills.is_empty(),
+                "Predict external MARKET BUY requires a filled terminal and complete matches"
+            );
+            // Adopt only when complete fills independently reproduce the signed share
+            // quantity. Otherwise the original base quantity remains unknown.
+            (OrderType::Market, fields.taker_amount)
+        }
+    };
+    let id = VenueOrderId::new(format!("{hash:#x}"));
+    let quantity = floor_wei_quantity(raw_quantity, instrument.size_precision())?;
+    let mut raw_filled = U256::ZERO;
+    let mut filled = Decimal::ZERO;
+    let mut first = observed;
+    for fill in fills {
+        anyhow::ensure!(
+            fill.report.venue_order_id == id
+                && fill.report.instrument_id == instrument.id()
+                && fill.report.order_side == side,
+            "Predict external match differs from signed order"
+        );
+        raw_filled = raw_filled
+            .checked_add(fill.raw.gross_shares)
+            .ok_or_else(|| anyhow::anyhow!("Predict external raw fill overflow"))?;
+        filled = filled
+            .checked_add(fill.report.last_qty.as_decimal())
+            .ok_or_else(|| anyhow::anyhow!("Predict external fill overflow"))?;
+        first = first.min(fill.report.ts_event);
+    }
+    if terminal_market_buy {
+        let bound = fields
+            .maker_amount
+            .checked_mul(U256::from(1_000_000_000_000_000_000u64))
+            .ok_or_else(|| anyhow::anyhow!("Predict external price bound overflow"))?;
+        for fill in fills {
+            anyhow::ensure!(
+                fill.raw
+                    .price
+                    .checked_mul(fields.taker_amount)
+                    .ok_or_else(|| anyhow::anyhow!("Predict external price bound overflow"))?
+                    <= bound,
+                "Predict external MARKET BUY fill violates signed price bound"
+            );
+        }
+    }
+    // Supported venue-only kinds require raw cumulative equality, not merely nonzero evidence.
+    // Missing partial prefixes must not turn into Native inferred fills during cold recovery.
+    let reported_filled = row
+        .amount_filled
+        .parse::<U256>()
+        .map_err(|_| anyhow::anyhow!("Predict external filled amount is not integer wei"))?;
+    anyhow::ensure!(
+        reported_filled == raw_filled
+            && raw_filled <= raw_quantity
+            && filled <= quantity.as_decimal(),
+        "Predict external cumulative fill lacks consistent matches"
+    );
+    let full = raw_filled == raw_quantity;
+    let status = match row.status {
+        PredictOrderStatus::Open if !full && raw_filled.is_zero() => OrderStatus::Accepted,
+        PredictOrderStatus::Open if !full => OrderStatus::PartiallyFilled,
+        PredictOrderStatus::Filled if full => OrderStatus::Filled,
+        PredictOrderStatus::Cancelled => OrderStatus::Canceled,
+        PredictOrderStatus::Expired => OrderStatus::Expired,
+        _ => anyhow::bail!("Predict external terminal status lacks matching settlement evidence"),
+    };
+    let expiry: u64 = fields
+        .expiration
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Predict external expiry exceeds u64"))?;
+    let expire_time = if order_type == OrderType::Limit && expiry != 0 {
+        Some(UnixNanos::from(
+            expiry
+                .checked_mul(1_000_000_000)
+                .ok_or_else(|| anyhow::anyhow!("Predict external expiry overflow"))?,
+        ))
+    } else {
+        None
+    };
+    let mut report = OrderStatusReport::new(
+        context.account_id,
+        instrument.id(),
+        None,
+        id,
+        Some(side),
+        order_type,
+        if expire_time.is_some() {
+            TimeInForce::Gtd
+        } else {
+            TimeInForce::Gtc
+        },
+        status,
+        quantity,
+        Quantity::from_decimal_dp(filled, instrument.size_precision())?,
+        first,
+        observed,
+        observed,
+        None,
+    );
+    report.expire_time = expire_time;
+    if order_type == OrderType::Limit {
+        let (quote, base) = if side == OrderSide::Buy {
+            (fields.maker_amount, fields.taker_amount)
+        } else {
+            (fields.taker_amount, fields.maker_amount)
+        };
+        let px = exact_wei(quote)?
+            .checked_div(exact_wei(base)?)
+            .ok_or_else(|| anyhow::anyhow!("Predict external limit price overflow"))?;
+        anyhow::ensure!(px > Decimal::ZERO, "Predict external limit price is zero");
+        let price = price(px, instrument.price_precision())?;
+        anyhow::ensure!(
+            fills
+                .iter()
+                .filter(|f| f.report.venue_order_id == id)
+                .all(|f| if side == OrderSide::Buy {
+                    f.report.last_px <= price
+                } else {
+                    f.report.last_px >= price
+                }),
+            "Predict external fill violates signed limit"
+        );
+        report = report.with_price(price);
+    }
+    Ok(report)
+}
 
 /// Deterministic order-scoped settlement ID, using 128 digest bits within the native
 /// 36-character TradeId limit. No timestamp or random event ID is substituted.
@@ -81,13 +471,13 @@ pub(super) fn execution_price(value: Decimal, instrument_precision: u8) -> anyho
     price(value, precision)
 }
 
-/// Parses lifecycle or confirmed fill evidence. Submitted settlements emit no fill report.
-/// Unknown fees, nonzero share fees, missing acceptance evidence and contradictory rejections
-/// require reconciliation; they are not approximated. Lifecycle acknowledgements do not wait
-/// for missing fills; their reports retain only independently confirmed quantity.
-/// Raw venue IDs and hashes stay distinct.
+/// Converts wallet lifecycle or confirmed execution facts for a known Native order.
+/// Submitted settlements produce no fill. This standalone converter rejects unknown
+/// or nonzero share fees; the reported-cash execution client handles those separately.
+/// Lifecycle reports retain independently confirmed quantity without waiting for history.
 ///
 /// # Errors
+///
 /// Returns an error when context, quantities, timestamps or fee semantics are insufficient.
 pub fn parse_wallet_report(
     event: &PredictWalletEvent,
@@ -110,7 +500,7 @@ pub fn parse_wallet_report(
 
 pub(super) fn parse_wallet_report_with_confirmed_qty(
     event: &PredictWalletEvent,
-    order: &impl super::context::OrderView,
+    order: &impl context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -157,7 +547,7 @@ pub(super) struct WalletReportEvidence {
 
 pub(super) fn parse_wallet_report_with_registration(
     event: &PredictWalletEvent,
-    order: &impl super::context::OrderView,
+    order: &impl context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -189,10 +579,7 @@ pub(super) fn parse_wallet_report_with_registration(
         PredictWalletOutcome::Yes => 1,
         PredictWalletOutcome::No => 2,
     };
-    let side = match event.order.details.quote_type {
-        PredictWalletQuoteType::Bid => OrderSide::Buy,
-        PredictWalletQuoteType::Ask => OrderSide::Sell,
-    };
+    let side = OrderSide::from(event.order.details.quote_type);
     anyhow::ensure!(
         order.instrument_id() == id
             && instrument.id() == id
@@ -462,14 +849,13 @@ pub(crate) fn market_id_from_instrument(id: &InstrumentId) -> anyhow::Result<u64
     Ok(market)
 }
 
-/// Maps a REST order observation for a known Native order. Signed
-/// maker/taker amounts establish base quantity and the LIMIT price; a recovered MARKET
-/// retains its native missing price instead of inventing a limit. Nonzero `amountFilled` is not
-/// scaled or substituted for confirmed settlements. `ts_last` is observation time, as for other
-/// snapshot reports; native TIF/flags are retained. A canceled/expired observation reports
-/// only the known Native filled quantity; production recovery pairs it with actual fills.
+/// Converts a REST observation for a known Native order, preserving its TIF and flags.
+/// Signed amounts establish base quantity and LIMIT price; MARKET retains no fixed
+/// price. Observation time supplies `ts_last`. Terminal reports retain known Native
+/// filled quantity; nonzero REST `amountFilled` cannot substitute for settlement facts.
 ///
 /// # Errors
+///
 /// Missing context, changed order terms, unresolved fills or invalidation semantics return errors.
 pub fn parse_rest_order_report(
     row: &PredictOrderData,
@@ -479,11 +865,11 @@ pub fn parse_rest_order_report(
     wallet: Address,
     observed: UnixNanos,
 ) -> anyhow::Result<OrderStatusReport> {
-    rest_order_report_from_view(row, order, instrument, account_id, wallet, observed)
+    parse_rest_order_report_from_view(row, order, instrument, account_id, wallet, observed)
 }
-pub(super) fn rest_order_report_from_view(
+pub(super) fn parse_rest_order_report_from_view(
     row: &PredictOrderData,
-    order: &impl super::context::OrderView,
+    order: &impl context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -499,11 +885,10 @@ pub(super) fn rest_order_report_from_view(
 /// wallet acknowledgement. Zero-fill terminal MARKET FOK evidence also resolves this
 /// path. The endpoint has no timestamps: acceptance uses observation time only on this
 /// path; nonzero fills require settlement recovery.
-pub(super) fn parse_submitted_order_report(
+fn parse_submitted_order_report(
     row: &PredictOrderData,
-    order: &impl super::context::OrderView,
+    order: &impl context::OrderView,
     instrument: &BinaryOption,
-    hasher: &crate::signing::PredictOrderHasher,
     venue_id: VenueOrderId,
     observed: UnixNanos,
 ) -> anyhow::Result<OrderStatusReport> {
@@ -525,15 +910,6 @@ pub(super) fn parse_submitted_order_report(
     let account_id = order
         .account_id()
         .ok_or_else(|| anyhow::anyhow!("Predict submitted order lacks its account"))?;
-    let exchange = crate::common::contracts::PredictExchangeType::from_market_flags(
-        row.is_neg_risk,
-        row.is_yield_bearing,
-    );
-    let hash = hasher.order_hash(&row.order.fields, exchange);
-    anyhow::ensure!(
-        venue_id == VenueOrderId::new(format!("{hash:#x}")),
-        "Predict queried contract fields do not reproduce the transmitted hash"
-    );
     validate_rest_order_terms_for_hash(
         row,
         order,
@@ -547,7 +923,7 @@ pub(super) fn parse_submitted_order_report(
 
 fn rest_order_report(
     row: &PredictOrderData,
-    order: &impl super::context::OrderView,
+    order: &impl context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     venue_id: VenueOrderId,
@@ -638,7 +1014,7 @@ fn rest_order_report(
 /// authenticated signed collateral is bounded to the binary range, never inferred from VWAP.
 pub(super) fn validate_rest_order_terms(
     row: &PredictOrderData,
-    order: &impl super::context::OrderView,
+    order: &impl context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -651,7 +1027,7 @@ pub(super) fn validate_rest_order_terms(
 
 pub(super) fn validate_rest_order_terms_for_hash(
     row: &PredictOrderData,
-    order: &impl super::context::OrderView,
+    order: &impl context::OrderView,
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
@@ -743,7 +1119,7 @@ pub(super) fn validate_rest_order_terms_for_hash(
 /// and wallet notification time can differ; identity and economic facts must agree.
 pub(super) fn validate_applied_fill(
     report: &FillReport,
-    order: &impl super::context::OrderView,
+    order: &impl context::OrderView,
 ) -> anyhow::Result<bool> {
     order.with_applied_fill(report.trade_id, |fill| {
         if let Some(fill) = fill {

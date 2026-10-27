@@ -13,8 +13,8 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Session setup, Native cache snapshots and teardown. Trading state stays in Native.
+
 use std::{
-    collections::HashSet,
     sync::{Arc, atomic::Ordering},
     time::Duration,
 };
@@ -31,42 +31,107 @@ use nautilus_model::{
     orders::Order,
 };
 
-use super::{PredictExecutionClient, account, runtime};
-use crate::{config::PredictAccountStateMode, websocket::PredictWalletWebSocketClient};
-
-#[cfg(test)]
-thread_local! {
-    static INSTRUMENT_OWNER_READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-}
-
-// A core-thread view used by lifecycle callbacks and the existing Native timer.
-// It owns no trading state and is released when that timer generation is stopped.
-pub(super) struct OrderLookups {
-    core: nautilus_live::ExecutionClientCore,
-    account_orders: super::types::OrderSnapshots<nautilus_model::identifiers::ClientOrderId>,
-    orders: super::types::OrderSnapshots<nautilus_model::identifiers::VenueOrderId>,
-    account_sync: Arc<account::AccountSync>,
-    fill_evidence: super::precision::SharedFillEvidence,
-    instruments: Arc<
-        nautilus_core::AtomicMap<
-            nautilus_model::identifiers::InstrumentId,
-            super::types::ExecutionInstrument,
-        >,
-    >,
-    rest_order_ids: super::routing::RestOrderIds,
-    account_refresh_required: Arc<std::sync::atomic::AtomicBool>,
-    cursor: std::rc::Rc<std::cell::Cell<(usize, usize)>>,
-}
+use crate::execution::{context, metadata, wallet};
+use crate::{
+    config::PredictAccountStateMode,
+    execution::{PredictExecutionClient, account},
+    websocket::PredictWalletWebSocketClient,
+};
 
 impl PredictExecutionClient {
+    pub(super) fn start_impl(&mut self) -> anyhow::Result<()> {
+        let sender = nautilus_common::live::runner::try_get_exec_event_sender()
+            .ok_or_else(|| anyhow::anyhow!("Nautilus execution event sender is not installed"))?;
+        self.emitter.set_sender(sender);
+        self.data_sender = nautilus_common::live::runner::try_get_data_event_sender();
+        self.core.set_started();
+        Ok(())
+    }
+    pub(super) fn stop_impl(&mut self) -> anyhow::Result<()> {
+        if self.core.is_connected()
+            && !self
+                .account_orders
+                .lock()
+                .expect("order snapshots poisoned")
+                .is_empty()
+        {
+            self.account_refresh_required.store(true, Ordering::Release);
+        }
+        self.healthy.store(false, Ordering::Release);
+        self.core.set_disconnected();
+        self.core.set_stopped();
+        self.tasks.begin_shutdown();
+        self.stop_maintenance_timer();
+        {
+            let mut sync = self
+                .account_sync
+                .state
+                .lock()
+                .expect("account sync poisoned");
+            sync.resource_revision = sync.resource_revision.wrapping_add(1);
+        }
+        self.clear_observer();
+        Ok(())
+    }
+    pub(super) fn reset_impl(&mut self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.pending_submissions
+                .lock()
+                .expect("submission registry poisoned")
+                .entries
+                .is_empty(),
+            "Predict submitted orders must be reconciled before reset"
+        );
+        anyhow::ensure!(
+            self.pending_cancels
+                .lock()
+                .expect("pending cancels poisoned")
+                .is_empty(),
+            "Predict cancellations must be reconciled before reset"
+        );
+        anyhow::ensure!(
+            self.tasks.is_empty(),
+            "Predict tasks must be drained before reset"
+        );
+        self.stop()?;
+        self.metadata.instruments.store(Default::default());
+        self.metadata.reset_nonces();
+        self.cleanup_cursor.set((0, 0));
+        self.orders
+            .lock()
+            .expect("order snapshots poisoned")
+            .clear();
+        self.rest_order_ids
+            .lock()
+            .expect("REST order IDs poisoned")
+            .clear();
+        self.fill_evidence = Default::default();
+        self.account_refresh_required
+            .store(false, Ordering::Release);
+        self.account_orders
+            .lock()
+            .expect("order snapshots poisoned")
+            .clear();
+        {
+            let mut sync = self
+                .account_sync
+                .state
+                .lock()
+                .expect("account sync poisoned");
+            sync.active_orders.clear();
+            sync.clear_connection();
+        }
+        Ok(())
+    }
+
     pub(super) fn prepare_lookup(&mut self) -> anyhow::Result<()> {
         self.cleanup_cursor.set((0, 0));
         let cache = self.core.cache();
         let mut definitions = ahash::AHashMap::new();
         for instrument in cache.instruments(&self.core.venue, None) {
-            super::types::upsert_instrument(&mut definitions, instrument.clone());
+            metadata::upsert_instrument(&mut definitions, instrument.clone());
         }
-        self.instruments.store(definitions);
+        self.metadata.instruments.store(definitions);
         let account_orders: indexmap::IndexMap<_, _, ahash::RandomState> = cache
             .orders_refs(
                 Some(&self.core.venue),
@@ -79,7 +144,7 @@ impl PredictExecutionClient {
             .map(|order| {
                 (
                     order.client_order_id(),
-                    Arc::new(super::context::WorkerOrder::capture(&order)),
+                    Arc::new(context::WorkerOrder::capture(&order)),
                 )
             })
             .collect();
@@ -191,7 +256,6 @@ impl PredictExecutionClient {
                         && order.account_id() == Some(core.account_id)
                     {
                         let mut sync = account_sync.state.lock().expect("account sync poisoned");
-                        sync.revision = sync.revision.wrapping_add(1);
                         let (registered, collateral) = pending_submissions
                             .lock()
                             .expect("submission registry poisoned")
@@ -226,7 +290,7 @@ impl PredictExecutionClient {
                                 &*order,
                             );
                         if let OrderEventAny::Filled(fill) = event
-                            && !account::is_synthetic_order(&*order)
+                            && !context::OrderView::is_synthetic(&*order)
                         {
                             sync.latest_fill = sync.latest_fill.max(fill.ts_event);
                             sync.request_cash();
@@ -235,13 +299,17 @@ impl PredictExecutionClient {
                                 .expect("fill evidence poisoned")
                                 .applied(fill.trade_id);
                         }
-                        let order = Arc::new(super::context::WorkerOrder::observe(
+                        let order = Arc::new(context::WorkerOrder::observe(
                             &order,
                             event,
                             previous.as_deref(),
                         ));
                         if order.is_closed() {
-                            sync.order_status_requests.remove(&order.client_order_id());
+                            pending_submissions
+                                .lock()
+                                .expect("order requests poisoned")
+                                .order_status_requests
+                                .remove(&order.client_order_id());
                             pending_cancels
                                 .lock()
                                 .expect("pending cancels poisoned")
@@ -254,7 +322,7 @@ impl PredictExecutionClient {
                         if (matches!(event, OrderEventAny::Filled(_))
                             || matches!(event, OrderEventAny::Updated(update) if update.reconciliation))
                             && order.status() == nautilus_model::enums::OrderStatus::Filled
-                            && !account::is_synthetic_order(&order)
+                            && !context::OrderView::is_synthetic(&order)
                             && let Some(id) = order.venue_order_id().or(registered)
                         {
                             // Confirmed fills or a terminal reconciliation retire a stale OPEN reservation.
@@ -377,42 +445,8 @@ impl PredictExecutionClient {
             );
             self.account_observer = Some(handler);
         }
-        self.metadata_notify.notify_one();
+        self.metadata.notify.notify_one();
         Ok(())
-    }
-
-    /// Release terminal worker snapshots only after Native has purged their owners.
-    /// Uses the installed recovery timer, or request/instrument boundaries in manual mode.
-    /// Atomic evidence retires only with its fully applied terminal Native owner.
-    pub(super) fn order_lookups(&self) -> OrderLookups {
-        OrderLookups {
-            core: self.core.clone(),
-            account_orders: self.account_orders.clone(),
-            orders: self.orders.clone(),
-            account_sync: self.account_sync.clone(),
-            fill_evidence: self.fill_evidence.clone(),
-            instruments: self.instruments.clone(),
-            rest_order_ids: self.rest_order_ids.clone(),
-            account_refresh_required: self.account_refresh_required.clone(),
-            cursor: self.cleanup_cursor.clone(),
-        }
-    }
-
-    pub(super) fn prune_order_lookups(&self) {
-        self.order_lookups().prune();
-    }
-
-    pub(super) fn prune_order_lookups_on_request(&self) {
-        let timer = format!("predict-execution-recovery-{}", self.core.client_id);
-        let scheduled = self
-            .recovery_clock
-            .as_ref()
-            .is_some_and(|clock| clock.borrow().timer_exists(&timer.as_str().into()));
-        // The existing timer owns maintenance. Explicit requests only clean up
-        // in manual mode, including clients without an installed Native clock.
-        if !scheduled {
-            self.prune_order_lookups();
-        }
     }
 
     pub(super) fn clear_observer(&mut self) {
@@ -438,7 +472,7 @@ impl PredictExecutionClient {
             chain: self.chain.clone().ok_or_else(|| {
                 anyhow::anyhow!("Predict account balance source is not configured")
             })?,
-            instruments: Arc::clone(&self.instruments),
+            instruments: Arc::clone(&self.metadata.instruments),
             orders: Arc::clone(&self.account_orders),
             pending: Arc::clone(&self.pending_submissions),
             rest_ids: Arc::clone(&self.rest_order_ids),
@@ -463,7 +497,7 @@ impl PredictExecutionClient {
             .last_event
             .ok_or_else(|| anyhow::anyhow!("Predict account initialization has no fresh report"))?;
         tokio::time::timeout(
-            Duration::from_secs(self.config.report_timeout_secs),
+            Duration::from_secs(self.config.request_timeout_secs),
             async {
                 loop {
                     let applied = self
@@ -543,11 +577,28 @@ impl PredictExecutionClient {
             .lock()
             .expect("account sync poisoned")
             .clear_connection();
+        self.metadata.reset_nonces();
         self.prepare_lookup()?;
-        self.start_recovery_timer()?;
+        self.start_maintenance_timer()?;
+        // Signing inputs are optional readiness, not execution connectivity.
+        // Prepare signing inputs independently of account setup and wallet delivery.
+        if self.config.submission_signer.is_some() {
+            let epoch = self.wallet_epoch.as_ref().expect("wallet connected");
+            self.tasks.spawn_named(
+                "predict-market-metadata",
+                Arc::clone(&self.metadata).run(
+                    self.config.clone(),
+                    self.chain.clone(),
+                    self.clock,
+                    Arc::clone(epoch),
+                    self.wallet_auth.clone().expect("wallet connected"),
+                    self.tasks.cancellation_token(),
+                ),
+            )?;
+        }
         if self.config.account_state_mode == PredictAccountStateMode::Reported {
             let reporter = self.account_reporter()?;
-            let (reported, ()) = tokio::try_join!(reporter.refresh(), reporter.refresh_nonces())?;
+            let reported = reporter.refresh().await?;
             anyhow::ensure!(
                 reported,
                 "Predict native account context changed during initialization"
@@ -555,24 +606,18 @@ impl PredictExecutionClient {
             self.await_account_registered().await?;
             self.tasks.spawn_named(
                 "predict-account-reports",
-                account::run(reporter, self.tasks.cancellation_token()),
+                account::run(
+                    reporter,
+                    self.tasks.cancellation_token(),
+                    Arc::clone(&self.account_query_active),
+                    Arc::clone(&self.refreshed_epoch),
+                    Arc::clone(&self.account_refresh_required),
+                ),
             )?;
         }
         if self.config.submission_signer.is_some() {
             let epoch = self.wallet_epoch.as_ref().expect("wallet connected");
-            super::metadata::prepare(&self.config, &self.instruments, self.clock, epoch).await;
-            self.tasks.spawn_named(
-                "predict-market-metadata",
-                super::metadata::run(
-                    self.config.clone(),
-                    Arc::clone(&self.instruments),
-                    self.clock,
-                    Arc::clone(epoch),
-                    self.wallet_auth.clone().expect("wallet connected"),
-                    Arc::clone(&self.metadata_notify),
-                    self.tasks.cancellation_token(),
-                ),
-            )?;
+            metadata::prepare(&self.config, &self.metadata.instruments, self.clock, epoch).await;
         }
         anyhow::ensure!(
             ws.authentication_tracker().is_authenticated()
@@ -583,17 +628,18 @@ impl PredictExecutionClient {
         self.healthy.store(true, Ordering::Release);
         let task = self.tasks.spawn_named(
             "predict-wallet-execution",
-            runtime::run_wallet(
+            wallet::run_wallet(
                 ws,
                 self.tasks.cancellation_token(),
                 Arc::clone(&self.healthy),
-                runtime::WalletReportContext {
-                    instruments: Arc::clone(&self.instruments),
+                wallet::WalletReportContext {
+                    instruments: Arc::clone(&self.metadata.instruments),
                     orders: Arc::clone(&self.orders),
                     rest_ids: Arc::clone(&self.rest_order_ids),
                     sync: Arc::clone(&self.account_sync),
                     pending: Arc::clone(&self.pending_submissions),
                     fill_evidence: Arc::clone(&self.fill_evidence),
+                    metadata_notify: Arc::clone(&self.metadata.notify),
                     account_refresh_required: Arc::clone(&self.account_refresh_required),
                     allow_share_fees: self.config.account_state_mode
                         == PredictAccountStateMode::Reported,
@@ -631,180 +677,75 @@ impl PredictExecutionClient {
     }
 }
 
-// Bound owner work on the Native thread. Cursors refer to the existing indexes,
-// not another retained owner queue. Swap-removal may defer a moved owner to the
-// next pass; every stable retained owner is revisited after wrapping.
-pub(super) const CLEANUP_BATCH: usize = 128;
-impl OrderLookups {
-    pub(super) fn prune(&self) -> bool {
-        let cache = self.core.cache();
-        let by_client = self
-            .account_orders
-            .lock()
-            .expect("order snapshots poisoned");
-        let by_hash = self.orders.lock().expect("order snapshots poisoned");
-        let (mut client_cursor, mut hash_cursor) = self.cursor.get();
-        let mut views = Vec::with_capacity(CLEANUP_BATCH * 2);
-        // Each index contributes at most one batch, including hash-only owners.
-        if client_cursor >= by_client.len() {
-            client_cursor = 0;
+fn renewal_delay(expiry: u64, now: u64) -> Duration {
+    // Like Deribit, renew after 80% of the remaining token lifetime.
+    Duration::from_secs(expiry.saturating_sub(now).saturating_mul(4) / 5)
+}
+
+impl PredictExecutionClient {
+    fn start_authentication_refresh(&self) -> anyhow::Result<()> {
+        let Some(signer) = self.config.auth_signer.clone() else {
+            return Ok(());
+        };
+        let session = self.config.session.clone();
+        if session.token().expires_at()?.is_none() {
+            log::warn!(
+                "Predict external token has no expiry; automatic authentication renewal unavailable"
+            );
+            return Ok(());
         }
-        let client_end = (client_cursor + CLEANUP_BATCH).min(by_client.len());
-        for index in client_cursor..client_end {
-            let (_, order) = by_client.get_index(index).expect("bounded client cursor");
-            views.push((order.venue_order_id(), Arc::clone(order)));
-        }
-        client_cursor = client_end;
-        if hash_cursor >= by_hash.len() {
-            hash_cursor = 0;
-        }
-        let hash_end = (hash_cursor + CLEANUP_BATCH).min(by_hash.len());
-        for index in hash_cursor..hash_end {
-            let (hash, order) = by_hash.get_index(index).expect("bounded hash cursor");
-            if !by_client.contains_key(&order.client_order_id()) {
-                views.push((Some(*hash), Arc::clone(order)));
-            }
-        }
-        hash_cursor = hash_end;
-        self.cursor.set((client_cursor, hash_cursor));
-        drop(by_hash);
-        drop(by_client);
-        // Validate history without pinning account/client/hash indexes. Reuse
-        // the existing prefix slot so deferred cold owners are not rescanned.
-        let mut candidates = Vec::new();
-        let mut retirement_work = 0usize;
-        let mut deferred = false;
-        for (hash, order) in views {
-            if !order.is_closed() || cache.order(&order.client_order_id()).is_some() {
-                continue;
-            }
-            let work = {
-                let mut evidence = self.fill_evidence.lock().expect("fill evidence poisoned");
-                if let Some(hash) = hash
-                    && evidence.has_unapplied(hash, &order)
-                {
-                    self.account_refresh_required.store(true, Ordering::Release);
-                    continue;
+        let cancellation = self.tasks.cancellation_token();
+        let clock = self.clock;
+        self.tasks.spawn_named("predict-authentication", async move {
+            loop {
+                let now = clock.get_time_ns().as_u64() / 1_000_000_000;
+                let expiry = match session.token().expires_at() {
+                    Ok(Some(value)) => value,
+                    _ => break,
+                };
+                tokio::select! {
+                    biased;
+                    () = cancellation.cancelled() => break,
+                    _ = tokio::time::sleep(renewal_delay(expiry, now)) => {},
                 }
-                order
-                    .fill_count()
-                    .saturating_add(hash.map_or(0, |hash| evidence.retirement_work(hash)))
-            };
-            if !candidates.is_empty() && retirement_work.saturating_add(work) > CLEANUP_BATCH {
-                deferred = true;
-                continue;
-            }
-            retirement_work = retirement_work.saturating_add(work);
-            candidates.push((hash, order));
-        }
-        let mut sync = self
-            .account_sync
-            .state
-            .lock()
-            .expect("account sync poisoned");
-        let mut by_client = self
-            .account_orders
-            .lock()
-            .expect("order snapshots poisoned");
-        let mut by_hash = self.orders.lock().expect("order snapshots poisoned");
-        let mut evidence = self.fill_evidence.lock().expect("fill evidence poisoned");
-        let mut retired_hashes = HashSet::new();
-        let mut retired = 0;
-        let mut released = Vec::new();
-        let before_fill = sync.latest_fill;
-        let mut changed_resources = false;
-        for (hash, order) in candidates {
-            let current = by_client
-                .get(&order.client_order_id())
-                .or_else(|| hash.and_then(|hash| by_hash.get(&hash)));
-            if !current.is_some_and(|current| Arc::ptr_eq(current, &order)) {
-                deferred = true;
-                released.push(order);
-                continue;
-            }
-            // Wallet evidence can arrive between validation and index mutation.
-            if let Some(hash) = hash
-                && evidence.has_unapplied(hash, &order)
-            {
-                self.account_refresh_required.store(true, Ordering::Release);
-                continue;
-            }
-            if let Some(hash) = hash {
-                retired_hashes.insert(hash);
-                // Remove by the actual hash-index key, including pre-ACK hash-only views.
-                by_hash.swap_remove(&hash);
-            }
-            let client = order.client_order_id();
-            by_client.swap_remove(&client);
-            changed_resources |= sync.active_orders.remove(&client).is_some();
-            sync.latest_fill = sync.latest_fill.max(account::latest_venue_fill(&order));
-            retired += 1;
-            released.push(order);
-        }
-        if !retired_hashes.is_empty() {
-            sync.retire_orders(&retired_hashes);
-            evidence.retire_orders(&retired_hashes);
-            let mut routes = self.rest_order_ids.lock().expect("REST order IDs poisoned");
-            for hash in &retired_hashes {
-                routes.remove(hash);
-            }
-        }
-        // Only missing Native definitions need the cold ownership checks. Do not
-        // pin every expired definition merely because another market is trading.
-        let mut stale = self
-            .instruments
-            .load()
-            .keys()
-            .filter(|id| cache.instrument(id).is_none())
-            .copied()
-            .collect::<ahash::AHashSet<_>>();
-        if !stale.is_empty() {
-            for order in by_client.values().chain(by_hash.values()) {
-                stale.remove(&order.instrument_id());
-                #[cfg(test)]
-                INSTRUMENT_OWNER_READS.with(|n| n.set(n.get() + 1));
-            }
-            if !stale.is_empty() {
-                for position in cache.positions_open(
-                    Some(&self.core.venue),
-                    None,
-                    None,
-                    Some(&self.core.account_id),
-                    None,
-                ) {
-                    stale.remove(&position.instrument_id);
+                // Keep the old acknowledged wallet active while HTTP renewal is pending.
+                // Publishing a replacement token makes the WS handler require a fresh ACK.
+                let mut retry = 1;
+                loop {
+                    let result = tokio::select! {
+                        biased;
+                        () = cancellation.cancelled() => return,
+                        result = session.renew(&signer) => result,
+                    };
+                    match result {
+                        Ok(()) => {
+                            // The wallet token watcher requests Native connection replacement and ACKs.
+                            break;
+                        }
+                        Err(_) => {
+                            log::warn!("Predict authentication renewal failed; no trading operation retried");
+                        }
+                    }
+                    tokio::select! {
+                        biased;
+                        () = cancellation.cancelled() => return,
+                        _ = tokio::time::sleep(Duration::from_secs(retry)) => {},
+                    }
+                    retry = (retry * 2).min(30);
                 }
             }
-        }
-        if !stale.is_empty() {
-            self.instruments
-                .rcu(|map| map.retain(|id, _| !stale.contains(id)));
-        }
-        let more = deferred
-            || client_cursor < by_client.len()
-            || hash_cursor < by_hash.len()
-            || retired > 0 && (!by_client.is_empty() || !by_hash.is_empty());
-        // Retiring already-closed mirrors does not change Native trading state.
-        // Keep fences if a restored owner advances real freshness/reservation inputs.
-        changed_resources |= sync.latest_fill != before_fill;
-        if changed_resources {
-            sync.revision = sync.revision.wrapping_add(1);
-            sync.resource_revision = sync.resource_revision.wrapping_add(1);
-        }
-        drop(evidence);
-        drop(by_hash);
-        drop(by_client);
-        drop(sync);
-        // Last history references can run large destructors. Never hold the WS
-        // and account indexes during that release. A single owner is still O(N).
-        drop(released);
-        if changed_resources {
-            self.account_sync.notify.notify_one();
-        }
-        more
+        })?;
+        Ok(())
     }
 }
 
 #[cfg(test)]
-#[path = "../../tests/unit/lookup.rs"]
-mod tests;
+mod authentication_tests {
+    use super::*;
+    #[test]
+    fn renewal_is_before_expiration_and_expired_tokens_refresh_immediately() {
+        assert_eq!(renewal_delay(86400, 0), Duration::from_secs(69120));
+        assert_eq!(renewal_delay(101, 100), Duration::ZERO);
+        assert_eq!(renewal_delay(90, 100), Duration::ZERO);
+    }
+}

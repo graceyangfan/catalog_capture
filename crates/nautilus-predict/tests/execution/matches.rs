@@ -71,7 +71,7 @@ async fn benchmark_report_collection_finish_and_drop() {
         add_instruments(&cache);
         let mut cfg = config(&venue);
         cfg.max_report_pages = count.div_ceil(100) + 1;
-        cfg.report_timeout_secs = 120;
+        cfg.request_timeout_secs = 120;
         let core = ExecutionClientCore::new(
             trader_id(),
             ClientId::new("PREDICT"),
@@ -244,7 +244,7 @@ async fn match_history_fails_closed_on_truncation_cycles_errors_and_contradictor
         add_instruments(&cache);
         // Recreate through the ordinary config surface for a short deadline/page bound.
         let mut cfg = config(&server);
-        cfg.report_timeout_secs = 1;
+        cfg.request_timeout_secs = 1;
         cfg.max_report_pages = 2;
         let core = ExecutionClientCore::new(
             trader_id(),
@@ -299,6 +299,9 @@ async fn match_history_fails_closed_on_truncation_cycles_errors_and_contradictor
             _ => "contradictory fill facts",
         };
         assert!(error.to_lowercase().contains(expected), "{case}: {error}");
+        if matches!(case, "cycle" | "bound") {
+            assert_eq!(server.state.match_requests.lock().unwrap().len(), 2);
+        }
         assert!(
             cache
                 .borrow()
@@ -676,7 +679,7 @@ async fn captured_real_match_precision_preserves_atomic_gross_and_share_fees() {
     for row in history["data"].as_array_mut().unwrap() {
         row["taker"]["signer"] = json!(WALLET);
     }
-    let market: nautilus_predict::http::account_models::PredictExecutionMarket =
+    let market: nautilus_predict::http::account_models::PredictAccountMarket =
         serde_json::from_value(history["data"][0]["market"].clone()).unwrap();
     let server = server(vec![]).await;
     page(&server, history);
@@ -799,7 +802,7 @@ async fn millisecond_match_timestamp_does_not_reject_known_hash_submitted_within
     assert_eq!(reports[0].client_order_id, Some(own.client_order_id()));
     assert_eq!(reports[0].ts_event, UnixNanos::from(1_000_000u64));
     assert_eq!(reports[0].last_qty, Quantity::from(17));
-    let mut engine = cancellations::engine(&cache);
+    let mut engine = super::cancellations::engine(&cache);
     engine.reconcile_execution_report(&ExecutionReport::Fill(Box::new(reports[0].clone())));
     assert_eq!(
         cache

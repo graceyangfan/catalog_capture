@@ -88,6 +88,18 @@ client discovers the current/next deterministic category first and uses bounded
 search only as a fallback. A selector with no live matching market is a
 configuration/data-availability error; it must not be treated as an empty book.
 
+Minute products use rolling category slugs; hourly and daily products use dated
+categories. Daily sessions span consecutive noons in America/New_York, including
+23- and 25-hour daylight-saving transitions. Captured
+[daily](../crates/nautilus-predict/test_data/market_3759734_daily.json) and
+[hourly](../crates/nautilus-predict/test_data/market_3737148_hourly.json) responses
+document these formats. Stock daily markets without the CRYPTO_UP_DOWN variant
+are outside this discovery path.
+
+BinaryOption.description preserves the venue title. Optional exact
+variantData.startPrice is exposed as info.start_price; discovery logs include
+that price or TBD without changing the source title or category identifier.
+
 Use uppercase, separator-free feed symbols in new capture and strategy configs.
 The Predict adapter normalizes legacy case/separator aliases and uses the same
 canonical feed for discovery, matching, and routing. Category discovery derives

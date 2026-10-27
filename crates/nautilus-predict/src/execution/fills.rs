@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Native-owned settlement evidence, not an order/position ledger. Native events own applied quantities.
+//! Venue settlement evidence and queued delivery; Native owns applied quantities.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -20,16 +20,27 @@ use std::{
 };
 
 use alloy::primitives::{B256, U256};
+use nautilus_core::UnixNanos;
+#[cfg(test)]
+use nautilus_model::orders::{Order, OrderAny};
 use nautilus_model::{
-    identifiers::{TradeId, VenueOrderId},
+    identifiers::{AccountId, TradeId, VenueOrderId},
     reports::FillReport,
     types::{Currency, Money, Quantity},
 };
 use rust_decimal::Decimal;
 
+use crate::execution::{context, parse};
 use crate::{
     common::parse::{decimal_to_wei, floor_wei_quantity},
+    execution::{
+        context::WorkerOrder,
+        observations::{PredictSettlementStatus, PredictSettlementUpdate},
+    },
     http::account_models::PredictFeeType,
+    websocket::private_messages::{
+        PredictWalletEvent, PredictWalletEventKind, PredictWalletFill, PredictWalletTransactionKind,
+    },
 };
 
 // Preserve the established reconciliation tolerance for historical projected holdings.
@@ -101,7 +112,7 @@ impl BufferedFill {
 pub(super) struct FillEvidence {
     // Native owns applied allocations; its owner retention/purge also bounds these facts.
     entries: ahash::AHashMap<TradeId, BufferedFill>,
-    pub notifications: super::settlement::SettlementNotifications,
+    pub notifications: SettlementNotifications,
     by_order: ahash::AHashMap<VenueOrderId, OrderEvidence>,
     queued: ahash::AHashMap<VenueOrderId, HashMap<TradeId, Option<nautilus_core::UnixNanos>>>,
 }
@@ -123,7 +134,7 @@ impl Clone for OrderEvidence {
 }
 #[derive(Debug)]
 struct VerifiedPrefix {
-    cursor: super::context::NativeFillCursor,
+    cursor: context::NativeFillCursor,
     // Retirement can prove complete ID membership without reading economic fields.
     // Normalization must still compute raw totals before reusing this prefix.
     raw: Option<U256>,
@@ -142,7 +153,7 @@ struct FillPrefix {
 }
 impl FillPrefix {
     fn capture<'a>(
-        order: Option<&impl super::context::OrderView>,
+        order: Option<&impl context::OrderView>,
         raw: &impl Fn(TradeId) -> Option<&'a RawFillFacts>,
     ) -> anyhow::Result<Self> {
         let mut prefix = Self {
@@ -158,7 +169,7 @@ impl FillPrefix {
         Ok(prefix)
     }
     fn capture_committed(
-        order: &impl super::context::OrderView,
+        order: &impl context::OrderView,
         entries: &ahash::AHashMap<TradeId, BufferedFill>,
         mut memo: Option<&mut Option<VerifiedPrefix>>,
     ) -> anyhow::Result<Self> {
@@ -235,7 +246,7 @@ impl FillPrefix {
         }
         Ok(())
     }
-    fn validate(&self, order: &impl super::context::OrderView) -> anyhow::Result<()> {
+    fn validate(&self, order: &impl context::OrderView) -> anyhow::Result<()> {
         let quantity = order.quantity().as_decimal();
         let raw_quantity = decimal_to_wei(quantity)?;
         anyhow::ensure!(
@@ -315,7 +326,7 @@ impl FillEvidence {
     /// include a queued ID, which must not be counted twice.
     pub fn pending_for<'a>(
         &'a self,
-        order: &'a impl super::context::OrderView,
+        order: &'a impl context::OrderView,
         hash: VenueOrderId,
     ) -> impl Iterator<Item = &'a BufferedFill> {
         self.queued.get(&hash).into_iter().flat_map(|pending| {
@@ -380,11 +391,7 @@ impl FillEvidence {
 
     /// Reuse complete ID membership only for the same immutable Native history.
     /// Economic totals remain optional; new facts and replaced histories are rechecked.
-    pub fn has_unapplied(
-        &mut self,
-        owner: VenueOrderId,
-        order: &super::context::WorkerOrder,
-    ) -> bool {
+    pub fn has_unapplied(&mut self, owner: VenueOrderId, order: &context::WorkerOrder) -> bool {
         self.notifications.has_pending(owner)
             || self.by_order.get_mut(&owner).is_some_and(|facts| {
                 if facts.ids.len() == order.fill_count()
@@ -419,7 +426,7 @@ impl FillEvidence {
     /// Prepares allocations without advancing evidence. Call commit only after the whole
     /// REST batch validates, or after a wallet report was successfully queued.
     #[cfg(test)]
-    pub fn prepare<O: super::context::OrderView>(
+    pub fn prepare<O: context::OrderView>(
         &self,
         reports: &mut [BufferedFill],
         orders: &HashMap<VenueOrderId, O>,
@@ -441,7 +448,7 @@ impl FillEvidence {
     pub fn prepare_wallet(
         &mut self,
         fill: &mut BufferedFill,
-        order: &impl super::context::OrderView,
+        order: &impl context::OrderView,
         precision: u8,
     ) -> anyhow::Result<bool> {
         if let Some(previous) = self.entries.get(&fill.report.trade_id) {
@@ -451,7 +458,7 @@ impl FillEvidence {
             );
             fill.report.last_qty = previous.report.last_qty;
             fill.report.commission = previous.report.commission;
-            if super::parse::validate_applied_fill(&fill.report, order)?
+            if parse::validate_applied_fill(&fill.report, order)?
                 || self
                     .queued
                     .get(&fill.report.venue_order_id)
@@ -488,7 +495,7 @@ impl FillEvidence {
         Ok(applied)
     }
 
-    pub(super) fn prepare_with_orders<'a, O: super::context::OrderView + 'a>(
+    pub(super) fn prepare_with_orders<'a, O: context::OrderView + 'a>(
         &self,
         reports: &mut [BufferedFill],
         lookup: impl Fn(VenueOrderId) -> Option<&'a O>,
@@ -553,7 +560,7 @@ impl FillEvidence {
     fn prepare_fill(
         &self,
         fill: &mut BufferedFill,
-        order: Option<&impl super::context::OrderView>,
+        order: Option<&impl context::OrderView>,
         prefix: &mut FillPrefix,
         dp: u8,
     ) -> anyhow::Result<bool> {
@@ -611,7 +618,7 @@ impl FillEvidence {
                 self.normalize_collateral_commission(fill, applied, prefix)?;
             }
             if let Some(applied) = applied {
-                super::parse::validate_native_fill(&fill.report, applied)?;
+                parse::validate_native_fill(&fill.report, applied)?;
             } else {
                 prefix.include(fill.report.trade_id, quantity.as_decimal(), Some(&fill.raw))?;
             }
@@ -668,7 +675,7 @@ impl FillEvidence {
             self.normalize_collateral_commission(fill, applied, prefix)?;
         }
         if let Some(applied) = applied {
-            super::parse::validate_native_fill(&fill.report, applied)?;
+            parse::validate_native_fill(&fill.report, applied)?;
         }
         anyhow::ensure!(
             fill.report.last_qty.as_decimal().round_dp(u32::from(dp))
@@ -757,7 +764,7 @@ impl FillEvidence {
     #[cfg(test)]
     pub fn confirmed_raw(
         &mut self,
-        order: &impl super::context::OrderView,
+        order: &impl context::OrderView,
         owner: VenueOrderId,
     ) -> anyhow::Result<Option<U256>> {
         let prefix = FillPrefix::capture_committed(
@@ -821,9 +828,193 @@ impl FillEvidence {
     }
 }
 
+#[derive(Clone, Debug)]
+struct Notice {
+    order: VenueOrderId,
+    settlement_id: String,
+    fill: PredictWalletFill,
+    submitted: bool,
+    terminal: Option<PredictSettlementStatus>,
+    applied: bool,
+}
+#[derive(Debug, Default, Clone)]
+pub(super) struct SettlementNotifications {
+    entries: HashMap<TradeId, Notice>,
+    by_order: HashMap<VenueOrderId, HashSet<TradeId>>,
+}
+impl SettlementNotifications {
+    pub fn validate_success(
+        &self,
+        event: &PredictWalletEvent,
+        trade_id: TradeId,
+        venue_order_id: VenueOrderId,
+    ) -> anyhow::Result<()> {
+        if let PredictWalletEventKind::OrderTransactionSuccess {
+            settlement_id,
+            fill,
+            ..
+        } = &event.kind
+            && let Some(previous) = self.entries.get(&trade_id)
+        {
+            anyhow::ensure!(
+                previous.order == venue_order_id
+                    && previous.settlement_id == *settlement_id
+                    && previous.fill == *fill
+                    && previous.terminal != Some(PredictSettlementStatus::Failed),
+                "Predict confirmed settlement contradicts prior matching facts"
+            );
+        }
+        Ok(())
+    }
+    pub fn retire_orders(&mut self, ids: &HashSet<VenueOrderId>) {
+        for owner in ids {
+            if let Some(trades) = self.by_order.remove(owner) {
+                for id in trades {
+                    self.entries.remove(&id);
+                }
+            }
+        }
+    }
+    pub fn retirement_work(&self, owner: VenueOrderId) -> usize {
+        self.by_order.get(&owner).map_or(0, HashSet::len)
+    }
+    pub fn has_pending(&self, owner: VenueOrderId) -> bool {
+        self.by_order.get(&owner).is_some_and(|ids| {
+            ids.iter().any(|id| {
+                self.entries
+                    .get(id)
+                    .is_some_and(|entry| !entry.applied && entry.terminal.is_none())
+            })
+        })
+    }
+    pub fn applied(&mut self, id: TradeId) {
+        if let Some(entry) = self.entries.get_mut(&id) {
+            entry.applied = true;
+        }
+    }
+    #[cfg(test)]
+    pub fn pending_orders(&self) -> impl Iterator<Item = VenueOrderId> + '_ {
+        self.entries
+            .values()
+            .filter(|entry| !entry.applied && entry.terminal.is_none())
+            .map(|entry| entry.order)
+    }
+    pub fn update(
+        &mut self,
+        event: &PredictWalletEvent,
+        order: &WorkerOrder,
+        account: AccountId,
+        epoch: u64,
+        observed: UnixNanos,
+    ) -> anyhow::Result<Option<PredictSettlementUpdate>> {
+        let (status, settlement_id, fill) = match &event.kind {
+            PredictWalletEventKind::OrderTransactionSubmitted {
+                kind,
+                settlement_id,
+                fill,
+            } => {
+                anyhow::ensure!(
+                    matches!(
+                        (kind, order.order_side()),
+                        (
+                            PredictWalletTransactionKind::Purchase,
+                            nautilus_model::enums::OrderSide::Buy
+                        ) | (
+                            PredictWalletTransactionKind::Sale,
+                            nautilus_model::enums::OrderSide::Sell
+                        )
+                    ),
+                    "Predict submitted settlement direction differs from order"
+                );
+                (PredictSettlementStatus::Submitted, settlement_id, fill)
+            }
+            PredictWalletEventKind::OrderTransactionSuccess {
+                settlement_id,
+                fill,
+                ..
+            } => (PredictSettlementStatus::Confirmed, settlement_id, fill),
+            PredictWalletEventKind::OrderTransactionFailed {
+                settlement_id,
+                fill,
+            } => (PredictSettlementStatus::Failed, settlement_id, fill),
+            _ => return Ok(None),
+        };
+        let hash = VenueOrderId::new(format!("{:#x}", event.order.order_hash));
+        let id = parse::settlement_trade_id(settlement_id, event.order.order_hash);
+        anyhow::ensure!(
+            !settlement_id.is_empty()
+                && !fill.executed_size_wei.is_zero()
+                && fill.executed_size_wei
+                    <= crate::common::parse::decimal_to_wei(order.quantity().as_decimal())?
+                && fill.executed_price_wei <= U256::from(1_000_000_000_000_000_000u64)
+                && fill
+                    .executed_price_wei
+                    .checked_mul(fill.executed_size_wei)
+                    .is_some_and(|product| product / U256::from(1_000_000_000_000_000_000u64)
+                        == fill.executed_value_wei),
+            "Predict settlement notification has inconsistent atomic amounts"
+        );
+        let applied = order.has_applied_fill(id);
+        anyhow::ensure!(
+            status != PredictSettlementStatus::Failed || !applied,
+            "Predict failed settlement contradicts Native applied fill"
+        );
+        let timestamp = event.order.timestamp_ns()?;
+        let entry = self.entries.entry(id).or_insert_with(|| Notice {
+            order: hash,
+            settlement_id: settlement_id.clone(),
+            fill: fill.clone(),
+            submitted: false,
+            terminal: None,
+            applied,
+        });
+        anyhow::ensure!(
+            entry.order == hash && entry.settlement_id == *settlement_id && entry.fill == *fill,
+            "Predict settlement notification raw facts changed"
+        );
+        self.by_order.entry(hash).or_default().insert(id);
+        let publish = match status {
+            PredictSettlementStatus::Submitted => {
+                let publish = !entry.submitted && entry.terminal.is_none() && !entry.applied;
+                entry.submitted = true;
+                publish
+            }
+            terminal => {
+                anyhow::ensure!(
+                    entry.terminal.is_none_or(|previous| previous == terminal),
+                    "Predict settlement terminal status changed"
+                );
+                let publish = entry.terminal.is_none();
+                entry.terminal = Some(terminal);
+                publish
+            }
+        };
+        if !publish {
+            return Ok(None);
+        }
+        Ok(Some(PredictSettlementUpdate {
+            account_id: account,
+            strategy_id: order.strategy_id(),
+            instrument_id: order.instrument_id(),
+            client_order_id: order.client_order_id(),
+            venue_order_id: hash,
+            trade_id: id,
+            settlement_id: settlement_id.clone(),
+            status,
+            executed_price_wei: fill.executed_price_wei.to_string(),
+            executed_size_wei: fill.executed_size_wei.to_string(),
+            executed_value_wei: fill.executed_value_wei.to_string(),
+            connection_epoch: epoch,
+            ts_event: timestamp,
+            ts_init: observed,
+        }))
+    }
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/settlement.rs"]
+mod notification_tests;
+
 #[cfg(test)]
 #[path = "../../tests/unit/precision.rs"]
 mod tests;
-
-#[cfg(test)]
-use nautilus_model::orders::{Order, OrderAny};

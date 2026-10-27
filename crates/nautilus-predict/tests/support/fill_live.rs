@@ -125,7 +125,7 @@ async fn run_round_trip(wait_for_exit: bool, exit_only: bool) -> anyhow::Result<
     exec.chain = Some(settings.chain_config());
     exec.orderbook_removal_enabled = true;
     exec.account_refresh_interval_secs = 1;
-    exec.report_timeout_secs = settings.network.timeout_secs;
+    exec.request_timeout_secs = settings.network.timeout_secs;
     exec.submission_signer = Some(signer);
     let mut live = node::build_node_with_engine_and_stop_delay(
         TraderId::new("PREDICT-FILL-001"),

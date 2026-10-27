@@ -17,9 +17,8 @@
 use alloy::primitives::{Address, Signature};
 use nautilus_core::string::secret::SecretString;
 use nautilus_predict::{
-    common::credential::PredictAuthToken,
-    http::execution_models::PredictAuthRequest,
-    signing::{PredictAuthSigner, PredictChain},
+    PredictEnvironment, common::credential::PredictAuthToken,
+    http::execution_models::PredictAuthRequest, signing::PredictAuthSigner,
 };
 use serde::Deserialize;
 
@@ -47,8 +46,8 @@ fn auth_signatures_match_official_sdk_vectors_byte_for_byte() {
     assert_eq!(fixtures.vectors.len(), 16);
     for vector in fixtures.vectors {
         let chain = match vector.chain_id {
-            56 => PredictChain::BnbMainnet,
-            97 => PredictChain::BnbTestnet,
+            56 => PredictEnvironment::BnbMainnet,
+            97 => PredictEnvironment::BnbTestnet,
             _ => panic!("unexpected SDK chain"),
         };
         let signer = PredictAuthSigner::new(
@@ -95,9 +94,9 @@ fn reused_signers_preserve_sdk_results_when_messages_and_contexts_alternate() {
         serde_json::from_str(include_str!("fixtures/auth_vectors.json")).unwrap();
     for vectors in fixtures.vectors.as_chunks::<4>().0 {
         let chain = if vectors[0].chain_id == 56 {
-            PredictChain::BnbMainnet
+            PredictEnvironment::BnbMainnet
         } else {
-            PredictChain::BnbTestnet
+            PredictEnvironment::BnbTestnet
         };
         let signer = PredictAuthSigner::new(
             PUBLIC_TEST_KEY.into(),
@@ -117,13 +116,13 @@ fn reused_signers_preserve_sdk_results_when_messages_and_contexts_alternate() {
     }
     let first = PredictAuthSigner::new(
         PUBLIC_TEST_KEY.into(),
-        PredictChain::BnbMainnet,
+        PredictEnvironment::BnbMainnet,
         Some("0x1111111111111111111111111111111111111111"),
     )
     .unwrap();
     let second = PredictAuthSigner::new(
         PUBLIC_TEST_KEY.into(),
-        PredictChain::BnbMainnet,
+        PredictEnvironment::BnbMainnet,
         Some("0x2222222222222222222222222222222222222222"),
     )
     .unwrap();
@@ -141,7 +140,8 @@ fn reused_signers_preserve_sdk_results_when_messages_and_contexts_alternate() {
 #[test]
 fn signer_and_credentials_redact_secrets() {
     let signer =
-        PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictChain::BnbMainnet, None).unwrap();
+        PredictAuthSigner::new(PUBLIC_TEST_KEY.into(), PredictEnvironment::BnbMainnet, None)
+            .unwrap();
     let request = PredictAuthRequest {
         signer: signer.account_address(),
         message: "dynamic challenge".into(),
@@ -156,7 +156,8 @@ fn signer_and_credentials_redact_secrets() {
 #[test]
 fn invalid_keys_addresses_and_header_credentials_are_rejected() {
     for key in ["", "00", "not-a-key", &"0".repeat(64), &"f".repeat(64)] {
-        let error = PredictAuthSigner::new(key.into(), PredictChain::BnbMainnet, None).unwrap_err();
+        let error =
+            PredictAuthSigner::new(key.into(), PredictEnvironment::BnbMainnet, None).unwrap_err();
         assert!(!format!("{error:?}").contains("not-a-key"));
     }
     for address in [
@@ -166,7 +167,7 @@ fn invalid_keys_addresses_and_header_credentials_are_rejected() {
         assert!(
             PredictAuthSigner::new(
                 PUBLIC_TEST_KEY.into(),
-                PredictChain::BnbMainnet,
+                PredictEnvironment::BnbMainnet,
                 Some(address)
             )
             .is_err()

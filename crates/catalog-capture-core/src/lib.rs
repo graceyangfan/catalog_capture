@@ -32,7 +32,6 @@ pub mod metrics_export;
 pub mod option_universe;
 pub mod order_book_validation;
 pub mod plan;
-pub mod predict;
 pub mod runtime;
 pub mod sink;
 
@@ -119,12 +118,6 @@ pub use plan::{
     MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, RequestOverlapPolicy,
     TradeCaptureSpec, capture_plan_difference, instrument_id_difference,
     instrument_id_overlap_and_new, plan_instrument_ids,
-};
-pub use predict::{
-    CryptoUpDownMarketCandidate, CryptoUpDownMarketSelector, CryptoUpDownMarketWindow,
-    CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
-    PREDICT_SELECTOR_TITLE_ASSET, parse_crypto_up_down_title, predict_outcome_instrument_id,
-    resolve_crypto_up_down_market,
 };
 pub use runtime::{CaptureRuntime, FlushResult};
 pub use sink::{

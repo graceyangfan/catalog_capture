@@ -12,12 +12,13 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Execution metadata is strict and independent of the recorder's permissive DTO.
+//! Required market identities, fees and exchange flags for signing.
 use alloy::primitives::U256;
 use serde::Deserialize;
 
 use crate::common::{contracts::PredictExchangeType, serde::decimal_u256};
 
+/// Required venue metadata for preparing and validating signed orders.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PredictExecutionMarket {
@@ -30,6 +31,7 @@ pub struct PredictExecutionMarket {
     pub outcomes: Vec<PredictExecutionOutcome>,
 }
 
+/// Outcome index and exact uint256 token identity.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PredictExecutionOutcome {
@@ -39,6 +41,7 @@ pub struct PredictExecutionOutcome {
 }
 
 impl PredictExecutionMarket {
+    /// Selects the verifying contract from the market's exchange flags.
     #[must_use]
     pub fn exchange(&self) -> PredictExchangeType {
         PredictExchangeType::from_market_flags(self.is_neg_risk, self.is_yield_bearing)

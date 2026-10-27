@@ -20,7 +20,7 @@ use std::hint::black_box;
 
 use common::ReferenceAuthSigner;
 use criterion::{Criterion, criterion_group, criterion_main};
-use nautilus_predict::signing::{PredictAuthSigner, PredictChain};
+use nautilus_predict::{PredictEnvironment, signing::PredictAuthSigner};
 
 // Public Hardhat development key #0, never an operator credential.
 const TEST_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -33,9 +33,9 @@ fn bench_auth_signing(c: &mut Criterion) {
         serde_json::from_str(include_str!("../tests/fixtures/auth_vectors.json")).unwrap();
     for vector in fixtures["vectors"].as_array().unwrap() {
         let chain = if vector["chain_id"] == 56 {
-            PredictChain::BnbMainnet
+            PredictEnvironment::BnbMainnet
         } else {
-            PredictChain::BnbTestnet
+            PredictEnvironment::BnbTestnet
         };
         let account = vector["predict_account"].as_str();
         let cached = PredictAuthSigner::new(TEST_KEY.into(), chain, account).unwrap();
@@ -55,15 +55,15 @@ fn bench_auth_signing(c: &mut Criterion) {
         );
     }
     for (name, chain, account) in [
-        ("auth/eoa", PredictChain::BnbMainnet, None),
+        ("auth/eoa", PredictEnvironment::BnbMainnet, None),
         (
             "auth/account_mainnet",
-            PredictChain::BnbMainnet,
+            PredictEnvironment::BnbMainnet,
             Some(DEPOSIT),
         ),
         (
             "auth/account_testnet",
-            PredictChain::BnbTestnet,
+            PredictEnvironment::BnbTestnet,
             Some(DEPOSIT),
         ),
     ] {

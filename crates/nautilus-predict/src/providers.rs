@@ -349,7 +349,7 @@ mod tests {
     use crate::{
         PredictOrderbookSnapshot, PredictOrderbookWire,
         common::CryptoUpDownSelectorKey,
-        models::{PredictMarket, PredictResponse},
+        http::models::{PredictMarket, PredictResponse},
         predict_crypto_up_down_orderbook_data_type, register_predict_custom_data,
     };
 
@@ -452,6 +452,10 @@ mod tests {
                 &format!("\"startPrice\": {token}, \"priceFeedSymbol\":"),
             );
             let response: PredictResponse<PredictMarket> = serde_json::from_str(&json).unwrap();
+            assert_eq!(
+                response.data.display_title(),
+                format!("{} | Start: 81566.995123456789123", response.data.title)
+            );
             let (_, instruments) = instruments_from_market(&response.data, 1.into()).unwrap();
             for instrument in &instruments {
                 let info = instrument.info().unwrap();
@@ -460,6 +464,7 @@ mod tests {
             }
             json = json.replace("CRYPTO_UP_DOWN", "DEFAULT");
             let response: PredictResponse<PredictMarket> = serde_json::from_str(&json).unwrap();
+            assert_eq!(response.data.display_title(), response.data.title);
             let (_, instruments) = instruments_from_market(&response.data, 1.into()).unwrap();
             assert!(
                 instruments
@@ -473,12 +478,54 @@ mod tests {
                 &format!("{field} \"priceFeedSymbol\":"),
             );
             let response: PredictResponse<PredictMarket> = serde_json::from_str(&json).unwrap();
+            assert!(response.data.display_title().ends_with(" | Start: TBD"));
             let (_, instruments) = instruments_from_market(&response.data, 1.into()).unwrap();
             assert!(
                 instruments
                     .iter()
                     .all(|instrument| instrument.info().is_none())
             );
+        }
+    }
+
+    #[test]
+    fn captured_calendar_market_definitions_keep_venue_title_start_price_and_expiry() {
+        for (source, start, end, price) in [
+            (
+                include_str!("../test_data/market_3759734_daily.json"),
+                "2026-10-25T16:00:00Z",
+                "2026-10-26T16:00:00Z",
+                "80610.01",
+            ),
+            (
+                include_str!("../test_data/market_3737148_hourly.json"),
+                "2026-10-26T10:00:00Z",
+                "2026-10-26T11:00:00Z",
+                "80538.53",
+            ),
+        ] {
+            let response: PredictResponse<PredictMarket> = serde_json::from_str(source).unwrap();
+            let (_, instruments) = instruments_from_market(&response.data, 1_000.into()).unwrap();
+            for instrument in instruments {
+                let nautilus_model::instruments::InstrumentAny::BinaryOption(instrument) =
+                    instrument
+                else {
+                    panic!("binary outcome")
+                };
+                let nanos = |value| {
+                    chrono::DateTime::parse_from_rfc3339(value)
+                        .unwrap()
+                        .timestamp_nanos_opt()
+                        .unwrap() as u64
+                };
+                assert_eq!(instrument.activation_ns.as_u64(), nanos(start));
+                assert_eq!(instrument.expiration_ns.as_u64(), nanos(end));
+                assert_eq!(
+                    instrument.description.unwrap().as_str(),
+                    response.data.title
+                );
+                assert_eq!(instrument.info.unwrap()["start_price"], price);
+            }
         }
     }
 
@@ -544,8 +591,10 @@ mod tests {
             .unwrap();
         let (context, instruments) =
             instruments_from_market(&response.data, UnixNanos::from(1_000)).unwrap();
-        let wire: PredictOrderbookWire =
+        let mut wire: PredictOrderbookWire =
             serde_json::from_str(include_str!("../test_data/orderbook_2859346.json")).unwrap();
+        let pending_value: Decimal = "10.12345678901234567890123456".parse().unwrap();
+        wire.settlements_pending.as_mut().unwrap().asks[0].1 = pending_value;
         let snapshot = PredictOrderbookSnapshot::from_wire(
             &context,
             wire,
@@ -581,10 +630,7 @@ mod tests {
         assert_eq!(pending.asks.len(), 1);
         assert!(pending.bids.is_empty());
         assert_eq!(pending.asks[0].price.to_string(), "0.63");
-        assert_eq!(
-            pending.asks[0].value,
-            Quantity::from_decimal_dp(Decimal::new(105, 1), context.size_precision).unwrap()
-        );
+        assert_eq!(pending.asks[0].value, pending_value);
 
         let root = unique_temp_catalog("predict-market-instrument-roundtrip");
         let config = CaptureConfig {
@@ -593,8 +639,10 @@ mod tests {
         };
         let sink = NautilusCatalogSink::from_config(&config).unwrap();
         sink.write_instruments(instruments).unwrap();
-        sink.write_custom_data_batch(vec![snapshot.into_custom_data_with_type(data_type)])
-            .unwrap();
+        sink.write_custom_data_batch(vec![
+            snapshot.into_custom_data_with_type(data_type).unwrap(),
+        ])
+        .unwrap();
 
         let mut catalog = ParquetDataCatalog::new(&root, None, None, None, None);
         let instrument_ids = vec![
@@ -683,12 +731,67 @@ mod tests {
         assert_eq!(restored_pending.asks.len(), 1);
         assert!(restored_pending.bids.is_empty());
         assert_eq!(restored_pending.asks[0].price.to_string(), "0.63");
-        assert_eq!(
-            restored_pending.asks[0].value,
-            Quantity::from_decimal_dp(Decimal::new(105, 1), context.size_precision).unwrap()
-        );
+        assert_eq!(restored_pending.asks[0].value, pending_value);
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn custom_snapshot_rejects_wrong_routing_and_preserves_selector_metadata() {
+        let response: PredictResponse<PredictMarket> =
+            serde_json::from_str(include_str!("../test_data/market_2859346.json")).unwrap();
+        let (context, _) = instruments_from_market(&response.data, 1_000.into()).unwrap();
+        let snapshot = || {
+            PredictOrderbookSnapshot::from_wire(
+                &context,
+                serde_json::from_str(include_str!("../test_data/orderbook_2859346.json")).unwrap(),
+                2_000.into(),
+            )
+            .unwrap()
+        };
+        for data_type in [
+            crate::predict_orderbook_data_type(context.market_id + 1),
+            nautilus_model::data::DataType::new(
+                "OtherSnapshot",
+                None,
+                Some(context.market_id.to_string()),
+            ),
+        ] {
+            assert!(snapshot().into_custom_data_with_type(data_type).is_err());
+        }
+        let selector = CryptoUpDownSelectorKey::new("BTC/USDT", "Bitcoin", 300).unwrap();
+        let data_type = predict_crypto_up_down_orderbook_data_type(context.market_id, &selector);
+        let custom = snapshot()
+            .into_custom_data_with_type(data_type.clone())
+            .unwrap();
+        assert_eq!(custom.data_type, data_type);
+    }
+
+    #[test]
+    fn pending_settlement_values_preserve_precision_independent_of_share_increment() {
+        let response: PredictResponse<PredictMarket> =
+            serde_json::from_str(include_str!("../test_data/market_2859346.json")).unwrap();
+        let (mut context, _) = instruments_from_market(&response.data, 1_000.into()).unwrap();
+        context.size_precision = 2;
+        let mut wire: PredictOrderbookWire =
+            serde_json::from_str(include_str!("../test_data/orderbook_2859346.json")).unwrap();
+        let value: Decimal = "10.12345678901234567890123456".parse().unwrap();
+        wire.settlements_pending.as_mut().unwrap().asks[0].1 = value;
+        let snapshot = PredictOrderbookSnapshot::from_wire(&context, wire, 2_000.into()).unwrap();
+        assert_eq!(
+            snapshot.settlements_pending.as_ref().unwrap().asks[0].value,
+            value
+        );
+        let mut encoded = serde_json::to_value(&snapshot).unwrap();
+        let exact: PredictOrderbookSnapshot = serde_json::from_value(encoded.clone()).unwrap();
+        assert_eq!(exact.settlements_pending.unwrap().asks[0].value, value);
+        // Existing catalogs encoded Quantity as a decimal string.
+        encoded["settlements_pending"]["asks"][0]["value"] = "10.5000000000000000".into();
+        let restored: PredictOrderbookSnapshot = serde_json::from_value(encoded).unwrap();
+        assert_eq!(
+            restored.settlements_pending.unwrap().asks[0].value,
+            Decimal::new(105, 1)
+        );
     }
 
     #[test]

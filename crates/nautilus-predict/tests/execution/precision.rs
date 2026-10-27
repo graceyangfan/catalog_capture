@@ -183,7 +183,7 @@ async fn wallet_atomic_partial_fills_carry_to_full_quantity_and_rest_replays_pre
         connect_reported(&mut client, &mut rx).await;
         let mut rows = vec![];
         for (raw, settlement, tx) in [(second, "precision-2", "44"), (first, "precision-1", "33")] {
-            let mut row = matches::match_row(outcome);
+            let mut row = super::matches::match_row(outcome);
             row["taker"]["amount"] = json!(raw.to_string());
             row["taker"]["price"] = json!("130000000000000000");
             row["taker"]["fee"] =
@@ -412,7 +412,7 @@ async fn projected_legacy_fill_cannot_be_reinterpreted_as_atomic_share_fee_histo
     let second = U256::from(100_000_000_000_000_000_000u128) - first;
     let mut rows = vec![];
     for (raw, id) in [(second, "prefix-2"), (first, "prefix-1")] {
-        let mut row = matches::match_row(1);
+        let mut row = super::matches::match_row(1);
         row["settlementId"] = json!(id);
         row["taker"]["amount"] = json!(raw.to_string());
         row["taker"]["price"] = json!("130000000000000000");

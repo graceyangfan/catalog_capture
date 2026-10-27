@@ -12,29 +12,186 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Prepare the existing instrument-owned market slot outside normal order submission.
+//! Prepared market definitions and account/contract signing nonces.
 
 use std::{
     collections::HashSet,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicU64, Ordering},
     },
     time::Duration,
 };
 
-use alloy::primitives::U256;
+use ahash::AHashMap;
+use alloy::primitives::{Address, U256};
+use anyhow::Context;
 use futures_util::{StreamExt, stream};
 use nautilus_core::{AtomicMap, UnixNanos, time::AtomicTime};
-use nautilus_model::{identifiers::InstrumentId, instruments::Instrument};
+use nautilus_model::{
+    identifiers::InstrumentId,
+    instruments::{Instrument, InstrumentAny},
+};
 use nautilus_network::websocket::AuthTracker;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
-use super::types::{ExecutionInstrument, MarketMetadata};
-use crate::{config::PredictExecutionClientConfig, http::market_models::PredictExecutionMarket};
+use crate::execution::parse;
+use crate::{
+    blockchain::PredictChainClient, common::contracts::PredictExchangeType,
+    config::PredictExecutionClientConfig, http::market_models::PredictExecutionMarket,
+};
+
+// Prepared signing inputs have one client account/environment owner. Cash reporting
+// does not own or refresh these values. Instruments remain Native-derived views.
+#[derive(Debug, Default)]
+pub(super) struct ExecutionMetadata {
+    pub instruments: Definitions,
+    pub notify: Arc<Notify>,
+    // Submission holds this guard through correlation registration, so an
+    // invalidation cannot race between the final check and that registration.
+    pub nonces: Mutex<[Option<U256>; 4]>,
+    nonce_notify: Notify,
+}
+
+impl ExecutionMetadata {
+    pub fn nonce(&self, exchange: PredictExchangeType) -> Option<U256> {
+        self.nonces.lock().expect("signing nonces poisoned")[exchange.cache_index()]
+    }
+
+    pub fn invalidate_nonce(&self, exchange: PredictExchangeType, value: U256) {
+        let mut nonces = self.nonces.lock().expect("signing nonces poisoned");
+        if nonces[exchange.cache_index()] == Some(value) {
+            nonces[exchange.cache_index()] = None;
+            self.nonce_notify.notify_one();
+        }
+    }
+
+    pub fn reset_nonces(&self) {
+        *self.nonces.lock().expect("signing nonces poisoned") = [None; 4];
+    }
+
+    async fn refresh_nonces(&self, account: Address, chain: &PredictChainClient) {
+        let prepared = *self.nonces.lock().expect("signing nonces poisoned");
+        // Publish each verified contract independently within the metadata task.
+        stream::iter(
+            PredictExchangeType::ALL
+                .into_iter()
+                .filter(|exchange| prepared[exchange.cache_index()].is_none()),
+        )
+        .for_each_concurrent(4, |exchange| async move {
+            match chain.request_signing_nonce(account, exchange).await {
+                Ok(value) => {
+                    let mut nonces = self.nonces.lock().expect("signing nonces poisoned");
+                    let index = exchange.cache_index();
+                    if nonces[index] == prepared[index] {
+                        nonces[index] = Some(value);
+                    }
+                }
+                Err(error) => {
+                    log::warn!("Predict signing nonce refresh failed for {exchange:?}: {error}")
+                }
+            }
+        })
+        .await;
+    }
+
+    async fn run_nonces(
+        &self,
+        account: Address,
+        chain: &PredictChainClient,
+        cancellation: &CancellationToken,
+    ) {
+        // Retry only missing slots; valid contract nonces have no time-based expiry.
+        let mut retry = 1;
+        loop {
+            tokio::select! {
+                biased;
+                () = cancellation.cancelled() => return,
+                () = self.refresh_nonces(account, chain) => {},
+            }
+            let missing = self
+                .nonces
+                .lock()
+                .expect("signing nonces poisoned")
+                .iter()
+                .any(Option::is_none);
+            tokio::select! {
+                biased;
+                () = cancellation.cancelled() => return,
+                _ = self.nonce_notify.notified() => retry = 1,
+                _ = tokio::time::sleep(Duration::from_secs(retry)), if missing => {
+                    retry = (retry * 2).min(30);
+                }
+            }
+        }
+    }
+
+    pub async fn run(
+        self: Arc<Self>,
+        config: PredictExecutionClientConfig,
+        chain: Option<PredictChainClient>,
+        clock: &'static AtomicTime,
+        epoch: Arc<AtomicU64>,
+        auth: AuthTracker,
+        cancellation: CancellationToken,
+    ) {
+        tokio::join!(
+            self.run_markets(&config, clock, &epoch, &auth, &cancellation),
+            async {
+                if let Some(chain) = chain.as_ref() {
+                    self.run_nonces(config.session.account_address(), chain, &cancellation)
+                        .await;
+                }
+            },
+        );
+    }
+}
 
 type Definitions = Arc<AtomicMap<InstrumentId, ExecutionInstrument>>;
+
+// Market metadata follows the Native instrument definition through replacement and purge.
+#[derive(Clone, Debug)]
+pub(super) struct ExecutionInstrument {
+    pub instrument: InstrumentAny,
+    pub market: Arc<Mutex<Option<MarketMetadata>>>,
+    pub market_loading: Arc<tokio::sync::Mutex<()>>,
+}
+
+impl From<InstrumentAny> for ExecutionInstrument {
+    fn from(instrument: InstrumentAny) -> Self {
+        Self {
+            instrument,
+            market: Default::default(),
+            market_loading: Default::default(),
+        }
+    }
+}
+
+// YES and NO share one market response. Definition replacement detaches the old slot.
+pub(super) fn upsert_instrument(
+    map: &mut AHashMap<InstrumentId, ExecutionInstrument>,
+    instrument: InstrumentAny,
+) {
+    let entry = ExecutionInstrument::from(instrument);
+    if let Ok(market_id) = parse::market_id_from_instrument(&entry.instrument.id()) {
+        for outcome in [1, 2] {
+            if let Ok(id) = crate::common::instrument_id_from_outcome(market_id, outcome)
+                && let Some(existing) = map.get_mut(&id)
+            {
+                existing.market = Arc::clone(&entry.market);
+                existing.market_loading = Arc::clone(&entry.market_loading);
+            }
+        }
+    }
+    map.insert(entry.instrument.id(), entry);
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct MarketMetadata {
+    pub market: Arc<PredictExecutionMarket>,
+    pub observed: UnixNanos,
+}
 
 impl ExecutionInstrument {
     pub fn is_current(&self, definitions: &Definitions) -> bool {
@@ -52,7 +209,7 @@ impl ExecutionInstrument {
             2
         };
         anyhow::ensure!(
-            market.id == super::parse::market_id_from_instrument(&self.instrument.id())?,
+            market.id == parse::market_id_from_instrument(&self.instrument.id())?,
             "Predict market identity differs from the native instrument"
         );
         anyhow::ensure!(
@@ -119,15 +276,13 @@ impl ExecutionInstrument {
             probe.timer(crate::latency::LatencyMetric::MarketGet)
         });
         let market = tokio::time::timeout(
-            Duration::from_secs(config.report_timeout_secs),
+            Duration::from_secs(config.request_timeout_secs),
             config
                 .session
-                .request_execution_market(super::parse::market_id_from_instrument(
-                    &self.instrument.id(),
-                )?),
+                .request_execution_market(parse::market_id_from_instrument(&self.instrument.id())?),
         )
         .await
-        .map_err(|_| anyhow::anyhow!("Predict execution market collection timed out"))??;
+        .context("Predict execution market collection timed out")??;
         if let Some(timer) = timer {
             timer.finish();
         }
@@ -190,7 +345,7 @@ pub(super) async fn prepare(
                 .instrument
                 .expiration_ns()
                 .is_some_and(|expiry| expiry > clock.get_time_ns())
-                && super::parse::market_id_from_instrument(&entry.instrument.id())
+                && parse::market_id_from_instrument(&entry.instrument.id())
                     .is_ok_and(|id| seen.insert(id))
         })
         .cloned()
@@ -212,32 +367,35 @@ pub(super) async fn prepare(
         .await;
 }
 
-pub(super) async fn run(
-    config: PredictExecutionClientConfig,
-    definitions: Definitions,
-    clock: &'static AtomicTime,
-    epoch: Arc<AtomicU64>,
-    auth: AuthTracker,
-    notify: Arc<Notify>,
-    cancellation: CancellationToken,
-) {
-    let mut interval = tokio::time::interval(Duration::from_millis(
-        (config.market_metadata_ttl_secs * 500).max(1),
-    ));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    interval.tick().await;
-    loop {
-        tokio::select! { biased;
-            _ = cancellation.cancelled() => return,
-            _ = notify.notified() => {},
-            _ = interval.tick() => {},
-        }
-        if !auth.is_authenticated() {
-            continue;
-        }
-        tokio::select! { biased;
-            _ = cancellation.cancelled() => return,
-            () = prepare(&config, &definitions, clock, &epoch) => {},
+impl ExecutionMetadata {
+    async fn run_markets(
+        &self,
+        config: &PredictExecutionClientConfig,
+        clock: &'static AtomicTime,
+        epoch: &Arc<AtomicU64>,
+        auth: &AuthTracker,
+        cancellation: &CancellationToken,
+    ) {
+        let mut interval = tokio::time::interval(Duration::from_millis(
+            (config.market_metadata_ttl_secs * 500).max(1),
+        ));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        interval.tick().await;
+        loop {
+            tokio::select! {
+                biased;
+                () = cancellation.cancelled() => return,
+                _ = self.notify.notified() => {},
+                _ = interval.tick() => {},
+            }
+            if !auth.is_authenticated() {
+                continue;
+            }
+            tokio::select! {
+                biased;
+                () = cancellation.cancelled() => return,
+                () = prepare(config, &self.instruments, clock, epoch) => {},
+            }
         }
     }
 }

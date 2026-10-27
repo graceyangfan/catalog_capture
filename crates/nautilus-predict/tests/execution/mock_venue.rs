@@ -49,8 +49,10 @@ pub(super) struct VenueState {
     pub(super) rpc_failure: Arc<Mutex<bool>>,
     pub(super) nonce_requests: Arc<Mutex<Vec<usize>>>,
     pub(super) nonce_gate: Arc<Mutex<Option<Arc<tokio::sync::Notify>>>>,
+    pub(super) nonce_gate_index: Arc<Mutex<Option<usize>>>,
     pub(super) nonce_started: Arc<tokio::sync::Notify>,
     pub(super) nonce_failure: Arc<Mutex<Option<usize>>>,
+    pub(super) nonce_failed: Arc<tokio::sync::Notify>,
     pub(super) balance_failure: Arc<Mutex<bool>>,
     pub(super) open_unavailable: Arc<Mutex<bool>>,
     pub(super) nonce_values: Arc<Mutex<[U256; 4]>>,
@@ -465,12 +467,22 @@ pub(super) async fn collateral_rpc(
                     .expect("known signing exchange");
                 state.nonce_requests.lock().unwrap().push(index);
                 let value = state.nonce_values.lock().unwrap()[index];
-                let gate = state.nonce_gate.lock().unwrap().take();
+                let gate = if state
+                    .nonce_gate_index
+                    .lock()
+                    .unwrap()
+                    .is_none_or(|target| target == index)
+                {
+                    state.nonce_gate.lock().unwrap().take()
+                } else {
+                    None
+                };
                 if let Some(gate) = gate {
                     state.nonce_started.notify_one();
                     gate.notified().await;
                 }
                 if *state.nonce_failure.lock().unwrap() == Some(index) {
+                    state.nonce_failed.notify_one();
                     return json_response(
                         json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32000,"message":"nonce fixture failure"}}),
                     );
@@ -561,8 +573,10 @@ pub(super) async fn server(pages: Vec<Value>) -> Server {
         rpc_failure: Arc::new(Mutex::new(false)),
         nonce_requests: Default::default(),
         nonce_gate: Default::default(),
+        nonce_gate_index: Default::default(),
         nonce_started: Default::default(),
         nonce_failure: Default::default(),
+        nonce_failed: Default::default(),
         balance_failure: Default::default(),
         open_unavailable: Default::default(),
         nonce_values: Arc::new(Mutex::new([U256::from(7); 4])),

@@ -27,8 +27,6 @@ use anyhow::Result;
 
 use crate::actor_runtime::maybe_family_runtime;
 use catalog_capture_core::{
-    CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
-    PREDICT_SELECTOR_TITLE_ASSET,
     background::BackgroundCaptureRuntime,
     catalog_root_from_uri,
     config::CaptureConfig,
@@ -58,6 +56,10 @@ use nautilus_model::{
     identifiers::{ActorId, ClientId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
     orderbook::OrderBook,
+};
+use nautilus_predict::common::{
+    CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
+    PREDICT_SELECTOR_TITLE_ASSET,
 };
 
 use crate::actor_plan::{
@@ -792,7 +794,7 @@ mod tests {
 
     fn test_predict_outcome(market_id: u64, outcome_index: u8) -> InstrumentAny {
         let instrument_id =
-            catalog_capture_core::predict_outcome_instrument_id(market_id, outcome_index)
+            nautilus_predict::common::predict_outcome_instrument_id(market_id, outcome_index)
                 .expect("valid test Predict id");
         let outcome = if outcome_index == 1 { "YES" } else { "NO" };
         InstrumentAny::BinaryOption(
@@ -1147,10 +1149,12 @@ mod tests {
         let _ = fs::remove_dir_all(&catalog_dir);
         fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
         let retired_market_id = 3_063_835;
-        let retired_yes = catalog_capture_core::predict_outcome_instrument_id(retired_market_id, 1)
-            .expect("valid test id");
-        let retired_no = catalog_capture_core::predict_outcome_instrument_id(retired_market_id, 2)
-            .expect("valid test id");
+        let retired_yes =
+            nautilus_predict::common::predict_outcome_instrument_id(retired_market_id, 1)
+                .expect("valid test id");
+        let retired_no =
+            nautilus_predict::common::predict_outcome_instrument_id(retired_market_id, 2)
+                .expect("valid test id");
         // Explicit user capture always wins over automatic rolling-market cleanup.
         let plan = CapturePlan {
             quotes: vec![QuoteCaptureSpec {
@@ -1211,9 +1215,9 @@ mod tests {
         let _ = fs::remove_dir_all(&catalog_dir);
         fs::create_dir_all(&catalog_dir).expect("temp catalog dir");
         let market_id = 3_063_835;
-        let yes_id = catalog_capture_core::predict_outcome_instrument_id(market_id, 1)
+        let yes_id = nautilus_predict::common::predict_outcome_instrument_id(market_id, 1)
             .expect("valid test id");
-        let no_id = catalog_capture_core::predict_outcome_instrument_id(market_id, 2)
+        let no_id = nautilus_predict::common::predict_outcome_instrument_id(market_id, 2)
             .expect("valid test id");
         let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
             CaptureConfig {

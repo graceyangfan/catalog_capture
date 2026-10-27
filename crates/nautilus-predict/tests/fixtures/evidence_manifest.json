@@ -9,6 +9,18 @@
       "sha256": "71c68ca711736035e3f6c73c317711cc5d42408855bf6311814aa303cfd2b592"
     },
     {
+      "path": "test_data/market_3737148_hourly.json",
+      "tier": "primary_capture",
+      "bytes": 2644,
+      "sha256": "1556339402ad7951b876785ff837c4b5d099d2e6551841e3b7477fa604270b02"
+    },
+    {
+      "path": "test_data/market_3759734_daily.json",
+      "tier": "primary_capture",
+      "bytes": 2844,
+      "sha256": "bd43bf16f7fbf4a7554129c2d5bbf4b166a6e5e5d08ef7b3e9a2a8a27ffb7950"
+    },
+    {
       "path": "test_data/orderbook_2859346.json",
       "tier": "primary_capture",
       "bytes": 409,

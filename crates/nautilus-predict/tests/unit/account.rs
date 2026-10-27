@@ -610,7 +610,7 @@ fn benchmark_open_owner_retirement() {
 }
 
 #[test]
-fn recovery_queries_coalesce_without_copying_native_history() {
+fn account_query_during_active_collection_retains_request_without_spawning() {
     use nautilus_common::{clients::ExecutionClient, messages::execution::QueryAccount};
     let mut f = Fixture::new(1000, 0);
     f.watch(&[]);
@@ -619,6 +619,11 @@ fn recovery_queries_coalesce_without_copying_native_history() {
         .account_refresh_required
         .store(true, Ordering::Release);
     f.client.account_query_active.store(true, Ordering::Release);
+    let tasks = f.client.tasks.len();
+    let (cash, open) = {
+        let state = f.client.account_sync.state.lock().unwrap();
+        (state.remote_requested, state.open_requested)
+    };
     f.client
         .query_account(QueryAccount::new(
             f.client.core.trader_id,
@@ -631,6 +636,11 @@ fn recovery_queries_coalesce_without_copying_native_history() {
         ))
         .unwrap();
     assert!(f.client.account_query_active.load(Ordering::Acquire));
+    assert_eq!(f.client.tasks.len(), tasks);
+    let state = f.client.account_sync.state.lock().unwrap();
+    assert_eq!(state.remote_requested, cash.wrapping_add(1));
+    assert_eq!(state.open_requested, open.wrapping_add(1));
+    drop(state);
     f.client
         .account_query_active
         .store(false, Ordering::Release);
@@ -808,14 +818,14 @@ fn unresolved_commands_do_not_prevent_account_refresh() {
             .account_refresh_required
             .store(true, Ordering::Release);
         let clock = Rc::new(RefCell::new(VirtualClock::new()));
-        f.client.recovery_clock = Some(clock.clone());
+        f.client.maintenance_clock = Some(clock.clone());
         let queries = Rc::new(std::cell::Cell::new(0));
         let seen = queries.clone();
         msgbus::register_trading_command_endpoint(
             MessagingSwitchboard::exec_engine_queue_execute(),
             TypedIntoHandler::from(move |_: TradingCommand| seen.set(seen.get() + 1)),
         );
-        f.client.start_recovery_timer().unwrap();
+        f.client.start_maintenance_timer().unwrap();
         for second in 1..=3 {
             let events = clock
                 .borrow_mut()
@@ -848,7 +858,7 @@ fn unresolved_commands_do_not_prevent_account_refresh() {
             4,
             "the existing timer keeps refreshing after command resolution"
         );
-        f.client.stop_recovery_timer();
+        f.client.stop_maintenance_timer();
     }
 }
 

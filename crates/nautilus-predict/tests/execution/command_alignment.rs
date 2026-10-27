@@ -893,7 +893,7 @@ async fn native_cancel_all_filters_side_instrument_and_client_and_batch_checks_s
     connect_reported(&mut client, &mut rx).await;
     assert!(
         client
-            .cancel_order(cancellations::cancel(&owned[4]))
+            .cancel_order(super::cancellations::cancel(&owned[4]))
             .is_err()
     );
     assert!(rx.try_recv().is_err());
@@ -903,8 +903,8 @@ async fn native_cancel_all_filters_side_instrument_and_client_and_batch_checks_s
         owned[0].strategy_id(),
         instrument_id(1),
         vec![
-            cancellations::cancel(&owned[0]),
-            cancellations::cancel(&owned[1]),
+            super::cancellations::cancel(&owned[0]),
+            super::cancellations::cancel(&owned[1]),
         ],
         UUID4::new(),
         UnixNanos::from(OBSERVED),
@@ -914,7 +914,7 @@ async fn native_cancel_all_filters_side_instrument_and_client_and_batch_checks_s
     // A malformed batch is rejected before even the valid first child publishes or writes.
     assert!(client.batch_cancel_orders(command.clone()).is_err());
     assert!(rx.try_recv().is_err());
-    command.cancels = vec![cancellations::cancel(&owned[0]); 2];
+    command.cancels = vec![super::cancellations::cancel(&owned[0]); 2];
     client.batch_cancel_orders(command).unwrap();
     let ExecutionEvent::Order(OrderEventAny::CancelRejected(rejected)) = next(&mut rx).await else {
         panic!("one rejection for duplicate child")

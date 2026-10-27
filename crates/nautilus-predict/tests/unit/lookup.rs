@@ -2,10 +2,11 @@
 //! Worker snapshots follow Native retention; no independent expiry or FIFO.
 use std::{cell::RefCell, rc::Rc};
 
-use nautilus_common::{cache::Cache, factories::OrderEventFactory};
+use nautilus_common::{cache::Cache, clients::ExecutionClient, factories::OrderEventFactory};
 use nautilus_core::UnixNanos;
 use nautilus_live::ExecutionClientCore;
 use nautilus_model::{
+    accounts::AccountAny,
     enums::{AccountType, OmsType, OrderType},
     identifiers::{AccountId, ClientId, TraderId, VenueOrderId},
     orders::{OrderAny, builder::OrderTestBuilder},
@@ -115,7 +116,7 @@ fn native_buffer_and_purge_own_full_snapshot_retention() {
         .add_order((*order).clone(), None, None, false)
         .unwrap();
     cache.borrow_mut().build_index();
-    let order = Arc::new(super::super::context::WorkerOrder::capture(&order));
+    let order = Arc::new(crate::execution::context::WorkerOrder::capture(&order));
     let weak = Arc::downgrade(&order);
     client.orders.lock().unwrap().insert(hash, order.clone());
     client
@@ -125,7 +126,7 @@ fn native_buffer_and_purge_own_full_snapshot_retention() {
         .insert(hash, alloy::primitives::U256::from(12345));
     client.account_orders.lock().unwrap().insert(id, order);
     client.account_sync.confirm_terminal(hash, Some(id));
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(
         weak.upgrade().is_some(),
         "terminal alone must not retire context"
@@ -133,13 +134,13 @@ fn native_buffer_and_purge_own_full_snapshot_retention() {
     cache
         .borrow_mut()
         .purge_closed_orders(UnixNanos::from(1_000_000_000), 2);
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(weak.upgrade().is_some(), "Native buffer has not elapsed");
     cache
         .borrow_mut()
         .purge_closed_orders(UnixNanos::from(3_000_000_000), 2);
     assert!(client.core.cache().order(&id).is_none());
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(
         client.orders.lock().unwrap().is_empty()
             && client.account_orders.lock().unwrap().is_empty()
@@ -158,9 +159,12 @@ fn native_buffer_and_purge_own_full_snapshot_retention() {
         weak.upgrade().is_none(),
         "no full OrderAny clone may outlive Native purge"
     );
-    let revision = client.account_sync.state.lock().unwrap().revision;
-    client.prune_order_lookups();
-    assert_eq!(client.account_sync.state.lock().unwrap().revision, revision);
+    let revision = client.account_sync.state.lock().unwrap().resource_revision;
+    client.prune_mirrors();
+    assert_eq!(
+        client.account_sync.state.lock().unwrap().resource_revision,
+        revision
+    );
 }
 
 #[test]
@@ -181,7 +185,7 @@ fn retirement_visits_a_native_owner_once_across_both_indexes_and_keeps_hash_only
             client.account_orders.lock().unwrap().insert(id, view);
         }
         TRADE_ID_READS.with(|reads| reads.set(0));
-        client.prune_order_lookups();
+        client.prune_mirrors();
         assert_eq!(
             TRADE_ID_READS.with(|reads| reads.get()),
             0,
@@ -206,7 +210,7 @@ fn active_snapshot_is_not_reclaimed_even_without_a_cache_owner() {
         .lock()
         .unwrap()
         .insert(order.client_order_id(), view(&order));
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert_eq!(client.orders.lock().unwrap().len(), 1);
     assert_eq!(client.account_orders.lock().unwrap().len(), 1);
 }
@@ -222,7 +226,7 @@ fn queued_raw_settlement_pins_its_context_and_requires_reconciliation() {
         };
 
         use crate::{
-            execution::precision::{BufferedFill, RawFillFacts},
+            execution::fills::{BufferedFill, RawFillFacts},
             http::account_models::PredictFeeType,
         };
 
@@ -286,7 +290,7 @@ fn queued_raw_settlement_pins_its_context_and_requires_reconciliation() {
         if queued {
             assert!(client.submit_order(command).is_err());
         }
-        client.prune_order_lookups();
+        client.prune_mirrors();
         assert_eq!(client.orders.lock().unwrap().len(), 1);
         assert_eq!(client.account_orders.lock().unwrap().len(), 1);
         assert!(client.account_refresh_required.load(Ordering::Acquire));
@@ -340,7 +344,7 @@ fn retiring_filled_snapshot_preserves_chain_freshness_watermark() {
         fill.reconciliation = true;
         order.apply(event).unwrap();
         let hash = order.venue_order_id().unwrap();
-        let fill = crate::execution::precision::BufferedFill {
+        let fill = crate::execution::fills::BufferedFill {
             report: nautilus_model::reports::FillReport::new(
                 client.core.account_id,
                 order.instrument_id(),
@@ -357,7 +361,7 @@ fn retiring_filled_snapshot_preserves_chain_freshness_watermark() {
                 UnixNanos::from(100),
                 None,
             ),
-            raw: crate::execution::precision::RawFillFacts {
+            raw: crate::execution::fills::RawFillFacts {
                 settlement_id: "applied-retirement-fill".into(),
                 gross_shares: crate::common::parse::decimal_to_wei(order.quantity().as_decimal())
                     .unwrap(),
@@ -393,7 +397,7 @@ fn retiring_filled_snapshot_preserves_chain_freshness_watermark() {
             .lock()
             .unwrap()
             .insert(order.client_order_id(), order);
-        client.prune_order_lookups();
+        client.prune_mirrors();
         assert!(weak.upgrade().is_none());
         assert!(
             !client
@@ -410,7 +414,7 @@ fn retiring_filled_snapshot_preserves_chain_freshness_watermark() {
                 UnixNanos::from(100)
             }
         );
-        client.prune_order_lookups();
+        client.prune_mirrors();
         assert_eq!(
             client.account_sync.state.lock().unwrap().latest_fill,
             if synthetic {
@@ -447,37 +451,44 @@ fn instrument_snapshots_follow_native_purge_and_retained_order_ownership() {
             .add_instrument(instrument.clone())
             .unwrap();
         client
+            .metadata
             .instruments
             .insert(instrument.id(), instrument.clone().into());
     }
     let metadata_owners = definitions
         .iter()
         .map(|instrument| {
-            let entry = client.instruments.get_cloned(&instrument.id()).unwrap();
+            let entry = client
+                .metadata
+                .instruments
+                .get_cloned(&instrument.id())
+                .unwrap();
             Arc::downgrade(&entry.market)
         })
         .collect::<Vec<_>>();
-    client.prune_order_lookups();
-    assert_eq!(client.instruments.len(), 2);
+    client.prune_mirrors();
+    assert_eq!(client.metadata.instruments.len(), 2);
     // The worker owner still needs YES, even if Native has released its definition.
     cache.borrow_mut().purge_instrument(definitions[0].id());
     cache.borrow_mut().purge_instrument(definitions[1].id());
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(
         client
+            .metadata
             .instruments
             .get_cloned(&definitions[0].id())
             .is_some()
     );
     assert!(
         client
+            .metadata
             .instruments
             .get_cloned(&definitions[1].id())
             .is_none()
     );
     client.account_orders.lock().unwrap().clear();
-    client.prune_order_lookups();
-    assert!(client.instruments.is_empty());
+    client.prune_mirrors();
+    assert!(client.metadata.instruments.is_empty());
     assert!(
         metadata_owners.iter().all(|slot| slot.upgrade().is_none()),
         "metadata cannot outlive its instrument worker view"
@@ -494,7 +505,7 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
     };
 
     use crate::{
-        execution::precision::{BufferedFill, RawFillFacts},
+        execution::fills::{BufferedFill, RawFillFacts},
         http::account_models::PredictFeeType,
     };
     let (client, _) = client();
@@ -533,10 +544,11 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
         .unwrap()
         .queue_wallet(&fill)
         .unwrap();
-    let context = runtime::WalletReportContext {
+    let context = crate::execution::wallet::WalletReportContext {
+        metadata_notify: client.metadata.notify.clone(),
         data_sender: None,
         latency: None,
-        instruments: client.instruments.clone(),
+        instruments: client.metadata.instruments.clone(),
         orders: client.orders.clone(),
         pending: client.pending_submissions.clone(),
         rest_ids: client.rest_order_ids.clone(),
@@ -662,7 +674,6 @@ fn native_command_feedback_updates_views_without_redundant_resource_refresh() {
         client.orders.lock().unwrap()[&hash].status(),
         OrderStatus::PendingUpdate
     );
-    assert_eq!(client.account_sync.state.lock().unwrap().revision, 1);
     assert_eq!(
         client.account_sync.state.lock().unwrap().resource_revision,
         0
@@ -693,7 +704,6 @@ fn native_command_feedback_updates_views_without_redundant_resource_refresh() {
         cache.borrow().order(&id).unwrap().status(),
         OrderStatus::Accepted
     );
-    assert_eq!(client.account_sync.state.lock().unwrap().revision, 2);
     assert_eq!(
         client.account_sync.state.lock().unwrap().resource_revision,
         0
@@ -719,7 +729,6 @@ fn native_command_feedback_updates_views_without_redundant_resource_refresh() {
         client.orders.lock().unwrap()[&hash].status(),
         OrderStatus::Canceled
     );
-    assert_eq!(client.account_sync.state.lock().unwrap().revision, 3);
     assert_eq!(
         client.account_sync.state.lock().unwrap().resource_revision,
         1
@@ -756,6 +765,7 @@ fn instrument_replacement_and_session_setup_detach_both_outcome_metadata_owners(
     }
     client.prepare_lookup().unwrap();
     let original = client
+        .metadata
         .instruments
         .get_cloned(&definitions[0].id())
         .unwrap()
@@ -763,6 +773,7 @@ fn instrument_replacement_and_session_setup_detach_both_outcome_metadata_owners(
     assert!(Arc::ptr_eq(
         &original,
         &client
+            .metadata
             .instruments
             .get_cloned(&definitions[1].id())
             .unwrap()
@@ -770,6 +781,7 @@ fn instrument_replacement_and_session_setup_detach_both_outcome_metadata_owners(
     ));
     client.on_instrument(definitions[1].clone());
     let replacement = client
+        .metadata
         .instruments
         .get_cloned(&definitions[0].id())
         .unwrap()
@@ -778,6 +790,7 @@ fn instrument_replacement_and_session_setup_detach_both_outcome_metadata_owners(
     assert!(Arc::ptr_eq(
         &replacement,
         &client
+            .metadata
             .instruments
             .get_cloned(&definitions[1].id())
             .unwrap()
@@ -786,6 +799,7 @@ fn instrument_replacement_and_session_setup_detach_both_outcome_metadata_owners(
     // Old workers can still own their slot, but cannot reattach it to this view.
     client.prepare_lookup().unwrap();
     let next_session = client
+        .metadata
         .instruments
         .get_cloned(&definitions[0].id())
         .unwrap()
@@ -794,6 +808,7 @@ fn instrument_replacement_and_session_setup_detach_both_outcome_metadata_owners(
     assert!(Arc::ptr_eq(
         &next_session,
         &client
+            .metadata
             .instruments
             .get_cloned(&definitions[1].id())
             .unwrap()
@@ -808,7 +823,7 @@ fn native_timer_retires_purged_snapshots_without_a_trading_command() {
     use nautilus_network::websocket::AuthTracker;
     let (mut client, cache) = client();
     let clock = Rc::new(RefCell::new(VirtualClock::new()));
-    client.recovery_clock = Some(clock.clone());
+    client.maintenance_clock = Some(clock.clone());
     client.wallet_auth = Some(AuthTracker::new());
     client.wallet_epoch = Some(Arc::new(std::sync::atomic::AtomicU64::new(0)));
     client.healthy.store(true, Ordering::Release);
@@ -829,7 +844,7 @@ fn native_timer_retires_purged_snapshots_without_a_trading_command() {
         .lock()
         .unwrap()
         .insert(retained.client_order_id(), retained.clone());
-    client.start_recovery_timer().unwrap();
+    client.start_maintenance_timer().unwrap();
     let fire = |ns| {
         let events = clock.borrow_mut().advance_time(UnixNanos::from(ns), true);
         let handlers = clock.borrow().match_handlers(events);
@@ -849,12 +864,12 @@ fn native_timer_retires_purged_snapshots_without_a_trading_command() {
     assert!(client.orders.lock().unwrap().is_empty());
     assert!(client.account_orders.lock().unwrap().is_empty());
     assert!(weak.upgrade().is_none());
-    client.stop_recovery_timer();
+    client.stop_maintenance_timer();
     assert!(clock.borrow().timer_names().is_empty());
 }
 
-fn view(order: &OrderAny) -> Arc<super::super::context::WorkerOrder> {
-    Arc::new(super::super::context::WorkerOrder::capture(order))
+fn view(order: &OrderAny) -> Arc<crate::execution::context::WorkerOrder> {
+    Arc::new(crate::execution::context::WorkerOrder::capture(order))
 }
 
 #[test]
@@ -868,7 +883,7 @@ fn benchmark_native_lookup_retirement() {
             for iteration in 0..23 {
                 let (client, cache) = client();
                 seed_cleanup(&client, &cache, retained, native_retains);
-                let lookups = client.order_lookups();
+                let lookups = client.mirror_cleanup();
                 let started = Instant::now();
                 let more = black_box(&lookups).prune();
                 let elapsed = started.elapsed().as_nanos() as u64;
@@ -932,7 +947,7 @@ fn native_purge_keeps_pending_match_evidence_until_a_terminal_settlement_fact() 
         .notifications
         .update(&event, &snapshot, client.core.account_id, 0, 2.into())
         .unwrap();
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert_eq!(
         client.orders.lock().unwrap().len(),
         1,
@@ -958,7 +973,7 @@ fn native_purge_keeps_pending_match_evidence_until_a_terminal_settlement_fact() 
         .notifications
         .update(&event, &snapshot, client.core.account_id, 0, 3.into())
         .unwrap();
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(client.orders.lock().unwrap().is_empty());
     assert!(client.account_orders.lock().unwrap().is_empty());
     assert_eq!(
@@ -1041,7 +1056,7 @@ fn cleanup_resumes_bounded_batches_and_reclaims_over_ten_thousand_lifecycles() {
         .lock()
         .unwrap()
         .insert(active_id, active);
-    let lookups = client.order_lookups();
+    let lookups = client.mirror_cleanup();
     let mut calls = 0;
     loop {
         let before = client.account_orders.lock().unwrap().len();
@@ -1076,7 +1091,7 @@ fn cleanup_resumes_bounded_batches_and_reclaims_over_ten_thousand_lifecycles() {
         CLEANUP_BATCH * 3 + 17,
         true,
     );
-    let retained_lookups = retained_client.order_lookups();
+    let retained_lookups = retained_client.mirror_cleanup();
     let mut checks = 0;
     while retained_lookups.prune() {
         checks += 1;
@@ -1138,7 +1153,7 @@ fn emitted_acceptance_follows_owner_snapshots_without_fifo_eviction() {
         assert_eq!(unrelated.queued_acceptance(), Some(UnixNanos::from(9)));
     }
     let event = *native.events().last().unwrap();
-    let observed = super::super::context::WorkerOrder::observe(&native, event, Some(&target));
+    let observed = crate::execution::context::WorkerOrder::observe(&native, event, Some(&target));
     assert_eq!(observed.queued_acceptance(), Some(UnixNanos::from(7)));
     observed.record_acceptance(UnixNanos::from(11));
     assert_eq!(target.queued_acceptance(), Some(UnixNanos::from(7)));
@@ -1186,7 +1201,7 @@ fn native_observer_keeps_emitted_acceptance_from_the_pre_ack_hash_view() {
     client.orders.lock().unwrap().insert(hash, transmitted);
     client.pending_submissions.lock().unwrap().entries.insert(
         native.client_order_id(),
-        super::super::orders::Submission {
+        crate::execution::orders::Submission {
             venue_id: Some(hash),
             wallet_epoch: Some(0),
             market_buy_collateral: None,
@@ -1216,11 +1231,11 @@ fn native_timer_continues_bounded_cleanup_on_following_ticks() {
     let (mut client, cache) = client();
     seed_cleanup(&client, &cache, CLEANUP_BATCH * 3 + 17, false);
     let clock = Rc::new(RefCell::new(VirtualClock::new()));
-    client.recovery_clock = Some(clock.clone());
+    client.maintenance_clock = Some(clock.clone());
     client.wallet_auth = Some(AuthTracker::new());
     client.wallet_epoch = Some(Arc::new(std::sync::atomic::AtomicU64::new(0)));
     client.healthy.store(true, Ordering::Release);
-    client.start_recovery_timer().unwrap();
+    client.start_maintenance_timer().unwrap();
     for second in 1..=8 {
         let before = client.account_orders.lock().unwrap().len();
         let events = clock
@@ -1241,7 +1256,7 @@ fn native_timer_continues_bounded_cleanup_on_following_ticks() {
         "next ticks must continue before the 30-second cleanup interval"
     );
     assert!(client.rest_order_ids.lock().unwrap().is_empty());
-    client.stop_recovery_timer();
+    client.stop_maintenance_timer();
 }
 
 #[test]
@@ -1298,18 +1313,15 @@ fn recovery_client() -> (PredictExecutionClient, Rc<RefCell<Cache>>) {
 }
 
 #[test]
-fn recovery_eligibility_ignores_cleanup_backlog_and_pure_retirement_keeps_revision() {
+fn recovery_eligibility_ignores_cleanup_backlog_and_pure_retirement_keeps_resource_revision() {
     use futures_util::FutureExt;
     let (client, cache) = recovery_client();
     seed_cleanup(&client, &cache, CLEANUP_BATCH * 3 + 17, false);
     client
         .account_refresh_required
         .store(true, Ordering::Release);
-    let (revision, resource_revision) = {
-        let state = client.account_sync.state.lock().unwrap();
-        (state.revision, state.resource_revision)
-    };
-    let lookups = client.order_lookups();
+    let resource_revision = client.account_sync.state.lock().unwrap().resource_revision;
+    let lookups = client.mirror_cleanup();
     assert!(lookups.prune());
     assert!(
         !client.orders.lock().unwrap().is_empty(),
@@ -1317,10 +1329,7 @@ fn recovery_eligibility_ignores_cleanup_backlog_and_pure_retirement_keeps_revisi
     );
     while lookups.prune() {}
     let state = client.account_sync.state.lock().unwrap();
-    assert_eq!(
-        (state.revision, state.resource_revision),
-        (revision, resource_revision)
-    );
+    assert_eq!(state.resource_revision, resource_revision);
     assert!(
         client
             .account_sync
@@ -1335,7 +1344,7 @@ fn recovery_eligibility_ignores_cleanup_backlog_and_pure_retirement_keeps_revisi
 #[test]
 fn recovery_backlog_still_blocks_real_unapplied_and_pending_matching_facts() {
     use crate::{
-        execution::precision::{BufferedFill, RawFillFacts},
+        execution::fills::{BufferedFill, RawFillFacts},
         http::account_models::PredictFeeType,
     };
     use alloy::primitives::U256;
@@ -1394,7 +1403,7 @@ fn recovery_backlog_still_blocks_real_unapplied_and_pending_matching_facts() {
             .unwrap()
             .has_unapplied(hash, &snapshot)
     );
-    while client.order_lookups().prune() {}
+    while client.mirror_cleanup().prune() {}
     assert!(client.orders.lock().unwrap().contains_key(&hash));
 }
 
@@ -1434,7 +1443,9 @@ fn cold_instrument_cleanup_fixture(
         }
         map.insert(
             instrument.id,
-            super::super::types::ExecutionInstrument::from(InstrumentAny::BinaryOption(instrument)),
+            crate::execution::metadata::ExecutionInstrument::from(InstrumentAny::BinaryOption(
+                instrument,
+            )),
         );
     }
     let factory = OrderEventFactory::new(
@@ -1484,7 +1495,7 @@ fn cold_instrument_cleanup_fixture(
         .borrow_mut()
         .add_position_without_order(&position, OmsType::Netting)
         .unwrap();
-    client.instruments.store(map);
+    client.metadata.instruments.store(map);
     (client, cache)
 }
 
@@ -1493,11 +1504,11 @@ fn cold_instrument_cleanup_visits_owners_once_and_preserves_all_native_ownership
     use nautilus_model::identifiers::InstrumentId;
     let (client, cache) = cold_instrument_cleanup_fixture(1000, 100);
     INSTRUMENT_OWNER_READS.with(|n| n.set(0));
-    client.order_lookups().prune();
+    client.mirror_cleanup().prune();
     assert_eq!(INSTRUMENT_OWNER_READS.with(|n| n.get()), 2001);
     let expected =
         [42, 43, 44, 45].map(|id| format!("{id}-1.PREDICT").parse::<InstrumentId>().unwrap());
-    let actual = client.instruments.load();
+    let actual = client.metadata.instruments.load();
     assert_eq!(actual.len(), 4);
     assert!(expected.iter().all(|id| actual.contains_key(id)));
     assert_eq!(client.account_orders.lock().unwrap().len(), 1000);
@@ -1517,7 +1528,7 @@ fn cold_instrument_cleanup_visits_owners_once_and_preserves_all_native_ownership
     }
     drop(actual);
     INSTRUMENT_OWNER_READS.with(|n| n.set(0));
-    client.order_lookups().prune();
+    client.mirror_cleanup().prune();
     assert_eq!(
         INSTRUMENT_OWNER_READS.with(|n| n.get()),
         0,
@@ -1539,11 +1550,11 @@ fn benchmark_cold_instrument_cleanup() {
             let mut samples = Vec::new();
             for iteration in 0..13 {
                 let (client, cache) = cold_instrument_cleanup_fixture(owners, expired);
-                let lookup = client.order_lookups();
+                let lookup = client.mirror_cleanup();
                 let start = Instant::now();
                 black_box(&lookup).prune();
                 let ns = start.elapsed().as_nanos() as u64;
-                assert_eq!(client.instruments.load().len(), 4);
+                assert_eq!(client.metadata.instruments.load().len(), 4);
                 assert_eq!(client.account_orders.lock().unwrap().len(), owners);
                 assert_eq!(
                     cache
@@ -1583,7 +1594,7 @@ fn history_retention_fixture(
 ) -> (PredictExecutionClient, Rc<RefCell<Cache>>) {
     use crate::execution::{
         context::WorkerOrder,
-        precision::{BufferedFill, RawFillFacts},
+        fills::{BufferedFill, RawFillFacts},
     };
     use alloy::primitives::U256;
     use nautilus_model::{
@@ -1705,7 +1716,7 @@ fn large_histories_retire_one_owner_per_callback_and_preserve_remaining_facts() 
     let revision = client.account_sync.state.lock().unwrap().resource_revision;
     for remaining in (0..4).rev() {
         APPLIED_MEMBERSHIP_READS.with(|n| n.set(0));
-        client.prune_order_lookups();
+        client.prune_mirrors();
         assert_eq!(
             client.orders.lock().unwrap().len(),
             remaining,
@@ -1747,7 +1758,7 @@ fn benchmark_large_history_cleanup() {
                     let before = client.orders.lock().unwrap().len();
                     APPLIED_MEMBERSHIP_READS.with(|n| n.set(0));
                     let started = Instant::now();
-                    client.prune_order_lookups();
+                    client.prune_mirrors();
                     let ns = started.elapsed().as_nanos() as u64;
                     let after = client.orders.lock().unwrap().len();
                     assert!(after < before);
@@ -1775,7 +1786,7 @@ fn benchmark_large_history_cleanup() {
 
 #[test]
 fn retirement_budget_does_not_defer_the_unapplied_evidence_gate() {
-    use crate::execution::precision::{BufferedFill, RawFillFacts};
+    use crate::execution::fills::{BufferedFill, RawFillFacts};
     use alloy::primitives::U256;
     use nautilus_model::{
         enums::{LiquiditySide, OrderSide},
@@ -1822,7 +1833,7 @@ fn retirement_budget_does_not_defer_the_unapplied_evidence_gate() {
         .unwrap()
         .commit(&[fill])
         .unwrap();
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(
         client.account_refresh_required.load(Ordering::Acquire),
         "retirement work budget must not delay gating unapplied venue facts"
@@ -1853,7 +1864,7 @@ fn retired_native_history_is_released_after_shared_index_guards() {
             ));
         }))
     });
-    client.prune_order_lookups();
+    client.prune_mirrors();
     HISTORY_DROP_PROBE.with(|slot| slot.borrow_mut().take());
     assert_eq!(
         *journal.borrow(),
@@ -1890,7 +1901,7 @@ fn failed_notification_only_owners_share_the_retirement_work_budget() {
         );
     }
     drop(owners);
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert_eq!(
         client.orders.lock().unwrap().len(),
         1,
@@ -1902,7 +1913,7 @@ fn failed_notification_only_owners_share_the_retirement_work_budget() {
         1000
     );
     assert!(!client.account_refresh_required.load(Ordering::Acquire));
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(client.orders.lock().unwrap().is_empty());
     assert_eq!(
         client.fill_evidence.lock().unwrap().retirement_work(owner),
@@ -1919,11 +1930,11 @@ fn report_requests_leave_scheduled_retirement_to_the_native_timer() {
     let retained = client.account_orders.lock().unwrap().len();
     assert!(retained > CLEANUP_BATCH);
     let clock = Rc::new(RefCell::new(VirtualClock::new()));
-    client.recovery_clock = Some(clock.clone());
+    client.maintenance_clock = Some(clock.clone());
     client.wallet_auth = Some(AuthTracker::new());
     client.wallet_epoch = Some(Arc::new(std::sync::atomic::AtomicU64::new(0)));
     client.healthy.store(true, Ordering::Release);
-    client.start_recovery_timer().unwrap();
+    client.start_maintenance_timer().unwrap();
     let cmd = GenerateFillReports::new(
         nautilus_core::UUID4::new(),
         1.into(),
@@ -1949,7 +1960,7 @@ fn report_requests_leave_scheduled_retirement_to_the_native_timer() {
     assert!(client.account_orders.lock().unwrap().len() < retained);
     let remaining = client.account_orders.lock().unwrap().len();
     assert!(remaining > 0);
-    client.stop_recovery_timer();
+    client.stop_maintenance_timer();
     drop(client.generate_fill_reports_task(&cmd));
     assert!(
         client.account_orders.lock().unwrap().len() < remaining,
@@ -1986,7 +1997,7 @@ fn benchmark_native_purge_and_adapter_retirement() {
             let mut callbacks = Vec::new();
             while !client.account_orders.lock().unwrap().is_empty() {
                 let start = Instant::now();
-                client.order_lookups().prune();
+                client.mirror_cleanup().prune();
                 callbacks.push(start.elapsed().as_nanos() as u64);
             }
             assert!(client.orders.lock().unwrap().is_empty());
@@ -2031,7 +2042,7 @@ fn benchmark_steady_native_purge_cadence() {
             let mut callbacks = Vec::new();
             while client.account_orders.lock().unwrap().len() > retained {
                 let start = Instant::now();
-                client.order_lookups().prune();
+                client.mirror_cleanup().prune();
                 callbacks.push(start.elapsed().as_nanos() as u64);
             }
             assert_eq!(client.orders.lock().unwrap().len(), retained);
@@ -2095,7 +2106,7 @@ fn benchmark_verified_owner_retirement_phases() {
                 let membership_reads = APPLIED_MEMBERSHIP_READS.with(|n| n.get()) / 100;
                 drop(order);
                 let start = Instant::now();
-                client.prune_order_lookups();
+                client.prune_mirrors();
                 let complete_prune_ns = start.elapsed().as_nanos() as u64;
                 assert!(client.orders.lock().unwrap().is_empty());
                 assert!(!client.account_refresh_required.load(Ordering::Acquire));
@@ -2159,7 +2170,7 @@ fn verified_prefix_retains_a_purged_owner_until_pending_matching_is_resolved() {
         .notifications
         .update(&event, &order, client.core.account_id, 0, 1_000_000.into())
         .unwrap();
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(client.orders.lock().unwrap().contains_key(&owner));
     assert!(client.account_refresh_required.load(Ordering::Acquire));
     let crate::websocket::private_messages::PredictWalletEventKind::OrderTransactionSubmitted {
@@ -2183,7 +2194,7 @@ fn verified_prefix_retains_a_purged_owner_until_pending_matching_is_resolved() {
         .update(&event, &order, client.core.account_id, 0, 1_000_001.into())
         .unwrap();
     drop(order);
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(client.orders.lock().unwrap().is_empty());
     assert_eq!(
         client.fill_evidence.lock().unwrap().retirement_work(owner),
@@ -2326,13 +2337,13 @@ fn benchmark_native_timer_evidence_sweeps() {
                     }
                 }
                 let clock = Rc::new(RefCell::new(VirtualClock::new()));
-                client.recovery_clock = Some(clock.clone());
+                client.maintenance_clock = Some(clock.clone());
                 let auth = AuthTracker::new();
                 auth.succeed();
                 client.wallet_auth = Some(auth);
                 client.wallet_epoch = Some(Arc::new(std::sync::atomic::AtomicU64::new(0)));
                 client.healthy.store(true, Ordering::Release);
-                client.start_recovery_timer().unwrap();
+                client.start_maintenance_timer().unwrap();
                 let mut callbacks = Vec::new();
                 for second in 1..=(owners as u64 * 4 + 4) {
                     let before = client.orders.lock().unwrap().len();
@@ -2365,7 +2376,7 @@ fn benchmark_native_timer_evidence_sweeps() {
                     0
                 );
                 assert!(!client.account_refresh_required.load(Ordering::Acquire));
-                client.stop_recovery_timer();
+                client.stop_maintenance_timer();
                 if iteration > 0 {
                     sweeps.push(callbacks);
                 }
@@ -2428,7 +2439,7 @@ fn cold_membership_does_not_hold_account_or_order_registry_locks() {
     waiting
         .recv_timeout(std::time::Duration::from_secs(5))
         .unwrap();
-    client.prune_order_lookups();
+    client.prune_mirrors();
     worker.join().unwrap();
     assert!(client.orders.lock().unwrap().is_empty());
     assert!(!client.account_refresh_required.load(Ordering::Acquire));
@@ -2469,13 +2480,13 @@ fn changed_worker_view_between_proof_and_retirement_is_retained() {
     waiting
         .recv_timeout(std::time::Duration::from_secs(5))
         .unwrap();
-    client.prune_order_lookups();
+    client.prune_mirrors();
     worker.join().unwrap();
     assert!(client.orders.lock().unwrap().contains_key(&hash));
     assert_eq!(
         client.fill_evidence.lock().unwrap().retirement_work(hash),
         1000
     );
-    client.prune_order_lookups();
+    client.prune_mirrors();
     assert!(client.orders.lock().unwrap().is_empty());
 }

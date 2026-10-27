@@ -650,3 +650,85 @@ async fn automatic_gap_with_unacknowledged_order_avoids_io_but_explicit_account_
     assert!(server.state.removals.lock().unwrap().is_empty());
     client.disconnect().await.unwrap();
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn gap_query_reuses_the_account_collector_while_cash_io_is_in_flight() {
+    let server = server(vec![]).await;
+    let (mut client, mut rx, cache) = reported_client(&server);
+    let _portfolio = portfolio(&cache);
+    connect_reported(&mut client, &mut rx).await;
+    server.state.rpc_latest_started.notified().await; // Drain initialization.
+    let gate = Arc::new(tokio::sync::Notify::new());
+    *server.state.rpc_latest_gate.lock().unwrap() = Some(Arc::clone(&gate));
+    let query = || {
+        QueryAccount::new(
+            trader_id(),
+            Some(ClientId::from("PREDICT")),
+            account_id(),
+            UUID4::new(),
+            OBSERVED.into(),
+            None,
+            None,
+        )
+    };
+    client.query_account(query()).unwrap();
+    timeout(
+        Duration::from_secs(2),
+        server.state.rpc_latest_started.notified(),
+    )
+    .await
+    .unwrap();
+    let subscriptions = server.state.ws_requests.lock().unwrap().len();
+    server
+        .state
+        .sockets
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .send(Message::Close(None))
+        .unwrap();
+    super::exit_orders::barrier("wallet subscription after held cash read", || {
+        server.state.ws_requests.lock().unwrap().len() > subscriptions
+    })
+    .await;
+    wallet_processed(&server).await;
+    client.query_account(query()).unwrap();
+    // The first cash read is held. A second latest-block request would be duplicate IO,
+    // rather than completion of the request counters on the existing collector.
+    let overlapping = timeout(
+        Duration::from_millis(200),
+        server.state.rpc_latest_started.notified(),
+    )
+    .await
+    .is_ok();
+    gate.notify_one();
+    let ExecutionEvent::Account(state) = next(&mut rx).await else {
+        panic!("the pending gap query must publish AccountState");
+    };
+    let epoch = state
+        .info
+        .as_ref()
+        .unwrap()
+        .get("predict_connection_epoch")
+        .unwrap();
+    assert_eq!(epoch, &json!(1));
+    assert_eq!(state.balances.len(), 1);
+    assert_eq!(state.balances[0].total, Money::from("1000 USDT"));
+    msgbus::send_account_state(MessagingSwitchboard::portfolio_update_account(), &state);
+    assert_eq!(
+        cache
+            .borrow()
+            .account(&account_id())
+            .unwrap()
+            .balances_total()[&Currency::USDT()],
+        Money::from("1000 USDT")
+    );
+    assert!(
+        !overlapping,
+        "ordinary and gap queries must share one account collector"
+    );
+    assert!(server.state.creations.lock().unwrap().is_empty());
+    assert!(server.state.removals.lock().unwrap().is_empty());
+    client.disconnect().await.unwrap();
+}

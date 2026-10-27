@@ -103,14 +103,22 @@ memory for active/unresolved owners or bound one huge history's disposal pause.
 
 ## Development and evidence
 
-Protocol modules live in http/, websocket/, signing/ and blockchain/. Public
-subscriptions live in data/; execution/ owns Native integration. Strategies,
-mock venues and recorders belong under tests or the application assembly layer.
-No test strategy or recorder runs in production src.
+The crate follows the same client boundaries as Native's Bybit and Polymarket
+adapters:
+
+| Module | Responsibility |
+| --- | --- |
+| `common/`, `http/`, `websocket/`, `signing/`, `blockchain/` | Venue identity, wire formats and transport primitives |
+| `providers.rs`, `universe.rs` | Instrument conversion and rolling-market selection |
+| `data/`, `data_types.rs` | Native data client, subscriptions and published custom data |
+| `execution/` | Native commands, wallet events, account reports and reconciliation |
+| `config.rs`, `factories.rs` | Native client configuration and construction |
+
+Strategies, mock venues and recorders belong under tests or the application
+assembly layer. No test strategy or recorder runs in production src.
 
 - [Tests, fixtures and explicit benchmark exporters](tests/README.md)
-- [Execution lifecycle simplification and validation](../../docs/plans/predict-execution-lifecycle-refactor.md)
-- [Execution internals and limits](../../docs/predict-execution-structure-review.md)
+- [Execution internals and limits](../../docs/reference/predict-execution-internals.md)
 - [Private API calibration](../../docs/how_to/predict-private-api-tests.md)
 - [Historical live evidence](../../docs/reference/predict-live-evidence.md)
 

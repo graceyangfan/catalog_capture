@@ -1,13 +1,29 @@
-// Copyright (C) 2026 yfclark and contributors. LGPL-3.0-or-later.
+// -------------------------------------------------------------------------------------------------
+//  Copyright (C) 2026 yfclark and contributors. All rights reserved.
+//
+//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at https://www.gnu.org/licenses/LICENSE-3.0.html
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// -------------------------------------------------------------------------------------------------
+
 //! Per-query venue evidence selection. No retained position state or strategy ownership.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use alloy::primitives::{Address, B256};
+use anyhow::Context;
 use rust_decimal::Decimal;
 
+use crate::execution::reports;
 use crate::{
-    common::parse::exact_wei,
+    common::{instrument_id_from_outcome, parse::exact_wei},
+    config::PredictExecutionClientConfig,
     http::account_models::{
         PredictFeeType, PredictMatchData, PredictPositionData, PredictQuoteType,
     },
@@ -16,7 +32,7 @@ use crate::{
 /// Keep complete known orders and the nearest confirmed inventory prefix explaining
 /// each current holding. Older flat cycles without an order owner are not new activity.
 /// Group equal timestamps: venue history does not establish an order within that group.
-pub(super) fn required_orders(
+pub(in crate::execution) fn required_orders(
     matches: &[PredictMatchData],
     positions: &[PredictPositionData],
     wallet: Address,
@@ -39,7 +55,7 @@ pub(super) fn required_orders(
     }
     let mut seen = HashMap::new();
     for row in matches {
-        let timestamp = super::matches::match_timestamp(&row.executed_at)?;
+        let timestamp = reports::trades::match_timestamp(&row.executed_at)?;
         let mut own = false;
         for leg in std::iter::once(&row.taker)
             .chain(row.makers.iter())
@@ -185,6 +201,101 @@ pub(super) fn required_orders(
     Ok(selected)
 }
 
+/// Only unknown markets need a metadata read; YES/NO share one read per collection.
+pub(in crate::execution) async fn active_holdings(
+    config: &PredictExecutionClientConfig,
+    rows: Vec<PredictPositionData>,
+    expirations: &HashMap<nautilus_model::identifiers::InstrumentId, u64>,
+    observed: nautilus_core::UnixNanos,
+) -> anyhow::Result<Vec<PredictPositionData>> {
+    let mut markets = HashMap::new();
+    let mut active = Vec::new();
+    for row in rows {
+        if row.amount.is_zero() {
+            continue;
+        }
+        let id = instrument_id_from_outcome(row.market.id, u8::try_from(row.outcome.index_set)?)?;
+        let expired = if row.outcome.status.is_some() {
+            true // WON/LOST are final outcomes; redemption can lag.
+        } else if let Some(expiration) = expirations.get(&id) {
+            *expiration <= observed.as_u64()
+        } else if let Some(expired) = markets.get(&row.market.id) {
+            *expired
+        } else {
+            let market = config
+                .session
+                .request_market_definition(row.market.id)
+                .await?;
+            let expired = crate::providers::market_window(&market, observed)?
+                .is_some_and(|window| window.end_ns <= observed.as_u64());
+            markets.insert(row.market.id, expired);
+            expired
+        };
+        if expired {
+            log::debug!("Skipping expired Predict holding {id}");
+        } else {
+            active.push(row);
+        }
+    }
+    Ok(active)
+}
+
+/// Markets required to interpret the account's current orders and holdings at host startup.
+///
+/// This only collects identities. InstrumentProvider/DataClient load definitions and Native
+/// reconciliation remains authoritative. No historical market discovery or settlement is performed.
+///
+/// # Errors
+///
+/// Incomplete pages, invalid market identities and collection timeout fail rather than shrink scope.
+pub async fn reconciliation_market_ids(
+    config: &crate::config::PredictExecutionClientConfig,
+) -> anyhow::Result<Vec<u64>> {
+    tokio::time::timeout(
+        std::time::Duration::from_secs(config.request_timeout_secs),
+        async {
+            config.session.ensure_account_identity().await?;
+            let orders = config
+                .session
+                .collect_open_orders(config.report_page_size, config.max_report_pages, || {
+                    if let Some(probe) = &config.latency {
+                        probe.count(crate::latency::LatencyCounter::OpenPageRequests);
+                    }
+                })
+                .await?;
+            let positions = config
+                .session
+                .collect_positions(None, config.report_page_size, config.max_report_pages)
+                .await?;
+            let positions = active_holdings(
+                config,
+                positions,
+                &HashMap::new(),
+                nautilus_core::time::get_atomic_clock_realtime().get_time_ns(),
+            )
+            .await?;
+            let mut ids = std::collections::BTreeSet::new();
+            for order in orders {
+                anyhow::ensure!(
+                    order.status == crate::http::account_models::PredictOrderStatus::Open,
+                    "Predict startup OPEN query returned a terminal order"
+                );
+                anyhow::ensure!(
+                    order.market_id > 0 && order.market_id <= i64::MAX as u64,
+                    "Predict startup order market identity is invalid"
+                );
+                ids.insert(order.market_id);
+            }
+            for position in positions {
+                ids.insert(position.market.id);
+            }
+            Ok(ids.into_iter().collect())
+        },
+    )
+    .await
+    .context("Predict startup account scope timed out")?
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::{Value, json};
@@ -194,7 +305,7 @@ mod tests {
     #[test]
     fn actual_closed_cycles_do_not_become_current_inventory_or_new_strategy_orders() {
         let source: Value = serde_json::from_str(include_str!(
-            "../../tests/fixtures/private_api/live_fill_20261016T123240Z_independent/calibration.json"
+            "../../../tests/fixtures/private_api/live_fill_20261016T123240Z_independent/calibration.json"
         )).unwrap();
         let rows = source["after"]["matches"].as_array().unwrap();
         let current_buy = source["wallet"]["events"]

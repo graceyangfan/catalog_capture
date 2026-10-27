@@ -1,46 +1,43 @@
 # Architecture
 
-## Product boundary
-
-Write-focused capture service:
-
-- ingress via Nautilus Trader venue adapters (`../nautilus_trader_quantity_commission`)
-- one product binary: `catalog-capture-cli`
-- declarative TOML plans
-- output: **Rust-canonical** `ParquetDataCatalog` layout only
-
-The Predict adapter also provides an opt-in execution host for Rust strategies.
-Capture remains a separate actor. Dependencies use the pinned project fork;
-see [installation](../getting_started/installation.md) and the
-[execution contract](../predict-execution-adapter-design.md).
-
-## Principles
-
-1. Capture policy lives here; reuse Nautilus models and catalog primitives.
-2. Dedicated capture actor — not strategy-owned recording.
-3. Hot path: filter, partition, batch.
-4. Libraries are `rlib` only; one product binary.
-5. Subscribe vs request custom data stay separate in config.
-
-## Runtime
+## Data flow
 
 ```text
-TOML → catalog-capture-cli
-    → LiveNode + CatalogCaptureActor
-    → catalog-capture-core sink
-    → {catalog_uri}/data/...
+TOML → catalog-capture-cli → LiveNode + CatalogCaptureActor
+                                  ↑                 ↓
+                         venue data adapters   catalog-capture-core
+                                                    ↓
+                                       ParquetDataCatalog + run metadata
 ```
 
-## Layers
+The CLI composes one product binary. Its optional `predict-node` command hosts
+Rust strategies separately from the capture actor. Both use the pinned Nautilus
+fork; see [installation](../getting_started/installation.md) and the
+[Predict execution contract](../predict-execution-adapter-design.md).
 
-| Crate | Role |
-|-------|------|
-| `catalog-capture-core` | Plan, buffers, flush, Parquet write, `capture_run` metadata |
-| `catalog-capture-runtime-adapter` | Live actor, universe hooks, request polling, venue wiring |
-| `catalog-capture-cli` | Config load/validate, credentials, runner, metrics HTTP |
+## Ownership
 
-## Out of scope
+| Component | Owns | Does not own |
+| --- | --- | --- |
+| Venue adapters (`nautilus-predict`, `nautilus-extended`, `nautilus-lighter-ext`, upstream adapters) | Venue transport, wire models, instrument conversion and exchange commands/events | Capture files, strategy decisions or a second Native order ledger |
+| `catalog-capture-core` | Capture plans, pure universe-selection rules, buffering, partitioning, flushing and catalog metadata | Venue transport or adapter model aliases |
+| `catalog-capture-runtime-adapter` | Nautilus data actor, subscriptions, polling and dynamic universe changes | Parquet encoding or exchange protocol |
+| `catalog-capture-cli` | Configuration, credentials, node assembly and operator commands | Duplicate capture or venue state |
+| Nautilus Engine, Cache, Portfolio and RiskEngine | Order lifecycle, positions, account state and risk decisions | Venue-specific signing and transport |
 
-- Offline ML features on the hot path
-- Query engine / multi-tenant platform
-- Extra product binaries for demos
+The runtime actor consumes Nautilus events and passes capture items to the core
+sink. Strategies receive execution events through Native; the capture actor is
+not in their order path. Subscribe and request custom data remain separate
+because they are distinct Native commands.
+
+The core plan currently recognizes the `PredictCryptoUpDown` custom-data name
+to budget instrument definitions for a rolling market with no static instrument
+ID. This is a plan-specific exception; it does not justify importing Predict
+transport or model aliases into the capture core.
+
+## Simplification rule
+
+Remove pass-through APIs and duplicate state before adding another layer. Keep
+wire facts in the venue adapter, capture policy in the actor/core boundary, and
+order/position authority in Native. The hot capture path filters, partitions and
+batches; asynchronous discovery and exchange queries stay outside it.

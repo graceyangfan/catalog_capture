@@ -19,6 +19,8 @@ pub mod account_models;
 #[cfg(feature = "live")]
 pub mod client;
 #[cfg(feature = "execution")]
+mod collect;
+#[cfg(feature = "execution")]
 pub mod command_models;
 #[cfg(feature = "execution")]
 pub mod error;

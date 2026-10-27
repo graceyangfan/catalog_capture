@@ -16,39 +16,39 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use alloy::primitives::{Address, B256, U256};
+use alloy::primitives::{B256, U256};
+use anyhow::Context;
 use nautilus_common::{clients::ExecutionReportTask, messages::execution::GenerateFillReports};
 use nautilus_core::{UnixNanos, time::AtomicTime};
 use nautilus_live::ExecutionClientCore;
 use nautilus_model::{
     accounts::AccountAny,
     enums::{LiquiditySide, OrderSide},
-    identifiers::{AccountId, InstrumentId, TradeId, VenueOrderId},
+    identifiers::{InstrumentId, TradeId, VenueOrderId},
     instruments::{Instrument, InstrumentAny},
-    orders::{Order, OrderAny},
+    orders::Order,
     reports::FillReport,
     types::Currency,
 };
 
-use super::{
-    parse::{execution_price, market_id_from_instrument, settlement_trade_id},
-    precision::{BufferedFill, RawFillFacts, SharedFillEvidence},
-};
+use crate::execution::{context, fills, parse, reports};
 use crate::{
     common::{instrument_id_from_outcome, parse::exact_wei},
     config::{PredictAccountStateMode, PredictExecutionClientConfig},
-    http::{
-        account_models::{PredictFeeType, PredictMatchData, PredictQuoteType},
-        query::PredictMatchesQuery,
+    execution::{
+        context::ReportContext,
+        fills::{BufferedFill, RawFillFacts, SharedFillEvidence},
+        parse::{execution_price, market_id_from_instrument, settlement_trade_id},
     },
+    http::account_models::{PredictFeeType, PredictMatchData},
 };
 
-pub(super) fn fill_report_task(
+pub(in crate::execution) fn fill_report_task(
     config: PredictExecutionClientConfig,
     core: ExecutionClientCore,
     clock: &'static AtomicTime,
     evidence: SharedFillEvidence,
-    observed_orders: super::types::OrderSnapshots<nautilus_model::identifiers::ClientOrderId>,
+    observed_orders: context::OrderSnapshots<nautilus_model::identifiers::ClientOrderId>,
     cmd: &GenerateFillReports,
 ) -> ExecutionReportTask<Vec<FillReport>> {
     let cmd = cmd.clone();
@@ -116,14 +116,28 @@ pub(super) fn fill_report_task(
                 .map(market_id_from_instrument)
                 .transpose()?;
             let rows = tokio::time::timeout(
-                std::time::Duration::from_secs(config.report_timeout_secs),
+                std::time::Duration::from_secs(config.request_timeout_secs),
                 async {
                     config.session.ensure_account_identity().await?;
                     if !inventory_recovery {
-                        return collect_matches(&config, market_id).await;
+                        return config
+                            .session
+                            .collect_matches(
+                                market_id,
+                                config.report_page_size,
+                                config.max_report_pages,
+                            )
+                            .await;
                     }
-                    let holdings = super::reports::collect_positions(&config, market_id).await?;
-                    let holdings = super::reports::active_holdings(
+                    let holdings = config
+                        .session
+                        .collect_positions(
+                            market_id,
+                            config.report_page_size,
+                            config.max_report_pages,
+                        )
+                        .await?;
+                    let holdings = reports::scope::active_holdings(
                         &config,
                         holdings,
                         &expirations,
@@ -139,11 +153,19 @@ pub(super) fn fill_report_task(
                     markets.extend(holdings.iter().map(|holding| holding.market.id));
                     let mut rows = Vec::new();
                     for market in markets {
-                        rows.extend(collect_matches(&config, Some(market)).await?);
+                        rows.extend(
+                            config
+                                .session
+                                .collect_matches(
+                                    Some(market),
+                                    config.report_page_size,
+                                    config.max_report_pages,
+                                )
+                                .await?,
+                        );
                     }
-                    let selected = super::inventory_scope::required_orders(
-                        &rows, &holdings, wallet, &known, false,
-                    )?;
+                    let selected =
+                        reports::scope::required_orders(&rows, &holdings, wallet, &known, false)?;
                     rows.retain(|row| {
                         std::iter::once(&row.taker)
                             .chain(row.makers.iter())
@@ -156,7 +178,7 @@ pub(super) fn fill_report_task(
                 },
             )
             .await
-            .map_err(|_| anyhow::anyhow!("Predict match history collection timed out"))??;
+            .context("Predict match history collection timed out")??;
             Ok((rows, clock.get_time_ns()))
         },
         move |(rows, ts_init)| {
@@ -196,7 +218,7 @@ pub(super) fn fill_report_task(
                         && let Some(order) = cache.order(client_id)
                         && order.account_id() == Some(core.account_id)
                     {
-                        entry.insert(super::context::WorkerOrder::snapshot(
+                        entry.insert(context::WorkerOrder::snapshot(
                             &order,
                             observed.get(client_id),
                         ));
@@ -204,7 +226,7 @@ pub(super) fn fill_report_task(
                 }
             }
             drop(observed);
-            let context = MatchContext {
+            let context = ReportContext {
                 account_id: core.account_id,
                 wallet,
                 shares_allowed: reported && cache.account(&core.account_id).is_some_and(|account| {
@@ -214,7 +236,7 @@ pub(super) fn fill_report_task(
                 orders,
             };
             Ok(
-                parse_match_reports(rows, ts_init, &context, &scope, &evidence)?
+                commit_match_reports(rows, ts_init, &context, &scope, &evidence)?
                     .into_iter()
                     .map(|f| f.report)
                     .collect(),
@@ -233,7 +255,7 @@ fn integer_wei(value: &str) -> anyhow::Result<U256> {
         .map_err(|_| anyhow::anyhow!("Predict match amount/price exceeds U256"))
 }
 
-pub(super) fn match_timestamp(value: &str) -> anyhow::Result<UnixNanos> {
+pub(in crate::execution) fn match_timestamp(value: &str) -> anyhow::Result<UnixNanos> {
     let nanos = chrono::DateTime::parse_from_rfc3339(value)?
         .timestamp_nanos_opt()
         .filter(|value| *value >= 0)
@@ -241,58 +263,10 @@ pub(super) fn match_timestamp(value: &str) -> anyhow::Result<UnixNanos> {
     Ok(UnixNanos::from(nanos as u64))
 }
 
-// The enclosing report/recovery operation validates session identity once before collection.
-pub(super) async fn collect_matches(
-    config: &PredictExecutionClientConfig,
-    market_id: Option<u64>,
-) -> anyhow::Result<Vec<PredictMatchData>> {
-    let mut rows = Vec::new();
-    let mut after = None;
-    let mut seen = HashSet::new();
-    for _ in 0..config.max_report_pages {
-        let page = config
-            .session
-            .request_matches(&PredictMatchesQuery {
-                first: Some(config.report_page_size),
-                after: after.as_deref(),
-                market_id,
-                ..Default::default()
-            })
-            .await?;
-        anyhow::ensure!(
-            page.data
-                .iter()
-                .all(|row| market_id.is_none_or(|id| row.market.id == id)),
-            "Predict match response differs from requested market"
-        );
-        rows.extend(page.data);
-        match page.cursor {
-            None => return Ok(rows),
-            Some(cursor) => {
-                anyhow::ensure!(
-                    seen.insert(cursor.clone()),
-                    "Predict match pagination repeated a cursor"
-                );
-                after = Some(cursor);
-            }
-        }
-    }
-    anyhow::bail!("Predict match pagination exceeded its configured page bound")
-}
-
-/// Immutable native context; no worker may mutate Cache or adopt an arbitrary venue order.
-pub(super) struct MatchContext<O = OrderAny> {
-    pub account_id: AccountId,
-    pub wallet: Address,
-    pub shares_allowed: bool,
-    pub instruments: HashMap<InstrumentId, InstrumentAny>,
-    pub orders: HashMap<VenueOrderId, O>,
-}
-
-pub(super) fn parse_match_reports<O: super::context::OrderView>(
+pub(in crate::execution) fn commit_match_reports<O: context::OrderView>(
     rows: Vec<PredictMatchData>,
     ts_init: UnixNanos,
-    context: &MatchContext<O>,
+    context: &ReportContext<O>,
     scope: &GenerateFillReports,
     evidence: &SharedFillEvidence,
 ) -> anyhow::Result<Vec<BufferedFill>> {
@@ -309,12 +283,12 @@ pub(super) fn parse_match_reports<O: super::context::OrderView>(
 /// Validate and normalize without committing. Target/bulk report finalizers first
 /// validate status, then publish/commit; no clone of the account's evidence is needed.
 /// Time filtering belongs after commit so raw cumulative prefixes remain complete.
-pub(super) fn prepare_match_reports<O: super::context::OrderView>(
+pub(in crate::execution) fn prepare_match_reports<O: context::OrderView>(
     rows: Vec<PredictMatchData>,
     ts_init: UnixNanos,
-    context: &MatchContext<O>,
+    context: &ReportContext<O>,
     scope: &GenerateFillReports,
-    evidence: &super::precision::FillEvidence,
+    evidence: &fills::FillEvidence,
     cached_only: bool,
 ) -> anyhow::Result<Vec<BufferedFill>> {
     let accept = |id| !cached_only || context.orders.contains_key(&id);
@@ -392,17 +366,14 @@ pub(super) fn prepare_match_reports<O: super::context::OrderView>(
                 !amount.is_zero() && last_px.as_decimal() > rust_decimal::Decimal::ZERO,
                 "Predict match size or price is zero"
             );
-            let side = match leg.quote_type {
-                PredictQuoteType::Bid => OrderSide::Buy,
-                PredictQuoteType::Ask => OrderSide::Sell,
-            };
+            let side = OrderSide::from(leg.quote_type);
             if let Some(previous) = identities.insert(venue_id, (id, side)) {
                 anyhow::ensure!(
                     previous == (id, side),
                     "Predict order hash has contradictory instrument or side identities"
                 );
             }
-            let commission = super::parse::fill_commission(
+            let commission = parse::fill_commission(
                 leg.fee.amount,
                 leg.fee.fee_type,
                 amount,

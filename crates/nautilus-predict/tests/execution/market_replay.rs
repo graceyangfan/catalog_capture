@@ -328,7 +328,7 @@ async fn run_case_with_sizing(
                 wallet["timestamp"] =
                     json!(get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000);
             }
-            let mut row = matches::match_row(outcome);
+            let mut row = super::matches::match_row(outcome);
             row["taker"]["price"] = json!("10000000000000000");
             row["taker"]["amount"] = wallet["fill"]["executedSizeWei"].clone();
             row["taker"]["fee"] = json!({"type":"SHARES","amount":wallet["fee"]["amountWei"]});
@@ -544,7 +544,7 @@ async fn replay_exit(
         wallet = saved;
         wallet["timestamp"] = json!(get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000);
     }
-    let mut row = matches::match_row(outcome);
+    let mut row = super::matches::match_row(outcome);
     row["taker"]["hash"] = json!(hash);
     row["taker"]["quoteType"] = json!("Ask");
     row["taker"]["amount"] = wallet["fill"]["executedSizeWei"].clone();

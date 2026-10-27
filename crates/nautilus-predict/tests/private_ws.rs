@@ -313,6 +313,28 @@ fn settlement(kind: &str) -> Value {
     event
 }
 
+#[test]
+fn http_and_wallet_quote_sides_share_semantics_but_keep_strict_wire_spelling() {
+    use nautilus_model::enums::OrderSide;
+    use nautilus_predict::{
+        common::enums::PredictQuoteType, websocket::private_messages::PredictWalletEvent,
+    };
+    for (http, wallet, side) in [
+        ("Ask", "ASK", OrderSide::Sell),
+        ("Bid", "BID", OrderSide::Buy),
+    ] {
+        let http_quote: PredictQuoteType = serde_json::from_value(json!(http)).unwrap();
+        let mut wire = event("orderAccepted");
+        wire["details"]["quoteType"] = json!(wallet);
+        let parsed: PredictWalletEvent = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(parsed.order.details.quote_type, http_quote);
+        assert_eq!(OrderSide::from(http_quote), side);
+        wire["details"]["quoteType"] = json!(http);
+        assert!(serde_json::from_value::<PredictWalletEvent>(wire).is_err());
+        assert!(serde_json::from_value::<PredictQuoteType>(json!(wallet)).is_err());
+    }
+}
+
 #[tokio::test]
 async fn subscription_requires_matching_ack_and_retains_events_arriving_before_ack() {
     for backend in [TransportBackend::Tungstenite, TransportBackend::Sockudo] {
@@ -348,8 +370,7 @@ async fn subscription_requires_matching_ack_and_retains_events_arriving_before_a
         assert!(matches!(
             next(&mut client).await,
             PredictWalletStreamMessage::Subscribed {
-                connection_epoch: 0,
-                reconciliation_required: true
+                connection_epoch: 0
             }
         ));
         let PredictWalletStreamMessage::Wallet { event, .. } = next(&mut client).await else {
@@ -484,8 +505,7 @@ async fn reconnect_invalidates_ack_and_requires_fresh_subscription_and_reconcili
     assert!(matches!(
         next(&mut client).await,
         PredictWalletStreamMessage::Subscribed {
-            connection_epoch: 1,
-            reconciliation_required: true
+            connection_epoch: 1
         }
     ));
     second.wallet(event("orderAccepted"));
@@ -537,7 +557,6 @@ async fn repeated_reconnects_deliver_each_epoch_once_and_close_the_session() {
                 next(&mut client).await,
                 PredictWalletStreamMessage::Subscribed {
                     connection_epoch,
-                    reconciliation_required: true,
                 } if connection_epoch == epoch
             ));
             connection.wallet(event("orderAccepted"));
@@ -931,7 +950,7 @@ async fn actual_market_plan_and_success_replay_keep_wallet_stream_alive() {
 
 #[tokio::test]
 async fn jwt_rotation_replaces_native_connection_and_requires_new_topic_ack() {
-    use nautilus_predict::signing::{PredictAuthSigner, PredictChain};
+    use nautilus_predict::signing::PredictAuthSigner;
     for backend in [TransportBackend::Tungstenite, TransportBackend::Sockudo] {
         let mut server = server().await;
         let transport = PredictPrivateHttpClient::new(PredictPrivateClientConfig {
@@ -971,7 +990,7 @@ async fn jwt_rotation_replaces_native_connection_and_requires_new_topic_ack() {
         assert_eq!(barrier["data"], "rotation-barrier");
         let signer = PredictAuthSigner::new(
             "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80".into(),
-            PredictChain::BnbMainnet,
+            PredictEnvironment::BnbMainnet,
             Some(WALLET),
         )
         .unwrap();
@@ -1002,8 +1021,7 @@ async fn jwt_rotation_replaces_native_connection_and_requires_new_topic_ack() {
         assert!(matches!(
             next(&mut client).await,
             PredictWalletStreamMessage::Subscribed {
-                connection_epoch: 1,
-                reconciliation_required: true
+                connection_epoch: 1
             }
         ));
         second.json(json!({"type":"M","topic":replay["params"][0],"data":event("orderAccepted")}));
@@ -1037,7 +1055,7 @@ async fn execution_lifecycle_renews_readonly_authentication_and_cancels_its_work
     use nautilus_predict::{
         config::{PredictAccountStateMode, PredictExecutionClientConfig},
         execution::PredictExecutionClient,
-        signing::{PredictAuthSigner, PredictChain},
+        signing::PredictAuthSigner,
     };
     let mut server = server().await;
     let gate = Arc::new(AuthGate {
@@ -1101,7 +1119,7 @@ async fn execution_lifecycle_renews_readonly_authentication_and_cancels_its_work
     cfg.auth_signer = Some(Arc::new(
         PredictAuthSigner::new(
             "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80".into(),
-            PredictChain::BnbMainnet,
+            PredictEnvironment::BnbMainnet,
             Some(WALLET),
         )
         .unwrap(),
@@ -1124,6 +1142,14 @@ async fn execution_lifecycle_renews_readonly_authentication_and_cancels_its_work
         client.is_connected(),
         "pending HTTP renewal must not invalidate the old acknowledged wallet"
     );
+    timeout(Duration::from_secs(5), async {
+        while client.is_connected() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("expiry must retire the old ACK even while HTTP renewal is stalled");
+    assert_eq!(server.handshakes.lock().unwrap().len(), 1);
     gate.release.notify_one();
     let second = server.connection().await;
     let (_, replacement) = server.request().await;

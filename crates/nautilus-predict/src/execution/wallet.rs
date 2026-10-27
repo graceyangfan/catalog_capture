@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Wallet feedback for known orders. Native owns transitions and strategy delivery.
+//! Primary wallet fact consumption; Native applies order and fill transitions.
 
 use std::sync::{
     Arc,
@@ -32,9 +32,10 @@ use nautilus_model::{
 };
 use tokio_util::sync::CancellationToken;
 
-use super::context::OrderView;
+use crate::execution::{account, context, fills, metadata, observations, orders, parse};
 use crate::{
     common::instrument_id_from_outcome,
+    execution::context::OrderView,
     websocket::{
         PredictWalletWebSocketClient,
         private_messages::{
@@ -52,14 +53,15 @@ impl Drop for HealthGuard {
 }
 
 pub(super) struct WalletReportContext {
+    pub metadata_notify: Arc<tokio::sync::Notify>,
     pub data_sender:
         Option<nautilus_common::live::sender::EventSender<nautilus_common::messages::DataEvent>>,
-    pub instruments: Arc<AtomicMap<InstrumentId, super::types::ExecutionInstrument>>,
-    pub orders: super::types::OrderSnapshots<VenueOrderId>,
-    pub pending: super::orders::PendingSubmissions,
-    pub rest_ids: super::routing::RestOrderIds,
-    pub sync: Arc<super::account::AccountSync>,
-    pub fill_evidence: super::precision::SharedFillEvidence,
+    pub instruments: Arc<AtomicMap<InstrumentId, metadata::ExecutionInstrument>>,
+    pub orders: context::OrderSnapshots<VenueOrderId>,
+    pub pending: orders::PendingSubmissions,
+    pub rest_ids: orders::RestOrderIds,
+    pub sync: Arc<account::AccountSync>,
+    pub fill_evidence: fills::SharedFillEvidence,
     pub account_refresh_required: Arc<AtomicBool>,
     pub allow_share_fees: bool,
     pub emitter: ExecutionEventEmitter,
@@ -134,14 +136,14 @@ impl WalletReportContext {
                 )
             })
             .unwrap_or((None, false));
-        let Some(report) = super::parse::parse_wallet_report_with_registration(
+        let Some(report) = parse::parse_wallet_report_with_registration(
             event,
             &order,
             instrument,
             *account,
             *wallet,
             clock.get_time_ns(),
-            super::parse::WalletReportEvidence {
+            parse::WalletReportEvidence {
                 venue_id: id,
                 instrument_id,
                 confirmed_qty: confirmed,
@@ -166,9 +168,9 @@ impl WalletReportContext {
             )?;
             return Ok(());
         };
-        super::routing::observe(rest_ids, id, &event.order.order_id);
+        orders::observe(rest_ids, id, &event.order.order_id);
         if let ExecutionReport::Fill(native) = report {
-            let mut fill = super::precision::BufferedFill::from_wallet(*native, event)?;
+            let mut fill = fills::BufferedFill::from_wallet(*native, event)?;
             evidence
                 .notifications
                 .validate_success(event, fill.report.trade_id, id)?;
@@ -222,7 +224,7 @@ impl WalletReportContext {
     fn matching(
         &self,
         event: &crate::websocket::private_messages::PredictWalletEvent,
-        order: &super::context::WorkerOrder,
+        order: &context::WorkerOrder,
         id: VenueOrderId,
         epoch: u64,
         received: Option<std::time::Instant>,
@@ -235,7 +237,7 @@ impl WalletReportContext {
                 PredictWalletRejectionReason::RejectedPostOnly => "rejectedPostOnly",
                 PredictWalletRejectionReason::Unknown => "unknown",
             };
-            let update = super::rejection::PredictOrderRejectionUpdate {
+            let update = observations::PredictOrderNotAcceptedUpdate {
                 account_id: self.account,
                 strategy_id: order.strategy_id(),
                 instrument_id: order.instrument_id(),
@@ -245,7 +247,6 @@ impl WalletReportContext {
                 reported_quantity_filled: event.order.details.quantity_filled.to_string(),
                 native_filled_quantity: order.filled_qty().as_decimal().to_string(),
                 native_status: order.status(),
-                requires_reconciliation: !order.is_closed(),
                 connection_epoch: epoch,
                 ts_event: event.order.timestamp_ns()?,
                 ts_init: self.clock.get_time_ns(),
@@ -260,10 +261,9 @@ impl WalletReportContext {
                 log::warn!("Predict order rejection metadata channel closed");
             }
             if !order.is_closed() {
-                self.sync
-                    .state
+                self.pending
                     .lock()
-                    .expect("account sync poisoned")
+                    .expect("order requests poisoned")
                     .order_status_requests
                     .insert(order.client_order_id());
                 log::warn!(
@@ -279,7 +279,7 @@ impl WalletReportContext {
             PredictWalletEventKind::OrderTransactionSubmitted { .. }
                 | PredictWalletEventKind::OrderTransactionFailed { .. }
         ) {
-            super::routing::observe(&self.rest_ids, id, &event.order.order_id);
+            orders::observe(&self.rest_ids, id, &event.order.order_id);
         }
         if matches!(
             event.kind,
@@ -301,7 +301,7 @@ impl WalletReportContext {
     fn lifecycle(
         &self,
         report: ExecutionReport,
-        order: &super::context::WorkerOrder,
+        order: &context::WorkerOrder,
         received: Option<std::time::Instant>,
     ) -> anyhow::Result<()> {
         let accepted = if let ExecutionReport::Order(status) = &report {
@@ -321,7 +321,7 @@ impl WalletReportContext {
     fn settlement(
         &self,
         event: &crate::websocket::private_messages::PredictWalletEvent,
-        order: &super::context::WorkerOrder,
+        order: &context::WorkerOrder,
         epoch: u64,
         received: Option<std::time::Instant>,
     ) -> anyhow::Result<()> {
@@ -358,7 +358,7 @@ impl WalletReportContext {
 
     fn send_acceptance(
         &self,
-        order: &super::context::WorkerOrder,
+        order: &context::WorkerOrder,
         id: VenueOrderId,
         event_time: nautilus_core::UnixNanos,
         queued: bool,
@@ -384,7 +384,7 @@ impl WalletReportContext {
     fn send_lifecycle(
         &self,
         report: ExecutionReport,
-        order: &super::context::WorkerOrder,
+        order: &context::WorkerOrder,
         acceptance_queued: bool,
         received: Option<std::time::Instant>,
     ) -> anyhow::Result<()> {
@@ -396,7 +396,7 @@ impl WalletReportContext {
             return Ok(());
         }
         // Bind a missing venue hash, or supply acceptance required before Expired.
-        // Reuse the existing queued proof; Canceled with a known hash needs no bootstrap.
+        // A queued Canceled proof with a known hash needs no bootstrap.
         if (status.order_status == OrderStatus::Expired
             || status.order_status == OrderStatus::Canceled && order.venue_order_id().is_none())
             && order.ts_accepted().is_none()
@@ -494,8 +494,8 @@ impl WalletReportContext {
         &self,
         id: VenueOrderId,
     ) -> anyhow::Result<(
-        Arc<super::context::WorkerOrder>,
-        std::sync::MutexGuard<'_, super::precision::FillEvidence>,
+        Arc<context::WorkerOrder>,
+        std::sync::MutexGuard<'_, fills::FillEvidence>,
     )> {
         // Sample the view and pending facts under the observer's publication lock.
         // Release that global lock before parsing/normalization. Keep the evidence
@@ -527,7 +527,7 @@ pub(super) async fn run_wallet(
     let _health = HealthGuard(Arc::clone(&healthy));
     let result = tokio::select! {
         biased;
-        _ = cancellation.cancelled() => Ok(()),
+        () = cancellation.cancelled() => Ok(()),
         result = consume(&mut ws, &context) => result,
     };
     healthy.store(false, Ordering::Release);
@@ -553,12 +553,12 @@ async fn consume(
         match message {
             PredictWalletStreamMessage::Subscribed {
                 connection_epoch: 0,
-                ..
             } => {}
             PredictWalletStreamMessage::Subscribed { .. } => {
                 context
                     .account_refresh_required
                     .store(true, Ordering::Release);
+                context.metadata_notify.notify_one();
                 log::info!("Predict wallet resubscribed; requesting account refresh");
             }
             PredictWalletStreamMessage::Wallet {
@@ -571,7 +571,6 @@ async fn consume(
                     // Missing external context and contradictory evidence request a refresh,
                     // but never kill the consumer needed to reconcile subsequent own events.
                     let mut state = context.sync.state.lock().expect("account sync poisoned");
-                    state.revision = state.revision.wrapping_add(1);
                     state.resource_revision = state.resource_revision.wrapping_add(1);
                     context
                         .account_refresh_required

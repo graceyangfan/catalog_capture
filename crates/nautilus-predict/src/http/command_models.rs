@@ -72,6 +72,7 @@ impl<'a> PredictCreateOrderRequest<'a> {
     /// Constructs an exact LIMIT request without changing any signed amount.
     ///
     /// # Errors
+    ///
     /// Zero amounts, prices outside (0, 1], inexact signed price/quantity and overflow are rejected.
     pub fn limit(
         signed: &'a PredictSignedOrder,
@@ -91,6 +92,7 @@ impl<'a> PredictCreateOrderRequest<'a> {
     /// Constructs a LIMIT envelope with explicit STP without changing signed economics.
     ///
     /// # Errors
+    ///
     /// The same exact price/amount constraints as `limit` apply.
     pub fn limit_with_options(
         signed: &'a PredictSignedOrder,
@@ -138,6 +140,7 @@ impl<'a> PredictCreateOrderRequest<'a> {
     /// slippage. The signing primitive does not establish inventory, balance or exit readiness.
     ///
     /// # Errors
+    ///
     /// Signed side/amounts differing from prepared SDK terms, invalid average prices or
     /// unsupported expiration are rejected without changing the signed payload.
     pub fn market(
@@ -190,6 +193,7 @@ impl<'a> PredictCreateOrderRequest<'a> {
     /// A request or receipt alone does not establish all-or-none execution.
     ///
     /// # Errors
+    ///
     /// Invalid MARKET metadata is rejected before transmission.
     pub fn market_fok(
         signed: &'a PredictSignedOrder,
@@ -217,6 +221,7 @@ impl PredictCreateOrderReceipt {
     /// Returns the venue lock deadline. None means unknown, not immediately removable.
     ///
     /// # Errors
+    ///
     /// Malformed, negative or nanosecond-unrepresentable RFC3339 timestamps fail closed.
     pub fn removal_lock_deadline(&self) -> Result<Option<nautilus_core::UnixNanos>> {
         self.removal_locked_until

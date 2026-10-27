@@ -87,7 +87,7 @@ async fn rest_report(
     client: &PredictExecutionClient,
     raw_gross: &str,
 ) -> FillReport {
-    let mut row = matches::match_row(1);
+    let mut row = super::matches::match_row(1);
     row["settlementId"] = json!("ingress-shared");
     row["taker"]["amount"] = json!(raw_gross);
     row["taker"]["fee"] = json!({"type":"SHARES","amount":"340000000000000001"});
@@ -139,7 +139,7 @@ async fn wallet_and_rest_permutations_apply_one_fill_and_publish_one_net_positio
                     .add_venue_order_id(&original.client_order_id(), &HASH.into(), false)
                     .unwrap();
                 connect_reported(&mut client, &mut rx).await;
-                let mut engine = cancellations::engine(&cache);
+                let mut engine = super::cancellations::engine(&cache);
                 let observed = Rc::new(RefCell::new(Vec::new()));
                 let handler = TypedHandler::from({
                     let observed = observed.clone();
@@ -293,7 +293,7 @@ async fn equal_timestamp_executions_keep_distinct_settlement_and_strategy_owners
             orders.push((order, hash));
         }
         connect_reported(&mut client, &mut rx).await;
-        let mut engine = cancellations::engine(&cache);
+        let mut engine = super::cancellations::engine(&cache);
         let first = wallet("same-settlement", &orders[0].1, fee);
         let other = wallet("same-settlement", &orders[1].1, fee);
         let mut later = wallet("different-settlement", &orders[0].1, fee);

@@ -60,7 +60,7 @@ async fn run(case: &str) -> Value {
         PredictEnvironment::BnbMainnet,
         format!("{}/rpc", private.http).into(),
     ));
-    cfg.report_timeout_secs = 3;
+    cfg.request_timeout_secs = 3;
     cfg.submission_signer = Some(Arc::new(
         nautilus_predict::signing::PredictAuthSigner::new(
             submissions::PUBLIC_KEY.into(),

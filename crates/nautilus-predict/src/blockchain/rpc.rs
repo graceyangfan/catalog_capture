@@ -119,7 +119,7 @@ impl PredictChainClient {
                     current.hash == block.hash && quantity(&current.number)? == block_number,
                     PredictBlockChanged
                 );
-                let allowances = ALL_EXCHANGES.map(|kind| {
+                let allowances = PredictExchangeType::ALL.map(|kind| {
                     (
                         kind,
                         if kind == exchange {
@@ -244,7 +244,7 @@ impl PredictChainClient {
         account: Address,
         clock: &'static AtomicTime,
     ) -> anyhow::Result<PredictCollateralSnapshot> {
-        self.collect(account, clock, &ALL_EXCHANGES, true)
+        self.collect(account, clock, &PredictExchangeType::ALL, true)
             .await
             .map(|(snapshot, _)| snapshot)
     }
@@ -275,40 +275,24 @@ impl PredictChainClient {
     }
 
     // Signing inputs have a contract/account lifetime, independent of OPEN and cash reports.
-    // Read only missing entries; a failed contract read must not discard other entries.
-    pub(crate) async fn request_signing_nonces(
+    // Each missing contract has its own deadline and canonical-block verification.
+    pub(crate) async fn request_signing_nonce(
         &self,
         account: Address,
-        missing: [bool; 4],
-    ) -> anyhow::Result<[Option<U256>; 4]> {
+        exchange: PredictExchangeType,
+    ) -> anyhow::Result<U256> {
         anyhow::ensure!(!account.is_zero(), "Predict nonce account cannot be zero");
         tokio::time::timeout(
             std::time::Duration::from_secs(self.config.timeout_secs),
             async {
                 let block = self.read_block().await?;
-                let values =
-                    futures_util::future::join_all(ALL_EXCHANGES.map(|exchange| async move {
-                        if !missing[exchange.cache_index()] {
-                            return None;
-                        }
-                        match self
-                            .call(
-                                exchange.contract(self.environment()),
-                                noncesCall { owner: account },
-                                block.hash,
-                            )
-                            .await
-                        {
-                            Ok(value) => Some(value),
-                            Err(error) => {
-                                log::warn!(
-                                    "Predict signing nonce read failed for {exchange:?}: {error}"
-                                );
-                                None
-                            }
-                        }
-                    }))
-                    .await;
+                let nonce = self
+                    .call(
+                        exchange.contract(self.environment()),
+                        noncesCall { owner: account },
+                        block.hash,
+                    )
+                    .await?;
                 let current: Block = self
                     .request("eth_getBlockByNumber", json!([block.number, false]))
                     .await?;
@@ -316,7 +300,7 @@ impl PredictChainClient {
                     current.hash == block.hash && current.number == block.number,
                     PredictBlockChanged
                 );
-                Ok([values[0], values[1], values[2], values[3]])
+                Ok(nonce)
             },
         )
         .await
@@ -344,7 +328,8 @@ impl PredictChainClient {
                 let balance_wei = self
                     .call(collateral, balanceOf_0Call { owner: account }, block.hash)
                     .await?;
-                let mut allowances = ALL_EXCHANGES.map(|exchange| (exchange, U256::ZERO));
+                let mut allowances =
+                    PredictExchangeType::ALL.map(|exchange| (exchange, U256::ZERO));
                 for (exchange, value) in &mut allowances {
                     if !exchanges.contains(exchange) {
                         continue;
@@ -487,13 +472,6 @@ impl PredictChainClient {
             .map_err(|_| anyhow::anyhow!("Predict RPC result has an invalid shape"))
     }
 }
-
-const ALL_EXCHANGES: [PredictExchangeType; 4] = [
-    PredictExchangeType::Standard,
-    PredictExchangeType::NegRisk,
-    PredictExchangeType::YieldBearing,
-    PredictExchangeType::YieldBearingNegRisk,
-];
 
 fn block_timestamp(block: &Block) -> anyhow::Result<Option<nautilus_core::UnixNanos>> {
     block

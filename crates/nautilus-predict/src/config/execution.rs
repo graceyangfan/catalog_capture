@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Runtime-only configuration for incremental private execution integration.
+//! Runtime configuration for the Predict execution client.
 
 use std::sync::Arc;
 
@@ -31,8 +31,8 @@ pub enum PredictAccountStateMode {
     Disabled,
 }
 
-/// A pre-authenticated session is injected; no environment credentials are read implicitly.
-/// Strategy submission and REST removal require explicit opt-in.
+/// Execution configuration with an injected authenticated session.
+/// Submission and REST removal require explicit opt-in.
 #[derive(Clone, Debug)]
 pub struct PredictExecutionClientConfig {
     /// None disables SubmitOrder. No credentials are implicitly acquired by the client.
@@ -51,27 +51,25 @@ pub struct PredictExecutionClientConfig {
     /// Commands verify cached GTC/GTD limit orders; `BatchCancelOrders` groups eligible IDs
     /// in removal requests and resolves each result separately. No chain transactions are sent.
     pub orderbook_removal_enabled: bool,
-    /// Periodic refresh also covers deposits and withdrawals outside the wallet event stream.
-    /// Order events and connected `QueryAccount` commands wake the same refresh loop;
-    /// they do not create additional periodic timers. Missing signing nonces are prepared
-    /// independently at initialization or after nonce rejection; the same periodic cadence
-    /// retries missing entries. Ordinary order events only reproject local reservations.
+    /// Cash/OPEN refresh interval in seconds, 1..=86400; default 30.
+    /// Order events reproject local reservations. QueryAccount uses the same collector
+    /// and permits authenticated reads during a wallet gap.
     pub account_refresh_interval_secs: u64,
-    /// Account refresh cadence after wallet transport changes (default one second).
-    /// Native owns order, fill and position recovery. This timer also retires purged
-    /// worker contexts at the account-refresh cadence; it never scans historical holdings.
-    /// None requires explicit host QueryAccount after a transport change; context cleanup
-    /// then runs at instrument, report and account-query boundaries.
+    /// Maintenance interval after wallet transport changes; default one second.
+    /// Refreshes cash and retires purged contexts. Native owns order/fill/position recovery.
+    /// None requires explicit QueryAccount after a transport change; cleanup then runs
+    /// at instrument, report and account-query boundaries.
     pub reconnect_reconciliation_interval_secs: Option<u64>,
-    /// Maximum age of strict execution-market metadata in the Native instrument worker view.
-    /// Preparation runs at connection, instrument updates and before expiry, sharing YES/NO.
-    /// Valid range 1..=300 seconds. Zero is invalid. Cold/expired commands fail promptly;
-    /// only background preparation queries market metadata.
-    /// Definition changes and TTL expiry invalidate it; wallet resubscription preserves it.
+    /// Market signing-metadata TTL in seconds, 1..=300; default 30.
+    /// YES/NO share preparation at connection, definition changes and before expiry.
+    /// Cold commands fail locally and request background preparation. Wallet reconnect
+    /// preserves valid values. Contract nonces have independent, event-driven recovery.
     pub market_metadata_ttl_secs: u64,
     pub report_page_size: u32,
     pub max_report_pages: usize,
-    pub report_timeout_secs: u64,
+    /// Maximum duration of each asynchronous command, account or report request.
+    /// The timer never wraps wallet callbacks or the synchronous Native command entry point.
+    pub request_timeout_secs: u64,
 }
 
 impl PredictExecutionClientConfig {
@@ -97,7 +95,7 @@ impl PredictExecutionClientConfig {
             market_metadata_ttl_secs: 30,
             report_page_size: 100,
             max_report_pages: 100,
-            report_timeout_secs: 30,
+            request_timeout_secs: 30,
         }
     }
 
@@ -137,16 +135,19 @@ impl PredictExecutionClientConfig {
             "Predict market metadata TTL must be 1..=300 seconds; zero is unsupported"
         );
         anyhow::ensure!(
+            (1..=86_400).contains(&self.account_refresh_interval_secs),
+            "Predict account refresh interval must be 1..=86400 seconds"
+        );
+        anyhow::ensure!(
             self.reconnect_reconciliation_interval_secs
                 .is_none_or(|secs| (1..=300).contains(&secs))
-                && (1..=300).contains(&self.account_refresh_interval_secs)
                 && self.report_page_size > 0
                 && self.report_page_size <= i32::MAX as u32
                 && self.max_report_pages > 0
                 && self.max_report_pages <= 10000
-                && self.report_timeout_secs > 0
-                && self.report_timeout_secs <= 300,
-            "invalid Predict report collection bounds"
+                && self.request_timeout_secs > 0
+                && self.request_timeout_secs <= 300,
+            "invalid Predict request or report collection bounds"
         );
         Ok(())
     }

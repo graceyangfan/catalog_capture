@@ -41,6 +41,13 @@ pub enum PredictExchangeType {
 }
 
 impl PredictExchangeType {
+    pub(crate) const ALL: [Self; 4] = [
+        Self::Standard,
+        Self::NegRisk,
+        Self::YieldBearing,
+        Self::YieldBearingNegRisk,
+    ];
+
     /// Selects the exchange using the two flags returned in venue market metadata.
     #[must_use]
     pub const fn from_market_flags(is_neg_risk: bool, is_yield_bearing: bool) -> Self {

@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Nautilus data client and compatibility exports for Predict custom data.
+//! Nautilus data client and its market-data runtime.
 
 #[cfg(feature = "live")]
 mod client;
@@ -35,4 +35,3 @@ mod runtime;
 
 #[cfg(feature = "live")]
 pub use self::client::PredictDataClient;
-pub use crate::data_types::*;

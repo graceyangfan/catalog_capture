@@ -37,10 +37,9 @@ BUY 10 at 0.10 with fee 1, then BUY 10 at 0.20 without a fee produces gross VWAP
 0.15, net inventory 19, basis 2.90 and initial expense 0.10. Selling all 19 at 0.20
 produces total profit 0.80. Partial exits retain their unallocated basis.
 
-Position no longer exposes the old prototype's `quantity_commission_total` or
-`quantity_commission_cost`. Original fee-bearing fills, checked cost accounting
-and existing replay state carry the facts. Tests derive fee summaries from those
-original fills and independently compare PnL with cash plus marked inventory.
+Fee summaries derive from original fee-bearing fills. Native cost accounting
+and replay state carry the facts; tests independently compare PnL with cash plus
+marked inventory.
 
 ## Precision and supported scope
 
@@ -82,8 +81,8 @@ not establish a precision limit for actual partial settlements. The
 [wallet protocol](https://dev.predict.fun/subscription-topics-1915507m0) reports
 `executedSizeWei` separately from `fee.amountWei` and the fee asset.
 
-The previous mixed-scale failure is now a successful-ingestion regression:
-`ingestion_contract::native_order_atomic_gross_preserves_original_fill_facts`.
+`ingestion_contract::native_order_atomic_gross_preserves_original_fill_facts`
+checks mixed-scale ingestion.
 Wallet/REST permutations cover gross `17.000000000000000099` with a fee of
 `0.340000000000000001`, exact net inventory, basis, duplicate suppression and one
 position publication. JSON/event replay and Arrow position recovery retain atomic
@@ -129,8 +128,8 @@ sub-display-unit expenses and unsupported gross projection. They use loopback
 HTTP/WS/RPC and recorded economics, without funded venue orders.
 
 Run the commands in the [test guide](../../crates/nautilus-predict/tests/README.md).
-The old `edd0b0f` evidence and performance captures describe the earlier prototype;
-they are not validation of this implementation or its changed cost convention.
+Historical prototype captures retain their source revision and cost convention;
+they do not validate the current implementation.
 
 ### Terminal reconciliation
 
@@ -146,3 +145,26 @@ history never becomes a fictional fill or a different venue status. See the
 [recorded incident and replay](predict-immediate-order-validation.md#recorded-venue-observations)
 and terminal_recovery integration tests for pending-command, base/quote-sizing,
 ordering, replay and incomplete-history controls.
+
+## Framework compatibility
+
+The [dependency handoff](predict-execution-validation.md#two-repository-handoff)
+identifies the supported fork revision. Quantity commissions use existing Native
+owners and add the following contracts:
+
+| Invariant | Native integration |
+| --- | --- |
+| Gross execution and inventory fee remain independent | Optional quantity_commission on FillReport and OrderFilled; absent by default |
+| Gross progress is exact across raw scales | Checked rescaling and prevalidated order arithmetic |
+| Net inventory, cost and fee expense agree | Prepared position accounting, cost allocation and PnL remainders |
+| Replay applies facts once | Original fee facts carried through reports, events and persistence |
+| Reported venue cash remains authoritative | Calculated balances disabled; no duplicate cash deduction for a share fee |
+
+Rust struct literals must supply the optional fee field, and persisted SQL schemas
+must include its column. Rebuild incompatible prototype positions from original
+fills before enabling this contract. PostgreSQL runtime and migration behavior
+require independent validation; serialization tests alone do not establish them.
+
+Cancel/modify recovery retention is a separate fork extension. It follows Native's
+unresolved-submission retention pattern, is opt-in through ExecutionClient, and
+publishes diagnostics through MsgBus. Its semantics are independent of fee mapping.

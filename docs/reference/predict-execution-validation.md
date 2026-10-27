@@ -10,7 +10,7 @@ production latency or unattended operating duration.
 Cargo uses the sibling `nautilus_trader_quantity_commission` checkout. CI and
 bootstrap select the project fork
 [graceyangfan/nautilus_trader](https://github.com/graceyangfan/nautilus_trader)
-at [c9bbbcd8](https://github.com/graceyangfan/nautilus_trader/commit/c9bbbcd89421245fa86286caaa173c6524638461).
+at [acd6c83048](https://github.com/graceyangfan/nautilus_trader/commit/acd6c830484c91815fa3bee14ed2fc090bf8b006).
 The immutable revision contains the merged official framework, quantity
 commissions, opt-in pending-command retention and terminal quantity normalization.
 These are downstream extensions, not a claim of an unmodified official release.
@@ -21,11 +21,9 @@ Use the pinned APIs directly; no legacy fee mode or compatibility branch exists.
 | Predict retains unresolved cancel/modify commands and emits CommandRecoveryExhausted | ExecutionClient contract, live manager and node/msgbus |
 | Confirmed FILLED quantity normalization while a command is pending | Execution reconciliation and regression tests |
 
-All CI jobs use the same fork and SHA. The pre-commit and test jobs share
-dependency caches keyed by that revision; default Clippy runs once in pre-commit,
-with a separate execution-feature pass in the test job. Bootstrap checks out the
-pinned revision before building. Verify a release from clean sibling checkouts and keep the installation
-reference aligned with CI; local uncommitted changes are not a dependency version.
+CI and bootstrap use the same immutable revision. Build releases from clean sibling
+checkouts, and keep the installation reference aligned with the CI pin. Local
+uncommitted changes are not a reproducible dependency version.
 
 Native owns quantity commission, exact gross/order scale alignment, checked report
 application and portfolio accounting. See [inventory-unit commissions](quantity-commission.md).
@@ -47,6 +45,7 @@ They are specific contracts, not assertions that adapters have identical protoco
 | Native adapters/bybit and adapters/okx command parsing | Ordinary Native fields plus typed venue-specific parameters; unsupported operations fail explicitly |
 | Native common/src/cache and execution reconciliation | Retention/purge and late-fill application belong to framework lifecycle |
 | Native adapters/hyperliquid/src/signing/nonce.rs | Clock-based nonce is venue-specific; do not copy its freshness policy to Predict |
+| Native adapters/lighter/src/signing/nonce.rs and execution.rs | Sequential nonces belong to an account/API key; Predict caches contract state and does not allocate a nonce per order |
 | SDK src/OrderBuilder.ts and src/abis/CTFExchange.json | salt, expiration and nonce are separate; nonces(owner)/incrementNonce/InvalidNonce are verifying-contract facts |
 
 Predict therefore caches contract nonces without a clock TTL and invalidates only
@@ -135,7 +134,7 @@ can be indexed with --refresh; registered primary bytes cannot be replaced.
 Raw operational logs/source archives stay under ignored data/predict-validation/.
 Published summaries do not imply those archives are distributed test inputs.
 
-## Historical measurements
+## Measurement requirements
 
 Performance claims require matched executable revisions, Native dependency,
 features, logging and workload, with compilation and other tests excluded.

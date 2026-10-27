@@ -12,34 +12,19 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Native reports, reported cash, bounded commands and execution-session refresh.
+//! Live execution client for Predict commands, wallet facts and Native reports.
 
 mod account;
-mod authentication;
-mod cancellations;
 mod context;
-mod external;
-pub mod factory;
-mod inventory_scope;
+mod fills;
 mod lifecycle;
-mod matches;
+mod maintenance;
 mod metadata;
-mod order_builder;
+pub mod observations;
 mod orders;
 pub mod parse;
-mod precision;
-pub mod receipt;
-mod reconciliation;
-mod reconnect;
-mod recovery;
-pub mod rejection;
 mod reports;
-mod resources;
-mod routing;
-mod runtime;
-pub mod settlement;
-mod submitter;
-mod types;
+mod wallet;
 
 use std::sync::{
     Arc,
@@ -51,14 +36,14 @@ use nautilus_common::{
     clients::{ExecutionClient, ExecutionReportTask},
     live::runner::try_get_exec_event_sender,
     messages::execution::{
-        BatchCancelOrders, BatchModifyOrders, CancelAllOrders, CancelOrder, GenerateFillReports,
+        BatchCancelOrders, CancelAllOrders, CancelOrder, GenerateFillReports,
         GenerateOrderStatusReport, GenerateOrderStatusReports, GeneratePositionStatusReports,
         ModifyOrder, QueryAccount, QueryOrder, SubmitOrder, SubmitOrderList,
     },
     msgbus::TypedHandler,
 };
 use nautilus_core::{
-    AtomicMap, Params, UnixNanos,
+    Params, UnixNanos,
     time::{AtomicTime, get_atomic_clock_realtime},
 };
 use nautilus_live::{
@@ -75,22 +60,21 @@ use nautilus_model::{
     types::{AccountBalance, MarginBalance},
 };
 use nautilus_network::websocket::AuthTracker;
-pub use reports::reconciliation_market_ids;
-use reports::{order_report_task, position_report_task};
 use rust_decimal::Decimal;
 
+use crate::execution::reports::{order_report_task, position_report_task};
 use crate::{
     common::PREDICT_VENUE,
     config::{PredictAccountStateMode, PredictExecutionClientConfig},
 };
 
-/// Incremental execution adapter with native account/order/position ownership.
-/// Connectivity describes authenticated execution transport, not account refresh progress.
+pub use reports::scope::reconciliation_market_ids;
+
+/// Predict execution client with Native order, position and account ownership.
 ///
-/// Predict's public API and official SDK expose no atomic order amendment operation.
-/// `ModifyOrder` emits `OrderModifyRejected`; callers must explicitly cancel the old order
-/// and submit a newly signed replacement after resolving its cancellation outcome.
-/// No public batch-create endpoint is mapped: submit independent orders with `SubmitOrder`.
+/// Connectivity reflects authenticated wallet transport. Signing readiness is checked
+/// per command. ModifyOrder emits OrderModifyRejected; strategies own cancellation
+/// and replacement. Orders are submitted individually through SubmitOrder.
 #[derive(Debug)]
 pub struct PredictExecutionClient {
     core: ExecutionClientCore,
@@ -105,31 +89,31 @@ pub struct PredictExecutionClient {
     tasks: TaskGroup,
     stream_task: Option<TaskRef>,
     account_query_active: Arc<AtomicBool>,
-    account_orders: types::OrderSnapshots<ClientOrderId>,
+    account_orders: context::OrderSnapshots<ClientOrderId>,
     account_sync: Arc<account::AccountSync>,
     healthy: Arc<AtomicBool>,
     account_refresh_required: Arc<AtomicBool>,
     wallet_auth: Option<AuthTracker>,
     wallet_epoch: Option<Arc<AtomicU64>>,
     refreshed_epoch: Arc<AtomicU64>,
-    recovery_clock: Option<std::rc::Rc<std::cell::RefCell<dyn nautilus_common::clock::Clock>>>,
-    instruments: Arc<AtomicMap<InstrumentId, types::ExecutionInstrument>>,
-    orders: types::OrderSnapshots<VenueOrderId>,
+    maintenance_clock: Option<std::rc::Rc<std::cell::RefCell<dyn nautilus_common::clock::Clock>>>,
+    metadata: Arc<metadata::ExecutionMetadata>,
+    orders: context::OrderSnapshots<VenueOrderId>,
     order_observer: Option<TypedHandler<OrderEventAny>>,
     account_observer: Option<TypedHandler<AccountState>>,
     cleanup_cursor: std::rc::Rc<std::cell::Cell<(usize, usize)>>,
-    metadata_notify: Arc<tokio::sync::Notify>,
-    pending_cancels: cancellations::PendingCancels,
-    deferred_cancels: cancellations::DeferredCancels,
+    pending_cancels: orders::cancel::PendingCancels,
+    deferred_cancels: orders::cancel::DeferredCancels,
     pending_submissions: orders::PendingSubmissions,
-    fill_evidence: precision::SharedFillEvidence,
-    rest_order_ids: routing::RestOrderIds,
+    fill_evidence: fills::SharedFillEvidence,
+    rest_order_ids: orders::RestOrderIds,
 }
 
 impl PredictExecutionClient {
     /// Creates a live client using Nautilus's realtime clock.
     ///
     /// # Errors
+    ///
     /// Returns an error for unsupported core identity or invalid private configuration.
     pub fn new(
         core: ExecutionClientCore,
@@ -138,9 +122,10 @@ impl PredictExecutionClient {
         Self::new_with_clock(core, config, get_atomic_clock_realtime())
     }
 
-    /// Creates a client with an explicit Nautilus clock for deterministic integration tests.
+    /// Creates a client using the supplied Nautilus clock.
     ///
     /// # Errors
+    ///
     /// Returns an error for unsupported core identity or invalid private configuration.
     pub fn new_with_clock(
         core: ExecutionClientCore,
@@ -149,7 +134,7 @@ impl PredictExecutionClient {
     ) -> anyhow::Result<Self> {
         config.validate()?;
         nautilus_model::data::ensure_custom_data_json_registered::<
-            settlement::PredictSettlementUpdate,
+            observations::PredictSettlementUpdate,
         >()?;
         let order_hasher = Arc::new(crate::signing::PredictOrderHasher::new(
             config.session.environment(),
@@ -210,13 +195,12 @@ impl PredictExecutionClient {
             wallet_auth: None,
             wallet_epoch: None,
             refreshed_epoch: Arc::new(AtomicU64::new(0)),
-            recovery_clock: None,
-            instruments: Arc::new(AtomicMap::new()),
+            maintenance_clock: None,
+            metadata: Arc::new(metadata::ExecutionMetadata::default()),
             orders: Default::default(),
             order_observer: None,
             account_observer: None,
             cleanup_cursor: Default::default(),
-            metadata_notify: Arc::new(tokio::sync::Notify::new()),
             pending_cancels: Default::default(),
             deferred_cancels: Default::default(),
             pending_submissions: Default::default(),
@@ -225,14 +209,14 @@ impl PredictExecutionClient {
         })
     }
 
-    /// Supplies the core-thread Nautilus clock for automatic recovery in custom live hosts.
+    /// Supplies the core-thread Nautilus clock for account refresh and mirror maintenance.
     /// The standard execution factory installs this clock automatically.
     #[must_use]
     pub fn with_reconciliation_clock(
         mut self,
         clock: std::rc::Rc<std::cell::RefCell<dyn nautilus_common::clock::Clock>>,
     ) -> Self {
-        self.recovery_clock = Some(clock);
+        self.maintenance_clock = Some(clock);
         self
     }
 
@@ -242,10 +226,11 @@ impl PredictExecutionClient {
         &self.emitter
     }
 
-    /// Reads collateral for the authenticated account/deposit address. Reservations, funding
-    /// admission and account publication remain separate; allowance is never a free balance.
+    /// Reads chain collateral and allowances for the authenticated account.
+    /// This query does not publish AccountState; allowance is not available cash.
     ///
     /// # Errors
+    ///
     /// Missing RPC configuration, account mismatch or unverifiable chain snapshots return errors.
     pub async fn request_collateral_snapshot(
         &self,
@@ -260,7 +245,8 @@ impl PredictExecutionClient {
             .await
     }
 
-    /// Whether submission is enabled and the authenticated execution transport is available.
+    /// Returns whether signing is enabled on a connected client with reported cash.
+    /// Market metadata and contract nonces are checked separately for each command.
     #[must_use]
     pub fn is_submission_ready(&self) -> bool {
         self.config.submission_signer.is_some()
@@ -273,7 +259,7 @@ impl Drop for PredictExecutionClient {
     fn drop(&mut self) {
         self.healthy.store(false, Ordering::Release);
         self.tasks.abort();
-        self.stop_recovery_timer();
+        self.stop_maintenance_timer();
         self.clear_observer();
     }
 }
@@ -315,91 +301,16 @@ impl ExecutionClient for PredictExecutionClient {
         false
     }
     fn position_reconciliation_tolerance(&self) -> Decimal {
-        precision::POSITION_RECONCILIATION_TOLERANCE
+        fills::POSITION_RECONCILIATION_TOLERANCE
     }
     fn start(&mut self) -> anyhow::Result<()> {
-        let sender = try_get_exec_event_sender()
-            .ok_or_else(|| anyhow::anyhow!("Nautilus execution event sender is not installed"))?;
-        self.emitter.set_sender(sender);
-        self.data_sender = nautilus_common::live::runner::try_get_data_event_sender();
-        self.core.set_started();
-        Ok(())
+        self.start_impl()
     }
     fn stop(&mut self) -> anyhow::Result<()> {
-        if self.core.is_connected()
-            && !self
-                .account_orders
-                .lock()
-                .expect("order snapshots poisoned")
-                .is_empty()
-        {
-            self.account_refresh_required.store(true, Ordering::Release);
-        }
-        self.healthy.store(false, Ordering::Release);
-        self.core.set_disconnected();
-        self.core.set_stopped();
-        self.tasks.begin_shutdown();
-        self.stop_recovery_timer();
-        {
-            let mut sync = self
-                .account_sync
-                .state
-                .lock()
-                .expect("account sync poisoned");
-            sync.revision = sync.revision.wrapping_add(1);
-            sync.resource_revision = sync.resource_revision.wrapping_add(1);
-        }
-        self.clear_observer();
-        Ok(())
+        self.stop_impl()
     }
     fn reset(&mut self) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.pending_submissions
-                .lock()
-                .expect("submission registry poisoned")
-                .entries
-                .is_empty(),
-            "Predict submitted orders must be reconciled before reset"
-        );
-        anyhow::ensure!(
-            self.pending_cancels
-                .lock()
-                .expect("pending cancels poisoned")
-                .is_empty(),
-            "Predict cancellations must be reconciled before reset"
-        );
-        anyhow::ensure!(
-            self.tasks.is_empty(),
-            "Predict tasks must be drained before reset"
-        );
-        self.stop()?;
-        self.instruments.store(Default::default());
-        self.cleanup_cursor.set((0, 0));
-        self.orders
-            .lock()
-            .expect("order snapshots poisoned")
-            .clear();
-        self.rest_order_ids
-            .lock()
-            .expect("REST order IDs poisoned")
-            .clear();
-        self.fill_evidence = Default::default();
-        self.account_refresh_required
-            .store(false, Ordering::Release);
-        self.account_orders
-            .lock()
-            .expect("order snapshots poisoned")
-            .clear();
-        {
-            let mut sync = self
-                .account_sync
-                .state
-                .lock()
-                .expect("account sync poisoned");
-            sync.active_orders.clear();
-            sync.clear_connection();
-        }
-        Ok(())
+        self.reset_impl()
     }
     async fn connect(&mut self) -> anyhow::Result<()> {
         self.connect_impl().await
@@ -420,26 +331,26 @@ impl ExecutionClient for PredictExecutionClient {
     }
     fn on_instrument(&mut self, instrument: InstrumentAny) {
         if instrument.id().venue == self.core.venue {
-            self.prune_order_lookups_on_request();
+            self.prune_mirrors_on_request();
             let mut sync = self
                 .account_sync
                 .state
                 .lock()
                 .expect("account sync poisoned");
-            sync.revision = sync.revision.wrapping_add(1);
             sync.resource_revision = sync.resource_revision.wrapping_add(1);
-            self.instruments
-                .rcu(|map| types::upsert_instrument(map, instrument.clone()));
+            self.metadata
+                .instruments
+                .rcu(|map| metadata::upsert_instrument(map, instrument.clone()));
             drop(sync);
             self.account_sync.notify.notify_one();
-            self.metadata_notify.notify_one();
+            self.metadata.notify.notify_one();
         }
     }
     fn generate_position_status_reports_task(
         &self,
         cmd: &GeneratePositionStatusReports,
     ) -> Option<ExecutionReportTask<Vec<PositionStatusReport>>> {
-        self.prune_order_lookups_on_request();
+        self.prune_mirrors_on_request();
         Some(position_report_task(
             self.config.clone(),
             self.core.clone(),
@@ -451,7 +362,7 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         cmd: &GeneratePositionStatusReports,
     ) -> anyhow::Result<Vec<PositionStatusReport>> {
-        self.prune_order_lookups_on_request();
+        self.prune_mirrors_on_request();
         let task = position_report_task(self.config.clone(), self.core.clone(), self.clock, cmd);
         task.collection.await;
         (task.finish)()
@@ -474,7 +385,7 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         cmd: &GenerateOrderStatusReports,
     ) -> Option<ExecutionReportTask<Vec<OrderStatusReport>>> {
-        let task = reconciliation::bulk_task(self, cmd, false, None);
+        let task = reports::bulk::bulk_task(self, cmd, false, None);
         Some(ExecutionReportTask {
             collection: task.collection,
             finish: Box::new(move || Ok((task.finish)()?.0)),
@@ -484,7 +395,7 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         cmd: &GenerateOrderStatusReports,
     ) -> anyhow::Result<Vec<OrderStatusReport>> {
-        let task = reconciliation::bulk_task(self, cmd, false, None);
+        let task = reports::bulk::bulk_task(self, cmd, false, None);
         task.collection.await;
         Ok((task.finish)()?.0)
     }
@@ -492,8 +403,8 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         cmd: &GenerateFillReports,
     ) -> Option<ExecutionReportTask<Vec<FillReport>>> {
-        self.prune_order_lookups_on_request();
-        Some(matches::fill_report_task(
+        self.prune_mirrors_on_request();
+        Some(reports::trades::fill_report_task(
             self.config.clone(),
             self.core.clone(),
             self.clock,
@@ -506,8 +417,8 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         cmd: GenerateFillReports,
     ) -> anyhow::Result<Vec<FillReport>> {
-        self.prune_order_lookups_on_request();
-        let task = matches::fill_report_task(
+        self.prune_mirrors_on_request();
+        let task = reports::trades::fill_report_task(
             self.config.clone(),
             self.core.clone(),
             self.clock,
@@ -522,69 +433,7 @@ impl ExecutionClient for PredictExecutionClient {
         &self,
         lookback_mins: Option<u64>,
     ) -> anyhow::Result<Option<ExecutionMassStatus>> {
-        anyhow::ensure!(
-            self.core.is_connected(),
-            "Predict mass status requires an active client generation"
-        );
-        // The native lookback scopes unknown fill history, never current orders/holdings.
-        // Known orders retain their full settlement prefix for exact recovery.
-        let now = self.clock.get_time_ns();
-        let lookback_start = lookback_mins
-            .map(nautilus_core::DurationNanos::try_from_mins)
-            .transpose()?
-            .map(|duration| now.saturating_sub(duration));
-        let cancellation = self.tasks.cancellation_token();
-        let epoch = self
-            .wallet_epoch
-            .as_ref()
-            .map(|e| e.load(Ordering::Acquire));
-        let cmd = GenerateOrderStatusReports::new(
-            nautilus_core::UUID4::new(),
-            now,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
-        let task = reconciliation::bulk_task(self, &cmd, true, lookback_start);
-        task.collection.await;
-        let (orders, fills) = (task.finish)()?;
-        let positions_cmd = GeneratePositionStatusReports::new(
-            nautilus_core::UUID4::new(),
-            now,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
-        let positions = self
-            .generate_position_status_reports(&positions_cmd)
-            .await?;
-        anyhow::ensure!(
-            !cancellation.is_cancelled()
-                && self.core.is_connected()
-                && self
-                    .wallet_epoch
-                    .as_ref()
-                    .map(|e| e.load(Ordering::Acquire))
-                    == epoch,
-            "Predict mass status generation changed during collection"
-        );
-        let mut report = ExecutionMassStatus::new(
-            self.core.client_id,
-            self.core.account_id,
-            self.core.venue,
-            now,
-            None,
-        );
-        report.set_report_window(lookback_start, true);
-        report.add_order_reports(orders);
-        report.add_fill_reports(fills);
-        report.add_position_reports(positions);
-        Ok(Some(report))
+        self.mass_status(lookback_mins).await
     }
     fn submit_order(&self, cmd: SubmitOrder) -> anyhow::Result<()> {
         self.submit_order_command(&cmd)
@@ -597,13 +446,10 @@ impl ExecutionClient for PredictExecutionClient {
     fn modify_order(&self, cmd: ModifyOrder) -> anyhow::Result<()> {
         self.modify_order_command(&cmd)
     }
-    fn batch_modify_orders(&self, _: BatchModifyOrders) -> anyhow::Result<()> {
-        anyhow::bail!("Predict public API and SDK expose no atomic order modification operation")
-    }
     fn dispose(&mut self) -> anyhow::Result<()> {
         self.stop()?;
         self.tasks.abort();
-        self.stop_recovery_timer();
+        self.stop_maintenance_timer();
         Ok(())
     }
     fn cancel_order(&self, cmd: CancelOrder) -> anyhow::Result<()> {
@@ -616,71 +462,7 @@ impl ExecutionClient for PredictExecutionClient {
         self.batch_cancel_orders_command(&cmd)
     }
     fn query_account(&self, cmd: QueryAccount) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            cmd.account_id == self.core.account_id
-                && cmd.trader_id == self.core.trader_id
-                && cmd.client_id.is_none_or(|id| id == self.core.client_id),
-            "Predict account query identity differs from execution client"
-        );
-        anyhow::ensure!(
-            self.config.account_state_mode == PredictAccountStateMode::Reported
-                && self.core.is_connected()
-                && self.tasks.is_open(),
-            "Predict reported account client generation is not active"
-        );
-        self.prune_order_lookups_on_request();
-        if self.account_refresh_required.load(Ordering::Acquire) || !self.is_connected() {
-            self.account_refresh_required.store(true, Ordering::Release);
-            let Some(guard) = account::AccountQueryGuard::acquire(&self.account_query_active)
-            else {
-                return Ok(());
-            };
-            let mut reporter = self.account_reporter()?;
-            reporter.allow_stream_gap = true;
-            let cancellation = self.tasks.cancellation_token();
-            let epoch = self
-                .wallet_epoch
-                .clone()
-                .ok_or_else(|| anyhow::anyhow!("Predict account refresh lacks wallet epoch"))?;
-            let refreshed_epoch = self.refreshed_epoch.clone();
-            let requested = self.account_refresh_required.clone();
-            let metadata_notify = self.metadata_notify.clone();
-            self.tasks
-                .spawn_named("predict-gap-account-query", async move {
-                    let _guard = guard;
-                    for _ in 0..5 {
-                        let result = tokio::select! {biased;
-                            _ = cancellation.cancelled() => return,
-                            result = reporter.refresh_snapshot() => result,
-                        };
-                        match result {
-                            Ok(Some(snapshot)) => {
-                                if epoch.load(Ordering::Acquire) != snapshot.epoch {
-                                    return;
-                                }
-                                // Refresh cash/OPEN only; signing inputs are prepared independently. Per-market
-                                // metadata is prepared independently and checked by its order.
-                                refreshed_epoch.store(snapshot.epoch, Ordering::Release);
-                                requested.store(false, Ordering::Release);
-                                metadata_notify.notify_one();
-                                return;
-                            }
-                            Ok(None) => continue,
-                            Err(error) => {
-                                log::warn!("Predict gap account query remains unresolved: {error}");
-                                return;
-                            }
-                        }
-                    }
-                })?;
-            return Ok(());
-        }
-        anyhow::ensure!(
-            self.is_connected(),
-            "Predict reported account session is not connected"
-        );
-        self.account_sync.request_remote();
-        Ok(())
+        self.query_account_command(cmd)
     }
     fn query_order(&self, cmd: QueryOrder) -> anyhow::Result<()> {
         self.query_order_command(&cmd)

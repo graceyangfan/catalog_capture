@@ -18,14 +18,16 @@ use super::*;
 use crate::actor_runtime::{custom_data_client_id, optional_flush_all, optional_seal_all};
 use crate::custom_data_requests::{CUSTOM_DATA_REQUEST_TIMER_PREFIX, parse_request_timer_index};
 use catalog_capture_core::{
-    CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
-    PREDICT_SELECTOR_TITLE_ASSET, append_hip4_universe_resolution_records,
-    append_option_universe_resolution_records, forward_price_from_option_greeks,
-    next_seal_boundary_ns, predict_outcome_instrument_id,
+    append_hip4_universe_resolution_records, append_option_universe_resolution_records,
+    forward_price_from_option_greeks, next_seal_boundary_ns,
 };
 use nautilus_common::{actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent};
 use nautilus_core::{DurationNanos, Params, UnixNanos};
 use nautilus_model::{data::DataType, identifiers::Venue, instruments::Instrument};
+use nautilus_predict::common::{
+    CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
+    PREDICT_SELECTOR_TITLE_ASSET, predict_outcome_instrument_id,
+};
 
 impl CatalogCaptureActor {
     fn market_data_client_id(&self, instrument_id: InstrumentId) -> Option<ClientId> {
@@ -955,12 +957,12 @@ fn is_hip4_outcome(instrument_id: InstrumentId) -> bool {
 #[allow(clippy::items_after_test_module)] // Keeps the focused helper tests beside their helper.
 mod tests {
     use super::predict_dynamic_output_data_type;
-    use catalog_capture_core::{
+    use nautilus_core::Params;
+    use nautilus_model::data::DataType;
+    use nautilus_predict::common::{
         CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS,
         PREDICT_SELECTOR_PRICE_FEED_SYMBOL, PREDICT_SELECTOR_TITLE_ASSET,
     };
-    use nautilus_core::Params;
-    use nautilus_model::data::DataType;
 
     #[test]
     fn dynamic_predict_output_type_wildcards_only_its_selector_market_ids() {
