@@ -36,10 +36,11 @@ use nautilus_network::websocket::AuthTracker;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
-use crate::execution::parse;
 use crate::{
-    blockchain::PredictChainClient, common::contracts::PredictExchangeType,
-    config::PredictExecutionClientConfig, http::market_models::PredictExecutionMarket,
+    blockchain::PredictChainClient,
+    common::{contracts::PredictExchangeType, parse_market_id},
+    config::PredictExecutionClientConfig,
+    http::market_models::PredictExecutionMarket,
 };
 
 // Prepared signing inputs have one client account/environment owner. Cash reporting
@@ -174,7 +175,7 @@ pub(super) fn upsert_instrument(
     instrument: InstrumentAny,
 ) {
     let entry = ExecutionInstrument::from(instrument);
-    if let Ok(market_id) = parse::market_id_from_instrument(&entry.instrument.id()) {
+    if let Ok(market_id) = parse_market_id(&entry.instrument.id()) {
         for outcome in [1, 2] {
             if let Ok(id) = crate::common::instrument_id_from_outcome(market_id, outcome)
                 && let Some(existing) = map.get_mut(&id)
@@ -209,7 +210,7 @@ impl ExecutionInstrument {
             2
         };
         anyhow::ensure!(
-            market.id == parse::market_id_from_instrument(&self.instrument.id())?,
+            market.id == parse_market_id(&self.instrument.id())?,
             "Predict market identity differs from the native instrument"
         );
         anyhow::ensure!(
@@ -279,7 +280,7 @@ impl ExecutionInstrument {
             Duration::from_secs(config.request_timeout_secs),
             config
                 .session
-                .request_execution_market(parse::market_id_from_instrument(&self.instrument.id())?),
+                .request_execution_market(parse_market_id(&self.instrument.id())?),
         )
         .await
         .context("Predict execution market collection timed out")??;
@@ -345,8 +346,7 @@ pub(super) async fn prepare(
                 .instrument
                 .expiration_ns()
                 .is_some_and(|expiry| expiry > clock.get_time_ns())
-                && parse::market_id_from_instrument(&entry.instrument.id())
-                    .is_ok_and(|id| seen.insert(id))
+                && parse_market_id(&entry.instrument.id()).is_ok_and(|id| seen.insert(id))
         })
         .cloned()
         .collect::<Vec<_>>();

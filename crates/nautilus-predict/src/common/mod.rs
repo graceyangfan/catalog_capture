@@ -116,6 +116,42 @@ pub fn predict_crypto_up_down_orderbook_data_type(
     )
 }
 
+#[cfg(feature = "live")]
+pub(crate) fn parse_market_id(instrument_id: &InstrumentId) -> anyhow::Result<u64> {
+    anyhow::ensure!(
+        instrument_id.venue.as_str() == "PREDICT",
+        "instrument {instrument_id} is not a Predict instrument"
+    );
+    let mut fields = instrument_id.symbol.as_str().split('-');
+    let market_id = fields
+        .next()
+        .ok_or_else(|| {
+            anyhow::anyhow!("invalid Predict instrument symbol {}", instrument_id.symbol)
+        })?
+        .parse()
+        .map_err(|error| {
+            anyhow::anyhow!("invalid Predict market ID in {instrument_id}: {error}")
+        })?;
+    let outcome_index: u8 = fields
+        .next()
+        .ok_or_else(|| {
+            anyhow::anyhow!("Predict instrument {instrument_id} lacks an outcome index")
+        })?
+        .parse()
+        .map_err(|error| {
+            anyhow::anyhow!("invalid Predict outcome index in {instrument_id}: {error}")
+        })?;
+    anyhow::ensure!(
+        fields.next().is_none() && matches!(outcome_index, 1 | 2),
+        "invalid Predict instrument symbol {instrument_id}; expected {{market_id}}-{{1|2}}.PREDICT"
+    );
+    anyhow::ensure!(
+        instrument_id_from_outcome(market_id, outcome_index)? == *instrument_id,
+        "Predict instrument ID must be canonical"
+    );
+    Ok(market_id)
+}
+
 pub fn instrument_id_from_outcome(market_id: u64, index_set: u8) -> anyhow::Result<InstrumentId> {
     predict_outcome_instrument_id(market_id, index_set)
 }
@@ -127,6 +163,30 @@ mod tests {
         PREDICT_SELECTOR_PRICE_FEED_SYMBOL, PREDICT_SELECTOR_TITLE_ASSET,
         predict_crypto_up_down_orderbook_data_type,
     };
+
+    #[cfg(feature = "live")]
+    #[test]
+    fn market_id_parser_accepts_only_canonical_predict_instruments() {
+        for (value, expected) in [
+            ("2859346-1.PREDICT", Some(2_859_346)),
+            ("2859346-2.PREDICT", Some(2_859_346)),
+            ("18446744073709551615-1.PREDICT", Some(u64::MAX)),
+            ("0-1.PREDICT", None),
+            ("2859346-1.OTHER", None),
+            ("2859346-3.PREDICT", None),
+            ("2859346.PREDICT", None),
+            ("2859346-1-extra.PREDICT", None),
+            ("02859346-1.PREDICT", None),
+            ("2859346-01.PREDICT", None),
+            ("abc-1.PREDICT", None),
+            ("2859346-x.PREDICT", None),
+            ("18446744073709551616-1.PREDICT", None),
+            ("2859346-256.PREDICT", None),
+        ] {
+            let id = value.parse().unwrap();
+            assert_eq!(super::parse_market_id(&id).ok(), expected, "{value}");
+        }
+    }
 
     #[test]
     fn dynamic_orderbook_type_retains_interval_provenance() {

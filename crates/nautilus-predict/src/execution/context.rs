@@ -38,7 +38,7 @@ pub(super) struct ReportContext<O = OrderAny> {
     pub wallet: Address,
     pub shares_allowed: bool,
     pub instruments: HashMap<InstrumentId, InstrumentAny>,
-    pub orders: HashMap<VenueOrderId, O>,
+    pub orders: HashMap<VenueOrderId, Arc<O>>,
 }
 
 impl<O> ReportContext<O> {
@@ -47,7 +47,7 @@ impl<O> ReportContext<O> {
         wallet: Address,
         shares_allowed: bool,
         venue_id: VenueOrderId,
-        order: O,
+        order: Arc<O>,
         instrument: InstrumentAny,
     ) -> Self {
         Self {
@@ -301,38 +301,11 @@ impl WorkerOrder {
     pub fn filled_qty(&self) -> Quantity {
         self.filled_qty
     }
-    pub fn leaves_qty(&self) -> Quantity {
-        self.leaves_qty
-    }
-    pub fn price(&self) -> Option<Price> {
-        self.context.price
-    }
-    pub fn time_in_force(&self) -> TimeInForce {
-        self.context.time_in_force
-    }
-    pub fn expire_time(&self) -> Option<UnixNanos> {
-        self.expire_time
-    }
-    pub fn ts_submitted(&self) -> Option<UnixNanos> {
-        self.ts_submitted
-    }
     pub fn ts_accepted(&self) -> Option<UnixNanos> {
         self.ts_accepted
     }
-    pub fn ts_last(&self) -> UnixNanos {
-        self.ts_last
-    }
     pub fn status(&self) -> OrderStatus {
         self.status
-    }
-    pub fn is_post_only(&self) -> bool {
-        self.context.is_post_only
-    }
-    pub fn is_reduce_only(&self) -> bool {
-        self.context.is_reduce_only
-    }
-    pub fn is_quote_quantity(&self) -> bool {
-        self.context.is_quote_quantity
     }
     pub fn is_open(&self) -> bool {
         self.is_open
@@ -342,12 +315,6 @@ impl WorkerOrder {
     }
     pub fn is_inflight(&self) -> bool {
         self.is_inflight
-    }
-    pub fn is_synthetic(&self) -> bool {
-        self.is_synthetic
-    }
-    pub fn latest_fill(&self) -> UnixNanos {
-        self.latest_fill
     }
 
     pub fn accepted(
@@ -764,37 +731,37 @@ impl OrderView for WorkerOrder {
         Self::filled_qty(self)
     }
     fn leaves_qty(&self) -> Quantity {
-        Self::leaves_qty(self)
+        self.leaves_qty
     }
     fn price(&self) -> Option<Price> {
-        Self::price(self)
+        self.context.price
     }
     fn time_in_force(&self) -> TimeInForce {
-        Self::time_in_force(self)
+        self.context.time_in_force
     }
     fn expire_time(&self) -> Option<UnixNanos> {
-        Self::expire_time(self)
+        self.expire_time
     }
     fn ts_submitted(&self) -> Option<UnixNanos> {
-        Self::ts_submitted(self)
+        self.ts_submitted
     }
     fn ts_accepted(&self) -> Option<UnixNanos> {
         Self::ts_accepted(self)
     }
     fn ts_last(&self) -> UnixNanos {
-        Self::ts_last(self)
+        self.ts_last
     }
     fn status(&self) -> OrderStatus {
         Self::status(self)
     }
     fn is_post_only(&self) -> bool {
-        Self::is_post_only(self)
+        self.context.is_post_only
     }
     fn is_reduce_only(&self) -> bool {
-        Self::is_reduce_only(self)
+        self.context.is_reduce_only
     }
     fn is_quote_quantity(&self) -> bool {
-        Self::is_quote_quantity(self)
+        self.context.is_quote_quantity
     }
     fn quote_buy_budget(&self) -> Option<rust_decimal::Decimal> {
         self.quote_buy_budget
@@ -806,10 +773,10 @@ impl OrderView for WorkerOrder {
         Self::is_closed(self)
     }
     fn is_synthetic(&self) -> bool {
-        Self::is_synthetic(self)
+        self.is_synthetic
     }
     fn latest_fill(&self) -> UnixNanos {
-        Self::latest_fill(self)
+        self.latest_fill
     }
     fn trade_ids(&self) -> Vec<TradeId> {
         Self::trade_ids(self)
@@ -836,109 +803,6 @@ impl OrderView for WorkerOrder {
     }
     fn has_applied_fill(&self, id: TradeId) -> bool {
         Self::has_applied_fill(self, id)
-    }
-}
-impl<T: OrderView> OrderView for Arc<T> {
-    fn instrument_id(&self) -> InstrumentId {
-        self.as_ref().instrument_id()
-    }
-    fn client_order_id(&self) -> ClientOrderId {
-        self.as_ref().client_order_id()
-    }
-    fn account_id(&self) -> Option<AccountId> {
-        self.as_ref().account_id()
-    }
-    fn venue_order_id(&self) -> Option<VenueOrderId> {
-        self.as_ref().venue_order_id()
-    }
-    fn order_side(&self) -> OrderSide {
-        self.as_ref().order_side()
-    }
-    fn order_type(&self) -> OrderType {
-        self.as_ref().order_type()
-    }
-    fn quantity(&self) -> Quantity {
-        self.as_ref().quantity()
-    }
-    fn submitted_quantity(&self) -> Quantity {
-        self.as_ref().submitted_quantity()
-    }
-    fn filled_qty(&self) -> Quantity {
-        self.as_ref().filled_qty()
-    }
-    fn leaves_qty(&self) -> Quantity {
-        self.as_ref().leaves_qty()
-    }
-    fn price(&self) -> Option<Price> {
-        self.as_ref().price()
-    }
-    fn time_in_force(&self) -> TimeInForce {
-        self.as_ref().time_in_force()
-    }
-    fn expire_time(&self) -> Option<UnixNanos> {
-        self.as_ref().expire_time()
-    }
-    fn ts_submitted(&self) -> Option<UnixNanos> {
-        self.as_ref().ts_submitted()
-    }
-    fn ts_accepted(&self) -> Option<UnixNanos> {
-        self.as_ref().ts_accepted()
-    }
-    fn ts_last(&self) -> UnixNanos {
-        self.as_ref().ts_last()
-    }
-    fn status(&self) -> OrderStatus {
-        self.as_ref().status()
-    }
-    fn is_post_only(&self) -> bool {
-        self.as_ref().is_post_only()
-    }
-    fn is_reduce_only(&self) -> bool {
-        self.as_ref().is_reduce_only()
-    }
-    fn is_quote_quantity(&self) -> bool {
-        self.as_ref().is_quote_quantity()
-    }
-    fn quote_buy_budget(&self) -> Option<rust_decimal::Decimal> {
-        self.as_ref().quote_buy_budget()
-    }
-    fn is_open(&self) -> bool {
-        self.as_ref().is_open()
-    }
-    fn is_closed(&self) -> bool {
-        self.as_ref().is_closed()
-    }
-    fn is_synthetic(&self) -> bool {
-        self.as_ref().is_synthetic()
-    }
-    fn latest_fill(&self) -> UnixNanos {
-        self.as_ref().latest_fill()
-    }
-    fn trade_ids(&self) -> Vec<TradeId> {
-        self.as_ref().trade_ids()
-    }
-    fn for_each_trade_id(
-        &self,
-        visit: impl FnMut(TradeId) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        self.as_ref().for_each_trade_id(visit)
-    }
-    fn for_each_trade_id_since(
-        &self,
-        cursor: Option<&NativeFillCursor>,
-        visit: impl FnMut(TradeId) -> anyhow::Result<()>,
-    ) -> anyhow::Result<Option<NativeFillCursor>> {
-        self.as_ref().for_each_trade_id_since(cursor, visit)
-    }
-    fn with_applied_fill<R>(
-        &self,
-        id: TradeId,
-        inspect: impl FnOnce(Option<&OrderFilled>) -> R,
-    ) -> R {
-        self.as_ref().with_applied_fill(id, inspect)
-    }
-    fn has_applied_fill(&self, id: TradeId) -> bool {
-        self.as_ref().has_applied_fill(id)
     }
 }
 

@@ -113,7 +113,7 @@ impl WalletReportContext {
             .size_precision()
             .max(order.filled_qty().precision);
         if needs_fills {
-            for fill in evidence.pending_for(&order, id) {
+            for fill in evidence.pending_for(order.as_ref(), id) {
                 confirmed_precision = confirmed_precision.max(fill.report.last_qty.precision);
                 confirmed = confirmed
                     .checked_add(fill.report.last_qty.as_decimal())
@@ -138,7 +138,7 @@ impl WalletReportContext {
             .unwrap_or((None, false));
         let Some(report) = parse::parse_wallet_report_with_registration(
             event,
-            &order,
+            order.as_ref(),
             instrument,
             *account,
             *wallet,
@@ -175,7 +175,7 @@ impl WalletReportContext {
                 .notifications
                 .validate_success(event, fill.report.trade_id, id)?;
             evidence.validate_wallet_timestamp(&fill)?;
-            if evidence.prepare_wallet(&mut fill, &order, instrument.size_precision())? {
+            if evidence.prepare_wallet(&mut fill, order.as_ref(), instrument.size_precision())? {
                 drop(evidence);
                 self.settlement(event, &order, connection_epoch, received)?;
                 return Ok(());

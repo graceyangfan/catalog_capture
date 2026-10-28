@@ -339,7 +339,9 @@ impl MirrorCleanup {
             let client = order.client_order_id();
             by_client.swap_remove(&client);
             changed_resources |= sync.active_orders.remove(&client).is_some();
-            sync.latest_fill = sync.latest_fill.max(account::latest_venue_fill(&order));
+            sync.latest_fill = sync
+                .latest_fill
+                .max(account::latest_venue_fill(order.as_ref()));
             retired += 1;
             released.push(order);
         }

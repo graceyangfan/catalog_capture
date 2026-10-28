@@ -34,6 +34,7 @@ use crate::{
         enums::PredictOrderSide,
         instrument_id_from_outcome,
         parse::{decimal_to_wei, exact_wei, floor_wei_quantity},
+        parse_market_id,
     },
     execution::{context::ReportContext, fills::BufferedFill},
     http::account_models::{
@@ -281,7 +282,7 @@ pub(super) fn parse_external_order_status_report(
         .instruments
         .values()
         .find(|i| {
-            market_id_from_instrument(&i.id()).ok() == Some(row.market_id)
+            parse_market_id(&i.id()).ok() == Some(row.market_id)
                 && i.raw_symbol().as_str().parse::<U256>().ok() == Some(fields.token_id)
         })
         .ok_or_else(|| anyhow::anyhow!("Predict external order instrument is absent"))?;
@@ -830,25 +831,6 @@ pub(super) fn parse_wallet_report_with_registration(
     }
 }
 
-pub(crate) fn market_id_from_instrument(id: &InstrumentId) -> anyhow::Result<u64> {
-    let (market, outcome) = id
-        .symbol
-        .as_str()
-        .split_once('-')
-        .ok_or_else(|| anyhow::anyhow!("invalid Predict outcome symbol"))?;
-    let market: u64 = market
-        .parse()
-        .map_err(|_| anyhow::anyhow!("invalid Predict market ID"))?;
-    let outcome: u8 = outcome
-        .parse()
-        .map_err(|_| anyhow::anyhow!("invalid Predict outcome index"))?;
-    anyhow::ensure!(
-        instrument_id_from_outcome(market, outcome)? == *id,
-        "noncanonical Predict instrument ID"
-    );
-    Ok(market)
-}
-
 /// Converts a REST observation for a known Native order, preserving its TIF and flags.
 /// Signed amounts establish base quantity and LIMIT price; MARKET retains no fixed
 /// price. Observation time supplies `ts_last`. Terminal reports retain known Native
@@ -1046,7 +1028,7 @@ pub(super) fn validate_rest_order_terms_for_hash(
             && fields.taker.is_zero()
             && order.account_id() == Some(account_id)
             && order.instrument_id() == instrument.id()
-            && market_id_from_instrument(&instrument.id())? == row.market_id
+            && parse_market_id(&instrument.id())? == row.market_id
             && instrument.raw_symbol().as_str().parse::<U256>().ok() == Some(fields.token_id)
             && row.currency == "USDT"
             && instrument.quote_currency() == Currency::USDT(),

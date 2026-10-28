@@ -4850,6 +4850,7 @@ dependencies = [
  "log",
  "nautilus-common",
  "nautilus-core",
+ "nautilus-data",
  "nautilus-execution",
  "nautilus-infrastructure",
  "nautilus-live",

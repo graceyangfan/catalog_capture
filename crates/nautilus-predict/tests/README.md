@@ -30,6 +30,7 @@ builds. Ignored tests are not part of this baseline: never run the entire ignore
 | execution/ | Native execution/Portfolio, order/report application and subscriber-visible state |
 | execution/node_host.rs and support/ | Factories, RiskEngine, Rust Strategy and LiveNode callbacks |
 | data_client/, instrument_requests.rs | Discovery/subscriptions, current request API, both transports and reconnect |
+| support/custom_subscriptions.rs via --lib | Custom identity conflicts, foreign unsubscribe, pending handover, native sharing, real reconnect and DataClient reset |
 | capture_rollover.rs, catalog_readback.rs, quote_rollover.rs | Expiry handover and persisted public data |
 | private_api_live.rs | Explicit operator probes, ignored by default |
 
@@ -38,6 +39,7 @@ LiveNode scenarios separately exercise Native risk and strategy flow. Neither
 layer substitutes for the other. Select focused replay without exporting new JSON:
 
 ```bash
+cargo test -p nautilus-predict --features execution --lib custom_subscription_tests --locked -- --test-threads=1
 cargo test -p nautilus-predict --features execution --test market_recorded_fill --locked
 cargo test -p nautilus-predict --features execution --test execution recorded_startup:: --locked
 cargo test -p nautilus-predict --features execution --test execution batch_recorded:: --locked

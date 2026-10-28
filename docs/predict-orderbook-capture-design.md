@@ -116,6 +116,26 @@ For simultaneous products, the complete selector key—not interval alone—owns
 the subscription, writer, and rollover state. BTC 5m and ETH 5m therefore have
 independent writers even though their intervals are equal.
 
+### Custom subscription identity conflicts
+
+The adapter emits one custom `DataType` per market: explicit snapshots use the
+market ID, while rolling snapshots also retain the canonical selector key.
+Competing identities are rejected before definitions, references or pending
+handovers change. The admitted identity keeps its output across reconnects;
+foreign unsubscribe cannot release it. Quote/depth owners still share the
+physical topic. Identical explicit subscriptions retain reference counts, and
+canonical aliases of one selector remain idempotent.
+
+Subscribe/unsubscribe return after queue admission. The session logs conflicts
+asynchronously and keeps the connection healthy. A selector retains its previous
+market and retries through normal discovery; stop it to cancel retries. Release
+the admitted custom identity before switching modes. Reset clears the generation.
+There is no per-consumer fan-out or rejection callback.
+
+A rejected explicit subscription is not retried automatically. Unsubscribe its
+`DataType` before resubscribing so Native can clear deduplication, including after
+the market retires.
+
 REST discovery runs in generation-owned Nautilus `TaskGroup` tasks, not in the
 WebSocket receive loop. Each selector admits at most one discovery pass; up to
 four passes run concurrently, ordered by the earliest due deadline. A pass has

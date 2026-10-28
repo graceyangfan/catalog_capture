@@ -101,6 +101,11 @@ settlement notices follow Native owner retention, without the former 10,000-fact
 caps. Configure Native purge; bounded adapter maintenance does not promise constant
 memory for active/unresolved owners or bound one huge history's disposal pause.
 
+One market emits one custom-data identity. Competing explicit/rolling identities
+are rejected by the session while the existing stream and native quote/depth
+owners continue. See the [conflict contract](../../docs/predict-orderbook-capture-design.md#custom-subscription-identity-conflicts)
+for asynchronous admission, unsubscribe and retry behavior.
+
 ## Development and evidence
 
 The crate follows the same client boundaries as Native's Bybit and Polymarket

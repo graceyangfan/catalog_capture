@@ -74,6 +74,7 @@ ustr.workspace = true
 log = { workspace = true, optional = true }
 
 [dev-dependencies]
+nautilus-data = { path = "../../../nautilus_trader_quantity_commission/crates/data", default-features = false }
 nautilus-testkit = { path = "../../../nautilus_trader_quantity_commission/crates/testkit", default-features = false, features = [
   "testers",
 ] }

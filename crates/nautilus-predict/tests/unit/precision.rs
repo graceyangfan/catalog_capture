@@ -1425,7 +1425,9 @@ fn applied_fill_inspection_borrows_native_events_and_preserves_cutoff_and_confli
     APPLIED_FILL_CLONES.with(|n| n.set(0));
     assert!(crate::execution::parse::validate_applied_fill(&applied.report, &old).unwrap());
     let shared = Arc::new(old.clone());
-    assert!(crate::execution::parse::validate_applied_fill(&applied.report, &shared).unwrap());
+    assert!(
+        crate::execution::parse::validate_applied_fill(&applied.report, shared.as_ref()).unwrap()
+    );
     assert!(crate::execution::parse::validate_applied_fill(&applied.report, &native).unwrap());
     let mut replay = vec![applied.clone()];
     evidence

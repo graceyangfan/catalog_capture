@@ -181,6 +181,9 @@ impl PredictDataSession {
             .get(key)
             .map(|state| (state.current_market_id, state.pending_market_id))
             .context("Predict dynamic selector disappeared during discovery")?;
+        let data_type = crate::predict_crypto_up_down_orderbook_data_type(selected.market_id, key);
+        // Reject before publishing definitions or releasing any pending handover.
+        self.ensure_custom_data_type(selected.market_id, &data_type)?;
         if current_market_id == Some(selected.market_id) {
             // A transient discovery regression can select the confirmed market while a previous
             // successor is still pending. The confirmed market remains valid, but the stale
@@ -224,14 +227,14 @@ impl PredictDataSession {
         for instrument in instruments {
             self.data_sender.send(DataEvent::Instrument(instrument))?;
         }
-        self.subscribe_market(selected.market_id).await?;
+        self.subscribe_custom_market(selected.market_id, data_type)
+            .await?;
         let state = self
             .dynamic_subscriptions
             .get_mut(key)
             .context("Predict dynamic selector disappeared before activation")?;
         state.pending_market_id = Some(selected.market_id);
         state.next_refresh_ns = selected.window.end_ns;
-        self.refresh_custom_type(selected.market_id);
         if let Some(stale_pending) = pending_market_id {
             self.remove_dynamic_market_if_unused(stale_pending);
         }
@@ -266,12 +269,6 @@ impl PredictDataSession {
         let Some(state) = self.dynamic_subscriptions.remove(key) else {
             return Ok(());
         };
-        for market_id in [state.current_market_id, state.pending_market_id]
-            .into_iter()
-            .flatten()
-        {
-            self.refresh_custom_type(market_id);
-        }
         if let Some(market_id) = state.pending_market_id {
             self.unsubscribe_market(market_id).await?;
         }

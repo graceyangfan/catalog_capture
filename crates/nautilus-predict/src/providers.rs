@@ -29,7 +29,7 @@ use rust_decimal::Decimal;
 use ustr::Ustr;
 
 use crate::{
-    common::{PredictMarketContext, instrument_id_from_outcome},
+    common::{PredictMarketContext, instrument_id_from_outcome, parse_market_id},
     http::{PredictHttpClient, models::PredictMarket},
 };
 
@@ -296,41 +296,6 @@ pub(crate) fn instruments_from_market(
     ))
 }
 
-pub(crate) fn parse_market_id(instrument_id: &InstrumentId) -> anyhow::Result<u64> {
-    anyhow::ensure!(
-        instrument_id.venue.as_str() == "PREDICT",
-        "instrument {instrument_id} is not a Predict instrument"
-    );
-    let mut fields = instrument_id.symbol.as_str().split('-');
-    let market_id = fields
-        .next()
-        .ok_or_else(|| {
-            anyhow::anyhow!("invalid Predict instrument symbol {}", instrument_id.symbol)
-        })?
-        .parse()
-        .map_err(|error| {
-            anyhow::anyhow!("invalid Predict market ID in {instrument_id}: {error}")
-        })?;
-    let outcome_index: u8 = fields
-        .next()
-        .ok_or_else(|| {
-            anyhow::anyhow!("Predict instrument {instrument_id} lacks an outcome index")
-        })?
-        .parse()
-        .map_err(|error| {
-            anyhow::anyhow!("invalid Predict outcome index in {instrument_id}: {error}")
-        })?;
-    anyhow::ensure!(
-        fields.next().is_none() && matches!(outcome_index, 1 | 2),
-        "invalid Predict instrument symbol {instrument_id}; expected {{market_id}}-{{1|2}}.PREDICT"
-    );
-    anyhow::ensure!(
-        instrument_id_from_outcome(market_id, outcome_index)? == *instrument_id,
-        "Predict instrument ID must be canonical"
-    );
-    Ok(market_id)
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -345,7 +310,7 @@ mod tests {
     use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
     use rust_decimal::Decimal;
 
-    use super::{instruments_from_market, parse_market_id};
+    use super::instruments_from_market;
     use crate::{
         PredictOrderbookSnapshot, PredictOrderbookWire,
         common::CryptoUpDownSelectorKey,
@@ -881,24 +846,6 @@ mod tests {
             .expect("present empty settlement state remains present");
         assert!(pending.asks.is_empty());
         assert!(pending.bids.is_empty());
-    }
-
-    #[test]
-    fn instrument_id_parser_rejects_unknown_or_malformed_outcomes() {
-        assert_eq!(
-            parse_market_id(&"2859346-1.PREDICT".parse().unwrap()).unwrap(),
-            2_859_346
-        );
-        for invalid in [
-            "2859346-3.PREDICT",
-            "2859346.PREDICT",
-            "2859346-1-extra.PREDICT",
-        ] {
-            assert!(
-                parse_market_id(&invalid.parse().unwrap()).is_err(),
-                "expected {invalid} to be rejected"
-            );
-        }
     }
 
     fn unique_temp_catalog(label: &str) -> std::path::PathBuf {

@@ -33,12 +33,12 @@ use nautilus_model::{
 
 use crate::execution::{context, fills, parse, reports};
 use crate::{
-    common::{instrument_id_from_outcome, parse::exact_wei},
+    common::{instrument_id_from_outcome, parse::exact_wei, parse_market_id},
     config::{PredictAccountStateMode, PredictExecutionClientConfig},
     execution::{
         context::ReportContext,
         fills::{BufferedFill, RawFillFacts, SharedFillEvidence},
-        parse::{execution_price, market_id_from_instrument, settlement_trade_id},
+        parse::{execution_price, settlement_trade_id},
     },
     http::account_models::{PredictFeeType, PredictMatchData},
 };
@@ -113,7 +113,7 @@ pub(in crate::execution) fn fill_report_task(
             let market_id = cmd
                 .instrument_id
                 .as_ref()
-                .map(market_id_from_instrument)
+                .map(parse_market_id)
                 .transpose()?;
             let rows = tokio::time::timeout(
                 std::time::Duration::from_secs(config.request_timeout_secs),
@@ -148,7 +148,7 @@ pub(in crate::execution) fn fill_report_task(
                     // wallet tokens alone do not widen a Native position-recovery query.
                     let mut markets = recovery_instruments
                         .iter()
-                        .map(market_id_from_instrument)
+                        .map(parse_market_id)
                         .collect::<anyhow::Result<BTreeSet<_>>>()?;
                     markets.extend(holdings.iter().map(|holding| holding.market.id));
                     let mut rows = Vec::new();
@@ -299,7 +299,7 @@ pub(in crate::execution) fn prepare_match_reports<O: context::OrderView>(
     for row in rows {
         if let Some(id) = scope.instrument_id {
             anyhow::ensure!(
-                market_id_from_instrument(&id)? == row.market.id,
+                parse_market_id(&id)? == row.market.id,
                 "Predict match response differs from requested market"
             );
         }
@@ -381,7 +381,7 @@ pub(in crate::execution) fn prepare_match_reports<O: context::OrderView>(
                 liquidity,
                 context.shares_allowed,
             )?;
-            let order = context.orders.get(&venue_id);
+            let order = context.orders.get(&venue_id).map(|order| order.as_ref());
             let client_id = order.map(|o| o.client_order_id());
             if let Some(order) = order {
                 // The hash and immutable terms identify this order. Venue timestamps
@@ -451,10 +451,10 @@ pub(in crate::execution) fn prepare_match_reports<O: context::OrderView>(
     reports.sort_by_key(|report| (report.report.ts_event, report.report.trade_id));
     evidence.prepare_with_orders(
         &mut reports,
-        |id| context.orders.get(&id),
+        |id| context.orders.get(&id).map(|order| order.as_ref()),
         identities
             .keys()
-            .filter_map(|id| context.orders.get(id).map(|order| (*id, order))),
+            .filter_map(|id| context.orders.get(id).map(|order| (*id, order.as_ref()))),
         &[],
         |id| context.instruments[&identities[&id].0].size_precision(),
     )?;

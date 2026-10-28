@@ -686,7 +686,7 @@ impl AccountReporter {
                 };
                 parse::validate_rest_order_terms_for_hash(
                     row,
-                    order,
+                    order.as_ref(),
                     binary,
                     self.config.account_id,
                     self.config.session.account_address(),
@@ -699,7 +699,7 @@ impl AccountReporter {
                 if order.is_open() {
                     native_reservation(
                         &cash,
-                        order,
+                        order.as_ref(),
                         instrument,
                         Some(crate::common::parse::exact_wei(
                             row.order.fields.maker_amount,
@@ -739,7 +739,7 @@ impl AccountReporter {
             locked = locked
                 .checked_add(native_reservation(
                     &cash,
-                    order,
+                    order.as_ref(),
                     &instrument.instrument,
                     *market_buy_collateral,
                 )?)

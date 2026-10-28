@@ -81,9 +81,12 @@ impl PredictDynamicMarketRegistry {
     }
 
     pub(super) fn instrument(&self, instrument_id: InstrumentId) -> Option<InstrumentAny> {
+        let market_id = crate::common::parse_market_id(&instrument_id).ok()?;
         self.markets
-            .values()
-            .find_map(|market| market.instruments.get(&instrument_id).cloned())
+            .get(&market_id)?
+            .instruments
+            .get(&instrument_id)
+            .cloned()
     }
 
     pub(super) fn remove(&mut self, generation: u64, market_id: u64) {

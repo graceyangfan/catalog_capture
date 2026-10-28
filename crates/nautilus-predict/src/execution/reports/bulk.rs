@@ -32,7 +32,7 @@ use nautilus_model::{
 
 use crate::execution::{context, orders, parse, reports};
 use crate::{
-    common::contracts::PredictExchangeType,
+    common::{contracts::PredictExchangeType, parse_market_id},
     execution::{
         PredictExecutionClient,
         context::ReportContext,
@@ -170,11 +170,10 @@ pub(in crate::execution) fn bulk_task(
                 }
                 let mut hashes = HashSet::new();
                 rows.retain(|row| {
-                    instrument_id.is_none_or(|id| {
-                        parse::market_id_from_instrument(&id).ok() == Some(row.market_id)
-                    }) && requested_token
-                        .as_ref()
-                        .is_none_or(|token| *token == row.order.fields.token_id.to_string())
+                    instrument_id.is_none_or(|id| parse_market_id(&id).ok() == Some(row.market_id))
+                        && requested_token
+                            .as_ref()
+                            .is_none_or(|token| *token == row.order.fields.token_id.to_string())
                 });
                 // A known canceled/expired order may be absent from an active-order list.
                 // Ask by its original signed hash; absence is never interpreted as cancellation.
@@ -492,7 +491,7 @@ fn finish(
             if !reported_hashes.contains(id) {
                 continue;
             }
-            for fill in facts.pending_for(order, *id) {
+            for fill in facts.pending_for(order.as_ref(), *id) {
                 if ids.insert(fill.report.trade_id) {
                     fills.push(fill.clone());
                 }
@@ -541,7 +540,7 @@ fn finish(
         };
         let report = parse::parse_order_status_report(
             &row,
-            order,
+            order.as_ref(),
             instrument,
             context,
             hasher,
@@ -575,7 +574,7 @@ pub(in crate::execution) fn publish_unapplied(
             .orders
             .get(&fill.report.venue_order_id)
             .ok_or_else(|| anyhow::anyhow!("Predict report fill has no native owner"))?;
-        if !parse::validate_applied_fill(&fill.report, order)? {
+        if !parse::validate_applied_fill(&fill.report, order.as_ref())? {
             targets.insert(fill.report.venue_order_id);
         }
     }

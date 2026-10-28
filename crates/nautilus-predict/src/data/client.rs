@@ -94,21 +94,17 @@ impl PredictDataClient {
         &self,
         id: InstrumentId,
     ) -> anyhow::Result<crate::PredictMarketContext> {
-        self.provider
-            .contexts()
-            .values()
-            .find(|c| c.yes_instrument_id == id || c.no_instrument_id == id)
-            .cloned()
-            .or_else(|| {
-                self.dynamic_registry
-                    .read()
-                    .expect("Predict dynamic registry lock poisoned")
-                    .markets
-                    .values()
-                    .map(|m| &m.context)
-                    .find(|c| c.yes_instrument_id == id || c.no_instrument_id == id)
-                    .cloned()
+        crate::common::parse_market_id(&id)
+            .ok()
+            .and_then(|market_id| {
+                self.provider.context(market_id).cloned().or_else(|| {
+                    self.dynamic_registry
+                        .read()
+                        .expect("Predict dynamic registry lock poisoned")
+                        .context(market_id)
+                })
             })
+            .filter(|context| context.yes_instrument_id == id || context.no_instrument_id == id)
             .with_context(|| format!("Predict instrument {id} was not loaded"))
     }
 
@@ -143,6 +139,21 @@ impl PredictDataClient {
     }
 
     pub(super) fn validate_snapshot_data_type(&self, data_type: &DataType) -> anyhow::Result<u64> {
+        let market_id = Self::snapshot_market_id(data_type)?;
+        anyhow::ensure!(
+            self.provider.context(market_id).is_some()
+                || self
+                    .dynamic_registry
+                    .read()
+                    .expect("Predict dynamic registry lock poisoned")
+                    .context(market_id)
+                    .is_some(),
+            "Predict market {market_id} was not bootstrapped; configure it before subscribing"
+        );
+        Ok(market_id)
+    }
+
+    pub(super) fn snapshot_market_id(data_type: &DataType) -> anyhow::Result<u64> {
         anyhow::ensure!(
             data_type.type_name() == "PredictOrderbookSnapshot",
             "Predict only supports PredictOrderbookSnapshot custom data"
@@ -160,16 +171,6 @@ impl PredictDataClient {
         anyhow::ensure!(
             predict_orderbook_data_type(market_id).identifier() == Some(identifier),
             "PredictOrderbookSnapshot identifier must be the canonical decimal market ID"
-        );
-        anyhow::ensure!(
-            self.provider.context(market_id).is_some()
-                || self
-                    .dynamic_registry
-                    .read()
-                    .expect("Predict dynamic registry lock poisoned")
-                    .context(market_id)
-                    .is_some(),
-            "Predict market {market_id} was not bootstrapped; configure it before subscribing"
         );
         Ok(market_id)
     }

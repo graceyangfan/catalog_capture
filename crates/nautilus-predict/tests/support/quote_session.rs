@@ -41,7 +41,7 @@ async fn socket(ws: WebSocketUpgrade, State(tx): State<mpsc::UnboundedSender<Val
         }
     })
 }
-fn context() -> PredictMarketContext {
+pub(super) fn context() -> PredictMarketContext {
     PredictMarketContext {
         market_id: ID,
         yes_instrument_id: crate::instrument_id_from_outcome(ID, 1).unwrap(),
@@ -50,7 +50,7 @@ fn context() -> PredictMarketContext {
         size_precision: nautilus_model::types::fixed::FIXED_PRECISION,
     }
 }
-async fn session(
+pub(super) async fn session(
     url: &str,
     backend: TransportBackend,
 ) -> (
@@ -74,6 +74,12 @@ async fn session(
     let (_, session) = PredictDataSession::connect(
         &config,
         PredictSessionInputs {
+            http_client: PredictHttpClient::new(
+                config.api_key.expose_secret(),
+                config.base_url_http.as_deref(),
+                config.http_timeout_secs,
+            )
+            .unwrap(),
             contexts: AHashMap::from([(ID, context)]),
             dynamic_registry: Arc::new(RwLock::new(PredictDynamicMarketRegistry::default())),
             dynamic_generation: 0,

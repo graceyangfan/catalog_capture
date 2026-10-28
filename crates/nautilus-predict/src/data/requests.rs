@@ -23,7 +23,7 @@ use nautilus_core::datetime::datetime_to_unix_nanos;
 use nautilus_model::instruments::Instrument;
 
 use super::client::PredictDataClient;
-use crate::providers::{instruments_from_market, parse_market_id};
+use crate::{common::parse_market_id, providers::instruments_from_market};
 
 impl PredictDataClient {
     pub(super) fn request_instrument_definition(

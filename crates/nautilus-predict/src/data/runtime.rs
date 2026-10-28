@@ -87,8 +87,24 @@ pub(super) struct DepthSubscription {
 #[derive(Debug)]
 pub(super) struct MarketSubscription {
     pub(super) owners: usize,
+    // The identity is active only while custom owners remain
     pub(super) data_type: DataType,
 }
+
+#[derive(Debug)]
+struct CustomDataConflict(u64);
+
+impl std::fmt::Display for CustomDataConflict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "conflicting Predict custom data identities for market {}",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for CustomDataConflict {}
 
 #[derive(Debug)]
 pub(super) struct PredictDataSession {
@@ -121,6 +137,7 @@ pub(super) struct PredictDataSession {
 }
 
 pub(super) struct PredictSessionInputs {
+    pub(super) http_client: PredictHttpClient,
     pub(super) contexts: AHashMap<u64, PredictMarketContext>,
     pub(super) dynamic_registry: Arc<RwLock<PredictDynamicMarketRegistry>>,
     pub(super) dynamic_generation: u64,
@@ -137,6 +154,7 @@ impl PredictDataSession {
         inputs: PredictSessionInputs,
     ) -> anyhow::Result<(mpsc::Sender<PredictCommand>, Self)> {
         let PredictSessionInputs {
+            http_client,
             contexts,
             dynamic_registry,
             dynamic_generation,
@@ -151,11 +169,6 @@ impl PredictDataSession {
             raw_rx,
             overflowed,
         } = PredictWebSocketConnection::connect(config, cancellation.clone()).await?;
-        let http_client = PredictHttpClient::new(
-            config.api_key.expose_secret(),
-            config.base_url_http.as_deref(),
-            config.http_timeout_secs,
-        )?;
         let (command_tx, command_rx) = mpsc::channel(COMMAND_QUEUE_CAPACITY);
         let (discovery_tx, discovery_rx) = mpsc::channel(MAX_DISCOVERY_REQUESTS);
         let session = Self {
@@ -221,8 +234,12 @@ impl PredictDataSession {
                 }
                 command = self.command_rx.recv() => {
                     let Some(command) = command else { break };
-                    if let Err(error) = self.handle_command(command).await {
-                        self.fail_generation(format!("subscription command failed: {error:#}"));
+                    if let Err(e) = self.handle_command(command).await {
+                        if e.is::<CustomDataConflict>() {
+                            log::warn!("Predict subscription rejected: {e:#}");
+                        } else {
+                            self.fail_generation(format!("subscription command failed: {e:#}"));
+                        }
                     }
                 }
                 raw = self.raw_rx.recv() => {
@@ -243,16 +260,16 @@ impl PredictDataSession {
     pub(super) async fn handle_command(&mut self, command: PredictCommand) -> anyhow::Result<()> {
         match command {
             PredictCommand::Subscribe(market_id) => {
-                self.subscribe_market(market_id).await?;
-                self.refresh_custom_type(market_id);
+                self.subscribe_custom_market(
+                    market_id,
+                    crate::predict_orderbook_data_type(market_id),
+                )
+                .await?;
             }
             PredictCommand::Unsubscribe(market_id) => {
-                let native_owners = self.native_owners(market_id);
                 if self
-                    .subscriptions
-                    .get(&market_id)
-                    .map_or(0, |subscription| subscription.owners)
-                    > native_owners
+                    .custom_data_type(market_id)
+                    .is_some_and(|active| *active == crate::predict_orderbook_data_type(market_id))
                 {
                     self.unsubscribe_market(market_id).await?;
                 }
@@ -361,19 +378,39 @@ impl PredictDataSession {
                 .count()
     }
 
-    pub(super) fn refresh_custom_type(&mut self, market_id: u64) {
-        let data_type = self
-            .dynamic_subscriptions
-            .iter()
-            .find(|(_, state)| {
-                state.current_market_id == Some(market_id)
-                    || state.pending_market_id == Some(market_id)
-            })
-            .map(|(key, _)| crate::predict_crypto_up_down_orderbook_data_type(market_id, key))
-            .unwrap_or_else(|| crate::predict_orderbook_data_type(market_id));
-        if let Some(subscription) = self.subscriptions.get_mut(&market_id) {
-            subscription.data_type = data_type;
+    pub(super) fn custom_data_type(&self, market_id: u64) -> Option<&DataType> {
+        self.subscriptions
+            .get(&market_id)
+            .filter(|subscription| subscription.owners > self.native_owners(market_id))
+            .map(|subscription| &subscription.data_type)
+    }
+
+    pub(super) fn ensure_custom_data_type(
+        &self,
+        market_id: u64,
+        data_type: &DataType,
+    ) -> anyhow::Result<()> {
+        if self
+            .custom_data_type(market_id)
+            .is_some_and(|active| active != data_type)
+        {
+            return Err(CustomDataConflict(market_id).into());
         }
+        Ok(())
+    }
+
+    pub(super) async fn subscribe_custom_market(
+        &mut self,
+        market_id: u64,
+        data_type: DataType,
+    ) -> anyhow::Result<()> {
+        self.ensure_custom_data_type(market_id, &data_type)?;
+        self.subscribe_market(market_id).await?;
+        self.subscriptions
+            .get_mut(&market_id)
+            .expect("subscribed market")
+            .data_type = data_type;
+        Ok(())
     }
 
     pub(super) async fn subscribe_market(&mut self, market_id: u64) -> anyhow::Result<()> {
@@ -441,3 +478,7 @@ impl PredictDataSession {
 #[cfg(test)]
 #[path = "../../tests/support/quote_session.rs"]
 mod quote_session_tests;
+
+#[cfg(test)]
+#[path = "../../tests/support/custom_subscriptions.rs"]
+mod custom_subscription_tests;

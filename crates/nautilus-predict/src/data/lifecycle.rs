@@ -100,6 +100,7 @@ impl DataClient for PredictDataClient {
         let (command_tx, session) = PredictDataSession::connect(
             &self.config,
             PredictSessionInputs {
+                http_client: self.provider.http_client().clone(),
                 contexts: self.provider.contexts().clone(),
                 dynamic_registry: Arc::clone(&self.dynamic_registry),
                 dynamic_generation,
@@ -214,10 +215,8 @@ impl DataClient for PredictDataClient {
         Ok(())
     }
 
-    // Use either explicit snapshots or one rolling selector for a given market.
-    // Snapshot dispatch publishes one DataType identity per frame; it does not fan out
-    // between explicit and selector metadata (or overlapping rolling selectors).
-    // Keep these ownership modes separate when configuring strategies and recording.
+    // The session rejects competing custom identities before changing market ownership.
+    // Queue admission does not confirm a selector's asynchronously discovered market.
     fn subscribe(&mut self, command: SubscribeCustomData) -> anyhow::Result<()> {
         match command.data_type.type_name() {
             "PredictOrderbookSnapshot" => self.send_command(PredictCommand::Subscribe(
@@ -233,7 +232,7 @@ impl DataClient for PredictDataClient {
     fn unsubscribe(&mut self, command: &UnsubscribeCustomData) -> anyhow::Result<()> {
         match command.data_type.type_name() {
             "PredictOrderbookSnapshot" => self.send_command(PredictCommand::Unsubscribe(
-                self.validate_snapshot_data_type(&command.data_type)?,
+                Self::snapshot_market_id(&command.data_type)?,
             )),
             "PredictCryptoUpDown" => self.send_command(PredictCommand::StopDynamic(
                 dynamic_selector_key(&Self::dynamic_selector(&command.data_type)?)?,

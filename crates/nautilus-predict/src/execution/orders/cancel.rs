@@ -492,7 +492,7 @@ impl CancelWorker {
         }
         validate_rest_order_terms(
             &row,
-            &order,
+            order.as_ref(),
             &self.instrument,
             self.factory.account_id(),
             self.session.account_address(),

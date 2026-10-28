@@ -228,7 +228,7 @@ impl PredictExecutionClient {
                     .lock()
                     .expect("order snapshots poisoned")
                     .values()
-                    .map(account::latest_venue_fill)
+                    .map(|order| account::latest_venue_fill(order.as_ref()))
                     .max()
                     .unwrap_or_default(),
             );
@@ -322,7 +322,7 @@ impl PredictExecutionClient {
                         if (matches!(event, OrderEventAny::Filled(_))
                             || matches!(event, OrderEventAny::Updated(update) if update.reconciliation))
                             && order.status() == nautilus_model::enums::OrderStatus::Filled
-                            && !context::OrderView::is_synthetic(&order)
+                            && !context::OrderView::is_synthetic(order.as_ref())
                             && let Some(id) = order.venue_order_id().or(registered)
                         {
                             // Confirmed fills or a terminal reconciliation retire a stale OPEN reservation.

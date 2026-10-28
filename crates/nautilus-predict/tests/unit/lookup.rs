@@ -563,7 +563,7 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
     };
     let (before, queued) = context.order_snapshot(hash).unwrap();
     assert!(!before.is_closed());
-    assert_eq!(queued.pending_for(&before, hash).count(), 1);
+    assert_eq!(queued.pending_for(before.as_ref(), hash).count(), 1);
     assert!(
         client.account_sync.state.try_lock().is_ok(),
         "normalization releases the account publication lock"
@@ -587,9 +587,12 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
     let (result_tx, result_rx) = std::sync::mpsc::channel();
     let reader = std::thread::spawn(move || {
         started_tx.send(()).unwrap();
-        let result = context
-            .order_snapshot(hash)
-            .map(|(order, facts)| (order.is_closed(), facts.pending_for(&order, hash).count()));
+        let result = context.order_snapshot(hash).map(|(order, facts)| {
+            (
+                order.is_closed(),
+                facts.pending_for(order.as_ref(), hash).count(),
+            )
+        });
         result_tx.send(result).unwrap();
     });
     started_rx.recv().unwrap();
@@ -2086,7 +2089,7 @@ fn benchmark_verified_owner_retirement_phases() {
                             .fill_evidence
                             .lock()
                             .unwrap()
-                            .confirmed_raw(&order, order.venue_order_id().unwrap())
+                            .confirmed_raw(order.as_ref(), order.venue_order_id().unwrap())
                             .unwrap()
                             .is_some()
                     );
@@ -2158,7 +2161,7 @@ fn verified_prefix_retains_a_purged_owner_until_pending_matching_is_resolved() {
             .fill_evidence
             .lock()
             .unwrap()
-            .confirmed_raw(&order, order.venue_order_id().unwrap())
+            .confirmed_raw(order.as_ref(), order.venue_order_id().unwrap())
             .unwrap()
             .is_some()
     );

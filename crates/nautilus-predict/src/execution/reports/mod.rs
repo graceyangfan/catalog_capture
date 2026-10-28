@@ -51,9 +51,8 @@ use rust_decimal::Decimal;
 
 use crate::execution::{PredictExecutionClient, account, context, fills, orders, parse};
 use crate::{
-    common::instrument_id_from_outcome,
+    common::{instrument_id_from_outcome, parse_market_id},
     config::{PredictAccountStateMode, PredictExecutionClientConfig},
-    execution::parse::market_id_from_instrument,
     http::{
         account_models::{PredictMatchData, PredictOrderData, PredictOrderStatus},
         parse::parse_position_status_report,
@@ -116,7 +115,7 @@ fn target_order_id(
 // a concurrent wallet fill cannot be voided by a quantity sampled before this IO.
 fn publish_terminal(
     row: &PredictOrderData,
-    context: &context::ReportContext<Arc<context::WorkerOrder>>,
+    context: &context::ReportContext<context::WorkerOrder>,
     hasher: &PredictOrderHasher,
     emitter: &ExecutionEventEmitter,
     sync: &account::AccountSync,
@@ -146,8 +145,15 @@ fn publish_terminal(
     else {
         anyhow::bail!("Predict terminal instrument is missing");
     };
-    let report =
-        parse::parse_order_status_report(row, order, instrument, context, hasher, &[], observed)?;
+    let report = parse::parse_order_status_report(
+        row,
+        order.as_ref(),
+        instrument,
+        context,
+        hasher,
+        &[],
+        observed,
+    )?;
     sync.confirm_report(&report);
     if order.is_closed() {
         return Ok(());
@@ -179,7 +185,7 @@ fn prepare_target_report(
     venue_id: VenueOrderId,
     row: &PredictOrderData,
     matches: Vec<PredictMatchData>,
-    context: &context::ReportContext<Arc<context::WorkerOrder>>,
+    context: &context::ReportContext<context::WorkerOrder>,
     hasher: &PredictOrderHasher,
     evidence: &fills::FillEvidence,
     observed: UnixNanos,
@@ -211,14 +217,14 @@ fn prepare_target_report(
         .iter()
         .map(|fill| fill.report.trade_id)
         .collect::<HashSet<_>>();
-    for fill in evidence.pending_for(order, venue_id) {
+    for fill in evidence.pending_for(order.as_ref(), venue_id) {
         if ids.insert(fill.report.trade_id) {
             fills.push(fill.clone());
         }
     }
     let report = parse::parse_order_status_report(
         row,
-        order,
+        order.as_ref(),
         instrument,
         context,
         hasher,
@@ -262,7 +268,7 @@ pub(in crate::execution) fn order_report_task(
                     .is_none_or(|id| id == order.instrument_id()),
             "Predict REST command differs from cached order context"
         );
-        market_id_from_instrument(&order.instrument_id())?;
+        parse_market_id(&order.instrument_id())?;
         Ok((order.client_order_id(), venue_id, hash))
     })();
     let wallet = config.session.account_address();
@@ -412,10 +418,7 @@ pub(in crate::execution) fn position_report_task(
                 !historical,
                 "Predict positions endpoint supplies current holdings only"
             );
-            let market_id = instrument_id
-                .as_ref()
-                .map(market_id_from_instrument)
-                .transpose()?;
+            let market_id = instrument_id.as_ref().map(parse_market_id).transpose()?;
             let rows =
                 tokio::time::timeout(Duration::from_secs(config.request_timeout_secs), async {
                     config.session.ensure_account_identity().await?;
