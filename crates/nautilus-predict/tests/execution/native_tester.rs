@@ -425,7 +425,11 @@ async fn run(case: &str, saved: Option<&Value>) -> Value {
         Some(Money::from(expected_cash))
     );
     if let Some(saved) = saved {
-        assert_eq!(saved["testerConfig"], tester_config);
+        // Native applies defaults for fields added after this immutable fixture was recorded.
+        let saved_config: ExecTesterConfig =
+            serde_json::from_value(saved["testerConfig"].clone()).unwrap();
+        saved_config.validate().unwrap();
+        assert_eq!(serde_json::to_value(saved_config).unwrap(), tester_config);
         assert_eq!(
             saved["feedback"]
                 .as_array()

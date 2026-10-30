@@ -152,15 +152,9 @@ The readback test checks every family's presence, start prices, canonical OI
 identity, trade deduplication, 16-place oracle values, retired cache audit,
 book replay and the absence of unfinished files. Reports go to stdout.
 
-The [compact mainnet validation record](../reference/lighter-binary-validation.json)
-describes a single-process run across 2026-10-20 11:15 and 11:30 UTC. All six
-markets passed catalog readback and replay, with 34 parquet files, four retired
-instruments purged, immutable retired files and zero observed drops or errors.
-The full middle window's official history had 891 distinct seconds; nine were
-missing at source, and its last second arrived after expiry and was present in
-the successor. Observed start-price publication delays were 1.2 and 11.2 seconds.
-This covers two boundaries, not a multi-hour soak or forced live disconnect.
-Raw catalogs, logs and machine-specific paths are not committed.
+Readback verifies every selected market and data family after graceful shutdown.
+A short smoke or two-boundary run does not establish multi-hour stability or
+forced-disconnect recovery. Keep raw operational recordings outside versioned docs.
 
 ## Fixed-market diagnostics
 

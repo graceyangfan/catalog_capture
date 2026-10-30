@@ -10,8 +10,7 @@ Fixed mainnet markets and automatic BTC/ETH 15m recording are supported through
 `catalog-capture-cli` with `venue-lighter-ext`.
 
 See the [operator guide](../../docs/how_to/lighter-binary-capture.md),
-[automatic recording profile](../../examples/capture.lighter-updown-15m.toml), and
-[mainnet validation](../../docs/reference/lighter-binary-validation.json).
+[automatic recording profile](../../examples/capture.lighter-updown-15m.toml).
 
 ```sh
 cargo test -p nautilus-lighter-ext --locked

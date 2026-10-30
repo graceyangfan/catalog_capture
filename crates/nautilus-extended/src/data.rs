@@ -38,6 +38,7 @@ use nautilus_core::{
 };
 use nautilus_live::{SocketControlFactory, task::TaskGroup};
 use nautilus_model::{
+    data::Data,
     enums::BookType,
     identifiers::{ClientId, InstrumentId, Venue},
     instruments::{Instrument, InstrumentAny},
@@ -145,7 +146,7 @@ impl ExtendedDataClient {
                                         (instrument.raw_symbol().inner(), instrument.clone())
                                     }).collect());
                                     for instrument in instruments {
-                                        if let Err(error) = sender.send(DataEvent::Instrument(instrument)) {
+                                        if let Err(error) = sender.send(DataEvent::Data(Data::Instrument(Box::new(instrument)))) {
                                             log::warn!("Failed to publish refreshed Extended instrument: {error}");
                                         }
                                     }
@@ -269,7 +270,8 @@ impl DataClient for ExtendedDataClient {
 
         let instruments = self.bootstrap_instruments().await?;
         for instrument in instruments {
-            self.data_sender.send(DataEvent::Instrument(instrument))?;
+            self.data_sender
+                .send(DataEvent::Data(Data::Instrument(Box::new(instrument))))?;
         }
 
         let socket_control = self.socket_factory.control("public-data");
@@ -313,7 +315,8 @@ impl DataClient for ExtendedDataClient {
             .map(|id| self.require_instrument(id))
             .collect::<anyhow::Result<Vec<_>>>()?;
         for instrument in instruments {
-            self.data_sender.send(DataEvent::Instrument(instrument))?;
+            self.data_sender
+                .send(DataEvent::Data(Data::Instrument(Box::new(instrument))))?;
         }
         Ok(())
     }

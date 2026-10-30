@@ -32,6 +32,8 @@ mod quotes;
 mod requests;
 #[cfg(feature = "live")]
 mod runtime;
+#[cfg(feature = "live")]
+mod trades;
 
 #[cfg(feature = "live")]
 pub use self::client::PredictDataClient;

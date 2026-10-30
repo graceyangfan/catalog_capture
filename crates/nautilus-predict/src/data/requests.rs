@@ -20,7 +20,7 @@ use nautilus_common::messages::{
     data::{InstrumentResponse, RequestInstrument},
 };
 use nautilus_core::datetime::datetime_to_unix_nanos;
-use nautilus_model::instruments::Instrument;
+use nautilus_model::{data::Data, instruments::Instrument};
 
 use super::client::PredictDataClient;
 use crate::{common::parse_market_id, providers::instruments_from_market};
@@ -57,7 +57,9 @@ impl PredictDataClient {
                         .context("Predict market lacks the requested outcome instrument")?;
                     // Definition publication updates other venue clients; the separate response
                     // completes the initiating actor's request, as in Polymarket.
-                    sender.send(DataEvent::Instrument(instrument.clone()))?;
+                    sender.send(DataEvent::Data(Data::Instrument(Box::new(
+                        instrument.clone(),
+                    ))))?;
                     sender.send(DataEvent::Response(DataResponse::Instrument(Box::new(
                         InstrumentResponse::new(
                             request.request_id,

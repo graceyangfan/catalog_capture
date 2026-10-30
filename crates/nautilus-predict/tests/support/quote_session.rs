@@ -419,3 +419,252 @@ async fn terminal_depth_sends_retain_one_owner() {
         }
     }
 }
+
+#[tokio::test]
+async fn trades_share_market_topic_without_owning_the_book_and_route_both_outcomes() {
+    let (tx, mut commands) = mpsc::unbounded_channel();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            Router::new().route("/ws", get(socket)).with_state(tx),
+        )
+        .await
+        .unwrap();
+    });
+    let (mut state, tasks, mut events) = session(&url, TransportBackend::default()).await;
+    let c = context();
+    state
+        .handle_command(PredictCommand::SubscribeDepth(
+            c.yes_instrument_id,
+            c.clone(),
+            None,
+        ))
+        .await
+        .unwrap();
+    state
+        .handle_command(PredictCommand::SubscribeTrades(
+            c.yes_instrument_id,
+            c.clone(),
+        ))
+        .await
+        .unwrap();
+    state
+        .handle_command(PredictCommand::SubscribeTrades(
+            c.yes_instrument_id,
+            c.clone(),
+        ))
+        .await
+        .unwrap();
+    state
+        .handle_command(PredictCommand::SubscribeTrades(
+            c.no_instrument_id,
+            c.clone(),
+        ))
+        .await
+        .unwrap();
+    async fn receive(rx: &mut mpsc::UnboundedReceiver<Value>) -> Value {
+        tokio::time::timeout(std::time::Duration::from_secs(3), rx.recv())
+            .await
+            .unwrap()
+            .unwrap()
+    }
+    assert_eq!(
+        receive(&mut commands).await["params"][0],
+        format!("predictOrderbook/{ID}")
+    );
+    assert_eq!(
+        receive(&mut commands).await["params"][0],
+        format!("predictTrades/{ID}")
+    );
+    assert_eq!(state.next_request_id, 3);
+    let frame = || {
+        nautilus_network::transport::Message::Text(json!({"type":"M", "topic":format!("predictTrades/{ID}"),
+        "data":{"marketId":ID,"tsMs":123,"taker":{"fill":"11680700000000000000","price":"320000000000000000","outcomeIndex":2,"side":"Bid"},
+        "makers":[{"fill":"11680700000000000000","price":"320000000000000000","outcomeIndex":2,"side":"Ask","matchType":"COMPLEMENTARY"}]}}).to_string().into())
+    };
+    let epoch = state.current_epoch;
+    state.handle_message(epoch, frame()).await.unwrap();
+    let mut ticks = vec![];
+    for _ in 0..2 {
+        let DataEvent::Data(Data::Trade(t)) = events.try_recv().unwrap() else {
+            panic!("expected native trade");
+        };
+        ticks.push(t);
+    }
+    ticks.sort_by_key(|t| t.instrument_id);
+    assert_eq!(ticks[0].instrument_id, c.yes_instrument_id);
+    assert_eq!(ticks[0].price, nautilus_model::types::Price::from("0.68"));
+    assert_eq!(
+        ticks[0].aggressor_side,
+        nautilus_model::enums::AggressorSide::Sell
+    );
+    assert_eq!(
+        ticks[1].aggressor_side,
+        nautilus_model::enums::AggressorSide::Buy
+    );
+    assert_eq!(ticks[0].trade_id, ticks[1].trade_id);
+    // Equal-looking genuine messages remain distinct local executions.
+    state.handle_message(epoch, frame()).await.unwrap();
+    let DataEvent::Data(Data::Trade(next)) = events.try_recv().unwrap() else {
+        panic!("expected trade");
+    };
+    assert_ne!(next.trade_id, ticks[0].trade_id);
+    events.try_recv().unwrap();
+    state
+        .handle_command(PredictCommand::UnsubscribeTrades(c.yes_instrument_id))
+        .await
+        .unwrap();
+    assert_eq!(state.next_request_id, 3);
+    state
+        .handle_message(
+            epoch + 1,
+            nautilus_network::transport::Message::Text(nautilus_network::RECONNECTED.into()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        receive(&mut commands).await["params"][0],
+        format!("predictOrderbook/{ID}")
+    );
+    assert_eq!(
+        receive(&mut commands).await["params"][0],
+        format!("predictTrades/{ID}")
+    );
+    state.handle_message(epoch, frame()).await.unwrap();
+    assert!(events.try_recv().is_err(), "old epoch must not publish");
+    state.handle_message(epoch + 1, frame()).await.unwrap();
+    let DataEvent::Data(Data::Trade(remaining)) = events.try_recv().unwrap() else {
+        panic!("expected remaining NO owner");
+    };
+    assert_eq!(remaining.instrument_id, c.no_instrument_id);
+    state
+        .handle_command(PredictCommand::UnsubscribeTrades(c.no_instrument_id))
+        .await
+        .unwrap();
+    let command = receive(&mut commands).await;
+    assert_eq!(command["method"], "unsubscribe");
+    assert_eq!(command["params"][0], format!("predictTrades/{ID}"));
+    assert!(state.subscriptions.contains_key(&ID));
+    state.handle_message(epoch + 1, frame()).await.unwrap();
+    assert!(events.try_recv().is_err());
+    tasks.begin_shutdown();
+    state.client.disconnect().await;
+    server.abort();
+}
+
+#[tokio::test]
+async fn depth_join_replays_the_confirmed_snapshot_without_a_second_wire_subscription() {
+    let (tx, mut commands) = mpsc::unbounded_channel();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            Router::new().route("/ws", get(socket)).with_state(tx),
+        )
+        .await
+        .unwrap();
+    });
+    let (mut state, tasks, mut events) = session(&url, TransportBackend::default()).await;
+    state
+        .handle_command(PredictCommand::Subscribe(ID))
+        .await
+        .unwrap();
+    let request = tokio::time::timeout(std::time::Duration::from_secs(3), commands.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(request["params"][0], format!("predictOrderbook/{ID}"));
+    let (epoch, frame) = state.raw_rx.recv().await.unwrap();
+    state.handle_message(epoch, frame).await.unwrap();
+    let DataEvent::Data(Data::Custom(source)) = events.try_recv().unwrap() else {
+        panic!("expected source snapshot");
+    };
+    let expected_ts = source.data.ts_event();
+    let c = context();
+    state
+        .handle_command(PredictCommand::SubscribeDepth(
+            c.yes_instrument_id,
+            c.clone(),
+            None,
+        ))
+        .await
+        .unwrap();
+    let DataEvent::Data(Data::BookDepth(depth)) = events.try_recv().unwrap() else {
+        panic!("expected native snapshot replay");
+    };
+    assert_eq!(depth.ts_event, expected_ts);
+    assert_eq!(depth.instrument_id, c.yes_instrument_id);
+    assert_eq!(
+        depth.bids[0].price,
+        nautilus_model::types::Price::from("0.62")
+    );
+    assert_eq!(state.next_request_id, 2);
+    state
+        .handle_command(PredictCommand::UnsubscribeDepth(c.yes_instrument_id))
+        .await
+        .unwrap();
+    assert!(state.snapshots.contains_key(&ID));
+    state
+        .handle_command(PredictCommand::Unsubscribe(ID))
+        .await
+        .unwrap();
+    assert!(state.snapshots.is_empty());
+    assert!(events.try_recv().is_err());
+    tasks.begin_shutdown();
+    state.client.disconnect().await;
+    server.abort();
+}
+
+#[tokio::test]
+async fn terminal_trade_sends_preserve_desired_interest_until_last_release() {
+    let (tx, _) = mpsc::unbounded_channel();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            Router::new().route("/ws", get(socket)).with_state(tx),
+        )
+        .await
+        .unwrap();
+    });
+    let (mut state, tasks, mut events) = session(&url, TransportBackend::default()).await;
+    let c = context();
+    state.client.disconnect().await;
+    assert!(
+        state
+            .handle_command(PredictCommand::SubscribeTrades(
+                c.yes_instrument_id,
+                c.clone()
+            ))
+            .await
+            .is_err()
+    );
+    assert_eq!(state.trades.len(), 1);
+    assert!(state.subscriptions.is_empty());
+    state
+        .handle_command(PredictCommand::SubscribeTrades(
+            c.no_instrument_id,
+            c.clone(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(state.trades.len(), 2);
+    state
+        .handle_command(PredictCommand::UnsubscribeTrades(c.yes_instrument_id))
+        .await
+        .unwrap();
+    assert!(
+        state
+            .handle_command(PredictCommand::UnsubscribeTrades(c.no_instrument_id))
+            .await
+            .is_err()
+    );
+    assert!(state.trades.is_empty());
+    assert!(events.try_recv().is_err());
+    tasks.begin_shutdown();
+    server.abort();
+}

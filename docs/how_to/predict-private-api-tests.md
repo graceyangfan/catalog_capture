@@ -122,7 +122,7 @@ or signed for submission. Failed lookups remain failures, not inferred terminals
 The order-list filter supports OPEN/FILLED; canceled/expired orders require a
 known hash. A later snapshot cannot recover an absent wallet event or establish
 who initiated a cancellation. Consult the
-[remaining evidence gaps](../reference/predict-immediate-order-validation.md#remaining-venue-evidence)
+[remaining evidence gaps](../reference/predict-validation.md)
 before scheduling another live capture.
 
 Normal regressions use saved JSON and loopback services, with no operator key.
@@ -135,7 +135,7 @@ calibration. SDK-valid quantities do not establish venue minimum notional, and a
 preflight quote does not guarantee later acceptance or a profitable exit. Any
 funded run needs its own explicit scope, budget, capture supervision and cleanup.
 Before repeating a live case, consult the
-[existing coverage and test selection](../reference/predict-live-evidence.md#choose-tests-without-repeating-funded-runs).
+[existing coverage and test selection](../reference/predict-validation.md).
 Completed resting captures can be reviewed offline with
 `python3 tests/predict_evidence.py --run <directory>`; rerunning the supervisor
 would create new live orders.

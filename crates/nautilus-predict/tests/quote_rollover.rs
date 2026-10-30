@@ -13,7 +13,7 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Isolated-clock dynamic quotes through a real Rust Strategy and LiveNode; no execution client.
-#![cfg(feature = "execution")]
+#![cfg(feature = "live")]
 use std::{
     cell::{Cell, RefCell},
     collections::{BTreeMap, BTreeSet},
@@ -53,6 +53,8 @@ use nautilus_predict::{
 use nautilus_trading::{StrategyConfig, StrategyCore, nautilus_strategy};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
+// Each scenario temporarily switches the process-wide realtime clock to static.
+static CLOCK_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 const OLD: u64 = 2859346;
 const NEW: u64 = OLD + 1;
 fn instrument(market: u64, outcome: u8) -> InstrumentId {
@@ -100,6 +102,7 @@ fn snapshot(id: u64, ts: u64, bid: &str, count: u64) -> Value {
 #[derive(Clone)]
 struct VenueState {
     start: u64,
+    repeat_trades: bool,
     books: Arc<Mutex<BTreeMap<u64, Value>>>,
     commands: Arc<Mutex<Vec<Value>>>,
     frames: Arc<Mutex<Vec<Value>>>,
@@ -127,13 +130,16 @@ async fn socket(s: WebSocket, v: VenueState) {
     let (tx, mut rx) = mpsc::unbounded_channel();
     v.sockets.lock().unwrap().push(tx);
     let mut active = BTreeSet::new();
+    let mut trade_markets = BTreeSet::new();
+    let mut last_trade = BTreeMap::new();
     let mut tick = tokio::time::interval(Duration::from_millis(20));
     loop {
         let frames = tokio::select! {
             message=source.next()=>{
                 let Some(Ok(Message::Text(text)))=message else {break};
                 let c:Value=serde_json::from_str(&text).unwrap();v.commands.lock().unwrap().push(c.clone());
-                if let Some(topic)=c["params"][0].as_str() { let id:u64=topic.strip_prefix("predictOrderbook/").unwrap().parse().unwrap();
+                if let Some(topic)=c["params"][0].as_str() { let (kind, market)=topic.split_once('/').unwrap(); let id:u64=market.parse().unwrap();
+                    let active = if kind == "predictTrades" { &mut trade_markets } else { &mut active };
                     match c["method"].as_str().unwrap(){"subscribe"=>{active.insert(id);},"unsubscribe"=>{active.remove(&id);},_=>panic!("unknown method")}
                 }
                 vec![]
@@ -142,6 +148,22 @@ async fn socket(s: WebSocket, v: VenueState) {
             _=tick.tick()=>{let books=v.books.lock().unwrap();active.iter().filter_map(|id|books.get(id).cloned()).collect::<Vec<_>>()}
         };
         for frame in frames {
+            let market = frame["data"]["marketId"].as_u64().unwrap();
+            let ts = frame["data"]["updateTimestampMs"].as_u64().unwrap();
+            if trade_markets.contains(&market)
+                && (v.repeat_trades || last_trade.insert(market, ts) != Some(ts))
+            {
+                let trade = json!({"type":"M","topic":format!("predictTrades/{market}"),"data":{
+                    "marketId":market,"tsMs":ts,"taker":{"fill":"1000000000000000000","price":"320000000000000000","outcomeIndex":2,"side":"Bid"},
+                    "makers":[{"fill":"1000000000000000000","price":"320000000000000000","outcomeIndex":2,"side":"Ask","matchType":"COMPLEMENTARY"}]}});
+                if sink
+                    .send(Message::Text(trade.to_string().into()))
+                    .await
+                    .is_err()
+                {
+                    return;
+                }
+            }
             v.frames.lock().unwrap().push(frame.clone());
             if sink
                 .send(Message::Text(frame.to_string().into()))
@@ -185,6 +207,7 @@ impl DataActor for Probe {
     fn on_instrument(&mut self, i: &InstrumentAny) -> anyhow::Result<()> {
         if self.owned.insert(i.id()) {
             if self.depth {
+                self.subscribe_trades(i.id(), Some(ClientId::new("PREDICT")), None);
                 self.subscribe_book_depth(
                     i.id(),
                     nautilus_model::enums::BookType::L2_MBP,
@@ -233,6 +256,13 @@ impl DataActor for Probe {
         self.on_quote(&quote)
     }
 
+    fn on_trade(&mut self, tick: &nautilus_model::data::TradeTick) -> anyhow::Result<()> {
+        assert!(self.depth);
+        assert!(self.cache().instrument(&tick.instrument_id).is_some());
+        self.journal.borrow_mut().push(json!({"type":"trade","id":tick.instrument_id.to_string(),"ts":tick.ts_event.as_u64(),"price":tick.price.to_string(),"side":tick.aggressor_side.to_string()}));
+        Ok(())
+    }
+
     fn on_quote(&mut self, q: &QuoteTick) -> anyhow::Result<()> {
         self.journal.borrow_mut().push(json!({"type":"quote","id":q.instrument_id.to_string(),"ts":q.ts_event.as_u64(),"bid":q.bid_price.to_string(),"ask":q.ask_price.to_string()}));
         let target = match self.phase.get() {
@@ -244,6 +274,7 @@ impl DataActor for Probe {
             && self.owned.remove(&id)
         {
             if self.depth {
+                self.unsubscribe_trades(id, Some(ClientId::new("PREDICT")), None);
                 self.unsubscribe_book_depth(id, Some(ClientId::new("PREDICT")), None);
             } else {
                 self.unsubscribe_quotes(id, Some(ClientId::new("PREDICT")), None);
@@ -257,6 +288,7 @@ impl DataActor for Probe {
     fn on_stop(&mut self) -> anyhow::Result<()> {
         for id in std::mem::take(&mut self.owned) {
             if self.depth {
+                self.unsubscribe_trades(id, Some(ClientId::new("PREDICT")), None);
                 self.unsubscribe_book_depth(id, Some(ClientId::new("PREDICT")), None);
             } else {
                 self.unsubscribe_quotes(id, Some(ClientId::new("PREDICT")), None);
@@ -290,6 +322,15 @@ async fn run(backend: TransportBackend, saved: Option<Value>) -> Value {
     run_with_depth(backend, saved, false).await
 }
 async fn run_with_depth(backend: TransportBackend, saved: Option<Value>, depth: bool) -> Value {
+    run_with_capture(backend, saved, depth, None).await
+}
+async fn run_with_capture(
+    backend: TransportBackend,
+    saved: Option<Value>,
+    depth: bool,
+    record: Option<bool>,
+) -> Value {
+    let _clock_lock = CLOCK_LOCK.lock().await;
     nautilus_predict::register_predict_custom_data();
     let start = chrono::DateTime::parse_from_rfc3339("2026-10-03T22:00:00Z")
         .unwrap()
@@ -320,6 +361,7 @@ async fn run_with_depth(backend: TransportBackend, saved: Option<Value>, depth: 
     };
     let venue = VenueState {
         start,
+        repeat_trades: record.is_some(),
         books: Arc::new(Mutex::new(BTreeMap::from([
             (OLD, frame(OLD, boundary - 1000, "0.62", 41)),
             (NEW, frame(NEW, boundary, "0.62", 43)),
@@ -367,6 +409,43 @@ async fn run_with_depth(backend: TransportBackend, saved: Option<Value>, depth: 
         .unwrap()
         .build()
         .unwrap();
+    let catalog_dir = std::env::temp_dir().join(format!(
+        "predict-native-roll-{}",
+        nautilus_core::UUID4::new()
+    ));
+    if let Some(record_snapshot) = record {
+        std::fs::create_dir_all(&catalog_dir).unwrap();
+        use catalog_capture_core::{CaptureConfig, CapturePlan, plan::CustomDataCaptureSpec};
+        use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
+        let metadata = Params::new(
+            [
+                ("price_feed_symbol".into(), json!("BTC/USDT")),
+                ("title_asset".into(), json!("Bitcoin")),
+                ("interval_secs".into(), json!("300")),
+                ("record_snapshot".into(), json!(record_snapshot.to_string())),
+                ("record_depth".into(), json!("true")),
+                ("record_trades".into(), json!("true")),
+            ]
+            .into(),
+        );
+        let plan = CapturePlan {
+            custom_data: vec![CustomDataCaptureSpec {
+                data_type: DataType::new("PredictCryptoUpDown", Some(metadata), None),
+            }],
+            ..CapturePlan::default()
+        };
+        node.add_actor(
+            CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+                CaptureConfig {
+                    catalog_uri: format!("file://{}", catalog_dir.display()),
+                    ..CaptureConfig::default()
+                },
+                plan,
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+    }
     let phase = Rc::new(Cell::new(0));
     let journal = Rc::new(RefCell::new(vec![]));
     node.add_strategy(Probe {
@@ -394,6 +473,17 @@ async fn run_with_depth(backend: TransportBackend, saved: Option<Value>, depth: 
                 && has_quote(instrument(OLD, 2), boundary - 1000)
         })
         .await;
+        if record.is_some() {
+            barrier("populated old market before recorder rollover", || {
+                journal
+                    .borrow()
+                    .iter()
+                    .filter(|r| r["type"] == "trade" && r["id"] == instrument(OLD, 1).to_string())
+                    .count()
+                    >= 5
+            })
+            .await;
+        }
         clock.set_time(UnixNanos::from((start + 300) * 1_000_000_000));
         barrier("successor custom and quotes", || {
             journal
@@ -413,6 +503,17 @@ async fn run_with_depth(backend: TransportBackend, saved: Option<Value>, depth: 
                 && has_quote(instrument(OLD, 2), boundary + 1)
         })
         .await;
+        if depth {
+            barrier("native strategy trades on both sides of rollover", || {
+                [OLD, NEW].into_iter().all(|m| {
+                    journal
+                        .borrow()
+                        .iter()
+                        .any(|r| r["type"] == "trade" && r["id"] == instrument(m, 1).to_string())
+                })
+            })
+            .await;
+        }
         assert!(
             !venue
                 .commands
@@ -491,6 +592,127 @@ async fn run_with_depth(backend: TransportBackend, saved: Option<Value>, depth: 
     };
     tokio::select! {r=async{let(r,())=tokio::join!(node.run(),driver);r.unwrap();}=>r,()=deadline=>{}}
     server.abort();
+    if record.is_some() {
+        let directory = catalog_dir.clone();
+        let frames = venue.frames.lock().unwrap().clone();
+        std::thread::spawn(move || {
+            use nautilus_model::{data::Data, enums::AggressorSide};
+            use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+            let mut catalog = ParquetDataCatalog::new(&directory, None, None, None, None);
+            let mut source = BTreeMap::new();
+            for frame in frames {
+                let b = &frame["data"];
+                let price = |v: &Value| {
+                    v.as_str()
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| v.to_string())
+                };
+                source.insert(
+                    (
+                        b["marketId"].as_u64().unwrap(),
+                        UnixNanos::from(b["updateTimestampMs"].as_u64().unwrap() * 1_000_000),
+                    ),
+                    (
+                        nautilus_model::types::Price::from(price(&b["bids"][0][0]).as_str()),
+                        nautilus_model::types::Quantity::from(price(&b["bids"][0][1]).as_str()),
+                        nautilus_model::types::Price::from(price(&b["asks"][0][0]).as_str()),
+                        nautilus_model::types::Quantity::from(price(&b["asks"][0][1]).as_str()),
+                    ),
+                );
+            }
+            assert!(!source.is_empty());
+            if record == Some(true) {
+                let identifiers = [OLD.to_string(), NEW.to_string()];
+                let snapshots = catalog
+                    .query_custom_data_dynamic(
+                        "PredictOrderbookSnapshot",
+                        Some(&identifiers),
+                        None,
+                        None,
+                        None,
+                        None,
+                        true,
+                    )
+                    .unwrap();
+                assert!(!snapshots.is_empty());
+                for data in snapshots {
+                    let Data::Custom(data) = data else {
+                        panic!("expected snapshot")
+                    };
+                    let snapshot = data
+                        .data
+                        .as_any()
+                        .downcast_ref::<PredictOrderbookSnapshot>()
+                        .unwrap();
+                    assert!(source.contains_key(&(snapshot.market_id, snapshot.ts_event)));
+                }
+            } else {
+                let families = std::fs::read_dir(directory.join("data"))
+                    .unwrap()
+                    .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                    .collect::<BTreeSet<_>>();
+                assert_eq!(
+                    families,
+                    BTreeSet::from([
+                        "binary_option".to_string(),
+                        "order_book_depths".to_string(),
+                        "trades".to_string(),
+                    ]),
+                    "native-only recording must not create a custom snapshot partition"
+                );
+            }
+
+            for market in [OLD, NEW] {
+                let id = instrument(market, 1);
+                let depths = catalog
+                    .order_book_depths(Some(vec![id.to_string()]), None, None)
+                    .unwrap();
+                let trades = catalog
+                    .trade_ticks(Some(vec![id.to_string()]), None, None)
+                    .unwrap();
+                assert!(
+                    !depths.is_empty() && !trades.is_empty(),
+                    "both native families must record market {market}"
+                );
+                for d in &depths {
+                    assert_eq!(
+                        (
+                            d.bids[0].price,
+                            d.bids[0].size,
+                            d.asks[0].price,
+                            d.asks[0].size
+                        ),
+                        source[&(market, d.ts_event)]
+                    );
+                    assert_eq!(d.ts_event.as_u64() < boundary * 1_000_000, market == OLD);
+                }
+                assert!(
+                    depths.iter().any(|d| d.ts_event.as_u64()
+                        == if market == OLD {
+                            (boundary - 1000) * 1_000_000
+                        } else {
+                            boundary * 1_000_000
+                        }),
+                    "first confirming snapshot must initialize native depth"
+                );
+                let mut ids = BTreeSet::new();
+                for t in &trades {
+                    assert_eq!(t.aggressor_side, AggressorSide::Sell);
+                    assert_eq!(t.price, nautilus_model::types::Price::from("0.68"));
+                    assert_eq!(t.size, nautilus_model::types::Quantity::from(1));
+                    assert_eq!(t.ts_event.as_u64() < boundary * 1_000_000, market == OLD);
+                    assert!(
+                        ids.insert(t.trade_id.to_string()),
+                        "distinct prints must retain distinct local identities"
+                    );
+                }
+            }
+            drop(catalog);
+            std::fs::remove_dir_all(directory).unwrap();
+        })
+        .join()
+        .unwrap();
+    }
     let rows = journal.borrow();
     let observed = |kind| {
         rows.iter()
@@ -590,4 +812,13 @@ async fn record_dynamic_quotes_rollover_json() {
         &json!({"source":"synthetic offline dynamic quotes; no order writes","sessions":sessions}),
     )
     .unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn recorder_and_strategy_share_native_rollover_and_catalog_matches_snapshots() {
+    for backend in [TransportBackend::default(), TransportBackend::Tungstenite] {
+        for snapshots in [true, false] {
+            run_with_capture(backend, None, true, Some(snapshots)).await;
+        }
+    }
 }

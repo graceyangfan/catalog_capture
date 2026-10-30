@@ -61,7 +61,7 @@ archive:
 
 ```bash
 ./scripts/package-cloud.sh \
-  --config examples/capture.predict-orderbook.toml \
+  --config examples/capture.predict-native.toml \
   --features venue-predict
 ```
 
@@ -93,9 +93,9 @@ quotes/trades together with Binance BTC USD-M perpetual L2/trades in hourly UTC
 files under `data/hyperliquid-hip4-btc-daily/`. The perpetual subscription uses
 `depth = 50`, selecting `btcusdt@depth@0ms`, not a partial snapshot stream.
 Predict discovers BTC, ETH and BNB, each at 5m and 15m, and independently seals
-one YES snapshot file per market under `data/predict-crypto-updown/`. Its matching
-BTC/ETH/BNB Binance Spot SBE L2/trades seal hourly; that timer does not seal Predict
-custom snapshots. Predict has no Futures feed; HIP4 has no Spot SBE feed.
+native YES depth and trade partitions under `data/predict-crypto-updown/`, without
+custom Snapshot files. Native segments, including matching BTC/ETH/BNB Binance
+Spot SBE L2/trades, also seal hourly. Predict has no Futures feed; HIP4 has no Spot SBE feed.
 
 Configure the local Predict API key and Binance Spot SBE Ed25519 credentials as
 described in [credentials](credentials.md); HIP4 and Binance Futures public

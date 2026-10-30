@@ -14,9 +14,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::custom::{CustomDataRequestSelector, CustomDataSelector};
-use super::hip4::Hip4UniverseSelector;
-use super::option_universe::OptionUniverseSelector;
+use super::{
+    custom::{CustomDataRequestSelector, CustomDataSelector},
+    hip4::Hip4UniverseSelector,
+    option_universe::OptionUniverseSelector,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CaptureConfigFile {
@@ -44,6 +46,8 @@ pub struct CaptureConfigFile {
     pub bars: Vec<BarSelector>,
     #[serde(default)]
     pub book_deltas: Vec<BookDeltasSelector>,
+    #[serde(default)]
+    pub book_depth: Vec<BookDeltasSelector>,
     /// Subscribe-style custom data only (`subscribe_data` → live `on_data`).
     /// Do not put request-only types (e.g. DeribitBookSummary) here.
     #[serde(default)]

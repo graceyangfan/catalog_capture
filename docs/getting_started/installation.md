@@ -28,21 +28,20 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `acd6c830484c91815fa3bee14ed2fc090bf8b006` |
+| 0.1.x / main | `ed0b147f1df37e3cb225abfb658046c9635ace6c` |
 
-Source of truth: `NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml`.
-This project-fork baseline includes official develop
-`698d5cc8f7012bdc111b060e97de3210ee0a6002` and the project's quantity-fee support.
-Predict targets these Native APIs directly. See the
-[dependency handoff](../reference/predict-execution-validation.md#two-repository-handoff).
+## Dependency contract
 
-The workspace uses a pinned project fork. `execution` enables
-its experimental inventory-fee mapping; this is not an unmodified upstream
-develop build.
+`NAUTILUS_TRADER_REF` in `.github/workflows/ci.yml` and `scripts/bootstrap-deps.sh`
+select the same immutable project-fork commit. It merges official develop with
+inventory-unit commissions, exact gross execution quantities, unresolved command
+retention and terminal quantity normalization. Predict uses these Native APIs
+directly; an unmodified upstream checkout is not interchangeable.
+The current pin includes official develop `288990482b312d18cf17b9c80b0d5159d3b591c6`
+(NautilusTrader 0.68.0).
 
-This pin contains the live reported-cash quantity-fee implementation discussed in
-upstream RFC #5418. Predict execution uses the matching Native APIs directly. See the
-[dependency contract](../reference/predict-execution-validation.md#two-repository-handoff).
+See [quantity commissions](../reference/quantity-commission.md) for supported
+account/fee semantics and [validation](../reference/predict-validation.md) for checks.
 
 ## Toolchain
 

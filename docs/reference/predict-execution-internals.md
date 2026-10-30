@@ -3,7 +3,7 @@
 This reference describes component ownership and runtime behavior. Supported
 commands and venue semantics are defined by the
 [adapter contract](../predict-execution-adapter-design.md). Reproducible checks
-and source provenance are in the [validation reference](predict-execution-validation.md)
+and source provenance are in the [validation reference](predict-validation.md)
 and [test guide](../../crates/nautilus-predict/tests/README.md).
 
 ## Component assembly
@@ -151,7 +151,7 @@ snapshot cannot reopen a terminal order or discard its late real fills.
 | Venue identity | Validate verifier, token, units, numeric REST route and wallet provenance at protocol boundaries |
 
 Comparisons with maintained adapters and the official SDK are documented in the
-[comparison basis](predict-execution-validation.md#comparison-basis). These
+[comparison basis](predict-validation.md). These
 references guide ownership and API use; venue-specific nonce and settlement
 semantics remain Predict responsibilities.
 

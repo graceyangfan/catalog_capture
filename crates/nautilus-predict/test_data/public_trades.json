@@ -1,0 +1,80 @@
+{
+  "SPLIT": {
+    "wire": {
+      "makers": [
+        {
+          "fill": "3125000000000000000",
+          "matchType": "SPLIT",
+          "outcomeIndex": 1,
+          "price": "690000000000000000",
+          "side": "Bid"
+        }
+      ],
+      "marketId": 3994987,
+      "taker": {
+        "fill": "3125000000000000000",
+        "outcomeIndex": 2,
+        "price": "310000000000000000",
+        "side": "Bid"
+      },
+      "tsMs": 1793371609052
+    },
+    "canonical_yes": {
+      "price": "0.69",
+      "size": "3.125",
+      "aggressor": "Seller"
+    }
+  },
+  "COMPLEMENTARY": {
+    "wire": {
+      "makers": [
+        {
+          "fill": "11680700000000000000",
+          "matchType": "COMPLEMENTARY",
+          "outcomeIndex": 2,
+          "price": "320000000000000000",
+          "side": "Ask"
+        }
+      ],
+      "marketId": 3994987,
+      "taker": {
+        "fill": "11680700000000000000",
+        "outcomeIndex": 2,
+        "price": "320000000000000000",
+        "side": "Bid"
+      },
+      "tsMs": 1793371609664
+    },
+    "canonical_yes": {
+      "price": "0.68",
+      "size": "11.6807",
+      "aggressor": "Seller"
+    }
+  },
+  "MERGE": {
+    "wire": {
+      "makers": [
+        {
+          "fill": "9800000000000000000",
+          "matchType": "MERGE",
+          "outcomeIndex": 1,
+          "price": "460000000000000000",
+          "side": "Ask"
+        }
+      ],
+      "marketId": 3994987,
+      "taker": {
+        "fill": "9800000000000000000",
+        "outcomeIndex": 2,
+        "price": "540000000000000000",
+        "side": "Ask"
+      },
+      "tsMs": 1793371629978
+    },
+    "canonical_yes": {
+      "price": "0.46",
+      "size": "9.8",
+      "aggressor": "Buyer"
+    }
+  }
+}

@@ -3,9 +3,8 @@
 Public market data and opt-in private execution for NautilusTrader. Start with the
 [architecture and API contract](../../docs/predict-execution-adapter-design.md).
 It defines command support, MARKET strategy input, settlement callbacks, accounts
-and retention. The [validation record](../../docs/reference/predict-execution-validation.md)
-separates current mock validation from historical mainnet evidence and describes
-the pinned Native dependency.
+and retention. The [validation guide](../../docs/reference/predict-validation.md)
+describes regression boundaries and the pinned Native dependency.
 
 ## Features and dependency
 
@@ -17,10 +16,8 @@ the pinned Native dependency.
 
 The workspace pins the project Nautilus fork containing the live reported-cash
 quantity-fee implementation linked from RFC #5418. It is not an unmodified upstream
-feature. See the [dependency contract](../../docs/reference/predict-execution-validation.md#two-repository-handoff).
-Historical mainnet captures apply to their recorded revisions and combinations;
-the 2026-10-25 positive MARKET BUY capture is identified separately below. They
-do not establish general latency behavior. Execution always uses the RFC #5418 quantity-fee
+feature. See the [dependency contract](../../docs/reference/predict-validation.md).
+Historical fixtures apply to their recorded revisions and do not establish latency guarantees. Execution always uses the RFC #5418 quantity-fee
 contract; the previous monetary-only SHARES fee mode has been removed.
 
 Rust enables submission by injecting `submission_signer: Some(signer)`; session
@@ -40,7 +37,7 @@ Maker LIMIT supports typed `self_trade_prevention` in SubmitOrder params while
 post-only and GTC/GTD remain Native fields. Subscribe to
 `predict_limit_order_receipt_data_type(account,strategy)` without a client selector
 for transport metadata, including the optional removal lock deadline. See the
-[maker contract and zero-fill live evidence](../../docs/reference/predict-maker-order-validation.md).
+[validation boundaries](../../docs/reference/predict-validation.md).
 
 Native `Market + TimeInForce::Fok` maps to Predict MARKET with
 `isFillOrKill=true`; the FOK flag never goes in `params`. Existing MARKET GTC
@@ -51,7 +48,7 @@ This confirms that combination, not general all-or-none enforcement across every
 liquidity shape. Its post-only TP rejection reached the strategy normally; the
 subsequent SELL used an explicitly identified SDK fallback. See the
 [recording and offline replay](tests/README.md#layers-and-focused-replays) and
-[positive validation record](../../docs/reference/predict-immediate-order-validation.md#recorded-venue-observations).
+[evidence integrity](../../docs/reference/predict-validation.md).
 
 Both MARKET sides require params["market_price"] as a strategy-supplied decimal
 reference before slippage. Native MarketOrder has no price field. Optional
@@ -89,6 +86,15 @@ signals. Standard subscribe_book_depth provides an on-demand YES/NO L2 view over
 the same venue subscription. Managed books can use Native quote projection for
 risk/valuation; subscribe_quotes remains an explicit BBO API. See the
 [strategy subscription guide](../../docs/how_to/predict-rust-strategy-calibration.md#market-data-subscriptions).
+Standard `subscribe_trades` / `on_trade` uses the independent public
+`predictTrades/{marketId}` topic. Trades can be requested on either outcome;
+YES recording complements NO prices and reverses its aggressor direction. Matched
+SPLIT and MERGE events remain executions. Quantities use integer clipping to the
+catalog-compatible 16-digit precision; public trade IDs are generated locally
+because this feed supplies no venue match ID. See the
+[market-data guide](../../docs/how_to/predict-market-data.md)
+and [rolling capture example](../../examples/capture.predict-native.toml).
+
 Predict selectors use canonical feed symbols such as BTCUSDT; their market/outcome
 identities remain separate from Binance instruments.
 Crypto Up/Down windows use market/title metadata, price bounds 0..1 and a 1 USDT
@@ -103,7 +109,7 @@ memory for active/unresolved owners or bound one huge history's disposal pause.
 
 One market emits one custom-data identity. Competing explicit/rolling identities
 are rejected by the session while the existing stream and native quote/depth
-owners continue. See the [conflict contract](../../docs/predict-orderbook-capture-design.md#custom-subscription-identity-conflicts)
+owners continue. See the [conflict contract](../../docs/how_to/predict-market-data.md)
 for asynchronous admission, unsubscribe and retry behavior.
 
 ## Development and evidence
@@ -125,7 +131,7 @@ assembly layer. No test strategy or recorder runs in production src.
 - [Tests, fixtures and explicit benchmark exporters](tests/README.md)
 - [Execution internals and limits](../../docs/reference/predict-execution-internals.md)
 - [Private API calibration](../../docs/how_to/predict-private-api-tests.md)
-- [Historical live evidence](../../docs/reference/predict-live-evidence.md)
+- [Validation and evidence limits](../../docs/reference/predict-validation.md)
 
 Ordinary tests use fixtures/loopback services without credentials or venue writes.
 Run only named ignored probes with explicit scope; never all ignored tests.

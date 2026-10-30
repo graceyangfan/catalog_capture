@@ -534,7 +534,8 @@ impl ExtendedWebSocketSession {
                     .send(DataEvent::Data(Data::IndexPrice(value)))?;
             }
             ParsedMessage::FundingRate(value) => {
-                self.data_sender.send(DataEvent::FundingRate(value))?;
+                self.data_sender
+                    .send(DataEvent::Data(Data::FundingRate(value)))?;
             }
         }
         Ok(())

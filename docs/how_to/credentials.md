@@ -102,10 +102,10 @@ cargo +1.99.1 build --release -p catalog-capture-cli \
 PREDICT_CREDENTIALS_FILE="$PWD/env/predictfun.toml" \
 BINANCE_SBE_CREDENTIALS_FILE="$PWD/env/binance-spot-sbe.toml" \
   ./target/release/catalog-capture-cli validate \
-  --config examples/capture.predict-binance-spot-sbe-btc-updown.toml
+  --config examples/capture.predict-crypto-updown.toml
 
 PREDICT_CREDENTIALS_FILE="$PWD/env/predictfun.toml" \
 BINANCE_SBE_CREDENTIALS_FILE="$PWD/env/binance-spot-sbe.toml" \
   ./target/release/catalog-capture-cli run \
-  --config examples/capture.predict-binance-spot-sbe-btc-updown.toml
+  --config examples/capture.predict-crypto-updown.toml
 ```

@@ -24,8 +24,9 @@ use nautilus_common::{
     clients::DataClient,
     messages::data::{
         RequestInstrument, SubscribeBookDepth, SubscribeCustomData, SubscribeInstrument,
-        SubscribeInstruments, SubscribeQuotes, UnsubscribeBookDepth, UnsubscribeCustomData,
-        UnsubscribeInstrument, UnsubscribeInstruments, UnsubscribeQuotes,
+        SubscribeInstruments, SubscribeQuotes, SubscribeTrades, UnsubscribeBookDepth,
+        UnsubscribeCustomData, UnsubscribeInstrument, UnsubscribeInstruments, UnsubscribeQuotes,
+        UnsubscribeTrades,
     },
 };
 use nautilus_live::task::TaskGroup;
@@ -196,6 +197,25 @@ impl DataClient for PredictDataClient {
         Ok(())
     }
 
+    fn subscribe_trades(&mut self, command: SubscribeTrades) -> anyhow::Result<()> {
+        let contexts = command
+            .instrument_ids
+            .into_iter()
+            .map(|id| Ok((id, self.instrument_context(id)?)))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        for (id, context) in contexts {
+            self.send_command(PredictCommand::SubscribeTrades(id, context))?;
+        }
+        Ok(())
+    }
+
+    fn unsubscribe_trades(&mut self, command: &UnsubscribeTrades) -> anyhow::Result<()> {
+        for &id in &command.instrument_ids {
+            self.send_command(PredictCommand::UnsubscribeTrades(id))?;
+        }
+        Ok(())
+    }
+
     fn subscribe_quotes(&mut self, command: SubscribeQuotes) -> anyhow::Result<()> {
         let contexts = command
             .instrument_ids
@@ -224,6 +244,7 @@ impl DataClient for PredictDataClient {
             )),
             "PredictCryptoUpDown" => self.send_command(PredictCommand::StartDynamic(
                 Self::dynamic_selector(&command.data_type)?,
+                command.data_type.topic().to_string(),
             )),
             _ => anyhow::bail!("unsupported Predict custom data type {}", command.data_type),
         }
@@ -236,6 +257,7 @@ impl DataClient for PredictDataClient {
             )),
             "PredictCryptoUpDown" => self.send_command(PredictCommand::StopDynamic(
                 dynamic_selector_key(&Self::dynamic_selector(&command.data_type)?)?,
+                command.data_type.topic().to_string(),
             )),
             _ => anyhow::bail!("unsupported Predict custom data type {}", command.data_type),
         }

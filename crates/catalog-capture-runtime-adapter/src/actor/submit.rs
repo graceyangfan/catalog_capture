@@ -12,16 +12,16 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+use catalog_capture_core::{
+    ForwardPrice, append_forward_price_records, config::OverflowPolicy,
+    forward_price_record_from_model, item::CaptureItem, runtime::FlushResult,
+};
+use nautilus_common::component::Component;
+
 use super::*;
 use crate::actor_runtime::{
     optional_flush_all, optional_shutdown, optional_submit, seal_runtime, submit_capture_item,
 };
-use catalog_capture_core::config::OverflowPolicy;
-use catalog_capture_core::{
-    ForwardPrice, append_forward_price_records, forward_price_record_from_model, item::CaptureItem,
-    runtime::FlushResult,
-};
-use nautilus_common::component::Component;
 
 impl CatalogCaptureActor {
     pub(super) fn submit_instrument(&mut self, instrument: InstrumentAny) -> Result<()> {
@@ -61,6 +61,7 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_custom_data(&mut self, data: CustomData) -> Result<()> {
+        self.reap_retired_predict_markets()?;
         let data_type = data.data_type.clone();
         if self.lighter.enabled()
             && data_type.type_name() == "LighterOpenInterest"
@@ -98,49 +99,40 @@ impl CatalogCaptureActor {
                         previous_market_id,
                         market_id
                     );
-                    let runtime = self
-                        .predict_custom_data_runtimes
-                        .get(&selector_key)
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                "no Predict segment writer configured for selector {selector_key}"
-                            )
-                        })?;
-                    seal_runtime(runtime)?;
+                    if let Some(runtime) = self.predict_custom_data_runtimes.get(&selector_key) {
+                        seal_runtime(runtime)?;
+                    }
                     retired_predict_market_id = Some(previous_market_id);
                 }
                 self.active_predict_market_ids
                     .insert(selector_key.clone(), market_id);
-                self.predict_custom_data_runtimes
-                    .get(&selector_key)
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "no Predict segment writer configured for selector {selector_key}"
-                        )
-                    })?
+                self.predict_custom_data_runtimes.get(&selector_key)
             }
-            _ => self.custom_data_runtime.as_ref().ok_or_else(|| {
+            _ => Some(self.custom_data_runtime.as_ref().ok_or_else(|| {
                 anyhow::anyhow!("custom-data callback received data without a generic writer")
-            })?,
+            })?),
         };
-        runtime.submit(CaptureItem {
-            partition_key: PartitionKey::custom_data(
-                data_type.type_name(),
-                data_type.identifier().map(str::to_string),
-                data_type.topic(),
-            ),
-            event_ts_ns: event_ts,
-            init_ts_ns: Some(ts_init),
-            row_count: 1,
-            estimated_bytes: std::mem::size_of::<CustomData>(),
-            payload: data,
-        })?;
+        if let Some(runtime) = runtime {
+            runtime.submit(CaptureItem {
+                partition_key: PartitionKey::custom_data(
+                    data_type.type_name(),
+                    data_type.identifier().map(str::to_string),
+                    data_type.topic(),
+                ),
+                event_ts_ns: event_ts,
+                init_ts_ns: Some(ts_init),
+                row_count: 1,
+                estimated_bytes: std::mem::size_of::<CustomData>(),
+                payload: data,
+            })?;
+        }
 
-        // The successor snapshot is now owned by its writer. Only then may the retired
-        // market's two definitions leave the Nautilus cache. Disk history is unaffected:
-        // its instrument parquet and sealed custom-data segment already remain in the catalog.
+        self.sync_predict_native(&data_type, retired_predict_market_id)?;
+
+        // Native successor subscriptions are admitted before retiring the old definitions.
+        // Keep them cached while another strategy still owns an old-market subscription.
         if let Some(market_id) = retired_predict_market_id {
-            self.purge_retired_predict_market_from_cache(market_id)?;
+            self.retiring_predict_market_ids.insert(market_id);
         }
         Ok(())
     }
@@ -261,12 +253,14 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_trade(&mut self, trade: TradeTick) -> Result<()> {
-        if !self.accepts_market_data(trade.instrument_id, || {
-            self.plan
-                .trades
-                .iter()
-                .any(|spec| spec.instrument_id == trade.instrument_id)
-        }) {
+        if !self.predict_native_accepts(trade.instrument_id, "record_trades")
+            && !self.accepts_market_data(trade.instrument_id, || {
+                self.plan
+                    .trades
+                    .iter()
+                    .any(|spec| spec.instrument_id == trade.instrument_id)
+            })
+        {
             return Ok(());
         }
         submit_capture_item(
@@ -365,6 +359,7 @@ impl CatalogCaptureActor {
             optional_flush_all(&self.trade_runtime)?,
             optional_flush_all(&self.bar_runtime)?,
             optional_flush_all(&self.book_delta_runtime)?,
+            optional_flush_all(&self.book_depth_runtime)?,
         ])
     }
 
@@ -387,6 +382,7 @@ impl CatalogCaptureActor {
             optional_shutdown(&mut self.trade_runtime),
             optional_shutdown(&mut self.bar_runtime),
             optional_shutdown(&mut self.book_delta_runtime),
+            optional_shutdown(&mut self.book_depth_runtime),
         ];
         for mut runtime in std::mem::take(&mut self.predict_custom_data_runtimes).into_values() {
             results.push(runtime.shutdown());

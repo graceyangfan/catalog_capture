@@ -14,6 +14,7 @@
 
 mod lifecycle;
 mod lighter;
+mod predict;
 mod submit;
 
 use std::{
@@ -24,8 +25,6 @@ use std::{
 };
 
 use anyhow::Result;
-
-use crate::actor_runtime::maybe_family_runtime;
 use catalog_capture_core::{
     background::BackgroundCaptureRuntime,
     catalog_root_from_uri,
@@ -50,8 +49,8 @@ use nautilus_common::{
 use nautilus_model::{
     data::{
         Bar, CustomData, DataType, FundingRateUpdate, IndexPriceUpdate, InstrumentStatus,
-        MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas, QuoteTick, TradeTick,
-        close::InstrumentClose,
+        MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas, OrderBookDepth, QuoteTick,
+        TradeTick, close::InstrumentClose,
     },
     identifiers::{ActorId, ClientId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
@@ -62,14 +61,16 @@ use nautilus_predict::common::{
     PREDICT_SELECTOR_TITLE_ASSET,
 };
 
-use crate::actor_plan::{
-    count_enabled_background_workers, effective_capture_plan, supplemental_capture_plan,
+use crate::{
+    actor_plan::{
+        count_enabled_background_workers, effective_capture_plan, supplemental_capture_plan,
+    },
+    actor_runtime::{collect_family_metrics, maybe_family_runtime},
+    custom_data_requests::CustomDataRequestJob,
+    dynamic_hip4_universe::{DynamicHip4UniverseConfig, DynamicHip4UniverseManager},
+    dynamic_option_universe::{DynamicOptionUniverseConfig, DynamicOptionUniverseManager},
+    online_option_metrics::{OnlineOptionMetricsConfig, OnlineOptionMetricsObserver},
 };
-use crate::actor_runtime::collect_family_metrics;
-use crate::custom_data_requests::CustomDataRequestJob;
-use crate::dynamic_hip4_universe::{DynamicHip4UniverseConfig, DynamicHip4UniverseManager};
-use crate::dynamic_option_universe::{DynamicOptionUniverseConfig, DynamicOptionUniverseManager};
-use crate::online_option_metrics::{OnlineOptionMetricsConfig, OnlineOptionMetricsObserver};
 const OPTION_UNIVERSE_REFRESH_TIMER: &str = "OPTION_UNIVERSE_REFRESH";
 const HIP4_UNIVERSE_REFRESH_TIMER: &str = "HIP4_UNIVERSE_REFRESH";
 const SEGMENT_SEAL_TIMER: &str = "SEGMENT_SEAL";
@@ -142,6 +143,7 @@ pub struct CatalogCaptureActor {
     /// Last accepted market for each Predict rolling selector. A successor's first accepted
     /// snapshot is the authoritative rotation boundary for its writer.
     active_predict_market_ids: BTreeMap<CryptoUpDownSelectorKey, u64>,
+    retiring_predict_market_ids: BTreeSet<u64>,
     mark_price_runtime:
         Option<BackgroundCaptureRuntime<MarkPriceUpdate, CatalogSink<MarkPriceUpdate>>>,
     index_price_runtime:
@@ -158,6 +160,10 @@ pub struct CatalogCaptureActor {
     quote_runtime: Option<BackgroundCaptureRuntime<QuoteTick, CatalogSink<QuoteTick>>>,
     trade_runtime: Option<BackgroundCaptureRuntime<TradeTick, CatalogSink<TradeTick>>>,
     bar_runtime: Option<BackgroundCaptureRuntime<Bar, CatalogSink<Bar>>>,
+    book_depth_runtime:
+        Option<BackgroundCaptureRuntime<OrderBookDepth, CatalogSink<OrderBookDepth>>>,
+    predict_native_subscriptions:
+        BTreeMap<CryptoUpDownSelectorKey, predict::PredictNativeSubscription>,
     book_delta_runtime: Option<BackgroundCaptureRuntime<OrderBookDeltas, BookDeltaCatalogSink>>,
     binance_client_routes: BTreeMap<InstrumentId, ClientId>,
     binance_futures_client_id: Option<ClientId>,
@@ -247,7 +253,16 @@ impl CatalogCaptureActor {
             &capture,
             custom_data_catalog_sink_from_config,
         )?;
-        let predict_custom_data_runtimes = predict_selectors
+        let snapshot_selectors = config
+            .plan
+            .custom_data
+            .iter()
+            .filter(|spec| {
+                spec.data_type.type_name() == "PredictCryptoUpDown" && spec.records_payload()
+            })
+            .map(|spec| predict_selector_key(&spec.data_type))
+            .collect::<Result<BTreeSet<_>>>()?;
+        let predict_custom_data_runtimes = snapshot_selectors
             .into_iter()
             .map(|selector_key| {
                 let runtime = maybe_family_runtime(
@@ -323,6 +338,12 @@ impl CatalogCaptureActor {
             &capture,
             CatalogSink::<Bar>::from_config,
         )?;
+        let book_depth_runtime = maybe_family_runtime(
+            flags.book_depth,
+            CaptureFlushFamily::BookDeltas,
+            &capture,
+            CatalogSink::<OrderBookDepth>::from_config,
+        )?;
         let book_delta_runtime = maybe_family_runtime(
             flags.book_deltas || rolling_lighter,
             CaptureFlushFamily::BookDeltas,
@@ -356,6 +377,7 @@ impl CatalogCaptureActor {
             custom_data_runtime,
             predict_custom_data_runtimes,
             active_predict_market_ids: BTreeMap::new(),
+            retiring_predict_market_ids: BTreeSet::new(),
             mark_price_runtime,
             index_price_runtime,
             funding_rate_runtime,
@@ -367,6 +389,8 @@ impl CatalogCaptureActor {
             trade_runtime,
             bar_runtime,
             book_delta_runtime,
+            book_depth_runtime,
+            predict_native_subscriptions: BTreeMap::new(),
             binance_client_routes: config.binance_client_routes,
             binance_futures_client_id: config.binance_futures_client_id,
             online_option_metrics: config
@@ -404,7 +428,8 @@ impl CatalogCaptureActor {
             self.trade_runtime.is_some(),
             self.bar_runtime.is_some(),
             self.book_delta_runtime.is_some(),
-        ]) + self.predict_custom_data_runtimes.len()
+        ]) + usize::from(self.book_depth_runtime.is_some())
+            + self.predict_custom_data_runtimes.len()
     }
 
     fn capture_metrics(&self) -> CaptureMetrics {
@@ -491,6 +516,13 @@ impl CatalogCaptureActor {
             &mut aggregated,
         );
 
+        collect_family_metrics(
+            "book_depth",
+            &self.book_depth_runtime,
+            &mut families,
+            &mut aggregated,
+        );
+
         let custom_data_requests = self
             .custom_data_request_jobs
             .iter()
@@ -563,29 +595,30 @@ fn predict_selector_keys(plan: &CapturePlan) -> Result<BTreeSet<CryptoUpDownSele
     plan.custom_data
         .iter()
         .filter(|spec| spec.data_type.type_name() == "PredictCryptoUpDown")
-        .map(|spec| {
-            let metadata = spec
-                .data_type
-                .metadata()
-                .ok_or_else(|| anyhow::anyhow!("PredictCryptoUpDown is missing metadata"))?;
-            let string = |key: &str| -> Result<&str> {
-                metadata
-                    .get(key)
-                    .and_then(serde_json::Value::as_str)
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                    .ok_or_else(|| anyhow::anyhow!("PredictCryptoUpDown is missing {key}"))
-            };
-            let interval_secs = string("interval_secs")?.parse::<u64>().map_err(|_| {
-                anyhow::anyhow!("PredictCryptoUpDown interval_secs must be an integer")
-            })?;
-            CryptoUpDownSelectorKey::new(
-                string("price_feed_symbol")?,
-                string("title_asset")?,
-                interval_secs,
-            )
-        })
+        .map(|spec| predict_selector_key(&spec.data_type))
         .collect()
+}
+
+fn predict_selector_key(data_type: &DataType) -> Result<CryptoUpDownSelectorKey> {
+    let metadata = data_type
+        .metadata()
+        .ok_or_else(|| anyhow::anyhow!("PredictCryptoUpDown is missing metadata"))?;
+    let string = |key: &str| -> Result<&str> {
+        metadata
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("PredictCryptoUpDown is missing {key}"))
+    };
+    let interval_secs = string("interval_secs")?
+        .parse::<u64>()
+        .map_err(|_| anyhow::anyhow!("PredictCryptoUpDown interval_secs must be an integer"))?;
+    CryptoUpDownSelectorKey::new(
+        string("price_feed_symbol")?,
+        string("title_asset")?,
+        interval_secs,
+    )
 }
 
 /// Returns the complete rolling-selector provenance carried by an emitted Predict snapshot.

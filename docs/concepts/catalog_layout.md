@@ -7,10 +7,11 @@ Aligned with Nautilus Trader Rust `ParquetDataCatalog` only — no alternate lay
 ```text
 {catalog_root}/
   data/
-    instruments/{instrument_id}/{start}_{end}.parquet
+    {instrument_class}/{instrument_id}/{start}_{end}.parquet  # e.g. binary_option
     quotes/{instrument_id}/{start}_{end}.parquet
     trades/{instrument_id}/{start}_{end}.parquet
     order_book_deltas/{instrument_id}/{start}_{end}.parquet
+    order_book_depths/{instrument_id}/{start}_{end}.parquet
     mark_prices/{instrument_id}/{start}_{end}.parquet
     index_prices/…  funding_rate_update/…  bars/…  option_greeks/…
     custom/{TypeName}/[{identifier}/]/{start}_{end}.parquet

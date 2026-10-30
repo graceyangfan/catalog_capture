@@ -399,12 +399,14 @@ async fn data_client_routes_captured_mainnet_fixtures() {
         while instruments < 1 || books < 2 || trades < 1 || marks < 1 || indexes < 1 || funding < 1
         {
             match receiver.recv().await.expect("data event channel open") {
-                DataEvent::Instrument(value) if value.id() == instrument_id => instruments += 1,
+                DataEvent::Data(Data::Instrument(value)) if value.id() == instrument_id => {
+                    instruments += 1
+                }
                 DataEvent::Data(Data::BookDeltas(_)) => books += 1,
                 DataEvent::Data(Data::Trade(_)) => trades += 1,
                 DataEvent::Data(Data::MarkPrice(_)) => marks += 1,
                 DataEvent::Data(Data::IndexPrice(_)) => indexes += 1,
-                DataEvent::FundingRate(_) => funding += 1,
+                DataEvent::Data(Data::FundingRate(_)) => funding += 1,
                 _ => {}
             }
         }

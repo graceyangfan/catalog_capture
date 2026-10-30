@@ -586,41 +586,13 @@ the frame limit leaves substantial headroom without permitting unbounded
 allocation. These constants can become configuration only after measurements
 show a real deployment need.
 
-## Mainnet Protocol Evidence
+## Protocol validation
 
-Direct raw-frame probes were run against mainnet on 2026-09-26 without SDK
-models or account credentials. They established:
-
-- a common BTC-USD v1/v2 window rebuilt the same final top three bid and ask
-  levels; RPC v2 carried a contiguous connection sequence;
-- one RPC connection with BTC-USD and ETH-USD across ten requested topics
-  delivered 685 stream frames with global `seq = 0..684` and no gap;
-- the first frame was an ETH trade replay, not a book snapshot, proving that
-  sequence initialization cannot depend on subscription order or family;
-- `ping` and `list-subscriptions` succeeded, and the returned live set exactly
-  matched all ten canonical topic IDs;
-- BTC full-book snapshot size was about 169 KiB with roughly 6,000 levels and
-  `d = "f"`; snapshot levels contained `p/q`, while deltas contained `p/q/c`;
-- duplicate subscribe of the same order-book topic was acknowledged and caused
-  another full snapshot, confirming replacement rather than no-op semantics;
-- two consecutive fresh connections each began with the same ascending 50-row
-  BTC trade replay followed by a fresh book snapshot. All 50 exact trade IDs
-  overlapped across generations;
-- trade IDs were around `2.1e18`, beyond exact JavaScript `Number` range;
-- mark frames carried `data.ts = 0` while index frames carried non-zero
-  calculation timestamps;
-- the venue clock was about two to three seconds ahead of the probe host, so
-  valid `ts_event > ts_init` must be tolerated;
-- an invalid depth selector received no bounded response and did not appear in
-  `list-subscriptions`, reinforcing local validation and request timeouts;
-- funding subscription returned a live `FUNDING_RATES` frame with the
-  documented `{m, f, T}` shape; that exact frame is retained as a fixture.
-
-This proves current wire shape, ordering, replacement and replay behavior, not
-long-term operational stability. Release acceptance still requires a mainnet
-soak with forced transport reconnects, successful automatic reconciliation,
-fresh snapshots for every book, at least one real funding event, zero
-unreported sequence gaps and Parquet readback.
+Raw-frame fixtures cover connection-global sequencing, repeated initial trade
+replays, duplicate-subscribe book replacement and exact large trade IDs. Snapshot
+levels and deltas retain their distinct wire shapes. Venue timestamps may lead
+local ingestion time and must not be clamped. Short protocol probes establish
+wire semantics; unattended stability requires separate soak and recovery checks.
 
 ## Verification Contract
 

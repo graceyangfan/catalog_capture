@@ -19,7 +19,7 @@ env:
   RUSTUP_TOOLCHAIN: 1.99.1
   # Immutable project fork baseline, shared with bootstrap-deps.sh.
   NAUTILUS_TRADER_REPOSITORY: graceyangfan/nautilus_trader
-  NAUTILUS_TRADER_REF: acd6c830484c91815fa3bee14ed2fc090bf8b006
+  NAUTILUS_TRADER_REF: ed0b147f1df37e3cb225abfb658046c9635ace6c
 
 jobs:
   pre-commit:

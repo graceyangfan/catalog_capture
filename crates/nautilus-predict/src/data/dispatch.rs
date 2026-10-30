@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Epoch filtering and public snapshot publication. Private wallet events belong to execution.
+//! Epoch filtering and public market-data publication. Private wallet events belong to execution.
 
 use anyhow::Context;
 use nautilus_common::messages::DataEvent;
@@ -39,9 +39,20 @@ impl PredictDataSession {
         if text == RECONNECTED {
             self.current_epoch = epoch;
             self.failed_epoch = None;
+            self.snapshots.clear();
             let market_ids = self.subscriptions.keys().copied().collect::<Vec<_>>();
             for market_id in market_ids {
                 self.send_subscription("subscribe", market_id).await?;
+            }
+            let mut trade_markets = self
+                .trades
+                .values()
+                .map(|c| c.market_id)
+                .collect::<Vec<_>>();
+            trade_markets.sort_unstable();
+            trade_markets.dedup();
+            for market_id in trade_markets {
+                self.send_trade_subscription("subscribe", market_id).await?;
             }
             return Ok(());
         }
@@ -59,9 +70,16 @@ impl PredictDataSession {
             PredictWebSocketMessage::Informational => return Ok(()),
             PredictWebSocketMessage::Market { topic, data } => (topic, data),
         };
-        // The public socket can multiplex informational market frames. Only the canonical
-        // orderbook topic belongs to this client; ignore unrelated market topics instead of
-        // tearing down a healthy generation.
+        if let Some(market) = topic.strip_prefix("predictTrades/") {
+            let market_id = market
+                .parse::<u64>()
+                .context("invalid Predict trade topic")?;
+            return self.handle_trades(
+                market_id,
+                data.context("Predict trade frame is missing data")?.get(),
+            );
+        }
+        // Ignore unrelated multiplexed topics.
         if !topic.starts_with("predictOrderbook/") {
             log::debug!("Predict market frame ignored unrelated topic={topic:?}");
             return Ok(());
@@ -98,6 +116,9 @@ impl PredictDataSession {
                 .context("failed to decode Predict orderbook snapshot")?;
         let snapshot =
             PredictOrderbookSnapshot::from_wire(&context, wire, self.clock.get_time_ns())?;
+        // Late native depth owners receive the same confirmed source snapshot without
+        // requiring a duplicate physical subscribe or waiting for a new book update.
+        self.snapshots.insert(market_id, snapshot.clone());
         let mut native_owners = 0;
         for id in [context.yes_instrument_id, context.no_instrument_id] {
             if let Some(subscription) = self.depths.get_mut(&id) {

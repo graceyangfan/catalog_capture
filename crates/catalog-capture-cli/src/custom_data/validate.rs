@@ -243,6 +243,24 @@ impl KnownCustomDataType {
                         ),
                     )?;
                 }
+                for option in ["record_snapshot", "record_depth", "record_trades"] {
+                    if let Some(value) = metadata.get(option) {
+                        anyhow::ensure!(
+                            matches!(value.as_str(), Some("true" | "false")),
+                            "PredictCryptoUpDown metadata.{option} must be true or false"
+                        );
+                    }
+                }
+                anyhow::ensure!(
+                    metadata
+                        .get("record_snapshot")
+                        .and_then(serde_json::Value::as_str)
+                        != Some("false")
+                        || ["record_depth", "record_trades"].into_iter().any(|key| {
+                            metadata.get(key).and_then(serde_json::Value::as_str) == Some("true")
+                        }),
+                    "PredictCryptoUpDown must record at least one of snapshot, depth, or trades"
+                );
                 let interval_secs = metadata
                     .get("interval_secs")
                     .and_then(serde_json::Value::as_str)

@@ -3,9 +3,9 @@
 Predict translates venue commands and authenticated feedback into Native execution
 messages. Strategy, risk and portfolio policy remain in NautilusTrader. This is
 the behavioral contract; [internals](reference/predict-execution-internals.md) describes
-module ownership and [validation](reference/predict-execution-validation.md)
+module ownership and [validation](reference/predict-validation.md)
 links executable checks and evidence. Supported Native APIs are documented in the
-[dependency handoff](reference/predict-execution-validation.md#two-repository-handoff).
+[dependency handoff](reference/predict-validation.md).
 
 ## Ownership
 
@@ -110,7 +110,7 @@ worker views and restart validation reuse that history. Subsequent order progres
 uses gross shares. No separate budget registry is maintained. Reservations use
 the immutable signed budget or conservatively the persisted quote cap. Sizing
 from one reference does not guarantee full budget consumption. See
-[SDK and MARKET evidence](reference/predict-immediate-order-validation.md).
+[SDK and MARKET evidence](reference/predict-validation.md).
 
 ### Maker STP and receipt metadata
 
@@ -123,7 +123,7 @@ Subscribe to `predict_limit_order_receipt_data_type(account, strategy)` with no
 client selector for `PredictLimitOrderReceiptUpdate`. It contains submitted
 options and the optional exact removal-lock deadline. Missing means unknown;
 metadata is transient and not reconstructed after restart. Its delivery failure
-does not change execution outcome. See the [maker contract](reference/predict-maker-order-validation.md).
+does not change execution outcome. See the [maker contract](reference/predict-validation.md).
 
 ### Cancellation
 
@@ -331,7 +331,7 @@ before the existing shared backoff schedules another round.
 Preparing all four contracts uses six more block GETs than a shared batch; these
 checks occur only during preparation or recovery, never on normal submission.
 Automatic wallet reconnect and instrument retirement preserve valid values;
-full client setup resets connection context. See the [SDK comparison](reference/predict-execution-validation.md#comparison-basis).
+full client setup resets connection context. See the [SDK comparison](reference/predict-validation.md).
 
 ## Retention and public data
 

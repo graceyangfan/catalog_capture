@@ -187,3 +187,24 @@ pub(crate) fn parse_book_delta_specs(
         })
         .collect()
 }
+
+/// Native snapshot depth is a separate subscription family from incremental deltas.
+pub(crate) fn parse_book_depth_specs(
+    items: &[BookDeltasSelector],
+) -> Result<Vec<catalog_capture_core::plan::BookDepthCaptureSpec>> {
+    items
+        .iter()
+        .map(|item| {
+            anyhow::ensure!(
+                item.depth != Some(0),
+                "capture.book_depth.depth must be > 0 when set"
+            );
+            Ok(catalog_capture_core::plan::BookDepthCaptureSpec {
+                instrument_id: parse_instrument_id(&item.instrument_id)?,
+                book_type: BookType::from_str(&item.book_type)
+                    .with_context(|| format!("invalid book_type {}", item.book_type))?,
+                depth: item.depth,
+            })
+        })
+        .collect()
+}

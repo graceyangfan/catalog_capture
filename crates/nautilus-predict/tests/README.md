@@ -2,9 +2,9 @@
 
 Ordinary tests use immutable fixtures and loopback HTTP/WS/RPC, without credentials
 or venue orders. The [architecture](../../../docs/predict-execution-adapter-design.md)
-defines behavior; the [validation matrix](../../../docs/reference/predict-execution-validation.md)
+defines behavior; the [validation matrix](../../../docs/reference/predict-validation.md)
 links sources, real JSON and known limits. Use the matching
-[Native dependency](../../../docs/reference/predict-execution-validation.md#two-repository-handoff).
+[Native dependency](../../../docs/reference/predict-validation.md).
 
 ## Run offline tests
 
@@ -61,9 +61,9 @@ Subscriber checks assert exact gross/net quantities, original fees and applied
 Cache state. No replay schedule may fabricate or void an execution. Identity,
 time, signing and delivery-order changes are labeled derived; they do not
 establish additional venue behavior. Fixture provenance is documented in the
-[validation matrix](../../../docs/reference/predict-execution-validation.md).
+[validation matrix](../../../docs/reference/predict-validation.md).
 Pending-command retention and terminal quantity normalization require its
-[paired framework revision](../../../docs/reference/predict-execution-validation.md#two-repository-handoff).
+[paired framework revision](../../../docs/reference/predict-validation.md).
 
 ## Pre-live checks without venue orders
 
@@ -111,7 +111,7 @@ PYTHONPATH=tests uv run --python 3.12 --with requests --with websocket-client --
 The manifest verifier needs only the standard library. Supervisors require Python
 3.11+. Live operators should consult the
 [probe guide](../../../docs/how_to/predict-private-api-tests.md) and
-[existing venue evidence](../../../docs/reference/predict-live-evidence.md) before
+[existing venue evidence](../../../docs/reference/predict-validation.md) before
 requesting a new funded case. No-submit preparation is not fill evidence.
 
 ## Benchmarks and explicit JSON exporters

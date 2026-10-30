@@ -37,6 +37,8 @@ pub struct CaptureRunPlanSummary {
     pub trades: usize,
     pub bars: usize,
     pub book_deltas: usize,
+    #[serde(default)]
+    pub book_depth: usize,
     pub mark_prices: usize,
     pub index_prices: usize,
     pub funding_rates: usize,
@@ -73,6 +75,7 @@ impl CaptureRunPlanSummary {
             trades: plan.trades.len(),
             bars: plan.bars.len(),
             book_deltas: plan.book_deltas.len(),
+            book_depth: plan.book_depth.len(),
             mark_prices: plan.mark_prices.len(),
             index_prices: plan.index_prices.len(),
             funding_rates: plan.funding_rates.len(),
@@ -141,9 +144,10 @@ pub fn new_capture_run_record(input: CaptureRunInput<'_>) -> CaptureRunRecord {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
     use crate::plan::CapturePlan;
-    use std::fs;
 
     #[test]
     fn write_capture_run_roundtrip() {

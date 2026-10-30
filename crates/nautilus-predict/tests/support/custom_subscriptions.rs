@@ -27,11 +27,13 @@ use axum::{
     routing::get,
 };
 use futures_util::{SinkExt, StreamExt};
-use nautilus_common::messages::DataEvent;
 use nautilus_common::{
     clients::DataClient,
     live::runner::replace_data_event_sender,
-    messages::data::{SubscribeCustomData, UnsubscribeCustomData},
+    messages::{
+        DataEvent,
+        data::{SubscribeCustomData, UnsubscribeCustomData},
+    },
 };
 use nautilus_core::{Params, UUID4, time::AtomicTime};
 use nautilus_live::task::TaskGroup;
@@ -205,6 +207,7 @@ fn discovery(
         session.dynamic_subscriptions.insert(
             key.clone(),
             DynamicSubscription {
+                owners: ["test-owner".to_string()].into(),
                 selector: selector.clone(),
                 version,
                 current_market_id: None,
@@ -238,7 +241,7 @@ fn discovery(
 
 fn definitions(events: &mut mpsc::UnboundedReceiver<DataEvent>, market: u64) {
     for outcome in [1, 2] {
-        let DataEvent::Instrument(instrument) = events.try_recv().unwrap() else {
+        let DataEvent::Data(Data::Instrument(instrument)) = events.try_recv().unwrap() else {
             panic!("definitions precede snapshots");
         };
         assert_eq!(
@@ -366,7 +369,7 @@ async fn indexed_lookup_preserves_identity_precedence_and_retirement() {
     client.dynamic_registry = Arc::clone(&session.dynamic_registry);
     client.bootstrap_markets().await.unwrap();
     for outcome in [1, 2] {
-        let DataEvent::Instrument(definition) = receive(&mut definitions).await else {
+        let DataEvent::Data(Data::Instrument(definition)) = receive(&mut definitions).await else {
             panic!("bootstrap definition missing")
         };
         assert_eq!(
@@ -395,7 +398,8 @@ async fn indexed_lookup_preserves_identity_precedence_and_retirement() {
                 (market_id, precision)
             );
             client.publish_instrument(id).unwrap();
-            let DataEvent::Instrument(definition) = receive(&mut definitions).await else {
+            let DataEvent::Data(Data::Instrument(definition)) = receive(&mut definitions).await
+            else {
                 panic!("lookup publication missing")
             };
             assert_eq!(
@@ -483,7 +487,7 @@ async fn explicit_custom_identity_rejects_selector_and_preserves_native_sharing(
         assert_eq!(session.dynamic_subscriptions[&key].pending_market_id, None);
         assert!(events.try_recv().is_err());
         session
-            .handle_command(PredictCommand::StopDynamic(key))
+            .handle_command(PredictCommand::StopDynamic(key, "test-owner".into()))
             .await
             .unwrap();
         publish(&mut session, &venue, ID, 1).await;
@@ -540,8 +544,24 @@ async fn selector_identity_rejects_explicit_subscribe_and_foreign_unsubscribe() 
                 venue.no_commands(&session).await;
             }
             native(&mut session).await;
+            if confirmed {
+                let DataEvent::Data(Data::BookDepth(replay)) = events.try_recv().unwrap() else {
+                    panic!("late depth owner must receive confirmed source snapshot");
+                };
+                assert_eq!(
+                    replay.instrument_id,
+                    crate::instrument_id_from_outcome(ID, 1).unwrap()
+                );
+                assert_eq!(replay.ts_event, session.snapshots[&ID].ts_event);
+                assert_eq!(replay.bids[0].price.to_string(), "0.62");
+                assert!(events.try_recv().is_err());
+            }
+
             session
-                .handle_command(PredictCommand::StartDynamic(selector(" btc/usdt ")))
+                .handle_command(PredictCommand::StartDynamic(
+                    selector(" btc/usdt "),
+                    "test-owner".into(),
+                ))
                 .await
                 .unwrap();
             let e = session
@@ -558,7 +578,7 @@ async fn selector_identity_rejects_explicit_subscribe_and_foreign_unsubscribe() 
             outputs(&mut events, Some(&expected), ID, 2, true);
             venue.no_commands(&session).await;
             session
-                .handle_command(PredictCommand::StopDynamic(key))
+                .handle_command(PredictCommand::StopDynamic(key, "test-owner".into()))
                 .await
                 .unwrap();
             publish(&mut session, &venue, ID, 3).await;
@@ -643,7 +663,7 @@ async fn colliding_selector_preserves_pending_handover_and_retries_after_release
         );
         venue.command("unsubscribe", ID).await;
         session
-            .handle_command(PredictCommand::StopDynamic(second_key))
+            .handle_command(PredictCommand::StopDynamic(second_key, "test-owner".into()))
             .await
             .unwrap();
         venue.command("unsubscribe", ID + 2).await;
@@ -756,7 +776,7 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
         publish(&mut session, &venue, ID + 1, 1).await;
         outputs(&mut events, Some(&selector_type), ID + 1, 1, false);
         session
-            .handle_command(PredictCommand::StopDynamic(key))
+            .handle_command(PredictCommand::StopDynamic(key, "test-owner".into()))
             .await
             .unwrap();
         venue.command("unsubscribe", ID + 1).await;
@@ -820,7 +840,7 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
                 .contains(&data_type)
         );
         session
-            .handle_command(PredictCommand::StopDynamic(key))
+            .handle_command(PredictCommand::StopDynamic(key, "test-owner".into()))
             .await
             .unwrap();
         venue.command("unsubscribe", ID + 1).await;
@@ -951,7 +971,7 @@ async fn client_reset_releases_rejected_identity_and_accepts_explicit_snapshots(
     for _ in 0..4 {
         assert!(matches!(
             receive(&mut events).await,
-            DataEvent::Instrument(_)
+            DataEvent::Data(Data::Instrument(_))
         ));
     }
     let subscribe = |data_type| {
@@ -980,7 +1000,7 @@ async fn client_reset_releases_rejected_identity_and_accepts_explicit_snapshots(
         )))
         .unwrap();
     for outcome in [1, 2] {
-        let DataEvent::Instrument(instrument) = receive(&mut events).await else {
+        let DataEvent::Data(Data::Instrument(instrument)) = receive(&mut events).await else {
             panic!("discovered definitions precede snapshots");
         };
         assert_eq!(
@@ -1025,7 +1045,7 @@ async fn client_reset_releases_rejected_identity_and_accepts_explicit_snapshots(
     for _ in 0..4 {
         assert!(matches!(
             receive(&mut events).await,
-            DataEvent::Instrument(_)
+            DataEvent::Data(Data::Instrument(_))
         ));
     }
     client
@@ -1061,4 +1081,54 @@ async fn client_reset_releases_rejected_identity_and_accepts_explicit_snapshots(
         json!({"method":"heartbeat", "data":"custom-reset-barrier"})
     );
     client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn independent_selector_identities_release_only_their_own_discovery_interest() {
+    let (mut venue, mut session, tasks, mut events) = setup(TransportBackend::default()).await;
+    let product = selector("BTCUSDT");
+    let result = discovery(&mut session, &product, ID);
+    let key = result.key.clone();
+    let output = predict_crypto_up_down_orderbook_data_type(ID, &key);
+    session.apply_discovery_result(result).await.unwrap();
+    definitions(&mut events, ID);
+    venue.command("subscribe", ID).await;
+    session
+        .handle_command(PredictCommand::StartDynamic(
+            product,
+            "strategy-owner".into(),
+        ))
+        .await
+        .unwrap();
+    session
+        .handle_command(PredictCommand::StopDynamic(
+            key.clone(),
+            "test-owner".into(),
+        ))
+        .await
+        .unwrap();
+    session
+        .handle_command(PredictCommand::StopDynamic(
+            key.clone(),
+            "unknown-owner".into(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(session.dynamic_subscriptions[&key].owners.len(), 1);
+    publish(&mut session, &venue, ID, 1).await;
+    outputs(&mut events, Some(&output), ID, 1, false);
+    venue.no_commands(&session).await;
+    session
+        .handle_command(PredictCommand::StopDynamic(
+            key.clone(),
+            "strategy-owner".into(),
+        ))
+        .await
+        .unwrap();
+    venue.command("unsubscribe", ID).await;
+    assert!(!session.dynamic_subscriptions.contains_key(&key));
+    assert!(!session.subscriptions.contains_key(&ID));
+    publish(&mut session, &venue, ID, 2).await;
+    assert!(events.try_recv().is_err());
+    shutdown(session, tasks).await;
 }

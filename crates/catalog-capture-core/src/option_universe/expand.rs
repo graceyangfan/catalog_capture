@@ -14,14 +14,13 @@
 
 use nautilus_model::enums::BookType;
 
+use super::{OptionUniverseFamily, OptionUniverseSpec, ResolvedOptionUniverse};
 use crate::plan::{
     BookDeltasCaptureSpec, CapturePlan, ForwardPriceCaptureSpec, FundingRateCaptureSpec,
     IndexPriceCaptureSpec, InstrumentCaptureSpec, InstrumentCloseCaptureSpec,
     InstrumentStatusCaptureSpec, MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec,
     TradeCaptureSpec,
 };
-
-use super::{OptionUniverseFamily, OptionUniverseSpec, ResolvedOptionUniverse};
 
 pub fn expand_option_universe(
     spec: &OptionUniverseSpec,
@@ -123,6 +122,7 @@ pub fn merge_capture_plans(base: &CapturePlan, addition: &CapturePlan) -> Captur
     extend_unique(&mut merged.quotes, addition.quotes.iter().cloned());
     extend_unique(&mut merged.trades, addition.trades.iter().cloned());
     extend_unique(&mut merged.bars, addition.bars.iter().cloned());
+    extend_unique(&mut merged.book_depth, addition.book_depth.iter().cloned());
     extend_unique(
         &mut merged.book_deltas,
         addition.book_deltas.iter().cloned(),

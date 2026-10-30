@@ -4224,7 +4224,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-analysis"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4237,7 +4237,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-binance"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4276,7 +4276,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-bybit"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4315,7 +4315,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-common"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4347,7 +4347,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-core"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4370,7 +4370,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-cryptography"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "anyhow",
  "aws-lc-rs",
@@ -4380,12 +4380,12 @@ dependencies = [
  "nautilus-core",
  "pem",
  "rustls",
- "webpki-roots 1.0.10",
+ "webpki-roots 1.0.11",
 ]
 
 [[package]]
 name = "nautilus-data"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4406,7 +4406,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-deribit"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4443,7 +4443,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-execution"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4491,7 +4491,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-hyperliquid"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "alloy",
@@ -4531,7 +4531,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-infrastructure"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4559,7 +4559,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-lighter"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4574,6 +4574,7 @@ dependencies = [
  "log",
  "nautilus-common",
  "nautilus-core",
+ "nautilus-execution",
  "nautilus-live",
  "nautilus-model",
  "nautilus-network",
@@ -4626,7 +4627,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-live"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4658,7 +4659,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-macros"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4667,7 +4668,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-model"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "alloy-primitives",
@@ -4699,7 +4700,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-network"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4740,12 +4741,12 @@ dependencies = [
  "tower-service",
  "url",
  "ustr",
- "webpki-roots 1.0.10",
+ "webpki-roots 1.0.11",
 ]
 
 [[package]]
 name = "nautilus-okx"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4783,7 +4784,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-persistence"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4812,7 +4813,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-portfolio"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4873,7 +4874,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-risk"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "bon",
@@ -4892,7 +4893,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-serialization"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -4910,7 +4911,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-system"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4935,7 +4936,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-testkit"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4958,7 +4959,7 @@ dependencies = [
 
 [[package]]
 name = "nautilus-trading"
-version = "0.67.0"
+version = "0.68.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -5640,9 +5641,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "1.7.1"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed5b98ae99461e02895c3a96a25dbe4d852a3d5e5b815d31d5d9e4b5344d99e9"
+checksum = "db7f3d75b5a3301746bff39a767bf4c5c42506b08513527308b3875bfb64a031"
 dependencies = [
  "arc-swap",
  "arcstr",
@@ -5666,7 +5667,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "url",
- "webpki-roots 1.0.10",
+ "webpki-roots 1.0.11",
  "xxhash-rust",
 ]
 
@@ -5824,9 +5825,9 @@ dependencies = [
 
 [[package]]
 name = "ruint"
-version = "1.20.1"
+version = "1.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2973657b5127d510e230f5c63d2d106af9c8f79393d8b9f4647323e8196bdde5"
+checksum = "a0de3fa9b4dac39cc2bd65679bacf9f531899d933605e2963b40c2129cdb55f2"
 dependencies = [
  "alloy-rlp",
  "ark-ff 0.3.0",
@@ -5842,6 +5843,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "proptest",
+ "rand 0.10.3",
  "rand 0.8.6",
  "rand 0.9.4",
  "rlp",
@@ -6443,9 +6445,9 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "smallvec"
-version = "1.16.3"
+version = "1.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b3dc8af474f516a851ff4bd12db780f948b9250ad37211e4eec0bccea54e01b"
+checksum = "d0d5d4b1981b8bbbb7aed204cae5726d683d5d6ac7e74ec54122ea28f315e7c8"
 dependencies = [
  "serde",
 ]
@@ -6489,7 +6491,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-util",
- "webpki-roots 1.0.10",
+ "webpki-roots 1.0.11",
 ]
 
 [[package]]
@@ -7195,9 +7197,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.28.0"
+version = "1.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cc1186384beb7dd8eedea376413fd654937285ea6c9cfbb928dc3043ea4b606"
+checksum = "4a0e2d11620c50695fe12bbbfde96b3477fe606e7284c22d505c12ce51214514"
 dependencies = [
  "getrandom 0.4.2",
  "js-sys",
@@ -7398,14 +7400,14 @@ version = "0.26.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
 dependencies = [
- "webpki-roots 1.0.10",
+ "webpki-roots 1.0.11",
 ]
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.10"
+version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c1c8e20c8a38fc7d65abfe74eb7280e4aa667e8eec8bc84996d2874810748d9"
+checksum = "f5f280bbb2b287bc8e7de7e3852945a0ff50d1bbcb5ed42b6c7a568c546df171"
 dependencies = [
  "rustls-pki-types",
 ]

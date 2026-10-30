@@ -191,7 +191,7 @@ async fn public_client_preserves_bootstrap_snapshots_heartbeat_reconnect_and_ref
         format!("{MARKET_ID}-1.PREDICT"),
         format!("{MARKET_ID}-2.PREDICT"),
     ] {
-        let DataEvent::Instrument(instrument) = events.recv().await.unwrap() else {
+        let DataEvent::Data(Data::Instrument(instrument)) = events.recv().await.unwrap() else {
             panic!("definitions precede snapshots")
         };
         assert_eq!(instrument.id().to_string(), expected);

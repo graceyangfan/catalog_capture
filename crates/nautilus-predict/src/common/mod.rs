@@ -117,7 +117,11 @@ pub fn predict_crypto_up_down_orderbook_data_type(
 }
 
 #[cfg(feature = "live")]
-pub(crate) fn parse_market_id(instrument_id: &InstrumentId) -> anyhow::Result<u64> {
+/// Parses the market identity from a canonical Predict outcome instrument.
+///
+/// # Errors
+/// Returns an error for another venue, invalid market ID or unsupported outcome.
+pub fn parse_market_id(instrument_id: &InstrumentId) -> anyhow::Result<u64> {
     anyhow::ensure!(
         instrument_id.venue.as_str() == "PREDICT",
         "instrument {instrument_id} is not a Predict instrument"

@@ -25,7 +25,7 @@ use nautilus_common::{
 use nautilus_core::time::{AtomicTime, get_atomic_clock_realtime};
 use nautilus_live::task::TaskGroup;
 use nautilus_model::{
-    data::DataType,
+    data::{Data, DataType},
     identifiers::{ClientId, InstrumentId},
 };
 use tokio::sync::mpsc;
@@ -37,7 +37,7 @@ use crate::{
     PredictInstrumentProvider, common::normalize_price_feed_symbol, predict_orderbook_data_type,
 };
 
-/// Nautilus data client which publishes Predict instruments and complete orderbook snapshots.
+/// Nautilus data client for Predict instruments, snapshots, native depth, quotes and trades.
 #[derive(Debug)]
 pub struct PredictDataClient {
     pub(super) clock: &'static AtomicTime,
@@ -117,7 +117,8 @@ impl PredictDataClient {
                 .await
                 .with_context(|| format!("failed to load Predict market {market_id}"))?;
             for instrument in definitions {
-                self.data_sender.send(DataEvent::Instrument(instrument))?;
+                self.data_sender
+                    .send(DataEvent::Data(Data::Instrument(Box::new(instrument))))?;
             }
         }
         Ok(())
@@ -225,7 +226,8 @@ impl PredictDataClient {
                     .instrument(instrument_id)
             })
             .with_context(|| format!("Predict instrument {instrument_id} is not loaded"))?;
-        self.data_sender.send(DataEvent::Instrument(instrument))?;
+        self.data_sender
+            .send(DataEvent::Data(Data::Instrument(Box::new(instrument))))?;
         Ok(())
     }
 }

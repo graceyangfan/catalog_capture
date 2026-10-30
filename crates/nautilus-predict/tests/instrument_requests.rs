@@ -34,6 +34,7 @@ use nautilus_common::{
 use nautilus_core::{Params, UUID4, UnixNanos};
 use nautilus_live::node::{LiveNode, config::LiveExecutionEngineConfig};
 use nautilus_model::{
+    data::Data,
     identifiers::{ClientId, InstrumentId, StrategyId, TraderId},
     instruments::{Instrument, InstrumentAny},
 };
@@ -112,7 +113,7 @@ async fn venue_request_preserves_correlation_and_does_not_require_preloading() {
     let correlation_id = command.request_id;
     client.request_instrument(command).unwrap();
     tokio::time::timeout(Duration::from_secs(3), async {
-        let Some(DataEvent::Instrument(definition)) = rx.recv().await else {
+        let Some(DataEvent::Data(Data::Instrument(definition))) = rx.recv().await else {
             panic!("missing publication")
         };
         assert_eq!(definition.id(), instrument(2));

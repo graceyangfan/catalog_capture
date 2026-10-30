@@ -1,8 +1,5 @@
-# Rolling Predict BTC crypto-up/down native YES-orderbook snapshot capture.
-#
-# Market IDs are deliberately absent. The client discovers the active BTC 5m
-# product, writes both outcome BinaryOption definitions, records its one native
-# YES orderbook, and hands off only after the next market has a first snapshot.
+# Rolling Predict BTC 5m native YES depth and trades. No custom snapshot files.
+# Discovery publishes both BinaryOption definitions and confirms rollover by snapshot.
 #
 # Keep the API key outside this capture TOML:
 #   cp examples/predictfun.credentials.toml.example env/predictfun.toml
@@ -10,7 +7,7 @@
 #
 # Build/run:
 #   cargo run -p catalog-capture-cli --no-default-features --features venue-predict -- \
-#     run --config examples/capture.predict-orderbook.toml
+#     run --config examples/capture.predict-native.toml
 
 [runtime]
 capture_seconds = 0
@@ -19,7 +16,7 @@ delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-PREDICT"
 
 [output]
-catalog_uri = "file://./data/predict-orderbook"
+catalog_uri = "file://./data/predict-native"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000
@@ -28,6 +25,9 @@ max_buffer_bytes = 33554432
 max_total_buffer_bytes = 134217728
 queue_capacity = 10000
 overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
 
 [[venues]]
 id = "predict_main"
@@ -42,3 +42,8 @@ type_name = "PredictCryptoUpDown"
 price_feed_symbol = "BTCUSDT"
 title_asset = "Bitcoin"
 interval_secs = "300"
+
+# Native subscriptions follow the same snapshot-confirmed rolling YES instrument.
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"

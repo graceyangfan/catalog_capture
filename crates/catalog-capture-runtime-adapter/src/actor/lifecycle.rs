@@ -14,9 +14,6 @@
 
 use std::{any::Any, collections::BTreeSet};
 
-use super::*;
-use crate::actor_runtime::{custom_data_client_id, optional_flush_all, optional_seal_all};
-use crate::custom_data_requests::{CUSTOM_DATA_REQUEST_TIMER_PREFIX, parse_request_timer_index};
 use catalog_capture_core::{
     append_hip4_universe_resolution_records, append_option_universe_resolution_records,
     forward_price_from_option_greeks, next_seal_boundary_ns,
@@ -27,6 +24,12 @@ use nautilus_model::{data::DataType, identifiers::Venue, instruments::Instrument
 use nautilus_predict::common::{
     CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
     PREDICT_SELECTOR_TITLE_ASSET, predict_outcome_instrument_id,
+};
+
+use super::*;
+use crate::{
+    actor_runtime::{custom_data_client_id, optional_flush_all, optional_seal_all},
+    custom_data_requests::{CUSTOM_DATA_REQUEST_TIMER_PREFIX, parse_request_timer_index},
 };
 
 impl CatalogCaptureActor {
@@ -188,6 +191,18 @@ impl CatalogCaptureActor {
         for spec in &plan.bars {
             if spec.bar_type.instrument_id() == instrument_id {
                 self.subscribe_bars(spec.bar_type, client_id, None);
+            }
+        }
+        for spec in &plan.book_depth {
+            if spec.instrument_id == instrument_id {
+                self.subscribe_book_depth(
+                    instrument_id,
+                    spec.book_type,
+                    spec.depth.and_then(std::num::NonZeroUsize::new),
+                    client_id,
+                    false,
+                    None,
+                );
             }
         }
         for spec in &plan.book_deltas {
@@ -361,6 +376,13 @@ impl CatalogCaptureActor {
                 None,
             );
         }
+        for spec in &plan.book_depth {
+            self.unsubscribe_book_depth(
+                spec.instrument_id,
+                self.market_data_client_id(spec.instrument_id),
+                None,
+            );
+        }
         for spec in &plan.book_deltas {
             self.unsubscribe_book_deltas(
                 spec.instrument_id,
@@ -503,6 +525,10 @@ impl CatalogCaptureActor {
             log::debug!(
                 "catalog-capture: retain retired Predict market {market_id}; another selector still owns it"
             );
+            return Ok(());
+        }
+
+        if Self::predict_market_has_subscribers(market_id)? {
             return Ok(());
         }
 
@@ -780,6 +806,7 @@ impl CatalogCaptureActor {
         optional_seal_all(&self.trade_runtime)?;
         optional_seal_all(&self.bar_runtime)?;
         optional_seal_all(&self.book_delta_runtime)?;
+        optional_seal_all(&self.book_depth_runtime)?;
         self.submit_book_boundary_snapshots()?;
         Ok(())
     }
@@ -956,13 +983,14 @@ fn is_hip4_outcome(instrument_id: InstrumentId) -> bool {
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)] // Keeps the focused helper tests beside their helper.
 mod tests {
-    use super::predict_dynamic_output_data_type;
     use nautilus_core::Params;
     use nautilus_model::data::DataType;
     use nautilus_predict::common::{
         CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS,
         PREDICT_SELECTOR_PRICE_FEED_SYMBOL, PREDICT_SELECTOR_TITLE_ASSET,
     };
+
+    use super::predict_dynamic_output_data_type;
 
     #[test]
     fn dynamic_predict_output_type_wildcards_only_its_selector_market_ids() {
@@ -1040,6 +1068,7 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_stop(&mut self) -> Result<()> {
+        self.stop_predict_native();
         self.clock().cancel_timer(super::lighter::LIGHTER_TIMER);
         self.lighter.pending = None;
         self.clock().cancel_timer(OPTION_UNIVERSE_REFRESH_TIMER);
@@ -1205,6 +1234,10 @@ impl DataActor for CatalogCaptureActor {
     fn on_bar(&mut self, bar: &Bar) -> Result<()> {
         self.submit_bar(*bar)?;
         Ok(())
+    }
+
+    fn on_book_depth(&mut self, depth: &OrderBookDepth) -> Result<()> {
+        self.submit_book_depth(depth.clone())
     }
 
     fn on_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {

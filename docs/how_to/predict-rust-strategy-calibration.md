@@ -42,7 +42,7 @@ the default. Native formats/logs order events before calling strategy hooks, so
 logging belongs to WS-to-strategy latency. Rust strategies can also use Native
 StrategyConfig.log_events and log_commands to control their event/command logs.
 Keep logging identical between compared source versions and record the setting.
-The [matched callback validation](../reference/predict-execution-validation.md#measurement-requirements)
+The [matched callback validation](../reference/predict-validation.md)
 distinguishes logger cost from run-to-run tail variation; lowering log output does
 not establish a universal p99 improvement.
 
@@ -94,8 +94,33 @@ retain one shared physical market subscription. Last-owner unsubscribe and recon
 retain their existing lifecycle. Depth limits for one instrument must agree across
 consumers. Rolling discovery retains its existing complete custom-snapshot output;
 new depth interests can join discovered instruments without adding another venue
-connection. Recording configuration, fields, timestamps, selector provenance and
-rollover sealing remain unchanged.
+connection. The recorder can keep snapshots or persist only native depth and trades.
+
+### Native trade callbacks
+
+Subscribe to the same concrete instrument selected for depth:
+
+```rust,ignore
+self.subscribe_trades(yes_instrument_id, Some(ClientId::from("PREDICT")), None);
+
+fn on_trade(&mut self, tick: &TradeTick) -> anyhow::Result<()> {
+    // tick.aggressor_side is Buy/Sell relative to tick.instrument_id.
+    // A NO buy appears as Sell when this subscription requests the YES view.
+    self.observe_trade(tick);
+    Ok(())
+}
+```
+
+Use `unsubscribe_trades` to release the strategy's interest. Native engine
+subscriptions are shared: recorder rollover does not release a strategy's old
+instrument subscription. The recorder's
+[native configuration](../../examples/capture.predict-native.toml) opts into YES
+Depth and TradeTick recording with `record_depth` and `record_trades` on the
+existing snapshot selector; `record_snapshot="false"` disables custom Snapshot files. The adapter owns all conversions; the recorder only
+subscribes, selects and persists. A new native depth stream initializes from the
+adapter's retained snapshot. A later consumer of an already shared Native stream
+receives subsequent publications; subscription admission is not a historical
+replay request. See the [full contract](predict-market-data.md).
 
 ## Offline scenarios
 
@@ -322,5 +347,4 @@ for bounded calibration, not unlimited daemon storage. Use the existing catalog
 for long public recording. Follow the test guide's immutable-fixture procedure;
 never regenerate historical expected data in place.
 
-[Live evidence and limits](../reference/predict-live-evidence.md) documents actual
-maker, batch, startup, entry/exit and read-only runs separately from offline cases.
+[Live evidence and limits](../reference/predict-validation.md) describes retained regression fixtures and the boundaries of offline validation.

@@ -78,8 +78,6 @@ use nautilus_predict::{
     PredictDataClientConfig, PredictDataClientFactory, predict_orderbook_data_type,
 };
 
-use crate::config::{EffectiveConfig, VenueRuntimeConfig};
-use crate::credentials::api_key_secret_present;
 #[cfg(feature = "venue-binance")]
 use crate::credentials::binance_credentials;
 #[cfg(feature = "venue-binance")]
@@ -94,19 +92,23 @@ use crate::credentials::hyperliquid_private_key;
 use crate::credentials::okx_credentials;
 #[cfg(feature = "venue-predict")]
 use crate::credentials::predict_api_key;
-use crate::custom_data::{
-    register_request_types, register_subscribe_types, validate_request_data_type,
-    validate_subscribe_data_type,
-};
-use crate::hip4::{
-    Hip4UniverseResolutionReport, materialize_hip4_capture_plan,
-    startup_resolution_record_from_report as hip4_startup_record, validate_hip4_universes,
-};
-use crate::metrics_server::spawn_metrics_server;
-use crate::option_universe::{
-    OptionUniverseResolutionReport, PostRunReportOptions, materialize_capture_plan_with_reports,
-    run_option_universe_post_run_report, startup_resolution_record_from_report,
-    validate_option_universes,
+use crate::{
+    config::{EffectiveConfig, VenueRuntimeConfig},
+    credentials::api_key_secret_present,
+    custom_data::{
+        register_request_types, register_subscribe_types, validate_request_data_type,
+        validate_subscribe_data_type,
+    },
+    hip4::{
+        Hip4UniverseResolutionReport, materialize_hip4_capture_plan,
+        startup_resolution_record_from_report as hip4_startup_record, validate_hip4_universes,
+    },
+    metrics_server::spawn_metrics_server,
+    option_universe::{
+        OptionUniverseResolutionReport, PostRunReportOptions,
+        materialize_capture_plan_with_reports, run_option_universe_post_run_report,
+        startup_resolution_record_from_report, validate_option_universes,
+    },
 };
 
 pub async fn run_capture(config: EffectiveConfig, post_run: PostRunReportOptions) -> Result<()> {
@@ -709,6 +711,13 @@ fn predict_market_ids_for_plan(plan: &CapturePlan) -> Result<Vec<u64>> {
             Ok(market_id)
         })
         .collect::<Result<Vec<_>>>()?;
+    for id in plan
+        .planned_instrument_ids()
+        .into_iter()
+        .filter(|id| id.venue.as_str() == "PREDICT")
+    {
+        market_ids.push(nautilus_predict::common::parse_market_id(&id)?);
+    }
     market_ids.sort_unstable();
     market_ids.dedup();
     Ok(market_ids)
@@ -1467,13 +1476,14 @@ fn resolve_catalog_dir(catalog_uri: &str) -> Result<PathBuf> {
 
 #[cfg(all(test, feature = "venue-binance"))]
 mod tests {
+    use catalog_capture_core::{CapturePlan, plan::QuoteCaptureSpec};
+    use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
+    use nautilus_model::identifiers::{ClientId, InstrumentId};
+
     use super::{
         binance_instrument_id_strings, build_binance_client_routes, matches_binance_product,
     };
     use crate::config::{EffectiveConfig, RuntimeConfig, VenueRuntimeConfig};
-    use catalog_capture_core::{CapturePlan, plan::QuoteCaptureSpec};
-    use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
-    use nautilus_model::identifiers::{ClientId, InstrumentId};
 
     #[test]
     fn binance_product_matching_uses_upstream_canonical_symbology() {
@@ -1560,5 +1570,36 @@ mod tests {
             routes.get(&InstrumentId::from("BTCUSDT-PERP.BINANCE")),
             Some(&ClientId::from("binance_usdm"))
         );
+    }
+}
+
+#[cfg(all(test, feature = "venue-predict"))]
+mod predict_tests {
+    use catalog_capture_core::{CapturePlan, TradeCaptureSpec, plan::BookDepthCaptureSpec};
+    use nautilus_model::enums::BookType;
+
+    use super::predict_market_ids_for_plan;
+
+    #[test]
+    fn native_only_capture_bootstraps_market_definitions_without_custom_snapshot_spec() {
+        let plan = CapturePlan {
+            trades: vec![TradeCaptureSpec {
+                instrument_id: "42-2.PREDICT".into(),
+            }],
+            book_depth: vec![BookDepthCaptureSpec {
+                instrument_id: "43-1.PREDICT".into(),
+                book_type: BookType::L2_MBP,
+                depth: None,
+            }],
+            ..CapturePlan::default()
+        };
+        assert_eq!(predict_market_ids_for_plan(&plan).unwrap(), vec![42, 43]);
+        let invalid = CapturePlan {
+            trades: vec![TradeCaptureSpec {
+                instrument_id: "42-3.PREDICT".into(),
+            }],
+            ..CapturePlan::default()
+        };
+        assert!(predict_market_ids_for_plan(&invalid).is_err());
     }
 }

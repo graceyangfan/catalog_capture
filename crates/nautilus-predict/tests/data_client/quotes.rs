@@ -93,7 +93,7 @@ async fn shared_native_subscriptions(mode: NativeInterest) {
         for _ in 0..2 {
             assert!(matches!(
                 events.recv().await,
-                Some(DataEvent::Instrument(_))
+                Some(DataEvent::Data(Data::Instrument(_)))
             ));
         }
         let yes = InstrumentId::from(format!("{MARKET_ID}-1.PREDICT"));
@@ -240,7 +240,7 @@ async fn shared_native_subscriptions(mode: NativeInterest) {
         for _ in 0..2 {
             assert!(matches!(
                 events.recv().await,
-                Some(DataEvent::Instrument(_))
+                Some(DataEvent::Data(Data::Instrument(_)))
             ));
         }
         subscribe(&mut client);

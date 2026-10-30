@@ -45,6 +45,7 @@ use nautilus_core::{
 };
 use nautilus_live::{SocketControlFactory, task::TaskGroup};
 use nautilus_model::{
+    data::Data,
     enums::BookType,
     identifiers::{ClientId, InstrumentId, Venue},
     instruments::{Instrument, InstrumentAny},
@@ -225,7 +226,9 @@ impl DataClient for LighterBinaryDataClient {
         self.discovery_inflight = Arc::new(AtomicBool::new(false));
         for context in self.contexts.load().values() {
             self.data_sender
-                .send(DataEvent::Instrument(context.instrument.clone()))?;
+                .send(DataEvent::Data(Data::Instrument(Box::new(
+                    context.instrument.clone(),
+                ))))?;
         }
 
         let socket_control = self.socket_factory.control("public-data");
@@ -410,7 +413,8 @@ impl DataClient for LighterBinaryDataClient {
             .map(|&id| Ok((self.require_instrument(id)?, market_id(id)?)))
             .collect::<anyhow::Result<Vec<_>>>()?;
         for (instrument, market) in definitions {
-            self.data_sender.send(DataEvent::Instrument(instrument))?;
+            self.data_sender
+                .send(DataEvent::Data(Data::Instrument(Box::new(instrument))))?;
             self.send_command(Command::Definition {
                 market,
                 subscribe: true,

@@ -30,8 +30,8 @@ row_group_rows = 5000
 [output.lifecycle.durability]
 sync_interval_ms = 1000
 
-# Each selector seals independently when its successor's first snapshot is accepted.
-# The hourly timer seals only native Spot L2/trades, not Predict custom writers.
+# Predict YES depth/trades rotate when the successor first publishes a snapshot.
+# Hourly seals also bound native segments; internal control snapshots are not recorded.
 [output.lifecycle.seal]
 enabled = true
 schedule = "00:00"
@@ -53,6 +53,9 @@ type_name = "PredictCryptoUpDown"
 price_feed_symbol = "BTCUSDT"
 title_asset = "Bitcoin"
 interval_secs = "300"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
@@ -60,6 +63,9 @@ type_name = "PredictCryptoUpDown"
 price_feed_symbol = "BTCUSDT"
 title_asset = "Bitcoin"
 interval_secs = "900"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
@@ -67,6 +73,9 @@ type_name = "PredictCryptoUpDown"
 price_feed_symbol = "ETHUSDT"
 title_asset = "Ethereum"
 interval_secs = "300"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
@@ -74,6 +83,9 @@ type_name = "PredictCryptoUpDown"
 price_feed_symbol = "ETHUSDT"
 title_asset = "Ethereum"
 interval_secs = "900"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
@@ -81,6 +93,9 @@ type_name = "PredictCryptoUpDown"
 price_feed_symbol = "BNBUSDT"
 title_asset = "BNB"
 interval_secs = "300"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
 
 [[capture.custom_data]]
 type_name = "PredictCryptoUpDown"
@@ -88,6 +103,9 @@ type_name = "PredictCryptoUpDown"
 price_feed_symbol = "BNBUSDT"
 title_asset = "BNB"
 interval_secs = "900"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
 
 [[capture.instruments]]
 instrument_id = "BTCUSDT.BINANCE"

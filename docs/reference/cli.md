@@ -23,6 +23,11 @@ cargo run -p catalog-capture-cli -- validate --config <path.toml>
 cargo run -p catalog-capture-cli -- print-effective-config --config <path.toml>
 ```
 
+Capture families include native `[[capture.book_depth]]` (instrument ID, L2 book
+type and optional depth) and `[[capture.trades]]`. Rolling Predict profiles select
+these through `record_depth` and `record_trades` metadata; `record_snapshot="false"`
+suppresses custom snapshot files. See [Predict capture](../how_to/predict-market-data.md).
+
 ## Option universe
 
 | Subcommand | Purpose |

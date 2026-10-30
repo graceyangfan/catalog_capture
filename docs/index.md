@@ -19,7 +19,7 @@ how-to / reference); protocol design records are listed separately.
 | [Cloud capture](how_to/cloud_capture.md) | Clone, build, unattended mainnet, monitor |
 | [Multi-venue / HIP-4 style](how_to/hip4_capture.md) | Streams, rotation clocks, BookSummary rate |
 | [Lighter XEMM capture](how_to/lighter_xemm_capture.md) | Lighter and Robinhood Chain L2, trades and funding |
-| [Predict orderbook capture](predict-orderbook-capture-design.md) | YES-only snapshots, rotation, catalog layout, and optional Binance SBE L2 |
+| [Predict market-data capture](how_to/predict-market-data.md) | Native YES depth/trades, rotation and optional Binance SBE L2 |
 | [Predict private API calibration](how_to/predict-private-api-tests.md) | Local TOML, automatic discovery, SDK parity, and native read-only calibration |
 | [Predict Rust strategy and LiveNode](how_to/predict-rust-strategy-calibration.md) | Custom snapshot signals, execution calibration and supervision |
 | [Build size](how_to/build_size.md) | Why `target/` is large; slim release |
@@ -59,10 +59,9 @@ boundaries. They are not operator runbooks.
 
 - [CLI](reference/cli.md)
 - [Predict adapter tests](../crates/nautilus-predict/tests/README.md)
-- [Predict live evidence](reference/predict-live-evidence.md)
 - [Inventory-unit commissions](reference/quantity-commission.md)
 - [Predict execution internals](reference/predict-execution-internals.md)
-- [Predict adapter validation](reference/predict-execution-validation.md)
+- [Predict adapter validation](reference/predict-validation.md)
 - Core API: [crates/catalog-capture-core/README.md](../crates/catalog-capture-core/README.md)
 
 ## Scripts

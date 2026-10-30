@@ -1,10 +1,11 @@
 # Inventory-unit commissions
 
-Predict execution targets the live reported-cash implementation linked from
-[RFC #5418](https://github.com/nautechsystems/nautilus_trader/issues/5418#issuecomment-6377349016),
-commit [1c27193e85](https://github.com/graceyangfan/nautilus_trader/commit/1c27193e857eed585cc139783012fc4965a95dba).
-This is a downstream contribution under discussion. The broader RFC's backtest,
-FeeModel, calculated-account and correction support is not included.
+Predict execution uses the reported-cash implementation in the
+[pinned project fork](../getting_started/installation.md#dependency-contract).
+Inventory-unit commissions are discussed in
+[RFC #5418](https://github.com/nautechsystems/nautilus_trader/issues/5418).
+The fork covers live reported-cash accounts; general FeeModel, calculated-account,
+backtest and correction support is outside this contract.
 
 ## Mapping and ownership
 
@@ -93,7 +94,7 @@ projected prefix keeps its existing cumulative carry; an unknown legacy prefix
 requires recovery rather than silently changing previously applied executions.
 Currency-fee conversion remains independent of gross quantity precision.
 
-The [dependency handoff](predict-execution-validation.md#two-repository-handoff)
+The [dependency handoff](predict-validation.md)
 identifies the Native baseline and additional API changes required by current
 execution. Historical evidence retains its original source revision.
 
@@ -142,13 +143,13 @@ Only complete raw quantitative evidence authorizes terminal working-quantity
 normalization via Native OrderUpdated. An unknown-unit one-wei remainder alone is
 insufficient. Actual fills, share fees and net inventory remain exact; missing
 history never becomes a fictional fill or a different venue status. See the
-[recorded incident and replay](predict-immediate-order-validation.md#recorded-venue-observations)
+[recorded incident and replay](predict-validation.md)
 and terminal_recovery integration tests for pending-command, base/quote-sizing,
 ordering, replay and incomplete-history controls.
 
 ## Framework compatibility
 
-The [dependency handoff](predict-execution-validation.md#two-repository-handoff)
+The [dependency handoff](predict-validation.md)
 identifies the supported fork revision. Quantity commissions use existing Native
 owners and add the following contracts:
 

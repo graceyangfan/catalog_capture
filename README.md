@@ -74,8 +74,8 @@ Data: `./data/…` (gitignored). Catalog layout: [docs/concepts/catalog_layout.m
 | Config | Use |
 |--------|-----|
 | **`examples/capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
-| `examples/capture.predict-orderbook.toml` | Predict BTC 5m Up/Down native YES snapshots |
-| `examples/capture.predict-binance-spot-sbe-btc-updown.toml` | Predict 5m/15m plus Binance Spot SBE L2/trades |
+| `examples/capture.predict-native.toml` | Predict BTC 5m native YES depth and trades |
+| `examples/capture.predict-crypto-updown.toml` | BTC/ETH/BNB 5m/15m Predict depth/trades plus Binance Spot SBE |
 | `examples/capture.extended-btc-perp.toml` | Extended BTC perpetual public market data |
 | `examples/capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid rolling-universe example |
 | `examples/capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (1s poll) |

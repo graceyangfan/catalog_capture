@@ -19,6 +19,7 @@ use std::time::Duration;
 use ahash::AHashMap;
 use anyhow::Context;
 use nautilus_common::messages::DataEvent;
+use nautilus_model::data::Data;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -95,6 +96,7 @@ pub(super) struct DiscoveryResult {
 #[derive(Debug, Clone)]
 pub(super) struct DynamicSubscription {
     pub(super) selector: PredictCryptoUpDownSelector,
+    pub(super) owners: std::collections::BTreeSet<String>,
     pub(super) version: u64,
     pub(super) current_market_id: Option<u64>,
     pub(super) pending_market_id: Option<u64>,
@@ -225,7 +227,8 @@ impl PredictDataSession {
             return Ok(());
         }
         for instrument in instruments {
-            self.data_sender.send(DataEvent::Instrument(instrument))?;
+            self.data_sender
+                .send(DataEvent::Data(Data::Instrument(Box::new(instrument))))?;
         }
         self.subscribe_custom_market(selected.market_id, data_type)
             .await?;
@@ -414,6 +417,7 @@ mod tests {
                 states.insert(
                     key,
                     DynamicSubscription {
+                        owners: ["test-owner".to_string()].into(),
                         selector,
                         version: 1,
                         current_market_id: None,

@@ -67,8 +67,10 @@ pub(super) enum PredictCommand {
         Option<std::num::NonZeroUsize>,
     ),
     UnsubscribeDepth(InstrumentId),
-    StartDynamic(PredictCryptoUpDownSelector),
-    StopDynamic(CryptoUpDownSelectorKey),
+    SubscribeTrades(InstrumentId, PredictMarketContext),
+    UnsubscribeTrades(InstrumentId),
+    StartDynamic(PredictCryptoUpDownSelector, String),
+    StopDynamic(CryptoUpDownSelectorKey, String),
 }
 
 #[derive(Debug)]
@@ -117,6 +119,8 @@ pub(super) struct PredictDataSession {
     pub(super) subscriptions: AHashMap<u64, MarketSubscription>,
     pub(super) quotes: AHashMap<InstrumentId, QuoteSubscription>,
     pub(super) depths: AHashMap<InstrumentId, DepthSubscription>,
+    pub(super) trades: AHashMap<InstrumentId, PredictMarketContext>,
+    pub(super) snapshots: AHashMap<u64, crate::PredictOrderbookSnapshot>,
     pub(super) contexts: AHashMap<u64, PredictMarketContext>,
     pub(super) dynamic_registry: Arc<RwLock<PredictDynamicMarketRegistry>>,
     pub(super) dynamic_generation: u64,
@@ -182,6 +186,8 @@ impl PredictDataSession {
             subscriptions: AHashMap::new(),
             quotes: AHashMap::new(),
             depths: AHashMap::new(),
+            trades: AHashMap::new(),
+            snapshots: AHashMap::new(),
             contexts,
             dynamic_registry,
             dynamic_generation,
@@ -322,6 +328,21 @@ impl PredictDataSession {
                         last_timestamp: None,
                     },
                 );
+                if result.is_ok()
+                    && let Some(snapshot) = self.snapshots.get(&self.depths[&id].context.market_id)
+                {
+                    let subscription = self.depths.get_mut(&id).expect("inserted depth owner");
+                    let depth = super::depth::depth_from_snapshot(
+                        snapshot,
+                        &subscription.context,
+                        id,
+                        subscription.depth,
+                    )?;
+                    self.data_sender.send(DataEvent::Data(
+                        nautilus_model::data::Data::BookDepth(Box::new(depth)),
+                    ))?;
+                    subscription.last_timestamp = Some(snapshot.ts_event);
+                }
                 result?;
             }
             PredictCommand::UnsubscribeDepth(id) => {
@@ -334,14 +355,41 @@ impl PredictDataSession {
                     self.depths.remove(&id);
                 }
             }
-            PredictCommand::StartDynamic(selector) => {
+            PredictCommand::SubscribeTrades(id, context) => {
+                if !self.trades.contains_key(&id) {
+                    let first = !self
+                        .trades
+                        .values()
+                        .any(|c| c.market_id == context.market_id);
+                    let market_id = context.market_id;
+                    // Keep desired interest if send fails; reconnect reconciles it.
+                    self.trades.insert(id, context);
+                    if first {
+                        self.send_trade_subscription("subscribe", market_id).await?;
+                    }
+                }
+            }
+            PredictCommand::UnsubscribeTrades(id) => {
+                if let Some(context) = self.trades.remove(&id)
+                    && !self
+                        .trades
+                        .values()
+                        .any(|c| c.market_id == context.market_id)
+                {
+                    self.send_trade_subscription("unsubscribe", context.market_id)
+                        .await?;
+                }
+            }
+            PredictCommand::StartDynamic(selector, owner) => {
                 let key = dynamic_selector_key(&selector)?;
-                if self.dynamic_subscriptions.contains_key(&key) {
+                if let Some(active) = self.dynamic_subscriptions.get_mut(&key) {
+                    active.owners.insert(owner);
                     return Ok(());
                 }
                 self.dynamic_subscriptions.insert(
                     key.clone(),
                     DynamicSubscription {
+                        owners: [owner].into(),
                         selector,
                         version: self.discovery.version()?,
                         current_market_id: None,
@@ -351,7 +399,14 @@ impl PredictDataSession {
                 );
                 self.schedule_discovery()?;
             }
-            PredictCommand::StopDynamic(key) => self.stop_dynamic_subscription(&key).await?,
+            PredictCommand::StopDynamic(key, owner) => {
+                if let Some(active) = self.dynamic_subscriptions.get_mut(&key)
+                    && active.owners.remove(&owner)
+                    && active.owners.is_empty()
+                {
+                    self.stop_dynamic_subscription(&key).await?;
+                }
+            }
         }
         Ok(())
     }
@@ -428,6 +483,7 @@ impl PredictDataSession {
         count.owners = count.owners.saturating_sub(1);
         if count.owners == 0 {
             self.subscriptions.remove(&market_id);
+            self.snapshots.remove(&market_id);
             self.send_subscription("unsubscribe", market_id).await?;
         }
         Ok(())

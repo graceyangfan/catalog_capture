@@ -48,7 +48,7 @@ mod output {
     ));
 }
 
-const ORIGINAL_PROFILE: &str = include_str!("../../../examples/capture.predict-orderbook.toml");
+const NATIVE_PROFILE: &str = include_str!("../../../examples/capture.predict-native.toml");
 const OLD: u64 = 2_859_346;
 const NEW: u64 = OLD + 1;
 
@@ -183,11 +183,11 @@ async fn wait_for_file(root: &Path, suffix: &str) {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn original_btc_profile_rolls_seals_reads_back_and_removes_recordings() {
+async fn snapshot_compatibility_rolls_seals_reads_back_and_removes_recordings() {
     register_predict_custom_data();
-    let profile: toml::Value = toml::from_str(ORIGINAL_PROFILE).unwrap();
+    let profile: toml::Value = toml::from_str(NATIVE_PROFILE).unwrap();
     let output: output::OutputConfig = profile["output"].clone().try_into().unwrap();
-    assert_eq!(output.catalog_uri, "file://./data/predict-orderbook");
+    assert_eq!(output.catalog_uri, "file://./data/predict-native");
     let selectors = profile["capture"]["custom_data"].as_array().unwrap();
     assert_eq!(selectors.len(), 1);
     let selector = &selectors[0];
@@ -200,11 +200,16 @@ async fn original_btc_profile_rolls_seals_reads_back_and_removes_recordings() {
             .collect(),
     );
     assert_eq!(metadata["interval_secs"], "300");
+    let mut metadata = (*metadata).clone();
+    // Legacy snapshot-only capture remains available on the same rolling selector.
+    metadata.insert("record_snapshot".into(), json!("true"));
+    metadata.insert("record_depth".into(), json!("false"));
+    metadata.insert("record_trades".into(), json!("false"));
     let plan = CapturePlan {
         custom_data: vec![CustomDataCaptureSpec {
             data_type: DataType::new(
                 selector["type_name"].as_str().unwrap(),
-                Some(metadata),
+                Some(Params::new(metadata)),
                 None,
             ),
         }],

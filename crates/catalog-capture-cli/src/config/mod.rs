@@ -32,37 +32,33 @@ mod tests;
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result, bail};
-use catalog_capture_core::{
-    CaptureConfig, CapturePlan, Hip4UniverseSpec, OptionUniverseSpec, validate_capture_config,
-};
-
 // Field type for CliConfigFile; tests re-export selectors via super::*.
 #[cfg(not(test))]
 use capture::CaptureConfigFile;
 #[cfg(test)]
 pub use capture::{CaptureConfigFile, InstrumentSelector};
+use catalog_capture_core::{
+    CaptureConfig, CapturePlan, Hip4UniverseSpec, OptionUniverseSpec, validate_capture_config,
+};
 #[cfg(test)]
 pub use custom::{CustomDataRequestSelector, CustomDataSelector};
-#[cfg(test)]
-pub use option_universe::{ExpiryPolicySelector, OptionUniverseSelector, StrikePolicySelector};
-
-pub use output::OutputConfig;
-pub use runtime::{MetricsExportRuntimeConfig, RuntimeConfig};
-pub use venues::{VenueConfig, VenueRuntimeConfig};
-
 use custom::{parse_custom_data_request_specs, parse_custom_data_specs};
 use hip4::parse_hip4_universe_specs;
 use option_universe::parse_option_universe_specs;
+#[cfg(test)]
+pub use option_universe::{ExpiryPolicySelector, OptionUniverseSelector, StrikePolicySelector};
+pub use output::OutputConfig;
 use output::{parse_compression, parse_layout_compatibility, parse_overflow_policy};
 use plan::{
-    parse_bar_specs, parse_book_delta_specs, parse_forward_price_specs, parse_funding_rate_specs,
-    parse_index_price_specs, parse_instrument_close_specs, parse_instrument_specs,
-    parse_instrument_status_specs, parse_mark_price_specs, parse_option_greeks_specs,
-    parse_quote_specs, parse_trade_specs,
+    parse_bar_specs, parse_book_delta_specs, parse_book_depth_specs, parse_forward_price_specs,
+    parse_funding_rate_specs, parse_index_price_specs, parse_instrument_close_specs,
+    parse_instrument_specs, parse_instrument_status_specs, parse_mark_price_specs,
+    parse_option_greeks_specs, parse_quote_specs, parse_trade_specs,
 };
-use venues::{parse_venue, validate_unique_venue_ids};
-
+pub use runtime::{MetricsExportRuntimeConfig, RuntimeConfig};
 use serde::{Deserialize, Serialize};
+pub use venues::{VenueConfig, VenueRuntimeConfig};
+use venues::{parse_venue, validate_unique_venue_ids};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CliConfigFile {
@@ -127,6 +123,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         trades: parse_trade_specs(&config.capture.trades)?,
         bars: parse_bar_specs(&config.capture.bars)?,
         book_deltas: parse_book_delta_specs(&config.capture.book_deltas)?,
+        book_depth: parse_book_depth_specs(&config.capture.book_depth)?,
         mark_prices: parse_mark_price_specs(&config.capture.mark_prices)?,
         index_prices: parse_index_price_specs(&config.capture.index_prices)?,
         funding_rates: parse_funding_rate_specs(&config.capture.funding_rates)?,

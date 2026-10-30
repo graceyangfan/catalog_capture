@@ -24,7 +24,7 @@ UPSTREAM_URL="${NAUTILUS_TRADER_URL:-https://github.com/graceyangfan/nautilus_tr
 CLONE_BRANCH="${NAUTILUS_TRADER_BRANCH:-develop}"
 
 # Keep default pin in sync with .github/workflows/ci.yml (NAUTILUS_TRADER_REF).
-CI_PIN_DEFAULT="acd6c830484c91815fa3bee14ed2fc090bf8b006"
+CI_PIN_DEFAULT="ed0b147f1df37e3cb225abfb658046c9635ace6c"
 NAUTILUS_TRADER_REF="${NAUTILUS_TRADER_REF:-${CI_PIN_DEFAULT}}"
 
 PIN_CI=0

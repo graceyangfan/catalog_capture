@@ -12,11 +12,9 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use super::*;
-use crate::runner::validate_runtime;
-use catalog_capture_core::{OptionUniverseFamily, StrikePolicy};
 use std::path::{Path, PathBuf};
 
+use catalog_capture_core::{OptionUniverseFamily, StrikePolicy};
 #[cfg(feature = "venue-extended")]
 use nautilus_extended::common::ExtendedEnvironment;
 #[cfg(feature = "venue-hyperliquid")]
@@ -32,9 +30,13 @@ use super::venues::parse_extended_environment;
 use super::venues::parse_hyperliquid_environment;
 #[cfg(feature = "venue-okx")]
 use super::venues::parse_okx_instrument_types;
-use super::venues::{default_binance_product_type, parse_venue};
 #[cfg(feature = "venue-lighter")]
 use super::venues::{parse_lighter_deployment, parse_lighter_environment};
+use super::{
+    venues::{default_binance_product_type, parse_venue},
+    *,
+};
+use crate::runner::validate_runtime;
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -1437,8 +1439,8 @@ fn example_binance_spot_sbe_btc_config_loads_and_validates() {
 
 #[cfg(feature = "venue-predict")]
 #[test]
-fn example_predict_orderbook_config_loads_and_validates() {
-    let path = repo_root().join("examples/capture.predict-orderbook.toml");
+fn example_predict_native_config_loads_and_validates() {
+    let path = repo_root().join("examples/capture.predict-native.toml");
     let loaded = load_config(&path).expect("example should load");
     let effective = resolve_config(loaded).expect("example should resolve");
     validate_runtime(&effective).expect("example should validate");
@@ -1451,14 +1453,33 @@ fn example_predict_orderbook_config_loads_and_validates() {
 
 #[cfg(all(feature = "venue-binance", feature = "venue-predict"))]
 #[test]
-fn example_predict_binance_spot_btc_updown_config_loads_and_validates() {
-    let path = repo_root().join("examples/capture.predict-binance-spot-sbe-btc-updown.toml");
+fn example_predict_crypto_updown_config_loads_and_validates() {
+    let path = repo_root().join("examples/capture.predict-crypto-updown.toml");
     let loaded = load_config(&path).expect("example should load");
     let effective = resolve_config(loaded).expect("example should resolve");
     validate_runtime(&effective).expect("example should validate");
-    assert_eq!(effective.plan.custom_data.len(), 2);
-    assert_eq!(effective.plan.book_deltas.len(), 1);
-    assert_eq!(effective.plan.trades.len(), 1);
+    assert_eq!(effective.plan.custom_data.len(), 6);
+    assert_eq!(effective.plan.book_deltas.len(), 3);
+    assert_eq!(effective.plan.trades.len(), 3);
+    let flags = effective.plan.family_runtime_flags();
+    assert!(flags.book_depth && flags.trades && flags.instruments);
+    assert!(!flags.custom_data);
+    assert!(
+        effective
+            .plan
+            .custom_data
+            .iter()
+            .all(|s| !s.records_payload())
+    );
+    for spec in &effective.plan.custom_data {
+        let metadata = spec.data_type.metadata().unwrap();
+        for option in ["record_depth", "record_trades"] {
+            assert_eq!(
+                metadata.get(option).and_then(serde_json::Value::as_str),
+                Some("true")
+            );
+        }
+    }
 }
 
 #[cfg(feature = "venue-binance")]
@@ -1847,4 +1868,35 @@ fn lighter_rolling_profile_resolves_without_manual_market_ids() {
     validate_runtime(&effective).unwrap();
     let duplicate = profile.replace("btc-updown-15m", "eth-updown-15m");
     assert!(resolve_config(toml::from_str(&duplicate).unwrap()).is_err());
+}
+
+#[cfg(feature = "venue-predict")]
+#[test]
+fn predict_native_example_enables_native_writers_without_changing_selector_identity() {
+    let source =
+        std::fs::read_to_string(repo_root().join("examples/capture.predict-native.toml")).unwrap();
+    let parsed: CliConfigFile = toml::from_str(&source).unwrap();
+    let effective = resolve_config(parsed).unwrap();
+    validate_runtime(&effective).unwrap();
+    let flags = effective.plan.family_runtime_flags();
+    assert!(flags.book_depth && flags.trades && flags.instruments);
+    assert!(!flags.custom_data);
+    assert_eq!(effective.plan.custom_data.len(), 1);
+    for option in ["record_snapshot", "record_depth", "record_trades"] {
+        let original = if option == "record_snapshot" {
+            "false"
+        } else {
+            "true"
+        };
+        let invalid = source.replace(
+            &format!("{option} = \"{original}\""),
+            &format!("{option} = \"yes\""),
+        );
+        let effective = resolve_config(toml::from_str(&invalid).unwrap()).unwrap();
+        assert!(validate_runtime(&effective).is_err());
+    }
+    let invalid = source
+        .replace("record_depth = \"true\"", "record_depth = \"false\"")
+        .replace("record_trades = \"true\"", "record_trades = \"false\"");
+    assert!(validate_runtime(&resolve_config(toml::from_str(&invalid).unwrap()).unwrap()).is_err());
 }

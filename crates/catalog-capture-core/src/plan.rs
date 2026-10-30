@@ -52,6 +52,14 @@ pub struct BookDeltasCaptureSpec {
     pub depth: Option<usize>,
 }
 
+/// Requested full or bounded native L2 snapshot depth.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BookDepthCaptureSpec {
+    pub instrument_id: InstrumentId,
+    pub book_type: BookType,
+    pub depth: Option<usize>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarkPriceCaptureSpec {
     pub instrument_id: InstrumentId,
@@ -93,6 +101,20 @@ pub struct ForwardPriceCaptureSpec {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CustomDataCaptureSpec {
     pub data_type: DataType,
+}
+
+impl CustomDataCaptureSpec {
+    /// Rolling Predict snapshots may drive native selection without being persisted.
+    #[must_use]
+    pub fn records_payload(&self) -> bool {
+        self.data_type.type_name() != "PredictCryptoUpDown"
+            || self
+                .data_type
+                .metadata()
+                .and_then(|m| m.get("record_snapshot"))
+                .and_then(serde_json::Value::as_str)
+                != Some("false")
+    }
 }
 
 /// How to treat a poll tick when a previous request is still in flight.
@@ -157,6 +179,7 @@ pub struct CaptureFamilyRuntimeFlags {
     pub trades: bool,
     pub bars: bool,
     pub book_deltas: bool,
+    pub book_depth: bool,
     pub mark_prices: bool,
     pub index_prices: bool,
     pub funding_rates: bool,
@@ -185,6 +208,7 @@ impl CaptureFamilyRuntimeFlags {
             self.trades,
             self.bars,
             self.book_deltas,
+            self.book_depth,
             self.mark_prices,
             self.index_prices,
             self.funding_rates,
@@ -205,6 +229,7 @@ pub struct CapturePlan {
     pub trades: Vec<TradeCaptureSpec>,
     pub bars: Vec<BarCaptureSpec>,
     pub book_deltas: Vec<BookDeltasCaptureSpec>,
+    pub book_depth: Vec<BookDepthCaptureSpec>,
     pub mark_prices: Vec<MarkPriceCaptureSpec>,
     pub index_prices: Vec<IndexPriceCaptureSpec>,
     pub funding_rates: Vec<FundingRateCaptureSpec>,
@@ -219,6 +244,20 @@ pub struct CapturePlan {
 }
 
 impl CapturePlan {
+    /// Recorder options on the existing rolling selector; they do not change venue identity.
+    #[must_use]
+    pub fn predict_records(&self, option: &str) -> bool {
+        self.custom_data.iter().any(|spec| {
+            spec.data_type.type_name() == "PredictCryptoUpDown"
+                && spec
+                    .data_type
+                    .metadata()
+                    .and_then(|m| m.get(option))
+                    .and_then(serde_json::Value::as_str)
+                    == Some("true")
+        })
+    }
+
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.instruments.is_empty()
@@ -226,6 +265,7 @@ impl CapturePlan {
             && self.trades.is_empty()
             && self.bars.is_empty()
             && self.book_deltas.is_empty()
+            && self.book_depth.is_empty()
             && self.mark_prices.is_empty()
             && self.index_prices.is_empty()
             && self.funding_rates.is_empty()
@@ -266,12 +306,16 @@ impl CapturePlan {
             .any(|spec| spec.data_type.type_name() == "PredictCryptoUpDown");
         CaptureFamilyRuntimeFlags {
             instruments: !self.planned_instrument_ids().is_empty() || dynamic_predict_instruments,
-            custom_data: !self.custom_data.is_empty(),
+            custom_data: self
+                .custom_data
+                .iter()
+                .any(CustomDataCaptureSpec::records_payload),
             custom_data_requests: !self.custom_data_requests.is_empty(),
             quotes: !self.quotes.is_empty(),
-            trades: !self.trades.is_empty(),
+            trades: !self.trades.is_empty() || self.predict_records("record_trades"),
             bars: !self.bars.is_empty(),
             book_deltas: !self.book_deltas.is_empty(),
+            book_depth: !self.book_depth.is_empty() || self.predict_records("record_depth"),
             mark_prices: !self.mark_prices.is_empty(),
             index_prices: !self.index_prices.is_empty(),
             funding_rates: !self.funding_rates.is_empty(),
@@ -291,6 +335,7 @@ impl CapturePlan {
         ids.extend(self.quotes.iter().map(|spec| spec.instrument_id));
         ids.extend(self.trades.iter().map(|spec| spec.instrument_id));
         ids.extend(self.book_deltas.iter().map(|spec| spec.instrument_id));
+        ids.extend(self.book_depth.iter().map(|spec| spec.instrument_id));
         ids.extend(self.mark_prices.iter().map(|spec| spec.instrument_id));
         ids.extend(self.index_prices.iter().map(|spec| spec.instrument_id));
         ids.extend(self.funding_rates.iter().map(|spec| spec.instrument_id));
@@ -314,6 +359,7 @@ pub fn capture_plan_difference(left: &CapturePlan, right: &CapturePlan) -> Captu
         trades: capture_spec_difference(&left.trades, &right.trades),
         bars: capture_spec_difference(&left.bars, &right.bars),
         book_deltas: capture_spec_difference(&left.book_deltas, &right.book_deltas),
+        book_depth: capture_spec_difference(&left.book_depth, &right.book_depth),
         mark_prices: capture_spec_difference(&left.mark_prices, &right.mark_prices),
         index_prices: capture_spec_difference(&left.index_prices, &right.index_prices),
         funding_rates: capture_spec_difference(&left.funding_rates, &right.funding_rates),
@@ -384,6 +430,33 @@ mod tests {
 
     fn btc_perp() -> InstrumentId {
         InstrumentId::from_str("BTCUSDT-PERP.BINANCE").expect("valid instrument id")
+    }
+
+    #[test]
+    fn native_depth_participates_in_plan_union_difference_and_runtime_capacity() {
+        let spec = BookDepthCaptureSpec {
+            instrument_id: eth_perp(),
+            book_type: BookType::L2_MBP,
+            depth: Some(5),
+        };
+        let plan = CapturePlan {
+            book_depth: vec![spec.clone()],
+            ..CapturePlan::default()
+        };
+        assert!(!plan.is_empty());
+        assert_eq!(plan.planned_instrument_ids(), vec![eth_perp()]);
+        assert!(plan.family_runtime_flags().book_depth);
+        assert_eq!(plan.enabled_background_worker_count(), 2);
+        let merged = crate::merge_capture_plans(&CapturePlan::default(), &plan);
+        assert_eq!(merged.book_depth, vec![spec]);
+        assert_eq!(
+            capture_plan_difference(&merged, &plan),
+            CapturePlan::default()
+        );
+        assert_eq!(
+            capture_plan_difference(&merged, &CapturePlan::default()),
+            plan
+        );
     }
 
     #[test]

@@ -564,6 +564,7 @@ async fn registration_case(
     let gate = Arc::new(tokio::sync::Notify::new());
     if held_cash {
         *server.state.rpc_latest_gate.lock().unwrap() = Some(Arc::clone(&gate));
+        let open_before_query = server.state.requests.lock().unwrap().len();
         client
             .query_account(QueryAccount::new(
                 trader_id(),
@@ -581,6 +582,11 @@ async fn registration_case(
         )
         .await
         .unwrap();
+        // Admit the explicit query's OPEN read before measuring submission IO.
+        exit_orders::barrier("held account query OPEN request arrives", || {
+            server.state.requests.lock().unwrap().len() == open_before_query + 1
+        })
+        .await;
     }
     let rpc_before = server.state.rpc_methods.lock().unwrap().len();
     let reads_before = server.state.requests.lock().unwrap().len();
