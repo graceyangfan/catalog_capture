@@ -281,7 +281,8 @@ pub fn custom_data_catalog_sink_from_config(
 /// bounded chunks into the ordinary `order_book_deltas` parquet stream. The
 /// on-disk contract therefore remains unchanged while the queue avoids one
 /// allocation per delta. Source fields and equal-timestamp message order are
-/// retained. A clock rollback is an explicit continuity failure, never a rewrite.
+/// retained, including buffered recovery diffs whose creation times precede the
+/// REST snapshot published before them. Replay time validation belongs to the reader.
 #[derive(Debug)]
 pub enum BookDeltaCatalogSink {
     Chunked(NautilusCatalogSink),
@@ -299,8 +300,8 @@ const BOOK_DELTA_WRITE_CHUNK_ROWS: usize = 4_096;
 pub struct BookDeltaBoundaryState {
     /// An uncertain write must not start a later segment with unchecked increments.
     needs_snapshot: bool,
-    /// Last timestamp emitted for this instrument's segment stream.
-    last_ts_init_ns: Option<u64>,
+    /// A source reinitialization starts a new window after prior source frames.
+    has_source: bool,
 }
 
 impl BookDeltaCatalogSink {
@@ -324,26 +325,20 @@ impl BookDeltaCatalogSink {
         &mut self,
         partition_key: &str,
         grouped: OrderBookDeltas,
-    ) -> Result<Option<Vec<OrderBookDelta>>> {
+    ) -> Option<Vec<OrderBookDelta>> {
         let Self::Segment { boundary, .. } = self else {
             unreachable!("segment batch")
         };
         let state = boundary.entry(partition_key.to_owned()).or_default();
         let is_snapshot = RecordFlag::F_SNAPSHOT.matches(grouped.flags);
         if state.needs_snapshot && !is_snapshot {
-            return Ok(None);
+            return None;
         }
-        let raw = grouped.ts_init.as_u64();
-        if !state.needs_snapshot && state.last_ts_init_ns.is_some_and(|last| raw < last) {
-            anyhow::bail!(
-                "order-book arrival clock moved backwards for {partition_key}; a new replay window is required"
-            );
-        }
-        state.last_ts_init_ns = Some(raw);
+        state.has_source = true;
         if is_snapshot {
             state.needs_snapshot = false;
         }
-        Ok(Some(grouped.deltas))
+        Some(grouped.deltas)
     }
 }
 
@@ -373,13 +368,13 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
                         && let Self::Segment { sink, boundary } = self
                         && boundary
                             .get(partition_key)
-                            .is_some_and(|state| state.last_ts_init_ns.is_some())
+                            .is_some_and(|state| state.has_source)
                     {
                         // A venue reinitialization or local recovery is a new research window.
                         sink.seal_partition(partition_key)?;
                         boundary.remove(partition_key);
                     }
-                    let Some(rows) = self.prepare_segment_batch(partition_key, grouped)? else {
+                    let Some(rows) = self.prepare_segment_batch(partition_key, grouped) else {
                         continue;
                     };
                     let Self::Segment { sink, .. } = self else {
@@ -926,7 +921,7 @@ mod book_delta_batch_tests {
     }
 
     #[test]
-    fn clock_rollback_starts_a_new_window_instead_of_rewriting_market_time() {
+    fn buffered_recovery_retains_source_fields_and_publication_order_across_seal() {
         let root = temp_catalog();
         let config = CaptureConfig {
             catalog_uri: format!("file://{}", root.display()),
@@ -934,36 +929,43 @@ mod book_delta_batch_tests {
         };
         let mut initial = stub_deltas();
         for row in &mut initial.deltas {
-            row.ts_init = 200.into();
-            row.ts_event = 200.into();
+            row.ts_init = 300.into();
+            row.sequence = 100;
         }
         initial.deltas.last_mut().unwrap().flags |= RecordFlag::F_LAST as u8;
         let initial = OrderBookDeltas::new(initial.instrument_id, initial.deltas);
         let id = initial.instrument_id;
         let key = PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key();
+        let update = |sequence, timestamp, size| {
+            let mut row = initial.deltas[1];
+            row.action = BookAction::Update;
+            row.flags = RecordFlag::F_LAST as u8;
+            row.sequence = sequence;
+            row.ts_init = timestamp;
+            row.order.size = size;
+            OrderBookDeltas::new(id, vec![row])
+        };
+        let source = vec![
+            initial.clone(),
+            update(101, 100.into(), Quantity::from("6")),
+            update(102, 200.into(), Quantity::from("9")),
+            update(103, 400.into(), Quantity::from("4")),
+        ];
         let mut sink = BookDeltaCatalogSink::from_config(&config).unwrap();
-        sink.write_batch(&key, vec![initial.clone()]).unwrap();
-        let mut bad = initial.deltas[1];
-        bad.flags = RecordFlag::F_LAST as u8;
-        bad.ts_init = 150.into();
-        bad.ts_event = 150.into();
-        assert!(
-            sink.write_batch(&key, vec![OrderBookDeltas::new(id, vec![bad])])
-                .is_err()
-        );
-        sink.break_continuity(Some(&key)).unwrap();
-        let mut next = initial.clone();
-        for row in &mut next.deltas {
-            row.ts_init = 150.into();
-            row.ts_event = 150.into();
-        }
-        let next = OrderBookDeltas::new(id, next.deltas);
-        sink.write_batch(&key, vec![next.clone()]).unwrap();
+        sink.write_batch(&key, source[..3].to_vec()).unwrap();
+        sink.seal_all().unwrap();
+        sink.write_batch(&key, source[3..].to_vec()).unwrap();
         sink.seal_all_for_shutdown().unwrap();
-        let windows = crate::replay::read_book_replay_windows(&root, id).unwrap();
-        assert_eq!(windows.len(), 2);
-        assert!(windows.iter().any(|w| w.data == vec![initial.clone()]));
-        assert!(windows.iter().any(|w| w.data == vec![next.clone()]));
+        let raw = crate::replay::read_replay_windows::<OrderBookDelta>(&root, id).unwrap();
+        assert_eq!(raw.len(), 1);
+        assert_eq!(raw[0].start.as_u64(), 100);
+        assert_eq!(raw[0].end.as_u64(), 400);
+        let frames = crate::replay::group_book_deltas(id, raw[0].data.clone()).unwrap();
+        assert_eq!(frames, source);
+        assert!(
+            crate::replay::read_book_replay_windows(&root, id).is_err(),
+            "raw recovery order must not be silently handed to Native timestamp sorting"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -46,6 +46,35 @@ Reads currently materialize an instrument's windows in memory. Legacy files
 without continuity metadata remain Native-readable but are rejected by this
 window reader. Inspect quality history and venue coverage before selecting data.
 
+## Recovery with earlier received diffs
+
+Binance can publish a REST snapshot followed by buffered diffs whose `ts_init`
+precedes that snapshot. Segment recording preserves all source rows in that
+publication order. `read_replay_windows::<OrderBookDelta>` is the raw reader;
+it does not promise that timestamp sorting is a valid replay.
+
+For a research interval starting after known recovery and required warmup, use:
+
+```rust,ignore
+let windows = catalog_capture_core::read_book_replay_windows_in_range(
+    root, id, research_start, research_end,
+)?;
+```
+
+The preceding publication prefix is applied to Native `OrderBook`; one derived
+initialization snapshot is emitted at the requested start, followed by unchanged
+source frames. A prefix containing timestamps newer than the requested start, or
+a remaining non-monotonic suffix, is rejected. Retained checkpoint capture time is
+also respected. The loader does not infer recovery completion, restore indicator
+history, or establish cross-feed availability. Align trades/depth and strategy
+warmup separately. Ordinary healthy-window reads remain unchanged.
+
+The older `validate-order-book` command reads via Native timestamp-sorted catalog
+queries. Its framing/final-book checks do not validate this raw recovery order or
+certify a window-aware backtest. Use the raw/window APIs and the integration
+checks below for that contract. Production recovery recording uses segment mode;
+chunked smoke writing retains Native catalog timestamp preconditions.
+
 ## Validation
 
 ```bash
@@ -60,3 +89,18 @@ not proof of real execution fills or global ordering across independent feeds.
 
 See [replay policy](../developer_guide/realtime-adapters.md#faithful-replay-across-file-boundaries)
 and [segment lifecycle](../concepts/segment_lifecycle.md#order-book-initialization-and-replay-windows).
+
+An opt-in check can read a completed public BTC/ETH/BNB Futures depth=50 capture
+(`@depth@0ms`) with an operator-selected start after recovery and warmup:
+
+```bash
+FUTURES_RECOVERY_CATALOG=/absolute/path/to/catalog \
+FUTURES_RECOVERY_START_NS=<start-nanoseconds> \
+  cargo test --workspace --test replay_windows \
+  recorded_futures_recovery_matches_native_backtest_after_explicit_start -- --ignored
+```
+
+This check requires an observed recovery time decrease, runs the actual Native
+BacktestEngine, and compares its delivered-frame final book with publication-order
+raw reconstruction. It sends no orders. It is not a live strategy journal or a
+multi-feed latency/availability benchmark.

@@ -21,8 +21,9 @@ use anyhow::{Context, Result, bail};
 use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{HasTsInit, OrderBookDelta, OrderBookDeltas},
-    enums::RecordFlag,
+    enums::{BookType, RecordFlag},
     identifiers::InstrumentId,
+    orderbook::OrderBook,
 };
 use nautilus_persistence::{
     backend::parquet::catalog::ParquetDataCatalog, catalog::types::HasCatalogDataType,
@@ -48,6 +49,7 @@ pub struct ReplayWindow<T> {
 
 /// Read only sealed local files, in physical row order, using Native discovery
 /// and decoders. SQL timestamp sorting must not reorder same-timestamp frames.
+/// Timestamps need not increase in publication order. Bounds use observed extrema.
 /// Legacy files without window metadata cannot be certified by this reader.
 pub fn read_replay_windows<T>(root: &Path, instrument: InstrumentId) -> Result<Vec<ReplayWindow<T>>>
 where
@@ -124,10 +126,11 @@ where
                     let ts = item.ts_init();
                     if window.data.is_empty() {
                         window.start = ts;
-                    } else if ts < window.end {
-                        bail!("arrival clock rollback inside replay window {}", window.id);
+                        window.end = ts;
+                    } else {
+                        window.start = window.start.min(ts);
+                        window.end = window.end.max(ts);
                     }
-                    window.end = ts;
                     window.data.push(item);
                 }
                 row_index += 1;
@@ -148,8 +151,31 @@ pub fn read_book_replay_windows(
     root: &Path,
     instrument: InstrumentId,
 ) -> Result<Vec<ReplayWindow<OrderBookDeltas>>> {
+    read_book_windows(root, instrument, None)
+}
+
+/// Build a new L2 experiment from an explicit start, using preceding source frames
+/// only for book initialization. Does not restore historical strategy state.
+/// The caller must select a start after venue recovery and establish feed coverage.
+/// Later independent recovery windows outside the requested range are excluded.
+pub fn read_book_replay_windows_in_range(
+    root: &Path,
+    instrument: InstrumentId,
+    start: UnixNanos,
+    end: UnixNanos,
+) -> Result<Vec<ReplayWindow<OrderBookDeltas>>> {
+    anyhow::ensure!(start <= end, "research start must not exceed end");
+    read_book_windows(root, instrument, Some((start, end)))
+}
+
+fn read_book_windows(
+    root: &Path,
+    instrument: InstrumentId,
+    range: Option<(UnixNanos, UnixNanos)>,
+) -> Result<Vec<ReplayWindow<OrderBookDeltas>>> {
     read_replay_windows::<OrderBookDelta>(root, instrument)?
         .into_iter()
+        .filter(|window| range.is_none_or(|(start, end)| window.end >= start && window.start <= end))
         .map(|window| {
             let mut data = group_book_deltas(instrument, window.data)?;
             let mut initialization = group_book_deltas(instrument, window.initialization)?;
@@ -172,9 +198,11 @@ pub fn read_book_replay_windows(
                     .then_some(0)
                 });
                 if let Some(covered) = covered {
-                    let ts = anchor
-                        .map(|index| data[index].ts_init)
-                        .unwrap_or(baseline.ts_init.min(data[0].ts_init));
+                    // A retained checkpoint is available only after capture and its
+                    // source anchor; neither default nor ranged replay may move it earlier.
+                    let ts = anchor.map_or(baseline.ts_init, |index| {
+                        baseline.ts_init.max(data[index].ts_init)
+                    });
                     // Only a synthetic initialization timestamp is adjusted. Every
                     // observed source field remains exactly as recorded.
                     for row in &mut baseline.deltas {
@@ -185,16 +213,65 @@ pub fn read_book_replay_windows(
                     data.insert(0, baseline);
                 }
             }
+            if let Some((start, end)) = range {
+                let through = data.iter().rposition(|frame| frame.ts_init <= end)
+                    .map_or(0, |index| index + 1);
+                data.truncate(through);
+                anyhow::ensure!(data.iter().all(|frame| frame.ts_init <= end),
+                    "book publication prefix contains data newer than research end {end} for {instrument}");
+                initialize_book_at(&mut data, instrument, start)?;
+            }
+            anyhow::ensure!(
+                data.windows(2).all(|pair| pair[0].ts_init <= pair[1].ts_init),
+                "non-monotonic book replay input in window {}; choose an explicit research start after recovery with read_book_replay_windows_in_range",
+                window.id,
+            );
             let start = data.first().map_or(window.start, |frame| frame.ts_init);
+            let end = data.last().map_or(window.end, |frame| frame.ts_init);
             Ok(ReplayWindow {
                 id: window.id,
                 start,
-                end: window.end,
+                end,
                 data,
                 initialization: Vec::new(),
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>>>()
+        .map(|windows| windows.into_iter().filter(|window| !window.data.is_empty()).collect())
+}
+
+fn initialize_book_at(
+    data: &mut Vec<OrderBookDeltas>,
+    instrument: InstrumentId,
+    start: UnixNanos,
+) -> Result<()> {
+    // The last earlier timestamp may follow a later REST snapshot physically.
+    // Consume the entire preceding publication prefix, not a timestamp-sorted slice.
+    let covered = data
+        .iter()
+        .rposition(|frame| frame.ts_init < start)
+        .map_or(0, |index| index + 1);
+    if covered == 0 {
+        return Ok(());
+    }
+    anyhow::ensure!(
+        data.first()
+            .is_some_and(|frame| RecordFlag::F_SNAPSHOT.matches(frame.flags)),
+        "cannot initialize {instrument} without a preceding snapshot"
+    );
+    let mut book = OrderBook::new(instrument, BookType::L2_MBP);
+    for frame in &data[..covered] {
+        anyhow::ensure!(
+            frame.ts_init <= start,
+            "book initialization prefix contains data newer than research start {start} for {instrument}"
+        );
+        book.apply_deltas(frame)?;
+    }
+    data.drain(..covered);
+    if !data.is_empty() {
+        data.insert(0, book.to_deltas(book.ts_last, start));
+    }
+    Ok(())
 }
 
 /// Group without sorting, renumbering, timestamp edits or inferred sequence gaps.
@@ -362,6 +439,181 @@ mod tests {
         }
     }
 
+    fn recovery_source(id: InstrumentId) -> Vec<OrderBookDeltas> {
+        let mut data = vec![
+            snapshot(id, 300, "5"),
+            update(id, 100, "6"),
+            update(id, 200, "9"),
+            update(id, 400, "4"),
+        ];
+        for (index, frame) in data.iter_mut().enumerate() {
+            for row in &mut frame.deltas {
+                row.sequence = 100 + index as u64;
+                row.ts_event = (100 + index as u64).into();
+            }
+            *frame = OrderBookDeltas::new(id, std::mem::take(&mut frame.deltas));
+        }
+        data
+    }
+
+    #[test]
+    fn explicit_start_rebuilds_recovery_prefix_without_retimestamping_source_diffs() {
+        let root = root();
+        let id = InstrumentId::from("BTCUSDT.BINANCE");
+        let key = PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key();
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..Default::default()
+        };
+        let source = recovery_source(id);
+        let mut sink = BookDeltaCatalogSink::from_config(&config).unwrap();
+        sink.write_batch(&key, source.clone()).unwrap();
+        sink.seal_all_for_shutdown().unwrap();
+        assert!(
+            read_book_replay_windows(&root, id)
+                .unwrap_err()
+                .to_string()
+                .contains("research start")
+        );
+        let windows = read_book_replay_windows_in_range(&root, id, 300.into(), 600.into()).unwrap();
+        assert_eq!(windows.len(), 1);
+        assert!(windows[0].has_book_baseline());
+        assert_eq!(windows[0].start.as_u64(), 300);
+        assert_eq!(windows[0].data.len(), 2);
+        assert_eq!(windows[0].data[0].sequence, 102);
+        assert_eq!(windows[0].data[1], source[3]);
+        let mut replay = OrderBook::new(id, BookType::L2_MBP);
+        replay.apply_deltas(&windows[0].data[0]).unwrap();
+        assert_eq!(
+            replay
+                .bids_as_map(None)
+                .values()
+                .next()
+                .unwrap()
+                .to_string(),
+            "9"
+        );
+        replay.apply_deltas(&windows[0].data[1]).unwrap();
+        let mut live = OrderBook::new(id, BookType::L2_MBP);
+        for frame in &source {
+            live.apply_deltas(frame).unwrap();
+        }
+        assert_eq!(replay.bids_as_map(None), live.bids_as_map(None));
+        assert_eq!(replay.asks_as_map(None), live.asks_as_map(None));
+        assert_eq!(replay.sequence, live.sequence);
+        assert!(
+            read_book_replay_windows_in_range(&root, id, 500.into(), 600.into())
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            read_book_replay_windows_in_range(&root, id, 250.into(), 600.into())
+                .unwrap_err()
+                .to_string()
+                .contains("newer than research start")
+        );
+        let raw = read_replay_windows::<OrderBookDelta>(&root, id).unwrap();
+        assert_eq!(group_book_deltas(id, raw[0].data.clone()).unwrap(), source);
+        let mut future = recovery_source(id);
+        for frame in &mut future {
+            for row in &mut frame.deltas {
+                row.ts_init = (row.ts_init.as_u64() + 2_000).into();
+            }
+            *frame = OrderBookDeltas::new(id, std::mem::take(&mut frame.deltas));
+        }
+        let mut next_run = BookDeltaCatalogSink::from_config(&config).unwrap();
+        next_run.write_batch(&key, future).unwrap();
+        next_run.seal_all_for_shutdown().unwrap();
+        let earlier = read_book_replay_windows_in_range(&root, id, 300.into(), 450.into()).unwrap();
+        assert_eq!(
+            earlier.len(),
+            1,
+            "a future recovery must not block an earlier experiment"
+        );
+        assert_eq!(earlier[0].data[1], source[3]);
+        assert_eq!(earlier[0].end.as_u64(), 400);
+        assert!(read_book_replay_windows_in_range(&root, id, 300.into(), 250.into()).is_err());
+        assert!(
+            read_book_replay_windows_in_range(&root, id, 100.into(), 250.into())
+                .unwrap_err()
+                .to_string()
+                .contains("newer than research end")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn explicit_start_respects_retained_checkpoint_capture_time() {
+        let root = root();
+        let id = InstrumentId::from("BTCUSDT.BINANCE");
+        let key = PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key();
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..Default::default()
+        };
+        let mut baseline = snapshot(id, 300, "5");
+        for row in &mut baseline.deltas {
+            row.ts_event = 190.into();
+            row.sequence = 190;
+        }
+        let baseline = OrderBookDeltas::new(id, baseline.deltas);
+        let mut sink = BookDeltaCatalogSink::from_config(&config).unwrap();
+        sink.write_initialization(&key, baseline).unwrap();
+        let later = update(id, 400, "9");
+        sink.write_batch(&key, vec![update(id, 200, "6"), later.clone()])
+            .unwrap();
+        sink.seal_all_for_shutdown().unwrap();
+        assert!(
+            read_book_replay_windows(&root, id)
+                .unwrap_err()
+                .to_string()
+                .contains("non-monotonic")
+        );
+        assert!(
+            read_book_replay_windows_in_range(&root, id, 250.into(), 600.into())
+                .unwrap_err()
+                .to_string()
+                .contains("newer than research start")
+        );
+        let windows = read_book_replay_windows_in_range(&root, id, 300.into(), 600.into()).unwrap();
+        assert_eq!(windows[0].start.as_u64(), 300);
+        assert_eq!(windows[0].data[1], later);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn explicit_start_still_rejects_an_out_of_order_suffix_without_inventing_a_gap() {
+        let root = root();
+        let id = InstrumentId::from("BTCUSDT.BINANCE");
+        let key = PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key();
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..Default::default()
+        };
+        let mut source = recovery_source(id);
+        source.push(update(id, 350, "11"));
+        source.push(update(id, 500, "12"));
+        let mut sink = BookDeltaCatalogSink::from_config(&config).unwrap();
+        sink.write_batch(&key, source.clone()).unwrap();
+        sink.seal_all_for_shutdown().unwrap();
+        assert_eq!(
+            read_replay_windows::<OrderBookDelta>(&root, id)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            read_book_replay_windows_in_range(&root, id, 300.into(), 600.into())
+                .unwrap_err()
+                .to_string()
+                .contains("non-monotonic")
+        );
+        let windows = read_book_replay_windows_in_range(&root, id, 400.into(), 600.into()).unwrap();
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].data[1], source[5]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn normal_seal_keeps_one_window_and_preserves_equal_timestamp_frames() {
         let root = root();
@@ -438,7 +690,7 @@ mod tests {
         assert_eq!(retained.len(), 1);
         assert!(retained[0].has_book_baseline());
         assert_eq!(retained[0].data.len(), 2);
-        assert_eq!(retained[0].data[0].ts_init.as_u64(), 120);
+        assert_eq!(retained[0].data[0].ts_init.as_u64(), 125);
         assert_eq!(retained[0].data[1], y);
         let mut replay = OrderBook::new(id, BookType::L2_MBP);
         for frame in &retained[0].data {

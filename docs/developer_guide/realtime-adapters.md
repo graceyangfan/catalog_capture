@@ -40,9 +40,11 @@ admitted depth observation already contains a baseline for that view.
 The recording contract uses standard Native Parquet rows plus schema metadata for
 local continuity and initialization. It introduces no staging format or conversion.
 
-- Source fields and same-timestamp FIFO order are preserved. The L2 writer no
-  longer filters covered source sequences or advances source `ts_init`. A source
-  clock rollback is a failure requiring a new window, not a timestamp correction.
+- Source fields and publication FIFO order are preserved. The L2 writer no
+  longer filters covered source sequences or advances source `ts_init`. A
+  `ts_init` decrease is not itself a capture fault: a REST baseline may be
+  published before buffered diffs received earlier. Raw rows preserve publication
+  order and original timestamps (segment mode).
 - Hourly managed-book snapshots are retained as marked initialization prefixes in
   the next physical file. This keeps retained hours usable after daily cleanup.
   The window reader skips intermediate prefixes; a full continuous replay sees
@@ -252,6 +254,39 @@ retention of the first file, a missing middle file, repeated FIFO admission gaps
 malformed `F_LAST`, and independent Native engines after a gap. Normal replay
 skips hourly prefixes; a fresh replay after retention uses a prefix only at its
 initialization boundary. A plain Native catalog query does not apply this policy.
+
+### Buffered recovery and explicit research start
+
+Native Binance synchronization publishes the accepted REST snapshot before its
+buffered bridging diffs. Snapshot acquisition can finish after those diffs were
+received, so their original `ts_init` values need not increase in publication
+order. This is not evidence of a venue sequence gap or clock failure.
+
+Raw capture and `read_replay_windows` preserve that order, across physical seals,
+without timestamp rewriting, source sorting, or a synthetic continuity break.
+Window time bounds are the minimum and maximum observed timestamps, not the
+first and last physical rows. Source reinitialization and known recording gaps
+retain their independent window boundaries.
+
+Native BacktestEngine sorts by replay time. `read_book_replay_windows` therefore
+rejects non-monotonic replay input without discarding the raw capture. Use
+`read_book_replay_windows_in_range(root, instrument, start, end)` with an explicit research
+start after recovery and the required warmup/availability checks. The loader applies
+the preceding source prefix in publication order to Native `OrderBook`, and emits
+one derived `to_deltas` initialization at `start`, followed by unchanged source
+frames. A prefix containing data newer than `start` is rejected to avoid lookahead.
+Retained checkpoint capture time is respected by default and ranged replay.
+A remaining out-of-order suffix is also rejected; no recovery-completion heuristic
+is inferred from a timestamp decrease. A range beyond an observed window yields
+no experiment from that window. Later independent recoveries outside the requested
+range do not invalidate an earlier experiment. A publication prefix containing
+data newer than the requested end is rejected instead of reordered.
+
+The derived prefix establishes book state, not historical strategy/indicator state.
+Each experiment starts a fresh strategy and uses its documented warmup policy.
+Bootstrap callback count/timing parity and cross-feed publication availability are
+not established by rebuilding a book. Validate all required inputs independently.
+The ordinary Native catalog and timestamp sorter do not apply these admission rules.
 
 ### Configuring family ingress budgets
 

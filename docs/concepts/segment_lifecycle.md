@@ -106,9 +106,12 @@ HIP-4: universe poll (which YES/NO) is separate from seal (file day). See
 ## Order book initialization and replay windows
 
 Source `OrderBookDeltas` use the standard Native `order_book_deltas` schema.
-Source fields, sequence numbers and same-timestamp message order are preserved.
+Source fields, sequence numbers and publication order are preserved.
 The recorder does not filter source events covered by a cached snapshot or advance
-source `ts_init`. A backwards arrival clock is a continuity failure.
+source `ts_init`. Buffered venue recovery can publish an acquired snapshot before
+older received diffs; this time decrease is not itself a capture gap. The raw
+window reader retains it. Native backtest input still requires an explicit
+initialization/research start when source creation times are not monotonic.
 
 For hourly L2 rotation, the actor enqueues the seal, then one complete Native
 managed-book snapshot from `OrderBook::to_deltas`, then later source frames.

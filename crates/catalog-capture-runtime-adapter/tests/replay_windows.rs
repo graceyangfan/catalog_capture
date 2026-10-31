@@ -17,7 +17,7 @@ use anyhow::Result;
 use catalog_capture_core::{
     CaptureConfig, CapturePlan,
     plan::{BookDeltasCaptureSpec, BookDepthCaptureSpec, TradeCaptureSpec},
-    replay::{read_book_replay_windows, read_replay_windows},
+    replay::{read_book_replay_windows, read_book_replay_windows_in_range, read_replay_windows},
 };
 use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
 use nautilus_backtest::{
@@ -244,26 +244,47 @@ fn depth_source(id: InstrumentId) -> Vec<Data> {
 
 #[test]
 fn live_strategy_and_backtest_observe_identical_frames_and_decisions_across_seal() {
-    assert_live_replay_parity(false);
+    assert_live_replay_parity(false, false);
 }
 
 #[test]
 fn live_depth_and_trade_strategy_matches_native_backtest_across_seal() {
-    assert_live_replay_parity(true);
+    assert_live_replay_parity(true, false);
 }
 
-fn assert_live_replay_parity(use_depth: bool) {
+#[test]
+fn delayed_rest_baseline_records_losslessly_and_replays_after_explicit_warmup() {
+    assert_live_replay_parity(false, true);
+}
+
+const RESEARCH_START: u64 = 1_800_000_000_000_000_025;
+
+fn assert_live_replay_parity(use_depth: bool, delayed_snapshot: bool) {
     let root = std::env::temp_dir().join(format!("live-replay-{}", UUID4::new()));
     std::fs::create_dir_all(&root).unwrap();
     let live_root = root.clone();
     let (expected, source_count) = std::thread::spawn(move || {
         let instrument = InstrumentAny::CryptoPerpetual(crypto_perpetual_ethusdt());
         let id = instrument.id();
-        let data = if use_depth {
+        let mut data = if use_depth {
             depth_source(id)
         } else {
             source(id)
         };
+        if delayed_snapshot {
+            let Data::BookDeltas(frame) = &mut data[0] else {
+                unreachable!()
+            };
+            for row in &mut frame.deltas {
+                row.ts_init = RESEARCH_START.into();
+            }
+            **frame = OrderBookDeltas::new(id, std::mem::take(&mut frame.deltas));
+            let Data::Trade(trade) = &mut data[3] else {
+                unreachable!()
+            };
+            trade.ts_init = (RESEARCH_START + 1).into();
+            trade.ts_event = trade.ts_init;
+        }
         let journal = Rc::new(RefCell::new(Vec::new()));
         let mut node = LiveNode::builder(TraderId::from("LIVE-001"), Environment::Live)
             .unwrap()
@@ -374,7 +395,32 @@ fn assert_live_replay_parity(use_depth: bool) {
                 .map(Data::from)
                 .collect()
         } else {
-            let books = read_book_replay_windows(&replay_root, id).unwrap();
+            let books = if delayed_snapshot {
+                let raw = read_replay_windows::<OrderBookDelta>(&replay_root, id).unwrap();
+                assert_eq!(raw.len(), 1);
+                let frames =
+                    catalog_capture_core::group_book_deltas(id, raw[0].data.clone()).unwrap();
+                assert_eq!(frames.len(), 4);
+                assert_eq!(frames[0].ts_init.as_u64(), RESEARCH_START);
+                assert!(frames[1].ts_init < frames[0].ts_init);
+                assert_eq!(
+                    frames
+                        .iter()
+                        .map(|frame| frame.sequence)
+                        .collect::<Vec<_>>(),
+                    vec![1, 2, 3, 5]
+                );
+                assert!(read_book_replay_windows(&replay_root, id).is_err());
+                read_book_replay_windows_in_range(
+                    &replay_root,
+                    id,
+                    RESEARCH_START.into(),
+                    (RESEARCH_START + 100).into(),
+                )
+                .unwrap()
+            } else {
+                read_book_replay_windows(&replay_root, id).unwrap()
+            };
             assert_eq!(books.len(), 1);
             assert!(books[0].has_book_baseline());
             books
@@ -392,7 +438,8 @@ fn assert_live_replay_parity(use_depth: bool) {
                 .map(Data::from),
         );
         data.sort_by_key(HasTsInit::ts_init);
-        assert_eq!(data.len(), source_count);
+        let expected_count = if delayed_snapshot { 3 } else { source_count };
+        assert_eq!(data.len(), expected_count);
         let journal = Rc::new(RefCell::new(Vec::new()));
         let mut engine = BacktestEngine::new(BacktestEngineConfig::default()).unwrap();
         engine
@@ -414,12 +461,24 @@ fn assert_live_replay_parity(use_depth: bool) {
             .unwrap();
         engine.add_data(data, None, true, true).unwrap();
         engine.run(None, None, None, false).unwrap();
-        assert_eq!(engine.get_result().iterations, source_count);
+        assert_eq!(engine.get_result().iterations, expected_count);
         journal.borrow().clone()
     })
     .join()
     .unwrap();
-    assert_eq!(actual, expected);
+    if delayed_snapshot {
+        // Book initialization is new; no claim of restoring pre-start strategy state.
+        assert_eq!(actual.len(), 3);
+        assert_eq!(expected.len(), 5);
+        for (replay, live) in actual[1..].iter().zip(&expected[3..]) {
+            assert_eq!(replay.payload, live.payload);
+            assert_eq!(replay.decision, live.decision);
+        }
+        assert_eq!(actual[1].ordinal, 1);
+        assert_eq!(expected[3].ordinal, 3);
+    } else {
+        assert_eq!(actual, expected);
+    }
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -508,4 +567,83 @@ fn gap_windows_start_fresh_backtest_engines_instead_of_carrying_strategy_state()
     }
     assert_eq!(first_decisions, vec![OrderSide::Sell, OrderSide::Buy]);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+/// Opt-in readback of the public Futures capture; never opens a venue connection or sends orders.
+#[test]
+#[ignore = "requires FUTURES_RECOVERY_CATALOG and FUTURES_RECOVERY_START_NS"]
+fn recorded_futures_recovery_matches_native_backtest_after_explicit_start() {
+    use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+    let root = std::path::PathBuf::from(std::env::var("FUTURES_RECOVERY_CATALOG").unwrap());
+    let start: UnixNanos = std::env::var("FUTURES_RECOVERY_START_NS")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap()
+        .into();
+    let mut reports = Vec::new();
+    for symbol in ["BTCUSDT", "ETHUSDT", "BNBUSDT"] {
+        let root = root.clone();
+        let report = std::thread::spawn(move || {
+            let id = InstrumentId::from(format!("{symbol}-PERP.BINANCE").as_str());
+            let raw = read_replay_windows::<OrderBookDelta>(&root, id).unwrap();
+            assert_eq!(raw.len(), 1, "probe needs one uninterrupted source epoch per symbol");
+            let frames = catalog_capture_core::group_book_deltas(id, raw[0].data.clone()).unwrap();
+            let decreases = frames.windows(2).filter(|pair| pair[0].ts_init > pair[1].ts_init).count();
+            let end = raw[0].end;
+            let mut expected = OrderBook::new(id, BookType::L2_MBP);
+            for frame in &frames { expected.apply_deltas(frame).unwrap(); }
+            let prepared = read_book_replay_windows_in_range(&root, id, start, end).unwrap();
+            assert_eq!(prepared.len(), 1);
+            assert!(prepared[0].has_book_baseline());
+            assert_eq!(prepared[0].start, start);
+            let retained_frames = prepared[0].data.len();
+            let trades = read_replay_windows::<TradeTick>(&root, id).unwrap();
+            let mut data: Vec<Data> = prepared.into_iter().flat_map(|window| window.data).map(Data::from)
+                .chain(trades.into_iter().flat_map(|window| window.data)
+                    .filter(|trade| trade.ts_init >= start && trade.ts_init <= end).map(Data::from)).collect();
+            data.sort_by_key(HasTsInit::ts_init);
+            let count = data.len();
+            let instrument = ParquetDataCatalog::new(&root, None, None, None, None)
+                .query_instruments(Some(&[id.to_string()])).unwrap().into_iter().last().unwrap();
+            let journal = Rc::new(RefCell::new(Vec::new()));
+            let mut engine = BacktestEngine::new(BacktestEngineConfig::default()).unwrap();
+            engine.add_venue(SimulatedVenueConfig::builder()
+                .venue(id.venue).oms_type(OmsType::Netting).account_type(AccountType::Margin)
+                .book_type(BookType::L2_MBP).starting_balances(vec![Money::from("1_000_000 USDT")])
+                .fee_model(FeeModelAny::MakerTaker(MakerTakerFeeModel::zero()).into()).build().unwrap()).unwrap();
+            engine.add_instrument(&instrument).unwrap();
+            engine.add_strategy(Trace::new(id, Rc::clone(&journal))).unwrap();
+            engine.add_data(data, None, true, true).unwrap();
+            engine.run(None, None, None, false).unwrap();
+            assert_eq!(engine.get_result().iterations, count);
+            let observations = journal.borrow();
+            assert_eq!(observations.len(), count);
+            let mut replayed = OrderBook::new(id, BookType::L2_MBP);
+            let mut actual_frames = 0;
+            for observation in observations.iter() {
+                if let Payload::Book(frame) = &observation.payload {
+                    replayed.apply_deltas(frame).unwrap();
+                    actual_frames += 1;
+                }
+            }
+            assert_eq!(actual_frames, retained_frames);
+            assert_eq!(replayed.bids_as_map(None), expected.bids_as_map(None));
+            assert_eq!(replayed.asks_as_map(None), expected.asks_as_map(None));
+            assert_eq!(replayed.sequence, expected.sequence);
+            serde_json::json!({"instrument":id.to_string(),"raw_rows":raw[0].data.len(),
+                "raw_frames":frames.len(),"time_decreases":decreases,"replay_frames":retained_frames,
+                "strategy_callbacks":count,"start_ns":start.as_u64(),"end_ns":end.as_u64()})
+        }).join().unwrap();
+        reports.push(report);
+    }
+    assert!(
+        reports
+            .iter()
+            .any(|report| report["time_decreases"].as_u64().unwrap() > 0),
+        "probe must observe buffered recovery timestamp reordering"
+    );
+    if let Ok(path) = std::env::var("FUTURES_RECOVERY_REPORT") {
+        std::fs::write(path, serde_json::to_string_pretty(&reports).unwrap()).unwrap();
+    }
+    eprintln!("{}", serde_json::to_string(&reports).unwrap());
 }
