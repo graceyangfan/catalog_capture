@@ -271,7 +271,7 @@ async fn publish(session: &mut PredictDataSession, venue: &Venue, market: u64, c
         .await
         .unwrap()
         .unwrap();
-    session.handle_message(epoch, message).await.unwrap();
+    session.apply_message(epoch, message).await.unwrap();
 }
 
 fn outputs(
@@ -329,11 +329,11 @@ async fn native(session: &mut PredictDataSession) {
     let context = super::quote_session_tests::context();
     let id = context.yes_instrument_id;
     session
-        .handle_command(PredictCommand::SubscribeQuotes(id, context.clone()))
+        .apply_command(PredictCommand::SubscribeQuotes(id, context.clone()))
         .await
         .unwrap();
     session
-        .handle_command(PredictCommand::SubscribeDepth(id, context, None))
+        .apply_command(PredictCommand::SubscribeDepth(id, context, None))
         .await
         .unwrap();
 }
@@ -430,29 +430,35 @@ async fn indexed_lookup_preserves_identity_precedence_and_retirement() {
     let id = crate::instrument_id_from_outcome(ID + 1, 1).unwrap();
     let context = client.instrument_context(id).unwrap();
     session
-        .handle_command(PredictCommand::SubscribeQuotes(id, context.clone()))
+        .apply_command(PredictCommand::SubscribeQuotes(id, context.clone()))
         .await
         .unwrap();
     session
-        .handle_command(PredictCommand::SubscribeDepth(id, context, None))
+        .apply_command(PredictCommand::SubscribeDepth(id, context, None))
         .await
         .unwrap();
     venue.command("subscribe", ID + 1).await;
     session.remove_dynamic_market_if_unused(ID + 1);
-    assert!(client.instrument_context(id).is_err());
-    assert!(client.publish_instrument(id).is_err());
+    assert!(client.instrument_context(id).is_ok());
+    client.publish_instrument(id).unwrap();
+    let DataEvent::Data(Data::Instrument(retained)) = receive(&mut definitions).await else {
+        panic!("native owner retains its instrument definition");
+    };
+    assert_eq!(retained.id(), id);
     publish(&mut session, &venue, ID + 1, 1).await;
     outputs(&mut events, None, ID + 1, 1, true);
     session
-        .handle_command(PredictCommand::UnsubscribeQuotes(id))
+        .apply_command(PredictCommand::UnsubscribeQuotes(id))
         .await
         .unwrap();
     venue.no_commands(&session).await;
     session
-        .handle_command(PredictCommand::UnsubscribeDepth(id))
+        .apply_command(PredictCommand::UnsubscribeDepth(id))
         .await
         .unwrap();
     venue.command("unsubscribe", ID + 1).await;
+    assert!(client.instrument_context(id).is_err());
+    assert!(client.publish_instrument(id).is_err());
     publish(&mut session, &venue, ID + 1, 2).await;
     assert!(events.try_recv().is_err());
     client.reset().unwrap();
@@ -473,7 +479,7 @@ async fn explicit_custom_identity_rejects_selector_and_preserves_native_sharing(
     for backend in [TransportBackend::default(), TransportBackend::Tungstenite] {
         let (mut venue, mut session, tasks, mut events) = setup(backend).await;
         session
-            .handle_command(PredictCommand::Subscribe(ID))
+            .apply_command(PredictCommand::Subscribe(ID))
             .await
             .unwrap();
         venue.command("subscribe", ID).await;
@@ -481,13 +487,13 @@ async fn explicit_custom_identity_rejects_selector_and_preserves_native_sharing(
         let selector = selector("BTCUSDT");
         let result = discovery(&mut session, &selector, ID);
         let key = result.key.clone();
-        let e = session.apply_discovery_result(result).await.unwrap_err();
+        let e = session.apply_discovery(result).await.unwrap_err();
         assert!(e.to_string().contains("custom data"), "{e:#}");
         assert_eq!(session.subscriptions[&ID].owners, 3);
         assert_eq!(session.dynamic_subscriptions[&key].pending_market_id, None);
         assert!(events.try_recv().is_err());
         session
-            .handle_command(PredictCommand::StopDynamic(key, "test-owner".into()))
+            .apply_command(PredictCommand::StopDynamic(key, "test-owner".into()))
             .await
             .unwrap();
         publish(&mut session, &venue, ID, 1).await;
@@ -500,19 +506,19 @@ async fn explicit_custom_identity_rejects_selector_and_preserves_native_sharing(
         );
         venue.no_commands(&session).await;
         session
-            .handle_command(PredictCommand::Unsubscribe(ID))
+            .apply_command(PredictCommand::Unsubscribe(ID))
             .await
             .unwrap();
         publish(&mut session, &venue, ID, 2).await;
         outputs(&mut events, None, ID, 2, true);
         let id = crate::instrument_id_from_outcome(ID, 1).unwrap();
         session
-            .handle_command(PredictCommand::UnsubscribeQuotes(id))
+            .apply_command(PredictCommand::UnsubscribeQuotes(id))
             .await
             .unwrap();
         venue.no_commands(&session).await;
         session
-            .handle_command(PredictCommand::UnsubscribeDepth(id))
+            .apply_command(PredictCommand::UnsubscribeDepth(id))
             .await
             .unwrap();
         venue.command("unsubscribe", ID).await;
@@ -530,12 +536,12 @@ async fn selector_identity_rejects_explicit_subscribe_and_foreign_unsubscribe() 
             let result = discovery(&mut session, &product, ID);
             let key = result.key.clone();
             let expected = predict_crypto_up_down_orderbook_data_type(ID, &key);
-            session.apply_discovery_result(result).await.unwrap();
+            session.apply_discovery(result).await.unwrap();
             definitions(&mut events, ID);
             venue.command("subscribe", ID).await;
             if confirmed {
                 session
-                    .handle_command(PredictCommand::Unsubscribe(ID))
+                    .apply_command(PredictCommand::Unsubscribe(ID))
                     .await
                     .unwrap();
                 publish(&mut session, &venue, ID, 1).await;
@@ -552,25 +558,28 @@ async fn selector_identity_rejects_explicit_subscribe_and_foreign_unsubscribe() 
                     replay.instrument_id,
                     crate::instrument_id_from_outcome(ID, 1).unwrap()
                 );
-                assert_eq!(replay.ts_event, session.snapshots[&ID].ts_event);
+                assert_eq!(
+                    replay.ts_event,
+                    session.books[&ID].snapshot.as_ref().unwrap().ts_event
+                );
                 assert_eq!(replay.bids[0].price.to_string(), "0.62");
                 assert!(events.try_recv().is_err());
             }
 
             session
-                .handle_command(PredictCommand::StartDynamic(
+                .apply_command(PredictCommand::StartDynamic(
                     selector(" btc/usdt "),
                     "test-owner".into(),
                 ))
                 .await
                 .unwrap();
             let e = session
-                .handle_command(PredictCommand::Subscribe(ID))
+                .apply_command(PredictCommand::Subscribe(ID))
                 .await
                 .unwrap_err();
             assert!(e.to_string().contains("custom data"), "{e:#}");
             session
-                .handle_command(PredictCommand::Unsubscribe(ID))
+                .apply_command(PredictCommand::Unsubscribe(ID))
                 .await
                 .unwrap();
             assert_eq!(session.subscriptions[&ID].owners, 3);
@@ -578,13 +587,13 @@ async fn selector_identity_rejects_explicit_subscribe_and_foreign_unsubscribe() 
             outputs(&mut events, Some(&expected), ID, 2, true);
             venue.no_commands(&session).await;
             session
-                .handle_command(PredictCommand::StopDynamic(key, "test-owner".into()))
+                .apply_command(PredictCommand::StopDynamic(key, "test-owner".into()))
                 .await
                 .unwrap();
             publish(&mut session, &venue, ID, 3).await;
             outputs(&mut events, None, ID, 3, true);
             session
-                .handle_command(PredictCommand::Subscribe(ID))
+                .apply_command(PredictCommand::Subscribe(ID))
                 .await
                 .unwrap();
             publish(&mut session, &venue, ID, 4).await;
@@ -612,7 +621,7 @@ async fn colliding_selector_preserves_pending_handover_and_retries_after_release
         let second_key = dynamic_selector_key(&second).unwrap();
         for (selector, market) in [(&first, ID), (&first, ID + 1), (&second, ID + 2)] {
             let result = discovery(&mut session, selector, market);
-            session.apply_discovery_result(result).await.unwrap();
+            session.apply_discovery(result).await.unwrap();
             definitions(&mut events, market);
             venue.command("subscribe", market).await;
             if market == ID {
@@ -627,7 +636,7 @@ async fn colliding_selector_preserves_pending_handover_and_retries_after_release
             }
         }
         let result = discovery(&mut session, &first, ID + 2);
-        assert!(session.apply_discovery_result(result).await.is_err());
+        assert!(session.apply_discovery(result).await.is_err());
         assert_eq!(
             session.dynamic_subscriptions[&first_key].current_market_id,
             Some(ID)
@@ -663,12 +672,12 @@ async fn colliding_selector_preserves_pending_handover_and_retries_after_release
         );
         venue.command("unsubscribe", ID).await;
         session
-            .handle_command(PredictCommand::StopDynamic(second_key, "test-owner".into()))
+            .apply_command(PredictCommand::StopDynamic(second_key, "test-owner".into()))
             .await
             .unwrap();
         venue.command("unsubscribe", ID + 2).await;
         let result = discovery(&mut session, &first, ID + 2);
-        session.apply_discovery_result(result).await.unwrap();
+        session.apply_discovery(result).await.unwrap();
         definitions(&mut events, ID + 2);
         venue.command("subscribe", ID + 2).await;
         publish(&mut session, &venue, ID + 2, 4).await;
@@ -695,7 +704,7 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
         let result = discovery(&mut session, &selector, ID + 1);
         let key = result.key.clone();
         let selector_type = predict_crypto_up_down_orderbook_data_type(ID + 1, &key);
-        session.apply_discovery_result(result).await.unwrap();
+        session.apply_discovery(result).await.unwrap();
         definitions(&mut events, ID + 1);
         venue.command("subscribe", ID + 1).await;
 
@@ -769,14 +778,14 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
         );
         assert!(
             session
-                .handle_command(command_rx.recv().await.unwrap())
+                .apply_command(command_rx.recv().await.unwrap())
                 .await
                 .is_err()
         );
         publish(&mut session, &venue, ID + 1, 1).await;
         outputs(&mut events, Some(&selector_type), ID + 1, 1, false);
         session
-            .handle_command(PredictCommand::StopDynamic(key, "test-owner".into()))
+            .apply_command(PredictCommand::StopDynamic(key, "test-owner".into()))
             .await
             .unwrap();
         venue.command("unsubscribe", ID + 1).await;
@@ -793,14 +802,14 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
                 .contains(&data_type)
         );
         session
-            .handle_command(command_rx.recv().await.unwrap())
+            .apply_command(command_rx.recv().await.unwrap())
             .await
             .unwrap();
         venue.no_commands(&session).await;
 
         let result = discovery(&mut session, &selector, ID + 1);
         let key = result.key.clone();
-        session.apply_discovery_result(result).await.unwrap();
+        session.apply_discovery(result).await.unwrap();
         definitions(&mut events, ID + 1);
         venue.command("subscribe", ID + 1).await;
         engine
@@ -817,7 +826,7 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
         );
         assert!(
             session
-                .handle_command(command_rx.recv().await.unwrap())
+                .apply_command(command_rx.recv().await.unwrap())
                 .await
                 .is_err()
         );
@@ -830,7 +839,7 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
             ))
             .unwrap();
         session
-            .handle_command(command_rx.recv().await.unwrap())
+            .apply_command(command_rx.recv().await.unwrap())
             .await
             .unwrap();
         assert!(
@@ -840,7 +849,7 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
                 .contains(&data_type)
         );
         session
-            .handle_command(PredictCommand::StopDynamic(key, "test-owner".into()))
+            .apply_command(PredictCommand::StopDynamic(key, "test-owner".into()))
             .await
             .unwrap();
         venue.command("unsubscribe", ID + 1).await;
@@ -853,7 +862,7 @@ async fn rejected_custom_command_keeps_running_session_and_original_output() {
     let (mut venue, mut session, tasks, mut events) = setup(TransportBackend::Tungstenite).await;
     let result = discovery(&mut session, &selector("BTCUSDT"), ID);
     let expected = predict_crypto_up_down_orderbook_data_type(ID, &result.key);
-    session.apply_discovery_result(result).await.unwrap();
+    session.apply_discovery(result).await.unwrap();
     definitions(&mut events, ID);
     venue.command("subscribe", ID).await;
     let (tx, rx) = mpsc::channel(8);
@@ -886,14 +895,14 @@ async fn custom_identity_survives_reconnect_and_does_not_leak_into_new_session()
         let selector = selector("BTCUSDT");
         let result = discovery(&mut session, &selector, ID);
         let expected = predict_crypto_up_down_orderbook_data_type(ID, &result.key);
-        session.apply_discovery_result(result).await.unwrap();
+        session.apply_discovery(result).await.unwrap();
         definitions(&mut events, ID);
         venue.command("subscribe", ID).await;
         publish(&mut session, &venue, ID, 0).await;
         outputs(&mut events, Some(&expected), ID, 0, false);
         assert!(
             session
-                .handle_command(PredictCommand::Subscribe(ID))
+                .apply_command(PredictCommand::Subscribe(ID))
                 .await
                 .is_err()
         );
@@ -906,10 +915,10 @@ async fn custom_identity_survives_reconnect_and_does_not_leak_into_new_session()
             .unwrap();
         assert_eq!(message.as_text(), Some(RECONNECTED));
         assert!(epoch > old_epoch);
-        session.handle_message(epoch, message).await.unwrap();
+        session.apply_message(epoch, message).await.unwrap();
         venue.command("subscribe", ID).await;
         session
-            .handle_message(old_epoch, Message::Text(frame(ID, 1).into()))
+            .apply_message(old_epoch, Message::Text(frame(ID, 1).into()))
             .await
             .unwrap();
         assert!(events.try_recv().is_err());
@@ -917,7 +926,7 @@ async fn custom_identity_survives_reconnect_and_does_not_leak_into_new_session()
         outputs(&mut events, Some(&expected), ID, 2, false);
         let stale = discovery(&mut session, &selector, ID + 1);
         tasks.begin_shutdown();
-        session.apply_discovery_result(stale).await.unwrap();
+        session.apply_discovery(stale).await.unwrap();
         assert!(events.try_recv().is_err());
         assert_eq!(session.subscriptions.len(), 1);
         assert_eq!(
@@ -932,7 +941,7 @@ async fn custom_identity_survives_reconnect_and_does_not_leak_into_new_session()
         let (mut fresh_venue, mut fresh, fresh_tasks, mut fresh_events) = setup(backend).await;
         assert!(fresh.subscriptions.is_empty() && fresh.dynamic_subscriptions.is_empty());
         fresh
-            .handle_command(PredictCommand::Subscribe(ID))
+            .apply_command(PredictCommand::Subscribe(ID))
             .await
             .unwrap();
         fresh_venue.command("subscribe", ID).await;
@@ -1090,25 +1099,25 @@ async fn independent_selector_identities_release_only_their_own_discovery_intere
     let result = discovery(&mut session, &product, ID);
     let key = result.key.clone();
     let output = predict_crypto_up_down_orderbook_data_type(ID, &key);
-    session.apply_discovery_result(result).await.unwrap();
+    session.apply_discovery(result).await.unwrap();
     definitions(&mut events, ID);
     venue.command("subscribe", ID).await;
     session
-        .handle_command(PredictCommand::StartDynamic(
+        .apply_command(PredictCommand::StartDynamic(
             product,
             "strategy-owner".into(),
         ))
         .await
         .unwrap();
     session
-        .handle_command(PredictCommand::StopDynamic(
+        .apply_command(PredictCommand::StopDynamic(
             key.clone(),
             "test-owner".into(),
         ))
         .await
         .unwrap();
     session
-        .handle_command(PredictCommand::StopDynamic(
+        .apply_command(PredictCommand::StopDynamic(
             key.clone(),
             "unknown-owner".into(),
         ))
@@ -1119,7 +1128,7 @@ async fn independent_selector_identities_release_only_their_own_discovery_intere
     outputs(&mut events, Some(&output), ID, 1, false);
     venue.no_commands(&session).await;
     session
-        .handle_command(PredictCommand::StopDynamic(
+        .apply_command(PredictCommand::StopDynamic(
             key.clone(),
             "strategy-owner".into(),
         ))
@@ -1131,4 +1140,60 @@ async fn independent_selector_identities_release_only_their_own_discovery_intere
     publish(&mut session, &venue, ID, 2).await;
     assert!(events.try_recv().is_err());
     shutdown(session, tasks).await;
+}
+
+#[tokio::test]
+async fn native_trade_owner_retains_definitions_after_selector_release() {
+    for backend in [TransportBackend::default(), TransportBackend::Tungstenite] {
+        let (mut venue, mut session, tasks, _events) = setup(backend).await;
+        let selector = selector("BTCUSDT");
+        let result = discovery(&mut session, &selector, ID);
+        session.apply_discovery(result).await.unwrap();
+        venue.command("subscribe", ID).await;
+        let context = session
+            .dynamic_registry
+            .read()
+            .unwrap()
+            .context(ID)
+            .unwrap();
+        let yes = context.yes_instrument_id;
+        session
+            .apply_command(PredictCommand::SubscribeTrades(yes, context))
+            .await
+            .unwrap();
+        let trade = receive(&mut venue.commands).await;
+        assert_eq!(trade["params"], json!([format!("predictTrades/{ID}")]));
+        session
+            .apply_command(PredictCommand::StopDynamic(
+                dynamic_selector_key(&selector).unwrap(),
+                "test-owner".into(),
+            ))
+            .await
+            .unwrap();
+        venue.command("unsubscribe", ID).await;
+        let retained = session
+            .dynamic_registry
+            .read()
+            .unwrap()
+            .instrument(yes)
+            .is_some();
+        // Finish transport cleanup before asserting the retained-definition contract.
+        session
+            .apply_command(PredictCommand::UnsubscribeTrades(yes))
+            .await
+            .unwrap();
+        let removed = session
+            .dynamic_registry
+            .read()
+            .unwrap()
+            .instrument(yes)
+            .is_none();
+        shutdown(session, tasks).await;
+        venue.server.abort();
+        assert!(
+            retained,
+            "a live native trade owner must keep synchronous instrument lookup available"
+        );
+        assert!(removed, "the last native release retires dynamic metadata");
+    }
 }

@@ -30,10 +30,10 @@ use parquet::basic::Compression;
 use crate::{
     config::CaptureConfig,
     lifecycle::segment_support::{
-        ActivePart, catalog_fs_custom_directory, merge_flush, recover_orphans_under,
-        segment_runtime_parts, tick_parts_map, ts_init_range_from_batch,
+        ActivePart, catalog_fs_custom_directory, recover_orphans_under, segment_runtime_parts,
+        tick_parts_map, ts_init_range_from_batch,
     },
-    runtime::FlushResult,
+    runtime::{FlushResult, collect_flush_results},
 };
 
 #[derive(Debug)]
@@ -60,6 +60,7 @@ pub struct SegmentCustomDataSink {
     local_root: PathBuf,
     compression: Compression,
     row_group_rows: usize,
+    row_group_bytes: usize,
     sync_interval_ns: u64,
     segments: HashMap<String, ActiveCustomSegment>,
 }
@@ -71,6 +72,7 @@ impl SegmentCustomDataSink {
             catalog: parts.catalog,
             local_root: parts.local_root,
             row_group_rows: parts.row_group_rows,
+            row_group_bytes: parts.row_group_bytes,
             sync_interval_ns: parts.sync_interval_ns,
             compression: parts.compression,
             segments: HashMap::new(),
@@ -96,6 +98,7 @@ impl SegmentCustomDataSink {
             params.schema.clone(),
             self.compression,
             self.row_group_rows,
+            self.row_group_bytes,
         )?;
         self.segments.insert(
             partition_key.to_string(),
@@ -107,6 +110,11 @@ impl SegmentCustomDataSink {
             },
         );
         Ok(())
+    }
+
+    #[must_use]
+    pub fn active_writers(&self) -> usize {
+        self.segments.len()
     }
 
     pub fn on_tick(&mut self, now_ns: u64) -> Result<FlushResult> {
@@ -131,12 +139,11 @@ impl SegmentCustomDataSink {
     }
 
     fn seal_all_internal(&mut self, reopen_after_seal: bool) -> Result<FlushResult> {
-        let mut result = FlushResult::default();
         let keys: Vec<String> = self.segments.keys().cloned().collect();
-        for key in keys {
-            merge_flush(&mut result, self.seal_segment(&key, reopen_after_seal)?);
-        }
-        Ok(result)
+        collect_flush_results(
+            keys.iter()
+                .map(|key| self.seal_segment(key, reopen_after_seal)),
+        )
     }
 
     fn seal_segment(&mut self, key: &str, reopen_after_seal: bool) -> Result<FlushResult> {
@@ -226,7 +233,16 @@ impl SegmentCustomDataSink {
             .segments
             .get_mut(partition_key)
             .expect("segment opened above");
-        segment.part.write_record_batch(&record_batch)?;
+        if let Err(error) = segment.part.write_record_batch(&record_batch) {
+            if let Some(segment) = self.segments.remove(partition_key) {
+                segment.part.quarantine();
+            }
+            return Err(error);
+        }
+        let segment = self
+            .segments
+            .get_mut(partition_key)
+            .expect("successful writer retained");
         segment.part.note_ts_range(min_ts_ns, max_ts_ns);
 
         sealed_paths.extend(self.roll_if_at_capacity(partition_key)?);
@@ -303,6 +319,39 @@ mod tests {
         };
         let data_type = DataType::new("RustTestCustomData", None, Some(instrument_id.to_string()));
         CustomData::new(Arc::new(payload), data_type)
+    }
+
+    #[test]
+    fn failed_custom_append_does_not_poison_later_batches() {
+        ensure_custom_data_registered::<RustTestCustomData>();
+        let dir = temp_dir("recover-append");
+        let mut config = segment_config(&dir);
+        config.lifecycle.segment.row_group_rows = 1;
+        let mut sink = SegmentCustomDataSink::from_config(&config).unwrap();
+        let key = "custom";
+        sink.write_batch_mut(key, vec![custom_row(1, 1.0)]).unwrap();
+        let old_path = sink.segments[key].part.part_path.clone();
+        *sink.segments.get_mut(key).unwrap().part.writer.inner_mut() =
+            fs::File::open(&old_path).unwrap();
+        assert!(
+            sink.write_batch_mut(key, (2..=1000).map(|ts| custom_row(ts, 2.0)).collect())
+                .is_err()
+        );
+        assert!(!sink.segments.contains_key(key));
+        assert!(old_path.with_extension("failed").exists());
+        sink.write_batch_mut(key, vec![custom_row(1001, 3.0)])
+            .unwrap();
+        let sealed = sink.seal_all().unwrap();
+        assert_eq!(sealed.rows, 1);
+        let file = fs::File::open(&sealed.files[0]).unwrap();
+        let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+            .unwrap()
+            .build()
+            .unwrap();
+        let rows = reader.map(|batch| batch.unwrap().num_rows()).sum::<usize>();
+        assert_eq!(rows, 1);
+        drop(sink);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

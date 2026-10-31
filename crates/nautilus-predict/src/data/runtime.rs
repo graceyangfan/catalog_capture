@@ -15,6 +15,9 @@
 //! Single-writer data session: commands, frames, discovery completions, and shutdown.
 
 use std::{
+    collections::VecDeque,
+    future::Future,
+    pin::Pin,
     sync::{
         Arc, RwLock,
         atomic::{AtomicBool, Ordering},
@@ -32,6 +35,7 @@ use nautilus_model::{
     identifiers::InstrumentId,
 };
 use nautilus_network::{
+    error::SendError,
     mode::ReconnectRequestOutcome,
     transport::Message,
     websocket::{WebSocketClient, WebSocketReconnectHandle},
@@ -83,7 +87,12 @@ pub(super) struct QuoteSubscription {
 pub(super) struct DepthSubscription {
     pub(super) context: PredictMarketContext,
     pub(super) depth: Option<std::num::NonZeroUsize>,
+}
+
+#[derive(Debug, Default)]
+pub(super) struct BookSourceState {
     pub(super) last_timestamp: Option<nautilus_core::UnixNanos>,
+    pub(super) snapshot: Option<crate::PredictOrderbookSnapshot>,
 }
 
 #[derive(Debug)]
@@ -108,9 +117,13 @@ impl std::fmt::Display for CustomDataConflict {
 
 impl std::error::Error for CustomDataConflict {}
 
-#[derive(Debug)]
+type SubscriptionSend = Pin<Box<dyn Future<Output = (u64, Result<(), SendError>)> + Send>>;
+
 pub(super) struct PredictDataSession {
-    pub(super) client: WebSocketClient,
+    pub(super) client: Arc<WebSocketClient>,
+    pub(super) pending_writes: VecDeque<String>,
+    pub(super) subscription_send: Option<SubscriptionSend>,
+    pub(super) control_send: Option<SubscriptionSend>,
     pub(super) http_client: PredictHttpClient,
     pub(super) reconnect: WebSocketReconnectHandle,
     pub(super) raw_rx: mpsc::Receiver<(u64, Message)>,
@@ -120,7 +133,7 @@ pub(super) struct PredictDataSession {
     pub(super) quotes: AHashMap<InstrumentId, QuoteSubscription>,
     pub(super) depths: AHashMap<InstrumentId, DepthSubscription>,
     pub(super) trades: AHashMap<InstrumentId, PredictMarketContext>,
-    pub(super) snapshots: AHashMap<u64, crate::PredictOrderbookSnapshot>,
+    pub(super) books: AHashMap<u64, BookSourceState>,
     pub(super) contexts: AHashMap<u64, PredictMarketContext>,
     pub(super) dynamic_registry: Arc<RwLock<PredictDynamicMarketRegistry>>,
     pub(super) dynamic_generation: u64,
@@ -138,6 +151,15 @@ pub(super) struct PredictDataSession {
     pub(super) discovery_rx: mpsc::Receiver<DiscoveryResult>,
     pub(super) task_spawner: TaskSpawner,
     pub(super) discovery_timeout: Duration,
+}
+
+impl std::fmt::Debug for PredictDataSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PredictDataSession")
+            .field("current_epoch", &self.current_epoch)
+            .field("subscriptions", &self.subscriptions)
+            .finish_non_exhaustive()
+    }
 }
 
 pub(super) struct PredictSessionInputs {
@@ -178,7 +200,10 @@ impl PredictDataSession {
         let session = Self {
             current_epoch: client.connection_epoch(),
             reconnect: client.reconnect_handle(),
-            client,
+            client: Arc::new(client),
+            pending_writes: VecDeque::new(),
+            subscription_send: None,
+            control_send: None,
             http_client,
             raw_rx,
             command_rx,
@@ -187,7 +212,7 @@ impl PredictDataSession {
             quotes: AHashMap::new(),
             depths: AHashMap::new(),
             trades: AHashMap::new(),
-            snapshots: AHashMap::new(),
+            books: AHashMap::new(),
             contexts,
             dynamic_registry,
             dynamic_generation,
@@ -211,6 +236,8 @@ impl PredictDataSession {
     pub(super) async fn run(mut self) {
         let mut health_tick = tokio::time::interval(Duration::from_secs(1));
         loop {
+            self.start_subscription_send();
+            let send_idle = self.subscription_send.is_none() && self.pending_writes.is_empty();
             let deadline = self
                 .dynamic_subscriptions
                 .iter()
@@ -225,7 +252,26 @@ impl PredictDataSession {
                     .saturating_sub(self.clock.get_time_ns().as_u64()),
             );
             tokio::select! {
+                biased;
                 () = self.cancellation.cancelled() => break,
+                (epoch, result) = async {
+                    match &mut self.subscription_send {
+                        Some(send) => send.await,
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    self.subscription_send = None;
+                    self.finish_write(epoch, result, "subscription");
+                }
+                (epoch, result) = async {
+                    match &mut self.control_send {
+                        Some(send) => send.await,
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    self.control_send = None;
+                    self.finish_write(epoch, result, "heartbeat");
+                }
                 _ = health_tick.tick() => self.check_health(),
                 _ = tokio::time::sleep(delay), if can_discover => {
                     if let Err(error) = self.schedule_discovery() {
@@ -233,12 +279,18 @@ impl PredictDataSession {
                         break;
                     }
                 }
-                Some(result) = self.discovery_rx.recv() => {
+                Some(result) = self.discovery_rx.recv(), if send_idle => {
                     if let Err(error) = self.apply_discovery_result(result).await {
                         log::warn!("Predict discovery apply failed: {error:#}");
                     }
                 }
-                command = self.command_rx.recv() => {
+                raw = self.raw_rx.recv() => {
+                    let Some((epoch, message)) = raw else { break };
+                    if let Err(error) = self.handle_message(epoch, message).await {
+                        log::error!("Predict WebSocket message discarded: {error:#}");
+                    }
+                }
+                command = self.command_rx.recv(), if send_idle => {
                     let Some(command) = command else { break };
                     if let Err(e) = self.handle_command(command).await {
                         if e.is::<CustomDataConflict>() {
@@ -248,14 +300,9 @@ impl PredictDataSession {
                         }
                     }
                 }
-                raw = self.raw_rx.recv() => {
-                    let Some((epoch, message)) = raw else { break };
-                    if let Err(error) = self.handle_message(epoch, message).await {
-                        log::error!("Predict WebSocket message discarded: {error:#}");
-                    }
-                }
             }
         }
+        self.clear_writes();
         for (_, cancellation) in self.discovery.inflight.values() {
             cancellation.cancel();
         }
@@ -282,11 +329,7 @@ impl PredictDataSession {
             }
             PredictCommand::SubscribeQuotes(id, context) => {
                 if !self.quotes.contains_key(&id) {
-                    let result = self.subscribe_market(context.market_id).await;
-                    if result.is_err() {
-                        // Retain desired quote interest for the reconnect generation.
-                        self.retain_market(context.market_id);
-                    }
+                    let market_id = context.market_id;
                     self.quotes.insert(
                         id,
                         QuoteSubscription {
@@ -294,18 +337,13 @@ impl PredictDataSession {
                             last_quote: None,
                         },
                     );
-                    result?;
+                    self.subscribe_market(market_id).await?;
                 }
             }
             PredictCommand::UnsubscribeQuotes(id) => {
-                if let Some(subscription) = self.quotes.get(&id) {
-                    let market_id = subscription.context.market_id;
-                    if let Err(error) = self.unsubscribe_market(market_id).await {
-                        // Keep the quote owner and topic count consistent until reconnect.
-                        self.retain_market(market_id);
-                        return Err(error);
-                    }
-                    self.quotes.remove(&id);
+                if let Some(subscription) = self.quotes.remove(&id) {
+                    self.unsubscribe_market(subscription.context.market_id)
+                        .await?;
                 }
             }
             PredictCommand::SubscribeDepth(id, context, depth) => {
@@ -316,22 +354,19 @@ impl PredictDataSession {
                     );
                     return Ok(());
                 }
-                let result = self.subscribe_market(context.market_id).await;
-                if result.is_err() {
-                    self.retain_market(context.market_id);
-                }
-                self.depths.insert(
-                    id,
-                    DepthSubscription {
-                        context,
-                        depth,
-                        last_timestamp: None,
-                    },
-                );
-                if result.is_ok()
-                    && let Some(snapshot) = self.snapshots.get(&self.depths[&id].context.market_id)
+                let market_id = context.market_id;
+                self.depths.insert(id, DepthSubscription { context, depth });
+                self.subscribe_market(market_id).await?;
+                if !self.client.is_active() || self.client.connection_epoch() != self.current_epoch
                 {
-                    let subscription = self.depths.get_mut(&id).expect("inserted depth owner");
+                    self.invalidate_book_snapshots();
+                }
+                if let Some(snapshot) = self
+                    .books
+                    .get(&market_id)
+                    .and_then(|source| source.snapshot.as_ref())
+                {
+                    let subscription = self.depths.get(&id).expect("inserted depth owner");
                     let depth = super::depth::depth_from_snapshot(
                         snapshot,
                         &subscription.context,
@@ -341,18 +376,12 @@ impl PredictDataSession {
                     self.data_sender.send(DataEvent::Data(
                         nautilus_model::data::Data::BookDepth(Box::new(depth)),
                     ))?;
-                    subscription.last_timestamp = Some(snapshot.ts_event);
                 }
-                result?;
             }
             PredictCommand::UnsubscribeDepth(id) => {
-                if let Some(subscription) = self.depths.get(&id) {
-                    let market_id = subscription.context.market_id;
-                    if let Err(error) = self.unsubscribe_market(market_id).await {
-                        self.retain_market(market_id);
-                        return Err(error);
-                    }
-                    self.depths.remove(&id);
+                if let Some(subscription) = self.depths.remove(&id) {
+                    self.unsubscribe_market(subscription.context.market_id)
+                        .await?;
                 }
             }
             PredictCommand::SubscribeTrades(id, context) => {
@@ -365,7 +394,7 @@ impl PredictDataSession {
                     // Keep desired interest if send fails; reconnect reconciles it.
                     self.trades.insert(id, context);
                     if first {
-                        self.send_trade_subscription("subscribe", market_id).await?;
+                        self.queue_trade_subscription("subscribe", market_id)?;
                     }
                 }
             }
@@ -376,8 +405,8 @@ impl PredictDataSession {
                         .values()
                         .any(|c| c.market_id == context.market_id)
                 {
-                    self.send_trade_subscription("unsubscribe", context.market_id)
-                        .await?;
+                    self.remove_dynamic_market_if_unused(context.market_id);
+                    self.queue_trade_subscription("unsubscribe", context.market_id)?;
                 }
             }
             PredictCommand::StartDynamic(selector, owner) => {
@@ -460,19 +489,20 @@ impl PredictDataSession {
         data_type: DataType,
     ) -> anyhow::Result<()> {
         self.ensure_custom_data_type(market_id, &data_type)?;
-        self.subscribe_market(market_id).await?;
+        let result = self.subscribe_market(market_id).await;
         self.subscriptions
             .get_mut(&market_id)
             .expect("subscribed market")
             .data_type = data_type;
-        Ok(())
+        result
     }
 
     pub(super) async fn subscribe_market(&mut self, market_id: u64) -> anyhow::Result<()> {
-        if !self.subscriptions.contains_key(&market_id) {
-            self.send_subscription("subscribe", market_id).await?;
-        }
+        let first = !self.subscriptions.contains_key(&market_id);
         self.retain_market(market_id);
+        if first {
+            self.queue_book_subscription("subscribe", market_id)?;
+        }
         Ok(())
     }
 
@@ -483,15 +513,16 @@ impl PredictDataSession {
         count.owners = count.owners.saturating_sub(1);
         if count.owners == 0 {
             self.subscriptions.remove(&market_id);
-            self.snapshots.remove(&market_id);
-            self.send_subscription("unsubscribe", market_id).await?;
+            self.books.remove(&market_id);
+            self.remove_dynamic_market_if_unused(market_id);
+            self.queue_book_subscription("unsubscribe", market_id)?;
         }
         Ok(())
     }
 
-    pub(super) async fn send_subscription(
+    pub(super) fn queue_book_subscription(
         &mut self,
-        method: &str,
+        method: &'static str,
         market_id: u64,
     ) -> anyhow::Result<()> {
         let request_id = self.next_request_id;
@@ -500,10 +531,62 @@ impl PredictDataSession {
             .checked_add(1)
             .context("Predict request ID overflow")?;
         let payload = subscription_message(method, request_id, market_id);
-        self.client
-            .send_text(payload, None)
-            .await
-            .with_context(|| format!("failed to {method} Predict orderbook {market_id}"))
+        self.queue_subscription(payload);
+        Ok(())
+    }
+
+    pub(super) fn queue_subscription(&mut self, payload: String) {
+        if self.failed_epoch.is_none() {
+            self.pending_writes.push_back(payload);
+        }
+    }
+
+    pub(super) fn start_subscription_send(&mut self) {
+        if self.client.connection_epoch() == self.current_epoch
+            && self.subscription_send.is_none()
+            && let Some(payload) = self.pending_writes.pop_front()
+        {
+            let client = Arc::clone(&self.client);
+            let epoch = self.current_epoch;
+            self.subscription_send = Some(Box::pin(async move {
+                let result = client.send_text_on_connection(payload, None, epoch).await;
+                (epoch, result)
+            }));
+        }
+    }
+
+    pub(super) fn finish_write(&mut self, epoch: u64, result: Result<(), SendError>, kind: &str) {
+        if epoch == self.current_epoch
+            && epoch == self.client.connection_epoch()
+            && let Err(error) = result
+        {
+            self.fail_generation(format!("{kind} write failed: {error}"));
+        }
+    }
+
+    pub(super) fn queue_heartbeat(&mut self, payload: String) {
+        if self.control_send.is_some() {
+            self.fail_generation("heartbeat send is still pending".into());
+            return;
+        }
+        let client = Arc::clone(&self.client);
+        let epoch = self.current_epoch;
+        self.control_send = Some(Box::pin(async move {
+            let result = client.send_text_on_connection(payload, None, epoch).await;
+            (epoch, result)
+        }));
+    }
+
+    pub(super) fn clear_writes(&mut self) {
+        self.subscription_send = None;
+        self.control_send = None;
+        self.pending_writes.clear();
+    }
+
+    pub(super) fn invalidate_book_snapshots(&mut self) {
+        for source in self.books.values_mut() {
+            source.snapshot = None;
+        }
     }
 
     pub(super) fn check_health(&mut self) {
@@ -517,6 +600,8 @@ impl PredictDataSession {
             return;
         }
         self.failed_epoch = Some(self.current_epoch);
+        self.clear_writes();
+        self.invalidate_book_snapshots();
         let outcome = self.reconnect.request_reconnect();
         log::error!(
             "Predict WebSocket generation failed: {reason}; reconnect={outcome:?}, epoch={}",
@@ -538,3 +623,7 @@ mod quote_session_tests;
 #[cfg(test)]
 #[path = "../../tests/support/custom_subscriptions.rs"]
 mod custom_subscription_tests;
+
+#[cfg(test)]
+#[path = "../../tests/support/subscription_contracts.rs"]
+mod subscription_contract_tests;

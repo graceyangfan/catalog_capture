@@ -345,3 +345,96 @@ fn six_selectors_roll_and_read_back() {
         pending
     );
 }
+
+#[test]
+#[ignore = "requires PREDICT_PROBE_CATALOG from six native selectors crossing a shared 5m/15m boundary"]
+fn native_six_selectors_roll_and_read_back() {
+    use nautilus_model::instruments::InstrumentAny;
+
+    let root = std::env::var("PREDICT_PROBE_CATALOG").expect("set PREDICT_PROBE_CATALOG");
+    let mut catalog = ParquetDataCatalog::new(Path::new(&root), None, None, None, None);
+    let instruments = catalog.instruments(None, None, None).unwrap();
+    assert_eq!(
+        instruments.len(),
+        24,
+        "both outcomes before and after six rollovers"
+    );
+    let mut groups = BTreeMap::<(String, u64), Vec<(u64, u64, String)>>::new();
+    for instrument in &instruments {
+        let InstrumentAny::BinaryOption(binary) = instrument else {
+            panic!("binary definition")
+        };
+        if !binary.id.to_string().ends_with("-1.PREDICT") {
+            continue;
+        }
+        let description = binary.description.unwrap();
+        let asset = description.as_str().split(" Up or Down").next().unwrap();
+        assert!(matches!(asset, "Bitcoin" | "Ethereum" | "BNB"));
+        let start = binary.activation_ns.as_u64();
+        let end = binary.expiration_ns.as_u64();
+        let interval = (end - start) / 1_000_000_000;
+        assert!(matches!(interval, 300 | 900));
+        groups.entry((asset.into(), interval)).or_default().push((
+            start,
+            end,
+            binary.id.to_string(),
+        ));
+    }
+    assert_eq!(groups.len(), 6);
+    let mut depth_rows = 0;
+    let mut trade_rows = 0;
+    for (selector, markets) in &mut groups {
+        markets.sort();
+        assert_eq!(markets.len(), 2, "one rollover for {selector:?}");
+        assert_eq!(markets[0].1, markets[1].0, "contiguous market windows");
+        let mut previous_end = 0;
+        for (_, _, id) in markets {
+            let depths = catalog
+                .order_book_depths(Some(vec![id.clone()]), None, None)
+                .unwrap();
+            let trades = catalog
+                .trade_ticks(Some(vec![id.clone()]), None, None)
+                .unwrap();
+            assert!(!depths.is_empty(), "nonempty depth for {id}");
+            assert!(
+                depths
+                    .iter()
+                    .all(|depth| depth.instrument_id.to_string() == *id)
+            );
+            assert!(
+                depths
+                    .windows(2)
+                    .all(|pair| pair[0].ts_event <= pair[1].ts_event)
+            );
+            assert!(
+                previous_end <= depths.first().unwrap().ts_init.as_u64(),
+                "retired market ends before successor recording"
+            );
+            previous_end = depths.last().unwrap().ts_init.as_u64();
+            assert!(
+                trades
+                    .iter()
+                    .all(|trade| trade.instrument_id.to_string() == *id)
+            );
+            depth_rows += depths.len();
+            trade_rows += trades.len();
+        }
+    }
+    assert!(trade_rows > 0, "read genuine native TradeTicks");
+    let families = std::fs::read_dir(Path::new(&root).join("data"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        families,
+        BTreeSet::from([
+            "binary_option".into(),
+            "order_book_depths".into(),
+            "trades".into()
+        ])
+    );
+    println!(
+        "native readback: selectors={}, depths={depth_rows}, trades={trade_rows}",
+        groups.len()
+    );
+}

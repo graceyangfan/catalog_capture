@@ -46,6 +46,8 @@ use nautilus_common::{
     actor::{DataActorConfig, DataActorCore, DataActorNative},
     nautilus_actor,
 };
+#[cfg(test)]
+use nautilus_model::orderbook::OrderBook;
 use nautilus_model::{
     data::{
         Bar, CustomData, DataType, FundingRateUpdate, IndexPriceUpdate, InstrumentStatus,
@@ -54,7 +56,6 @@ use nautilus_model::{
     },
     identifiers::{ActorId, ClientId, InstrumentId},
     instruments::{Instrument, InstrumentAny},
-    orderbook::OrderBook,
 };
 use nautilus_predict::common::{
     CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
@@ -131,6 +132,8 @@ pub struct CatalogCaptureActor {
     supplemental_plan: CapturePlan,
     plan: CapturePlan,
     instrument_runtime: Option<BackgroundCaptureRuntime<InstrumentAny, ChunkedCatalogSink>>,
+    pending_instrument_definitions: BTreeSet<InstrumentId>,
+    instrument_failure_cursor: u64,
     /// Subscribe + request custom payloads share one writer. Segment mode uses
     /// `*.parquet.part` + wall-clock seal (same as market data); chunked mode keeps
     /// immediate catalog parquet files.
@@ -165,6 +168,8 @@ pub struct CatalogCaptureActor {
     predict_native_subscriptions:
         BTreeMap<CryptoUpDownSelectorKey, predict::PredictNativeSubscription>,
     book_delta_runtime: Option<BackgroundCaptureRuntime<OrderBookDeltas, BookDeltaCatalogSink>>,
+    book_delta_recovery: BTreeSet<InstrumentId>,
+    book_delta_failure_cursor: u64,
     binance_client_routes: BTreeMap<InstrumentId, ClientId>,
     binance_futures_client_id: Option<ClientId>,
     online_option_metrics: Option<OnlineOptionMetricsObserver>,
@@ -183,6 +188,8 @@ pub struct CatalogCaptureActor {
     metrics_refresh_interval_secs: Option<u64>,
     catalog_root: PathBuf,
     shutdown_completed: bool,
+    failure: Option<String>,
+    worker_shutdown_requested: bool,
 }
 
 impl CatalogCaptureActor {
@@ -340,7 +347,7 @@ impl CatalogCaptureActor {
         )?;
         let book_depth_runtime = maybe_family_runtime(
             flags.book_depth,
-            CaptureFlushFamily::BookDeltas,
+            CaptureFlushFamily::BookDepth,
             &capture,
             CatalogSink::<OrderBookDepth>::from_config,
         )?;
@@ -374,6 +381,8 @@ impl CatalogCaptureActor {
             supplemental_plan,
             plan: config.plan,
             instrument_runtime,
+            pending_instrument_definitions: BTreeSet::new(),
+            instrument_failure_cursor: 0,
             custom_data_runtime,
             predict_custom_data_runtimes,
             active_predict_market_ids: BTreeMap::new(),
@@ -389,6 +398,8 @@ impl CatalogCaptureActor {
             trade_runtime,
             bar_runtime,
             book_delta_runtime,
+            book_delta_recovery: BTreeSet::new(),
+            book_delta_failure_cursor: 0,
             book_depth_runtime,
             predict_native_subscriptions: BTreeMap::new(),
             binance_client_routes: config.binance_client_routes,
@@ -410,11 +421,16 @@ impl CatalogCaptureActor {
             metrics_refresh_interval_secs: config.metrics_refresh_interval_secs,
             catalog_root,
             shutdown_completed: false,
+            failure: None,
+            worker_shutdown_requested: false,
         })
     }
 
     #[must_use]
     pub fn enabled_background_worker_count(&self) -> usize {
+        if self.shutdown_completed {
+            return 0;
+        }
         count_enabled_background_workers([
             self.instrument_runtime.is_some(),
             self.custom_data_runtime.is_some(),
@@ -457,6 +473,7 @@ impl CatalogCaptureActor {
             aggregated.merge(&metrics);
             families.push(FamilyCaptureMetrics {
                 family: format!("predict_custom_data_{selector_key}"),
+                failures: runtime.failure_snapshot(),
                 metrics,
             });
         }
@@ -545,6 +562,7 @@ impl CatalogCaptureActor {
             aggregated,
             families,
             custom_data_requests,
+            failure: self.failure.clone(),
         }
     }
 
@@ -825,6 +843,100 @@ mod tests {
         )
     }
 
+    #[test]
+    fn admission_gaps_preserve_liveness_and_final_quality_state() {
+        use catalog_capture_core::plan::{BookDepthCaptureSpec, TradeCaptureSpec};
+        use nautilus_common::{
+            messages::system::ShutdownSystem,
+            msgbus::{self, MessagingSwitchboard, typed_handler::ShareableMessageHandler},
+        };
+        use nautilus_model::{
+            enums::{AggressorSide, BookType},
+            identifiers::TradeId,
+        };
+
+        let root =
+            std::env::temp_dir().join(format!("capture-admission-{}", nautilus_core::UUID4::new()));
+        fs::create_dir_all(&root).unwrap();
+        let id = InstrumentId::from("42-1.PREDICT");
+        let store = Arc::new(RwLock::new(CaptureMetricsSnapshot::default()));
+        let mut config = CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                max_buffer_bytes: 4096,
+                max_total_buffer_bytes: 4096,
+                overflow_policy: catalog_capture_core::OverflowPolicy::FailFast,
+                ..Default::default()
+            },
+            CapturePlan {
+                trades: vec![TradeCaptureSpec { instrument_id: id }],
+                book_depth: vec![BookDepthCaptureSpec {
+                    instrument_id: id,
+                    book_type: BookType::L2_MBP,
+                    depth: None,
+                }],
+                ..Default::default()
+            },
+        );
+        config.metrics_snapshot = Some(Arc::clone(&store));
+        let mut actor = CatalogCaptureActor::new(config).unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                Rc::new(RefCell::new(Cache::new(None, None))),
+            )
+            .unwrap();
+        let commands = Rc::new(RefCell::new(Vec::new()));
+        let received = Rc::clone(&commands);
+        let handler = ShareableMessageHandler::from_typed(move |command: &ShutdownSystem| {
+            received.borrow_mut().push(command.clone())
+        });
+        let topic = MessagingSwitchboard::shutdown_system_topic();
+        msgbus::subscribe_any(topic.into(), handler.clone(), None);
+        let trade = TradeTick::new(
+            id,
+            Price::from("0.50"),
+            Quantity::from("1"),
+            AggressorSide::Buy,
+            TradeId::from("test-trade"),
+            1.into(),
+            2.into(),
+        );
+        let levels = (1..=99)
+            .rev()
+            .map(|value| {
+                nautilus_model::data::BookOrder::new(
+                    nautilus_model::enums::OrderSide::Buy,
+                    Price::from(format!("0.{value:03}").as_str()),
+                    Quantity::from("1"),
+                    0,
+                )
+            })
+            .collect::<Vec<_>>();
+        let large = OrderBookDepth::new(id, levels, [], vec![0; 99], [], 0, 0, 1.into(), 2.into());
+        assert!(actor.on_book_depth(&large).is_err());
+        let first_failure = actor.failure.clone();
+        assert!(first_failure.is_some());
+        assert!(actor.on_trade(&trade).is_ok());
+        let depth = OrderBookDepth::new(id, [], [], [], [], 0, 0, 1.into(), 2.into());
+        assert!(actor.on_book_depth(&depth).is_ok());
+        assert_eq!(commands.borrow().len(), 0);
+        assert_eq!(actor.failure, first_failure);
+        assert!(DataActor::on_stop(&mut actor).is_err());
+        let final_state = store.read().unwrap();
+        assert!(final_state.has_recording_failure());
+        assert_eq!(final_state.failure, first_failure);
+        assert_eq!(final_state.aggregated.dropped_items, 1);
+        assert_eq!(final_state.aggregated.accepted_items, 2);
+        assert_eq!(final_state.aggregated.flushed_rows, 2);
+        assert_eq!(final_state.enabled_background_workers, 0);
+        msgbus::unsubscribe_any(topic.into(), &handler);
+        drop(final_state);
+        drop(actor);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn test_predict_outcome(market_id: u64, outcome_index: u8) -> InstrumentAny {
         let instrument_id =
             nautilus_predict::common::predict_outcome_instrument_id(market_id, outcome_index)
@@ -851,6 +963,323 @@ mod tests {
                 .build()
                 .expect("valid test BinaryOption"),
         )
+    }
+
+    #[test]
+    fn admission_fault_does_not_replace_a_healthy_instruments_delta_with_a_checkpoint() {
+        use catalog_capture_core::plan::BookDeltasCaptureSpec;
+        use nautilus_model::{
+            data::{OrderBookDeltas, stubs::stub_deltas},
+            enums::{BookAction, BookType, RecordFlag},
+        };
+        use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+        let root = std::env::temp_dir().join(format!(
+            "capture-scoped-fault-{}",
+            nautilus_core::UUID4::new()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let source = stub_deltas();
+        let failed_id = source.instrument_id;
+        let healthy_id = InstrumentId::from("ETHUSDT.BINANCE");
+        let initial = OrderBookDeltas::new(
+            healthy_id,
+            source
+                .deltas
+                .iter()
+                .map(|row| {
+                    let mut row = *row;
+                    row.instrument_id = healthy_id;
+                    row.ts_event = 100.into();
+                    row.ts_init = 100.into();
+                    row
+                })
+                .collect(),
+        );
+        let mut book = OrderBook::new(healthy_id, BookType::L2_MBP);
+        book.apply_deltas(&initial).unwrap();
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        cache.borrow_mut().add_order_book(book).unwrap();
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                max_buffer_bytes: 4096,
+                max_total_buffer_bytes: 4096,
+                overflow_policy: catalog_capture_core::OverflowPolicy::FailFast,
+                ..Default::default()
+            },
+            CapturePlan {
+                book_deltas: [failed_id, healthy_id]
+                    .into_iter()
+                    .map(|instrument_id| BookDeltasCaptureSpec {
+                        instrument_id,
+                        book_type: BookType::L2_MBP,
+                        depth: None,
+                    })
+                    .collect(),
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                Rc::clone(&cache),
+            )
+            .unwrap();
+        actor.on_book_deltas(&initial).unwrap();
+        let oversized = OrderBookDeltas::new(failed_id, vec![source.deltas[1]; 1024]);
+        assert!(actor.on_book_deltas(&oversized).is_err());
+        let mut row = initial.deltas[1];
+        row.action = BookAction::Update;
+        row.flags = RecordFlag::F_LAST as u8;
+        row.sequence += 1;
+        row.ts_event = 200.into();
+        row.ts_init = 200.into();
+        row.order.size = Quantity::from("333");
+        let continuation = OrderBookDeltas::new(healthy_id, vec![row]);
+        cache
+            .borrow_mut()
+            .order_book_mut(&healthy_id)
+            .unwrap()
+            .apply_deltas(&continuation)
+            .unwrap();
+        actor.on_book_deltas(&continuation).unwrap();
+        assert_eq!(actor.book_delta_recovery, BTreeSet::from([failed_id]));
+        assert!(actor.shutdown_all().is_err());
+        let mut catalog = ParquetDataCatalog::new(&root, None, None, None, None);
+        let rows = catalog
+            .order_book_deltas(Some(vec![healthy_id.to_string()]), None, None)
+            .unwrap();
+        assert_eq!(
+            rows.iter()
+                .filter(|row| row.action == BookAction::Clear)
+                .count(),
+            1,
+            "an unrelated admission fault must not inject another snapshot"
+        );
+        assert_eq!(rows.len(), initial.deltas.len() + 1);
+        assert_eq!(rows.last().unwrap(), &row);
+        drop(actor);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn incremental_book_gap_recovers_from_native_cache_then_records_later_deltas() {
+        use catalog_capture_core::plan::BookDeltasCaptureSpec;
+        use nautilus_model::{
+            data::{OrderBookDeltas, stubs::stub_deltas},
+            enums::{BookAction, BookType, RecordFlag},
+        };
+        use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+        let root = std::env::temp_dir().join(format!(
+            "capture-l2-recovery-{}",
+            nautilus_core::UUID4::new()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let initial = stub_deltas();
+        let id = initial.instrument_id;
+        let mut book = OrderBook::new(id, BookType::L2_MBP);
+        book.apply_deltas(&initial).unwrap();
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        cache.borrow_mut().add_order_book(book).unwrap();
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                max_buffer_bytes: 4096,
+                max_total_buffer_bytes: 4096,
+                overflow_policy: catalog_capture_core::OverflowPolicy::FailFast,
+                ..Default::default()
+            },
+            CapturePlan {
+                book_deltas: vec![BookDeltasCaptureSpec {
+                    instrument_id: id,
+                    book_type: BookType::L2_MBP,
+                    depth: None,
+                }],
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                Rc::clone(&cache),
+            )
+            .unwrap();
+        let mut update = initial.deltas[1];
+        update.action = BookAction::Update;
+        update.flags = 0;
+        let mut rows = vec![update; 1024];
+        rows.last_mut().unwrap().flags = RecordFlag::F_LAST as u8;
+        let large = OrderBookDeltas::new(id, rows);
+        cache
+            .borrow_mut()
+            .order_book_mut(&id)
+            .unwrap()
+            .apply_deltas(&large)
+            .unwrap();
+        assert!(actor.on_book_deltas(&large).is_err());
+        for (ts, size) in [(3_u64, "333"), (4, "444")] {
+            update.flags = RecordFlag::F_LAST as u8;
+            update.ts_event = ts.into();
+            update.ts_init = ts.into();
+            update.order.size = Quantity::from(size);
+            let next = OrderBookDeltas::new(id, vec![update]);
+            cache
+                .borrow_mut()
+                .order_book_mut(&id)
+                .unwrap()
+                .apply_deltas(&next)
+                .unwrap();
+            actor.on_book_deltas(&next).unwrap();
+        }
+        assert!(actor.book_delta_recovery.is_empty());
+        assert!(actor.shutdown_all().is_err());
+        let mut catalog = ParquetDataCatalog::new(&root, None, None, None, None);
+        let rows = catalog
+            .order_book_deltas(Some(vec![id.to_string()]), None, None)
+            .unwrap();
+        assert!(rows.iter().any(|row| row.action == BookAction::Clear));
+        assert_eq!(rows.last().unwrap().action, BookAction::Update);
+        let mut replay = OrderBook::new(id, BookType::L2_MBP);
+        replay
+            .apply_deltas(&OrderBookDeltas::new(id, rows))
+            .unwrap();
+        let expected = cache
+            .borrow()
+            .order_book(&id)
+            .unwrap()
+            .to_deltas(0.into(), 0.into());
+        let actual = replay.to_deltas(0.into(), 0.into());
+        assert_eq!(
+            actual
+                .deltas
+                .iter()
+                .map(|row| (row.action, row.order))
+                .collect::<Vec<_>>(),
+            expected
+                .deltas
+                .iter()
+                .map(|row| (row.action, row.order))
+                .collect::<Vec<_>>()
+        );
+        drop(catalog);
+        drop(actor);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failed_seal_still_rearms_the_next_scheduled_seal() {
+        let root = std::env::temp_dir().join(format!(
+            "capture-seal-rearm-{}",
+            nautilus_core::UUID4::new()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let mut capture = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..Default::default()
+        };
+        capture.lifecycle.seal.enabled = true;
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            capture,
+            CapturePlan {
+                trades: vec![catalog_capture_core::plan::TradeCaptureSpec {
+                    instrument_id: "42-1.PREDICT".into(),
+                }],
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                Rc::new(RefCell::new(Cache::new(None, None))),
+            )
+            .unwrap();
+        actor.trade_runtime.as_mut().unwrap().shutdown().unwrap();
+        let event = nautilus_common::timer::TimeEvent::new(
+            SEGMENT_SEAL_TIMER.into(),
+            nautilus_core::UUID4::new(),
+            0.into(),
+            0.into(),
+        );
+        assert!(DataActor::on_time_event(&mut actor, &event).is_err());
+        assert!(
+            actor
+                .clock()
+                .timer_names()
+                .iter()
+                .any(|name| name == SEGMENT_SEAL_TIMER)
+        );
+        drop(actor);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn instrument_definition_is_retried_after_a_transient_catalog_write_failure() {
+        let root =
+            std::env::temp_dir().join(format!("capture-def-retry-{}", nautilus_core::UUID4::new()));
+        fs::create_dir_all(root.join("data")).unwrap();
+        let obstruction = root.join("data/binary_option");
+        fs::write(&obstruction, b"temporary obstruction").unwrap();
+        let instrument = test_predict_outcome(42, 1);
+        let id = instrument.id();
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        cache
+            .borrow_mut()
+            .add_instrument(instrument.clone())
+            .unwrap();
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan {
+                instruments: vec![catalog_capture_core::plan::InstrumentCaptureSpec {
+                    instrument_id: id,
+                }],
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                cache,
+            )
+            .unwrap();
+        actor.submit_instrument(instrument).unwrap();
+        assert!(
+            actor
+                .instrument_runtime
+                .as_ref()
+                .unwrap()
+                .flush_all()
+                .is_err()
+        );
+        fs::remove_file(obstruction).unwrap();
+        actor.retry_instrument_definitions().unwrap();
+        actor
+            .instrument_runtime
+            .as_ref()
+            .unwrap()
+            .flush_all()
+            .unwrap();
+        assert!(actor.pending_instrument_definitions.is_empty());
+        assert!(actor.shutdown_all().is_err());
+        let catalog = nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog::new(
+            &root, None, None, None, None,
+        );
+        let definitions = catalog.instruments(None, None, None).unwrap();
+        assert_eq!(definitions.len(), 1);
+        assert_eq!(definitions[0].id(), id);
+        drop(catalog);
+        drop(actor);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -1133,6 +1562,8 @@ mod tests {
             ..CapturePlan::default()
         };
         actor.seal_removed_hip4_partitions(&remove).unwrap();
+        // Explicit writer barrier: retirement now enqueues its seal without blocking Native.
+        actor.quote_runtime.as_ref().unwrap().flush_all().unwrap();
         let old_dir = dir.join("data/quotes").join(old.to_string());
         assert_eq!(fs::read_dir(&old_dir).unwrap().count(), 1);
         assert!(

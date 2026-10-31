@@ -24,8 +24,11 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 use super::*;
-const ID: u64 = 2859346;
-async fn socket(ws: WebSocketUpgrade, State(tx): State<mpsc::UnboundedSender<Value>>) -> Response {
+pub(super) const ID: u64 = 2859346;
+pub(super) async fn socket(
+    ws: WebSocketUpgrade,
+    State(tx): State<mpsc::UnboundedSender<Value>>,
+) -> Response {
     ws.on_upgrade(move|socket|async move{
         let(mut sink,mut source)=socket.split();
         while let Some(Ok(WsMessage::Text(text)))=source.next().await{
@@ -113,7 +116,7 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
     let mut pending = None;
     if removal {
         state
-            .handle_command(PredictCommand::SubscribeQuotes(id, context.clone()))
+            .apply_command(PredictCommand::SubscribeQuotes(id, context.clone()))
             .await
             .unwrap();
         let c = tokio::time::timeout(Duration::from_secs(2), commands.recv())
@@ -126,7 +129,7 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
             .unwrap()
             .unwrap();
         raw_frames.push(serde_json::from_str::<Value>(message.as_text().unwrap()).unwrap());
-        state.handle_message(epoch, message).await.unwrap();
+        state.apply_message(epoch, message).await.unwrap();
         assert!(matches!(
             events.recv().await,
             Some(DataEvent::Data(Data::Quote(_)))
@@ -146,25 +149,31 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
     } else {
         PredictCommand::SubscribeQuotes(id, context.clone())
     };
-    let error = state.handle_command(command).await.unwrap_err();
-    assert_eq!(state.subscriptions.get(&ID).map(|s| s.owners), Some(1));
-    assert_eq!(state.quotes.len(), 1);
-    assert_eq!(state.quotes[&id].context.market_id, ID);
-    assert_eq!(state.quotes[&id].last_quote.is_some(), removal);
+    let error = state.apply_command(command).await.unwrap_err();
+    let retained = usize::from(!removal);
+    assert_eq!(
+        state.subscriptions.get(&ID).map_or(0, |s| s.owners),
+        retained
+    );
+    assert_eq!(state.quotes.len(), retained);
+    if !removal {
+        assert_eq!(state.quotes[&id].context.market_id, ID);
+        assert!(state.quotes[&id].last_quote.is_none());
+    }
     state.fail_generation(format!("offline injected terminal send failure: {error:#}"));
     assert!(state.cancellation.is_cancelled());
     assert_eq!(state.failed_epoch, Some(state.current_epoch));
     if let Some((epoch, message)) = pending {
-        state.handle_message(epoch, message).await.unwrap();
+        state.apply_message(epoch, message).await.unwrap();
         assert!(
             events.try_recv().is_err(),
             "queued frame cannot publish after generation failure"
         );
     }
-    state
-        .handle_command(PredictCommand::SubscribeQuotes(id, context.clone()))
-        .await
-        .unwrap();
+    let retry = state
+        .apply_command(PredictCommand::SubscribeQuotes(id, context.clone()))
+        .await;
+    assert!(retry.is_ok());
     assert_eq!(state.subscriptions.get(&ID).map(|s| s.owners), Some(1));
     assert!(
         commands.try_recv().is_err(),
@@ -179,7 +188,7 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
     let (mut fresh, fresh_tasks, mut fresh_events) = session(&url, backend).await;
     assert!(fresh.quotes.is_empty() && fresh.subscriptions.is_empty());
     fresh
-        .handle_command(PredictCommand::SubscribeQuotes(id, context))
+        .apply_command(PredictCommand::SubscribeQuotes(id, context))
         .await
         .unwrap();
     let command = tokio::time::timeout(Duration::from_secs(2), commands.recv())
@@ -196,13 +205,13 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
         .await
         .unwrap()
         .unwrap();
-    fresh.handle_message(epoch, message).await.unwrap();
+    fresh.apply_message(epoch, message).await.unwrap();
     assert!(matches!(
         fresh_events.recv().await,
         Some(DataEvent::Data(Data::Quote(_)))
     ));
     fresh
-        .handle_command(PredictCommand::UnsubscribeQuotes(id))
+        .apply_command(PredictCommand::UnsubscribeQuotes(id))
         .await
         .unwrap();
     assert!(fresh.quotes.is_empty() && fresh.subscriptions.is_empty() && fresh.contexts.is_empty());
@@ -216,13 +225,13 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
         .await
         .unwrap()
         .unwrap();
-    fresh.handle_message(epoch, late).await.unwrap();
+    fresh.apply_message(epoch, late).await.unwrap();
     assert!(
         fresh_events.try_recv().is_err(),
         "last owner release must drop queued frames"
     );
     fresh
-        .handle_command(PredictCommand::UnsubscribeQuotes(id))
+        .apply_command(PredictCommand::UnsubscribeQuotes(id))
         .await
         .unwrap();
     assert!(commands.try_recv().is_err());
@@ -233,14 +242,14 @@ async fn run(backend: TransportBackend, removal: bool) -> Value {
         .await
         .unwrap();
     server.abort();
-    json!({"backend":format!("{backend:?}"),"stage":if removal{"unsubscribe"}else{"subscribe"},"error":format!("{error:#}"),"frames":raw_frames,"stable":{"retainedQuotes":1,"retainedMarketReferences":1,"terminalGenerationCancelled":true,"queuedLateQuoteEmitted":false,"newGenerationStartsEmpty":true,"newGenerationExplicitSubscribeQuotes":1,"newRequestId":1},"mainnetWrites":0})
+    json!({"backend":format!("{backend:?}"),"stage":if removal{"unsubscribe"}else{"subscribe"},"error":format!("{error:#}"),"frames":raw_frames,"stable":{"retainedQuotes":retained,"retainedMarketReferences":retained,"terminalGenerationCancelled":true,"queuedLateQuoteEmitted":false,"newGenerationStartsEmpty":true,"newGenerationExplicitSubscribeQuotes":1,"newRequestId":1},"mainnetWrites":0})
 }
 fn path() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/private_api/quote_send_failures_synthetic_20261016.json")
 }
 #[tokio::test]
-async fn terminal_quote_sends_keep_intent_atomic_until_new_session() {
+async fn terminal_quote_sends_preserve_desired_interest_until_last_release() {
     let saved: Value = serde_json::from_slice(&std::fs::read(path()).unwrap()).unwrap();
     for backend in [TransportBackend::default(), TransportBackend::Tungstenite] {
         for removal in [false, true] {
@@ -251,7 +260,13 @@ async fn terminal_quote_sends_keep_intent_atomic_until_new_session() {
                 .iter()
                 .find(|r| r["backend"] == actual["backend"] && r["stage"] == actual["stage"])
                 .unwrap();
-            assert_eq!(actual["stable"], expected["stable"]);
+            // Historical capture retained cancelled owners. Only that policy changes.
+            let mut expected_stable = expected["stable"].clone();
+            if removal {
+                expected_stable["retainedQuotes"] = json!(0);
+                expected_stable["retainedMarketReferences"] = json!(0);
+            }
+            assert_eq!(actual["stable"], expected_stable);
             assert_eq!(actual["frames"], expected["frames"]);
         }
     }
@@ -290,14 +305,14 @@ async fn depth_conflict_preserves_owner_after_registry_retirement() {
     let context = context();
     let id = context.yes_instrument_id;
     state
-        .handle_command(PredictCommand::SubscribeDepth(id, context.clone(), None))
+        .apply_command(PredictCommand::SubscribeDepth(id, context.clone(), None))
         .await
         .unwrap();
     assert_eq!(commands.recv().await.unwrap()["method"], "subscribe");
     state.contexts.clear();
     state.remove_dynamic_market_if_unused(ID);
     let (epoch, message) = state.raw_rx.recv().await.unwrap();
-    state.handle_message(epoch, message).await.unwrap();
+    state.apply_message(epoch, message).await.unwrap();
     assert!(matches!(
         events.recv().await,
         Some(DataEvent::Data(Data::BookDepth(_)))
@@ -307,7 +322,7 @@ async fn depth_conflict_preserves_owner_after_registry_retirement() {
         "depth-only must not emit custom snapshots or quotes"
     );
     let (epoch, message) = state.raw_rx.recv().await.unwrap();
-    state.handle_message(epoch, message).await.unwrap();
+    state.apply_message(epoch, message).await.unwrap();
     assert!(matches!(
         events.recv().await,
         Some(DataEvent::Data(Data::BookDepth(_)))
@@ -323,16 +338,16 @@ async fn depth_conflict_preserves_owner_after_registry_retirement() {
                 .into(),
         )
     };
-    state.handle_message(epoch, message()).await.unwrap();
+    state.apply_message(epoch, message()).await.unwrap();
     assert!(
         events.try_recv().is_err(),
         "older full depth must not rewind Native managed state"
     );
     state
-        .handle_command(PredictCommand::Subscribe(ID))
+        .apply_command(PredictCommand::Subscribe(ID))
         .await
         .unwrap();
-    state.handle_message(epoch, message()).await.unwrap();
+    state.apply_message(epoch, message()).await.unwrap();
     let Some(DataEvent::Data(Data::Custom(custom))) = events.recv().await else {
         panic!("Custom recording contract is independent of depth ordering")
     };
@@ -342,13 +357,13 @@ async fn depth_conflict_preserves_owner_after_registry_retirement() {
     );
     assert!(events.try_recv().is_err());
     state
-        .handle_command(PredictCommand::Unsubscribe(ID))
+        .apply_command(PredictCommand::Unsubscribe(ID))
         .await
         .unwrap();
 
     assert!(
         state
-            .handle_command(PredictCommand::SubscribeDepth(
+            .apply_command(PredictCommand::SubscribeDepth(
                 id,
                 context,
                 std::num::NonZeroUsize::new(1)
@@ -360,7 +375,7 @@ async fn depth_conflict_preserves_owner_after_registry_retirement() {
     assert_eq!(state.subscriptions[&ID].owners, 1);
     assert!(commands.try_recv().is_err());
     state
-        .handle_command(PredictCommand::UnsubscribeDepth(id))
+        .apply_command(PredictCommand::UnsubscribeDepth(id))
         .await
         .unwrap();
     assert!(state.depths.is_empty() && state.subscriptions.is_empty());
@@ -374,7 +389,7 @@ async fn depth_conflict_preserves_owner_after_registry_retirement() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn terminal_depth_sends_retain_one_owner() {
+async fn terminal_depth_sends_preserve_desired_interest_until_last_release() {
     for backend in [TransportBackend::default(), TransportBackend::Tungstenite] {
         for removal in [false, true] {
             let (tx, mut commands) = mpsc::unbounded_channel();
@@ -393,7 +408,7 @@ async fn terminal_depth_sends_retain_one_owner() {
             let id = context.yes_instrument_id;
             if removal {
                 state
-                    .handle_command(PredictCommand::SubscribeDepth(id, context.clone(), None))
+                    .apply_command(PredictCommand::SubscribeDepth(id, context.clone(), None))
                     .await
                     .unwrap();
                 assert_eq!(commands.recv().await.unwrap()["method"], "subscribe");
@@ -404,10 +419,16 @@ async fn terminal_depth_sends_retain_one_owner() {
             } else {
                 PredictCommand::SubscribeDepth(id, context, None)
             };
-            assert!(state.handle_command(command).await.is_err());
-            assert_eq!(state.subscriptions[&ID].owners, 1);
-            assert_eq!(state.depths.len(), 1);
-            assert_eq!(state.depths[&id].context.market_id, ID);
+            assert!(state.apply_command(command).await.is_err());
+            let retained = usize::from(!removal);
+            assert_eq!(
+                state.subscriptions.get(&ID).map_or(0, |s| s.owners),
+                retained
+            );
+            assert_eq!(state.depths.len(), retained);
+            if !removal {
+                assert_eq!(state.depths[&id].context.market_id, ID);
+            }
             assert!(state.quotes.is_empty());
             assert!(commands.try_recv().is_err());
             tasks.begin_shutdown();
@@ -436,7 +457,7 @@ async fn trades_share_market_topic_without_owning_the_book_and_route_both_outcom
     let (mut state, tasks, mut events) = session(&url, TransportBackend::default()).await;
     let c = context();
     state
-        .handle_command(PredictCommand::SubscribeDepth(
+        .apply_command(PredictCommand::SubscribeDepth(
             c.yes_instrument_id,
             c.clone(),
             None,
@@ -444,21 +465,21 @@ async fn trades_share_market_topic_without_owning_the_book_and_route_both_outcom
         .await
         .unwrap();
     state
-        .handle_command(PredictCommand::SubscribeTrades(
+        .apply_command(PredictCommand::SubscribeTrades(
             c.yes_instrument_id,
             c.clone(),
         ))
         .await
         .unwrap();
     state
-        .handle_command(PredictCommand::SubscribeTrades(
+        .apply_command(PredictCommand::SubscribeTrades(
             c.yes_instrument_id,
             c.clone(),
         ))
         .await
         .unwrap();
     state
-        .handle_command(PredictCommand::SubscribeTrades(
+        .apply_command(PredictCommand::SubscribeTrades(
             c.no_instrument_id,
             c.clone(),
         ))
@@ -485,7 +506,7 @@ async fn trades_share_market_topic_without_owning_the_book_and_route_both_outcom
         "makers":[{"fill":"11680700000000000000","price":"320000000000000000","outcomeIndex":2,"side":"Ask","matchType":"COMPLEMENTARY"}]}}).to_string().into())
     };
     let epoch = state.current_epoch;
-    state.handle_message(epoch, frame()).await.unwrap();
+    state.apply_message(epoch, frame()).await.unwrap();
     let mut ticks = vec![];
     for _ in 0..2 {
         let DataEvent::Data(Data::Trade(t)) = events.try_recv().unwrap() else {
@@ -506,24 +527,51 @@ async fn trades_share_market_topic_without_owning_the_book_and_route_both_outcom
     );
     assert_eq!(ticks[0].trade_id, ticks[1].trade_id);
     // Equal-looking genuine messages remain distinct local executions.
-    state.handle_message(epoch, frame()).await.unwrap();
+    state.apply_message(epoch, frame()).await.unwrap();
     let DataEvent::Data(Data::Trade(next)) = events.try_recv().unwrap() else {
         panic!("expected trade");
     };
     assert_ne!(next.trade_id, ticks[0].trade_id);
     events.try_recv().unwrap();
     state
-        .handle_command(PredictCommand::UnsubscribeTrades(c.yes_instrument_id))
+        .apply_command(PredictCommand::UnsubscribeTrades(c.yes_instrument_id))
         .await
         .unwrap();
     assert_eq!(state.next_request_id, 3);
-    state
-        .handle_message(
-            epoch + 1,
-            nautilus_network::transport::Message::Text(nautilus_network::RECONNECTED.into()),
-        )
+    assert_eq!(
+        state.reconnect.request_reconnect(),
+        nautilus_network::mode::ReconnectRequestOutcome::Accepted
+    );
+    let (new_epoch, reconnected) = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let (new_epoch, message) = state.raw_rx.recv().await.unwrap();
+            if message.as_text() == Some(nautilus_network::RECONNECTED) {
+                break (new_epoch, message);
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let stale_completion = state
+        .client
+        .send_text_on_connection("stale-write".into(), None, epoch)
         .await
-        .unwrap();
+        .unwrap_err();
+    assert!(matches!(
+        stale_completion,
+        nautilus_network::error::SendError::ConnectionChanged
+    ));
+    state.finish_write(epoch, Err(stale_completion), "subscription");
+    assert!(
+        state.failed_epoch.is_none(),
+        "an old send completion cannot invalidate the new connection"
+    );
+    state.apply_message(epoch, frame()).await.unwrap();
+    assert!(
+        events.try_recv().is_err(),
+        "transport epoch fences old data before RECONNECTED is processed"
+    );
+    state.apply_message(new_epoch, reconnected).await.unwrap();
     assert_eq!(
         receive(&mut commands).await["params"][0],
         format!("predictOrderbook/{ID}")
@@ -532,22 +580,22 @@ async fn trades_share_market_topic_without_owning_the_book_and_route_both_outcom
         receive(&mut commands).await["params"][0],
         format!("predictTrades/{ID}")
     );
-    state.handle_message(epoch, frame()).await.unwrap();
+    state.apply_message(epoch, frame()).await.unwrap();
     assert!(events.try_recv().is_err(), "old epoch must not publish");
-    state.handle_message(epoch + 1, frame()).await.unwrap();
+    state.apply_message(new_epoch, frame()).await.unwrap();
     let DataEvent::Data(Data::Trade(remaining)) = events.try_recv().unwrap() else {
         panic!("expected remaining NO owner");
     };
     assert_eq!(remaining.instrument_id, c.no_instrument_id);
     state
-        .handle_command(PredictCommand::UnsubscribeTrades(c.no_instrument_id))
+        .apply_command(PredictCommand::UnsubscribeTrades(c.no_instrument_id))
         .await
         .unwrap();
     let command = receive(&mut commands).await;
     assert_eq!(command["method"], "unsubscribe");
     assert_eq!(command["params"][0], format!("predictTrades/{ID}"));
     assert!(state.subscriptions.contains_key(&ID));
-    state.handle_message(epoch + 1, frame()).await.unwrap();
+    state.apply_message(new_epoch, frame()).await.unwrap();
     assert!(events.try_recv().is_err());
     tasks.begin_shutdown();
     state.client.disconnect().await;
@@ -569,7 +617,7 @@ async fn depth_join_replays_the_confirmed_snapshot_without_a_second_wire_subscri
     });
     let (mut state, tasks, mut events) = session(&url, TransportBackend::default()).await;
     state
-        .handle_command(PredictCommand::Subscribe(ID))
+        .apply_command(PredictCommand::Subscribe(ID))
         .await
         .unwrap();
     let request = tokio::time::timeout(std::time::Duration::from_secs(3), commands.recv())
@@ -578,14 +626,14 @@ async fn depth_join_replays_the_confirmed_snapshot_without_a_second_wire_subscri
         .unwrap();
     assert_eq!(request["params"][0], format!("predictOrderbook/{ID}"));
     let (epoch, frame) = state.raw_rx.recv().await.unwrap();
-    state.handle_message(epoch, frame).await.unwrap();
+    state.apply_message(epoch, frame).await.unwrap();
     let DataEvent::Data(Data::Custom(source)) = events.try_recv().unwrap() else {
         panic!("expected source snapshot");
     };
     let expected_ts = source.data.ts_event();
     let c = context();
     state
-        .handle_command(PredictCommand::SubscribeDepth(
+        .apply_command(PredictCommand::SubscribeDepth(
             c.yes_instrument_id,
             c.clone(),
             None,
@@ -603,15 +651,15 @@ async fn depth_join_replays_the_confirmed_snapshot_without_a_second_wire_subscri
     );
     assert_eq!(state.next_request_id, 2);
     state
-        .handle_command(PredictCommand::UnsubscribeDepth(c.yes_instrument_id))
+        .apply_command(PredictCommand::UnsubscribeDepth(c.yes_instrument_id))
         .await
         .unwrap();
-    assert!(state.snapshots.contains_key(&ID));
+    assert!(state.books.contains_key(&ID));
     state
-        .handle_command(PredictCommand::Unsubscribe(ID))
+        .apply_command(PredictCommand::Unsubscribe(ID))
         .await
         .unwrap();
-    assert!(state.snapshots.is_empty());
+    assert!(state.books.is_empty());
     assert!(events.try_recv().is_err());
     tasks.begin_shutdown();
     state.client.disconnect().await;
@@ -636,7 +684,7 @@ async fn terminal_trade_sends_preserve_desired_interest_until_last_release() {
     state.client.disconnect().await;
     assert!(
         state
-            .handle_command(PredictCommand::SubscribeTrades(
+            .apply_command(PredictCommand::SubscribeTrades(
                 c.yes_instrument_id,
                 c.clone()
             ))
@@ -646,7 +694,7 @@ async fn terminal_trade_sends_preserve_desired_interest_until_last_release() {
     assert_eq!(state.trades.len(), 1);
     assert!(state.subscriptions.is_empty());
     state
-        .handle_command(PredictCommand::SubscribeTrades(
+        .apply_command(PredictCommand::SubscribeTrades(
             c.no_instrument_id,
             c.clone(),
         ))
@@ -654,12 +702,12 @@ async fn terminal_trade_sends_preserve_desired_interest_until_last_release() {
         .unwrap();
     assert_eq!(state.trades.len(), 2);
     state
-        .handle_command(PredictCommand::UnsubscribeTrades(c.yes_instrument_id))
+        .apply_command(PredictCommand::UnsubscribeTrades(c.yes_instrument_id))
         .await
         .unwrap();
     assert!(
         state
-            .handle_command(PredictCommand::UnsubscribeTrades(c.no_instrument_id))
+            .apply_command(PredictCommand::UnsubscribeTrades(c.no_instrument_id))
             .await
             .is_err()
     );
@@ -667,4 +715,43 @@ async fn terminal_trade_sends_preserve_desired_interest_until_last_release() {
     assert!(events.try_recv().is_err());
     tasks.begin_shutdown();
     server.abort();
+}
+
+// Drive the same send lane as run() when a test steps the private session explicitly.
+impl PredictDataSession {
+    pub(super) async fn flush_writes(&mut self) -> anyhow::Result<()> {
+        loop {
+            self.start_subscription_send();
+            let Some(send) = self.subscription_send.take() else {
+                break;
+            };
+            let (epoch, result) = send.await;
+            if epoch == self.current_epoch {
+                result?;
+            }
+        }
+        if let Some(send) = self.control_send.take() {
+            let (epoch, result) = send.await;
+            if epoch == self.current_epoch {
+                result?;
+            }
+        }
+        Ok(())
+    }
+    pub(super) async fn apply_command(&mut self, command: PredictCommand) -> anyhow::Result<()> {
+        self.handle_command(command).await?;
+        self.flush_writes().await
+    }
+    pub(super) async fn apply_message(
+        &mut self,
+        epoch: u64,
+        message: Message,
+    ) -> anyhow::Result<()> {
+        self.handle_message(epoch, message).await?;
+        self.flush_writes().await
+    }
+    pub(super) async fn apply_discovery(&mut self, result: DiscoveryResult) -> anyhow::Result<()> {
+        self.apply_discovery_result(result).await?;
+        self.flush_writes().await
+    }
 }

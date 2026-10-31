@@ -13,20 +13,23 @@
 // -------------------------------------------------------------------------------------------------
 
 use catalog_capture_core::{
-    ForwardPrice, append_forward_price_records, config::OverflowPolicy,
-    forward_price_record_from_model, item::CaptureItem, runtime::FlushResult,
+    ForwardPrice, append_forward_price_records, forward_price_record_from_model, item::CaptureItem,
+    runtime::FlushResult,
 };
-use nautilus_common::component::Component;
+
+use nautilus_common::actor::DataActor;
 
 use super::*;
 use crate::actor_runtime::{
-    optional_flush_all, optional_shutdown, optional_submit, seal_runtime, submit_capture_item,
+    enqueue_seal_runtime, optional_flush_all, optional_shutdown, optional_submit,
+    submit_capture_item,
 };
 
 impl CatalogCaptureActor {
     pub(super) fn submit_instrument(&mut self, instrument: InstrumentAny) -> Result<()> {
+        let id = instrument.id();
         let ts_init = Instrument::ts_init(&instrument).as_u64();
-        optional_submit(
+        let result = optional_submit(
             &self.instrument_runtime,
             CaptureItem {
                 partition_key: PartitionKey::market_data(
@@ -39,7 +42,42 @@ impl CatalogCaptureActor {
                 estimated_bytes: std::mem::size_of::<InstrumentAny>(),
                 payload: instrument,
             },
-        )
+        );
+        if result.is_err() {
+            self.pending_instrument_definitions.insert(id);
+        } else {
+            self.pending_instrument_definitions.remove(&id);
+        }
+        result
+    }
+
+    pub(super) fn retry_instrument_definitions(&mut self) -> Result<()> {
+        if let Some(runtime) = &self.instrument_runtime
+            && let Some(affected) = runtime.failures_since(&mut self.instrument_failure_cursor)
+        {
+            let mut candidates: BTreeSet<_> =
+                self.plan.planned_instrument_ids().into_iter().collect();
+            for market in self.active_predict_market_ids.values() {
+                for outcome in [1, 2] {
+                    candidates.insert(nautilus_predict::common::predict_outcome_instrument_id(
+                        *market, outcome,
+                    )?);
+                }
+            }
+            self.pending_instrument_definitions
+                .extend(candidates.into_iter().filter(|id| {
+                    affected.contains(&PartitionKey::market_data("instruments", id).stable_key())
+                }));
+        }
+        let mut failure = None;
+        for id in self.pending_instrument_definitions.clone() {
+            if let Some(instrument) = self.cache().instrument(&id)
+                && let Err(error) = self.submit_instrument(instrument)
+            {
+                failure.get_or_insert(error);
+            }
+        }
+        failure.map_or(Ok(()), Err)
     }
 
     pub(super) fn submit_quote(&mut self, quote: QuoteTick) -> Result<()> {
@@ -100,7 +138,7 @@ impl CatalogCaptureActor {
                         market_id
                     );
                     if let Some(runtime) = self.predict_custom_data_runtimes.get(&selector_key) {
-                        seal_runtime(runtime)?;
+                        enqueue_seal_runtime(runtime)?;
                     }
                     retired_predict_market_id = Some(previous_market_id);
                 }
@@ -294,7 +332,7 @@ impl CatalogCaptureActor {
         self.submit_book_delta_batch(deltas.clone())
     }
 
-    pub(super) fn submit_book_delta_batch(&mut self, deltas: OrderBookDeltas) -> Result<()> {
+    pub(super) fn submit_book_delta_batch(&mut self, mut deltas: OrderBookDeltas) -> Result<()> {
         if !self.accepts_market_data(deltas.instrument_id, || {
             self.plan
                 .book_deltas
@@ -303,34 +341,64 @@ impl CatalogCaptureActor {
         }) {
             return Ok(());
         }
-        let row_count = deltas.deltas.len();
-        if row_count == 0 {
+        if deltas.deltas.is_empty() {
             return Ok(());
         }
+        let id = deltas.instrument_id;
+        if let Some(runtime) = &self.book_delta_runtime
+            && let Some(affected) = runtime.failures_since(&mut self.book_delta_failure_cursor)
+        {
+            self.book_delta_recovery.extend(
+                self.plan
+                    .book_deltas
+                    .iter()
+                    .map(|spec| spec.instrument_id)
+                    .chain(std::iter::once(id))
+                    .filter(|id| {
+                        affected.contains(
+                            &PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key(),
+                        )
+                    }),
+            );
+        }
+        let recovery = self.book_delta_recovery.contains(&id);
+        if recovery && !nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(deltas.flags) {
+            let book = self
+                .cache()
+                .order_book(&id)
+                .filter(|book| book.update_count > 0)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "L2 recovery waits for a managed book or source snapshot for {id}"
+                    )
+                })?;
+            // Native has applied this source message before dispatching the callback.
+            // The checkpoint already represents it; do not append that delta again.
+            deltas = book.to_deltas(book.ts_last, self.clock().timestamp_ns());
+        }
+        let row_count = deltas.deltas.len();
         let estimated_bytes = std::mem::size_of::<OrderBookDeltas>()
             .saturating_add(row_count.saturating_mul(std::mem::size_of::<OrderBookDelta>()));
-        let result = optional_submit(
-            &self.book_delta_runtime,
-            CaptureItem {
-                partition_key: PartitionKey::catalog_data::<OrderBookDelta>(deltas.instrument_id),
-                event_ts_ns: deltas.ts_event.as_u64(),
-                init_ts_ns: Some(deltas.ts_init.as_u64()),
-                row_count,
-                estimated_bytes,
-                payload: deltas,
-            },
-        );
-        if let Err(error) = &result
-            && matches!(self.capture.overflow_policy, OverflowPolicy::FailFast)
-        {
-            log::error!(
-                "catalog-capture: stopping actor after book-delta submission failure: {error}"
-            );
-            if let Err(stop_error) = self.stop() {
-                log::error!(
-                    "catalog-capture: failed to stop actor after book-delta submission failure: {stop_error}"
-                );
-            }
+        let item = CaptureItem {
+            partition_key: PartitionKey::catalog_data::<OrderBookDelta>(deltas.instrument_id),
+            event_ts_ns: deltas.ts_event.as_u64(),
+            init_ts_ns: Some(deltas.ts_init.as_u64()),
+            row_count,
+            estimated_bytes,
+            payload: deltas,
+        };
+        let result = if recovery {
+            self.book_delta_runtime
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("book-delta writer unavailable"))?
+                .submit_after_partition_seal(item)
+        } else {
+            optional_submit(&self.book_delta_runtime, item)
+        };
+        if result.is_err() {
+            self.book_delta_recovery.insert(id);
+        } else if recovery {
+            self.book_delta_recovery.remove(&id);
         }
         result
     }
@@ -384,7 +452,7 @@ impl CatalogCaptureActor {
             optional_shutdown(&mut self.book_delta_runtime),
             optional_shutdown(&mut self.book_depth_runtime),
         ];
-        for mut runtime in std::mem::take(&mut self.predict_custom_data_runtimes).into_values() {
+        for runtime in self.predict_custom_data_runtimes.values_mut() {
             results.push(runtime.shutdown());
         }
         self.shutdown_completed = true;

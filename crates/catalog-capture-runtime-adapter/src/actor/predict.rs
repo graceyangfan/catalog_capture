@@ -35,11 +35,17 @@ impl CatalogCaptureActor {
     pub(super) fn predict_market_has_subscribers(market: u64) -> Result<bool> {
         for outcome in [1, 2] {
             let id = predict_outcome_instrument_id(market, outcome)?;
+            let instrument_topic = switchboard::get_instrument_topic(id);
+            let instrument_owned = msgbus::get_message_bus()
+                .borrow()
+                .subscriptions()
+                .iter()
+                .any(|subscription| subscription.pattern.as_str() == instrument_topic.as_str());
             if msgbus::subscriber_count_depth(switchboard::get_book_depth_topic(id)) > 0
                 || msgbus::exact_subscriber_count_quotes(switchboard::get_quotes_topic(id)) > 0
                 || msgbus::exact_subscriber_count_trades(switchboard::get_trades_topic(id)) > 0
-                || msgbus::subscriptions_count_any(switchboard::get_instrument_topic(id).as_str())?
-                    > 0
+                // Venue-wide definition listeners observe updates without owning each market.
+                || instrument_owned
             {
                 return Ok(true);
             }
@@ -150,7 +156,7 @@ impl CatalogCaptureActor {
                 {
                     self.unsubscribe_book_depth(old_id, client, None);
                     if let Some(runtime) = &self.book_depth_runtime {
-                        runtime.seal_partition(
+                        runtime.enqueue_seal_partition(
                             &PartitionKey::catalog_data::<OrderBookDepth>(old_id).stable_key(),
                         )?;
                     }
@@ -158,7 +164,7 @@ impl CatalogCaptureActor {
                 if trades && !self.plan.trades.iter().any(|s| s.instrument_id == old_id) {
                     self.unsubscribe_trades(old_id, client, None);
                     if let Some(runtime) = &self.trade_runtime {
-                        runtime.seal_partition(
+                        runtime.enqueue_seal_partition(
                             &PartitionKey::catalog_data::<TradeTick>(old_id).stable_key(),
                         )?;
                     }
@@ -193,7 +199,7 @@ impl CatalogCaptureActor {
             return Ok(());
         }
         // Full depth can exceed the model's inline levels. Account for level storage
-        // conservatively so queue byte limits still bound deep-book recording.
+        // conservatively so queue and buffer byte limits account for deep-book recording.
         let estimated_bytes = std::mem::size_of::<OrderBookDepth>()
             + (depth.bids.len() + depth.asks.len())
                 * std::mem::size_of::<nautilus_model::data::BookOrder>()
@@ -283,6 +289,11 @@ mod tests {
         actor.submit_book_depth(first.clone()).unwrap();
         actor.submit_book_depth(second.clone()).unwrap();
         actor.shutdown_all().unwrap();
+        let final_metrics = actor.metrics_snapshot_data();
+        assert_eq!(final_metrics.aggregated.accepted_items, 2);
+        assert_eq!(final_metrics.aggregated.flushed_rows, 2);
+        assert_eq!(final_metrics.enabled_background_workers, 0);
+
         let mut catalog = ParquetDataCatalog::new(&dir, None, None, None, None);
         let rows = catalog
             .order_book_depths(Some(vec![id.to_string()]), None, None)
@@ -290,5 +301,28 @@ mod tests {
         assert_eq!(rows, vec![first, second]);
         drop(catalog);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn venue_definition_listener_is_not_a_retired_market_owner() {
+        use nautilus_common::msgbus::typed_handler::ShareableMessageHandler;
+        let market = 42;
+        let id = predict_outcome_instrument_id(market, 1).unwrap();
+        let topic = switchboard::get_instrument_topic(id);
+        let prefix = topic.as_str().rsplit_once('.').unwrap().0;
+        let pattern = format!("{prefix}.*");
+        let handler = ShareableMessageHandler::from_any(|_| {});
+        msgbus::subscribe_any(pattern.as_str().into(), handler.clone(), None);
+        let matches = msgbus::subscriptions_count_any(topic.as_str()).unwrap();
+        let owns_market = CatalogCaptureActor::predict_market_has_subscribers(market).unwrap();
+        msgbus::unsubscribe_any(pattern.as_str().into(), &handler);
+        assert!(
+            matches > 0,
+            "the recorder's venue listener matches this instrument"
+        );
+        assert!(
+            !owns_market,
+            "a venue-wide definition listener must not retain every expired market"
+        );
     }
 }

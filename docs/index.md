@@ -25,7 +25,7 @@ how-to / reference); protocol design records are listed separately.
 | [Build size](how_to/build_size.md) | Why `target/` is large; slim release |
 | [Unattended capture](how_to/unattended_capture.md) | Long-running process |
 | [Credentials](how_to/credentials.md) | Public vs env keys |
-| [Rust backtest from catalog](how_to/rust_backtest_from_catalog.md) | Load with `ParquetDataCatalog` |
+| [Rust backtest from catalog](how_to/rust_backtest_from_catalog.md) | Read independent replay windows with Native codecs |
 | [Smoke and soak](how_to/smoke_and_soak.md) | Live probes |
 
 ## Concepts
@@ -54,6 +54,7 @@ boundaries. They are not operator runbooks.
 |-----|--------|
 | [Environment setup](developer_guide/environment_setup.md) | Local workflow |
 | [Pre-commit](developer_guide/pre_commit.md) | Hooks |
+| [Realtime adapters](developer_guide/realtime-adapters.md) | Ownership, batch acceptance, source books and responsive dispatch |
 
 ## Reference
 

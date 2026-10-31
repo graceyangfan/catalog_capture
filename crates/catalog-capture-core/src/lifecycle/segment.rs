@@ -26,10 +26,10 @@ use serde::Serialize;
 use crate::{
     config::CaptureConfig,
     lifecycle::segment_support::{
-        ActivePart, catalog_fs_directory, merge_flush, recover_orphans_under,
-        segment_runtime_parts, tick_parts_map,
+        ActivePart, catalog_fs_directory, recover_orphans_under, segment_runtime_parts,
+        tick_parts_map,
     },
-    runtime::FlushResult,
+    runtime::{FlushResult, collect_flush_results},
 };
 
 #[derive(Debug)]
@@ -38,6 +38,7 @@ struct SegmentOpenParams {
     identifier: String,
     schema: Arc<Schema>,
     open_ts_ns: u64,
+    initialization_rows: usize,
 }
 
 #[derive(Debug)]
@@ -53,8 +54,10 @@ pub struct SegmentCaptureSink<T> {
     local_root: PathBuf,
     compression: Compression,
     row_group_rows: usize,
+    row_group_bytes: usize,
     sync_interval_ns: u64,
     segments: HashMap<String, ActiveSegment>,
+    window_ids: HashMap<String, (String, u64)>,
     _marker: std::marker::PhantomData<T>,
 }
 
@@ -68,9 +71,11 @@ where
             catalog: parts.catalog,
             local_root: parts.local_root,
             row_group_rows: parts.row_group_rows,
+            row_group_bytes: parts.row_group_bytes,
             sync_interval_ns: parts.sync_interval_ns,
             compression: parts.compression,
             segments: HashMap::new(),
+            window_ids: HashMap::new(),
             _marker: std::marker::PhantomData,
         };
         sink.recover_orphan_parts()?;
@@ -88,22 +93,47 @@ where
     }
 
     fn open_segment(&mut self, partition_key: &str, params: SegmentOpenParams) -> Result<()> {
+        let (window_id, segment_index) = self
+            .window_ids
+            .entry(partition_key.to_owned())
+            .or_insert_with(|| (nautilus_core::UUID4::new().to_string(), 0));
+        let mut metadata = params.schema.metadata().clone();
+        metadata.insert(crate::replay::WINDOW_ID_KEY.into(), window_id.clone());
+        metadata.insert(
+            crate::replay::SEGMENT_INDEX_KEY.into(),
+            segment_index.to_string(),
+        );
+        metadata.insert(
+            crate::replay::CONTRACT_KEY.into(),
+            crate::replay::CONTRACT_VERSION.into(),
+        );
+        metadata.insert(
+            crate::replay::INITIALIZATION_ROWS_KEY.into(),
+            params.initialization_rows.to_string(),
+        );
+        let schema = Arc::new(params.schema.as_ref().clone().with_metadata(metadata));
         let part = ActivePart::open(
             params.directory,
             params.open_ts_ns,
-            Arc::clone(&params.schema),
+            Arc::clone(&schema),
             self.compression,
             self.row_group_rows,
+            self.row_group_bytes,
         )?;
         self.segments.insert(
             partition_key.to_string(),
             ActiveSegment {
                 part,
                 identifier: params.identifier,
-                schema: params.schema,
+                schema,
             },
         );
         Ok(())
+    }
+
+    #[must_use]
+    pub fn active_writers(&self) -> usize {
+        self.segments.len()
     }
 
     pub fn on_tick(&mut self, now_ns: u64) -> Result<FlushResult> {
@@ -120,7 +150,19 @@ where
     }
 
     pub fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
+        self.window_ids.remove(key);
         self.seal_segment(key, false)
+    }
+
+    /// End continuity for one partition, or conservatively for the whole family.
+    pub fn break_continuity(&mut self, key: Option<&str>) -> Result<FlushResult> {
+        match key {
+            Some(key) => self.seal_partition(key),
+            None => {
+                self.window_ids.clear();
+                self.seal_all()
+            }
+        }
     }
 
     pub fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
@@ -128,12 +170,11 @@ where
     }
 
     fn seal_all_internal(&mut self, reopen_after_seal: bool) -> Result<FlushResult> {
-        let mut result = FlushResult::default();
         let keys: Vec<String> = self.segments.keys().cloned().collect();
-        for key in keys {
-            merge_flush(&mut result, self.seal_segment(&key, reopen_after_seal)?);
-        }
-        Ok(result)
+        collect_flush_results(
+            keys.iter()
+                .map(|key| self.seal_segment(key, reopen_after_seal)),
+        )
     }
 
     fn seal_segment(&mut self, key: &str, reopen_after_seal: bool) -> Result<FlushResult> {
@@ -143,7 +184,19 @@ where
 
         let max_ts_ns = segment.part.max_ts_ns;
         let directory = segment.part.directory.clone();
-        let sealed = segment.part.seal()?;
+        let sealed = match segment.part.seal() {
+            Ok(sealed) => sealed,
+            Err(error) => {
+                self.window_ids.remove(key);
+                return Err(error);
+            }
+        };
+
+        if !sealed.files.is_empty()
+            && let Some((_, index)) = self.window_ids.get_mut(key)
+        {
+            *index = index.saturating_add(1);
+        }
 
         // Reopen for continued capture (wall-clock seal and capacity roll).
         // Do not gate on seal schedule: long parts with seal disabled still need roll.
@@ -155,6 +208,7 @@ where
                     identifier: segment.identifier,
                     schema: segment.schema,
                     open_ts_ns: max_ts_ns,
+                    initialization_rows: 0,
                 },
             )?;
         }
@@ -179,6 +233,28 @@ where
     }
 
     pub fn write_batch_mut(&mut self, partition_key: &str, batch: Vec<T>) -> Result<Vec<PathBuf>> {
+        self.write_batch_inner(partition_key, batch, 0)
+    }
+
+    pub fn write_initialization(
+        &mut self,
+        partition_key: &str,
+        batch: Vec<T>,
+    ) -> Result<Vec<PathBuf>> {
+        anyhow::ensure!(
+            !self.segments.contains_key(partition_key),
+            "initialization requires a fresh physical segment"
+        );
+        let count = batch.len();
+        self.write_batch_inner(partition_key, batch, count)
+    }
+
+    fn write_batch_inner(
+        &mut self,
+        partition_key: &str,
+        batch: Vec<T>,
+        initialization_rows: usize,
+    ) -> Result<Vec<PathBuf>> {
         if batch.is_empty() {
             return Ok(Vec::new());
         }
@@ -224,6 +300,7 @@ where
                     identifier: identifier.clone(),
                     schema,
                     open_ts_ns: min_ts_ns,
+                    initialization_rows,
                 },
             )?;
         }
@@ -232,9 +309,20 @@ where
             .segments
             .get_mut(partition_key)
             .expect("segment opened above");
-        for record_batch in &batches {
-            segment.part.write_record_batch(record_batch)?;
+        let written = batches
+            .iter()
+            .try_for_each(|batch| segment.part.write_record_batch(batch));
+        if let Err(error) = written {
+            self.window_ids.remove(partition_key);
+            if let Some(segment) = self.segments.remove(partition_key) {
+                segment.part.quarantine();
+            }
+            return Err(error);
         }
+        let segment = self
+            .segments
+            .get_mut(partition_key)
+            .expect("successful writer retained");
         segment.part.note_ts_range(min_ts_ns, max_ts_ns);
 
         sealed_paths.extend(self.roll_if_at_capacity(partition_key)?);
@@ -290,6 +378,38 @@ mod tests {
             seal,
             ..LifecycleConfig::default()
         }
+    }
+
+    #[test]
+    fn failed_arrow_append_is_quarantined_and_later_rows_use_a_fresh_writer() {
+        let dir = temp_segment_dir("segment-recover-append");
+        let mut cfg = segment_capture_config(&dir, segment_lifecycle(SealConfigFile::default()));
+        cfg.lifecycle.segment.row_group_rows = 1;
+        let mut sink = SegmentCaptureSink::<QuoteTick>::from_config(&cfg).unwrap();
+        let id = InstrumentId::from("AUDUSD.SIM");
+        let key = "quotes";
+        sink.write_batch_mut(key, vec![quote(id, 1)]).unwrap();
+        let old_path = sink.segments[key].part.part_path.clone();
+        // Force a real OS append failure without a production fault-injection API.
+        *sink.segments.get_mut(key).unwrap().part.writer.inner_mut() =
+            fs::File::open(&old_path).unwrap();
+        assert!(
+            sink.write_batch_mut(key, (2..=1000).map(|ts| quote(id, ts)).collect())
+                .is_err()
+        );
+        assert!(!sink.segments.contains_key(key));
+        assert!(old_path.with_extension("failed").exists());
+        sink.write_batch_mut(key, vec![quote(id, 1001)]).unwrap();
+        sink.seal_all().unwrap();
+        let mut catalog = ParquetDataCatalog::new(&dir, None, None, None, None);
+        let rows = catalog
+            .quote_ticks(Some(vec![id.to_string()]), None, None)
+            .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].ts_init.as_u64(), 1001);
+        drop(catalog);
+        drop(sink);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -589,5 +709,83 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn encoded_byte_target_flushes_before_the_row_count_target() {
+        let root = temp_segment_dir("capture-writer-bytes");
+        let mut config = segment_capture_config(&root, LifecycleConfig::default());
+        config.max_buffer_bytes = 1;
+        config.lifecycle.segment.row_group_rows = 100_000;
+        let mut sink = SegmentCaptureSink::<QuoteTick>::from_config(&config).unwrap();
+        let id = InstrumentId::from("BTCUSDT.BINANCE");
+        let rows = (1..=1024_u64).map(|ts| quote(id, ts)).collect();
+        sink.write_batch_mut("quotes", rows).unwrap();
+        let groups = sink
+            .segments
+            .values()
+            .next()
+            .unwrap()
+            .part
+            .flushed_row_group_count();
+        sink.seal_all().unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert!(
+            groups > 0,
+            "the encoded byte target must flush before 100,000 rows"
+        );
+    }
+
+    #[test]
+    fn synced_open_part_without_footer_is_not_recovered_as_catalog_data() {
+        let root = temp_segment_dir("capture-open-part-crash-contract");
+        let mut config = segment_capture_config(&root, LifecycleConfig::default());
+        config.lifecycle.segment.row_group_rows = 1;
+        let id = InstrumentId::from("BTCUSDT.BINANCE");
+        let mut sink = SegmentCaptureSink::<QuoteTick>::from_config(&config).unwrap();
+        sink.write_batch_mut("quotes", (1..=1024).map(|ts| quote(id, ts)).collect())
+            .unwrap();
+        let mut segment = sink.segments.remove("quotes").unwrap();
+        segment.part.writer.flush().unwrap();
+        segment.part.writer.inner_mut().sync_all().unwrap();
+        let part_path = segment.part.part_path.clone();
+        assert!(
+            fs::metadata(&part_path).unwrap().len() > 4,
+            "row-group bytes reached the file"
+        );
+        // Model process loss after fsync without the close/footer/rename path.
+        drop(segment);
+        drop(sink);
+        let recovered = SegmentCaptureSink::<QuoteTick>::from_config(&config).unwrap();
+        assert!(recovered.segments.is_empty());
+        assert!(
+            part_path.exists(),
+            "unrecoverable evidence must remain available"
+        );
+        let sealed = fs::read_dir(part_path.parent().unwrap())
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry
+                    .path()
+                    .extension()
+                    .is_some_and(|extension| extension == "parquet")
+            })
+            .count();
+        assert_eq!(
+            sealed, 0,
+            "fsync alone does not create a readable Parquet footer"
+        );
+        drop(recovered);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_writer_byte_target_returns_a_configuration_error() {
+        let root = temp_segment_dir("capture-writer-invalid-bytes");
+        let mut config = segment_capture_config(&root, LifecycleConfig::default());
+        config.max_buffer_bytes = 0;
+        assert!(SegmentCaptureSink::<QuoteTick>::from_config(&config).is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 }

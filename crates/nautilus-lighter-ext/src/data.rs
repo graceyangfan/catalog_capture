@@ -27,7 +27,7 @@ use anyhow::Context;
 use nautilus_common::messages::data::{SubscribeCustomData, UnsubscribeCustomData};
 use nautilus_common::{
     cache::InstrumentLookupError,
-    clients::DataClient,
+    clients::{DataClient, execute_instrument_subscriptions},
     live::{runner::get_data_event_sender, sender::EventSender},
     messages::{
         DataEvent, DataResponse,
@@ -125,28 +125,22 @@ impl LighterBinaryDataClient {
     }
 
     fn subscribe_topic(&self, kind: Kind, instrument_ids: &[InstrumentId]) -> anyhow::Result<()> {
-        let markets = instrument_ids
-            .iter()
-            .map(|&id| {
-                self.require_instrument(id)?;
-                market_id(id)
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for market in markets {
-            self.send_command(Command::Subscribe(Topic { kind, market }))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(instrument_ids, |id| {
+            self.require_instrument(id)?;
+            self.send_command(Command::Subscribe(Topic {
+                kind,
+                market: market_id(id)?,
+            }))
+        })
     }
 
     fn unsubscribe_topic(&self, kind: Kind, instrument_ids: &[InstrumentId]) -> anyhow::Result<()> {
-        let markets = instrument_ids
-            .iter()
-            .map(|&id| market_id(id))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for market in markets {
-            self.send_command(Command::Unsubscribe(Topic { kind, market }))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(instrument_ids, |id| {
+            self.send_command(Command::Unsubscribe(Topic {
+                kind,
+                market: market_id(id)?,
+            }))
+        })
     }
 
     fn require_instrument(&self, instrument_id: InstrumentId) -> anyhow::Result<InstrumentAny> {
@@ -407,38 +401,28 @@ impl DataClient for LighterBinaryDataClient {
     }
 
     fn subscribe_instrument(&mut self, subscription: SubscribeInstrument) -> anyhow::Result<()> {
-        let definitions = subscription
-            .instrument_ids
-            .iter()
-            .map(|&id| Ok((self.require_instrument(id)?, market_id(id)?)))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for (instrument, market) in definitions {
+        execute_instrument_subscriptions(&subscription.instrument_ids, |id| {
+            let instrument = self.require_instrument(id)?;
+            let market = market_id(id)?;
             self.data_sender
                 .send(DataEvent::Data(Data::Instrument(Box::new(instrument))))?;
             self.send_command(Command::Definition {
                 market,
                 subscribe: true,
-            })?;
-        }
-        Ok(())
+            })
+        })
     }
 
     fn unsubscribe_instrument(
         &mut self,
         unsubscription: &UnsubscribeInstrument,
     ) -> anyhow::Result<()> {
-        let markets = unsubscription
-            .instrument_ids
-            .iter()
-            .map(|&id| market_id(id))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for market in markets {
+        execute_instrument_subscriptions(&unsubscription.instrument_ids, |id| {
             self.send_command(Command::Definition {
-                market,
+                market: market_id(id)?,
                 subscribe: false,
-            })?;
-        }
-        Ok(())
+            })
+        })
     }
 
     fn subscribe_book_deltas(&mut self, subscription: SubscribeBookDeltas) -> anyhow::Result<()> {
@@ -493,5 +477,66 @@ impl DataClient for LighterBinaryDataClient {
             market,
             kind: Kind::OpenInterest,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nautilus_common::{
+        live::runner::replace_data_event_sender, messages::data::SubscriptionError,
+    };
+
+    #[tokio::test]
+    async fn batch_release_reports_queue_admission_and_continues_after_invalid_member() {
+        let (events, _rx) = mpsc::unbounded_channel();
+        replace_data_event_sender(events);
+        let mut client = LighterBinaryDataClient::new(
+            ClientId::from("LIGHTER"),
+            LighterBinaryDataClientConfig::default(),
+        )
+        .unwrap();
+        let first = crate::common::instrument_id(1).unwrap();
+        let second = crate::common::instrument_id(2).unwrap();
+        let invalid = InstrumentId::from("BTCUSDT.BINANCE");
+        let (tx, mut queue) = mpsc::channel(2);
+        client.command_tx = Some(tx);
+        let error = client
+            .unsubscribe_topic(Kind::Trades, &[first, invalid, second])
+            .unwrap_err();
+        assert_eq!(
+            error
+                .downcast_ref::<SubscriptionError>()
+                .unwrap()
+                .instrument_ids_accepted,
+            vec![first, second]
+        );
+        for market in [1, 2] {
+            assert!(
+                matches!(queue.try_recv().unwrap(), Command::Unsubscribe(topic) if topic.market == market)
+            );
+        }
+        client.unsubscribe_topic(Kind::Trades, &[first]).unwrap();
+        let error = client
+            .unsubscribe_topic(Kind::Trades, &[second, first])
+            .unwrap_err();
+        assert_eq!(
+            error
+                .downcast_ref::<SubscriptionError>()
+                .unwrap()
+                .instrument_ids_accepted,
+            vec![second]
+        );
+        drop(queue);
+        let error = client
+            .unsubscribe_topic(Kind::Trades, &[first, second])
+            .unwrap_err();
+        assert!(
+            error
+                .downcast_ref::<SubscriptionError>()
+                .unwrap()
+                .instrument_ids_accepted
+                .is_empty()
+        );
     }
 }

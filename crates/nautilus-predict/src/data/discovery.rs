@@ -293,6 +293,12 @@ impl PredictDataSession {
         let still_referenced = self.dynamic_subscriptions.values().any(|state| {
             state.current_market_id == Some(market_id) || state.pending_market_id == Some(market_id)
         });
+        let still_referenced = still_referenced
+            || self.subscriptions.contains_key(&market_id)
+            || self
+                .trades
+                .values()
+                .any(|context| context.market_id == market_id);
         if !still_referenced {
             self.dynamic_registry
                 .write()

@@ -28,11 +28,22 @@ use nautilus_predict::common::{
 
 use super::*;
 use crate::{
-    actor_runtime::{custom_data_client_id, optional_flush_all, optional_seal_all},
+    actor_runtime::{custom_data_client_id, optional_enqueue_seal_all, optional_flush_all},
     custom_data_requests::{CUSTOM_DATA_REQUEST_TIMER_PREFIX, parse_request_timer_index},
 };
 
 impl CatalogCaptureActor {
+    pub(super) fn record_capture_result<T>(&mut self, result: Result<T>) -> Result<T> {
+        if let Err(error) = &result
+            && self.failure.is_none()
+        {
+            let reason = format!("catalog recording failed: {error:#}");
+            self.failure = Some(reason.clone());
+            self.publish_metrics_snapshot();
+        }
+        result
+    }
+
     fn market_data_client_id(&self, instrument_id: InstrumentId) -> Option<ClientId> {
         self.binance_client_routes.get(&instrument_id).copied()
     }
@@ -437,7 +448,7 @@ impl CatalogCaptureActor {
                 if let Some(runtime) = &self.$runtime {
                     for spec in &remove.$field {
                         if is_hip4_outcome(spec.instrument_id) {
-                            runtime.seal_partition(
+                            runtime.enqueue_seal_partition(
                                 &PartitionKey::catalog_data::<$ty>(spec.instrument_id).stable_key(),
                             )?;
                         }
@@ -461,7 +472,7 @@ impl CatalogCaptureActor {
         if let Some(runtime) = &self.bar_runtime {
             for spec in &remove.bars {
                 if is_hip4_outcome(spec.bar_type.instrument_id()) {
-                    runtime.seal_partition(
+                    runtime.enqueue_seal_partition(
                         &PartitionKey::catalog_data::<Bar>(spec.bar_type).stable_key(),
                     )?;
                 }
@@ -485,6 +496,8 @@ impl CatalogCaptureActor {
 
     /// Drop actor-side market-data bookkeeping for an instrument (pending + live + timer).
     pub(super) fn forget_instrument_runtime_state(&mut self, instrument_id: InstrumentId) {
+        self.book_delta_recovery.remove(&instrument_id);
+        self.pending_instrument_definitions.remove(&instrument_id);
         self.pending_market_data.remove(&instrument_id);
         self.market_data_live.remove(&instrument_id);
         if self.pending_market_data.is_empty() {
@@ -749,12 +762,8 @@ impl CatalogCaptureActor {
     }
 
     fn schedule_metrics_export(&mut self) -> Result<()> {
-        let Some(interval_secs) = self.metrics_refresh_interval_secs else {
-            return Ok(());
-        };
-        if self.metrics_snapshot.is_none() {
-            return Ok(());
-        }
+        // Writer health must be checked even when HTTP metrics are disabled.
+        let interval_secs = self.metrics_refresh_interval_secs.unwrap_or(1);
 
         let interval_ns = interval_secs.saturating_mul(1_000_000_000);
         self.clock().cancel_timer(METRICS_EXPORT_TIMER);
@@ -793,48 +802,58 @@ impl CatalogCaptureActor {
             return Ok(());
         }
 
-        // Instruments remain chunked — flush only. Custom + market families seal together.
-        optional_flush_all(&self.instrument_runtime)?;
-        optional_seal_all(&self.custom_data_runtime)?;
-        optional_seal_all(&self.mark_price_runtime)?;
-        optional_seal_all(&self.index_price_runtime)?;
-        optional_seal_all(&self.funding_rate_runtime)?;
-        optional_seal_all(&self.instrument_status_runtime)?;
-        optional_seal_all(&self.instrument_close_runtime)?;
-        optional_seal_all(&self.option_greeks_runtime)?;
-        optional_seal_all(&self.quote_runtime)?;
-        optional_seal_all(&self.trade_runtime)?;
-        optional_seal_all(&self.bar_runtime)?;
-        optional_seal_all(&self.book_delta_runtime)?;
-        optional_seal_all(&self.book_depth_runtime)?;
-        self.submit_book_boundary_snapshots()?;
-        Ok(())
+        // Evaluate every family before propagating any error. Healthy families keep rotating.
+        let mut results = vec![
+            optional_enqueue_seal_all(&self.custom_data_runtime),
+            optional_enqueue_seal_all(&self.mark_price_runtime),
+            optional_enqueue_seal_all(&self.index_price_runtime),
+            optional_enqueue_seal_all(&self.funding_rate_runtime),
+            optional_enqueue_seal_all(&self.instrument_status_runtime),
+            optional_enqueue_seal_all(&self.instrument_close_runtime),
+            optional_enqueue_seal_all(&self.option_greeks_runtime),
+            optional_enqueue_seal_all(&self.quote_runtime),
+            optional_enqueue_seal_all(&self.trade_runtime),
+            optional_enqueue_seal_all(&self.bar_runtime),
+            optional_enqueue_seal_all(&self.book_depth_runtime),
+        ];
+        let book_seal = optional_enqueue_seal_all(&self.book_delta_runtime);
+        if book_seal.is_ok() {
+            results.push(self.submit_book_initializations());
+        }
+        results.push(book_seal);
+        results.into_iter().collect::<Result<Vec<_>>>().map(|_| ())
     }
 
-    /// Writes a checkpoint as the first batch of the newly opened book segment.
-    ///
-    /// The source is Nautilus' managed cache, not a second venue REST request. The
-    /// snapshot is submitted only after the previous segment has been sealed, so the
-    /// new segment starts from the actor's current managed-book state.
-    fn submit_book_boundary_snapshots(&mut self) -> Result<()> {
-        let snapshot_ts = self.clock().timestamp_ns();
-        let instrument_ids: Vec<InstrumentId> = self
+    /// Same-file bootstrap rows are marked in Parquet metadata, not source events.
+    fn submit_book_initializations(&self) -> Result<()> {
+        let Some(runtime) = &self.book_delta_runtime else {
+            return Ok(());
+        };
+        for id in self
             .plan
             .book_deltas
             .iter()
             .map(|spec| spec.instrument_id)
             .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect();
-        let books: Vec<OrderBook> = instrument_ids
-            .iter()
-            .filter_map(|instrument_id| self.cache().order_book(instrument_id))
-            .filter(|book| book.update_count > 0)
-            .collect();
-
-        for book in books {
-            let snapshot = book.to_deltas(book.ts_last, snapshot_ts);
-            self.submit_book_delta_batch(snapshot)?;
+        {
+            let Some(book) = self
+                .cache()
+                .order_book(&id)
+                .filter(|book| book.update_count > 0)
+            else {
+                continue;
+            };
+            let data = book.to_deltas(book.ts_last, self.clock().timestamp_ns());
+            let rows = data.deltas.len();
+            runtime.submit_initialization(catalog_capture_core::CaptureItem {
+                partition_key: PartitionKey::catalog_data::<OrderBookDelta>(id),
+                event_ts_ns: data.ts_event.as_u64(),
+                init_ts_ns: Some(data.ts_init.as_u64()),
+                row_count: rows,
+                estimated_bytes: std::mem::size_of::<OrderBookDeltas>()
+                    + rows * std::mem::size_of::<OrderBookDelta>(),
+                payload: data,
+            })?;
         }
         Ok(())
     }
@@ -1076,33 +1095,55 @@ impl DataActor for CatalogCaptureActor {
         self.clock().cancel_timer(SEGMENT_SEAL_TIMER);
         self.clock().cancel_timer(METRICS_EXPORT_TIMER);
         self.cancel_custom_data_request_timers();
-        let _ = self.shutdown_all()?;
+        let result = self.shutdown_all();
+        if let Err(error) = &result {
+            self.failure.get_or_insert_with(|| format!("{error:#}"));
+        }
         self.publish_metrics_snapshot();
         self.log_capture_metrics_summary();
-        Ok(())
+        result.map(|_| ())
     }
 
     fn on_time_event(&mut self, event: &TimeEvent) -> Result<()> {
         if event.name == super::lighter::LIGHTER_TIMER {
-            self.refresh_lighter()?;
-            self.schedule_lighter()?;
+            let refresh = self.refresh_lighter();
+            let schedule = self.schedule_lighter();
+            self.record_capture_result(refresh.and(schedule))?;
         }
         if event.name == OPTION_UNIVERSE_REFRESH_TIMER {
             self.apply_dynamic_option_universe_refresh()?;
         }
         if event.name == HIP4_UNIVERSE_REFRESH_TIMER {
-            self.apply_dynamic_hip4_universe_refresh()?;
+            let refresh = self.apply_dynamic_hip4_universe_refresh();
+            if refresh.is_err() {
+                self.schedule_hip4_universe_refresh()?;
+            }
+            self.record_capture_result(refresh)?;
         }
         if event.name == PENDING_MARKET_DATA_TIMER {
             self.retry_pending_market_data()?;
         }
         if event.name == SEGMENT_SEAL_TIMER {
-            self.seal_segment_runtimes()?;
-            self.schedule_segment_seal()?;
+            let result = self.seal_segment_runtimes();
+            let schedule = self.schedule_segment_seal();
+            self.record_capture_result(result.and(schedule))?;
         }
         if event.name == METRICS_EXPORT_TIMER {
+            let snapshot = self.metrics_snapshot_data();
+            if snapshot.aggregated.failed_workers > 0 && !self.worker_shutdown_requested {
+                let reason = format!(
+                    "capture writer is unavailable: {}",
+                    snapshot.aggregated.summary_line()
+                );
+                self.failure.get_or_insert_with(|| reason.clone());
+                self.worker_shutdown_requested = true;
+                if self.is_registered() {
+                    self.shutdown_system(Some(reason));
+                }
+            }
+            let retry = self.retry_instrument_definitions();
             self.publish_metrics_snapshot();
-            self.schedule_metrics_export()?;
+            self.record_capture_result(retry)?;
         }
         if event.name.starts_with(CUSTOM_DATA_REQUEST_TIMER_PREFIX)
             && let Some(index) = parse_request_timer_index(event.name.as_str())
@@ -1134,7 +1175,8 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_instrument(&mut self, instrument: &InstrumentAny) -> Result<()> {
-        self.submit_instrument(instrument.clone())?;
+        let result = self.submit_instrument(instrument.clone());
+        self.record_capture_result(result)?;
         let instrument_id = instrument.id();
         // Primary path: instrument entered cache → subscribe market data immediately (any delay).
         let needs_md = self.pending_market_data.contains(&instrument_id)
@@ -1158,7 +1200,8 @@ impl DataActor for CatalogCaptureActor {
     /// Request/poll responses must not use this callback; they arrive via
     /// `handle_data_response` / `on_historical_data`.
     fn on_data(&mut self, data: &CustomData) -> Result<()> {
-        self.submit_custom_data(data.clone())
+        let result = self.submit_custom_data(data.clone());
+        self.record_capture_result(result)
     }
 
     /// Request path completion (`request_data` → `CustomDataResponse`).
@@ -1166,7 +1209,8 @@ impl DataActor for CatalogCaptureActor {
     /// Overrides the default handler so we retain `data_type` for in-flight
     /// job correlation (default only forwards the payload to `on_historical_data`).
     fn handle_data_response(&mut self, resp: &CustomDataResponse) {
-        if let Err(error) = self.apply_custom_data_request_response(resp) {
+        let result = self.apply_custom_data_request_response(resp);
+        if let Err(error) = self.record_capture_result(result) {
             log::error!("custom_data_request response handling failed: {error:#}");
         }
     }
@@ -1175,30 +1219,36 @@ impl DataActor for CatalogCaptureActor {
     fn on_historical_data(&mut self, data: &dyn Any) -> Result<()> {
         if let Some(items) = data.downcast_ref::<Vec<CustomData>>() {
             for item in items {
-                self.submit_custom_data(item.clone())?;
+                let result = self.submit_custom_data(item.clone());
+                self.record_capture_result(result)?;
             }
         }
         Ok(())
     }
 
     fn on_mark_price(&mut self, mark_price: &MarkPriceUpdate) -> Result<()> {
-        self.submit_mark_price(*mark_price)
+        let result = self.submit_mark_price(*mark_price);
+        self.record_capture_result(result)
     }
 
     fn on_index_price(&mut self, index_price: &IndexPriceUpdate) -> Result<()> {
-        self.submit_index_price(*index_price)
+        let result = self.submit_index_price(*index_price);
+        self.record_capture_result(result)
     }
 
     fn on_funding_rate(&mut self, funding_rate: &FundingRateUpdate) -> Result<()> {
-        self.submit_funding_rate(*funding_rate)
+        let result = self.submit_funding_rate(*funding_rate);
+        self.record_capture_result(result)
     }
 
     fn on_instrument_status(&mut self, data: &InstrumentStatus) -> Result<()> {
-        self.submit_instrument_status(*data)
+        let result = self.submit_instrument_status(*data);
+        self.record_capture_result(result)
     }
 
     fn on_instrument_close(&mut self, close: &InstrumentClose) -> Result<()> {
-        self.submit_instrument_close(*close)
+        let result = self.submit_instrument_close(*close);
+        self.record_capture_result(result)
     }
 
     fn on_option_greeks(&mut self, greeks: &OptionGreeks) -> Result<()> {
@@ -1207,11 +1257,13 @@ impl DataActor for CatalogCaptureActor {
                 log::info!("{line}");
             }
         }
-        self.submit_option_greeks(*greeks)?;
+        let result = self.submit_option_greeks(*greeks);
+        self.record_capture_result(result)?;
         if self.forward_price_targets.contains(&greeks.instrument_id)
             && let Some(forward_price) = forward_price_from_option_greeks(greeks)
         {
-            self.persist_forward_price(forward_price)?;
+            let result = self.persist_forward_price(forward_price);
+            self.record_capture_result(result)?;
         }
         Ok(())
     }
@@ -1222,25 +1274,27 @@ impl DataActor for CatalogCaptureActor {
                 log::info!("{line}");
             }
         }
-        self.submit_quote(*quote)?;
-        Ok(())
+        let result = self.submit_quote(*quote);
+        self.record_capture_result(result)
     }
 
     fn on_trade(&mut self, trade: &TradeTick) -> Result<()> {
-        self.submit_trade(*trade)?;
-        Ok(())
+        let result = self.submit_trade(*trade);
+        self.record_capture_result(result)
     }
 
     fn on_bar(&mut self, bar: &Bar) -> Result<()> {
-        self.submit_bar(*bar)?;
-        Ok(())
+        let result = self.submit_bar(*bar);
+        self.record_capture_result(result)
     }
 
     fn on_book_depth(&mut self, depth: &OrderBookDepth) -> Result<()> {
-        self.submit_book_depth(depth.clone())
+        let result = self.submit_book_depth(depth.clone());
+        self.record_capture_result(result)
     }
 
     fn on_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
-        self.submit_book_deltas(deltas)
+        let result = self.submit_book_deltas(deltas);
+        self.record_capture_result(result)
     }
 }

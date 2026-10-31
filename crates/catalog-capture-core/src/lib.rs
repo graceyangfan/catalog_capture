@@ -20,6 +20,7 @@ pub mod buffer;
 pub mod capture_run;
 pub mod catalog_layout;
 pub mod config;
+pub mod failures;
 pub mod flush_profile;
 pub mod forward_price;
 pub mod forward_price_metadata;
@@ -32,6 +33,7 @@ pub mod metrics_export;
 pub mod option_universe;
 pub mod order_book_validation;
 pub mod plan;
+pub mod replay;
 pub mod runtime;
 pub mod sink;
 
@@ -55,7 +57,9 @@ pub use capture_run::{
 pub use catalog_layout::{
     custom_data_dir, market_data_dir, path_is_under_custom_type, path_is_under_market_family,
 };
-pub use config::{CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy};
+pub use config::{
+    CaptureConfig, CompressionKind, LayoutCompatibility, OverflowPolicy, QueueLimits,
+};
 pub use flush_profile::{
     CaptureFlushFamily, capture_config_for_family, family_row_group_rows, family_row_threshold,
 };
@@ -118,6 +122,10 @@ pub use plan::{
     MarkPriceCaptureSpec, OptionGreeksCaptureSpec, QuoteCaptureSpec, RequestOverlapPolicy,
     TradeCaptureSpec, capture_plan_difference, instrument_id_difference,
     instrument_id_overlap_and_new, plan_instrument_ids,
+};
+pub use replay::{
+    ReplayWindow, common_replay_ranges, group_book_deltas, read_book_replay_windows,
+    read_replay_windows,
 };
 pub use runtime::{CaptureRuntime, FlushResult};
 pub use sink::{

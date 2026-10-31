@@ -67,6 +67,9 @@ nautilus-deribit = { path = "../nautilus_trader_quantity_commission/crates/adapt
 ] }
 nautilus-okx = { path = "../nautilus_trader_quantity_commission/crates/adapters/okx" }
 nautilus-common = { path = "../nautilus_trader_quantity_commission/crates/common" }
+nautilus-backtest = { path = "../nautilus_trader_quantity_commission/crates/backtest" }
+nautilus-trading = { path = "../nautilus_trader_quantity_commission/crates/trading" }
+nautilus-execution = { path = "../nautilus_trader_quantity_commission/crates/execution" }
 nautilus-core = { path = "../nautilus_trader_quantity_commission/crates/core" }
 # Capture path does not need Hyperliquid Python bindings (keeps the graph lighter).
 nautilus-hyperliquid = { path = "../nautilus_trader_quantity_commission/crates/adapters/hyperliquid", features = [

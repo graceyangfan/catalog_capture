@@ -247,15 +247,22 @@ impl CapturePlan {
     /// Recorder options on the existing rolling selector; they do not change venue identity.
     #[must_use]
     pub fn predict_records(&self, option: &str) -> bool {
-        self.custom_data.iter().any(|spec| {
-            spec.data_type.type_name() == "PredictCryptoUpDown"
-                && spec
-                    .data_type
-                    .metadata()
-                    .and_then(|m| m.get(option))
-                    .and_then(serde_json::Value::as_str)
-                    == Some("true")
-        })
+        self.predict_recording_count(option) > 0
+    }
+
+    pub(crate) fn predict_recording_count(&self, option: &str) -> usize {
+        self.custom_data
+            .iter()
+            .filter(|spec| {
+                spec.data_type.type_name() == "PredictCryptoUpDown"
+                    && spec
+                        .data_type
+                        .metadata()
+                        .and_then(|metadata| metadata.get(option))
+                        .and_then(serde_json::Value::as_str)
+                        == Some("true")
+            })
+            .count()
     }
 
     #[must_use]

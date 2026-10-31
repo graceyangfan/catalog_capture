@@ -6,29 +6,63 @@
 
 [runtime]
 capture_seconds = 0
-shutdown_timeout_secs = 15
+shutdown_timeout_secs = 30
 delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-PREDICT-CRYPTO-UPDOWN"
+# Startup warning budget for partition buffers; not a process RSS limit.
+resource_budget_bytes = 1073741824
+
+[runtime.metrics]
+enabled = true
+bind_addr = "127.0.0.1"
+port = 9898
+refresh_interval_secs = 5
 
 [output]
 catalog_uri = "file://./data/predict-crypto-updown"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000
-flush_interval_ms = 1000
-max_buffer_bytes = 33554432
-max_total_buffer_bytes = 134217728
-queue_capacity = 10000
+flush_interval_ms = 2000
+max_buffer_bytes = 8388608
+# Aggregate partition buffers per family; independent of ingress overrides below.
+max_total_buffer_bytes = 67108864
+max_active_partitions = 64
+# Ingress fallback for families without an explicit override.
+queue_capacity = 32768
+queue_max_bytes = 67108864
+# Reject and report a full-queue item; later data continues recording.
 overflow_policy = "fail_fast"
+
+# Provisional ingress budgets; tune from per-family peaks and queue age on the server.
+# Changing these limits does not change flush or Parquet row-group thresholds.
+[output.queues.book_deltas]
+capacity = 32768
+max_bytes = 67108864
+
+[output.queues.book_depth]
+capacity = 8192
+max_bytes = 33554432
+
+[output.queues.trades]
+capacity = 32768
+max_bytes = 33554432
+
+[output.queues.instruments]
+capacity = 1024
+max_bytes = 4194304
 
 [output.lifecycle]
 mode = "segment"
 
 [output.lifecycle.segment]
+# Incremental L2 uses its family profile (20k); full depth uses 512 rows.
 row_group_rows = 5000
 
 [output.lifecycle.durability]
-sync_interval_ms = 1000
+# Fsyncs emitted bytes; a readable Parquet commit still requires close/seal.
+# Ten seconds reduces periodic sync calls; it does not bound crash data loss.
+sync_interval_ms = 10000
 
 # Predict YES depth/trades rotate when the successor first publishes a snapshot.
 # Hourly seals also bound native segments; internal control snapshots are not recorded.

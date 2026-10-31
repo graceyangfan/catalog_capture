@@ -37,12 +37,16 @@ impl PredictDataSession {
             .as_text()
             .context("Predict sent a non-text application frame")?;
         if text == RECONNECTED {
+            if epoch <= self.current_epoch {
+                return Ok(());
+            }
+            self.clear_writes();
             self.current_epoch = epoch;
             self.failed_epoch = None;
-            self.snapshots.clear();
+            self.invalidate_book_snapshots();
             let market_ids = self.subscriptions.keys().copied().collect::<Vec<_>>();
             for market_id in market_ids {
-                self.send_subscription("subscribe", market_id).await?;
+                self.queue_book_subscription("subscribe", market_id)?;
             }
             let mut trade_markets = self
                 .trades
@@ -52,19 +56,19 @@ impl PredictDataSession {
             trade_markets.sort_unstable();
             trade_markets.dedup();
             for market_id in trade_markets {
-                self.send_trade_subscription("subscribe", market_id).await?;
+                self.queue_trade_subscription("subscribe", market_id)?;
             }
             return Ok(());
         }
-        if epoch != self.current_epoch || self.failed_epoch == Some(epoch) {
+        if epoch != self.current_epoch
+            || epoch != self.client.connection_epoch()
+            || self.failed_epoch == Some(epoch)
+        {
             return Ok(());
         }
         let (topic, data) = match parse_message(text)? {
             PredictWebSocketMessage::Heartbeat(data) => {
-                self.client
-                    .send_text(heartbeat_message(data), None)
-                    .await
-                    .context("failed to echo Predict heartbeat")?;
+                self.queue_heartbeat(heartbeat_message(data));
                 return Ok(());
             }
             PredictWebSocketMessage::Informational => return Ok(()),
@@ -116,46 +120,46 @@ impl PredictDataSession {
                 .context("failed to decode Predict orderbook snapshot")?;
         let snapshot =
             PredictOrderbookSnapshot::from_wire(&context, wire, self.clock.get_time_ns())?;
-        // Late native depth owners receive the same confirmed source snapshot without
-        // requiring a duplicate physical subscribe or waiting for a new book update.
-        self.snapshots.insert(market_id, snapshot.clone());
-        let mut native_owners = 0;
-        for id in [context.yes_instrument_id, context.no_instrument_id] {
-            if let Some(subscription) = self.depths.get_mut(&id) {
-                native_owners += 1;
-                if subscription
-                    .last_timestamp
-                    .is_some_and(|last| snapshot.ts_event < last)
-                {
-                    continue;
+        let source = self.books.entry(market_id).or_default();
+        let admissible = source
+            .last_timestamp
+            .is_none_or(|last| snapshot.ts_event >= last);
+        if admissible {
+            source.last_timestamp = Some(snapshot.ts_event);
+            source.snapshot = Some(snapshot.clone());
+            for id in [context.yes_instrument_id, context.no_instrument_id] {
+                if let Some(subscription) = self.depths.get(&id) {
+                    let depth = super::depth::depth_from_snapshot(
+                        &snapshot,
+                        &context,
+                        id,
+                        subscription.depth,
+                    )?;
+                    self.data_sender
+                        .send(DataEvent::Data(Data::BookDepth(Box::new(depth))))?;
                 }
-                let depth =
-                    super::depth::depth_from_snapshot(&snapshot, &context, id, subscription.depth)?;
-                self.data_sender
-                    .send(DataEvent::Data(Data::BookDepth(Box::new(depth))))?;
-                subscription.last_timestamp = Some(snapshot.ts_event);
+            }
+            for id in [context.yes_instrument_id, context.no_instrument_id] {
+                let Some(subscription) = self.quotes.get_mut(&id) else {
+                    continue;
+                };
+                if let Some(quote) = super::quotes::quote_from_snapshot(&snapshot, &context, id)? {
+                    if subscription.last_quote.is_some_and(|last| {
+                        quote.ts_event < last.ts_event
+                            || (quote.ts_event == last.ts_event
+                                && quote.bid_price == last.bid_price
+                                && quote.ask_price == last.ask_price
+                                && quote.bid_size == last.bid_size
+                                && quote.ask_size == last.ask_size)
+                    }) {
+                        continue;
+                    }
+                    self.data_sender.send(DataEvent::Data(Data::Quote(quote)))?;
+                    subscription.last_quote = Some(quote);
+                }
             }
         }
-        for id in [context.yes_instrument_id, context.no_instrument_id] {
-            let Some(subscription) = self.quotes.get_mut(&id) else {
-                continue;
-            };
-            native_owners += 1;
-            if let Some(quote) = super::quotes::quote_from_snapshot(&snapshot, &context, id)? {
-                if subscription.last_quote.is_some_and(|last| {
-                    quote.ts_event < last.ts_event
-                        || (quote.ts_event == last.ts_event
-                            && quote.bid_price == last.bid_price
-                            && quote.ask_price == last.ask_price
-                            && quote.bid_size == last.bid_size
-                            && quote.ask_size == last.ask_size)
-                }) {
-                    continue;
-                }
-                self.data_sender.send(DataEvent::Data(Data::Quote(quote)))?;
-                subscription.last_quote = Some(quote);
-            }
-        }
+        let native_owners = self.native_owners(market_id);
         // Native-only interest must not create an unsolicited custom-data stream.
         let subscription = &self.subscriptions[&market_id];
         if subscription.owners > native_owners {

@@ -143,6 +143,8 @@ mod tests {
                 mode: LifecycleMode::Chunked,
                 ..LifecycleConfig::default()
             },
+            queue_max_bytes: None,
+            queues: Default::default(),
             queue_capacity: 1_000,
             flush_rows: 10,
             flush_interval_ms: 1_000,

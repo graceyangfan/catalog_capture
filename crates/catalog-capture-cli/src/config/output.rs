@@ -12,8 +12,13 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+use std::collections::BTreeMap;
+
 use anyhow::{Result, bail};
-use catalog_capture_core::{CompressionKind, LayoutCompatibility, LifecycleConfig, OverflowPolicy};
+use catalog_capture_core::{
+    CaptureFlushFamily, CompressionKind, LayoutCompatibility, LifecycleConfig, OverflowPolicy,
+    QueueLimits,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +41,10 @@ pub struct OutputConfig {
     pub max_active_partitions: usize,
     #[serde(default = "default_queue_capacity")]
     pub queue_capacity: usize,
+    #[serde(default)]
+    pub queue_max_bytes: Option<usize>,
+    #[serde(default)]
+    pub queues: BTreeMap<CaptureFlushFamily, QueueLimits>,
     #[serde(default = "default_overflow_policy")]
     pub overflow_policy: String,
     #[serde(default)]
@@ -54,6 +63,8 @@ impl Default for OutputConfig {
             max_total_buffer_bytes: default_max_total_buffer_bytes(),
             max_active_partitions: default_max_active_partitions(),
             queue_capacity: default_queue_capacity(),
+            queue_max_bytes: None,
+            queues: BTreeMap::new(),
             overflow_policy: default_overflow_policy(),
             lifecycle: LifecycleConfig::default(),
         }

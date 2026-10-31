@@ -33,24 +33,21 @@ use crate::PredictMarketContext;
 const SCALE: u128 = 1_000_000_000_000_000_000;
 
 impl PredictDataSession {
-    pub(super) async fn send_trade_subscription(
+    pub(super) fn queue_trade_subscription(
         &mut self,
-        method: &str,
+        method: &'static str,
         market_id: u64,
     ) -> anyhow::Result<()> {
         let request_id = self.next_request_id;
         self.next_request_id = request_id
             .checked_add(1)
             .context("Predict request ID overflow")?;
-        self.client
-            .send_text(
-                json!({"method": method, "requestId": request_id,
-            "params": [format!("predictTrades/{market_id}")]})
-                .to_string(),
-                None,
-            )
-            .await
-            .with_context(|| format!("failed to {method} Predict trades {market_id}"))
+        self.queue_subscription(
+            json!({"method": method, "requestId": request_id,
+                "params": [format!("predictTrades/{market_id}")]})
+            .to_string(),
+        );
+        Ok(())
     }
 
     pub(super) fn handle_trades(&self, market_id: u64, data: &str) -> anyhow::Result<()> {

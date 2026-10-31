@@ -11,7 +11,7 @@
 
 [runtime]
 capture_seconds = 0
-shutdown_timeout_secs = 15
+shutdown_timeout_secs = 30
 delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-PREDICT"
 
@@ -20,14 +20,38 @@ catalog_uri = "file://./data/predict-native"
 compression = "snappy"
 layout_compatibility = "rust_canonical_only"
 flush_rows = 1000
-flush_interval_ms = 1000
-max_buffer_bytes = 33554432
-max_total_buffer_bytes = 134217728
-queue_capacity = 10000
+flush_interval_ms = 2000
+max_buffer_bytes = 8388608
+# Aggregate partition buffers per family; independent of ingress overrides below.
+max_total_buffer_bytes = 67108864
+max_active_partitions = 64
+# Ingress fallback for families without an explicit override.
+queue_capacity = 32768
+queue_max_bytes = 67108864
+# Reject and report a full-queue item; later data continues recording.
 overflow_policy = "fail_fast"
+
+# Provisional ingress budgets; tune from per-family peaks and queue age on the server.
+# Changing these limits does not change flush or Parquet row-group thresholds.
+[output.queues.book_depth]
+capacity = 8192
+max_bytes = 33554432
+
+[output.queues.trades]
+capacity = 32768
+max_bytes = 33554432
+
+[output.queues.instruments]
+capacity = 1024
+max_bytes = 4194304
 
 [output.lifecycle]
 mode = "segment"
+
+[output.lifecycle.durability]
+# Fsyncs emitted bytes; a readable Parquet commit still requires close/seal.
+# Ten seconds reduces periodic sync calls; it does not bound crash data loss.
+sync_interval_ms = 10000
 
 [[venues]]
 id = "predict_main"

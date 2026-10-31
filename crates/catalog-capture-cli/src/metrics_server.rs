@@ -99,6 +99,11 @@ async fn serve_connection(
             render_prometheus(&snapshot),
         ),
         "/metrics.json" => ("200 OK", "application/json", render_json(&snapshot)),
+        "/health" | "/healthz" if snapshot.aggregated.failed_workers > 0 => (
+            "503 Service Unavailable",
+            "text/plain; charset=utf-8",
+            "recording worker unavailable\n".to_string(),
+        ),
         "/health" | "/healthz" => ("200 OK", "text/plain; charset=utf-8", "ok".to_string()),
         _ => (
             "404 Not Found",
@@ -159,5 +164,46 @@ mod tests {
         let body = String::from_utf8_lossy(&response);
         assert!(body.contains("catalog_capture_dropped_items_total 2"));
         server.await.expect("server");
+    }
+
+    #[tokio::test]
+    async fn health_separates_quality_gaps_from_unavailable_workers() {
+        for (dropped, writes, failed_workers, failure, status) in [
+            (0, 0, 0, None, "200 OK"),
+            (1, 0, 0, None, "200 OK"),
+            (0, 1, 0, None, "200 OK"),
+            (0, 0, 0, Some("seal failed".to_string()), "200 OK"),
+            (0, 0, 1, None, "503 Service Unavailable"),
+        ] {
+            let snapshot = Arc::new(RwLock::new(CaptureMetricsSnapshot {
+                failure,
+                aggregated: CaptureMetrics {
+                    dropped_items: dropped,
+                    write_errors: writes,
+                    failed_workers,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }));
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                serve_connection(&mut stream, &snapshot).await.unwrap();
+            });
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            stream
+                .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .await
+                .unwrap();
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).await.unwrap();
+            assert!(
+                String::from_utf8(response)
+                    .unwrap()
+                    .starts_with(&format!("HTTP/1.1 {status}\r\n"))
+            );
+            server.await.unwrap();
+        }
     }
 }

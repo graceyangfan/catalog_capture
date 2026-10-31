@@ -267,25 +267,29 @@ impl CatalogCaptureActor {
         if remove.trades.iter().any(|s| s.instrument_id == id)
             && let Some(runtime) = &self.trade_runtime
         {
-            runtime.seal_partition(&PartitionKey::catalog_data::<TradeTick>(id).stable_key())?;
+            runtime.enqueue_seal_partition(
+                &PartitionKey::catalog_data::<TradeTick>(id).stable_key(),
+            )?;
         }
         if remove.book_deltas.iter().any(|s| s.instrument_id == id)
             && let Some(runtime) = &self.book_delta_runtime
         {
-            runtime
-                .seal_partition(&PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key())?;
+            runtime.enqueue_seal_partition(
+                &PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key(),
+            )?;
         }
         if remove.index_prices.iter().any(|s| s.instrument_id == id)
             && let Some(runtime) = &self.index_price_runtime
         {
-            runtime
-                .seal_partition(&PartitionKey::catalog_data::<IndexPriceUpdate>(id).stable_key())?;
+            runtime.enqueue_seal_partition(
+                &PartitionKey::catalog_data::<IndexPriceUpdate>(id).stable_key(),
+            )?;
         }
         for spec in &remove.custom_data {
             if spec.data_type.type_name() == "LighterOpenInterest"
                 && let Some(runtime) = &self.custom_data_runtime
             {
-                runtime.seal_partition(
+                runtime.enqueue_seal_partition(
                     &PartitionKey::custom_data(
                         spec.data_type.type_name(),
                         spec.data_type.identifier().map(str::to_string),

@@ -12,9 +12,11 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
-use crate::lifecycle::LifecycleConfig;
+use crate::{flush_profile::CaptureFlushFamily, lifecycle::LifecycleConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CompressionKind {
@@ -41,6 +43,14 @@ pub enum LayoutCompatibility {
     RustCanonicalOnly,
 }
 
+/// Optional ingress-only overrides; partition and encoder budgets are independent.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct QueueLimits {
+    pub capacity: Option<usize>,
+    pub max_bytes: Option<usize>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CaptureConfig {
     pub enabled: bool,
@@ -48,10 +58,17 @@ pub struct CaptureConfig {
     #[serde(default)]
     pub lifecycle: LifecycleConfig,
     pub queue_capacity: usize,
+    /// Ingress byte limit; omission preserves the legacy max_total_buffer_bytes limit.
+    #[serde(default)]
+    pub queue_max_bytes: Option<usize>,
+    #[serde(default)]
+    pub queues: BTreeMap<CaptureFlushFamily, QueueLimits>,
     pub flush_rows: usize,
     pub flush_interval_ms: u64,
+    /// Per-partition payload buffer cap and Parquet's estimated encoded row-group target.
     pub max_buffer_bytes: usize,
-    /// Summed pending bytes cap across all partitions in one family runtime.
+    /// Aggregate partition-buffer cap in one family runtime; also the legacy ingress
+    /// fallback when queue_max_bytes is absent. Excludes worker batches and Arrow buffers.
     #[serde(default = "default_max_total_buffer_bytes")]
     pub max_total_buffer_bytes: usize,
     /// Maximum concurrently open partition buffers in one family runtime.
@@ -64,6 +81,13 @@ pub struct CaptureConfig {
     pub layout_compatibility: LayoutCompatibility,
 }
 
+impl CaptureConfig {
+    #[must_use]
+    pub fn ingress_max_bytes(&self) -> usize {
+        self.queue_max_bytes.unwrap_or(self.max_total_buffer_bytes)
+    }
+}
+
 impl Default for CaptureConfig {
     fn default() -> Self {
         Self {
@@ -71,6 +95,8 @@ impl Default for CaptureConfig {
             catalog_uri: String::from("file://./data/catalog"),
             lifecycle: LifecycleConfig::default(),
             queue_capacity: 10_000,
+            queue_max_bytes: None,
+            queues: BTreeMap::new(),
             flush_rows: 5_000,
             flush_interval_ms: 1_000,
             max_buffer_bytes: 32 * 1024 * 1024,

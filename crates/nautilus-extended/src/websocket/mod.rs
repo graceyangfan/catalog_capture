@@ -13,7 +13,9 @@ pub mod parse;
 
 use std::{
     collections::VecDeque,
+    future::Future,
     num::NonZeroU32,
+    pin::Pin,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -33,6 +35,7 @@ use nautilus_model::{
 };
 use nautilus_network::{
     RECONNECTED,
+    error::SendError,
     http::create_standard_nautilus_headers,
     mode::ReconnectRequestOutcome,
     transport::Message,
@@ -171,9 +174,13 @@ impl TradeReplayState {
     }
 }
 
-#[derive(Debug)]
+type SubscriptionSend =
+    Pin<Box<dyn Future<Output = (u64, String, ExtendedTopic, Result<(), SendError>)> + Send>>;
+
 pub struct ExtendedWebSocketSession {
-    client: WebSocketClient,
+    client: Arc<WebSocketClient>,
+    pending_writes: VecDeque<(RpcOperation, ExtendedTopic)>,
+    subscription_send: Option<SubscriptionSend>,
     reconnect: WebSocketReconnectHandle,
     raw_rx: mpsc::Receiver<(u64, Message)>,
     command_rx: mpsc::Receiver<ExtendedCommand>,
@@ -192,6 +199,15 @@ pub struct ExtendedWebSocketSession {
     current_epoch: u64,
     last_sequence: Option<u64>,
     failed_epoch: Option<u64>,
+}
+
+impl std::fmt::Debug for ExtendedWebSocketSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExtendedWebSocketSession")
+            .field("current_epoch", &self.current_epoch)
+            .field("topics", &self.topics)
+            .finish_non_exhaustive()
+    }
 }
 
 impl ExtendedWebSocketSession {
@@ -262,7 +278,9 @@ impl ExtendedWebSocketSession {
         Ok((
             command_tx,
             Self {
-                client,
+                client: Arc::new(client),
+                pending_writes: VecDeque::new(),
+                subscription_send: None,
                 reconnect,
                 raw_rx,
                 command_rx,
@@ -288,13 +306,26 @@ impl ExtendedWebSocketSession {
     pub async fn run(mut self) {
         let mut health_tick = tokio::time::interval(Duration::from_secs(1));
         loop {
+            self.start_subscription_send();
+            let send_idle = self.subscription_send.is_none() && self.pending_writes.is_empty();
             tokio::select! {
                 biased;
                 () = self.cancellation.cancelled() => break,
-                command = self.command_rx.recv() => {
-                    let Some(command) = command else { break };
-                    if let Err(error) = self.handle_command(command).await {
-                        self.fail_generation(format!("subscription command failed: {error:#}"));
+                (epoch, request_id, topic, result) = async {
+                    match &mut self.subscription_send {
+                        Some(send) => send.await,
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    self.subscription_send = None;
+                    if epoch == self.current_epoch && epoch == self.client.connection_epoch() && self.failed_epoch.is_none() {
+                        if let Err(error) = result {
+                            self.pending.remove(&request_id);
+                            self.subscriptions.mark_failure(&topic.key());
+                            self.fail_generation(format!("subscription write failed: {error}"));
+                        } else if let Some(book) = self.books.get(&topic.key()) {
+                            book.write_completed();
+                        }
                     }
                 }
                 _ = health_tick.tick() => self.check_health(),
@@ -304,9 +335,16 @@ impl ExtendedWebSocketSession {
                         self.fail_generation(format!("stream handling failed: {error:#}"));
                     }
                 }
+                command = self.command_rx.recv(), if send_idle => {
+                    let Some(command) = command else { break };
+                    if let Err(error) = self.handle_command(command).await {
+                        self.fail_generation(format!("subscription command failed: {error:#}"));
+                    }
+                }
             }
         }
 
+        self.clear_writes();
         self.subscriptions.clear();
         self.client.disconnect().await;
     }
@@ -323,8 +361,8 @@ impl ExtendedWebSocketSession {
                 if topic.kind == ExtendedDataKind::OrderBook {
                     self.books.entry(key).or_default().begin_subscribe();
                 }
-                self.send_topic_request(RpcOperation::Subscribe, topic)
-                    .await
+                self.queue_topic_request(RpcOperation::Subscribe, topic);
+                Ok(())
             }
             ExtendedCommand::Unsubscribe(topic) => {
                 let key = topic.key();
@@ -335,17 +373,26 @@ impl ExtendedWebSocketSession {
                 if let Some(book) = self.books.get_mut(&key) {
                     book.stop_monitoring();
                 }
-                self.send_topic_request(RpcOperation::Unsubscribe, topic)
-                    .await
+                self.queue_topic_request(RpcOperation::Unsubscribe, topic);
+                Ok(())
             }
         }
     }
 
-    async fn send_topic_request(
-        &mut self,
-        operation: RpcOperation,
-        topic: ExtendedTopic,
-    ) -> anyhow::Result<()> {
+    fn queue_topic_request(&mut self, operation: RpcOperation, topic: ExtendedTopic) {
+        if self.failed_epoch.is_none() {
+            self.pending_writes.push_back((operation, topic));
+        }
+    }
+
+    fn start_subscription_send(&mut self) {
+        if self.subscription_send.is_some() || self.client.connection_epoch() != self.current_epoch
+        {
+            return;
+        }
+        let Some((operation, topic)) = self.pending_writes.pop_front() else {
+            return;
+        };
         let epoch = self.current_epoch;
         let request_id = self.take_request_id();
         let method = match operation {
@@ -353,9 +400,7 @@ impl ExtendedWebSocketSession {
             RpcOperation::Unsubscribe => "unsubscribe",
         };
         let payload = json!({
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
+            "jsonrpc": "2.0", "id": request_id, "method": method,
             "params": topic.subscribe_params(),
         })
         .to_string();
@@ -368,23 +413,16 @@ impl ExtendedWebSocketSession {
                 deadline: tokio::time::Instant::now() + RPC_TIMEOUT,
             },
         );
+        let client = Arc::clone(&self.client);
+        self.subscription_send = Some(Box::pin(async move {
+            let result = client.send_text_on_connection(payload, None, epoch).await;
+            (epoch, request_id, topic, result)
+        }));
+    }
 
-        let result = self
-            .client
-            .send_text_on_connection(payload, None, epoch)
-            .await;
-        if let Some(book) = self.books.get(&topic.key()) {
-            book.write_completed();
-        }
-        if let Err(error) = result {
-            self.pending.remove(&request_id);
-            self.subscriptions.mark_failure(&topic.key());
-            anyhow::bail!(
-                "failed to write Extended {method} for {}: {error}",
-                topic.key()
-            );
-        }
-        Ok(())
+    fn clear_writes(&mut self) {
+        self.subscription_send = None;
+        self.pending_writes.clear();
     }
 
     async fn handle_message(&mut self, epoch: u64, message: Message) -> anyhow::Result<()> {
@@ -394,7 +432,10 @@ impl ExtendedWebSocketSession {
         if text == RECONNECTED {
             return self.handle_reconnected(epoch).await;
         }
-        if epoch != self.current_epoch || self.failed_epoch == Some(epoch) {
+        if epoch != self.current_epoch
+            || epoch != self.client.connection_epoch()
+            || self.failed_epoch == Some(epoch)
+        {
             return Ok(());
         }
 
@@ -559,6 +600,10 @@ impl ExtendedWebSocketSession {
     }
 
     async fn handle_reconnected(&mut self, epoch: u64) -> anyhow::Result<()> {
+        if epoch <= self.current_epoch {
+            return Ok(());
+        }
+        self.clear_writes();
         self.current_epoch = epoch;
         self.failed_epoch = None;
         self.last_sequence = None;
@@ -587,8 +632,7 @@ impl ExtendedWebSocketSession {
                 .get(&key)
                 .cloned()
                 .with_context(|| format!("missing retained Extended topic `{key}`"))?;
-            self.send_topic_request(RpcOperation::Subscribe, topic)
-                .await?;
+            self.queue_topic_request(RpcOperation::Subscribe, topic);
         }
         Ok(())
     }
@@ -642,6 +686,7 @@ impl ExtendedWebSocketSession {
             return;
         }
         self.failed_epoch = Some(self.current_epoch);
+        self.clear_writes();
         self.last_sequence = None;
         self.pending.clear();
         for state in self.books.values_mut() {

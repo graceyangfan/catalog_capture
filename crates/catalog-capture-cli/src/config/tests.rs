@@ -223,6 +223,66 @@ fn example_predict_six_selector_cloud_config_loads_and_validates() {
     );
 }
 
+#[cfg(all(feature = "venue-predict", feature = "venue-binance"))]
+#[test]
+fn family_queue_budgets_reach_the_actual_workers_and_metrics() {
+    use catalog_capture_runtime_adapter::{CatalogCaptureActor, CatalogCaptureActorConfig};
+    let path = repo_root().join("examples/capture.predict-crypto-updown.toml");
+    let mut effective = resolve_config(load_config(&path).unwrap()).unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "capture-family-queues-{}",
+        nautilus_core::UUID4::new()
+    ));
+    std::fs::create_dir_all(&root).unwrap();
+    effective.capture.catalog_uri = format!("file://{}", root.display());
+    let actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+        effective.capture,
+        effective.plan,
+    ))
+    .unwrap();
+    let snapshot = actor.metrics_snapshot_data();
+    for (family, capacity, bytes) in [
+        ("book_deltas", 32768, 64 * 1024 * 1024),
+        ("book_depth", 8192, 32 * 1024 * 1024),
+        ("trades", 32768, 32 * 1024 * 1024),
+        ("instruments", 1024, 4 * 1024 * 1024),
+    ] {
+        let stats = &snapshot
+            .families
+            .iter()
+            .find(|entry| entry.family == family)
+            .unwrap()
+            .metrics;
+        assert_eq!(stats.queue_capacity, capacity);
+        assert_eq!(stats.queue_max_bytes, bytes);
+    }
+    assert_eq!(snapshot.aggregated.queue_max_bytes, 132 * 1024 * 1024);
+    drop(actor);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn queue_overrides_reject_unknown_family_names_fields_and_zero_limits() {
+    let valid = r#"[output.queues.trades]
+capacity = 5
+max_bytes = 128
+"#;
+    let config: CliConfigFile = toml::from_str(valid).unwrap();
+    assert_eq!(config.output.queues.len(), 1);
+    assert!(
+        toml::from_str::<CliConfigFile>(&valid.replace("queues.trades", "queues.trdae")).is_err()
+    );
+    assert!(toml::from_str::<CliConfigFile>(&valid.replace("max_bytes", "max_bytez")).is_err());
+    let capture = catalog_capture_core::CaptureConfig {
+        queues: toml::from_str::<CliConfigFile>(&valid.replace("capacity = 5", "capacity = 0"))
+            .unwrap()
+            .output
+            .queues,
+        ..Default::default()
+    };
+    assert!(catalog_capture_core::validate_capture_config(&capture).is_err());
+}
+
 #[cfg(feature = "venue-extended")]
 #[test]
 fn extended_environment_aliases_are_explicit() {

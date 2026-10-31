@@ -26,7 +26,7 @@ use crate::PredictMarketContext;
 /// `PredictInstrumentProvider` remains the synchronous bootstrap provider required by the
 /// Nautilus provider interface. The transport task owns no durable definitions of its own:
 /// it registers a discovered market here before publishing it, so synchronous instrument
-/// requests from the engine can resolve the same definitions while the selector is live.
+/// requests resolve the same definitions while selectors or native subscriptions remain live.
 #[derive(Debug, Default)]
 pub(super) struct PredictDynamicMarketRegistry {
     pub(super) generation: u64,

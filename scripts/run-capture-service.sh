@@ -24,6 +24,9 @@ LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
 BIN_DIR="${CATALOG_CAPTURE_BIN_DIR:-$ROOT/bin}"
 CARGO="${CARGO:-cargo}"
 TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.1}"
+# Builds have a different memory budget from the recorder. Honor explicit Cargo policy.
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
+export NAUTILUS_LOG="${NAUTILUS_LOG:-stdout=Info;is_colored=false}"
 CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid,venue-lighter}"
 
 usage() {
@@ -35,7 +38,7 @@ Options:
   --release           Build/run release binary (slim features via CAPTURE_FEATURES)
   --prebuilt          Run bin/catalog-capture-cli without compiling (packaged deployment)
   --all-venues        With --release: build default all-venues features
-  --validate          Run validate-option-universe after a successful capture
+  --validate          Validate an option-universe catalog after a successful capture
   --log-dir <path>    Log directory (default: ./logs)
   -h, --help          Show this help
 
@@ -43,6 +46,9 @@ Environment:
   CAPTURE_FEATURES    Comma features for slim release (default multi-venue set)
   CARGO               Cargo executable
   RUSTUP_TOOLCHAIN    Rust toolchain (default 1.99.1)
+  CARGO_BUILD_JOBS    Concurrent build jobs (default 2; prebuilt avoids compilation)
+  NAUTILUS_WORKER_THREADS / TOKIO_WORKER_THREADS
+                     Native and CLI runtime thread counts (Native defaults unless set)
   CATALOG_CAPTURE_LOG_DIR
   CATALOG_CAPTURE_BIN_DIR  Product binary directory (default: ./bin)
 EOF
@@ -117,10 +123,10 @@ if [[ $PREBUILT -eq 1 ]]; then
 elif [[ $RELEASE -eq 1 ]]; then
   if [[ $ALL_VENUES -eq 1 ]]; then
     echo "Building release (all-venues)..." | tee -a "$LOG_FILE"
-    "$CARGO" "+$TOOLCHAIN" build --release -p catalog-capture-cli
+    "$CARGO" "+$TOOLCHAIN" build --release --locked -p catalog-capture-cli
   else
     echo "Building release (features=${CAPTURE_FEATURES})..." | tee -a "$LOG_FILE"
-    "$CARGO" "+$TOOLCHAIN" build --release -p catalog-capture-cli \
+    "$CARGO" "+$TOOLCHAIN" build --release --locked -p catalog-capture-cli \
       --no-default-features \
       --features "${CAPTURE_FEATURES}"
   fi
@@ -129,9 +135,12 @@ elif [[ $RELEASE -eq 1 ]]; then
 else
   BIN="$ROOT/target/debug/catalog-capture-cli"
   if [[ ! -x "$BIN" ]]; then
-    "$CARGO" "+$TOOLCHAIN" build -p catalog-capture-cli
+    "$CARGO" "+$TOOLCHAIN" build --locked -p catalog-capture-cli
   fi
 fi
+
+# Catch unsupported venue features before starting a long-lived recorder.
+"$BIN" validate --config "$CONFIG"
 
 echo "Starting capture: config=$CONFIG log=$LOG_FILE" | tee -a "$LOG_FILE"
 set +e
@@ -152,11 +161,10 @@ if [[ $VALIDATE -eq 1 ]]; then
     echo "Could not read catalog_uri from config; skipping validation" | tee -a "$LOG_FILE"
     exit 0
   fi
-  echo "Running validate-option-universe for $CATALOG_URI" | tee -a "$LOG_FILE"
+  echo "Running validate-option-universe-catalog for $CATALOG_URI" | tee -a "$LOG_FILE"
   set +e
-  "$BIN" validate-option-universe \
+  "$BIN" validate-option-universe-catalog \
     --catalog-uri "$CATALOG_URI" \
-    --config "$CONFIG" \
     --option-universe-format text 2>&1 | tee -a "$LOG_FILE"
   VALIDATE_EXIT=${PIPESTATUS[0]}
   set -e

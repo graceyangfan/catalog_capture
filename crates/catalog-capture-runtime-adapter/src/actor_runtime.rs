@@ -99,25 +99,25 @@ where
     }
 }
 
-pub fn optional_seal_all<T, S>(
+pub fn optional_enqueue_seal_all<T, S>(
     runtime: &Option<BackgroundCaptureRuntime<T, S>>,
-) -> Result<FlushResult>
+) -> Result<()>
 where
     T: Send + 'static,
     S: CaptureSink<T> + Send + 'static,
 {
     match runtime.as_ref() {
-        Some(runtime) => runtime.seal_all(),
-        None => Ok(FlushResult::default()),
+        Some(runtime) => runtime.enqueue_seal_all(),
+        None => Ok(()),
     }
 }
 
-pub fn seal_runtime<T, S>(runtime: &BackgroundCaptureRuntime<T, S>) -> Result<FlushResult>
+pub fn enqueue_seal_runtime<T, S>(runtime: &BackgroundCaptureRuntime<T, S>) -> Result<()>
 where
     T: Send + 'static,
     S: CaptureSink<T> + Send + 'static,
 {
-    runtime.seal_all()
+    runtime.enqueue_seal_all()
 }
 
 pub fn optional_shutdown<T, S>(
@@ -127,8 +127,9 @@ where
     T: Send + 'static,
     S: CaptureSink<T> + Send + 'static,
 {
-    match runtime.take() {
-        Some(mut runtime) => runtime.shutdown(),
+    // Retain the drained worker's counters for the actor's final metrics publication.
+    match runtime.as_mut() {
+        Some(runtime) => runtime.shutdown(),
         None => Ok(FlushResult::default()),
     }
 }
@@ -149,6 +150,7 @@ pub fn collect_family_metrics<T, S>(
     aggregated.merge(&metrics);
     families.push(FamilyCaptureMetrics {
         family: family.to_string(),
+        failures: runtime.failure_snapshot(),
         metrics,
     });
 }

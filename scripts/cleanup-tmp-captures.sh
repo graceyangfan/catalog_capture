@@ -75,6 +75,14 @@ printf '  %s\n' "${TARGETS[@]}"
 if [[ $DRY_RUN -eq 1 ]]; then
   exit 0
 fi
+# A part can be open in a running recorder or await crash recovery. Never unlink it
+# through the smoke cleanup helper; seal/recover it before deleting its parent.
+for t in "${TARGETS[@]}"; do
+  if [[ -n "$(find "$t" -type f -name '*.part' -print -quit 2> /dev/null)" ]]; then
+    echo "Refusing cleanup: unsealed part under $t; stop and seal/recover the recorder first." >&2
+    exit 1
+  fi
+done
 for t in "${TARGETS[@]}"; do
   rm -rf "$t"
 done

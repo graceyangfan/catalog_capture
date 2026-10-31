@@ -15,6 +15,8 @@
 //! Binary-only session using Nautilus transport epochs and upstream Lighter parsers.
 use std::{
     collections::VecDeque,
+    future::Future,
+    pin::Pin,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -43,6 +45,7 @@ use nautilus_model::{
 };
 use nautilus_network::{
     RECONNECTED,
+    error::SendError,
     http::create_standard_nautilus_headers,
     mode::ReconnectRequestOutcome,
     transport::Message,
@@ -103,9 +106,20 @@ struct Book {
     ready: bool,
 }
 
-#[derive(Debug)]
+enum ControlMessage {
+    Pong(Vec<u8>),
+    Heartbeat,
+}
+
+type SubscriptionSend =
+    Pin<Box<dyn Future<Output = (u64, &'static str, String, Result<(), SendError>)> + Send>>;
+type ControlSend = Pin<Box<dyn Future<Output = (u64, Result<(), SendError>)> + Send>>;
+
 pub(crate) struct BinarySession {
-    client: WebSocketClient,
+    client: Arc<WebSocketClient>,
+    pending_writes: VecDeque<(&'static str, String)>,
+    subscription_send: Option<SubscriptionSend>,
+    control_send: Option<ControlSend>,
     reconnect: WebSocketReconnectHandle,
     raw: mpsc::Receiver<(u64, Message)>,
     commands: mpsc::Receiver<Command>,
@@ -123,6 +137,15 @@ pub(crate) struct BinarySession {
     trades: AHashMap<u64, TradeIds>,
     oracle_seen: AHashMap<u64, (u64, nautilus_model::types::Price)>,
 }
+impl std::fmt::Debug for BinarySession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BinarySession")
+            .field("epoch", &self.epoch)
+            .field("owners", &self.owners)
+            .finish_non_exhaustive()
+    }
+}
+
 impl BinarySession {
     pub async fn connect(
         config: &LighterBinaryDataClientConfig,
@@ -179,7 +202,10 @@ impl BinarySession {
         Ok((
             tx,
             Self {
-                client,
+                client: Arc::new(client),
+                pending_writes: VecDeque::new(),
+                subscription_send: None,
+                control_send: None,
                 reconnect,
                 raw,
                 commands,
@@ -202,14 +228,34 @@ impl BinarySession {
     pub async fn run(mut self) {
         let mut tick = tokio::time::interval(Duration::from_secs(1));
         loop {
+            self.start_subscription_send();
+            let send_idle = self.subscription_send.is_none() && self.pending_writes.is_empty();
             tokio::select! {
                 biased;
                 () = self.cancel.cancelled() => break,
-                command = self.commands.recv() => {
-                    let Some(command) = command else { break };
-                    if let Err(error) = self.command(command).await {
-                        self.fail(&error);
+                (epoch, operation, channel, result) = async {
+                    match &mut self.subscription_send {
+                        Some(send) => send.await,
+                        None => std::future::pending().await,
                     }
+                } => {
+                    self.subscription_send = None;
+                    if epoch == self.epoch && epoch == self.client.connection_epoch() && self.failed.is_none() {
+                        if let Err(error) = result {
+                            self.fail(&error.into());
+                        } else if operation == "subscribe" && self.wire_owned(&channel) {
+                            self.deadlines.insert(channel, tokio::time::Instant::now() + Duration::from_secs(10));
+                        }
+                    }
+                }
+                (epoch, result) = async {
+                    match &mut self.control_send {
+                        Some(send) => send.await,
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    self.control_send = None;
+                    if epoch == self.epoch && epoch == self.client.connection_epoch() && let Err(error) = result { self.fail(&error.into()); }
                 }
                 _ = tick.tick() => {
                     if self.overflow.swap(false, Ordering::AcqRel) {
@@ -228,8 +274,15 @@ impl BinarySession {
                         self.fail(&error);
                     }
                 }
+                command = self.commands.recv(), if send_idle => {
+                    let Some(command) = command else { break };
+                    if let Err(error) = self.command(command).await {
+                        self.fail(&error);
+                    }
+                }
             }
         }
+        self.clear_writes();
         self.client.disconnect().await;
     }
     fn fail(&mut self, error: &anyhow::Error) {
@@ -238,6 +291,7 @@ impl BinarySession {
         }
         log::error!("Lighter binary stream invalidated: {error:#}");
         self.failed = Some(self.epoch);
+        self.clear_writes();
         self.books.clear();
         self.deadlines.clear();
         let outcome = self.reconnect.request_reconnect();
@@ -265,19 +319,63 @@ impl BinarySession {
             .keys()
             .any(|topic| self.channel(*topic).is_ok_and(|key| key == channel))
     }
-    async fn write(&self, operation: &str, channel: &str) -> anyhow::Result<()> {
-        self.client
-            .send_text_on_connection(
-                json!({"type":operation,"channel":channel}).to_string(),
-                Some(
-                    nautilus_lighter::common::rate_limit::LIGHTER_WS_MESSAGE_RATE_LIMIT_KEY
-                        .as_slice(),
-                ),
-                self.epoch,
-            )
-            .await?;
-        Ok(())
+    fn queue_subscription(&mut self, operation: &'static str, channel: &str) {
+        if self.failed.is_none() {
+            self.pending_writes
+                .push_back((operation, channel.to_owned()));
+        }
     }
+
+    fn start_subscription_send(&mut self) {
+        if self.subscription_send.is_some() || self.client.connection_epoch() != self.epoch {
+            return;
+        }
+        let Some((operation, channel)) = self.pending_writes.pop_front() else {
+            return;
+        };
+        let client = Arc::clone(&self.client);
+        let epoch = self.epoch;
+        self.subscription_send = Some(Box::pin(async move {
+            let result = client
+                .send_text_on_connection(
+                    json!({"type":operation,"channel":channel}).to_string(),
+                    Some(
+                        nautilus_lighter::common::rate_limit::LIGHTER_WS_MESSAGE_RATE_LIMIT_KEY
+                            .as_slice(),
+                    ),
+                    epoch,
+                )
+                .await;
+            (epoch, operation, channel, result)
+        }));
+    }
+
+    fn queue_control(&mut self, message: ControlMessage) {
+        if self.control_send.is_some() {
+            self.fail(&anyhow::anyhow!("heartbeat send is still pending"));
+            return;
+        }
+        let client = Arc::clone(&self.client);
+        let epoch = self.epoch;
+        self.control_send = Some(Box::pin(async move {
+            let result = match message {
+                ControlMessage::Pong(data) => client.send_pong_on_connection(data, epoch).await,
+                ControlMessage::Heartbeat => {
+                    client
+                        .send_text_on_connection(json!({"type":"pong"}).to_string(), None, epoch)
+                        .await
+                }
+            };
+            (epoch, result)
+        }));
+    }
+
+    fn clear_writes(&mut self) {
+        self.subscription_send = None;
+        self.control_send = None;
+        self.pending_writes.clear();
+    }
+
     async fn command(&mut self, command: Command) -> anyhow::Result<()> {
         if let Command::Definition { market, subscribe } = command {
             if subscribe {
@@ -307,11 +405,7 @@ impl BinarySession {
             Command::Subscribe(_) => {
                 *self.owners.entry(topic).or_default() += 1;
                 if !was_owned && self.failed.is_none() {
-                    self.write("subscribe", &channel).await?;
-                    self.deadlines.insert(
-                        channel,
-                        tokio::time::Instant::now() + Duration::from_secs(10),
-                    );
+                    self.queue_subscription("subscribe", &channel);
                 }
             }
             Command::Unsubscribe(_) => {
@@ -330,7 +424,7 @@ impl BinarySession {
                 if was_owned && !self.wire_owned(&channel) {
                     self.deadlines.remove(&channel);
                     if self.failed.is_none() {
-                        self.write("unsubscribe", &channel).await?;
+                        self.queue_subscription("unsubscribe", &channel);
                     }
                 }
             }
@@ -365,8 +459,11 @@ impl BinarySession {
     }
     async fn message(&mut self, epoch: u64, message: Message) -> anyhow::Result<()> {
         if let Message::Ping(data) = &message {
-            if epoch == self.epoch && self.failed != Some(epoch) {
-                self.client.send_pong(data.to_vec()).await?;
+            if epoch == self.epoch
+                && epoch == self.client.connection_epoch()
+                && self.failed != Some(epoch)
+            {
+                self.queue_control(ControlMessage::Pong(data.to_vec()));
             }
             return Ok(());
         }
@@ -377,6 +474,7 @@ impl BinarySession {
             if epoch <= self.epoch {
                 return Ok(());
             }
+            self.clear_writes();
             self.epoch = epoch;
             self.failed = None;
             self.books.clear();
@@ -387,15 +485,14 @@ impl BinarySession {
                 .map(|t| self.channel(*t))
                 .collect::<anyhow::Result<AHashSet<_>>>()?;
             for channel in channels {
-                self.write("subscribe", &channel).await?;
-                self.deadlines.insert(
-                    channel,
-                    tokio::time::Instant::now() + Duration::from_secs(10),
-                );
+                self.queue_subscription("subscribe", &channel);
             }
             return Ok(());
         }
-        if epoch != self.epoch || self.failed == Some(epoch) {
+        if epoch != self.epoch
+            || epoch != self.client.connection_epoch()
+            || self.failed == Some(epoch)
+        {
             return Ok(());
         }
         let value: Value = serde_json::from_str(text)?;
@@ -403,9 +500,7 @@ impl BinarySession {
             .as_str()
             .context("Lighter frame missing type")?;
         if ty == "ping" {
-            self.client
-                .send_text_on_connection(json!({"type":"pong"}).to_string(), None, epoch)
-                .await?;
+            self.queue_control(ControlMessage::Heartbeat);
             return Ok(());
         }
         if ty == "error" || value.get("error").is_some() {
@@ -770,6 +865,9 @@ mod tests {
         session.command(Command::Subscribe(first)).await.unwrap();
         session.command(Command::Subscribe(first)).await.unwrap();
         session.command(Command::Subscribe(second)).await.unwrap();
+        session.start_subscription_send();
+        let (_, _, _, result) = session.subscription_send.take().unwrap().await;
+        result.unwrap();
         // One physical subscription serves two instruments and repeated owners.
         let (_, request) = observed.recv().await.unwrap();
         assert_eq!(request["channel"], "up_down_candle/eth/15m/1s");
@@ -854,5 +952,171 @@ mod tests {
         cancel.cancel();
         task.await.unwrap();
         server.abort();
+    }
+
+    #[derive(Clone)]
+    struct ResponsiveServer {
+        frames: mpsc::UnboundedSender<mpsc::UnboundedSender<Value>>,
+        observed: mpsc::UnboundedSender<Value>,
+    }
+
+    async fn responsive_socket(
+        ws: WebSocketUpgrade,
+        State(state): State<ResponsiveServer>,
+    ) -> axum::response::Response {
+        ws.on_upgrade(move |socket| async move {
+            let (mut sink, mut stream) = socket.split();
+            let (tx, mut frames) = mpsc::unbounded_channel::<Value>();
+            state.frames.send(tx).unwrap();
+            loop {
+                tokio::select! {
+                    frame = frames.recv() => {
+                        let Some(frame) = frame else { break };
+                        if sink.send(AxumMessage::Text(frame.to_string().into())).await.is_err() { break; }
+                    }
+                    message = stream.next() => {
+                        let Some(Ok(message)) = message else { break };
+                        if let AxumMessage::Text(text) = message {
+                            state.observed.send(serde_json::from_str(&text).unwrap()).unwrap();
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn quota_wait_keeps_data_heartbeat_and_shutdown_responsive() {
+        for backend in [
+            nautilus_network::websocket::TransportBackend::default(),
+            nautilus_network::websocket::TransportBackend::Tungstenite,
+        ] {
+            let (frame_tx, mut frames) = mpsc::unbounded_channel();
+            let (observed_tx, mut observed) = mpsc::unbounded_channel();
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let config = LighterBinaryDataClientConfig {
+                base_url_ws: Some(format!(
+                    "ws://{}/stream/{}",
+                    listener.local_addr().unwrap(),
+                    nautilus_core::UUID4::new()
+                )),
+                transport_backend: backend,
+                ..Default::default()
+            };
+            let server = tokio::spawn(async move {
+                axum::serve(
+                    listener,
+                    Router::new()
+                        .route("/stream/{session}", get(responsive_socket))
+                        .with_state(ResponsiveServer {
+                            frames: frame_tx,
+                            observed: observed_tx,
+                        }),
+                )
+                .await
+                .unwrap();
+            });
+            // Use the real Native shared limiter with an isolated URL and a slow test quota.
+            let quota =
+                nautilus_lighter::common::rate_limit::ws_message_rate_limiter(&config.ws_url());
+            let key = &nautilus_lighter::common::rate_limit::LIGHTER_WS_MESSAGE_RATE_LIMIT_KEY[0];
+            quota.add_quota_for_key(
+                *key,
+                nautilus_network::ratelimiter::quota::Quota::per_minute(
+                    std::num::NonZeroU32::new(1).unwrap(),
+                ),
+            );
+            let contexts = Arc::new(AtomicMap::from(AHashMap::from([(4255, context(4255))])));
+            let (sender, mut events) = mpsc::unbounded_channel();
+            let cancel = CancellationToken::new();
+            let control =
+                SocketControlFactory::new(ClientId::new("LIGHTER"), Some(Venue::new("LIGHTER")))
+                    .control("responsive-test");
+            let (tx, session) = BinarySession::connect(
+                &config,
+                contexts,
+                sender.into(),
+                nautilus_core::time::get_atomic_clock_realtime(),
+                cancel.clone(),
+                control,
+            )
+            .await
+            .unwrap();
+            let task = tokio::spawn(session.run());
+            let frames = frames.recv().await.unwrap();
+            tx.send(Command::Subscribe(Topic {
+                market: 4255,
+                kind: Kind::Oracle,
+            }))
+            .await
+            .unwrap();
+            let first = tokio::time::timeout(Duration::from_secs(2), observed.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(first["channel"], "up_down_candle/eth/15m/1s");
+            assert!(
+                quota.check_key(key).is_err(),
+                "the first physical subscription consumes the quota"
+            );
+            tx.send(Command::Subscribe(Topic {
+                market: 4255,
+                kind: Kind::Book,
+            }))
+            .await
+            .unwrap();
+            // Causal barrier: the session has taken the command whose send must wait for quota.
+            tokio::time::timeout(Duration::from_secs(2), async {
+                while tx.capacity() != tx.max_capacity() {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+            // The bounded ingress remains full while the send lane is occupied.
+            for _ in 0..tx.max_capacity() {
+                tx.try_send(Command::Definition {
+                    market: 4255,
+                    subscribe: true,
+                })
+                .unwrap();
+            }
+            assert!(matches!(
+                tx.try_send(Command::Definition {
+                    market: 4255,
+                    subscribe: true
+                }),
+                Err(mpsc::error::TrySendError::Full(_))
+            ));
+            frames.send(json!({"type":"ping"})).unwrap();
+            frames.send(json!({"type":"update/up_down_candle","channel":"up_down_candle:eth:15m:1s","candles":[{"symbol":"eth","duration":"15m","resolution":"1s","timestamp":1792480925_u64,"close":"2392.64","provider":"chainlink","feed_id":"feed"}]})).unwrap();
+            let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(
+                matches!(event, DataEvent::Data(Data::IndexPrice(_))),
+                "market data progresses before the throttled subscription write"
+            );
+            let reply = tokio::time::timeout(Duration::from_secs(2), observed.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                reply["type"], "pong",
+                "heartbeat bypasses subscription quota wait"
+            );
+            assert_eq!(
+                tx.capacity(),
+                0,
+                "pending writes cannot drain ingress into an unbounded queue"
+            );
+            cancel.cancel();
+            tokio::time::timeout(Duration::from_secs(2), task)
+                .await
+                .unwrap()
+                .unwrap();
+            server.abort();
+        }
     }
 }

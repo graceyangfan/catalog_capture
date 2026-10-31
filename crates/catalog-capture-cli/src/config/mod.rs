@@ -106,6 +106,8 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         catalog_uri: config.output.catalog_uri,
         lifecycle: config.output.lifecycle,
         queue_capacity: config.output.queue_capacity,
+        queue_max_bytes: config.output.queue_max_bytes,
+        queues: config.output.queues,
         flush_rows: config.output.flush_rows,
         flush_interval_ms: config.output.flush_interval_ms,
         max_buffer_bytes: config.output.max_buffer_bytes,

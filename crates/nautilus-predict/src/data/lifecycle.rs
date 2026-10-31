@@ -21,7 +21,7 @@ use std::{
 
 use anyhow::Context;
 use nautilus_common::{
-    clients::DataClient,
+    clients::{DataClient, execute_instrument_subscriptions},
     messages::data::{
         RequestInstrument, SubscribeBookDepth, SubscribeCustomData, SubscribeInstrument,
         SubscribeInstruments, SubscribeQuotes, SubscribeTrades, UnsubscribeBookDepth,
@@ -147,10 +147,9 @@ impl DataClient for PredictDataClient {
     }
 
     fn subscribe_instrument(&mut self, subscription: SubscribeInstrument) -> anyhow::Result<()> {
-        for id in subscription.instrument_ids {
-            self.publish_instrument(id)?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(&subscription.instrument_ids, |id| {
+            self.publish_instrument(id)
+        })
     }
 
     fn subscribe_instruments(&mut self, _subscription: SubscribeInstruments) -> anyhow::Result<()> {
@@ -179,60 +178,42 @@ impl DataClient for PredictDataClient {
             command.book_type == nautilus_model::enums::BookType::L2_MBP,
             "Predict supports only L2_MBP depth snapshots"
         );
-        let contexts = command
-            .instrument_ids
-            .into_iter()
-            .map(|id| Ok((id, self.instrument_context(id)?)))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for (id, context) in contexts {
-            self.send_command(PredictCommand::SubscribeDepth(id, context, command.depth))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(&command.instrument_ids, |id| {
+            let context = self.instrument_context(id)?;
+            self.send_command(PredictCommand::SubscribeDepth(id, context, command.depth))
+        })
     }
 
     fn unsubscribe_book_depth(&mut self, command: &UnsubscribeBookDepth) -> anyhow::Result<()> {
-        for &id in &command.instrument_ids {
-            self.send_command(PredictCommand::UnsubscribeDepth(id))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(&command.instrument_ids, |id| {
+            self.send_command(PredictCommand::UnsubscribeDepth(id))
+        })
     }
 
     fn subscribe_trades(&mut self, command: SubscribeTrades) -> anyhow::Result<()> {
-        let contexts = command
-            .instrument_ids
-            .into_iter()
-            .map(|id| Ok((id, self.instrument_context(id)?)))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for (id, context) in contexts {
-            self.send_command(PredictCommand::SubscribeTrades(id, context))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(&command.instrument_ids, |id| {
+            let context = self.instrument_context(id)?;
+            self.send_command(PredictCommand::SubscribeTrades(id, context))
+        })
     }
 
     fn unsubscribe_trades(&mut self, command: &UnsubscribeTrades) -> anyhow::Result<()> {
-        for &id in &command.instrument_ids {
-            self.send_command(PredictCommand::UnsubscribeTrades(id))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(&command.instrument_ids, |id| {
+            self.send_command(PredictCommand::UnsubscribeTrades(id))
+        })
     }
 
     fn subscribe_quotes(&mut self, command: SubscribeQuotes) -> anyhow::Result<()> {
-        let contexts = command
-            .instrument_ids
-            .into_iter()
-            .map(|id| Ok((id, self.instrument_context(id)?)))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for (id, context) in contexts {
-            self.send_command(PredictCommand::SubscribeQuotes(id, context))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(&command.instrument_ids, |id| {
+            let context = self.instrument_context(id)?;
+            self.send_command(PredictCommand::SubscribeQuotes(id, context))
+        })
     }
 
     fn unsubscribe_quotes(&mut self, command: &UnsubscribeQuotes) -> anyhow::Result<()> {
-        for &id in &command.instrument_ids {
-            self.send_command(PredictCommand::UnsubscribeQuotes(id))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(&command.instrument_ids, |id| {
+            self.send_command(PredictCommand::UnsubscribeQuotes(id))
+        })
     }
 
     // The session rejects competing custom identities before changing market ownership.

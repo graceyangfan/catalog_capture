@@ -28,7 +28,7 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `ed0b147f1df37e3cb225abfb658046c9635ace6c` |
+| 0.1.x / main | `abdaf5684afea9bc4f883b5d05b1f708de58c054` |
 
 ## Dependency contract
 

@@ -144,31 +144,31 @@ async fn handle_socket(socket: WebSocket, state: TestState) {
             }
         }
 
-        if topic == "prices.mark.BTC-USD" {
-            if let Some(request_id) = pending_mark_unsubscribe.take() {
-                let stale_response = json!({
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "result": {"method": "unsubscribe", "status": "OK"},
-                });
-                if sink
-                    .send(Message::Text(stale_response.to_string().into()))
-                    .await
-                    .is_err()
-                {
-                    return;
-                }
+        if topic == "prices.mark.BTC-USD"
+            && let Some(request_id) = pending_mark_unsubscribe.take()
+        {
+            let stale_response = json!({
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {"method": "unsubscribe", "status": "OK"},
+            });
+            if sink
+                .send(Message::Text(stale_response.to_string().into()))
+                .await
+                .is_err()
+            {
+                return;
+            }
 
-                let mut frame = fixture(MARK_PRICE);
-                frame["seq"] = json!(next_sequence);
-                next_sequence += 1;
-                if sink
-                    .send(Message::Text(frame.to_string().into()))
-                    .await
-                    .is_err()
-                {
-                    return;
-                }
+            let mut frame = fixture(MARK_PRICE);
+            frame["seq"] = json!(next_sequence);
+            next_sequence += 1;
+            if sink
+                .send(Message::Text(frame.to_string().into()))
+                .await
+                .is_err()
+            {
+                return;
             }
         }
     }

@@ -20,7 +20,7 @@ use ahash::AHashMap;
 use anyhow::Context;
 use nautilus_common::{
     cache::InstrumentLookupError,
-    clients::DataClient,
+    clients::{DataClient, execute_instrument_subscriptions},
     live::{runner::get_data_event_sender, sender::EventSender},
     messages::{
         DataEvent,
@@ -180,17 +180,10 @@ impl ExtendedDataClient {
         kind: ExtendedDataKind,
         instrument_ids: &[InstrumentId],
     ) -> anyhow::Result<()> {
-        let topics = instrument_ids
-            .iter()
-            .map(|&id| {
-                self.require_instrument(id)?;
-                ExtendedTopic::new(kind, id)
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for topic in topics {
-            self.send_command(ExtendedCommand::Subscribe(topic))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(instrument_ids, |id| {
+            self.require_instrument(id)?;
+            self.send_command(ExtendedCommand::Subscribe(ExtendedTopic::new(kind, id)?))
+        })
     }
 
     fn unsubscribe_topic(
@@ -198,14 +191,9 @@ impl ExtendedDataClient {
         kind: ExtendedDataKind,
         instrument_ids: &[InstrumentId],
     ) -> anyhow::Result<()> {
-        let topics = instrument_ids
-            .iter()
-            .map(|&id| ExtendedTopic::new(kind, id))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for topic in topics {
-            self.send_command(ExtendedCommand::Unsubscribe(topic))?;
-        }
-        Ok(())
+        execute_instrument_subscriptions(instrument_ids, |id| {
+            self.send_command(ExtendedCommand::Unsubscribe(ExtendedTopic::new(kind, id)?))
+        })
     }
 
     fn require_instrument(&self, instrument_id: InstrumentId) -> anyhow::Result<InstrumentAny> {
@@ -309,16 +297,12 @@ impl DataClient for ExtendedDataClient {
     }
 
     fn subscribe_instrument(&mut self, subscription: SubscribeInstrument) -> anyhow::Result<()> {
-        let instruments = subscription
-            .instrument_ids
-            .into_iter()
-            .map(|id| self.require_instrument(id))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        for instrument in instruments {
+        execute_instrument_subscriptions(&subscription.instrument_ids, |id| {
+            let instrument = self.require_instrument(id)?;
             self.data_sender
                 .send(DataEvent::Data(Data::Instrument(Box::new(instrument))))?;
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
     fn unsubscribe_instrument(
@@ -392,5 +376,69 @@ impl DataClient for ExtendedDataClient {
             ExtendedDataKind::FundingRate,
             &unsubscription.instrument_ids,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nautilus_common::{
+        live::runner::replace_data_event_sender, messages::data::SubscriptionError,
+    };
+
+    #[tokio::test]
+    async fn batch_release_reports_queue_admission_and_continues_after_invalid_member() {
+        let (events, _rx) = mpsc::unbounded_channel();
+        replace_data_event_sender(events);
+        let mut client = ExtendedDataClient::new(
+            ClientId::from("EXTENDED"),
+            ExtendedDataClientConfig::default(),
+        )
+        .unwrap();
+        let first = crate::common::instrument_id_from_market("BTC-USD").unwrap();
+        let second = crate::common::instrument_id_from_market("ETH-USD").unwrap();
+        let invalid = InstrumentId::from("BTCUSDT.BINANCE");
+        let (tx, mut queue) = mpsc::channel(2);
+        client.command_tx = Some(tx);
+        let error = client
+            .unsubscribe_topic(ExtendedDataKind::Trades, &[first, invalid, second])
+            .unwrap_err();
+        assert_eq!(
+            error
+                .downcast_ref::<SubscriptionError>()
+                .unwrap()
+                .instrument_ids_accepted,
+            vec![first, second]
+        );
+        for id in [first, second] {
+            let ExtendedCommand::Unsubscribe(topic) = queue.try_recv().unwrap() else {
+                panic!("unsubscribe")
+            };
+            assert_eq!(topic.instrument_id().unwrap(), id);
+        }
+        client
+            .unsubscribe_topic(ExtendedDataKind::Trades, &[first])
+            .unwrap();
+        let error = client
+            .unsubscribe_topic(ExtendedDataKind::Trades, &[second, first])
+            .unwrap_err();
+        assert_eq!(
+            error
+                .downcast_ref::<SubscriptionError>()
+                .unwrap()
+                .instrument_ids_accepted,
+            vec![second]
+        );
+        drop(queue);
+        let error = client
+            .unsubscribe_topic(ExtendedDataKind::Trades, &[first, second])
+            .unwrap_err();
+        assert!(
+            error
+                .downcast_ref::<SubscriptionError>()
+                .unwrap()
+                .instrument_ids_accepted
+                .is_empty()
+        );
     }
 }

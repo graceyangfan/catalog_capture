@@ -35,6 +35,11 @@ ustr.workspace = true
 log.workspace = true
 
 [dev-dependencies]
+nautilus-backtest.workspace = true
+nautilus-execution.workspace = true
+nautilus-trading.workspace = true
+nautilus-live.workspace = true
+
 # Unit/integration tests only — no cargo [[example]] binaries.
 nautilus-model = { workspace = true, features = ["test-support"] }
 rust_decimal.workspace = true

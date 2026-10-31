@@ -21,6 +21,7 @@ use crate::metrics::{CaptureMetrics, FlushReasonMetrics};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct FamilyCaptureMetrics {
     pub family: String,
+    pub failures: crate::failures::FailureSnapshot,
     pub metrics: CaptureMetrics,
 }
 
@@ -46,6 +47,23 @@ pub struct CaptureMetricsSnapshot {
     pub families: Vec<FamilyCaptureMetrics>,
     /// Request-path jobs (`request_data` poll timers). Empty when no requests configured.
     pub custom_data_requests: Vec<CustomDataRequestJobMetrics>,
+    /// First actor/control failure. Worker failures and admission gaps have counters.
+    pub failure: Option<String>,
+}
+
+impl CaptureMetricsSnapshot {
+    /// Local recorder health only; this does not certify venue replay or continuity.
+    #[must_use]
+    pub fn has_recording_failure(&self) -> bool {
+        self.failure.is_some()
+            || self.aggregated.dropped_items > 0
+            || self.aggregated.write_errors > 0
+            || self.aggregated.failed_workers > 0
+            || self
+                .families
+                .iter()
+                .any(|family| family.failures.generation > 0)
+    }
 }
 
 #[must_use]
@@ -105,6 +123,16 @@ pub fn render_prometheus(snapshot: &CaptureMetricsSnapshot) -> String {
     let mut out = String::new();
     append_snapshot_help(&mut out);
     append_runtime_gauges(&mut out, snapshot);
+    append_line(
+        &mut out,
+        "catalog_capture_recording_failed",
+        "",
+        if snapshot.has_recording_failure() {
+            "1"
+        } else {
+            "0"
+        },
+    );
     append_metrics_block(&mut out, "catalog_capture", "", &snapshot.aggregated);
     for family in &snapshot.families {
         let labels = format!(r#"{{family="{}"}}"#, escape_label(&family.family));
@@ -120,6 +148,22 @@ pub fn render_json(snapshot: &CaptureMetricsSnapshot) -> String {
 }
 
 fn append_snapshot_help(out: &mut String) {
+    for name in [
+        "queue_capacity",
+        "queue_max_bytes",
+        "in_flight_items",
+        "in_flight_bytes",
+        "active_writers",
+        "oldest_queued_seconds",
+        "worker_busy_seconds",
+        "operation_seconds_max",
+    ] {
+        out.push_str(&format!("# TYPE catalog_capture_{name} gauge\n"));
+    }
+    for name in ["operation_seconds_count", "operation_seconds_sum"] {
+        out.push_str(&format!("# TYPE catalog_capture_{name} counter\n"));
+    }
+
     out.push_str("# HELP catalog_capture_info Capture metrics snapshot metadata\n");
     out.push_str("# TYPE catalog_capture_info gauge\n");
     out.push_str(
@@ -134,10 +178,22 @@ fn append_snapshot_help(out: &mut String) {
     out.push_str("# TYPE catalog_capture_accepted_items_total counter\n");
     out.push_str("# HELP catalog_capture_dropped_items_total Dropped capture items\n");
     out.push_str("# TYPE catalog_capture_dropped_items_total counter\n");
+    out.push_str("# HELP catalog_capture_write_errors_total Failed writer batches\n");
+    out.push_str("# TYPE catalog_capture_write_errors_total counter\n");
+    out.push_str("# HELP catalog_capture_failed_workers Unavailable recording workers\n");
+    out.push_str("# TYPE catalog_capture_failed_workers gauge\n");
+    out.push_str("# HELP catalog_capture_peak_queued_items Lifetime family queue item high-water mark (aggregate sums family peaks)\n");
+    out.push_str("# TYPE catalog_capture_peak_queued_items gauge\n");
+    out.push_str("# HELP catalog_capture_peak_queued_bytes Lifetime family queue byte high-water mark (aggregate sums family peaks)\n");
+    out.push_str("# TYPE catalog_capture_peak_queued_bytes gauge\n");
+    out.push_str("# HELP catalog_capture_recording_failed Known local recording failure\n");
+    out.push_str("# TYPE catalog_capture_recording_failed gauge\n");
     out.push_str("# HELP catalog_capture_active_partitions Buffered partitions awaiting flush\n");
     out.push_str("# TYPE catalog_capture_active_partitions gauge\n");
     out.push_str("# HELP catalog_capture_queued_items Background queue depth\n");
     out.push_str("# TYPE catalog_capture_queued_items gauge\n");
+    out.push_str("# HELP catalog_capture_queued_bytes Estimated background queue payload bytes\n");
+    out.push_str("# TYPE catalog_capture_queued_bytes gauge\n");
     out.push_str("# HELP catalog_capture_buffered_bytes Summed partition buffer bytes\n");
     out.push_str("# TYPE catalog_capture_buffered_bytes gauge\n");
     out.push_str("# HELP catalog_capture_flushed_rows_total Rows flushed to catalog\n");
@@ -291,6 +347,19 @@ fn append_runtime_gauges(out: &mut String, snapshot: &CaptureMetricsSnapshot) {
 }
 
 fn append_metrics_block(out: &mut String, prefix: &str, labels: &str, metrics: &CaptureMetrics) {
+    for (name, value) in [
+        ("write_errors_total", metrics.write_errors),
+        ("failed_workers", metrics.failed_workers),
+        ("peak_queued_items", metrics.peak_queued_items),
+        ("peak_queued_bytes", metrics.peak_queued_bytes),
+        ("queue_capacity", metrics.queue_capacity),
+        ("queue_max_bytes", metrics.queue_max_bytes),
+        ("in_flight_items", metrics.in_flight_items),
+        ("in_flight_bytes", metrics.in_flight_bytes),
+        ("active_writers", metrics.active_writers),
+    ] {
+        append_line(out, &format!("{prefix}_{name}"), labels, &value.to_string());
+    }
     append_line(
         out,
         &format!("{prefix}_accepted_items_total"),
@@ -317,6 +386,12 @@ fn append_metrics_block(out: &mut String, prefix: &str, labels: &str, metrics: &
     );
     append_line(
         out,
+        &format!("{prefix}_queued_bytes"),
+        labels,
+        &metrics.queued_bytes.to_string(),
+    );
+    append_line(
+        out,
         &format!("{prefix}_buffered_bytes"),
         labels,
         &metrics.buffered_bytes.to_string(),
@@ -339,6 +414,43 @@ fn append_metrics_block(out: &mut String, prefix: &str, labels: &str, metrics: &
         labels,
         &metrics.completed_file_bytes.to_string(),
     );
+    for (name, ns) in [
+        ("oldest_queued_seconds", metrics.oldest_queued_ns),
+        ("worker_busy_seconds", metrics.worker_busy_ns),
+    ] {
+        append_line(
+            out,
+            &format!("{prefix}_{name}"),
+            labels,
+            &(ns as f64 / 1e9).to_string(),
+        );
+    }
+    for (operation, timing) in [
+        ("queue_wait", &metrics.queue_wait),
+        ("sink_write", &metrics.sink_write),
+        ("sink_sync", &metrics.sink_sync),
+        ("sink_seal", &metrics.sink_seal),
+    ] {
+        let timing_labels = merge_labels(labels, &format!(r#"operation="{operation}""#));
+        append_line(
+            out,
+            &format!("{prefix}_operation_seconds_count"),
+            &timing_labels,
+            &timing.count.to_string(),
+        );
+        append_line(
+            out,
+            &format!("{prefix}_operation_seconds_sum"),
+            &timing_labels,
+            &(timing.total_ns as f64 / 1e9).to_string(),
+        );
+        append_line(
+            out,
+            &format!("{prefix}_operation_seconds_max"),
+            &timing_labels,
+            &(timing.max_ns as f64 / 1e9).to_string(),
+        );
+    }
     append_flush_reasons(out, prefix, labels, &metrics.flush_reasons);
 }
 
@@ -400,6 +512,7 @@ mod tests {
             captured_at_unix_ms: 1_700_000_000_000,
             enabled_background_workers: 2,
             process_rss_bytes: Some(128 * 1024 * 1024),
+            failure: None,
             aggregated: CaptureMetrics {
                 dropped_items: 3,
                 active_partitions: 4,
@@ -409,6 +522,7 @@ mod tests {
             },
             families: vec![FamilyCaptureMetrics {
                 family: "quotes".to_string(),
+                failures: Default::default(),
                 metrics: CaptureMetrics {
                     accepted_items: 10,
                     ..CaptureMetrics::default()
@@ -454,10 +568,64 @@ mod tests {
     }
 
     #[test]
+    fn timings_and_fault_scopes_are_visible_to_operators() {
+        use crate::{
+            failures::{FailureOperation, FailureTracker},
+            metrics::OperationTiming,
+        };
+        let faults = FailureTracker::new(4);
+        faults.record(
+            Some("market_data|trades|A|_"),
+            FailureOperation::Admission,
+            Some((10, 10)),
+        );
+        let snapshot = CaptureMetricsSnapshot {
+            families: vec![FamilyCaptureMetrics {
+                family: "trades".into(),
+                failures: faults.snapshot(),
+                metrics: CaptureMetrics {
+                    oldest_queued_ns: 2_000_000_000,
+                    in_flight_items: 4,
+                    in_flight_bytes: 512,
+                    active_writers: 2,
+                    sink_write: OperationTiming {
+                        count: 3,
+                        total_ns: 500_000_000,
+                        max_ns: 300_000_000,
+                    },
+                    ..Default::default()
+                },
+            }],
+            ..Default::default()
+        };
+        assert!(snapshot.has_recording_failure());
+        let body = render_prometheus(&snapshot);
+        assert!(body.contains(r#"catalog_capture_oldest_queued_seconds{family="trades"} 2"#));
+        assert!(body.contains(r#"catalog_capture_in_flight_bytes{family="trades"} 512"#));
+        assert!(body.contains(r#"catalog_capture_active_writers{family="trades"} 2"#));
+        assert!(body.contains(
+            r#"catalog_capture_operation_seconds_count{family="trades",operation="sink_write"} 3"#
+        ));
+        assert!(body.contains(
+            r#"catalog_capture_operation_seconds_sum{family="trades",operation="sink_write"} 0.5"#
+        ));
+        assert!(body.contains(
+            r#"catalog_capture_operation_seconds_max{family="trades",operation="sink_write"} 0.3"#
+        ));
+        let json: serde_json::Value = serde_json::from_str(&render_json(&snapshot)).unwrap();
+        let failure = &json["families"][0]["failures"]["records"][0];
+        assert_eq!(failure["partition"], "market_data|trades|A|_");
+        assert_eq!(failure["operation"], "admission");
+        assert_eq!(failure["event_range_ns"], serde_json::json!([10, 10]));
+        assert!(failure["first_observed_unix_ms"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
     fn json_roundtrip_contains_families() {
         let snapshot = CaptureMetricsSnapshot {
             families: vec![FamilyCaptureMetrics {
                 family: "trades".to_string(),
+                failures: Default::default(),
                 metrics: CaptureMetrics::default(),
             }],
             ..CaptureMetricsSnapshot::default()

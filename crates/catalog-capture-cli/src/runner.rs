@@ -21,6 +21,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use catalog_capture_core::capture_run::RunStatus;
 #[cfg(feature = "venue-hyperliquid")]
 use catalog_capture_core::expand_hip4_universe;
 use catalog_capture_core::{
@@ -49,7 +50,7 @@ use nautilus_binance::{
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::{cache::CacheConfig, enums::Environment};
-use nautilus_core::string::secret::SecretString;
+use nautilus_core::{UUID4, string::secret::SecretString};
 #[cfg(feature = "venue-deribit")]
 use nautilus_deribit::{config::DeribitDataClientConfig, factories::DeribitDataClientFactory};
 #[cfg(feature = "venue-extended")]
@@ -185,17 +186,17 @@ pub async fn run_capture_with_plan_and_reports(
         reports,
         hip4_reports,
         hip4_resolved,
-        metrics_snapshot.clone(),
+        Some(Arc::clone(&metrics_snapshot)),
         metrics_refresh_interval_secs,
     )?)?;
 
     let trader_id = TraderId::new_checked(config.runtime.node_name.as_str())
         .unwrap_or_else(|_| TraderId::new("CAPTURE-001"));
-    // Capture writes parquet via the actor; do not retain market data in cache.
-    // Bounded tick/bar deques match lightweight live strategy practice.
+    // Recording consumes every callback. Cache only the latest tick/bar for selectors;
+    // save_market_data controls database persistence, not these in-memory histories.
     let cache_config = CacheConfig {
-        tick_capacity: 2_000,
-        bar_capacity: 64,
+        tick_capacity: 1,
+        bar_capacity: 1,
         save_market_data: false,
         ..Default::default()
     };
@@ -203,6 +204,7 @@ pub async fn run_capture_with_plan_and_reports(
         .with_name(config.runtime.node_name.as_str())
         .with_cache_config(cache_config)
         .with_timeout_connection(60)
+        .with_delay_shutdown_secs(config.runtime.shutdown_timeout_secs)
         .with_delay_post_stop_secs(config.runtime.delay_post_stop_secs);
 
     for venue in &config.venues {
@@ -521,6 +523,14 @@ pub async fn run_capture_with_plan_and_reports(
     // been constructed successfully. A credential or client-construction
     // failure must not leave metadata that looks like a started capture.
     persist_capture_run_metadata(&catalog_dir, &config, &plan)?;
+    let run_id = UUID4::new().to_string();
+    append_capture_quality_record(
+        &catalog_dir,
+        &run_id,
+        RunStatus::InProgress,
+        &CaptureMetricsSnapshot::default(),
+        None,
+    )?;
 
     log::info!("Starting catalog capture");
     log::info!("Catalog dir: {}", catalog_dir.display());
@@ -531,8 +541,8 @@ pub async fn run_capture_with_plan_and_reports(
     }
     log::info!("Venues: {}", config.venues.len());
 
-    let metrics_server = if let Some(snapshot) = metrics_snapshot {
-        let server = spawn_metrics_server(&config.runtime.metrics, snapshot)?;
+    let metrics_server = if config.runtime.metrics.enabled {
+        let server = spawn_metrics_server(&config.runtime.metrics, Arc::clone(&metrics_snapshot))?;
         log::info!(
             "Metrics export: http://{}:{}/metrics (json: /metrics.json, health: /health)",
             config.runtime.metrics.bind_addr,
@@ -544,23 +554,114 @@ pub async fn run_capture_with_plan_and_reports(
     };
 
     let stop_handle = node.handle();
+    let (quality_stop, mut quality_stopped) = tokio::sync::oneshot::channel::<()>();
+    let quality_store = Arc::clone(&metrics_snapshot);
+    let quality_root = catalog_dir.clone();
+    let quality_run_id = run_id.clone();
+    let quality_task = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        let mut previous = (0, 0, 0, None, Vec::new());
+        loop {
+            tokio::select! {
+                _ = &mut quality_stopped => break,
+                _ = interval.tick() => {
+                    let snapshot = match quality_store.read() {
+                        Ok(store) => store.clone(),
+                        Err(error) => { log::error!("capture quality lock poisoned: {error}"); break; }
+                    };
+                    let generations = snapshot.families.iter().filter(|family| family.failures.generation > 0)
+                        .map(|family| (family.family.clone(), family.failures.generation)).collect::<Vec<_>>();
+                    let faults = (snapshot.aggregated.dropped_items, snapshot.aggregated.write_errors, snapshot.aggregated.failed_workers, snapshot.failure.clone(), generations);
+                    if faults == previous { continue; }
+                    match append_capture_quality_record(&quality_root, &quality_run_id, RunStatus::InProgress, &snapshot, snapshot.failure.as_deref()) {
+                        Ok(()) => previous = faults,
+                        Err(error) => log::error!("capture quality journal failed (will retry): {error:#}"),
+                    }
+                }
+            }
+        }
+    });
     let capture_seconds = config.runtime.capture_seconds;
-    tokio::spawn(async move {
+    let stop_task = tokio::spawn(async move {
         wait_for_capture_shutdown(capture_seconds).await;
         stop_handle.stop();
     });
 
-    node.run().await?;
+    let node_result = node.run().await;
+    stop_task.abort();
+    let _ = quality_stop.send(());
+    quality_task
+        .await
+        .context("capture quality monitor failed")?;
 
     if let Some((handle, shutdown_tx)) = metrics_server {
         let _ = shutdown_tx.send(());
         handle.abort();
     }
 
+    let snapshot = metrics_snapshot
+        .read()
+        .map_err(|error| anyhow::anyhow!("capture quality lock poisoned: {error}"))?
+        .clone();
+    let result = validate_capture_outcome(&snapshot, node_result);
+    let error = result.as_ref().err().map(|error| format!("{error:#}"));
+    let status = if result.is_ok() {
+        RunStatus::Completed
+    } else {
+        RunStatus::Failed
+    };
+    append_capture_quality_record(&catalog_dir, &run_id, status, &snapshot, error.as_deref())?;
+    result?;
+
     log::info!("Capture completed");
     log::info!("Catalog dir: {}", catalog_dir.display());
     run_option_universe_post_run_report(&catalog_dir, &config, &post_run)?;
     Ok(())
+}
+
+fn validate_capture_outcome(
+    snapshot: &CaptureMetricsSnapshot,
+    node_result: Result<()>,
+) -> Result<()> {
+    node_result?;
+    anyhow::ensure!(
+        snapshot.captured_at_unix_ms > 0,
+        "capture actor did not publish final state"
+    );
+    anyhow::ensure!(
+        snapshot.enabled_background_workers == 0,
+        "capture writers did not finish draining"
+    );
+    anyhow::ensure!(
+        !snapshot.has_recording_failure(),
+        "recording is incomplete: failure={:?}; {}",
+        snapshot.failure,
+        snapshot.aggregated.summary_line()
+    );
+    Ok(())
+}
+
+fn append_capture_quality_record(
+    catalog_dir: &Path,
+    run_id: &str,
+    status: RunStatus,
+    snapshot: &CaptureMetricsSnapshot,
+    error: Option<&str>,
+) -> Result<()> {
+    let record = serde_json::json!({
+        "schema_version": 1,
+        "run_id": run_id,
+        "status": status.as_str(),
+        "recorded_at_unix_ms": catalog_capture_core::unix_time_ms(),
+        "scope": "local_admission_and_persistence",
+        "metrics": snapshot,
+        "error": error,
+    });
+    catalog_capture_core::jsonl::append_jsonl_records(
+        &catalog_dir.join("metadata/capture_quality.jsonl"),
+        &[record],
+        "capture quality",
+    )
 }
 
 fn persist_startup_resolution_metadata(
@@ -725,14 +826,14 @@ fn predict_market_ids_for_plan(plan: &CapturePlan) -> Result<Vec<u64>> {
 
 fn build_metrics_runtime_state(
     config: &EffectiveConfig,
-) -> (Option<Arc<RwLock<CaptureMetricsSnapshot>>>, Option<u64>) {
-    if !config.runtime.metrics.enabled {
-        return (None, None);
-    }
-
+) -> (Arc<RwLock<CaptureMetricsSnapshot>>, Option<u64>) {
     (
-        Some(Arc::new(RwLock::new(CaptureMetricsSnapshot::default()))),
-        Some(config.runtime.metrics.refresh_interval_secs),
+        Arc::new(RwLock::new(CaptureMetricsSnapshot::default())),
+        config
+            .runtime
+            .metrics
+            .enabled
+            .then_some(config.runtime.metrics.refresh_interval_secs),
     )
 }
 
@@ -1601,5 +1702,57 @@ mod predict_tests {
             ..CapturePlan::default()
         };
         assert!(predict_market_ids_for_plan(&invalid).is_err());
+    }
+}
+
+#[cfg(test)]
+mod capture_quality_tests {
+    use super::*;
+    use catalog_capture_core::capture_run::RunStatus;
+
+    #[test]
+    fn outcome_rejects_admission_write_and_finalization_failures() {
+        let clean = CaptureMetricsSnapshot {
+            captured_at_unix_ms: 1,
+            ..Default::default()
+        };
+        validate_capture_outcome(&clean, Ok(())).unwrap();
+        let mut lost = clean.clone();
+        lost.aggregated.dropped_items = 1;
+        assert!(validate_capture_outcome(&lost, Ok(())).is_err());
+        let mut failed = clean.clone();
+        failed.aggregated.write_errors = 1;
+        assert!(validate_capture_outcome(&failed, Ok(())).is_err());
+        let mut control = clean.clone();
+        control.failure = Some("seal command rejected".into());
+        assert!(validate_capture_outcome(&control, Ok(())).is_err());
+        let mut unfinished = clean.clone();
+        unfinished.enabled_background_workers = 1;
+        assert!(validate_capture_outcome(&unfinished, Ok(())).is_err());
+        assert!(validate_capture_outcome(&clean, Err(anyhow::anyhow!("node failed"))).is_err());
+        assert!(validate_capture_outcome(&CaptureMetricsSnapshot::default(), Ok(())).is_err());
+    }
+
+    #[test]
+    fn quality_history_retains_failed_runs_after_later_success() {
+        let root =
+            std::env::temp_dir().join(format!("capture-quality-{}", nautilus_core::UUID4::new()));
+        let empty = CaptureMetricsSnapshot::default();
+        append_capture_quality_record(&root, "first", RunStatus::InProgress, &empty, None).unwrap();
+        append_capture_quality_record(&root, "first", RunStatus::Failed, &empty, Some("disk full"))
+            .unwrap();
+        append_capture_quality_record(&root, "second", RunStatus::Completed, &empty, None).unwrap();
+        let records = fs::read_to_string(root.join("metadata/capture_quality.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(records.len(), 3);
+        assert_eq!(records[0]["status"], "in_progress");
+        assert_eq!(records[1]["status"], "failed");
+        assert_eq!(records[1]["error"], "disk full");
+        assert_eq!(records[2]["status"], "completed");
+        assert_eq!(records[0]["run_id"], records[1]["run_id"]);
+        fs::remove_dir_all(root).unwrap();
     }
 }

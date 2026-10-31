@@ -17,6 +17,7 @@
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
+pub use nautilus_persistence::writer::run::RunStatus;
 use serde::{Deserialize, Serialize};
 
 use crate::{CapturePlan, metrics_export::unix_time_ms};

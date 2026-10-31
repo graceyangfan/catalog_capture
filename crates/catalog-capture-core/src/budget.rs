@@ -36,13 +36,20 @@ pub struct BufferMemoryEstimate {
 pub fn family_partition_counts(plan: &CapturePlan) -> Vec<(&'static str, usize)> {
     let flags = plan.family_runtime_flags();
     let mut counts = Vec::new();
+    // During handover, current and successor markets can coexist, each with two outcomes.
+    let predict_selectors = plan
+        .custom_data
+        .iter()
+        .filter(|spec| spec.data_type.type_name() == "PredictCryptoUpDown")
+        .count();
     push_family_count_if(
         &mut counts,
         flags.instruments,
         "instruments",
         plan.planned_instrument_ids()
             .len()
-            .max(plan.instruments.len()),
+            .max(plan.instruments.len())
+            .saturating_add(4 * predict_selectors),
     );
     // Physical CustomData parquet sink is shared; Nautilus command paths stay separate.
     push_family_count_if(
@@ -55,13 +62,28 @@ pub fn family_partition_counts(plan: &CapturePlan) -> Vec<(&'static str, usize)>
             .max(1),
     );
     push_family_count_if(&mut counts, flags.quotes, "quotes", plan.quotes.len());
-    push_family_count_if(&mut counts, flags.trades, "trades", plan.trades.len());
+    push_family_count_if(
+        &mut counts,
+        flags.trades,
+        "trades",
+        plan.trades
+            .len()
+            .saturating_add(2 * plan.predict_recording_count("record_trades")),
+    );
     push_family_count_if(&mut counts, flags.bars, "bars", plan.bars.len());
     push_family_count_if(
         &mut counts,
         flags.book_deltas,
         "book_deltas",
         plan.book_deltas.len(),
+    );
+    push_family_count_if(
+        &mut counts,
+        flags.book_depth,
+        "book_depth",
+        plan.book_depth
+            .len()
+            .saturating_add(2 * plan.predict_recording_count("record_depth")),
     );
     push_family_count_if(
         &mut counts,
@@ -182,6 +204,17 @@ pub fn format_budget_warning(estimate: &BufferMemoryEstimate, budget_bytes: u64)
 }
 
 pub fn validate_capture_config(config: &CaptureConfig) -> Result<()> {
+    if config.queue_max_bytes == Some(0) {
+        bail!("output.queue_max_bytes must be greater than zero");
+    }
+    for (family, limits) in &config.queues {
+        if limits.capacity == Some(0) || limits.max_bytes == Some(0) {
+            bail!(
+                "output.queues.{family:?} capacity and max_bytes must be greater than zero when provided"
+            );
+        }
+    }
+
     if config.flush_rows == 0 {
         bail!("output.flush_rows must be greater than zero");
     }
@@ -212,6 +245,43 @@ mod tests {
 
     use super::*;
     use crate::plan::{CapturePlan, QuoteCaptureSpec, TradeCaptureSpec};
+
+    #[test]
+    fn queue_byte_caps_are_independent_of_partition_caps_but_cannot_be_zero() {
+        use crate::{config::QueueLimits, flush_profile::CaptureFlushFamily};
+        let mut config = CaptureConfig {
+            queue_max_bytes: Some(1),
+            ..Default::default()
+        };
+        validate_capture_config(&config).unwrap();
+        config.queues.insert(
+            CaptureFlushFamily::Instruments,
+            QueueLimits {
+                capacity: Some(10),
+                max_bytes: Some(1),
+            },
+        );
+        validate_capture_config(&config).unwrap();
+        config
+            .queues
+            .get_mut(&CaptureFlushFamily::Instruments)
+            .unwrap()
+            .capacity = Some(0);
+        assert!(
+            validate_capture_config(&config)
+                .unwrap_err()
+                .to_string()
+                .contains("output.queues")
+        );
+        config.queues.clear();
+        config.queue_max_bytes = Some(0);
+        assert!(
+            validate_capture_config(&config)
+                .unwrap_err()
+                .to_string()
+                .contains("queue_max_bytes")
+        );
+    }
 
     #[test]
     fn validate_rejects_zero_flush_rows() {
@@ -278,5 +348,32 @@ mod tests {
 
         let counts = family_partition_counts(&plan);
         assert_eq!(counts, vec![("instruments", 1), ("quotes", 1)]);
+    }
+
+    #[test]
+    fn rolling_predict_estimate_counts_native_families_and_handover() {
+        let metadata = nautilus_core::Params::new(
+            [
+                ("record_depth".into(), "true".into()),
+                ("record_trades".into(), "true".into()),
+                ("record_snapshot".into(), "false".into()),
+            ]
+            .into(),
+        );
+        let plan = CapturePlan {
+            custom_data: vec![crate::plan::CustomDataCaptureSpec {
+                data_type: nautilus_model::data::DataType::new(
+                    "PredictCryptoUpDown",
+                    Some(metadata),
+                    None,
+                ),
+            }],
+            ..CapturePlan::default()
+        };
+        let counts = family_partition_counts(&plan);
+        assert_eq!(
+            counts,
+            vec![("instruments", 4), ("trades", 2), ("book_depth", 2)]
+        );
     }
 }

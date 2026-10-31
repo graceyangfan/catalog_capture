@@ -33,15 +33,20 @@
 //! | custom (BookSummary) | ~1 000 | ~50 000 | Poll often; pack many polls per RG |
 //! | instruments | tiny | n/a | Chunked defs |
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     config::CaptureConfig,
     lifecycle::row_group_capacity::{CUSTOM_MEMORY_FLUSH_ROWS, CUSTOM_ROW_GROUP_ROWS},
 };
 
-/// Capture family used only for flush-threshold selection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Capture family for row thresholds and optional ingress budgets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CaptureFlushFamily {
     BookDeltas,
+    /// Full snapshots contain many levels per row; do not use incremental L2 sizing.
+    BookDepth,
     Trades,
     Quotes,
     MarkPrices,
@@ -70,6 +75,7 @@ pub fn family_row_threshold(base: &CaptureConfig, family: CaptureFlushFamily) ->
     match family {
         // Profile C: L2 — ~20k is reasonable; allow higher operator values up to 50k.
         CaptureFlushFamily::BookDeltas => configured.clamp(20_000, 50_000),
+        CaptureFlushFamily::BookDepth => 512,
         CaptureFlushFamily::Trades => 2_000,
         CaptureFlushFamily::Quotes => 500,
         CaptureFlushFamily::MarkPrices
@@ -103,7 +109,7 @@ pub fn family_row_group_rows(base: &CaptureConfig, family: CaptureFlushFamily) -
     }
 }
 
-/// Clone config with family-specific row thresholds applied.
+/// Clone config with family-specific row thresholds and explicit ingress limits applied.
 #[must_use]
 pub fn capture_config_for_family(
     base: &CaptureConfig,
@@ -112,6 +118,10 @@ pub fn capture_config_for_family(
     let flush_rows = family_row_threshold(base, family);
     let row_group_rows = family_row_group_rows(base, family);
     let mut config = base.clone();
+    if let Some(limits) = base.queues.get(&family) {
+        config.queue_capacity = limits.capacity.unwrap_or(base.queue_capacity);
+        config.queue_max_bytes = limits.max_bytes.or(base.queue_max_bytes);
+    }
     config.flush_rows = flush_rows;
     if config.lifecycle.is_segment_mode() {
         config.lifecycle.segment.row_group_rows = row_group_rows;
@@ -134,6 +144,76 @@ mod tests {
             },
             ..CaptureConfig::default()
         }
+    }
+
+    #[test]
+    fn queue_overrides_do_not_change_partition_or_row_group_budgets() {
+        use crate::config::QueueLimits;
+        let mut base = segment_base(5_000);
+        base.queue_capacity = 32_768;
+        base.queue_max_bytes = Some(64 * 1024 * 1024);
+        base.queues.insert(
+            CaptureFlushFamily::BookDepth,
+            QueueLimits {
+                capacity: Some(8192),
+                max_bytes: Some(32 * 1024 * 1024),
+            },
+        );
+        base.queues.insert(
+            CaptureFlushFamily::Instruments,
+            QueueLimits {
+                capacity: Some(1024),
+                max_bytes: Some(4 * 1024 * 1024),
+            },
+        );
+        let depth = capture_config_for_family(&base, CaptureFlushFamily::BookDepth);
+        assert_eq!(
+            (depth.queue_capacity, depth.ingress_max_bytes()),
+            (8192, 32 * 1024 * 1024)
+        );
+        assert_eq!(depth.max_total_buffer_bytes, base.max_total_buffer_bytes);
+        assert_eq!(depth.max_buffer_bytes, base.max_buffer_bytes);
+        assert_eq!(depth.lifecycle.segment.row_group_rows, 512);
+        let instrument = capture_config_for_family(&base, CaptureFlushFamily::Instruments);
+        assert_eq!(
+            (instrument.queue_capacity, instrument.ingress_max_bytes()),
+            (1024, 4 * 1024 * 1024)
+        );
+        let deltas = capture_config_for_family(&base, CaptureFlushFamily::BookDeltas);
+        assert_eq!(
+            (deltas.queue_capacity, deltas.ingress_max_bytes()),
+            (32768, 64 * 1024 * 1024)
+        );
+        assert_eq!(deltas.lifecycle.segment.row_group_rows, 20_000);
+    }
+
+    #[test]
+    fn partial_and_legacy_queue_limits_inherit_without_implicit_downsizing() {
+        use crate::config::QueueLimits;
+        let mut base = segment_base(5000);
+        for family in [
+            CaptureFlushFamily::BookDepth,
+            CaptureFlushFamily::Trades,
+            CaptureFlushFamily::Instruments,
+        ] {
+            let config = capture_config_for_family(&base, family);
+            assert_eq!(config.queue_capacity, base.queue_capacity);
+            assert_eq!(config.ingress_max_bytes(), base.max_total_buffer_bytes);
+        }
+        base.queues.insert(
+            CaptureFlushFamily::Trades,
+            QueueLimits {
+                capacity: Some(42),
+                max_bytes: None,
+            },
+        );
+        let config = capture_config_for_family(&base, CaptureFlushFamily::Trades);
+        assert_eq!(config.queue_capacity, 42);
+        assert_eq!(config.ingress_max_bytes(), base.max_total_buffer_bytes);
+        base.queue_max_bytes = Some(1024);
+        let config = capture_config_for_family(&base, CaptureFlushFamily::Trades);
+        assert_eq!(config.ingress_max_bytes(), 1024);
+        assert_eq!(base.queue_capacity, CaptureConfig::default().queue_capacity);
     }
 
     #[test]
@@ -208,5 +288,21 @@ mod tests {
         let cfg = capture_config_for_family(&base, CaptureFlushFamily::CustomData);
         assert_eq!(cfg.flush_rows, 1_000);
         assert_eq!(cfg.lifecycle.segment.row_group_rows, 50_000);
+    }
+
+    #[test]
+    fn complete_depth_snapshots_use_small_groups_without_changing_smoke_thresholds() {
+        let base = segment_base(5_000);
+        let depth = capture_config_for_family(&base, CaptureFlushFamily::BookDepth);
+        assert_eq!(depth.flush_rows, 512);
+        assert_eq!(depth.lifecycle.segment.row_group_rows, 512);
+        assert_eq!(
+            family_row_threshold(&base, CaptureFlushFamily::BookDeltas),
+            20_000
+        );
+        assert_eq!(
+            family_row_threshold(&segment_base(50), CaptureFlushFamily::BookDepth),
+            50
+        );
     }
 }

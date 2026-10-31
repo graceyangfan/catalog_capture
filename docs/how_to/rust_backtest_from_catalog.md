@@ -1,71 +1,62 @@
-# Use a captured catalog in Rust backtest
+# Replay a captured catalog in Rust
 
-```text
-catalog-capture-cli → file://catalog  →  ParquetDataCatalog / BacktestNode
-```
+Capture writes standard Native Parquet directly. No staging or format conversion
+is needed. For catalogs predating the v0.65 persistence refactor, migrate into a
+separate empty destination before using a current reader.
 
-No conversion step. Same layout Nautilus Trader Rust loaders expect.
+## Read independent replay windows
 
-For catalogs written before the Nautilus v0.65 persistence refactor, run
-`nautilus catalog migrate-parquet` into a separate empty destination first. Do not point a
-v0.66 reader at a mixed old/new catalog.
+Use the capture window reader for instrument-keyed market data. Ordinary Native
+catalog queries ignore continuity metadata and local initialization prefixes.
+They are useful for inspection, but raw concatenation can bridge known gaps.
 
-## Capture
-
-```bash
-cargo run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml
-```
-
-Layout: [catalog layout](../concepts/catalog_layout.md).
-
-## Offline proof (this repo)
-
-```bash
-cargo test -p catalog-capture-core --lib catalog_layout
-```
-
-## Load pattern
-
-```rust
-use nautilus_persistence::backend::catalog::ParquetDataCatalog;
+```rust,ignore
+use catalog_capture_core::{read_book_replay_windows, read_replay_windows};
+use nautilus_model::{data::{OrderBookDepth, TradeTick}, identifiers::InstrumentId};
 use std::path::Path;
 
-fn load_quotes(root: &Path, instrument_id: &str) -> anyhow::Result<usize> {
-    let mut catalog = ParquetDataCatalog::new(root, None, None, None, None);
-    let rows = catalog.quote_ticks(Some(vec![instrument_id.to_string()]), None, None)?;
-    ParquetDataCatalog::check_ascending_timestamps(&rows, "quotes")?;
-    Ok(rows.len())
+let root = Path::new("data/predict-crypto-updown");
+let id = InstrumentId::from("BTCUSDT.BINANCE");
+let books = read_book_replay_windows(root, id)?;
+let trades = read_replay_windows::<TradeTick>(root, id)?;
+// For Predict, use its recorded YES instrument ID:
+// let depths = read_replay_windows::<OrderBookDepth>(root, predict_id)?;
+
+for window in books {
+    anyhow::ensure!(window.has_book_baseline(), "missing L2 initialization");
+    // Create a fresh Native BacktestEngine, strategy, account and book.
+    // Initialize and warm up all required feeds within this continuous window.
+    // Pass window.data as Native Data::BookDeltas, with aligned trades/depth.
+    // Run, collect results and dispose before starting another window.
 }
 ```
 
-## Binance Spot SBE L2 + trades
+`x..A + gap + C..y` is two independent experiments. Do not carry positions,
+indicators or outstanding orders across the gap. `common_replay_ranges` intersects
+observed ranges across required feeds; it does not prove venue availability or
+supply initialization/warmup automatically.
 
-The Spot SBE recorder writes the ordinary Nautilus families; it does not need a
-custom-data decoder. Read the same `BTCUSDT.BINANCE` identity from both
-families:
+Physical hourly seals within one healthy window remain continuous. Intermediate
+managed-book initialization prefixes are skipped. After retention removes the
+original baseline, a retained prefix can initialize a new experiment when its
+source anchor is valid. Flat L2 rows are grouped by `F_LAST` before reaching the
+Native matching engine. Source timestamps and fields are not rewritten.
 
-```rust
-fn load_spot_l2_and_trades(root: &Path, instrument_id: &str) -> anyhow::Result<(usize, usize)> {
-    let mut catalog = ParquetDataCatalog::new(root, None, None, None, None);
-    let deltas = catalog.order_book_deltas(Some(vec![instrument_id.to_string()]), None, None)?;
-    let trades = catalog.trade_ticks(Some(vec![instrument_id.to_string()]), None, None)?;
-    ParquetDataCatalog::check_ascending_timestamps(&deltas, "order_book_deltas")?;
-    ParquetDataCatalog::check_ascending_timestamps(&trades, "trade_ticks")?;
-    Ok((deltas.len(), trades.len()))
-}
+Reads currently materialize an instrument's windows in memory. Legacy files
+without continuity metadata remain Native-readable but are rejected by this
+window reader. Inspect quality history and venue coverage before selecting data.
+
+## Validation
+
+```bash
+cargo test -p catalog-capture-core --lib replay::tests
+cargo test -p catalog-capture-runtime-adapter --test replay_windows
 ```
 
-For [`capture.binance-spot-sbe-btc.toml`](../../examples/capture.binance-spot-sbe-btc.toml),
-pass `"BTCUSDT.BINANCE"`. Every sealed UTC hour begins with a canonical book
-snapshot, so an individual hour can initialize an L2 replay without reading the
-preceding hour.
+The integration tests compare callbacks and decisions of the same Rust strategy
+through LiveNode and BacktestEngine for L2/trades and full-depth/trades, including
+ordinary seals. Gap windows start separate engines. These are injected-data tests,
+not proof of real execution fills or global ordering across independent feeds.
 
-Point `BacktestDataConfig` at the **same** catalog path for a full backtest node
-(see Nautilus Trader backtest docs).
-
-## Checklist
-
-- [ ] Parquet under `data/<family>/…` or `data/custom/<Type>/…`
-- [ ] `ParquetDataCatalog` returns rows
-- [ ] Timestamps ascending
-- [ ] No Python legacy mirror dirs required
+See [replay policy](../developer_guide/realtime-adapters.md#faithful-replay-across-file-boundaries)
+and [segment lifecycle](../concepts/segment_lifecycle.md#order-book-initialization-and-replay-windows).

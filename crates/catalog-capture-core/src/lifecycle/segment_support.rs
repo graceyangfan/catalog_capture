@@ -33,7 +33,7 @@ use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterPr
 
 use crate::{
     config::{CaptureConfig, CompressionKind},
-    runtime::FlushResult,
+    runtime::{FlushResult, collect_flush_results},
 };
 
 /// Must NOT end with `.parquet` (catalog queries match any `*.parquet`).
@@ -48,10 +48,12 @@ pub(crate) struct SegmentRuntimeParts {
     pub local_root: PathBuf,
     pub compression: Compression,
     pub row_group_rows: usize,
+    pub row_group_bytes: usize,
     pub sync_interval_ns: u64,
 }
 
 pub(crate) fn segment_runtime_parts(config: &CaptureConfig) -> Result<SegmentRuntimeParts> {
+    crate::budget::validate_capture_config(config)?;
     if !config.lifecycle.is_segment_mode() {
         bail!("segment sink requires output.lifecycle.mode = segment");
     }
@@ -81,6 +83,7 @@ pub(crate) fn segment_runtime_parts(config: &CaptureConfig) -> Result<SegmentRun
         catalog,
         local_root: PathBuf::from(uri),
         row_group_rows: config.lifecycle.batch_row_threshold(config.flush_rows),
+        row_group_bytes: config.max_buffer_bytes,
         sync_interval_ns: config
             .lifecycle
             .durability
@@ -118,15 +121,23 @@ pub(crate) fn catalog_fs_custom_directory(
     Ok(local_root.join(made_path))
 }
 
-pub(crate) fn writer_props(compression: Compression, row_group_rows: usize) -> WriterProperties {
+pub(crate) fn writer_props(
+    compression: Compression,
+    row_group_rows: usize,
+    row_group_bytes: usize,
+) -> WriterProperties {
     WriterProperties::builder()
         .set_compression(compression)
         .set_max_row_group_row_count(Some(row_group_rows))
+        .set_max_row_group_bytes(Some(row_group_bytes))
         .build()
 }
 
 pub(crate) fn part_path_for(directory: &Path, open_ts_ns: u64) -> PathBuf {
-    directory.join(format!("{open_ts_ns}{PART_SUFFIX}"))
+    directory.join(format!(
+        "{open_ts_ns}-{}{PART_SUFFIX}",
+        nautilus_core::UUID4::new()
+    ))
 }
 
 pub(crate) fn open_arrow_writer(
@@ -134,19 +145,19 @@ pub(crate) fn open_arrow_writer(
     schema: arrow::datatypes::SchemaRef,
     compression: Compression,
     row_group_rows: usize,
+    row_group_bytes: usize,
 ) -> Result<ArrowWriter<File>> {
     if let Some(parent) = part_path.parent() {
         fs::create_dir_all(parent)?;
     }
     let file = fs::OpenOptions::new()
-        .create(true)
-        .truncate(true)
+        .create_new(true)
         .write(true)
         .open(part_path)?;
     Ok(ArrowWriter::try_new(
         file,
         schema,
-        Some(writer_props(compression, row_group_rows)),
+        Some(writer_props(compression, row_group_rows, row_group_bytes)),
     )?)
 }
 
@@ -216,9 +227,42 @@ pub(crate) fn rename_part_to_catalog_parquet(
     max_ts_ns: u64,
 ) -> Result<(PathBuf, u64)> {
     let final_name = timestamps_to_filename(UnixNanos::from(min_ts_ns), UnixNanos::from(max_ts_ns));
+    // Native accepts a single alphanumeric replay identity suffix. Deriving it
+    // from the part identity makes publication idempotent and avoids equal-time
+    // filename collisions without changing a market timestamp.
+    let identity: String = part_path
+        .file_name()
+        .context("missing part filename")?
+        .to_string_lossy()
+        .trim_end_matches(PART_SUFFIX)
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .collect();
+    let final_name = final_name.replace(".parquet", &format!("_{identity}.parquet"));
     let final_path = directory.join(final_name);
-    fs::rename(part_path, &final_path)
-        .with_context(|| format!("failed to seal segment part {}", part_path.display()))?;
+    if let Err(error) = fs::hard_link(part_path, &final_path) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let same_file = fs::metadata(part_path)
+                .ok()
+                .zip(fs::metadata(&final_path).ok())
+                .is_some_and(|(a, b)| a.dev() == b.dev() && a.ino() == b.ino());
+            if !same_file {
+                return Err(error).with_context(|| {
+                    format!(
+                        "failed to publish without overwriting {}",
+                        final_path.display()
+                    )
+                });
+            }
+        }
+        #[cfg(not(unix))]
+        return Err(error).with_context(|| format!("failed to publish {}", final_path.display()));
+    }
+    fs::remove_file(part_path)?;
+    #[cfg(unix)]
+    File::open(directory)?.sync_all()?;
     let bytes = fs::metadata(&final_path)
         .map(|meta| meta.len())
         .unwrap_or(0);
@@ -276,12 +320,6 @@ pub(crate) fn collect_orphan_part_files(root: &Path) -> Result<Vec<PathBuf>> {
     Ok(orphans)
 }
 
-pub(crate) fn merge_flush(result: &mut FlushResult, partial: FlushResult) {
-    result.rows += partial.rows;
-    result.bytes += partial.bytes;
-    result.files.extend(partial.files);
-}
-
 pub(crate) fn update_ts_bounds(min_ts_ns: &mut u64, max_ts_ns: &mut u64, lo: u64, hi: u64) {
     if *min_ts_ns == 0 {
         *min_ts_ns = lo;
@@ -306,15 +344,28 @@ pub(crate) struct ActivePart {
 }
 
 impl ActivePart {
+    /// Retire an uncertain encoder without retrying or exposing its bytes as a clean file.
+    pub(crate) fn quarantine(self) {
+        let path = self.part_path.clone();
+        drop(self);
+        quarantine_part_file(&path);
+    }
     pub(crate) fn open(
         directory: PathBuf,
         open_ts_ns: u64,
         schema: arrow::datatypes::SchemaRef,
         compression: Compression,
         row_group_rows: usize,
+        row_group_bytes: usize,
     ) -> Result<Self> {
         let part_path = part_path_for(&directory, open_ts_ns);
-        let writer = open_arrow_writer(&part_path, schema, compression, row_group_rows)?;
+        let writer = open_arrow_writer(
+            &part_path,
+            schema,
+            compression,
+            row_group_rows,
+            row_group_bytes,
+        )?;
         Ok(Self {
             directory,
             part_path,
@@ -381,19 +432,36 @@ impl ActivePart {
             row_count,
             ..
         } = self;
-        writer.close()?;
-        let (final_path, bytes) =
-            rename_part_to_catalog_parquet(&part_path, &directory, min_ts_ns, max_ts_ns)?;
-        Ok(FlushResult {
-            files: vec![final_path],
-            rows: row_count as usize,
-            bytes,
-        })
+        let result = (|| {
+            writer.close()?;
+            // A periodic sync cannot cover a footer which did not exist yet.
+            File::open(&part_path)?.sync_all()?;
+            let (final_path, bytes) =
+                rename_part_to_catalog_parquet(&part_path, &directory, min_ts_ns, max_ts_ns)?;
+            Ok(FlushResult {
+                files: vec![final_path],
+                rows: row_count as usize,
+                bytes,
+            })
+        })();
+        if result.is_err() {
+            quarantine_part_file(&part_path);
+        }
+        result
     }
 
     #[cfg(test)]
     pub(crate) fn set_row_group_roll_threshold_for_test(&mut self, threshold: usize) {
         self.row_group_roll_threshold = threshold.max(1);
+    }
+}
+
+fn quarantine_part_file(path: &Path) {
+    if let Err(error) = fs::rename(path, path.with_extension("failed")) {
+        log::error!(
+            "catalog-capture: failed to quarantine {}: {error}",
+            path.display()
+        );
     }
 }
 
@@ -428,8 +496,44 @@ pub(crate) fn tick_parts_map<V>(
     now_ns: u64,
     part_mut: impl Fn(&mut V) -> &mut ActivePart,
 ) -> Result<FlushResult> {
-    for segment in segments.values_mut() {
-        part_mut(segment).tick(sync_interval_ns, now_ns)?;
+    collect_flush_results(segments.values_mut().map(|segment| {
+        part_mut(segment)
+            .tick(sync_interval_ns, now_ns)
+            .map(|_| FlushResult::default())
+    }))
+}
+
+#[cfg(test)]
+mod publication_tests {
+    use super::*;
+
+    #[test]
+    fn equal_timestamp_publication_preserves_both_files_and_retry_is_idempotent() {
+        let root =
+            std::env::temp_dir().join(format!("publication-{}", nautilus_core::UUID4::new()));
+        fs::create_dir_all(&root).unwrap();
+        let first = part_path_for(&root, 100);
+        let second = part_path_for(&root, 100);
+        fs::write(&first, b"first").unwrap();
+        fs::write(&second, b"second").unwrap();
+        let (published, _) = rename_part_to_catalog_parquet(&first, &root, 100, 100).unwrap();
+        let (other, _) = rename_part_to_catalog_parquet(&second, &root, 100, 100).unwrap();
+        assert_ne!(published, other);
+        assert_eq!(fs::read(&published).unwrap(), b"first");
+        assert_eq!(fs::read(other).unwrap(), b"second");
+        #[cfg(unix)]
+        {
+            // Model process death after link succeeds but before the part is unlinked.
+            fs::hard_link(&published, &first).unwrap();
+            let (retried, _) = rename_part_to_catalog_parquet(&first, &root, 100, 100).unwrap();
+            assert_eq!(retried, published);
+            assert!(!first.exists());
+        }
+        // A different inode at the same destination must never be overwritten.
+        fs::write(&first, b"unrelated").unwrap();
+        assert!(rename_part_to_catalog_parquet(&first, &root, 100, 100).is_err());
+        assert_eq!(fs::read(published).unwrap(), b"first");
+        assert_eq!(fs::read(first).unwrap(), b"unrelated");
+        fs::remove_dir_all(root).unwrap();
     }
-    Ok(FlushResult::default())
 }
