@@ -61,6 +61,8 @@ pub struct CaptureConfigFile {
     #[serde(default)]
     pub hip4_universe: Vec<Hip4UniverseSelector>,
     #[serde(default)]
+    pub matched_sports: Option<catalog_capture_core::paired_markets::MatchedSportsCaptureConfig>,
+    #[serde(default)]
     pub lighter_updown: Vec<catalog_capture_runtime_adapter::LighterUpDownCaptureConfig>,
 }
 

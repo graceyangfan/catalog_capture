@@ -189,12 +189,13 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn submit_book_depth(&mut self, depth: OrderBookDepth) -> Result<()> {
+        let configured = self
+            .plan
+            .book_depth
+            .iter()
+            .any(|s| s.instrument_id == depth.instrument_id);
         if !self.predict_native_accepts(depth.instrument_id, "record_depth")
-            && !self
-                .plan
-                .book_depth
-                .iter()
-                .any(|s| s.instrument_id == depth.instrument_id)
+            && (!configured || !self.accepts_market_data(depth.instrument_id, || configured))
         {
             return Ok(());
         }

@@ -166,7 +166,7 @@ pub async fn run_capture_with_plan_and_reports(
         hip4_resolved,
     )?;
 
-    if plan.is_empty() && config.lighter_updown.is_empty() {
+    if plan.is_empty() && config.lighter_updown.is_empty() && config.matched_sports.is_none() {
         bail!("capture plan is empty after universe expansion");
     }
 
@@ -180,7 +180,7 @@ pub async fn run_capture_with_plan_and_reports(
     register_request_types(&plan.custom_data_requests);
 
     let (metrics_snapshot, metrics_refresh_interval_secs) = build_metrics_runtime_state(&config);
-    let capture_actor = CatalogCaptureActor::new(build_capture_actor_config(
+    let mut actor_config = build_capture_actor_config(
         &config,
         &plan,
         reports,
@@ -188,7 +188,27 @@ pub async fn run_capture_with_plan_and_reports(
         hip4_resolved,
         Some(Arc::clone(&metrics_snapshot)),
         metrics_refresh_interval_secs,
-    )?)?;
+    )?;
+    #[cfg(feature = "venue-polymarket")]
+    let _matched_sports_task = if let Some(c) = &config.matched_sports {
+        let inbox = Arc::new(
+            catalog_capture_runtime_adapter::matched_sports::MatchedSportsDiscoveryInbox::default(),
+        );
+        actor_config.matched_sports_inbox = Some(Arc::clone(&inbox));
+        let venue = config
+            .venues
+            .iter()
+            .find(|v| matches!(v, VenueRuntimeConfig::Predict { .. }))
+            .context("missing Predict venue")?;
+        Some(crate::matched_sports::spawn(
+            c.clone(),
+            &predict_api_key(venue.id())?,
+            inbox,
+        )?)
+    } else {
+        None
+    };
+    let capture_actor = CatalogCaptureActor::new(actor_config)?;
 
     let trader_id = TraderId::new_checked(config.runtime.node_name.as_str())
         .unwrap_or_else(|_| TraderId::new("CAPTURE-001"));
@@ -483,6 +503,14 @@ pub async fn run_capture_with_plan_and_reports(
                     }),
                 )?;
             }
+            #[cfg(feature = "venue-polymarket")]
+            VenueRuntimeConfig::Polymarket { .. } => {
+                builder = builder.add_data_client(
+                    None,
+                    Box::new(nautilus_polymarket::factories::PolymarketDataClientFactory),
+                    Box::new(polymarket_data_config(&config)),
+                )?;
+            }
             #[cfg(feature = "venue-predict")]
             VenueRuntimeConfig::Predict { id } => {
                 let api_key = predict_api_key(id).with_context(|| {
@@ -733,6 +761,21 @@ fn persist_capture_run_metadata(
     Ok(())
 }
 
+#[cfg(feature = "venue-polymarket")]
+fn polymarket_data_config(
+    config: &EffectiveConfig,
+) -> nautilus_polymarket::config::PolymarketDataClientConfig {
+    nautilus_polymarket::config::PolymarketDataClientConfig {
+        instrument_config: Some(Default::default()),
+        update_instruments_interval_mins: None,
+        resolve_poll_enabled: false,
+        // Repeated venue books update the existing Native book rather than creating
+        // a new recording segment for every full snapshot. Recovery still resets it.
+        compute_effective_deltas: config.matched_sports.is_some(),
+        ..Default::default()
+    }
+}
+
 fn layout_compatibility_label(value: &LayoutCompatibility) -> &'static str {
     match value {
         LayoutCompatibility::RustCanonicalOnly => "rust_canonical_only",
@@ -761,6 +804,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
         VenueRuntimeConfig::Okx { .. } => "okx",
         #[cfg(feature = "venue-predict")]
         VenueRuntimeConfig::Predict { .. } => "predict",
+        #[cfg(feature = "venue-polymarket")]
+        VenueRuntimeConfig::Polymarket { .. } => "polymarket",
     }
 }
 
@@ -784,6 +829,8 @@ fn compiled_venue_features() -> Vec<String> {
         "venue-extended",
         #[cfg(feature = "venue-predict")]
         "venue-predict",
+        #[cfg(feature = "venue-polymarket")]
+        "venue-polymarket",
     ]
     .into_iter()
     .map(str::to_string)
@@ -874,6 +921,8 @@ fn build_capture_actor_config(
             hip4_resolved,
         )?,
         lighter_updown: config.lighter_updown.clone(),
+        matched_sports_config: config.matched_sports.clone(),
+        matched_sports_inbox: None,
         binance_client_routes,
         binance_futures_client_id,
         metrics_snapshot,
@@ -1558,7 +1607,39 @@ fn matches_binance_product(instrument_id: InstrumentId, product_type: BinancePro
 }
 
 fn log_capture_buffer_estimate(config: &EffectiveConfig, plan: &CapturePlan) {
-    let estimate = estimate_peak_buffered_bytes(plan, &config.capture);
+    let mut estimate = estimate_peak_buffered_bytes(plan, &config.capture);
+    if let Some(matched) = &config.matched_sports {
+        let owned_markets = matched.max_markets + usize::from(matched.preload_next);
+        for (family, partitions) in [
+            ("instruments", 4 * owned_markets),
+            ("trades", 3 * owned_markets),
+            ("book_depth", owned_markets),
+            ("book_deltas", 2 * owned_markets),
+        ] {
+            if let Some(existing) = estimate.families.iter_mut().find(|f| f.family == family) {
+                existing.partition_count += partitions;
+                existing.naive_peak_bytes =
+                    existing.partition_count as u64 * config.capture.max_buffer_bytes as u64;
+                existing.capped_peak_bytes = existing
+                    .naive_peak_bytes
+                    .min(config.capture.max_total_buffer_bytes as u64);
+            } else {
+                let naive_peak_bytes = partitions as u64 * config.capture.max_buffer_bytes as u64;
+                estimate
+                    .families
+                    .push(catalog_capture_core::FamilyBufferEstimate {
+                        family,
+                        partition_count: partitions,
+                        naive_peak_bytes,
+                        capped_peak_bytes: naive_peak_bytes
+                            .min(config.capture.max_total_buffer_bytes as u64),
+                    });
+                estimate.enabled_family_runtimes += 1;
+            }
+        }
+        estimate.total_peak_buffered_bytes =
+            estimate.families.iter().map(|f| f.capped_peak_bytes).sum();
+    }
     log::info!("{}", format_buffer_estimate(&estimate));
     if let Some(budget_bytes) = config.runtime.resource_budget_bytes
         && estimate.total_peak_buffered_bytes > budget_bytes
@@ -1649,6 +1730,7 @@ mod tests {
             option_universes: Vec::new(),
             hip4_universes: Vec::new(),
             lighter_updown: Vec::new(),
+            matched_sports: None,
             venues: vec![
                 VenueRuntimeConfig::BinanceSpot {
                     id: "binance_spot".to_string(),
@@ -1754,5 +1836,20 @@ mod capture_quality_tests {
         assert_eq!(records[2]["status"], "completed");
         assert_eq!(records[0]["run_id"], records[1]["run_id"]);
         fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(all(test, feature = "venue-polymarket"))]
+mod polymarket_recording_tests {
+    #[test]
+    fn matched_profile_uses_native_effective_deltas_without_changing_static_pm_defaults() {
+        let file = toml::from_str(include_str!(
+            "../../../examples/capture.matched-sports.toml"
+        ))
+        .unwrap();
+        let mut config = crate::config::resolve_config(file).unwrap();
+        assert!(super::polymarket_data_config(&config).compute_effective_deltas);
+        config.matched_sports = None;
+        assert!(!super::polymarket_data_config(&config).compute_effective_deltas);
     }
 }

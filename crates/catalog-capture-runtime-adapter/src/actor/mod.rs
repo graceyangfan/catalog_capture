@@ -14,6 +14,7 @@
 
 mod lifecycle;
 mod lighter;
+mod matched_sports;
 mod predict;
 mod submit;
 
@@ -90,6 +91,9 @@ pub struct CatalogCaptureActorConfig {
     pub online_option_metrics: Option<OnlineOptionMetricsConfig>,
     pub dynamic_option_universe: Option<DynamicOptionUniverseConfig>,
     pub dynamic_hip4_universe: Option<DynamicHip4UniverseConfig>,
+    pub matched_sports_config:
+        Option<catalog_capture_core::paired_markets::MatchedSportsCaptureConfig>,
+    pub matched_sports_inbox: Option<Arc<crate::matched_sports::MatchedSportsDiscoveryInbox>>,
     pub lighter_updown: Vec<crate::LighterUpDownCaptureConfig>,
     /// Explicit routes needed when Binance products share venue `BINANCE`.
     ///
@@ -114,6 +118,8 @@ impl CatalogCaptureActorConfig {
             dynamic_option_universe: None,
             dynamic_hip4_universe: None,
             lighter_updown: Vec::new(),
+            matched_sports_config: None,
+            matched_sports_inbox: None,
             binance_client_routes: BTreeMap::new(),
             binance_futures_client_id: None,
             metrics_snapshot: None,
@@ -125,6 +131,9 @@ impl CatalogCaptureActorConfig {
 pub struct CatalogCaptureActor {
     core: DataActorCore,
     lighter: crate::lighter_updown::LighterCaptureState,
+    matched_sports: crate::matched_sports::MatchedSportsState,
+    matched_sports_config: Option<catalog_capture_core::paired_markets::MatchedSportsCaptureConfig>,
+    matched_sports_inbox: Option<Arc<crate::matched_sports::MatchedSportsDiscoveryInbox>>,
     capture: CaptureConfig,
     /// Startup materialized plan (static TOML + one-shot universe expansion).
     initial_materialized_plan: CapturePlan,
@@ -224,6 +233,18 @@ impl CatalogCaptureActor {
             config.lighter_updown.is_empty() || config.capture.lifecycle.is_segment_mode(),
             "rolling Lighter capture requires segment mode"
         );
+        anyhow::ensure!(
+            config.matched_sports_config.is_some() == config.matched_sports_inbox.is_some(),
+            "MatchedSports config and inbox must be supplied together"
+        );
+        if let Some(c) = &config.matched_sports_config {
+            c.validate()?;
+            anyhow::ensure!(
+                config.capture.lifecycle.is_segment_mode(),
+                "matched sports capture requires segment mode"
+            );
+        }
+        let paired_matched_sports = config.matched_sports_config.is_some();
         let rolling_lighter = !config.lighter_updown.is_empty();
         let flags = config.plan.family_runtime_flags();
         let predict_selectors = predict_selector_keys(&config.plan)?;
@@ -232,16 +253,15 @@ impl CatalogCaptureActor {
         // for replay before the first orderbook snapshot is written.
         let captures_dynamic_predict_instruments = !predict_selectors.is_empty();
         let worker_count = config.plan.enabled_background_worker_count()
-            + usize::from(captures_dynamic_predict_instruments && !flags.instruments)
-            + if rolling_lighter {
-                usize::from(!flags.instruments && !captures_dynamic_predict_instruments)
-                    + usize::from(!flags.trades)
-                    + usize::from(!flags.book_deltas)
-                    + usize::from(!flags.index_prices)
-                    + usize::from(!flags.custom_data && !flags.custom_data_requests)
-            } else {
-                0
-            };
+            + usize::from(
+                (captures_dynamic_predict_instruments || rolling_lighter || paired_matched_sports)
+                    && !flags.instruments,
+            )
+            + usize::from((rolling_lighter || paired_matched_sports) && !flags.trades)
+            + usize::from((rolling_lighter || paired_matched_sports) && !flags.book_deltas)
+            + usize::from(paired_matched_sports && !flags.book_depth)
+            + usize::from(rolling_lighter && !flags.index_prices)
+            + usize::from(rolling_lighter && !flags.custom_data && !flags.custom_data_requests);
         log::info!("Capture background workers: {worker_count} enabled for plan");
 
         // Instruments: always chunked. Custom: segment when mode=segment (shared for
@@ -249,7 +269,10 @@ impl CatalogCaptureActor {
         let capture = config.capture.clone();
 
         let instrument_runtime = maybe_family_runtime(
-            flags.instruments || captures_dynamic_predict_instruments || rolling_lighter,
+            flags.instruments
+                || captures_dynamic_predict_instruments
+                || rolling_lighter
+                || paired_matched_sports,
             CaptureFlushFamily::Instruments,
             &capture,
             chunked_catalog_sink_from_config,
@@ -334,7 +357,7 @@ impl CatalogCaptureActor {
             CatalogSink::<QuoteTick>::from_config,
         )?;
         let trade_runtime = maybe_family_runtime(
-            flags.trades || rolling_lighter,
+            flags.trades || rolling_lighter || paired_matched_sports,
             CaptureFlushFamily::Trades,
             &capture,
             CatalogSink::<TradeTick>::from_config,
@@ -346,13 +369,13 @@ impl CatalogCaptureActor {
             CatalogSink::<Bar>::from_config,
         )?;
         let book_depth_runtime = maybe_family_runtime(
-            flags.book_depth,
+            flags.book_depth || paired_matched_sports,
             CaptureFlushFamily::BookDepth,
             &capture,
             CatalogSink::<OrderBookDepth>::from_config,
         )?;
         let book_delta_runtime = maybe_family_runtime(
-            flags.book_deltas || rolling_lighter,
+            flags.book_deltas || rolling_lighter || paired_matched_sports,
             CaptureFlushFamily::BookDeltas,
             &capture,
             BookDeltaCatalogSink::from_config,
@@ -372,6 +395,9 @@ impl CatalogCaptureActor {
 
         Ok(Self {
             core: DataActorCore::new(actor_config),
+            matched_sports: Default::default(),
+            matched_sports_config: config.matched_sports_config,
+            matched_sports_inbox: config.matched_sports_inbox,
             lighter: crate::lighter_updown::LighterCaptureState {
                 configs: config.lighter_updown,
                 ..Default::default()
@@ -591,7 +617,10 @@ impl CatalogCaptureActor {
             self.dynamic_option_universe.as_ref(),
             self.dynamic_hip4_universe.as_ref(),
         );
-        catalog_capture_core::merge_capture_plans(&base, &self.lighter.plan())
+        catalog_capture_core::merge_capture_plans(
+            &catalog_capture_core::merge_capture_plans(&base, &self.lighter.plan()),
+            &self.matched_sports.plan(),
+        )
     }
 
     fn sync_plan_state(&mut self) {
@@ -937,7 +966,7 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
-    fn test_predict_outcome(market_id: u64, outcome_index: u8) -> InstrumentAny {
+    pub(super) fn test_predict_outcome(market_id: u64, outcome_index: u8) -> InstrumentAny {
         let instrument_id =
             nautilus_predict::common::predict_outcome_instrument_id(market_id, outcome_index)
                 .expect("valid test Predict id");

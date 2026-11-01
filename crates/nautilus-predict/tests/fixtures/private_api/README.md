@@ -45,6 +45,6 @@ python3 tests/predict_evidence.py --refresh       # add completed NEW captures
 
 Stop collectors before indexing. Refresh rejects changed existing primary bytes.
 The raw collectors and guarded supervisors remain under root `tests/`; follow the
-[operator guide](../../../../../docs/how_to/predict-rust-strategy-calibration.md).
+[private API validation guide](../../../../../docs/how_to/predict-private-api-tests.md).
 Ordinary tests do not authenticate or trade. Do not run ignored mainnet entry
 points as part of an offline cleanup.

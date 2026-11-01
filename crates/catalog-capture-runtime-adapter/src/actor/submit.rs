@@ -29,6 +29,28 @@ impl CatalogCaptureActor {
     pub(super) fn submit_instrument(&mut self, instrument: InstrumentAny) -> Result<()> {
         let id = instrument.id();
         let ts_init = Instrument::ts_init(&instrument).as_u64();
+        if self.matched_sports.retiring.contains_key(&id)
+            && !self.plan.planned_instrument_ids().contains(&id)
+        {
+            return Ok(());
+        }
+        let matched = self
+            .matched_sports
+            .markets
+            .values()
+            .any(|m| m.instrument_ids().any(|candidate| candidate == id));
+        // Native publishes a definition and a correlated response; PM may publish both
+        // outcomes for either request. Late/duplicate versions cannot overlap a sealed file.
+        if matched
+            && !self.pending_instrument_definitions.contains(&id)
+            && self
+                .matched_sports
+                .instrument_versions
+                .get(&id)
+                .is_some_and(|last| ts_init <= *last)
+        {
+            return Ok(());
+        }
         let result = optional_submit(
             &self.instrument_runtime,
             CaptureItem {
@@ -47,6 +69,9 @@ impl CatalogCaptureActor {
             self.pending_instrument_definitions.insert(id);
         } else {
             self.pending_instrument_definitions.remove(&id);
+            if matched {
+                self.matched_sports.instrument_versions.insert(id, ts_init);
+            }
         }
         result
     }

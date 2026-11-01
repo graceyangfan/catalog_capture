@@ -35,6 +35,14 @@ to budget instrument definitions for a rolling market with no static instrument
 ID. This is a plan-specific exception; it does not justify importing Predict
 transport or model aliases into the capture core.
 
+## Matched sports discovery
+
+The CLI queries the paired catalogue asynchronously and publishes generation-scoped
+results to the existing capture actor. The actor reconciles dynamic subscriptions
+and writes the same Native data families as static selectors. Discovery and
+ranking do not run in market-data callbacks. See [selection and handover](matched-sports-discovery.md)
+for current guarantees and gaps.
+
 ## Simplification rule
 
 Remove pass-through APIs and duplicate state before adding another layer. Keep

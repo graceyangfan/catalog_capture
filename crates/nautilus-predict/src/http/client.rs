@@ -73,7 +73,7 @@ impl PredictHttpClient {
         })
     }
 
-    async fn get<P: Serialize, T: DeserializeOwned>(
+    pub(super) async fn get<P: Serialize, T: DeserializeOwned>(
         &self,
         path: &str,
         params: Option<&P>,

@@ -32,6 +32,7 @@ pub mod metrics;
 pub mod metrics_export;
 pub mod option_universe;
 pub mod order_book_validation;
+pub mod paired_markets;
 pub mod plan;
 pub mod replay;
 pub mod runtime;

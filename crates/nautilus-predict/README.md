@@ -76,8 +76,8 @@ explicitly denied. See the [quote BUY contract](../../docs/predict-execution-ada
 
 Early settlement Submitted/Confirmed/Failed uses account/strategy-scoped
 PredictSettlementUpdate CustomData. Only confirmed fills update Native economic
-state. See the [strategy guide](../../docs/how_to/predict-rust-strategy-calibration.md#quantity-fees-and-settlement-callbacks)
-for early hedging, fee accounting and cancel/fill races.
+state. See the [execution contract](../../docs/predict-execution-adapter-design.md#wallet-feedback-and-settlement)
+for callback identity, fee accounting and cancel/fill ordering.
 
 ## Public data and retention
 
@@ -85,7 +85,7 @@ PredictOrderbookSnapshot preserves the complete venue YES book for recording and
 signals. Standard subscribe_book_depth provides an on-demand YES/NO L2 view over
 the same venue subscription. Managed books can use Native quote projection for
 risk/valuation; subscribe_quotes remains an explicit BBO API. See the
-[strategy subscription guide](../../docs/how_to/predict-rust-strategy-calibration.md#market-data-subscriptions).
+[market-data guide](../../docs/how_to/predict-market-data.md).
 Standard `subscribe_trades` / `on_trade` uses the independent public
 `predictTrades/{marketId}` topic. Trades can be requested on either outcome;
 YES recording complements NO prices and reverses its aggressor direction. Matched

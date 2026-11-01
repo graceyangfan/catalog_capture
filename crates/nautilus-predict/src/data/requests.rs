@@ -46,11 +46,24 @@ impl PredictDataClient {
         let client_id = self.client_id;
         let clock = self.clock;
         let cancellation = self.tasks.cancellation_token();
+        let registry = std::sync::Arc::clone(&self.dynamic_registry);
+        let generation = registry
+            .read()
+            .expect("Predict registry lock poisoned")
+            .generation;
         self.tasks
             .spawn_named("predict-request-instrument", async move {
                 let result = async {
                     let market = http.request_market(market_id).await?;
-                    let (_, instruments) = instruments_from_market(&market, clock.get_time_ns())?;
+                    let (context, instruments) =
+                        instruments_from_market(&market, clock.get_time_ns())?;
+                    if !registry
+                        .write()
+                        .expect("Predict registry lock poisoned")
+                        .register(generation, context, &instruments)
+                    {
+                        return Ok(());
+                    }
                     let instrument = instruments
                         .into_iter()
                         .find(|instrument| instrument.id() == instrument_id)

@@ -44,7 +44,7 @@ impl CatalogCaptureActor {
         result
     }
 
-    fn market_data_client_id(&self, instrument_id: InstrumentId) -> Option<ClientId> {
+    pub(super) fn market_data_client_id(&self, instrument_id: InstrumentId) -> Option<ClientId> {
         self.binance_client_routes.get(&instrument_id).copied()
     }
 
@@ -73,20 +73,35 @@ impl CatalogCaptureActor {
         Ok(())
     }
 
-    fn bootstrap_instrument(&mut self, instrument_id: InstrumentId) -> Result<()> {
+    pub(super) fn bootstrap_instrument(&mut self, instrument_id: InstrumentId) -> Result<()> {
         let instrument = { self.cache().instrument(&instrument_id) };
         if let Some(instrument) = instrument {
             // Capture instrument snapshot only; market-data is gated separately so HIP-4
             // rolls do not race SubscribeQuotes/Trades against a cold adapter cache.
             self.submit_instrument(instrument)?;
-            if is_hip4_outcome(instrument_id) {
+            if is_hip4_outcome(instrument_id)
+                || self
+                    .matched_sports
+                    .markets
+                    .values()
+                    .any(|m| m.instrument_ids().any(|id| id == instrument_id))
+            {
                 optional_flush_all(&self.instrument_runtime)?;
             }
             Ok(())
         } else {
             let client_id = self.market_data_client_id(instrument_id);
             self.request_instrument(instrument_id, None, None, client_id, None)?;
-            self.subscribe_instrument(instrument_id, client_id, None);
+            // Matched ad-hoc requests use the correlated response callback. Predict's
+            // synchronous subscribe-instrument path cannot publish a not-yet-loaded ID.
+            if !self
+                .matched_sports
+                .markets
+                .values()
+                .any(|m| m.instrument_ids().any(|id| id == instrument_id))
+            {
+                self.subscribe_instrument(instrument_id, client_id, None);
+            }
             Ok(())
         }
     }
@@ -273,15 +288,23 @@ impl CatalogCaptureActor {
                 log::info!(
                     "catalog-capture: instrument {instrument_id} ready in cache; subscribing market data"
                 );
+                if self
+                    .matched_sports
+                    .markets
+                    .values()
+                    .any(|m| m.instrument_ids().any(|id| id == instrument_id))
+                {
+                    self.bootstrap_instrument(instrument_id)?;
+                }
                 self.subscribe_market_data_for_instrument(instrument_id);
             } else {
                 still_waiting = true;
                 log::info!(
                     "catalog-capture: instrument {instrument_id} not in cache yet; re-requesting (unbounded wait until ready or next roll)"
                 );
-                let client_id = self.market_data_client_id(instrument_id);
-                let _ = self.request_instrument(instrument_id, None, None, client_id, None);
-                self.subscribe_instrument(instrument_id, client_id, None);
+                // Use the same cold-metadata path as first admission. Matched Predict
+                // requests complete by correlated response, not synchronous publication.
+                let _ = self.bootstrap_instrument(instrument_id);
             }
         }
 
@@ -486,6 +509,11 @@ impl CatalogCaptureActor {
         instrument_id: InstrumentId,
         configured: impl FnOnce() -> bool,
     ) -> bool {
+        if self.matched_sports_inbox.is_some()
+            && matches!(instrument_id.venue.as_str(), "PREDICT" | "POLYMARKET")
+        {
+            return self.market_data_live.contains(&instrument_id) && configured();
+        }
         if self.lighter.enabled() && instrument_id.venue.as_str() == "LIGHTER" {
             return self.market_data_live.contains(&instrument_id) && configured();
         }
@@ -1079,6 +1107,7 @@ impl DataActor for CatalogCaptureActor {
         self.schedule_hip4_universe_refresh()?;
         self.refresh_lighter()?;
         self.schedule_lighter()?;
+        self.start_matched_sports()?;
         self.schedule_segment_seal()?;
         self.publish_metrics_snapshot();
         self.schedule_metrics_export()?;
@@ -1087,6 +1116,7 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_stop(&mut self) -> Result<()> {
+        let matched_stop = self.stop_matched_sports();
         self.stop_predict_native();
         self.clock().cancel_timer(super::lighter::LIGHTER_TIMER);
         self.lighter.pending = None;
@@ -1095,7 +1125,7 @@ impl DataActor for CatalogCaptureActor {
         self.clock().cancel_timer(SEGMENT_SEAL_TIMER);
         self.clock().cancel_timer(METRICS_EXPORT_TIMER);
         self.cancel_custom_data_request_timers();
-        let result = self.shutdown_all();
+        let result = self.shutdown_all().and(matched_stop);
         if let Err(error) = &result {
             self.failure.get_or_insert_with(|| format!("{error:#}"));
         }
@@ -1105,6 +1135,10 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_time_event(&mut self, event: &TimeEvent) -> Result<()> {
+        if event.name == super::matched_sports::TIMER {
+            let result = self.refresh_matched_sports();
+            self.record_capture_result(result)?;
+        }
         if event.name == super::lighter::LIGHTER_TIMER {
             let refresh = self.refresh_lighter();
             let schedule = self.schedule_lighter();
@@ -1183,7 +1217,13 @@ impl DataActor for CatalogCaptureActor {
             || (self.plan.planned_instrument_ids().contains(&instrument_id)
                 && !self.market_data_live.contains(&instrument_id));
         if needs_md {
-            if is_hip4_outcome(instrument_id) {
+            if is_hip4_outcome(instrument_id)
+                || self
+                    .matched_sports
+                    .markets
+                    .values()
+                    .any(|m| m.instrument_ids().any(|id| id == instrument_id))
+            {
                 optional_flush_all(&self.instrument_runtime)?;
             }
             self.subscribe_market_data_for_instrument(instrument_id);
@@ -1290,11 +1330,38 @@ impl DataActor for CatalogCaptureActor {
 
     fn on_book_depth(&mut self, depth: &OrderBookDepth) -> Result<()> {
         let result = self.submit_book_depth(depth.clone());
-        self.record_capture_result(result)
+        self.record_capture_result(result)?;
+        let best_bid = depth
+            .bids
+            .iter()
+            .filter(|o| !o.size.is_zero())
+            .map(|o| o.price)
+            .max();
+        let best_ask = depth
+            .asks
+            .iter()
+            .filter(|o| !o.size.is_zero())
+            .map(|o| o.price)
+            .min();
+        let usable = best_bid.zip(best_ask).is_some_and(|(bid, ask)| bid < ask);
+        self.observe_matched_sports(depth.instrument_id, true, usable)
     }
 
     fn on_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
         let result = self.submit_book_deltas(deltas);
-        self.record_capture_result(result)
+        self.record_capture_result(result)?;
+        let usable = self
+            .cache()
+            .order_book(&deltas.instrument_id)
+            .and_then(|book| book.best_bid_price().zip(book.best_ask_price()))
+            .is_some_and(|(bid, ask)| bid < ask);
+        self.observe_matched_sports(
+            deltas.instrument_id,
+            deltas
+                .deltas
+                .iter()
+                .any(|d| d.flags & nautilus_model::enums::RecordFlag::F_SNAPSHOT as u8 != 0),
+            usable,
+        )
     }
 }

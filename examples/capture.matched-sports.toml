@@ -1,0 +1,116 @@
+# Matched Predict / Polymarket sports recording; no execution or strategy.
+# Build: cargo build -p catalog-capture-cli --no-default-features --features venue-polymarket
+# Predict credentials: ignored env/predictfun.toml, or PREDICT_CREDENTIALS_FILE.
+# PM public market data requires no trading credentials.
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 30
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-MATCHED-SPORTS"
+# Startup warning budget for partition buffers; not a process RSS limit.
+resource_budget_bytes = 1073741824
+
+[runtime.metrics]
+enabled = true
+bind_addr = "127.0.0.1"
+port = 9898
+refresh_interval_secs = 5
+
+[output]
+catalog_uri = "file://./data/matched-sports"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 1000
+flush_interval_ms = 2000
+max_buffer_bytes = 8388608
+# Aggregate partition buffers per family; independent of ingress overrides below.
+max_total_buffer_bytes = 67108864
+max_active_partitions = 128
+# Ingress fallback for families without an explicit override.
+queue_capacity = 32768
+queue_max_bytes = 67108864
+# Reject and report a full-queue item; later data continues recording.
+overflow_policy = "fail_fast"
+
+# Provisional ingress budgets; tune from per-family peaks and queue age on the server.
+# Changing these limits does not change flush or Parquet row-group thresholds.
+[output.queues.book_deltas]
+capacity = 32768
+max_bytes = 67108864
+
+[output.queues.book_depth]
+capacity = 8192
+max_bytes = 33554432
+
+[output.queues.trades]
+capacity = 32768
+max_bytes = 33554432
+
+[output.queues.instruments]
+capacity = 1024
+max_bytes = 4194304
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+# Incremental L2 uses its family profile (20k); full depth uses 512 rows.
+row_group_rows = 5000
+
+[output.lifecycle.durability]
+# Fsyncs emitted bytes; a readable Parquet commit still requires close/seal.
+# Ten seconds reduces periodic sync calls; it does not bound crash data loss.
+sync_interval_ms = 10000
+
+# Four instrument definitions per pair; Predict YES data and both PM outcome data.
+# PM uses Native effective deltas so repeated venue books do not cut normal segments.
+# Matched events enter and leave independently as catalogue eligibility changes.
+# Seal market-data segments hourly; snapshots/recovery/retirement can split them earlier.
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "predict_main"
+kind = "predict"
+
+[[venues]]
+id = "polymarket_main"
+kind = "polymarket"
+
+[capture.matched_sports]
+# LoL, CS2, Dota 2, Valorant, CFB, NBA and NFL; all share bilateral activity gates.
+# Narrow this list for a dedicated sport. Additional tags are documented in the guide.
+tag_ids = [84, 93, 96, 132, 16, 78, 45]
+include_match_winners = true
+# For maps only: include_match_winners=false and include_map_winners=true.
+include_map_winners = false
+refresh_secs = 30
+# Keep valid incumbents; fill free slots from bilaterally active matches.
+# Live first; otherwise rank by Predict 24h volume, then PM 24h volume.
+# Future matches can enter immediately if activity, spread and depth pass.
+max_markets = 1
+# One additional candidate records before handover; no history replay at promotion.
+preload_next = true
+preparation_timeout_secs = 30
+preparation_retry_secs = 30
+max_pages = 100
+max_activity_candidates = 256
+# Per-tag 50-row volume-ranked pages, only when the activity pool exceeds its budget.
+activity_scan_pages = 4
+observation_timeout_secs = 30
+# First scan uses existing REST history; no startup observation wait.
+selection_candidates = 5
+# Provisional per-venue floors, to be calibrated from recordings.
+min_volume24h_usd = "100"
+max_spread = "0.05"
+# Shares on EACH side within this absolute price distance from that side's best quote.
+depth_band = "0.03"
+min_depth_shares = "100"
+# Newest 50 executions per venue; look back without waiting.
+recent_trade_window_secs = 300
+max_last_trade_age_secs = 120
+min_recent_trade_times = 2

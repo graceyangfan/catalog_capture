@@ -105,6 +105,7 @@ async fn venue_request_preserves_correlation_and_does_not_require_preloading() {
     let (tx, mut rx) = mpsc::unbounded_channel();
     replace_data_event_sender(tx);
     let mut client = PredictDataClient::new(ClientId::new("PREDICT"), config).unwrap();
+    client.connect().await.unwrap();
     let mut command = request(instrument(2));
     let params = Params::new([("force_instrument_update".into(), json!(true))].into());
     command.params = Some(params.clone());
@@ -136,6 +137,22 @@ async fn venue_request_preserves_correlation_and_does_not_require_preloading() {
     })
     .await
     .unwrap();
+    client
+        .subscribe_book_depth(nautilus_common::messages::data::SubscribeBookDepth::new(
+            instrument(2),
+            nautilus_model::enums::BookType::L2_MBP,
+            Some(ClientId::new("PREDICT")),
+            None,
+            UUID4::new(),
+            UnixNanos::default(),
+            None,
+            false,
+            None,
+            None,
+        ))
+        .expect(
+            "requested instrument must register its native orderbook context before publication",
+        );
     client.disconnect().await.unwrap();
     assert!(
         rx.try_recv().is_err(),

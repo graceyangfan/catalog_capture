@@ -85,8 +85,6 @@ Reconnect reconciles independent book and trade interests. Last-owner removal
 clears retained book source state. Depth limits on one instrument must agree.
 See [realtime adapter contracts](../developer_guide/realtime-adapters.md) for
 ownership, partial acceptance and send scheduling.
-See the [strategy guide](predict-rust-strategy-calibration.md#market-data-subscriptions)
-for managed-book quotes and risk pricing.
 
 ## Trade conversion
 

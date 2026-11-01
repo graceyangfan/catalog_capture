@@ -129,11 +129,8 @@ Normal regressions use saved JSON and loopback services, with no operator key.
 They cover resource bounds, standard rejections, partial fills, replay deduplication,
 net inventory, reported cash and strategy callbacks. See the test guide for commands.
 
-The [Rust strategy guide](predict-rust-strategy-calibration.md) describes custom
-snapshot signals, cancel/replacement, maker take-profit and taker stop-loss
-calibration. SDK-valid quantities do not establish venue minimum notional, and a
-preflight quote does not guarantee later acceptance or a profitable exit. Any
-funded run needs its own explicit scope, budget, capture supervision and cleanup.
+SDK-valid quantities do not establish venue minimum notional. Funded adapter
+validation requires explicit scope, budget, supervision and cleanup.
 Before repeating a live case, consult the
 [existing coverage and test selection](../reference/predict-validation.md).
 Completed resting captures can be reviewed offline with

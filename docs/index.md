@@ -20,8 +20,8 @@ how-to / reference); protocol design records are listed separately.
 | [Multi-venue / HIP-4 style](how_to/hip4_capture.md) | Streams, rotation clocks, BookSummary rate |
 | [Lighter XEMM capture](how_to/lighter_xemm_capture.md) | Lighter and Robinhood Chain L2, trades and funding |
 | [Predict market-data capture](how_to/predict-market-data.md) | Native YES depth/trades, rotation and optional Binance SBE L2 |
+| [Matched sports capture](how_to/matched-sports-capture.md) | Predict / Polymarket matching, recording selection and event rotation |
 | [Predict private API calibration](how_to/predict-private-api-tests.md) | Local TOML, automatic discovery, SDK parity, and native read-only calibration |
-| [Predict Rust strategy and LiveNode](how_to/predict-rust-strategy-calibration.md) | Custom snapshot signals, execution calibration and supervision |
 | [Build size](how_to/build_size.md) | Why `target/` is large; slim release |
 | [Unattended capture](how_to/unattended_capture.md) | Long-running process |
 | [Credentials](how_to/credentials.md) | Public vs env keys |
@@ -37,6 +37,7 @@ how-to / reference); protocol design records are listed separately.
 | [Custom data](concepts/custom_data.md) | Subscribe vs request |
 | [Flush and rotation](concepts/flush_and_rotation.md) | Buffer / flush profiles |
 | [Segment lifecycle](concepts/segment_lifecycle.md) | Seal at wall-clock boundary |
+| [Matched sports discovery](concepts/matched-sports-discovery.md) | Current selection/handover contract, limitations and improvement priorities |
 
 ## Design records
 

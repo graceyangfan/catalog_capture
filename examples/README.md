@@ -68,6 +68,7 @@ CAPTURE_FEATURES=venue-binance,venue-predict make build-release-capture
 | Binance perp WS | `capture.binance-perp.ws.toml` |
 | Hyperliquid OI | `capture.hyperliquid-open-interest.toml` |
 | Minimal Predict BTC 5m depth/trades | `capture.predict-native.toml` |
+| Matched Predict / Polymarket sports and esports winners | [`capture.matched-sports.toml`](capture.matched-sports.toml); see [operation and limits](../docs/how_to/matched-sports-capture.md) |
 | Operator / unattended option universe | `operator/*.toml` |
 
 Finite Binance/Hyperliquid bar, trade, custom-data, and HIP-4 smoke profiles

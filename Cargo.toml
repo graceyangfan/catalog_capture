@@ -89,6 +89,9 @@ nautilus-serialization = { path = "../nautilus_trader_quantity_commission/crates
 ] }
 nautilus-lighter-ext = { path = "crates/nautilus-lighter-ext" }
 nautilus-extended = { path = "crates/nautilus-extended" }
+nautilus-polymarket = { path = "../nautilus_trader_quantity_commission/crates/adapters/polymarket", default-features = false, features = [
+  "high-precision",
+] }
 nautilus-predict = { path = "crates/nautilus-predict", default-features = false }
 
 # -----------------------------------------------------------------------------

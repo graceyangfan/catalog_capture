@@ -105,6 +105,8 @@ pub enum VenueRuntimeConfig {
     },
     #[cfg(feature = "venue-predict")]
     Predict { id: String },
+    #[cfg(feature = "venue-polymarket")]
+    Polymarket { id: String },
 }
 
 impl VenueRuntimeConfig {
@@ -130,6 +132,8 @@ impl VenueRuntimeConfig {
             Self::Okx { id, .. } => id,
             #[cfg(feature = "venue-predict")]
             Self::Predict { id } => id,
+            #[cfg(feature = "venue-polymarket")]
+            Self::Polymarket { id } => id,
         }
     }
 }
@@ -296,6 +300,16 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             #[cfg(not(feature = "venue-okx"))]
             {
                 venue_feature_required("okx", "venue-okx")
+            }
+        }
+        "polymarket" => {
+            #[cfg(feature = "venue-polymarket")]
+            {
+                Ok(VenueRuntimeConfig::Polymarket { id: venue.id })
+            }
+            #[cfg(not(feature = "venue-polymarket"))]
+            {
+                venue_feature_required("polymarket", "venue-polymarket")
             }
         }
         "predict" => {

@@ -1,0 +1,2852 @@
+[
+  {
+    "category": {
+      "createdAt": "2026-10-31T00:54:59.579Z",
+      "description": "This market refers to the LoL Round 5 match between Hanwha Life Esports and Bilibili Gaming in the Worlds Group Stage, initially scheduled for October 31, 2026 at 7:00 PM ET.\n\nThis market will resolve to \"Hanwha Life Esports\" if Hanwha Life Esports win the match against Bilibili Gaming.\n\nThis market will resolve to \"Bilibili Gaming\" if Bilibili Gaming win the match against Hanwha Life Esports.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 7:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+      "endsAt": "2026-11-01T02:00:00.000Z",
+      "id": 693899,
+      "imageUrl": "https://static.predict.fun/market-images/bf8e7c35-f72e-4dcf-87dc-6308dc763b2b.jpg",
+      "isNegRisk": false,
+      "isVisible": true,
+      "isYieldBearing": false,
+      "marketVariant": "ESPORTS_LOL",
+      "markets": [
+        {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "lol-hle1-blg-2026-10-31",
+          "conditionId": "0x6fc23080db2af34b8dd39c0706bc086cb9f1d6dbf7fb4f41be9db0223a2fe253",
+          "createdAt": "2026-10-31T00:54:59.579Z",
+          "decimalPrecision": 2,
+          "description": "This market refers to the LoL Round 5 match between Hanwha Life Esports and Bilibili Gaming in the Worlds Group Stage, initially scheduled for October 31, 2026 at 7:00 PM ET.\n\nThis market will resolve to \"Hanwha Life Esports\" if Hanwha Life Esports win the match against Bilibili Gaming.\n\nThis market will resolve to \"Bilibili Gaming\" if Bilibili Gaming win the match against Hanwha Life Esports.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 7:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+          "feeRateBps": 200,
+          "id": 4038253,
+          "imageUrl": "https://static.predict.fun/market-images/bf8e7c35-f72e-4dcf-87dc-6308dc763b2b.jpg",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": false,
+          "kalshiMarketTicker": null,
+          "makerFeeBps": 0,
+          "marketType": "SPORTS_MONEYLINE",
+          "marketVariant": "ESPORTS_LOL",
+          "oracleQuestionId": "0xba30f49d0d39a4ffe4c3f809b7ce754f2dc6705402a15e35bc9429c2adfccf41",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.59,
+                "size": 357768.68363299296
+              },
+              "bestBid": {
+                "price": 0.58,
+                "size": 37348.053842165136
+              },
+              "indexSet": 1,
+              "name": "HLE",
+              "onChainId": "106100284118397507435623941817133935266335342364568269631486729036840330103328",
+              "status": null,
+              "team": null,
+              "variantData": {
+                "provider": "GRID",
+                "team": {
+                  "abbreviation": "HLE",
+                  "id": 15883,
+                  "name": "Hanwha Life Esports",
+                  "providerTeamId": "406"
+                },
+                "type": "ESPORTS_LOL"
+              },
+              "variantDetails": {
+                "sports": {
+                  "provider": "GRID",
+                  "team": {
+                    "abbreviation": "HLE",
+                    "id": 15883,
+                    "name": "Hanwha Life Esports",
+                    "providerTeamId": "406"
+                  }
+                }
+              }
+            },
+            {
+              "bestAsk": {
+                "price": 0.42,
+                "size": 37348.053842165136
+              },
+              "bestBid": {
+                "price": 0.41,
+                "size": 357768.68363299296
+              },
+              "indexSet": 2,
+              "name": "BLG",
+              "onChainId": "91886769685123642403973786097560746855607150709980349721430688678836942268153",
+              "status": null,
+              "team": null,
+              "variantData": {
+                "provider": "GRID",
+                "team": {
+                  "abbreviation": "BLG",
+                  "id": 15884,
+                  "name": "BILIBILI GAMING",
+                  "providerTeamId": "356"
+                },
+                "type": "ESPORTS_LOL"
+              },
+              "variantDetails": {
+                "sports": {
+                  "provider": "GRID",
+                  "team": {
+                    "abbreviation": "BLG",
+                    "id": 15884,
+                    "name": "BILIBILI GAMING",
+                    "providerTeamId": "356"
+                  }
+                }
+              }
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x391943685dc764fac6323035245edbba15dbb8fb54508af1ef081660844c8402"
+          ],
+          "question": "LoL: Hanwha Life Esports vs Bilibili Gaming (BO3) - Worlds Group Stage",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x242E1Ba24f6fC524bfb410062Ca5689A9622613d",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-10-31T23:00:00.000Z",
+              "hourlyRate": 100,
+              "startsAt": "2026-10-30T23:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-10-31T23:00:00.000Z",
+                "hourlyRate": 100,
+                "startsAt": "2026-10-30T23:00:00.000Z"
+              },
+              {
+                "endsAt": "2026-11-01T02:00:00.000Z",
+                "hourlyRate": 2000,
+                "startsAt": "2026-10-31T23:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Match Winner",
+          "tradingStatus": "OPEN",
+          "variantData": {
+            "provider": "GRID",
+            "providerEventId": "3012973",
+            "teams": [
+              {
+                "abbreviation": "HLE",
+                "id": 15883,
+                "name": "Hanwha Life Esports",
+                "providerTeamId": "406"
+              },
+              {
+                "abbreviation": "BLG",
+                "id": 15884,
+                "name": "BILIBILI GAMING",
+                "providerTeamId": "356"
+              }
+            ],
+            "type": "ESPORTS_LOL"
+          }
+        }
+      ],
+      "negRiskOnChainId": null,
+      "parentSlug": null,
+      "protocol": "LEGACY",
+      "publishedAt": "2026-10-31T00:55:57.640Z",
+      "resolutionProvider": "THREE_PO",
+      "shortTitle": null,
+      "slug": "lol-hle1-blg-2026-10-31",
+      "startsAt": "2026-10-31T23:00:00.000Z",
+      "stats": null,
+      "status": "OPEN",
+      "tags": [
+        {
+          "id": "83",
+          "level": 1,
+          "makerRebateBps": 0,
+          "name": "Esports",
+          "parentId": null
+        },
+        {
+          "id": "84",
+          "level": 2,
+          "makerRebateBps": 0,
+          "name": "LoL",
+          "parentId": "83"
+        },
+        {
+          "id": "2991",
+          "level": 3,
+          "makerRebateBps": 0,
+          "name": "Worlds",
+          "parentId": "84"
+        }
+      ],
+      "teams": null,
+      "title": "LoL: Hanwha Life Esports vs Bilibili Gaming (BO3) - Worlds Group Stage",
+      "tradingSession": null,
+      "variantData": {
+        "provider": "GRID",
+        "providerEventId": "3012973",
+        "teams": [
+          {
+            "abbreviation": "HLE",
+            "id": 15883,
+            "name": "Hanwha Life Esports",
+            "providerTeamId": "406"
+          },
+          {
+            "abbreviation": "BLG",
+            "id": 15884,
+            "name": "BILIBILI GAMING",
+            "providerTeamId": "356"
+          }
+        ],
+        "type": "ESPORTS_LOL"
+      },
+      "variantDetails": {
+        "sports": {
+          "provider": "GRID",
+          "providerEventId": "3012973",
+          "scoreboard": {
+            "bestOf": 3,
+            "games": [],
+            "score": [],
+            "source": "GRID"
+          },
+          "teams": [
+            {
+              "abbreviation": "HLE",
+              "id": 15883,
+              "name": "Hanwha Life Esports",
+              "providerTeamId": "406"
+            },
+            {
+              "abbreviation": "BLG",
+              "id": 15884,
+              "name": "BILIBILI GAMING",
+              "providerTeamId": "356"
+            }
+          ]
+        }
+      }
+    },
+    "polymarket": {
+      "id": "6440441",
+      "question": "LoL: Hanwha Life Esports vs Bilibili Gaming (BO3) - Worlds Group Stage",
+      "conditionId": "0x391943685dc764fac6323035245edbba15dbb8fb54508af1ef081660844c8402",
+      "slug": "lol-hle1-blg-2026-10-31",
+      "resolutionSource": "https://gol.gg/esports/home",
+      "endDate": "2026-11-01T05:00:00Z",
+      "liquidity": "361841.1079",
+      "startDate": "2026-10-31T00:50:24Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+      "description": "This market refers to the LoL Round 5 match between Hanwha Life Esports and Bilibili Gaming in the Worlds Group Stage, initially scheduled for October 31, 2026 at 7:00 PM ET.\n\nThis market will resolve to \"Hanwha Life Esports\" if Hanwha Life Esports win the match against Bilibili Gaming.\n\nThis market will resolve to \"Bilibili Gaming\" if Bilibili Gaming win the match against Hanwha Life Esports.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 7:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+      "outcomes": "[\"Hanwha Life Esports\", \"Bilibili Gaming\"]",
+      "outcomePrices": "[\"0.575\", \"0.425\"]",
+      "volume": "407139.10654700006",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-10-31T00:50:13.582828Z",
+      "updatedAt": "2026-10-31T16:58:16.25353Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0xAC9930b2AE455a671b62dE86876A7e8587825294",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemTitle": "Match Winner",
+      "questionID": "0xc9e0a10ef56056cc50240d379f27593c9abffc49c4267dbb77b77bdc44575c5d",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "volumeNum": 407139.10654700006,
+      "liquidityNum": 361841.1079,
+      "endDateIso": "2026-11-01",
+      "startDateIso": "2026-10-31",
+      "hasReviewedDates": true,
+      "volume24hr": 408260.489508,
+      "volume1wk": 408260.489508,
+      "volume1mo": 408260.489508,
+      "volume1yr": 408260.489508,
+      "gameStartTime": "2026-10-31 23:00:00+00",
+      "secondsDelay": 1,
+      "clobTokenIds": "[\"102282062750901984339790453909737342832807270473081715059862254374116282228757\", \"96038268606692110284134061686512272381730248546076864382836854869002340563181\"]",
+      "positionIds": [
+        "490933106491816580209120712197025582251165316800009468179515457297318936576",
+        "490933106491816580209120712197025582251165316800009468179515457297318936577"
+      ],
+      "comboStatus": "enabled",
+      "umaBond": "250",
+      "umaReward": "1.5",
+      "volume24hrClob": 408260.489508,
+      "volume1wkClob": 408260.489508,
+      "volume1moClob": 408260.489508,
+      "volume1yrClob": 408260.489508,
+      "volumeClob": 407139.10654700006,
+      "liquidityClob": 361841.1079,
+      "makerBaseFee": 1000,
+      "takerBaseFee": 1000,
+      "customLiveness": 900,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "events": [
+        {
+          "id": "1286064",
+          "ticker": "lol-hle1-blg-2026-10-31",
+          "slug": "lol-hle1-blg-2026-10-31",
+          "title": "LoL: Hanwha Life Esports vs Bilibili Gaming (BO3) - Worlds Group Stage",
+          "description": "This market refers to the LoL Round 5 match between Hanwha Life Esports and Bilibili Gaming in the Worlds Group Stage, initially scheduled for October 31, 2026 at 7:00 PM ET.\n\nThis market will resolve to \"Hanwha Life Esports\" if Hanwha Life Esports win the match against Bilibili Gaming.\n\nThis market will resolve to \"Bilibili Gaming\" if Bilibili Gaming win the match against Hanwha Life Esports.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 7:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+          "resolutionSource": "https://www.youtube.com/watch?v=J7wF_Cl4Fz4",
+          "startDate": "2026-10-31T00:50:24Z",
+          "creationDate": "2026-10-31T00:52:32.733944Z",
+          "endDate": "2026-11-01T05:00:00Z",
+          "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+          "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+          "active": true,
+          "closed": false,
+          "archived": false,
+          "new": false,
+          "featured": false,
+          "restricted": true,
+          "liquidity": 993435.3233,
+          "volume": 468938.12304100004,
+          "openInterest": 413947.83635299996,
+          "createdAt": "2026-10-31T00:50:13.111309Z",
+          "updatedAt": "2026-10-31T16:58:32.602939Z",
+          "competitive": 0.9999750006249843,
+          "volume24hr": 470803.2991,
+          "volume1wk": 470803.29910000006,
+          "volume1mo": 470803.29910000006,
+          "volume1yr": 470803.29910000006,
+          "enableOrderBook": true,
+          "liquidityClob": 993435.3233,
+          "negRisk": false,
+          "commentCount": 0,
+          "series": [
+            {
+              "id": "10311",
+              "ticker": "league-of-legends",
+              "slug": "league-of-legends",
+              "title": "League of Legends",
+              "seriesType": "single",
+              "recurrence": "daily",
+              "image": "",
+              "icon": "",
+              "active": true,
+              "closed": false,
+              "archived": false,
+              "featured": false,
+              "restricted": true,
+              "createdAt": "2025-09-18T23:42:43.476657Z",
+              "updatedAt": "2026-10-31T16:58:48.758592Z",
+              "volume24hr": 19280420.832410026,
+              "volume": 2117759.119748,
+              "liquidity": 3035935.6374,
+              "commentCount": 10812
+            }
+          ],
+          "cyom": false,
+          "showAllOutcomes": true,
+          "showMarketImages": true,
+          "enableNegRisk": false,
+          "automaticallyActive": true,
+          "eventDate": "2026-10-31",
+          "startTime": "2026-10-31T23:00:00Z",
+          "eventWeek": 1,
+          "seriesSlug": "league-of-legends",
+          "score": "0-0|0-0|Bo3",
+          "period": "0/3",
+          "live": false,
+          "ended": false,
+          "negRiskAugmented": false,
+          "pendingDeployment": false,
+          "deploying": false,
+          "gameId": 1711010,
+          "eventMetadata": {
+            "context_requires_regen": true,
+            "league": "Worlds",
+            "leagueTier": "1",
+            "originalStart": "2026-10-31T23:00:00.000Z",
+            "pandascoreMatchId": 1711010,
+            "tournament": "Group Stage"
+          },
+          "version": "v1"
+        }
+      ],
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-10-31T00:50:24Z",
+      "cyom": false,
+      "competitive": 0.9944064636420137,
+      "approved": true,
+      "clobRewards": [
+        {
+          "id": "4700441",
+          "conditionId": "0x391943685dc764fac6323035245edbba15dbb8fb54508af1ef081660844c8402",
+          "assetAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+          "rewardsAmount": 0,
+          "rewardsDailyRate": 133,
+          "startDate": "2026-10-31",
+          "endDate": "2500-12-31"
+        }
+      ],
+      "rewardsMinSize": 500,
+      "rewardsMaxSpread": 2.5,
+      "spread": 0.01,
+      "oneHourPriceChange": -0.01,
+      "lastTradePrice": 0.58,
+      "bestBid": 0.57,
+      "bestAsk": 0.58,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "gameId": "1711010",
+      "sportsMarketType": "moneyline",
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-10-31T00:50:16.894809Z",
+      "rfqEnabled": false,
+      "eventStartTime": "2026-10-31T23:00:00Z",
+      "holdingRewardsEnabled": false,
+      "feesEnabled": true,
+      "feeType": "sports_fees_v3",
+      "feeSchedule": {
+        "exponent": 1,
+        "rate": 0.05,
+        "takerOnly": true,
+        "rebateRate": 0.15
+      },
+      "fallbackResolutionType": "equal_split",
+      "resolutionMechanism": "oracle",
+      "tradingEligible": true,
+      "version": "v1"
+    }
+  },
+  {
+    "category": {
+      "createdAt": "2026-10-18T04:06:54.072Z",
+      "description": "This event is for the upcoming Premier League game, scheduled for Saturday, October 31, 2026 between Manchester City FC and Brighton & Hove Albion FC.",
+      "endsAt": "2026-10-31T17:00:00.000Z",
+      "id": 631072,
+      "imageUrl": "https://static.predict.fun/soccer",
+      "isNegRisk": true,
+      "isVisible": true,
+      "isYieldBearing": true,
+      "marketVariant": "SPORTS_MATCH",
+      "markets": [
+        {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "epl-mac-bri-2026-10-31",
+          "conditionId": "0xc84a0f30fe1b980a87037a125373b4b36efe5fc9ff1c9ef5858c4083ebd82979",
+          "createdAt": "2026-10-18T04:06:54.072Z",
+          "decimalPrecision": 2,
+          "description": "In the upcoming game, scheduled for October 31, 2026\nIf Manchester City FC wins, this market will resolve to \"Yes\".\nOtherwise, this market will resolve to \"No\".\nIf the game is postponed, this market will remain open until the game has been completed.\nIf the game is canceled entirely, with no make-up game, this market will resolve \"No\".\nThis market refers only to the outcome within the first 90 minutes of regular play plus stoppage time.\n\nThe primary resolution source for this market is the official statistics of the event as recognized by the governing body or event organizers. However, if the governing body or event organizers have not published final match statistics within 2 hours after the event's conclusion, data from Flashscore may be used; if Flashscore data is unavailable, data from Sofascore may be used; if neither is available, a consensus of credible reporting may be used instead. All markets will settle based on the official final result as recognized by the governing body or event organizers. Revisions to officially declared final scores made after market resolution will not be accounted for in determining the outcome. If no acceptable data is available within 24 hours of the event's conclusion, this market will resolve 50-50, or to \"Draw\" where applicable.",
+          "feeRateBps": 200,
+          "id": 3481705,
+          "imageUrl": "https://static.predict.fun/soccer",
+          "isBoosted": false,
+          "isNegRisk": true,
+          "isVisible": true,
+          "isYieldBearing": true,
+          "kalshiMarketTicker": null,
+          "makerFeeBps": 0,
+          "marketType": "SPORTS_MONEYLINE",
+          "marketVariant": "SPORTS_MATCH",
+          "oracleQuestionId": "0x81d8a6f642f79551e0141f477bd06605a8a22a0808720b7c360ad9b47f85974f",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.29,
+                "size": 5377.4084
+              },
+              "bestBid": {
+                "price": 0.28,
+                "size": 324.73900000000003
+              },
+              "indexSet": 1,
+              "name": "Yes",
+              "onChainId": "114465082024346043992821560273958681145872149484435550965236960735745713340366",
+              "status": null,
+              "team": null,
+              "variantData": null
+            },
+            {
+              "bestAsk": {
+                "price": 0.72,
+                "size": 324.73900000000003
+              },
+              "bestBid": {
+                "price": 0.71,
+                "size": 5377.4084
+              },
+              "indexSet": 2,
+              "name": "No",
+              "onChainId": "35229515387165801742848384300221827966349086230610946096096824795647328737315",
+              "status": null,
+              "team": null,
+              "variantData": null
+            }
+          ],
+          "polymarketConditionIds": [
+            "0xca1390ebe138f4c2d052b570ec3167d1592ea0e31e0ccaa425385f24a99196b3"
+          ],
+          "question": "Will Manchester City FC win on 2026-10-31?",
+          "questionIndex": 0,
+          "resolution": null,
+          "resolverAddress": "0x26B366Ab634C43BdA6D784fDCe34F24A37DF8172",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-10-31T17:00:00.000Z",
+              "hourlyRate": 500,
+              "startsAt": "2026-10-31T15:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-10-31T15:00:00.000Z",
+                "hourlyRate": 50,
+                "startsAt": "2026-10-30T15:00:00.000Z"
+              },
+              {
+                "endsAt": "2026-10-31T17:00:00.000Z",
+                "hourlyRate": 500,
+                "startsAt": "2026-10-31T15:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "status": "REGISTERED",
+          "team": {
+            "abbreviation": "mac",
+            "alias": "Man City",
+            "id": 1122,
+            "league": "epl",
+            "name": "Manchester City FC"
+          },
+          "title": "MAC",
+          "tradingStatus": "OPEN",
+          "variantData": null,
+          "variantDetails": {
+            "sports": {
+              "provider": "POLYMARKET",
+              "team": {
+                "abbreviation": "mac",
+                "id": 1122,
+                "name": "Manchester City FC",
+                "providerTeamId": "100004"
+              }
+            }
+          }
+        }
+      ],
+      "negRiskOnChainId": "0x7a4ad60686549f7992cadfc4284f52a652e45ae0f12e14d29d31646db8b44e00",
+      "parentSlug": null,
+      "protocol": "LEGACY",
+      "publishedAt": "2026-10-24T15:00:03.496Z",
+      "resolutionProvider": "THREE_PO",
+      "shortTitle": null,
+      "slug": "epl-mac-bri-2026-10-31",
+      "startsAt": "2026-10-31T15:00:00.000Z",
+      "stats": null,
+      "status": "OPEN",
+      "tags": [
+        {
+          "id": "4",
+          "level": 1,
+          "makerRebateBps": 0,
+          "name": "Sports",
+          "parentId": null
+        },
+        {
+          "id": "14",
+          "level": 2,
+          "makerRebateBps": 0,
+          "name": "Soccer",
+          "parentId": "4"
+        },
+        {
+          "id": "546",
+          "level": 3,
+          "makerRebateBps": null,
+          "name": "EPL",
+          "parentId": "14"
+        }
+      ],
+      "teams": [
+        {
+          "abbreviation": "mac",
+          "alias": "Man City",
+          "id": 1122,
+          "league": "epl",
+          "name": "Manchester City FC"
+        },
+        {
+          "abbreviation": "bri",
+          "alias": "Brighton",
+          "id": 4261,
+          "league": "epl",
+          "name": "Brighton & Hove Albion FC"
+        }
+      ],
+      "title": "Manchester City FC vs. Brighton & Hove Albion FC",
+      "tradingSession": null,
+      "variantData": null,
+      "variantDetails": {
+        "sports": {
+          "provider": "POLYMARKET",
+          "providerEventId": "1209135",
+          "scoreboard": {
+            "clock": "51",
+            "finished": false,
+            "games": [],
+            "isLive": true,
+            "period": "2H",
+            "score": [
+              {
+                "score": 0,
+                "teamId": 1122
+              },
+              {
+                "score": 1,
+                "teamId": 4261
+              }
+            ],
+            "source": "POLYMARKET"
+          },
+          "teams": [
+            {
+              "abbreviation": "mac",
+              "color": "#65ABDF",
+              "id": 1122,
+              "isHome": true,
+              "name": "Manchester City FC",
+              "providerTeamId": "100004",
+              "record": {
+                "draws": 0,
+                "losses": 1,
+                "wins": 7
+              }
+            },
+            {
+              "abbreviation": "bri",
+              "color": "#155a93",
+              "id": 4261,
+              "isHome": false,
+              "name": "Brighton & Hove Albion FC",
+              "providerTeamId": "100015",
+              "record": {
+                "draws": 1,
+                "losses": 2,
+                "wins": 5
+              }
+            }
+          ]
+        }
+      }
+    },
+    "polymarket": {
+      "id": "5851895",
+      "question": "Will Manchester City FC win on 2026-10-31?",
+      "conditionId": "0xca1390ebe138f4c2d052b570ec3167d1592ea0e31e0ccaa425385f24a99196b3",
+      "slug": "epl-mac-bri-2026-10-31-mac",
+      "resolutionSource": "https://www.premierleague.com/",
+      "endDate": "2026-10-31T15:00:00Z",
+      "liquidity": "401990.27518",
+      "startDate": "2026-10-18T04:00:30Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+      "description": "In the upcoming game, scheduled for October 31, 2026\nIf Manchester City FC wins, this market will resolve to \"Yes\".\nOtherwise, this market will resolve to \"No\".\nIf the game is postponed, this market will remain open until the game has been completed.\nIf the game is canceled entirely, with no make-up game, this market will resolve \"No\".\nThis market refers only to the outcome within the first 90 minutes of regular play plus stoppage time.\n\nThe primary resolution source for this market is the official statistics of the event as recognized by the governing body or event organizers. However, if the governing body or event organizers have not published final match statistics within 2 hours after the event's conclusion, data from Flashscore may be used; if Flashscore data is unavailable, data from Sofascore may be used; if neither is available, a consensus of credible reporting may be used instead. All markets will settle based on the official final result as recognized by the governing body or event organizers. Revisions to officially declared final scores made after market resolution will not be accounted for in determining the outcome. If no acceptable data is available within 24 hours of the event's conclusion, this market will resolve 50-50, or to \"Draw\" where applicable.",
+      "outcomes": "[\"Yes\", \"No\"]",
+      "outcomePrices": "[\"0.0005\", \"0.9995\"]",
+      "volume": "830054.9453700001",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-10-18T04:00:22.220533Z",
+      "updatedAt": "2026-10-31T16:58:16.25353Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0xAC9930b2AE455a671b62dE86876A7e8587825294",
+      "archived": false,
+      "resolvedBy": "0x69c47De9D4D3Dad79590d61b9e05918E03775f24",
+      "restricted": true,
+      "groupItemTitle": "Manchester City FC",
+      "groupItemThreshold": "0",
+      "questionID": "0x038dc8f63cfddea385ad9a211d5a598a3712839f9fa80f14fc5f6fc5702c4b00",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.001,
+      "orderMinSize": 5,
+      "umaResolutionStatus": "proposed",
+      "volumeNum": 830054.9453700001,
+      "liquidityNum": 401990.27518,
+      "endDateIso": "2026-10-31",
+      "startDateIso": "2026-10-18",
+      "hasReviewedDates": true,
+      "volume24hr": 839724.1545440006,
+      "volume1wk": 857661.2162350006,
+      "volume1mo": 858313.2898090006,
+      "volume1yr": 858313.2898090006,
+      "gameStartTime": "2026-10-31 15:00:00+00",
+      "secondsDelay": 1,
+      "clobTokenIds": "[\"70643168695352331628859643545797103428052773564724041626328118889047522809081\", \"46103138124807222988368747699018366887325664789505067847216734645265540633572\"]",
+      "positionIds": [
+        "1001930065726932783472359861136257657641853862689610026455337930283166990336",
+        "1001930065726932783472359861136257657641853862689610026455337930283166990337"
+      ],
+      "comboStatus": "enabled",
+      "umaBond": "250",
+      "umaReward": "0.8",
+      "volume24hrClob": 839724.1545440006,
+      "volume1wkClob": 857661.2162350006,
+      "volume1moClob": 858313.2898090006,
+      "volume1yrClob": 858313.2898090006,
+      "volumeClob": 830054.9453700001,
+      "liquidityClob": 401990.27518,
+      "makerBaseFee": 1000,
+      "takerBaseFee": 1000,
+      "customLiveness": 900,
+      "acceptingOrders": true,
+      "negRisk": true,
+      "negRiskMarketID": "0x038dc8f63cfddea385ad9a211d5a598a3712839f9fa80f14fc5f6fc5702c4b00",
+      "negRiskRequestID": "0xe787cd0b1122ae91e3efc10e4c898cfb90a6566ac5cad4fe6154c3d98e1af376",
+      "events": [
+        {
+          "id": "1209135",
+          "ticker": "epl-mac-bri-2026-10-31",
+          "slug": "epl-mac-bri-2026-10-31",
+          "title": "Manchester City FC vs. Brighton & Hove Albion FC",
+          "description": "This event is for the upcoming Premier League game, scheduled for Saturday, October 31, 2026 between Manchester City FC and Brighton & Hove Albion FC.",
+          "resolutionSource": "https://www.premierleague.com/",
+          "startDate": "2026-10-18T04:00:30Z",
+          "creationDate": "2026-10-18T04:01:32.066444Z",
+          "endDate": "2026-10-31T15:00:00Z",
+          "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+          "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+          "active": true,
+          "closed": false,
+          "archived": false,
+          "new": false,
+          "featured": false,
+          "restricted": true,
+          "liquidity": 1715004.37665,
+          "volume": 1179847.293999,
+          "openInterest": 835346.915764,
+          "createdAt": "2026-10-18T04:00:22.089664Z",
+          "updatedAt": "2026-10-31T16:58:32.602939Z",
+          "competitive": 0.8003199679231757,
+          "volume24hr": 1316011.7210830005,
+          "volume1wk": 1339510.3874410007,
+          "volume1mo": 1340249.7473790005,
+          "volume1yr": 1340249.7473790005,
+          "enableOrderBook": true,
+          "liquidityClob": 1715004.37665,
+          "negRisk": true,
+          "negRiskMarketID": "0x038dc8f63cfddea385ad9a211d5a598a3712839f9fa80f14fc5f6fc5702c4b00",
+          "commentCount": 0,
+          "series": [
+            {
+              "id": "10188",
+              "ticker": "premier-league-2025",
+              "slug": "premier-league-2025",
+              "title": "Premier League 2025",
+              "seriesType": "single",
+              "recurrence": "daily",
+              "image": "",
+              "icon": "",
+              "active": true,
+              "closed": false,
+              "archived": false,
+              "featured": false,
+              "restricted": true,
+              "createdAt": "2025-08-08T14:56:37.247227Z",
+              "updatedAt": "2026-10-31T16:58:48.758592Z",
+              "volume24hr": 11239649.899821002,
+              "volume": 7003095.705348,
+              "liquidity": 34981169.29694,
+              "commentCount": 3240
+            }
+          ],
+          "cyom": false,
+          "showAllOutcomes": true,
+          "showMarketImages": false,
+          "enableNegRisk": true,
+          "automaticallyActive": true,
+          "eventDate": "2026-10-31",
+          "startTime": "2026-10-31T15:00:00Z",
+          "eventWeek": 9,
+          "seriesSlug": "premier-league-2025",
+          "score": "0-1",
+          "elapsed": "",
+          "period": "FT",
+          "live": false,
+          "ended": true,
+          "finishedTimestamp": "2026-10-31T16:54:22.471475Z",
+          "negRiskAugmented": false,
+          "pendingDeployment": false,
+          "deploying": false,
+          "deployingTimestamp": "2026-10-18T04:00:22.810816Z",
+          "gameId": 90114151,
+          "eventMetadata": {
+            "context_requires_regen": true,
+            "opticOddsFixtureId": "20261031B49D4A6A",
+            "opticOddsGameId": "29541-35511-2026-10-31",
+            "opticOddsNumericalId": 944275
+          },
+          "version": "v1"
+        }
+      ],
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-10-18T04:00:30Z",
+      "cyom": false,
+      "competitive": 0.8003199679231757,
+      "approved": true,
+      "rewardsMinSize": 0,
+      "rewardsMaxSpread": 0,
+      "spread": 0.001,
+      "oneDayPriceChange": -0.5945,
+      "oneHourPriceChange": -0.3145,
+      "oneWeekPriceChange": -0.5845,
+      "lastTradePrice": 0.001,
+      "bestAsk": 0.001,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "sportsMarketType": "moneyline",
+      "umaResolutionStatuses": "[\"proposed\", \"proposed\"]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-10-18T04:00:22.821883Z",
+      "rfqEnabled": false,
+      "holdingRewardsEnabled": false,
+      "feesEnabled": true,
+      "feeType": "sports_fees_v3",
+      "marketMetadata": {
+        "opticOddsFixtureId": "20261031B49D4A6A",
+        "opticOddsMarketId": "moneyline_3-way",
+        "opticOddsMarketName": "Moneyline 3-Way",
+        "opticOddsSelection": "Manchester City FC",
+        "opticOddsSelectionLine": "home",
+        "opticOddsTeamId": "E69E55FFCF65"
+      },
+      "feeSchedule": {
+        "exponent": 1,
+        "rate": 0.05,
+        "takerOnly": true,
+        "rebateRate": 0.15
+      },
+      "fallbackResolutionType": "none",
+      "resolutionMechanism": "oracle",
+      "tradingEligible": true,
+      "version": "v1"
+    }
+  },
+  {
+    "category": {
+      "id": 664844,
+      "slug": "nba-phi-cha-2026-10-31",
+      "title": "76ers vs. Hornets",
+      "shortTitle": null,
+      "description": "In the upcoming NBA game, scheduled for October 31 at 6:00PM ET:\nIf the 76ers win, the market will resolve to \"76ers\".\nIf the Hornets win, the market will resolve to \"Hornets\".\nIf the game is postponed, this market will remain open until the game has been completed.\nIf the game is canceled entirely, with no make-up game, this market will resolve 50-50.\nThe result will be determined based on the final score including any overtime periods.",
+      "imageUrl": "https://static.predict.fun/basketball",
+      "isNegRisk": false,
+      "protocol": "LEGACY",
+      "isYieldBearing": true,
+      "negRiskOnChainId": null,
+      "marketVariant": "SPORTS_NBA",
+      "variantData": {
+        "type": "SPORTS_NBA",
+        "provider": "PREDICT_SPORTS",
+        "providerEventId": "24025",
+        "teams": [
+          {
+            "id": 7,
+            "name": "76ers",
+            "abbreviation": "PHI",
+            "providerTeamId": "7"
+          },
+          {
+            "id": 2,
+            "name": "Hornets",
+            "abbreviation": "CHA",
+            "providerTeamId": "2"
+          }
+        ]
+      },
+      "variantDetails": {
+        "sports": {
+          "provider": "PREDICT_SPORTS",
+          "providerEventId": "24025",
+          "teams": [
+            {
+              "id": 7,
+              "name": "76ers",
+              "abbreviation": "PHI",
+              "providerTeamId": "7",
+              "isHome": false
+            },
+            {
+              "id": 2,
+              "name": "Hornets",
+              "abbreviation": "CHA",
+              "providerTeamId": "2",
+              "isHome": true
+            }
+          ]
+        }
+      },
+      "createdAt": "2026-10-25T01:18:05.524Z",
+      "publishedAt": "2026-10-25T01:19:03.324Z",
+      "markets": [
+        {
+          "id": 3789520,
+          "imageUrl": "https://static.predict.fun/basketball",
+          "title": "76ers vs. Hornets",
+          "question": "76ers vs. Hornets",
+          "description": "In the upcoming NBA game, scheduled for October 31 at 6:00PM ET:\nIf the 76ers win, the market will resolve to \"76ers\".\nIf the Hornets win, the market will resolve to \"Hornets\".\nIf the game is postponed, this market will remain open until the game has been completed.\nIf the game is canceled entirely, with no make-up game, this market will resolve 50-50.\nThe result will be determined based on the final score including any overtime periods.",
+          "tradingStatus": "OPEN",
+          "status": "REGISTERED",
+          "isVisible": true,
+          "isNegRisk": false,
+          "isYieldBearing": true,
+          "feeRateBps": 200,
+          "makerFeeBps": 0,
+          "resolution": null,
+          "oracleQuestionId": "0x569fe9551006a1db311c592c7e9e65a4fc3423b4f91ac5bf3956300cadec433a",
+          "conditionId": "0x8b45e119794dca754cd65f4d3dc083529af1f58c9d400810bcf52ef248ffc34a",
+          "resolverAddress": "0x947cc06D38d3cB0a2BB5AdFB668b99B4FF53d7B4",
+          "outcomes": [
+            {
+              "name": "PHI",
+              "indexSet": 1,
+              "onChainId": "74335576853571366247673589561777611107745777851018692020138838734558693837840",
+              "status": null,
+              "bestBid": {
+                "price": 0.53,
+                "size": 235272.7163
+              },
+              "bestAsk": {
+                "price": 0.54,
+                "size": 46048.072592592594
+              },
+              "team": null,
+              "variantData": {
+                "type": "SPORTS_NBA",
+                "provider": "PREDICT_SPORTS",
+                "team": {
+                  "id": 7,
+                  "name": "76ers",
+                  "abbreviation": "PHI",
+                  "providerTeamId": "7"
+                }
+              },
+              "variantDetails": {
+                "sports": {
+                  "provider": "PREDICT_SPORTS",
+                  "team": {
+                    "id": 7,
+                    "name": "76ers",
+                    "abbreviation": "PHI",
+                    "providerTeamId": "7"
+                  }
+                }
+              }
+            },
+            {
+              "name": "CHA",
+              "indexSet": 2,
+              "onChainId": "57541705403671600971782917080703443848374950207085333762090740283745078496167",
+              "status": null,
+              "bestBid": {
+                "price": 0.46,
+                "size": 46048.072592592594
+              },
+              "bestAsk": {
+                "price": 0.47,
+                "size": 235272.7163
+              },
+              "team": null,
+              "variantData": {
+                "type": "SPORTS_NBA",
+                "provider": "PREDICT_SPORTS",
+                "team": {
+                  "id": 2,
+                  "name": "Hornets",
+                  "abbreviation": "CHA",
+                  "providerTeamId": "2"
+                }
+              },
+              "variantDetails": {
+                "sports": {
+                  "provider": "PREDICT_SPORTS",
+                  "team": {
+                    "id": 2,
+                    "name": "Hornets",
+                    "abbreviation": "CHA",
+                    "providerTeamId": "2"
+                  }
+                }
+              }
+            }
+          ],
+          "questionIndex": null,
+          "spreadThreshold": 0.06,
+          "shareThreshold": 100,
+          "isBoosted": false,
+          "boostStartsAt": null,
+          "boostEndsAt": null,
+          "polymarketConditionIds": [
+            "0xa54108c7e2c9764f25d43aaa84a1a389a0ad27d4a7396f72e2195c32f7dca7b2"
+          ],
+          "kalshiMarketTicker": null,
+          "categorySlug": "nba-phi-cha-2026-10-31",
+          "createdAt": "2026-10-25T01:18:05.524Z",
+          "decimalPrecision": 2,
+          "marketVariant": "SPORTS_NBA",
+          "variantData": {
+            "type": "SPORTS_NBA",
+            "provider": "PREDICT_SPORTS",
+            "providerEventId": "24025",
+            "teams": [
+              {
+                "id": 7,
+                "name": "76ers",
+                "abbreviation": "PHI",
+                "providerTeamId": "7"
+              },
+              {
+                "id": 2,
+                "name": "Hornets",
+                "abbreviation": "CHA",
+                "providerTeamId": "2"
+              }
+            ]
+          },
+          "team": null,
+          "marketType": "SPORTS_MONEYLINE",
+          "rewards": {
+            "current": {
+              "hourlyRate": 100,
+              "startsAt": "2026-10-30T22:00:00.000Z",
+              "endsAt": "2026-10-31T22:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "hourlyRate": 100,
+                "startsAt": "2026-10-30T22:00:00.000Z",
+                "endsAt": "2026-10-31T22:00:00.000Z"
+              },
+              {
+                "hourlyRate": 500,
+                "startsAt": "2026-10-31T22:00:00.000Z",
+                "endsAt": "2026-11-01T01:00:00.000Z"
+              }
+            ]
+          }
+        }
+      ],
+      "startsAt": "2026-10-31T22:00:00.000Z",
+      "endsAt": "2026-11-01T01:00:00.000Z",
+      "tradingSession": null,
+      "status": "OPEN",
+      "isVisible": true,
+      "resolutionProvider": "THREE_PO",
+      "tags": [
+        {
+          "id": "4",
+          "name": "Sports",
+          "level": 1,
+          "parentId": null,
+          "makerRebateBps": 0
+        },
+        {
+          "id": "78",
+          "name": "NBA",
+          "level": 3,
+          "parentId": "114",
+          "makerRebateBps": 0
+        },
+        {
+          "id": "114",
+          "name": "Basketball",
+          "level": 2,
+          "parentId": "4",
+          "makerRebateBps": 0
+        }
+      ],
+      "teams": null,
+      "parentSlug": null,
+      "stats": null
+    },
+    "polymarket": {
+      "id": "6167325",
+      "question": "76ers vs. Hornets",
+      "conditionId": "0xa54108c7e2c9764f25d43aaa84a1a389a0ad27d4a7396f72e2195c32f7dca7b2",
+      "slug": "nba-phi-cha-2026-10-31",
+      "resolutionSource": "https://www.nba.com/",
+      "endDate": "2026-10-31T22:00:00Z",
+      "liquidity": "156084.2929",
+      "startDate": "2026-10-25T00:51:20Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+      "description": "In the upcoming NBA game, scheduled for October 31 at 6:00PM ET:\nIf the 76ers win, the market will resolve to \"76ers\".\nIf the Hornets win, the market will resolve to \"Hornets\".\nIf the game is postponed, this market will remain open until the game has been completed.\nIf the game is canceled entirely, with no make-up game, this market will resolve 50-50.\nThe result will be determined based on the final score including any overtime periods.",
+      "outcomes": "[\"76ers\", \"Hornets\"]",
+      "outcomePrices": "[\"0.535\", \"0.465\"]",
+      "volume": "185046.65949899997",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-10-25T00:51:12.028366Z",
+      "updatedAt": "2026-10-31T16:58:16.25353Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0xAC9930b2AE455a671b62dE86876A7e8587825294",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemThreshold": "0",
+      "questionID": "0x8e1637d9c65cffc9770b94f3e9b5e695b60d6364499460ce7915cd80401fa6af",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "volumeNum": 185046.65949899997,
+      "liquidityNum": 156084.2929,
+      "endDateIso": "2026-10-31",
+      "startDateIso": "2026-10-25",
+      "hasReviewedDates": true,
+      "volume24hr": 180708.09839199996,
+      "volume1wk": 185612.16172199996,
+      "volume1mo": 185612.16172199996,
+      "volume1yr": 185612.16172199996,
+      "gameStartTime": "2026-10-31 22:00:00+00",
+      "secondsDelay": 0,
+      "clobTokenIds": "[\"10884723436295823847490944846420542489324348225113142157523265067026747433452\", \"63066883240502395157907848966581056033418482625131124489143915905261888331687\"]",
+      "positionIds": [
+        "736203454898720611562857142086397486038467566340094102343800842244612685824",
+        "736203454898720611562857142086397486038467566340094102343800842244612685825"
+      ],
+      "comboStatus": "enabled",
+      "umaBond": "250",
+      "umaReward": "0.8",
+      "volume24hrClob": 180708.09839199996,
+      "volume1wkClob": 185612.16172199996,
+      "volume1moClob": 185612.16172199996,
+      "volume1yrClob": 185612.16172199996,
+      "volumeClob": 185046.65949899997,
+      "liquidityClob": 156084.2929,
+      "makerBaseFee": 1000,
+      "takerBaseFee": 1000,
+      "customLiveness": 900,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "events": [
+        {
+          "id": "1249498",
+          "ticker": "nba-phi-cha-2026-10-31",
+          "slug": "nba-phi-cha-2026-10-31",
+          "title": "76ers vs. Hornets",
+          "description": "In the upcoming NBA game, scheduled for October 31 at 6:00PM ET:\nIf the 76ers win, the market will resolve to \"76ers\".\nIf the Hornets win, the market will resolve to \"Hornets\".\nIf the game is postponed, this market will remain open until the game has been completed.\nIf the game is canceled entirely, with no make-up game, this market will resolve 50-50.\nThe result will be determined based on the final score including any overtime periods.",
+          "resolutionSource": "https://www.nba.com/",
+          "startDate": "2026-10-25T00:51:20Z",
+          "creationDate": "2026-10-31T22:00:00Z",
+          "endDate": "2026-10-31T22:00:00Z",
+          "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+          "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+          "active": true,
+          "closed": false,
+          "archived": false,
+          "new": false,
+          "featured": false,
+          "restricted": true,
+          "liquidity": 1821533.04446,
+          "volume": 311452.031705,
+          "openInterest": 272595.936223,
+          "createdAt": "2026-10-25T00:51:11.809099Z",
+          "updatedAt": "2026-10-31T16:58:32.602939Z",
+          "competitive": 1,
+          "volume24hr": 307113.4705979999,
+          "volume1wk": 312017.53392799996,
+          "volume1mo": 312017.53392799996,
+          "volume1yr": 312017.53392799996,
+          "enableOrderBook": true,
+          "liquidityClob": 1821533.04446,
+          "negRisk": false,
+          "commentCount": 0,
+          "series": [
+            {
+              "id": "10345",
+              "ticker": "nba-2026",
+              "slug": "nba-2026",
+              "title": "NBA 2026",
+              "seriesType": "single",
+              "recurrence": "daily",
+              "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+              "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+              "active": true,
+              "closed": false,
+              "archived": false,
+              "featured": false,
+              "restricted": true,
+              "createdAt": "2025-10-02T17:23:18.780864Z",
+              "updatedAt": "2026-10-31T16:58:48.758592Z",
+              "volume24hr": 35406511.627729,
+              "volume": 2663750.149457,
+              "liquidity": 16673024.30204,
+              "commentCount": 9263
+            }
+          ],
+          "cyom": false,
+          "showAllOutcomes": true,
+          "showMarketImages": false,
+          "enableNegRisk": false,
+          "automaticallyActive": true,
+          "eventDate": "2026-10-31",
+          "startTime": "2026-10-31T22:00:00Z",
+          "eventWeek": 18,
+          "seriesSlug": "nba-2026",
+          "period": "NS",
+          "negRiskAugmented": false,
+          "pendingDeployment": false,
+          "deploying": false,
+          "gameId": 20024025,
+          "eventMetadata": {
+            "context_requires_regen": true
+          },
+          "version": "v1"
+        }
+      ],
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-10-25T00:51:20Z",
+      "cyom": false,
+      "competitive": 0.9987764987889834,
+      "approved": true,
+      "rewardsMinSize": 50,
+      "rewardsMaxSpread": 4.5,
+      "spread": 0.01,
+      "oneDayPriceChange": 0.01,
+      "lastTradePrice": 0.54,
+      "bestBid": 0.53,
+      "bestAsk": 0.54,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "sportsMarketType": "moneyline",
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-10-25T00:51:12.674032Z",
+      "rfqEnabled": false,
+      "holdingRewardsEnabled": false,
+      "feesEnabled": true,
+      "feeType": "zero_fees",
+      "feeSchedule": {
+        "exponent": 1,
+        "rate": 0,
+        "takerOnly": true,
+        "rebateRate": 0
+      },
+      "fallbackResolutionType": "equal_split",
+      "resolutionMechanism": "oracle",
+      "tradingEligible": true,
+      "version": "v1"
+    }
+  },
+  {
+    "category": {
+      "id": 696649,
+      "slug": "val-gpk-samura-2026-10-31",
+      "title": "Valorant: Team GPK vs Team Samuraj (BO3) - BETBOOM Streamers Battle Playoffs",
+      "shortTitle": null,
+      "description": "This market refers to the Valorant Upper Bracket Final match between Team GPK and Team Samuraj in the BETBOOM Streamers Battle Playoffs, initially scheduled for October 31, 2026 at 12:15 PM ET.\n\nThis market will resolve to \"Team GPK\" if Team GPK win the match against Team Samuraj.\n\nThis market will resolve to \"Team Samuraj\" if Team Samuraj win the match against Team GPK.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 12:15 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://vlr.gg. However, if https://vlr.gg has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+      "imageUrl": "https://static.predict.fun/val",
+      "isNegRisk": false,
+      "protocol": "LEGACY",
+      "isYieldBearing": false,
+      "negRiskOnChainId": null,
+      "marketVariant": "SPORTS_TEAM_MATCH",
+      "variantData": null,
+      "variantDetails": {
+        "sports": {
+          "provider": "POLYMARKET",
+          "providerEventId": "1289236",
+          "teams": [
+            {
+              "id": 122194824,
+              "name": "Team GPK",
+              "abbreviation": "gpk",
+              "providerTeamId": "3298212",
+              "isHome": true,
+              "record": {
+                "wins": 0,
+                "losses": 0
+              },
+              "color": "#ECC658"
+            },
+            {
+              "id": 122194822,
+              "name": "Team Samuraj",
+              "abbreviation": "samura",
+              "providerTeamId": "3298214",
+              "isHome": false,
+              "record": {
+                "wins": 0,
+                "losses": 0
+              },
+              "color": "#f8ea00"
+            }
+          ],
+          "scoreboard": {
+            "source": "POLYMARKET",
+            "bestOf": 3,
+            "isLive": false,
+            "finished": false,
+            "period": "0/3",
+            "score": [
+              {
+                "teamId": 122194824,
+                "score": 0
+              },
+              {
+                "teamId": 122194822,
+                "score": 0
+              }
+            ],
+            "games": []
+          }
+        }
+      },
+      "createdAt": "2026-10-31T16:11:03.162Z",
+      "publishedAt": "2026-10-31T16:11:57.442Z",
+      "markets": [
+        {
+          "id": 4069488,
+          "imageUrl": "https://static.predict.fun/val",
+          "title": "Match Winner",
+          "question": "Valorant: Team GPK vs Team Samuraj (BO3) - BETBOOM Streamers Battle Playoffs",
+          "description": "This market refers to the Valorant Upper Bracket Final match between Team GPK and Team Samuraj in the BETBOOM Streamers Battle Playoffs, initially scheduled for October 31, 2026 at 12:15 PM ET.\n\nThis market will resolve to \"Team GPK\" if Team GPK win the match against Team Samuraj.\n\nThis market will resolve to \"Team Samuraj\" if Team Samuraj win the match against Team GPK.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 12:15 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://vlr.gg. However, if https://vlr.gg has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+          "tradingStatus": "OPEN",
+          "status": "REGISTERED",
+          "isVisible": true,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "feeRateBps": 200,
+          "makerFeeBps": 0,
+          "resolution": null,
+          "oracleQuestionId": "0x0a9039d25812652219f58a74aecc1f55e938dabb776840d67a5714d56cb5d5a7",
+          "conditionId": "0xc24aedb95efc4cc813859d0e3dcad74c8d5f0bf05211e62bd4ab2c41270c2420",
+          "resolverAddress": "0x242E1Ba24f6fC524bfb410062Ca5689A9622613d",
+          "outcomes": [
+            {
+              "name": "GPK",
+              "indexSet": 1,
+              "onChainId": "78303229886564902205789755515437039575522282602317902724077988373495411857250",
+              "status": null,
+              "bestBid": null,
+              "bestAsk": null,
+              "team": {
+                "id": 122194824,
+                "name": "Team GPK",
+                "abbreviation": "gpk",
+                "alias": null,
+                "league": "valorant"
+              },
+              "variantData": null,
+              "variantDetails": {
+                "sports": {
+                  "provider": "POLYMARKET",
+                  "team": {
+                    "id": 122194824,
+                    "name": "Team GPK",
+                    "abbreviation": "gpk",
+                    "providerTeamId": "3298212"
+                  }
+                }
+              }
+            },
+            {
+              "name": "SAMURA",
+              "indexSet": 2,
+              "onChainId": "67226392931551364194191743518500879822709703585738094640951736913375372521284",
+              "status": null,
+              "bestBid": null,
+              "bestAsk": null,
+              "team": {
+                "id": 122194822,
+                "name": "Team Samuraj",
+                "abbreviation": "samura",
+                "alias": null,
+                "league": "valorant"
+              },
+              "variantData": null,
+              "variantDetails": {
+                "sports": {
+                  "provider": "POLYMARKET",
+                  "team": {
+                    "id": 122194822,
+                    "name": "Team Samuraj",
+                    "abbreviation": "samura",
+                    "providerTeamId": "3298214"
+                  }
+                }
+              }
+            }
+          ],
+          "questionIndex": null,
+          "spreadThreshold": 0.06,
+          "shareThreshold": 100,
+          "isBoosted": false,
+          "boostStartsAt": null,
+          "boostEndsAt": null,
+          "polymarketConditionIds": [
+            "0xec4745a010ddad43e904ded14a4311083290f71f8520725514fef52c347eab33"
+          ],
+          "kalshiMarketTicker": null,
+          "categorySlug": "val-gpk-samura-2026-10-31",
+          "createdAt": "2026-10-31T16:11:03.162Z",
+          "decimalPrecision": 2,
+          "marketVariant": "SPORTS_TEAM_MATCH",
+          "variantData": null,
+          "team": null,
+          "marketType": "SPORTS_MONEYLINE",
+          "rewards": {
+            "current": {
+              "hourlyRate": 200,
+              "startsAt": "2026-10-31T16:15:00.000Z",
+              "endsAt": "2026-10-31T19:15:00.000Z"
+            },
+            "schedule": [
+              {
+                "hourlyRate": 10,
+                "startsAt": "2026-10-30T16:15:00.000Z",
+                "endsAt": "2026-10-31T16:15:00.000Z"
+              },
+              {
+                "hourlyRate": 200,
+                "startsAt": "2026-10-31T16:15:00.000Z",
+                "endsAt": "2026-10-31T19:15:00.000Z"
+              }
+            ]
+          }
+        }
+      ],
+      "startsAt": "2026-10-31T16:15:00.000Z",
+      "endsAt": "2026-10-31T19:15:00.000Z",
+      "tradingSession": null,
+      "status": "OPEN",
+      "isVisible": true,
+      "resolutionProvider": "THREE_PO",
+      "tags": [
+        {
+          "id": "83",
+          "name": "Esports",
+          "level": 1,
+          "parentId": null,
+          "makerRebateBps": 0
+        },
+        {
+          "id": "132",
+          "name": "Valorant",
+          "level": 2,
+          "parentId": "83",
+          "makerRebateBps": 0
+        },
+        {
+          "id": "2351",
+          "name": "BetBoom Streamers Battle",
+          "level": 3,
+          "parentId": "96",
+          "makerRebateBps": null
+        }
+      ],
+      "teams": [
+        {
+          "id": 122194822,
+          "name": "Team Samuraj",
+          "abbreviation": "samura",
+          "alias": null,
+          "league": "valorant"
+        },
+        {
+          "id": 122194824,
+          "name": "Team GPK",
+          "abbreviation": "gpk",
+          "alias": null,
+          "league": "valorant"
+        }
+      ],
+      "parentSlug": null,
+      "stats": null
+    },
+    "polymarket": {
+      "id": "6476225",
+      "question": "Valorant: Team GPK vs Team Samuraj (BO3) - BETBOOM Streamers Battle Playoffs",
+      "conditionId": "0xec4745a010ddad43e904ded14a4311083290f71f8520725514fef52c347eab33",
+      "slug": "val-gpk-samura-2026-10-31",
+      "resolutionSource": "https://vlr.gg",
+      "endDate": "2026-10-31T22:15:00Z",
+      "liquidity": "19.5193",
+      "startDate": "2026-10-31T16:09:20Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/valorant-logo-6fab741a16.png",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/valorant-logo-6fab741a16.png",
+      "description": "This market refers to the Valorant Upper Bracket Final match between Team GPK and Team Samuraj in the BETBOOM Streamers Battle Playoffs, initially scheduled for October 31, 2026 at 12:15 PM ET.\n\nThis market will resolve to \"Team GPK\" if Team GPK win the match against Team Samuraj.\n\nThis market will resolve to \"Team Samuraj\" if Team Samuraj win the match against Team GPK.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 12:15 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://vlr.gg. However, if https://vlr.gg has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+      "outcomes": "[\"Team GPK\", \"Team Samuraj\"]",
+      "outcomePrices": "[\"0.5\", \"0.5\"]",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-10-31T16:09:12.979464Z",
+      "updatedAt": "2026-10-31T16:28:16.54746Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0xAC9930b2AE455a671b62dE86876A7e8587825294",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemTitle": "Match Winner",
+      "questionID": "0xf64117fa2866900698e864ef0ff2fd611fa3de4e67d6373499a0635cc50bad4b",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "liquidityNum": 19.5193,
+      "endDateIso": "2026-10-31",
+      "startDateIso": "2026-10-31",
+      "hasReviewedDates": true,
+      "gameStartTime": "2026-10-31 16:15:00+00",
+      "secondsDelay": 1,
+      "clobTokenIds": "[\"1291589189174909415742839640630562124514647631300980633620724351403204441649\", \"55365758392825157112621880142182640762978812340695610279855590802153548787326\"]",
+      "positionIds": [
+        "541655715722396440195330879138187881151447321104188935101415193243486781440",
+        "541655715722396440195330879138187881151447321104188935101415193243486781441"
+      ],
+      "comboStatus": "disabled",
+      "umaBond": "250",
+      "umaReward": "1.5",
+      "liquidityClob": 19.5193,
+      "makerBaseFee": 1000,
+      "takerBaseFee": 1000,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "events": [
+        {
+          "id": "1289236",
+          "ticker": "val-gpk-samura-2026-10-31",
+          "slug": "val-gpk-samura-2026-10-31",
+          "title": "Valorant: Team GPK vs Team Samuraj (BO3) - BETBOOM Streamers Battle Playoffs",
+          "description": "This market refers to the Valorant Upper Bracket Final match between Team GPK and Team Samuraj in the BETBOOM Streamers Battle Playoffs, initially scheduled for October 31, 2026 at 12:15 PM ET.\n\nThis market will resolve to \"Team GPK\" if Team GPK win the match against Team Samuraj.\n\nThis market will resolve to \"Team Samuraj\" if Team Samuraj win the match against Team GPK.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 12:15 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://vlr.gg. However, if https://vlr.gg has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+          "resolutionSource": "https://www.twitch.tv/betboom_esports2",
+          "startDate": "2026-10-31T16:09:20Z",
+          "creationDate": "2026-10-31T16:10:33.639322Z",
+          "endDate": "2026-10-31T22:15:00Z",
+          "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/valorant-logo-6fab741a16.png",
+          "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/valorant-logo-6fab741a16.png",
+          "active": true,
+          "closed": false,
+          "archived": false,
+          "new": false,
+          "featured": false,
+          "restricted": true,
+          "liquidity": 36.9183,
+          "createdAt": "2026-10-31T16:09:12.463127Z",
+          "updatedAt": "2026-10-31T16:28:32.052572Z",
+          "competitive": 0.12,
+          "enableOrderBook": true,
+          "liquidityClob": 36.9183,
+          "negRisk": false,
+          "commentCount": 0,
+          "series": [
+            {
+              "id": "10369",
+              "ticker": "valorant",
+              "slug": "valorant",
+              "title": "Valorant",
+              "seriesType": "single",
+              "recurrence": "daily",
+              "image": "",
+              "icon": "",
+              "active": true,
+              "closed": false,
+              "archived": false,
+              "featured": false,
+              "restricted": true,
+              "createdAt": "2025-10-09T19:28:49.220421Z",
+              "updatedAt": "2026-10-31T16:28:48.216825Z",
+              "volume24hr": 270447.180994,
+              "volume": 11070.493147000001,
+              "liquidity": 42908.66965,
+              "commentCount": 1962
+            }
+          ],
+          "cyom": false,
+          "showAllOutcomes": true,
+          "showMarketImages": true,
+          "enableNegRisk": false,
+          "automaticallyActive": true,
+          "eventDate": "2026-10-31",
+          "startTime": "2026-10-31T16:15:00Z",
+          "eventWeek": 1,
+          "seriesSlug": "valorant",
+          "score": "000-000|0-0|Bo3",
+          "period": "0/3",
+          "live": false,
+          "ended": false,
+          "negRiskAugmented": false,
+          "pendingDeployment": false,
+          "deploying": false,
+          "gameId": 1782270,
+          "eventMetadata": {
+            "gridSeriesId": null,
+            "league": "BETBOOM Streamers Battle",
+            "leagueTier": "5",
+            "originalStart": "2026-10-31T16:15:00.000Z",
+            "pandascoreMatchId": 1782270,
+            "tournament": "Playoffs"
+          },
+          "version": "v1"
+        }
+      ],
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-10-31T16:09:20Z",
+      "cyom": false,
+      "competitive": 0.12,
+      "approved": true,
+      "rewardsMinSize": 50,
+      "rewardsMaxSpread": 4.5,
+      "spread": 0.88,
+      "bestBid": 0.06,
+      "bestAsk": 0.94,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "gameId": "1782270",
+      "sportsMarketType": "moneyline",
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-10-31T16:09:13.489851Z",
+      "rfqEnabled": false,
+      "eventStartTime": "2026-10-31T16:15:00Z",
+      "holdingRewardsEnabled": false,
+      "feesEnabled": true,
+      "feeType": "sports_fees_v3",
+      "feeSchedule": {
+        "exponent": 1,
+        "rate": 0.05,
+        "takerOnly": true,
+        "rebateRate": 0.15
+      },
+      "fallbackResolutionType": "equal_split",
+      "resolutionMechanism": "oracle",
+      "tradingEligible": true,
+      "version": "v1"
+    }
+  },
+  {
+    "category": {
+      "id": 696649,
+      "slug": "val-gpk-samura-2026-10-31",
+      "title": "Valorant: Team GPK vs Team Samuraj (BO3) - BETBOOM Streamers Battle Playoffs",
+      "shortTitle": null,
+      "description": "This market refers to the Valorant Upper Bracket Final match between Team GPK and Team Samuraj in the BETBOOM Streamers Battle Playoffs, initially scheduled for October 31, 2026 at 12:15 PM ET.\n\nThis market will resolve to \"Team GPK\" if Team GPK win the match against Team Samuraj.\n\nThis market will resolve to \"Team Samuraj\" if Team Samuraj win the match against Team GPK.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 12:15 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://vlr.gg. However, if https://vlr.gg has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+      "imageUrl": "https://static.predict.fun/val",
+      "isNegRisk": false,
+      "protocol": "LEGACY",
+      "isYieldBearing": false,
+      "negRiskOnChainId": null,
+      "marketVariant": "SPORTS_TEAM_MATCH",
+      "variantData": null,
+      "variantDetails": {
+        "sports": {
+          "provider": "POLYMARKET",
+          "providerEventId": "1289236",
+          "teams": [
+            {
+              "id": 122194824,
+              "name": "Team GPK",
+              "abbreviation": "gpk",
+              "providerTeamId": "3298212",
+              "isHome": true,
+              "record": {
+                "wins": 0,
+                "losses": 0
+              },
+              "color": "#ECC658"
+            },
+            {
+              "id": 122194822,
+              "name": "Team Samuraj",
+              "abbreviation": "samura",
+              "providerTeamId": "3298214",
+              "isHome": false,
+              "record": {
+                "wins": 0,
+                "losses": 0
+              },
+              "color": "#f8ea00"
+            }
+          ],
+          "scoreboard": {
+            "source": "POLYMARKET",
+            "bestOf": 3,
+            "isLive": false,
+            "finished": false,
+            "period": "0/3",
+            "score": [
+              {
+                "teamId": 122194824,
+                "score": 0
+              },
+              {
+                "teamId": 122194822,
+                "score": 0
+              }
+            ],
+            "games": []
+          }
+        }
+      },
+      "createdAt": "2026-10-31T16:11:03.162Z",
+      "publishedAt": "2026-10-31T16:11:57.442Z",
+      "markets": [
+        {
+          "id": 4069489,
+          "imageUrl": "https://static.predict.fun/val",
+          "title": "Map 1 Winner",
+          "question": "Valorant: Team GPK vs Team Samuraj - Map 1 Winner",
+          "description": "This market refers to the Valorant Upper Bracket Final match between Team GPK and Team Samuraj in the BETBOOM Streamers Battle Playoffs, initially scheduled for October 31, 2026 at 12:15 PM ET.\n\nThis market will resolve to \"Team GPK\" if Team GPK win Map 1 against Team Samuraj.\n\nThis market will resolve to \"Team Samuraj\" if Team Samuraj win Map 1 against Team GPK.\n\nIf the match begins but is not completed, and Map 1 is concluded with a winner determined, this market will resolve based on the completed Map 1. \n\nIf Map 1 is not completed for any reason, this market will resolve 50-50. \n\nIf the match is canceled (not played at all), this market will resolve 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 12:15 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nThe resolution source for this market will be official information from https://vlr.gg. However, if https://vlr.gg has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.",
+          "tradingStatus": "OPEN",
+          "status": "REGISTERED",
+          "isVisible": true,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "feeRateBps": 200,
+          "makerFeeBps": 0,
+          "resolution": null,
+          "oracleQuestionId": "0x7c918fbfc764e8986d85f639da15f1b66ad1aaebbdfc5f4001523496fa7384fa",
+          "conditionId": "0x3ac114e7f2eaa5a75135322ff1fe7c7b87d143359534a4fe40a539a823438917",
+          "resolverAddress": "0x242E1Ba24f6fC524bfb410062Ca5689A9622613d",
+          "outcomes": [
+            {
+              "name": "GPK",
+              "indexSet": 1,
+              "onChainId": "1790074141096957289447219143928278287438112576627781280729823742616023514549",
+              "status": null,
+              "bestBid": null,
+              "bestAsk": null,
+              "team": {
+                "id": 122194824,
+                "name": "Team GPK",
+                "abbreviation": "gpk",
+                "alias": null,
+                "league": "valorant"
+              },
+              "variantData": null,
+              "variantDetails": {
+                "sports": {
+                  "provider": "POLYMARKET",
+                  "team": {
+                    "id": 122194824,
+                    "name": "Team GPK",
+                    "abbreviation": "gpk",
+                    "providerTeamId": "3298212"
+                  }
+                }
+              }
+            },
+            {
+              "name": "SAMURA",
+              "indexSet": 2,
+              "onChainId": "64321243024103821095892363190486385193596842222082760787831513133487957425398",
+              "status": null,
+              "bestBid": null,
+              "bestAsk": null,
+              "team": {
+                "id": 122194822,
+                "name": "Team Samuraj",
+                "abbreviation": "samura",
+                "alias": null,
+                "league": "valorant"
+              },
+              "variantData": null,
+              "variantDetails": {
+                "sports": {
+                  "provider": "POLYMARKET",
+                  "team": {
+                    "id": 122194822,
+                    "name": "Team Samuraj",
+                    "abbreviation": "samura",
+                    "providerTeamId": "3298214"
+                  }
+                }
+              }
+            }
+          ],
+          "questionIndex": null,
+          "spreadThreshold": 0.06,
+          "shareThreshold": 100,
+          "isBoosted": false,
+          "boostStartsAt": null,
+          "boostEndsAt": null,
+          "polymarketConditionIds": [
+            "0xfda97450b24a02971041f9f4bf479df06634aa02f21d38cc386092166ced0306"
+          ],
+          "kalshiMarketTicker": null,
+          "categorySlug": "val-gpk-samura-2026-10-31",
+          "createdAt": "2026-10-31T16:11:03.162Z",
+          "decimalPrecision": 2,
+          "marketVariant": "SPORTS_TEAM_MATCH",
+          "variantData": null,
+          "variantDetails": {
+            "sports": {
+              "gameNumber": 1
+            }
+          },
+          "team": null,
+          "marketType": "SPORTS_CHILD_MONEYLINE",
+          "rewards": {
+            "current": {
+              "hourlyRate": 50,
+              "startsAt": "2026-10-31T16:15:00.000Z",
+              "endsAt": "2026-10-31T17:15:00.000Z"
+            },
+            "schedule": [
+              {
+                "hourlyRate": 10,
+                "startsAt": "2026-10-30T16:15:00.000Z",
+                "endsAt": "2026-10-31T16:15:00.000Z"
+              },
+              {
+                "hourlyRate": 50,
+                "startsAt": "2026-10-31T16:15:00.000Z",
+                "endsAt": "2026-10-31T17:15:00.000Z"
+              }
+            ]
+          }
+        }
+      ],
+      "startsAt": "2026-10-31T16:15:00.000Z",
+      "endsAt": "2026-10-31T19:15:00.000Z",
+      "tradingSession": null,
+      "status": "OPEN",
+      "isVisible": true,
+      "resolutionProvider": "THREE_PO",
+      "tags": [
+        {
+          "id": "83",
+          "name": "Esports",
+          "level": 1,
+          "parentId": null,
+          "makerRebateBps": 0
+        },
+        {
+          "id": "132",
+          "name": "Valorant",
+          "level": 2,
+          "parentId": "83",
+          "makerRebateBps": 0
+        },
+        {
+          "id": "2351",
+          "name": "BetBoom Streamers Battle",
+          "level": 3,
+          "parentId": "96",
+          "makerRebateBps": null
+        }
+      ],
+      "teams": [
+        {
+          "id": 122194822,
+          "name": "Team Samuraj",
+          "abbreviation": "samura",
+          "alias": null,
+          "league": "valorant"
+        },
+        {
+          "id": 122194824,
+          "name": "Team GPK",
+          "abbreviation": "gpk",
+          "alias": null,
+          "league": "valorant"
+        }
+      ],
+      "parentSlug": null,
+      "stats": null
+    },
+    "polymarket": {
+      "id": "6476223",
+      "question": "Valorant: Team GPK vs Team Samuraj - Map 1 Winner",
+      "conditionId": "0xfda97450b24a02971041f9f4bf479df06634aa02f21d38cc386092166ced0306",
+      "slug": "val-gpk-samura-2026-10-31-game1",
+      "resolutionSource": "https://vlr.gg",
+      "endDate": "2026-10-31T22:15:00Z",
+      "liquidity": "13.6198",
+      "startDate": "2026-10-31T16:09:20Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/valorant-logo-6fab741a16.png",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/valorant-logo-6fab741a16.png",
+      "description": "This market refers to the Valorant Upper Bracket Final match between Team GPK and Team Samuraj in the BETBOOM Streamers Battle Playoffs, initially scheduled for October 31, 2026 at 12:15 PM ET.\n\nThis market will resolve to \"Team GPK\" if Team GPK win Map 1 against Team Samuraj.\n\nThis market will resolve to \"Team Samuraj\" if Team Samuraj win Map 1 against Team GPK.\n\nIf the match begins but is not completed, and Map 1 is concluded with a winner determined, this market will resolve based on the completed Map 1. \n\nIf Map 1 is not completed for any reason, this market will resolve 50-50. \n\nIf the match is canceled (not played at all), this market will resolve 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 12:15 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nThe resolution source for this market will be official information from https://vlr.gg. However, if https://vlr.gg has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.",
+      "outcomes": "[\"Team GPK\", \"Team Samuraj\"]",
+      "outcomePrices": "[\"0.5\", \"0.5\"]",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-10-31T16:09:12.644613Z",
+      "updatedAt": "2026-10-31T16:28:16.54746Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0xAC9930b2AE455a671b62dE86876A7e8587825294",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemTitle": "Map 1 Winner",
+      "questionID": "0x0b6c0cfef4a252b1e3afcd57c71a9517bfd0a2657c6b592d660321688b8117d5",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "liquidityNum": 13.6198,
+      "endDateIso": "2026-10-31",
+      "startDateIso": "2026-10-31",
+      "hasReviewedDates": true,
+      "gameStartTime": "2026-10-31 16:15:00+00",
+      "secondsDelay": 1,
+      "clobTokenIds": "[\"38492635635444496149478529508648904766995177225824660941418421370706625630016\", \"19060938142935346052497566998791794144541611815041948808840566255904672270212\"]",
+      "positionIds": [
+        "632894723501852681700025548432490073291924190055079263096152029796994383872",
+        "632894723501852681700025548432490073291924190055079263096152029796994383873"
+      ],
+      "comboStatus": "disabled",
+      "umaBond": "250",
+      "umaReward": "1.5",
+      "liquidityClob": 13.6198,
+      "makerBaseFee": 1000,
+      "takerBaseFee": 1000,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "events": [
+        {
+          "id": "1289236",
+          "ticker": "val-gpk-samura-2026-10-31",
+          "slug": "val-gpk-samura-2026-10-31",
+          "title": "Valorant: Team GPK vs Team Samuraj (BO3) - BETBOOM Streamers Battle Playoffs",
+          "description": "This market refers to the Valorant Upper Bracket Final match between Team GPK and Team Samuraj in the BETBOOM Streamers Battle Playoffs, initially scheduled for October 31, 2026 at 12:15 PM ET.\n\nThis market will resolve to \"Team GPK\" if Team GPK win the match against Team Samuraj.\n\nThis market will resolve to \"Team Samuraj\" if Team Samuraj win the match against Team GPK.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 12:15 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://vlr.gg. However, if https://vlr.gg has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+          "resolutionSource": "https://www.twitch.tv/betboom_esports2",
+          "startDate": "2026-10-31T16:09:20Z",
+          "creationDate": "2026-10-31T16:10:33.639322Z",
+          "endDate": "2026-10-31T22:15:00Z",
+          "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/valorant-logo-6fab741a16.png",
+          "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/valorant-logo-6fab741a16.png",
+          "active": true,
+          "closed": false,
+          "archived": false,
+          "new": false,
+          "featured": false,
+          "restricted": true,
+          "liquidity": 36.9183,
+          "createdAt": "2026-10-31T16:09:12.463127Z",
+          "updatedAt": "2026-10-31T16:28:32.052572Z",
+          "competitive": 0.12,
+          "enableOrderBook": true,
+          "liquidityClob": 36.9183,
+          "negRisk": false,
+          "commentCount": 0,
+          "series": [
+            {
+              "id": "10369",
+              "ticker": "valorant",
+              "slug": "valorant",
+              "title": "Valorant",
+              "seriesType": "single",
+              "recurrence": "daily",
+              "image": "",
+              "icon": "",
+              "active": true,
+              "closed": false,
+              "archived": false,
+              "featured": false,
+              "restricted": true,
+              "createdAt": "2025-10-09T19:28:49.220421Z",
+              "updatedAt": "2026-10-31T16:28:48.216825Z",
+              "volume24hr": 270447.180994,
+              "volume": 11070.493147000001,
+              "liquidity": 42908.66965,
+              "commentCount": 1962
+            }
+          ],
+          "cyom": false,
+          "showAllOutcomes": true,
+          "showMarketImages": true,
+          "enableNegRisk": false,
+          "automaticallyActive": true,
+          "eventDate": "2026-10-31",
+          "startTime": "2026-10-31T16:15:00Z",
+          "eventWeek": 1,
+          "seriesSlug": "valorant",
+          "score": "000-000|0-0|Bo3",
+          "period": "0/3",
+          "live": false,
+          "ended": false,
+          "negRiskAugmented": false,
+          "pendingDeployment": false,
+          "deploying": false,
+          "gameId": 1782270,
+          "eventMetadata": {
+            "gridSeriesId": null,
+            "league": "BETBOOM Streamers Battle",
+            "leagueTier": "5",
+            "originalStart": "2026-10-31T16:15:00.000Z",
+            "pandascoreMatchId": 1782270,
+            "tournament": "Playoffs"
+          },
+          "version": "v1"
+        }
+      ],
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-10-31T16:09:20Z",
+      "cyom": false,
+      "competitive": 0.1,
+      "approved": true,
+      "rewardsMinSize": 50,
+      "rewardsMaxSpread": 4.5,
+      "spread": 0.9,
+      "bestBid": 0.05,
+      "bestAsk": 0.95,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "gameId": "52571",
+      "sportsMarketType": "child_moneyline",
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-10-31T16:09:13.488412Z",
+      "rfqEnabled": false,
+      "eventStartTime": "2026-10-31T16:15:00Z",
+      "holdingRewardsEnabled": false,
+      "feesEnabled": true,
+      "feeType": "sports_fees_v3",
+      "feeSchedule": {
+        "exponent": 1,
+        "rate": 0.05,
+        "takerOnly": true,
+        "rebateRate": 0.15
+      },
+      "fallbackResolutionType": "equal_split",
+      "resolutionMechanism": "oracle",
+      "tradingEligible": true,
+      "version": "v1"
+    }
+  },
+  {
+    "category": {
+      "createdAt": "2026-10-31T00:54:59.579Z",
+      "description": "This market refers to the LoL Round 5 match between Hanwha Life Esports and Bilibili Gaming in the Worlds Group Stage, initially scheduled for October 31, 2026 at 7:00 PM ET.\n\nThis market will resolve to \"Hanwha Life Esports\" if Hanwha Life Esports win the match against Bilibili Gaming.\n\nThis market will resolve to \"Bilibili Gaming\" if Bilibili Gaming win the match against Hanwha Life Esports.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 7:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+      "endsAt": "2026-11-01T02:00:00.000Z",
+      "id": 693899,
+      "imageUrl": "https://static.predict.fun/market-images/bf8e7c35-f72e-4dcf-87dc-6308dc763b2b.jpg",
+      "isNegRisk": false,
+      "isVisible": true,
+      "isYieldBearing": false,
+      "marketVariant": "ESPORTS_LOL",
+      "markets": [
+        {
+          "boostEndsAt": null,
+          "boostStartsAt": null,
+          "categorySlug": "lol-hle1-blg-2026-10-31",
+          "conditionId": "0x27593fd3d452295fb2dcdb2543a16529dd668a4181a59068f23167f99d515b6b",
+          "createdAt": "2026-10-31T00:54:59.579Z",
+          "decimalPrecision": 2,
+          "description": "This market refers to the LoL Round 5 match between Hanwha Life Esports and Bilibili Gaming in the Worlds Group Stage, initially scheduled for October 31, 2026 at 7:00 PM ET.\n\nThis market will resolve to \"Hanwha Life Esports\" if Hanwha Life Esports win Game 1 against Bilibili Gaming.\n\nThis market will resolve to \"Bilibili Gaming\" if Bilibili Gaming win Game 1 against Hanwha Life Esports.\n\nIf the match begins but is not completed, and Game 1 is concluded with a winner determined, this market will resolve based on the completed Game 1. \n\nIf Game 1 is not completed for any reason, this market will resolve 50-50. \n\nIf the match is canceled (not played at all), this market will resolve 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 7:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.",
+          "feeRateBps": 200,
+          "id": 4038254,
+          "imageUrl": "https://static.predict.fun/market-images/bf8e7c35-f72e-4dcf-87dc-6308dc763b2b.jpg",
+          "isBoosted": false,
+          "isNegRisk": false,
+          "isVisible": true,
+          "isYieldBearing": false,
+          "kalshiMarketTicker": null,
+          "makerFeeBps": 0,
+          "marketType": "SPORTS_CHILD_MONEYLINE",
+          "marketVariant": "ESPORTS_LOL",
+          "oracleQuestionId": "0x61968f5cdc0bcd00f5338458da9a5b00f3dbd77f6fc02f69549e95f0712fea1d",
+          "outcomes": [
+            {
+              "bestAsk": {
+                "price": 0.56,
+                "size": 12758.13132857143
+              },
+              "bestBid": {
+                "price": 0.55,
+                "size": 655.46
+              },
+              "indexSet": 1,
+              "name": "HLE",
+              "onChainId": "100672450458523752570053581320424997877993393777868482001023155061671414066281",
+              "status": null,
+              "team": null,
+              "variantData": {
+                "provider": "GRID",
+                "team": {
+                  "abbreviation": "HLE",
+                  "id": 15883,
+                  "name": "Hanwha Life Esports",
+                  "providerTeamId": "406"
+                },
+                "type": "ESPORTS_LOL"
+              },
+              "variantDetails": {
+                "sports": {
+                  "provider": "GRID",
+                  "team": {
+                    "abbreviation": "HLE",
+                    "id": 15883,
+                    "name": "Hanwha Life Esports",
+                    "providerTeamId": "406"
+                  }
+                }
+              }
+            },
+            {
+              "bestAsk": {
+                "price": 0.45,
+                "size": 655.46
+              },
+              "bestBid": {
+                "price": 0.44,
+                "size": 12758.13132857143
+              },
+              "indexSet": 2,
+              "name": "BLG",
+              "onChainId": "3832540708983673468195258311254967581919257237913732098618896810912844218066",
+              "status": null,
+              "team": null,
+              "variantData": {
+                "provider": "GRID",
+                "team": {
+                  "abbreviation": "BLG",
+                  "id": 15884,
+                  "name": "BILIBILI GAMING",
+                  "providerTeamId": "356"
+                },
+                "type": "ESPORTS_LOL"
+              },
+              "variantDetails": {
+                "sports": {
+                  "provider": "GRID",
+                  "team": {
+                    "abbreviation": "BLG",
+                    "id": 15884,
+                    "name": "BILIBILI GAMING",
+                    "providerTeamId": "356"
+                  }
+                }
+              }
+            }
+          ],
+          "polymarketConditionIds": [
+            "0x795e770ea5a653a25c6be5bfebfb7a2ea9729fe772c52f39e77e484933d86e73"
+          ],
+          "question": "LoL: Hanwha Life Esports vs Bilibili Gaming - Game 1 Winner",
+          "questionIndex": null,
+          "resolution": null,
+          "resolverAddress": "0x242E1Ba24f6fC524bfb410062Ca5689A9622613d",
+          "rewards": {
+            "current": {
+              "endsAt": "2026-10-31T23:00:00.000Z",
+              "hourlyRate": 50,
+              "startsAt": "2026-10-30T23:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "endsAt": "2026-10-31T23:00:00.000Z",
+                "hourlyRate": 50,
+                "startsAt": "2026-10-30T23:00:00.000Z"
+              },
+              {
+                "endsAt": "2026-11-01T00:00:00.000Z",
+                "hourlyRate": 500,
+                "startsAt": "2026-10-31T23:00:00.000Z"
+              }
+            ]
+          },
+          "shareThreshold": 100,
+          "spreadThreshold": 0.06,
+          "status": "REGISTERED",
+          "team": null,
+          "title": "Game 1 Winner",
+          "tradingStatus": "OPEN",
+          "variantData": {
+            "provider": "GRID",
+            "providerEventId": "3012973",
+            "teams": [
+              {
+                "abbreviation": "HLE",
+                "id": 15883,
+                "name": "Hanwha Life Esports",
+                "providerTeamId": "406"
+              },
+              {
+                "abbreviation": "BLG",
+                "id": 15884,
+                "name": "BILIBILI GAMING",
+                "providerTeamId": "356"
+              }
+            ],
+            "type": "ESPORTS_LOL"
+          },
+          "variantDetails": {
+            "sports": {
+              "gameNumber": 1
+            }
+          }
+        }
+      ],
+      "negRiskOnChainId": null,
+      "parentSlug": null,
+      "protocol": "LEGACY",
+      "publishedAt": "2026-10-31T00:55:57.640Z",
+      "resolutionProvider": "THREE_PO",
+      "shortTitle": null,
+      "slug": "lol-hle1-blg-2026-10-31",
+      "startsAt": "2026-10-31T23:00:00.000Z",
+      "stats": null,
+      "status": "OPEN",
+      "tags": [
+        {
+          "id": "83",
+          "level": 1,
+          "makerRebateBps": 0,
+          "name": "Esports",
+          "parentId": null
+        },
+        {
+          "id": "84",
+          "level": 2,
+          "makerRebateBps": 0,
+          "name": "LoL",
+          "parentId": "83"
+        },
+        {
+          "id": "2991",
+          "level": 3,
+          "makerRebateBps": 0,
+          "name": "Worlds",
+          "parentId": "84"
+        }
+      ],
+      "teams": null,
+      "title": "LoL: Hanwha Life Esports vs Bilibili Gaming (BO3) - Worlds Group Stage",
+      "tradingSession": null,
+      "variantData": {
+        "provider": "GRID",
+        "providerEventId": "3012973",
+        "teams": [
+          {
+            "abbreviation": "HLE",
+            "id": 15883,
+            "name": "Hanwha Life Esports",
+            "providerTeamId": "406"
+          },
+          {
+            "abbreviation": "BLG",
+            "id": 15884,
+            "name": "BILIBILI GAMING",
+            "providerTeamId": "356"
+          }
+        ],
+        "type": "ESPORTS_LOL"
+      },
+      "variantDetails": {
+        "sports": {
+          "provider": "GRID",
+          "providerEventId": "3012973",
+          "scoreboard": {
+            "bestOf": 3,
+            "games": [],
+            "score": [],
+            "source": "GRID"
+          },
+          "teams": [
+            {
+              "abbreviation": "HLE",
+              "id": 15883,
+              "name": "Hanwha Life Esports",
+              "providerTeamId": "406"
+            },
+            {
+              "abbreviation": "BLG",
+              "id": 15884,
+              "name": "BILIBILI GAMING",
+              "providerTeamId": "356"
+            }
+          ]
+        }
+      }
+    },
+    "polymarket": {
+      "id": "6440439",
+      "question": "LoL: Hanwha Life Esports vs Bilibili Gaming - Game 1 Winner",
+      "conditionId": "0x795e770ea5a653a25c6be5bfebfb7a2ea9729fe772c52f39e77e484933d86e73",
+      "slug": "lol-hle1-blg-2026-10-31-game1",
+      "resolutionSource": "https://gol.gg/esports/home",
+      "endDate": "2026-11-01T05:00:00Z",
+      "liquidity": "72372.4299",
+      "startDate": "2026-10-31T00:50:25Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+      "description": "This market refers to the LoL Round 5 match between Hanwha Life Esports and Bilibili Gaming in the Worlds Group Stage, initially scheduled for October 31, 2026 at 7:00 PM ET.\n\nThis market will resolve to \"Hanwha Life Esports\" if Hanwha Life Esports win Game 1 against Bilibili Gaming.\n\nThis market will resolve to \"Bilibili Gaming\" if Bilibili Gaming win Game 1 against Hanwha Life Esports.\n\nIf the match begins but is not completed, and Game 1 is concluded with a winner determined, this market will resolve based on the completed Game 1. \n\nIf Game 1 is not completed for any reason, this market will resolve 50-50. \n\nIf the match is canceled (not played at all), this market will resolve 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 7:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.",
+      "outcomes": "[\"Hanwha Life Esports\", \"Bilibili Gaming\"]",
+      "outcomePrices": "[\"0.555\", \"0.445\"]",
+      "volume": "9887.765013",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-10-31T00:50:13.27627Z",
+      "updatedAt": "2026-10-31T16:08:17.760995Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0xAC9930b2AE455a671b62dE86876A7e8587825294",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemTitle": "Game 1 Winner",
+      "questionID": "0x79d24c7694e2a900ac236a38c3ed213b770aa04091f747797995a9a40b03f695",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "volumeNum": 9887.765013,
+      "liquidityNum": 72372.4299,
+      "endDateIso": "2026-11-01",
+      "startDateIso": "2026-10-31",
+      "hasReviewedDates": true,
+      "volume24hr": 10067.765013,
+      "volume1wk": 10067.765013,
+      "volume1mo": 10067.765013,
+      "volume1yr": 10067.765013,
+      "gameStartTime": "2026-10-31 23:00:00+00",
+      "secondsDelay": 1,
+      "clobTokenIds": "[\"11876703303173865042533624215072650960141020256097028785713765449539960408361\", \"24572152975765730121484805133643820845714646628910634330652090404367419908800\"]",
+      "positionIds": [
+        "751701112620220659855070021201983530452434646520568523842718369871904636928",
+        "751701112620220659855070021201983530452434646520568523842718369871904636929"
+      ],
+      "comboStatus": "enabled",
+      "umaBond": "250",
+      "umaReward": "1.5",
+      "volume24hrClob": 10067.765013,
+      "volume1wkClob": 10067.765013,
+      "volume1moClob": 10067.765013,
+      "volume1yrClob": 10067.765013,
+      "volumeClob": 9887.765013,
+      "liquidityClob": 72372.4299,
+      "makerBaseFee": 1000,
+      "takerBaseFee": 1000,
+      "customLiveness": 900,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-10-31T00:50:25Z",
+      "cyom": false,
+      "competitive": 0.9969841230278408,
+      "approved": true,
+      "clobRewards": [
+        {
+          "id": "4700450",
+          "conditionId": "0x795e770ea5a653a25c6be5bfebfb7a2ea9729fe772c52f39e77e484933d86e73",
+          "assetAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+          "rewardsAmount": 0,
+          "rewardsDailyRate": 133,
+          "startDate": "2026-10-31",
+          "endDate": "2500-12-31"
+        }
+      ],
+      "rewardsMinSize": 500,
+      "rewardsMaxSpread": 2.5,
+      "spread": 0.01,
+      "lastTradePrice": 0.56,
+      "bestBid": 0.55,
+      "bestAsk": 0.56,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "gameId": "284762",
+      "sportsMarketType": "child_moneyline",
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-10-31T00:50:16.899162Z",
+      "rfqEnabled": false,
+      "eventStartTime": "2026-10-31T23:00:00Z",
+      "holdingRewardsEnabled": false,
+      "feesEnabled": true,
+      "feeType": "sports_fees_v3",
+      "feeSchedule": {
+        "exponent": 1,
+        "rate": 0.05,
+        "takerOnly": true,
+        "rebateRate": 0.15
+      },
+      "fallbackResolutionType": "equal_split",
+      "resolutionMechanism": "oracle",
+      "tradingEligible": true,
+      "version": "v1"
+    }
+  },
+  {
+    "category": {
+      "id": 693898,
+      "slug": "lol-los-ly-2026-10-31",
+      "title": "LoL: LOS vs LYON (BO3) - Worlds Group Stage",
+      "shortTitle": null,
+      "description": "This market refers to the LoL Round 5 match between LOS and LYON in the Worlds Group Stage, initially scheduled for October 31, 2026 at 1:00 PM ET.\n\nThis market will resolve to \"LOS\" if LOS win the match against LYON.\n\nThis market will resolve to \"LYON\" if LYON win the match against LOS.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 1:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+      "imageUrl": "https://static.predict.fun/market-images/8ecdf3fd-d2e3-4347-8574-ced336b7c120.jpg",
+      "isNegRisk": false,
+      "protocol": "LEGACY",
+      "isYieldBearing": false,
+      "negRiskOnChainId": null,
+      "marketVariant": "ESPORTS_LOL",
+      "variantData": {
+        "type": "ESPORTS_LOL",
+        "provider": "GRID",
+        "providerEventId": "3012972",
+        "teams": [
+          {
+            "id": 15881,
+            "name": "LOS",
+            "abbreviation": "LOS",
+            "providerTeamId": "47946"
+          },
+          {
+            "id": 15882,
+            "name": "LYON",
+            "abbreviation": "LYON",
+            "providerTeamId": "54198"
+          }
+        ]
+      },
+      "variantDetails": {
+        "sports": {
+          "provider": "GRID",
+          "providerEventId": "3012972",
+          "teams": [
+            {
+              "id": 15881,
+              "name": "LOS",
+              "abbreviation": "LOS",
+              "providerTeamId": "47946"
+            },
+            {
+              "id": 15882,
+              "name": "LYON",
+              "abbreviation": "LYON",
+              "providerTeamId": "54198"
+            }
+          ],
+          "scoreboard": {
+            "source": "GRID",
+            "bestOf": 3,
+            "score": [],
+            "games": []
+          }
+        }
+      },
+      "createdAt": "2026-10-31T00:54:59.251Z",
+      "publishedAt": "2026-10-31T00:55:57.640Z",
+      "markets": [
+        {
+          "id": 4038234,
+          "imageUrl": "https://static.predict.fun/market-images/8ecdf3fd-d2e3-4347-8574-ced336b7c120.jpg",
+          "title": "Match Winner",
+          "question": "LoL: LOS vs LYON (BO3) - Worlds Group Stage",
+          "description": "This market refers to the LoL Round 5 match between LOS and LYON in the Worlds Group Stage, initially scheduled for October 31, 2026 at 1:00 PM ET.\n\nThis market will resolve to \"LOS\" if LOS win the match against LYON.\n\nThis market will resolve to \"LYON\" if LYON win the match against LOS.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 1:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+          "tradingStatus": "OPEN",
+          "status": "REGISTERED",
+          "isVisible": true,
+          "isNegRisk": false,
+          "isYieldBearing": false,
+          "feeRateBps": 200,
+          "makerFeeBps": 0,
+          "resolution": null,
+          "oracleQuestionId": "0xa61f856fcfe12288b6d30bafa3ee1c1b6e06efcfe2a2b67e487660a10cff419a",
+          "conditionId": "0xa2a66ac5ac92c9994c98e4aa0e209fdfc985aae2cb6ad3b1a5049bbf9ae2f8b4",
+          "resolverAddress": "0x242E1Ba24f6fC524bfb410062Ca5689A9622613d",
+          "outcomes": [
+            {
+              "name": "LOS",
+              "indexSet": 1,
+              "onChainId": "45598389493549070183315877470819354489583254037150122887865680877699398774462",
+              "status": null,
+              "bestBid": {
+                "price": 0.23,
+                "size": 105012.88540532468
+              },
+              "bestAsk": {
+                "price": 0.24,
+                "size": 59031.76876438597
+              },
+              "team": null,
+              "variantData": {
+                "type": "ESPORTS_LOL",
+                "provider": "GRID",
+                "team": {
+                  "id": 15881,
+                  "name": "LOS",
+                  "abbreviation": "LOS",
+                  "providerTeamId": "47946"
+                }
+              },
+              "variantDetails": {
+                "sports": {
+                  "provider": "GRID",
+                  "team": {
+                    "id": 15881,
+                    "name": "LOS",
+                    "abbreviation": "LOS",
+                    "providerTeamId": "47946"
+                  }
+                }
+              }
+            },
+            {
+              "name": "LY",
+              "indexSet": 2,
+              "onChainId": "107786053069978395205689330272964368222522837390115659616218433935566614215452",
+              "status": null,
+              "bestBid": {
+                "price": 0.76,
+                "size": 59031.76876438597
+              },
+              "bestAsk": {
+                "price": 0.77,
+                "size": 105012.88540532468
+              },
+              "team": null,
+              "variantData": {
+                "type": "ESPORTS_LOL",
+                "provider": "GRID",
+                "team": {
+                  "id": 15882,
+                  "name": "LYON",
+                  "abbreviation": "LYON",
+                  "providerTeamId": "54198"
+                }
+              },
+              "variantDetails": {
+                "sports": {
+                  "provider": "GRID",
+                  "team": {
+                    "id": 15882,
+                    "name": "LYON",
+                    "abbreviation": "LYON",
+                    "providerTeamId": "54198"
+                  }
+                }
+              }
+            }
+          ],
+          "questionIndex": null,
+          "spreadThreshold": 0.06,
+          "shareThreshold": 100,
+          "isBoosted": false,
+          "boostStartsAt": null,
+          "boostEndsAt": null,
+          "polymarketConditionIds": [
+            "0xb50a479e7dce2014c3804f9910ade7ee179e195c527f103d4a00ff89bb481c40"
+          ],
+          "kalshiMarketTicker": null,
+          "categorySlug": "lol-los-ly-2026-10-31",
+          "createdAt": "2026-10-31T00:54:59.251Z",
+          "decimalPrecision": 2,
+          "marketVariant": "ESPORTS_LOL",
+          "variantData": {
+            "type": "ESPORTS_LOL",
+            "provider": "GRID",
+            "providerEventId": "3012972",
+            "teams": [
+              {
+                "id": 15881,
+                "name": "LOS",
+                "abbreviation": "LOS",
+                "providerTeamId": "47946"
+              },
+              {
+                "id": 15882,
+                "name": "LYON",
+                "abbreviation": "LYON",
+                "providerTeamId": "54198"
+              }
+            ]
+          },
+          "team": null,
+          "marketType": "SPORTS_MONEYLINE",
+          "rewards": {
+            "current": {
+              "hourlyRate": 100,
+              "startsAt": "2026-10-30T20:00:00.000Z",
+              "endsAt": "2026-10-31T20:00:00.000Z"
+            },
+            "schedule": [
+              {
+                "hourlyRate": 100,
+                "startsAt": "2026-10-30T20:00:00.000Z",
+                "endsAt": "2026-10-31T20:00:00.000Z"
+              },
+              {
+                "hourlyRate": 2000,
+                "startsAt": "2026-10-31T20:00:00.000Z",
+                "endsAt": "2026-10-31T23:00:00.000Z"
+              }
+            ]
+          }
+        }
+      ],
+      "startsAt": "2026-10-31T20:00:00.000Z",
+      "endsAt": "2026-10-31T23:00:00.000Z",
+      "tradingSession": null,
+      "status": "OPEN",
+      "isVisible": true,
+      "resolutionProvider": "THREE_PO",
+      "tags": [
+        {
+          "id": "83",
+          "name": "Esports",
+          "level": 1,
+          "parentId": null,
+          "makerRebateBps": 0
+        },
+        {
+          "id": "84",
+          "name": "LoL",
+          "level": 2,
+          "parentId": "83",
+          "makerRebateBps": 0
+        },
+        {
+          "id": "2991",
+          "name": "Worlds",
+          "level": 3,
+          "parentId": "84",
+          "makerRebateBps": 0
+        }
+      ],
+      "teams": null,
+      "parentSlug": null,
+      "stats": null
+    },
+    "polymarket": {
+      "id": "6440403",
+      "question": "LoL: LOS vs LYON (BO3) - Worlds Group Stage",
+      "conditionId": "0xb50a479e7dce2014c3804f9910ade7ee179e195c527f103d4a00ff89bb481c40",
+      "slug": "lol-los-ly-2026-10-31",
+      "resolutionSource": "https://gol.gg/esports/home",
+      "endDate": "2026-11-01T02:00:00Z",
+      "liquidity": "314702.2989",
+      "startDate": "2026-10-31T00:50:17Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+      "description": "This market refers to the LoL Round 5 match between LOS and LYON in the Worlds Group Stage, initially scheduled for October 31, 2026 at 1:00 PM ET.\n\nThis market will resolve to \"LOS\" if LOS win the match against LYON.\n\nThis market will resolve to \"LYON\" if LYON win the match against LOS.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 1:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+      "outcomes": "[\"LOS\", \"LYON\"]",
+      "outcomePrices": "[\"0.235\", \"0.765\"]",
+      "volume": "98313.862627",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-10-31T00:50:05.498491Z",
+      "updatedAt": "2026-10-31T16:58:16.25353Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0xAC9930b2AE455a671b62dE86876A7e8587825294",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemTitle": "Match Winner",
+      "questionID": "0x66760071912a2ac0ab624e896bc14e392fadaf80302199c78169acf78f38b6d4",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "volumeNum": 98313.862627,
+      "liquidityNum": 314702.2989,
+      "endDateIso": "2026-11-01",
+      "startDateIso": "2026-10-31",
+      "hasReviewedDates": true,
+      "volume24hr": 98457.27334100001,
+      "volume1wk": 98457.27334100002,
+      "volume1mo": 98457.27334100002,
+      "volume1yr": 98457.27334100002,
+      "gameStartTime": "2026-10-31 20:00:00+00",
+      "secondsDelay": 1,
+      "clobTokenIds": "[\"110956546469791351722585475905707489527668367602539815959459156434989478223238\", \"961456507832918981645146405611160616127707463164772948655896465728823211482\"]",
+      "positionIds": [
+        "494041490717296675798547932064250714887039070078771339594561469880731697152",
+        "494041490717296675798547932064250714887039070078771339594561469880731697153"
+      ],
+      "comboStatus": "enabled",
+      "umaBond": "250",
+      "umaReward": "1.5",
+      "volume24hrClob": 98457.27334100001,
+      "volume1wkClob": 98457.27334100002,
+      "volume1moClob": 98457.27334100002,
+      "volume1yrClob": 98457.27334100002,
+      "volumeClob": 98313.862627,
+      "liquidityClob": 314702.2989,
+      "makerBaseFee": 1000,
+      "takerBaseFee": 1000,
+      "customLiveness": 900,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "events": [
+        {
+          "id": "1286062",
+          "ticker": "lol-los-ly-2026-10-31",
+          "slug": "lol-los-ly-2026-10-31",
+          "title": "LoL: LOS vs LYON (BO3) - Worlds Group Stage",
+          "description": "This market refers to the LoL Round 5 match between LOS and LYON in the Worlds Group Stage, initially scheduled for October 31, 2026 at 1:00 PM ET.\n\nThis market will resolve to \"LOS\" if LOS win the match against LYON.\n\nThis market will resolve to \"LYON\" if LYON win the match against LOS.\n\nIf the match is canceled (not played at all) or ends in a tie, this market will resolve to 50-50.\n\nIf the match is postponed, it must be rescheduled to a start time on or before November 14, 2026 at 11:59 PM ET (14 calendar days after the originally scheduled start of October 31, 2026 at 1:00 PM ET). If, by that deadline, the most recently announced rescheduled start time is on or before the deadline, this market resolves based on the result of the match as played. Otherwise, this market resolves 50-50, regardless of whether the match is subsequently played.\n\nIf the match begins but is not completed, and one team wins due to the opponent's forfeiture, disqualification, or walkover, this market will resolve to the team who wins. \n\nIf the match ends in a forfeit, disqualification, or walkover (team withdraws before the start and the other wins automatically), this market will resolve to 50-50. \n\nThe resolution source for this market will be official information from https://gol.gg/esports/home. However, if https://gol.gg/esports/home has not published final results within 2 hours after the event’s conclusion, a consensus of credible reporting may be used instead including video evidence.\n\nIn cases where a team’s listed name includes minor discrepancies from the resolution source, this market will resolve based on the underlying real-world match rather than exact name matching. Recognizable abbreviations, alternate or erroneous spellings, sponsor tags, affiliate or academy designations, regional identifiers, and minor formatting differences will be treated as referring to the same team, provided the intended team can be clearly and uniquely identified within the relevant competition. If a listed team name has no reasonable connection to any participating team, or if it matches or could reasonably refer to another team in the same competition such that the intended team cannot be unambiguously determined, this market will resolve 50-50.",
+          "resolutionSource": "https://www.youtube.com/watch?v=J7wF_Cl4Fz4",
+          "startDate": "2026-10-31T00:50:17Z",
+          "creationDate": "2026-10-31T00:52:32.733278Z",
+          "endDate": "2026-11-01T02:00:00Z",
+          "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+          "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-of-legends-61a4f083a6.png",
+          "active": true,
+          "closed": false,
+          "archived": false,
+          "new": false,
+          "featured": false,
+          "restricted": true,
+          "liquidity": 1019943.6947,
+          "volume": 134784.71018,
+          "openInterest": 124128.53143100001,
+          "createdAt": "2026-10-31T00:50:04.925458Z",
+          "updatedAt": "2026-10-31T16:58:32.602939Z",
+          "competitive": 0.9979790923380155,
+          "volume24hr": 135493.300079,
+          "volume1wk": 135493.300079,
+          "volume1mo": 135493.300079,
+          "volume1yr": 135493.300079,
+          "enableOrderBook": true,
+          "liquidityClob": 1019943.6947,
+          "negRisk": false,
+          "commentCount": 0,
+          "series": [
+            {
+              "id": "10311",
+              "ticker": "league-of-legends",
+              "slug": "league-of-legends",
+              "title": "League of Legends",
+              "seriesType": "single",
+              "recurrence": "daily",
+              "image": "",
+              "icon": "",
+              "active": true,
+              "closed": false,
+              "archived": false,
+              "featured": false,
+              "restricted": true,
+              "createdAt": "2025-09-18T23:42:43.476657Z",
+              "updatedAt": "2026-10-31T16:58:48.758592Z",
+              "volume24hr": 19280420.832410026,
+              "volume": 2117759.119748,
+              "liquidity": 3035935.6374,
+              "commentCount": 10812
+            }
+          ],
+          "cyom": false,
+          "showAllOutcomes": true,
+          "showMarketImages": true,
+          "enableNegRisk": false,
+          "automaticallyActive": true,
+          "eventDate": "2026-10-31",
+          "startTime": "2026-10-31T20:00:00Z",
+          "eventWeek": 1,
+          "seriesSlug": "league-of-legends",
+          "score": "0-0|0-0|Bo3",
+          "period": "0/3",
+          "live": false,
+          "ended": false,
+          "negRiskAugmented": false,
+          "pendingDeployment": false,
+          "deploying": false,
+          "gameId": 1711008,
+          "eventMetadata": {
+            "context_requires_regen": true,
+            "league": "Worlds",
+            "leagueTier": "1",
+            "originalStart": "2026-10-31T17:00:00.000Z",
+            "pandascoreMatchId": 1711008,
+            "tournament": "Group Stage"
+          },
+          "version": "v1"
+        }
+      ],
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-10-31T00:50:17Z",
+      "cyom": false,
+      "competitive": 0.934382956854867,
+      "approved": true,
+      "clobRewards": [
+        {
+          "id": "4700446",
+          "conditionId": "0xb50a479e7dce2014c3804f9910ade7ee179e195c527f103d4a00ff89bb481c40",
+          "assetAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+          "rewardsAmount": 0,
+          "rewardsDailyRate": 133,
+          "startDate": "2026-10-31",
+          "endDate": "2500-12-31"
+        }
+      ],
+      "rewardsMinSize": 500,
+      "rewardsMaxSpread": 2.5,
+      "spread": 0.01,
+      "lastTradePrice": 0.24,
+      "bestBid": 0.23,
+      "bestAsk": 0.24,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "gameId": "1711008",
+      "sportsMarketType": "moneyline",
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-10-31T00:50:08.976306Z",
+      "rfqEnabled": false,
+      "eventStartTime": "2026-10-31T20:00:00Z",
+      "holdingRewardsEnabled": false,
+      "feesEnabled": true,
+      "feeType": "sports_fees_v3",
+      "feeSchedule": {
+        "exponent": 1,
+        "rate": 0.05,
+        "takerOnly": true,
+        "rebateRate": 0.15
+      },
+      "fallbackResolutionType": "equal_split",
+      "resolutionMechanism": "oracle",
+      "tradingEligible": true,
+      "version": "v1"
+    }
+  }
+]

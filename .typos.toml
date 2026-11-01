@@ -1,3 +1,7 @@
 [default]
 # Preserve financial notation and Git revision IDs in the execution evidence.
 extend-ignore-re = ["PnL", "[0-9a-f]{7,40}"]
+
+[default.extend-words]
+# Valve game title, preserved in source market questions.
+Dota = "Dota"

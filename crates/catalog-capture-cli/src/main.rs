@@ -16,6 +16,8 @@ mod config;
 mod credentials;
 mod custom_data;
 mod hip4;
+#[cfg(feature = "venue-polymarket")]
+mod matched_sports;
 mod metrics_server;
 mod option_universe;
 mod order_book;

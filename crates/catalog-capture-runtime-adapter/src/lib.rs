@@ -23,6 +23,7 @@ mod dynamic_plan;
 mod online_option_metrics;
 
 pub mod lighter_updown;
+pub mod matched_sports;
 
 pub use actor::{CatalogCaptureActor, CatalogCaptureActorConfig, RuntimeCaptureAdapter};
 pub use dynamic_hip4_universe::{

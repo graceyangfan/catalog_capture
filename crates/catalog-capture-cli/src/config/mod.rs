@@ -79,6 +79,7 @@ pub struct EffectiveConfig {
     pub plan: CapturePlan,
     pub option_universes: Vec<OptionUniverseSpec>,
     pub hip4_universes: Vec<Hip4UniverseSpec>,
+    pub matched_sports: Option<catalog_capture_core::paired_markets::MatchedSportsCaptureConfig>,
     pub lighter_updown: Vec<catalog_capture_runtime_adapter::LighterUpDownCaptureConfig>,
     pub venues: Vec<VenueRuntimeConfig>,
 }
@@ -158,10 +159,30 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         && option_universes.is_empty()
         && hip4_universes.is_empty()
         && config.capture.lighter_updown.is_empty()
+        && config.capture.matched_sports.is_none()
     {
         bail!("capture plan is empty; enable at least one capture family");
     }
 
+    if let Some(c) = &config.capture.matched_sports {
+        c.validate()?;
+        #[cfg(not(feature = "venue-polymarket"))]
+        anyhow::bail!("MatchedSports capture requires venue-polymarket and venue-predict");
+        #[cfg(feature = "venue-polymarket")]
+        anyhow::ensure!(
+            venues
+                .iter()
+                .filter(|v| matches!(v, VenueRuntimeConfig::Predict { .. }))
+                .count()
+                == 1
+                && venues
+                    .iter()
+                    .filter(|v| matches!(v, VenueRuntimeConfig::Polymarket { .. }))
+                    .count()
+                    == 1,
+            "MatchedSports capture requires exactly one predict and one polymarket venue"
+        );
+    }
     Ok(EffectiveConfig {
         runtime: config.runtime,
         capture,
@@ -169,6 +190,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         option_universes,
         hip4_universes,
         lighter_updown: config.capture.lighter_updown,
+        matched_sports: config.capture.matched_sports,
         venues,
     })
 }

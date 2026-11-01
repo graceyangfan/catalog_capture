@@ -38,6 +38,8 @@ pub mod private_client;
 #[cfg(feature = "execution")]
 pub mod query;
 #[cfg(feature = "live")]
+pub mod sports;
+#[cfg(feature = "live")]
 pub use client::PredictHttpClient;
 #[cfg(feature = "execution")]
 pub use private_client::{PredictAuthenticatedHttpClient, PredictPrivateHttpClient};

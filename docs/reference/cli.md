@@ -28,6 +28,11 @@ type and optional depth) and `[[capture.trades]]`. Rolling Predict profiles sele
 these through `record_depth` and `record_trades` metadata; `record_snapshot="false"`
 suppresses custom snapshot files. See [Predict capture](../how_to/predict-market-data.md).
 
+Matched sports profiles configure `[capture.matched_sports]` instead of fixed
+instrument IDs. See [matched sports capture](../how_to/matched-sports-capture.md)
+for matching, bilateral activity selection and event retirement. `validate` checks
+configuration only; it does not discover a live paired universe.
+
 ## Option universe
 
 | Subcommand | Purpose |
