@@ -116,6 +116,23 @@ The feed supplies no venue match ID: generated TradeIds are local UUIDs, distinc
 identical-looking executions are retained, and reconnect has no lossless replay
 or exactly-once guarantee.
 
+## Rolling windows at DST boundaries
+
+Titles omit the year and express New York local time. Discovery infers the
+nearest calendar date before converting clock times, so a DST parse failure
+cannot turn a 2026 market into a 2027 market. For rolling epoch categories, the
+slug's UTC start and configured elapsed interval distinguish the two occurrences
+of 1AM at the autumn transition, including a range such as `1:55AM-1AM`.
+Spring-forward clock times that do not exist are rejected.
+
+The resolved window also supplies instrument activation and expiration; the
+instrument provider does not reparse a rolling market without its UTC context.
+Standalone title parsing remains strict. Search results without a UTC category
+identity cannot distinguish repeated titles and are retried. Future discoveries
+are rechecked at the configured retry cadence or their start, whichever is earlier;
+active markets still refresh at their end. Rollover commits after the successor's
+first orderbook snapshot, independently for all six selectors.
+
 ## Custom subscription identity conflicts
 
 One market has one custom snapshot output identity in a session. Conflicting

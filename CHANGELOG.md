@@ -15,6 +15,11 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Predict rolling capture:** resolve repeated New York clock times using the
+  category's UTC epoch and configured interval. Infer the year before clock-time
+  conversion, preserve the resolved window in instrument definitions, and bound
+  future-discovery retries so DST cannot suspend selector rollover until next year.
+
 - **Segment durability tick** no longer calls `ArrowWriter::flush` (that sealed a
   parquet row group every sync interval and could hit the 32 767 RG/file limit on
   Deribit BookSummary-style custom streams). Tick only fsyncs the open `.part`.

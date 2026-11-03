@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use ahash::AHashMap;
 use async_trait::async_trait;
-use chrono::{DateTime, Datelike, Utc};
+use chrono::{DateTime, Utc};
 use nautilus_common::providers::{InstrumentProvider, InstrumentStore};
 use nautilus_core::{Params, UnixNanos};
 use nautilus_model::{
@@ -192,19 +192,14 @@ pub(crate) fn market_window(
             .timestamp_nanos_opt()
             .and_then(|value| u64::try_from(value).ok())
             .ok_or_else(|| anyhow::anyhow!("Predict market creation timestamp is out of range"))?;
-        // Do not reinterpret an invalid/ambiguous local time as another year's market.
-        crate::common::parse_crypto_up_down_title(&market.title, anchor.year())?;
-        Ok(Some(
-            [anchor.year() - 1, anchor.year(), anchor.year() + 1]
-                .into_iter()
-                .filter_map(|year| {
-                    crate::common::parse_crypto_up_down_title(&market.title, year).ok()
-                })
-                .min_by_key(|window| window.start_ns.abs_diff(anchor_ns))
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Predict crypto market lacks a valid trading window")
-                })?,
-        ))
+        let year = crate::common::title_year_near(&market.title, anchor_ns)?;
+        // Standalone loads have no selector/UTC slug to distinguish repeated
+        // clock times, so retain strict parsing. Discovery supplies its resolved
+        // window directly when constructing rolling instruments.
+        Ok(Some(crate::common::parse_crypto_up_down_title(
+            &market.title,
+            year,
+        )?))
     } else {
         Ok(None)
     }
@@ -213,6 +208,15 @@ pub(crate) fn market_window(
 pub(crate) fn instruments_from_market(
     market: &PredictMarket,
     ts_init: UnixNanos,
+) -> anyhow::Result<(PredictMarketContext, Vec<InstrumentAny>)> {
+    let window = market_window(market, ts_init)?;
+    instruments_from_market_with_window(market, ts_init, window)
+}
+
+pub(crate) fn instruments_from_market_with_window(
+    market: &PredictMarket,
+    ts_init: UnixNanos,
+    window: Option<crate::common::CryptoUpDownMarketWindow>,
 ) -> anyhow::Result<(PredictMarketContext, Vec<InstrumentAny>)> {
     anyhow::ensure!(
         market.decimal_precision <= FIXED_PRECISION,
@@ -253,7 +257,6 @@ pub(crate) fn instruments_from_market(
         .filter(|variant| variant.variant_type == "CRYPTO_UP_DOWN")
         .and_then(|variant| variant.start_price)
         .map(|price| Params::new([("start_price".into(), price.to_string().into())].into()));
-    let window = market_window(market, ts_init)?;
     let instruments = [yes, no]
         .into_iter()
         .map(|outcome| {

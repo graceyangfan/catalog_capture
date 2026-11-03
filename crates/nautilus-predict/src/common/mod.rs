@@ -33,7 +33,9 @@ pub(crate) mod serde;
 use std::sync::LazyLock;
 
 #[cfg(feature = "live")]
-pub(crate) use crypto_up_down::normalize_price_feed_symbol;
+pub(crate) use crypto_up_down::title_year_near;
+#[cfg(feature = "live")]
+pub(crate) use crypto_up_down::{normalize_price_feed_symbol, resolve_crypto_up_down_market_near};
 use nautilus_core::Params;
 use nautilus_model::{
     data::DataType,

@@ -15,7 +15,9 @@
 use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+#[cfg(feature = "live")]
+use chrono::Datelike;
+use chrono::{Duration, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 use chrono_tz::America::New_York;
 use nautilus_model::identifiers::InstrumentId;
 
@@ -153,6 +155,18 @@ pub fn predict_outcome_instrument_id(market_id: u64, outcome_index: u8) -> Resul
 /// Eastern time, including daylight-saving-time rules. An ambiguous or
 /// nonexistent local timestamp is rejected rather than guessed.
 pub fn parse_crypto_up_down_title(title: &str, year: i32) -> Result<CryptoUpDownMarketWindow> {
+    parse_title_window(title, year, None)
+}
+
+// Fold choices are explicit so the context-free public parser still rejects ambiguity.
+fn parse_title_window(
+    title: &str,
+    year: i32,
+    folds: Option<(bool, bool, bool)>,
+) -> Result<CryptoUpDownMarketWindow> {
+    let start_fold = folds.map(|value| value.0);
+    let end_fold = folds.map(|value| value.1);
+    let same_day = folds.is_some_and(|value| value.2);
     let (title_asset, start, end) = if let Some((asset, date)) =
         title.trim().split_once(" Up or Down on ")
     {
@@ -168,8 +182,8 @@ pub fn parse_crypto_up_down_title(title: &str, year: i32) -> Result<CryptoUpDown
         let noon = NaiveTime::from_hms_opt(12, 0, 0).expect("valid noon");
         (
             asset,
-            eastern_to_utc(start_date.and_time(noon), title)?,
-            eastern_to_utc(end_date.and_time(noon), title)?,
+            eastern_to_utc(start_date.and_time(noon), title, start_fold)?,
+            eastern_to_utc(end_date.and_time(noon), title, end_fold)?,
         )
     } else {
         let (asset, schedule) = title
@@ -189,17 +203,17 @@ pub fn parse_crypto_up_down_title(title: &str, year: i32) -> Result<CryptoUpDown
             .map_or((times, None), |(start, end)| (start, Some(end)));
         let start_time = parse_title_time(start_time)
             .with_context(|| format!("invalid crypto up/down start time in title {title:?}"))?;
-        let start = eastern_to_utc(date.and_time(start_time), title)?;
+        let start = eastern_to_utc(date.and_time(start_time), title, start_fold)?;
         let end = if let Some(end_time) = end_time {
             let end_time = parse_title_time(end_time)
                 .with_context(|| format!("invalid crypto up/down end time in title {title:?}"))?;
-            let end_date = if end_time <= start_time {
+            let end_date = if end_time <= start_time && !same_day {
                 date.succ_opt()
                     .context("crypto up/down title date overflows")?
             } else {
                 date
             };
-            eastern_to_utc(end_date.and_time(end_time), title)?
+            eastern_to_utc(end_date.and_time(end_time), title, end_fold)?
         } else {
             // A single-time title identifies one Binance hourly candle.
             start
@@ -235,6 +249,80 @@ pub fn parse_crypto_up_down_title(title: &str, year: i32) -> Result<CryptoUpDown
     })
 }
 
+/// Resolves a yearless title date before converting its clock times. A DST error
+/// must never cause another year to be tried. Noon is unambiguous in New York.
+#[cfg(feature = "live")]
+pub(crate) fn title_year_near(title: &str, anchor_ns: u64) -> Result<i32> {
+    let anchor = chrono::DateTime::<chrono::Utc>::from_timestamp_nanos(i64::try_from(anchor_ns)?);
+    let date = if let Some((_, date)) = title.trim().split_once(" Up or Down on ") {
+        date.strip_suffix('?').context("invalid daily title")?
+    } else {
+        title
+            .trim()
+            .split_once(" Up or Down - ")
+            .context("invalid title")?
+            .1
+            .split_once(", ")
+            .context("missing title date")?
+            .0
+    };
+    [anchor.year() - 1, anchor.year(), anchor.year() + 1]
+        .into_iter()
+        .filter_map(|year| {
+            let date = NaiveDate::parse_from_str(&format!("{year} {date}"), "%Y %B %d").ok()?;
+            let noon = date.and_hms_opt(12, 0, 0)?;
+            let utc = eastern_to_utc(noon, title, None).ok()?;
+            Some((
+                utc.signed_duration_since(anchor)
+                    .num_seconds()
+                    .unsigned_abs(),
+                year,
+            ))
+        })
+        .min()
+        .map(|(_, year)| year)
+        .context("invalid crypto up/down title date")
+}
+
+/// Enumerates both DST folds, then selects a window using UTC context and the
+/// configured elapsed duration. Nonexistent spring-forward times remain errors.
+#[cfg(feature = "live")]
+fn title_window_near(
+    title: &str,
+    year: i32,
+    reference_ns: u64,
+    interval_secs: u64,
+) -> Result<CryptoUpDownMarketWindow> {
+    let mut windows = Vec::new();
+    for start_late in [false, true] {
+        for end_late in [false, true] {
+            for same_day in [false, true] {
+                if let Ok(window) =
+                    parse_title_window(title, year, Some((start_late, end_late, same_day)))
+                    && (if title.contains(" Up or Down on ") {
+                        interval_secs == 86_400
+                    } else {
+                        window.duration_secs() == interval_secs
+                    })
+                    && !windows.contains(&window)
+                {
+                    windows.push(window);
+                }
+            }
+        }
+    }
+    windows
+        .into_iter()
+        .min_by_key(|window| {
+            if window.start_ns <= reference_ns && reference_ns < window.end_ns {
+                (0, 0)
+            } else {
+                (1, window.start_ns.abs_diff(reference_ns))
+            }
+        })
+        .context("Predict title has no valid window for the supplied UTC context and interval")
+}
+
 /// Validates metadata and resolves a configured crypto up/down product.
 pub fn resolve_crypto_up_down_market(
     candidate: CryptoUpDownMarketCandidate<'_>,
@@ -259,6 +347,38 @@ pub fn resolve_crypto_up_down_market(
     }
 
     let window = parse_crypto_up_down_title(candidate.title, candidate.title_year)?;
+    validate_selected_window(candidate, selector, window)
+}
+
+#[cfg(feature = "live")]
+pub(crate) fn resolve_crypto_up_down_market_near(
+    candidate: CryptoUpDownMarketCandidate<'_>,
+    selector: &CryptoUpDownMarketSelector,
+    reference_ns: u64,
+) -> Result<CryptoUpDownMarketWindow> {
+    anyhow::ensure!(
+        candidate.variant_type == "CRYPTO_UP_DOWN",
+        "unexpected variant"
+    );
+    anyhow::ensure!(
+        normalize_price_feed_symbol(candidate.price_feed_symbol)
+            == normalize_price_feed_symbol(&selector.price_feed_symbol),
+        "unexpected price feed"
+    );
+    let window = title_window_near(
+        candidate.title,
+        candidate.title_year,
+        reference_ns,
+        selector.interval_secs,
+    )?;
+    validate_selected_window(candidate, selector, window)
+}
+
+fn validate_selected_window(
+    candidate: CryptoUpDownMarketCandidate<'_>,
+    selector: &CryptoUpDownMarketSelector,
+    window: CryptoUpDownMarketWindow,
+) -> Result<CryptoUpDownMarketWindow> {
     if !window
         .title_asset
         .eq_ignore_ascii_case(selector.title_asset.trim())
@@ -313,16 +433,19 @@ fn parse_title_time(raw: &str) -> Result<NaiveTime> {
         .with_context(|| format!("invalid Eastern title time {raw:?}"))
 }
 
-fn eastern_to_utc(local: NaiveDateTime, title: &str) -> Result<chrono::DateTime<chrono::Utc>> {
-    New_York
-        .from_local_datetime(&local)
-        .single()
-        .map(|value| value.with_timezone(&chrono::Utc))
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "ambiguous or nonexistent Eastern timestamp {local} in crypto up/down title {title:?}"
-            )
-        })
+fn eastern_to_utc(
+    local: NaiveDateTime,
+    title: &str,
+    late: Option<bool>,
+) -> Result<chrono::DateTime<chrono::Utc>> {
+    let time = match New_York.from_local_datetime(&local) {
+        LocalResult::Single(time) => Some(time),
+        LocalResult::Ambiguous(early, later) => late.map(|late| if late { later } else { early }),
+        LocalResult::None => None,
+    };
+    time.map(|value| value.with_timezone(&chrono::Utc)).ok_or_else(|| {
+        anyhow::anyhow!("ambiguous or nonexistent Eastern timestamp {local} in crypto up/down title {title:?}")
+    })
 }
 
 #[cfg(test)]

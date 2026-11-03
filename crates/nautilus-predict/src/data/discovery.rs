@@ -27,7 +27,7 @@ use super::runtime::PredictDataSession;
 use crate::{
     PredictCryptoUpDownSelector, SelectedCryptoUpDownMarket, common::CryptoUpDownSelectorKey,
     discover_crypto_up_down_market, http::models::PredictMarket,
-    providers::instruments_from_market,
+    providers::instruments_from_market_with_window,
 };
 
 pub(super) const MAX_DISCOVERY_REQUESTS: usize = 4;
@@ -102,8 +102,8 @@ pub(super) struct DynamicSubscription {
     pub(super) pending_market_id: Option<u64>,
     /// Earliest UTC instant at which discovery must run again.
     ///
-    /// A selected market window is authoritative for the normal rollover deadline.
-    /// Only failed discovery uses the short cadence, measured from completion.
+    /// Active windows set rollover deadlines; future discoveries are rechecked at retry cadence.
+    /// Failed and future discovery use the short cadence, measured from completion.
     pub(super) next_refresh_ns: u64,
 }
 
@@ -215,7 +215,11 @@ impl PredictDataSession {
         }
         let market =
             market.context("Predict discovery result is missing new market definitions")?;
-        let (context, instruments) = instruments_from_market(&market, self.clock.get_time_ns())?;
+        let (context, instruments) = instruments_from_market_with_window(
+            &market,
+            self.clock.get_time_ns(),
+            Some(selected.window.clone()),
+        )?;
         let registered = self
             .dynamic_registry
             .write()
@@ -385,7 +389,9 @@ fn inactive_window_deadline(
     if end_ns <= now_ns {
         Some(next_dynamic_refresh_ns(0, now_ns, retry_secs, true))
     } else if start_ns > now_ns {
-        Some(start_ns)
+        // Recheck future discoveries at the retry cadence, even if an upstream
+        // timestamp is corrupt or discovery temporarily returns a distant market.
+        Some(start_ns.min(next_dynamic_refresh_ns(0, now_ns, retry_secs, true)))
     } else {
         None
     }
@@ -494,6 +500,20 @@ mod tests {
         assert_eq!(
             inactive_window_deadline(100, 200, 500, 1),
             Some(1_000_000_500)
+        );
+    }
+
+    #[test]
+    fn distant_future_window_cannot_suspend_selector_refresh() {
+        let now = 1_793_501_700_000_000_000;
+        let next_year = 1_825_041_600_000_000_000;
+        assert_eq!(
+            inactive_window_deadline(next_year, next_year + 300_000_000_000, now, 30),
+            Some(now + 30_000_000_000)
+        );
+        assert_eq!(
+            inactive_window_deadline(now + 5_000_000_000, now + 305_000_000_000, now, 30),
+            Some(now + 5_000_000_000)
         );
     }
 

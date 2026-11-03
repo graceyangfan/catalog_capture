@@ -1197,3 +1197,136 @@ async fn native_trade_owner_retains_definitions_after_selector_release() {
         assert!(removed, "the last native release retires dynamic metadata");
     }
 }
+
+#[tokio::test]
+async fn six_selectors_keep_snapshot_confirmed_rollover_through_both_dst_folds() {
+    use crate::common::{CryptoUpDownMarketCandidate, resolve_crypto_up_down_market_near};
+    use chrono::{TimeZone, Utc};
+    use chrono_tz::America::New_York;
+
+    let first = Utc
+        .with_ymd_and_hms(2026, 11, 1, 5, 0, 0)
+        .unwrap()
+        .timestamp_nanos_opt()
+        .unwrap() as u64;
+    let clock = Box::leak(Box::new(AtomicTime::new(false, first.into())));
+    let (mut venue, mut session, tasks, mut events) = setup(TransportBackend::Tungstenite).await;
+    session.clock = clock;
+    for step in 0..=24u64 {
+        let now = first + step * 300_000_000_000;
+        clock.set_time(now.into());
+        for (asset_index, (feed, asset)) in [
+            ("BTCUSDT", "Bitcoin"),
+            ("ETHUSDT", "Ethereum"),
+            ("BNBUSDT", "BNB"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            for interval_secs in [300, 900] {
+                let selector = PredictCryptoUpDownSelector {
+                    price_feed_symbol: feed.into(),
+                    title_asset: asset.into(),
+                    interval_secs,
+                };
+                let key = dynamic_selector_key(&selector).unwrap();
+                let previous = session
+                    .dynamic_subscriptions
+                    .get(&key)
+                    .and_then(|state| state.current_market_id);
+                let start = now / (interval_secs * 1_000_000_000) * (interval_secs * 1_000_000_000);
+                let end = start + interval_secs * 1_000_000_000;
+                let local = |ns| {
+                    chrono::DateTime::<Utc>::from_timestamp_nanos(ns as i64)
+                        .with_timezone(&New_York)
+                };
+                let title = format!(
+                    "{asset} Up or Down - November 1, {}-{} ET",
+                    local(start).format("%-I:%M%p"),
+                    local(end).format("%-I:%M%p")
+                );
+                let window = resolve_crypto_up_down_market_near(
+                    CryptoUpDownMarketCandidate {
+                        variant_type: "CRYPTO_UP_DOWN",
+                        price_feed_symbol: feed,
+                        title: &title,
+                        title_year: 2026,
+                    },
+                    &selector,
+                    start,
+                )
+                .unwrap();
+                assert_eq!((window.start_ns, window.end_ns), (start, end));
+                let id = start / 1_000_000_000 * 10
+                    + asset_index as u64 * 2
+                    + u64::from(interval_secs == 900);
+                let mut result = discovery(&mut session, &selector, id);
+                let mut definition = market(id)["data"].clone();
+                definition["title"] = json!(title);
+                definition["createdAt"] = json!("2026-10-31T16:00:00Z");
+                definition["variantData"]["priceFeedSymbol"] = json!(feed);
+                result.result = Ok((
+                    SelectedCryptoUpDownMarket {
+                        market_id: id,
+                        window,
+                    },
+                    Some(serde_json::from_value(definition).unwrap()),
+                ));
+                session.apply_discovery(result).await.unwrap();
+                assert_eq!(session.dynamic_subscriptions[&key].next_refresh_ns, end);
+                if previous != Some(id) {
+                    assert_eq!(
+                        session.dynamic_subscriptions[&key].current_market_id,
+                        previous
+                    );
+                    assert_eq!(
+                        session.dynamic_subscriptions[&key].pending_market_id,
+                        Some(id)
+                    );
+                    for outcome in [1, 2] {
+                        let DataEvent::Data(Data::Instrument(instrument)) =
+                            events.try_recv().unwrap()
+                        else {
+                            panic!("instrument definition")
+                        };
+                        assert_eq!(
+                            instrument.id(),
+                            crate::instrument_id_from_outcome(id, outcome).unwrap()
+                        );
+                        assert_eq!(instrument.activation_ns().unwrap().as_u64(), start);
+                        assert_eq!(instrument.expiration_ns().unwrap().as_u64(), end);
+                    }
+                    venue.command("subscribe", id).await;
+                }
+                publish(&mut session, &venue, id, step + 1).await;
+                outputs(
+                    &mut events,
+                    Some(&predict_crypto_up_down_orderbook_data_type(id, &key)),
+                    id,
+                    step + 1,
+                    false,
+                );
+                if let Some(old) = previous.filter(|old| *old != id) {
+                    venue.command("unsubscribe", old).await;
+                    assert!(!session.subscriptions.contains_key(&old));
+                    assert!(
+                        session
+                            .dynamic_registry
+                            .read()
+                            .unwrap()
+                            .context(old)
+                            .is_none()
+                    );
+                }
+                assert_eq!(
+                    session.dynamic_subscriptions[&key].current_market_id,
+                    Some(id)
+                );
+                assert_eq!(session.dynamic_subscriptions[&key].pending_market_id, None);
+            }
+        }
+        assert_eq!(session.dynamic_subscriptions.len(), 6);
+        assert_eq!(session.subscriptions.len(), 6);
+    }
+    shutdown(session, tasks).await;
+}
