@@ -61,6 +61,9 @@ pub struct PredictSettings {
     pub timeout_secs: u64,
     #[serde(default)]
     pub orderbook_removal_enabled: bool,
+    /// False requires the submitting strategy's Native GTD manager.
+    #[serde(default = "use_gtd")]
+    pub use_gtd: bool,
     #[serde(default)]
     pub submission_enabled: bool,
     /// Cash/OPEN refresh cadence; Native config separately controls order/position checks.
@@ -69,6 +72,9 @@ pub struct PredictSettings {
 }
 fn timeout() -> u64 {
     15
+}
+fn use_gtd() -> bool {
+    true
 }
 fn account_refresh_interval() -> u64 {
     30
@@ -253,6 +259,7 @@ pub async fn prepare(
     market_ids.sort_unstable();
     market_ids.dedup();
     execution.orderbook_removal_enabled = profile.predict.orderbook_removal_enabled;
+    execution.use_gtd = profile.predict.use_gtd;
     execution.submission_signer = profile.predict.submission_enabled.then_some(signer);
     let mut node = builder
         .with_name("PredictLiveNode")

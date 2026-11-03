@@ -92,7 +92,7 @@ pub(super) fn parse_order_status_report<O: context::OrderView, C>(
         "Predict zero REST fill contradicts confirmed matches"
     );
     if order.venue_order_id().is_none() {
-        parse_submitted_order_report(row, order, instrument, id, now)
+        parse_submitted_order_report(row, order, instrument, id, now, context.use_gtd)
     } else {
         parse_rest_order_report_from_view(
             row,
@@ -101,6 +101,7 @@ pub(super) fn parse_order_status_report<O: context::OrderView, C>(
             context.account_id,
             context.wallet,
             now,
+            context.use_gtd,
         )
     }
 }
@@ -122,6 +123,7 @@ fn filled_order_report<O: context::OrderView, C>(
         context.account_id,
         context.wallet,
         venue_id,
+        context.use_gtd,
     )?;
     anyhow::ensure!(
         order.venue_order_id() == Some(venue_id)
@@ -835,6 +837,8 @@ pub(super) fn parse_wallet_report_with_registration(
 /// Signed amounts establish base quantity and LIMIT price; MARKET retains no fixed
 /// price. Observation time supplies `ts_last`. Terminal reports retain known Native
 /// filled quantity; nonzero REST `amountFilled` cannot substitute for settlement facts.
+/// This standalone parser keeps venue-native GTD validation; execution-client report
+/// paths additionally honor the client's explicit locally managed expiry policy.
 ///
 /// # Errors
 ///
@@ -847,7 +851,7 @@ pub fn parse_rest_order_report(
     wallet: Address,
     observed: UnixNanos,
 ) -> anyhow::Result<OrderStatusReport> {
-    parse_rest_order_report_from_view(row, order, instrument, account_id, wallet, observed)
+    parse_rest_order_report_from_view(row, order, instrument, account_id, wallet, observed, true)
 }
 pub(super) fn parse_rest_order_report_from_view(
     row: &PredictOrderData,
@@ -856,8 +860,9 @@ pub(super) fn parse_rest_order_report_from_view(
     account_id: AccountId,
     wallet: Address,
     observed: UnixNanos,
+    use_gtd: bool,
 ) -> anyhow::Result<OrderStatusReport> {
-    let venue_id = validate_rest_order_terms(row, order, instrument, account_id, wallet)?;
+    let venue_id = validate_rest_order_terms(row, order, instrument, account_id, wallet, use_gtd)?;
     rest_order_report(
         row, order, instrument, account_id, venue_id, observed, false,
     )
@@ -873,6 +878,7 @@ fn parse_submitted_order_report(
     instrument: &BinaryOption,
     venue_id: VenueOrderId,
     observed: UnixNanos,
+    use_gtd: bool,
 ) -> anyhow::Result<OrderStatusReport> {
     anyhow::ensure!(
         matches!(
@@ -899,6 +905,7 @@ fn parse_submitted_order_report(
         account_id,
         row.order.fields.maker,
         venue_id,
+        use_gtd,
     )?;
     rest_order_report(row, order, instrument, account_id, venue_id, observed, true)
 }
@@ -1000,11 +1007,14 @@ pub(super) fn validate_rest_order_terms(
     instrument: &BinaryOption,
     account_id: AccountId,
     wallet: Address,
+    use_gtd: bool,
 ) -> anyhow::Result<VenueOrderId> {
     let venue_id = order
         .venue_order_id()
         .ok_or_else(|| anyhow::anyhow!("Predict REST report requires a cached venue hash"))?;
-    validate_rest_order_terms_for_hash(row, order, instrument, account_id, wallet, venue_id)
+    validate_rest_order_terms_for_hash(
+        row, order, instrument, account_id, wallet, venue_id, use_gtd,
+    )
 }
 
 pub(super) fn validate_rest_order_terms_for_hash(
@@ -1014,6 +1024,7 @@ pub(super) fn validate_rest_order_terms_for_hash(
     account_id: AccountId,
     wallet: Address,
     venue_id: VenueOrderId,
+    use_gtd: bool,
 ) -> anyhow::Result<VenueOrderId> {
     let hash: B256 = venue_id
         .as_str()
@@ -1052,7 +1063,11 @@ pub(super) fn validate_rest_order_terms_for_hash(
             .try_into()
             .map_err(|_| anyhow::anyhow!("Predict REST expiry exceeds u64"))?;
         anyhow::ensure!(
-            seconds.checked_mul(1_000_000_000) == Some(expiry.as_u64()),
+            seconds.checked_mul(1_000_000_000) == Some(expiry.as_u64())
+                || (!use_gtd
+                    && order.time_in_force() == TimeInForce::Gtd
+                    && seconds == super::orders::submit::GTC_EXPIRY_SECS
+                    && expiry.as_u64() <= seconds * 1_000_000_000),
             "Predict REST expiration differs from cached order"
         );
     }

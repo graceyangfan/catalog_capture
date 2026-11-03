@@ -207,6 +207,7 @@ impl PredictExecutionClient {
                 slippage_bps,
                 self.clock.get_time_ns().as_u64(),
                 market_price,
+                self.config.use_gtd,
             )?;
             let options = submit::limit_options(cmd.params.as_ref(), &order)?;
             Ok((values, options))

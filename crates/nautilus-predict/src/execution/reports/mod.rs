@@ -239,6 +239,7 @@ pub(in crate::execution) fn order_report_task(
     cmd: &GenerateOrderStatusReport,
 ) -> ExecutionReportTask<Option<OrderStatusReport>> {
     let config = client.config.clone();
+    let use_gtd = config.use_gtd;
     let core = client.core.clone();
     let observed_orders = client.account_orders.clone();
     let clock = client.clock;
@@ -310,7 +311,7 @@ pub(in crate::execution) fn order_report_task(
                     };
                     let instrument = definition.instrument;
                     let context = context::ReportContext::single_order(
-                        account_id, wallet, false, venue_id, current, instrument,
+                        account_id, wallet, false, venue_id, current, instrument, use_gtd,
                     );
                     publish_terminal(
                         row,
@@ -360,6 +361,7 @@ pub(in crate::execution) fn order_report_task(
                 venue_id,
                 current,
                 InstrumentAny::BinaryOption(instrument.clone()),
+                use_gtd,
             );
             let (report, fills) = prepare_target_report(
                 venue_id,
@@ -510,6 +512,7 @@ impl PredictExecutionClient {
                 .account(&self.core.account_id)
                 .is_some_and(|a| !a.calculated_account_state());
         let config = self.config.clone();
+        let use_gtd = config.use_gtd;
         let emitter = self.emitter.clone();
         let clock = self.clock;
         let cancellation = self.tasks.cancellation_token();
@@ -542,6 +545,7 @@ impl PredictExecutionClient {
                     venue_id,
                     current,
                     instrument,
+                    use_gtd,
                 );
                 publish_terminal(
                     row,
@@ -593,6 +597,7 @@ impl PredictExecutionClient {
                     venue_id,
                     current,
                     InstrumentAny::BinaryOption(instrument),
+                    use_gtd,
                 );
                 let mut facts = evidence
                     .lock()

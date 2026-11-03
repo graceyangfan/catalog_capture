@@ -63,6 +63,7 @@ pub(in crate::execution) fn bulk_task(
 ) -> ExecutionReportTask<(Vec<OrderStatusReport>, Vec<FillReport>)> {
     client.prune_mirrors_on_request();
     let config = client.config.clone();
+    let use_gtd = config.use_gtd;
     let core = client.core.clone();
     let observed_orders = client.account_orders.clone();
     let wallet = config.session.account_address();
@@ -344,6 +345,7 @@ pub(in crate::execution) fn bulk_task(
             }
             drop(observed);
             let context = ReportContext {
+                use_gtd,
                 account_id: core.account_id,
                 wallet,
                 shares_allowed: cache

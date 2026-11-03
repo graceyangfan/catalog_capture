@@ -34,6 +34,7 @@ use nautilus_model::{
 
 /// Immutable native context; no worker may mutate Cache or adopt an arbitrary venue order.
 pub(super) struct ReportContext<O = OrderAny> {
+    pub use_gtd: bool,
     pub account_id: AccountId,
     pub wallet: Address,
     pub shares_allowed: bool,
@@ -49,8 +50,10 @@ impl<O> ReportContext<O> {
         venue_id: VenueOrderId,
         order: Arc<O>,
         instrument: InstrumentAny,
+        use_gtd: bool,
     ) -> Self {
         Self {
+            use_gtd,
             account_id,
             wallet,
             shares_allowed,

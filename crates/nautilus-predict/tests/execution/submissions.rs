@@ -637,6 +637,106 @@ async fn native_gtc_and_gtd_submit_exact_official_sdk_bodies_and_preserve_accoun
 }
 
 #[tokio::test]
+async fn locally_managed_gtd_preserves_deadline_and_rejects_expired_or_overlong_orders() {
+    use nautilus_model::enums::TimeInForce;
+    for (expiry, valid) in [
+        (5_123_456_789u64, true),
+        (1_000_000_000, false),
+        (4_102_444_800_000_000_001, false),
+    ] {
+        let server = server(vec![]).await;
+        let mut cfg = config(&server);
+        assert!(cfg.use_gtd, "native venue expiry remains the default");
+        cfg.use_gtd = false;
+        cfg.account_state_mode = PredictAccountStateMode::Reported;
+        cfg.submission_signer = Some(Arc::new(
+            PredictAuthSigner::new(
+                PUBLIC_KEY.into(),
+                PredictEnvironment::BnbMainnet,
+                Some(WALLET),
+            )
+            .unwrap(),
+        ));
+        // A local deadline cannot be enforced by a client without cancellation permission.
+        assert!(
+            setup_with_config(&server, 2_000_000_000, cfg.clone())
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("orderbook_removal_enabled")
+        );
+        cfg.orderbook_removal_enabled = true;
+        cfg.chain = Some(PredictChainClientConfig::new(
+            PredictEnvironment::BnbMainnet,
+            format!("{}/rpc", server.http).into(),
+        ));
+        server.state.create_replies.lock().unwrap().push_back((
+            201,
+            0,
+            vec!["orderAccepted".into()],
+        ));
+        let (mut client, mut rx, cache, _) =
+            setup_with_config(&server, 2_000_000_000, cfg).unwrap();
+        let _portfolio = portfolio(&cache);
+        cache
+            .borrow_mut()
+            .add_instrument(InstrumentAny::BinaryOption(instrument(1)))
+            .unwrap();
+        connect_reported(&mut client, &mut rx).await;
+        let order = OrderTestBuilder::new(OrderType::Limit)
+            .trader_id(trader_id())
+            .instrument_id(instrument_id(1))
+            .side(OrderSide::Buy)
+            .quantity(Quantity::from(1000))
+            .price(Price::from("0.001"))
+            .time_in_force(TimeInForce::Gtd)
+            .expire_time(UnixNanos::from(expiry))
+            .build();
+        cache
+            .borrow_mut()
+            .add_order(order.clone(), None, None, false)
+            .unwrap();
+        client.submit_order(submit(&order)).unwrap();
+        let mut engine = engine(&cache);
+        timeout(Duration::from_secs(3), async {
+            loop {
+                let event = next(&mut rx).await;
+                let done = matches!(
+                    event,
+                    ExecutionEvent::Order(OrderEventAny::Accepted(_) | OrderEventAny::Denied(_))
+                );
+                apply(&mut engine, &event);
+                if done {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap();
+        let current = cache
+            .borrow()
+            .order_owned(&order.client_order_id())
+            .unwrap();
+        assert_eq!(current.expire_time(), Some(UnixNanos::from(expiry)));
+        assert_eq!(current.time_in_force(), TimeInForce::Gtd);
+        assert_eq!(
+            current.status(),
+            if valid {
+                OrderStatus::Accepted
+            } else {
+                OrderStatus::Denied
+            }
+        );
+        let bodies = server.state.creations.lock().unwrap().clone();
+        assert_eq!(bodies.len(), usize::from(valid));
+        if valid {
+            assert_eq!(bodies[0]["data"]["order"]["expiration"], 4_102_444_800u64);
+        }
+        client.disconnect().await.unwrap();
+    }
+}
+
+#[tokio::test]
 async fn unsupported_stop_and_immediate_time_in_force_are_native_denied_before_post() {
     use nautilus_model::enums::TimeInForce;
     for (kind, tif) in [

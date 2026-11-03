@@ -51,6 +51,11 @@ pub struct PredictExecutionClientConfig {
     /// Commands verify cached GTC/GTD limit orders; `BatchCancelOrders` groups eligible IDs
     /// in removal requests and resolves each result separately. No chain transactions are sent.
     pub orderbook_removal_enabled: bool,
+    /// Use the venue's signed GTD expiration (default true).
+    /// Set false only with StrategyConfig.manage_gtd_expiry=true: local GTD keeps its
+    /// Native deadline and uses the SDK GTC fallback on the venue. The adapter does
+    /// not create expiry timers. A stopped strategy cannot enforce its local deadline.
+    pub use_gtd: bool,
     /// Cash/OPEN refresh interval in seconds, 1..=86400; default 30.
     /// Order events reproject local reservations. QueryAccount uses the same collector
     /// and permits authenticated reads during a wallet gap.
@@ -90,6 +95,7 @@ impl PredictExecutionClientConfig {
             chain: None,
             account_state_mode: PredictAccountStateMode::Reported,
             orderbook_removal_enabled: false,
+            use_gtd: true,
             account_refresh_interval_secs: 30,
             reconnect_reconciliation_interval_secs: Some(1),
             market_metadata_ttl_secs: 30,
@@ -100,6 +106,10 @@ impl PredictExecutionClientConfig {
     }
 
     pub(crate) fn validate(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.use_gtd || self.submission_signer.is_none() || self.orderbook_removal_enabled,
+            "Predict use_gtd=false submission requires orderbook_removal_enabled for Native GTD cancellation"
+        );
         if let Some(signer) = &self.auth_signer {
             anyhow::ensure!(
                 signer.environment() == self.session.environment()

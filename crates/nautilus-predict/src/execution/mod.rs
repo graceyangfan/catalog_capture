@@ -133,6 +133,11 @@ impl PredictExecutionClient {
         clock: &'static AtomicTime,
     ) -> anyhow::Result<Self> {
         config.validate()?;
+        if !config.use_gtd {
+            log::warn!(
+                "Predict use_gtd=false: enable StrategyConfig.manage_gtd_expiry; venue orders use the SDK GTC fallback and do not expire at the local deadline if the strategy stops"
+            );
+        }
         nautilus_model::data::ensure_custom_data_json_registered::<
             observations::PredictSettlementUpdate,
         >()?;

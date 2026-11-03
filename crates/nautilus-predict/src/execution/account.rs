@@ -504,6 +504,7 @@ impl AccountReporter {
                     self.config.account_id,
                     self.config.session.account_address(),
                     id,
+                    self.config.use_gtd,
                 )?;
             }
             let collateral = row
@@ -691,6 +692,7 @@ impl AccountReporter {
                     self.config.account_id,
                     self.config.session.account_address(),
                     VenueOrderId::new(format!("{hash:#x}")),
+                    self.config.use_gtd,
                 )?;
                 routes.push((
                     VenueOrderId::new(format!("{hash:#x}")),

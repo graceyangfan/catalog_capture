@@ -94,8 +94,50 @@ rounding. LIMIT rejects terms the SDK would silently truncate.
 `TimeInForce::Fok` on MARKET maps to `isFillOrKill=true`; GTC omits it. Neither
 FOK nor post-only is a camel-case HTTP command parameter. GTC omission does not
 establish resting-remainder behavior. MARKET signs a five-minute expiration;
-LIMIT GTC uses the SDK's 2100 fallback and GTD uses the Native expiry. Signed order
-expiry, instrument expiry and recovery timeout are separate concepts.
+LIMIT GTC uses the SDK's 2100 fallback and venue GTD uses the Native expiry.
+Signed order expiry, instrument expiry and recovery timeout are separate concepts.
+
+### Venue GTD and Native expiry management
+
+Predict follows the maintained Lighter adapter's `use_gtd` convention, with
+`true` as the backward-compatible default:
+
+| Execution config | Venue signed expiration | Native order |
+| --- | --- | --- |
+| `use_gtd=true` | Exact whole-second GTD expiry, more than 120 seconds ahead at admission | Original GTD/expiry |
+| `use_gtd=false` | SDK GTC fallback, `4102444800` seconds (2100-01-01 UTC) | Original GTD/expiry, including subsecond deadlines |
+
+For local management, explicitly set both `PredictExecutionClientConfig.use_gtd=false`
+and `StrategyConfig.manage_gtd_expiry=true`. The host exposes the former as
+`[predict].use_gtd`; it cannot inspect an independently supplied strategy's config.
+Submission in this mode requires REST removal permission. Expired local deadlines
+and deadlines beyond the venue fallback are denied before submission. Other TIFs
+retain their existing semantics. No adapter expiry loop or synthetic Expired event
+is introduced.
+
+Native registers `GTD-EXPIRY:<ClientOrderId>` on submission and sends an ordinary
+CancelOrder when the timer fires. Its framework timer router precedes user timer
+callbacks. Terminal events remove timers; partial fills retain them. Native
+restores timers for cached open GTD orders on strategy start and after relevant
+cancel rejection/reopened-fill events. A cancellation before acceptance follows
+Predict's existing deferred-cancel path; uncertain writes use Native query recovery.
+The adapter does not repeat the cancellation simply because a deadline elapsed.
+
+Known-order queries, fill recovery and account reservation checks retain the
+original Native expiry and validate the signed venue fallback only in the explicit
+local-management mode. Native mode remains strict. Local mode also accepts an
+existing order's exact Native expiry, allowing recovery of previously submitted
+venue GTD orders. Restore original Native order intent and the same expiry policy
+before starting a recovered strategy. Startup reactivation scans cached open
+orders; reconcile still-in-flight submissions before startup. Preserve Native
+reactivation if overriding `Strategy::on_start`. A venue-only fallback order
+cannot reveal its former short local deadline.
+
+As with Lighter's longer venue fallback, local expiry depends on a running strategy.
+It requests cancellation, rather than guaranteeing removal at that instant:
+removal locks, network failures and confirmed late fills still apply. If the
+strategy stops, Predict's signed order does not expire at the local deadline.
+Use venue GTD when exchange-enforced expiration is required.
 
 ### MARKET BUY quote sizing
 

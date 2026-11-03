@@ -51,6 +51,7 @@ pub(in crate::execution) fn fill_report_task(
     observed_orders: context::OrderSnapshots<nautilus_model::identifiers::ClientOrderId>,
     cmd: &GenerateFillReports,
 ) -> ExecutionReportTask<Vec<FillReport>> {
+    let use_gtd = config.use_gtd;
     let cmd = cmd.clone();
     let scope = cmd.clone();
     let wallet = config.session.account_address();
@@ -227,6 +228,7 @@ pub(in crate::execution) fn fill_report_task(
             }
             drop(observed);
             let context = ReportContext {
+                use_gtd,
                 account_id: core.account_id,
                 wallet,
                 shares_allowed: reported && cache.account(&core.account_id).is_some_and(|account| {

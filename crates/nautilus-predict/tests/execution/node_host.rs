@@ -43,6 +43,16 @@ fn product_profile_reuses_native_config_and_rejects_invalid_venue_settings() {
     let profile = host::NodeProfile::parse(source).unwrap();
     assert!(!profile.predict.submission_enabled);
     assert!(!profile.predict.orderbook_removal_enabled);
+    assert!(profile.predict.use_gtd);
+    assert!(
+        host::NodeProfile::parse(&source.replace("use_gtd = true\n", ""))
+            .unwrap()
+            .predict
+            .use_gtd
+    );
+    let managed =
+        host::NodeProfile::parse(&source.replace("use_gtd = true", "use_gtd = false")).unwrap();
+    assert!(!managed.predict.use_gtd);
     assert_eq!(profile.predict.account_refresh_interval_secs, 30);
     let slower = host::NodeProfile::parse(&source.replace(
         "account_refresh_interval_secs = 30",

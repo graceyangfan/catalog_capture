@@ -54,6 +54,9 @@ pub(in crate::execution) struct OrderTerms {
     pub market: Option<crate::common::market::PredictMarketOrderAmounts>,
 }
 
+/// Official SDK GTC fallback, also used for explicitly locally managed GTD orders.
+pub(in crate::execution) const GTC_EXPIRY_SECS: u64 = 4_102_444_800;
+
 pub(in crate::execution) fn decimal_wei(value: Decimal) -> anyhow::Result<U256> {
     let value = value.normalize();
     anyhow::ensure!(
@@ -178,6 +181,7 @@ pub(in crate::execution) fn terms(
     market_order_slippage_bps: u32,
     now: u64,
     market_price: Option<U256>,
+    use_gtd: bool,
 ) -> anyhow::Result<OrderTerms> {
     // Native command admission owns the order-state check. This synchronous
     // conversion validates only venue-supported terms and exact signed amounts.
@@ -313,17 +317,26 @@ pub(in crate::execution) fn terms(
         TimeInForce::Gtc | TimeInForce::Fok if order.order_type() == OrderType::Market => {
             now / 1_000_000_000 + 300
         }
-        TimeInForce::Gtc => 4_102_444_800,
+        TimeInForce::Gtc => GTC_EXPIRY_SECS,
         TimeInForce::Gtd => {
             let expiry = order
                 .expire_time()
                 .ok_or_else(|| anyhow::anyhow!("Predict GTD expiry is missing"))?
                 .as_u64();
-            anyhow::ensure!(
-                expiry % 1_000_000_000 == 0,
-                "Predict expiry requires whole seconds"
-            );
-            expiry / 1_000_000_000
+            anyhow::ensure!(expiry > now, "Predict GTD order has expired");
+            if !use_gtd {
+                anyhow::ensure!(
+                    expiry <= GTC_EXPIRY_SECS * 1_000_000_000,
+                    "Predict locally managed GTD exceeds venue GTC fallback expiry"
+                );
+                GTC_EXPIRY_SECS
+            } else {
+                anyhow::ensure!(
+                    expiry % 1_000_000_000 == 0,
+                    "Predict expiry requires whole seconds"
+                );
+                expiry / 1_000_000_000
+            }
         }
         _ => unreachable!(),
     };
@@ -332,7 +345,7 @@ pub(in crate::execution) fn terms(
         "Predict order or instrument has expired"
     );
     anyhow::ensure!(
-        order.time_in_force() != TimeInForce::Gtd || expiry > now / 1_000_000_000 + 120,
+        !use_gtd || order.time_in_force() != TimeInForce::Gtd || expiry > now / 1_000_000_000 + 120,
         "Predict GTD expiry must be more than 2 minutes in the future"
     );
     anyhow::ensure!(

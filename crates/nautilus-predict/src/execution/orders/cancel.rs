@@ -364,6 +364,7 @@ impl PredictExecutionClient {
             ),
             emitter: self.emitter.clone(),
             clock: self.clock,
+            use_gtd: self.config.use_gtd,
             timeout: Duration::from_secs(self.config.request_timeout_secs),
             cancellation: self.tasks.cancellation_token(),
             latency: self.config.latency.clone(),
@@ -373,6 +374,7 @@ impl PredictExecutionClient {
 }
 
 struct CancelWorker {
+    use_gtd: bool,
     session: PredictAuthenticatedHttpClient,
     orders: context::OrderSnapshots<VenueOrderId>,
     client_order_id: ClientOrderId,
@@ -496,6 +498,7 @@ impl CancelWorker {
             &self.instrument,
             self.factory.account_id(),
             self.session.account_address(),
+            self.use_gtd,
         )
         .map_err(|e| CommandFailure::NotSent(e.to_string()))?;
         if !self.session_active() {

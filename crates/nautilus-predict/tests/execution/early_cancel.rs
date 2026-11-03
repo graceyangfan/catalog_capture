@@ -22,6 +22,7 @@ struct EarlyCancelStrategy {
     core: StrategyCore,
     submitted: bool,
     cancel_all: bool,
+    managed_gtd: bool,
     journal: Rc<RefCell<Vec<Value>>>,
     account_handler: Option<TypedHandler<AccountState>>,
 }
@@ -55,18 +56,36 @@ impl DataActor for EarlyCancelStrategy {
         }
         Ok(())
     }
+    fn on_time_event(&mut self, event: &nautilus_common::timer::TimeEvent) -> anyhow::Result<()> {
+        // A user timer callback must not replace Native managed expiry routing.
+        if event.name.starts_with("GTD-EXPIRY:") {
+            self.journal
+                .borrow_mut()
+                .push(json!({"callback":"gtd_timer"}));
+        }
+        Ok(())
+    }
     fn on_data(&mut self, _: &CustomData) -> anyhow::Result<()> {
         if self.submitted {
             return Ok(());
         }
         self.submitted = true;
+        let expiry = self
+            .managed_gtd
+            .then(|| UnixNanos::from((self.clock().timestamp_ns().as_u64() + 2_000_000_000) | 1));
+        if let Some(expiry) = expiry {
+            self.journal
+                .borrow_mut()
+                .push(json!({"callback":"local_deadline","expiry_ns":expiry.as_u64()}));
+        }
         let order = self.order().limit(
             instrument_id(1),
             OrderSide::Buy,
             Quantity::from(100),
             Price::from("0.010"),
-            None,
-            None,
+            self.managed_gtd
+                .then_some(nautilus_model::enums::TimeInForce::Gtd),
+            expiry,
             Some(true),
             None,
             None,
@@ -83,6 +102,10 @@ impl DataActor for EarlyCancelStrategy {
 }
 nautilus_strategy!(EarlyCancelStrategy, {
     fn on_order_submitted(&mut self, event: OrderSubmitted) {
+        if self.managed_gtd {
+            // Only the framework timer may request cancellation in this scenario.
+            return;
+        }
         assert!(
             self.cache()
                 .order(&event.client_order_id)
@@ -126,7 +149,8 @@ fn path() -> std::path::PathBuf {
 }
 
 async fn run(mode: &str, saved: Option<&Value>) -> Value {
-    let filled = if mode == "query_partial" {
+    let managed_gtd = mode.contains("gtd");
+    let filled = if mode.starts_with("query_partial") {
         33
     } else if mode == "query_filled" {
         100
@@ -142,6 +166,11 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
         get_atomic_clock_realtime().get_time_ns().as_u64() / 1_000_000_000;
     let gate = Arc::new(tokio::sync::Notify::new());
     *private.state.create_gate.lock().unwrap() = Some(gate.clone());
+    if managed_gtd && mode.starts_with("query") {
+        // Recovery may start before the local deadline; release its observation only
+        // after the driver installs the submitted hash's venue facts.
+        *private.state.order_gate.lock().unwrap() = Some(Arc::new(tokio::sync::Notify::new()));
+    }
     private.state.create_replies.lock().unwrap().push_back((
         if mode == "rejected" {
             400
@@ -167,6 +196,7 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
         format!("{}/rpc", private.http).into(),
     ));
     cfg.orderbook_removal_enabled = true;
+    cfg.use_gtd = !managed_gtd;
     cfg.account_refresh_interval_secs = 1;
     cfg.submission_signer = Some(Arc::new(
         nautilus_predict::signing::PredictAuthSigner::new(
@@ -210,10 +240,12 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
     live.add_strategy(EarlyCancelStrategy {
         core: StrategyCore::new(StrategyConfig {
             strategy_id: Some(StrategyId::new("EARLY-CANCEL-001")),
+            manage_gtd_expiry: managed_gtd,
             ..Default::default()
         }),
         submitted: false,
         cancel_all: mode == "cancel_all",
+        managed_gtd,
         journal: journal.clone(),
         account_handler: None,
     })
@@ -226,10 +258,9 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
         })
         .await;
         exit_orders::barrier("strategy requested early cancel", || {
-            journal
-                .borrow()
-                .iter()
-                .any(|e| e["type"] == "PendingCancel")
+            let rows = journal.borrow();
+            rows.iter().any(|e| e["type"] == "PendingCancel")
+                && (!managed_gtd || rows.iter().any(|e| e["callback"] == "gtd_timer"))
         })
         .await;
         assert!(
@@ -241,6 +272,31 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
         );
         assert!(private.state.removals.lock().unwrap().is_empty());
         let body = private.state.creations.lock().unwrap()[0].clone();
+        if managed_gtd {
+            assert_eq!(body["data"]["order"]["expiration"], 4_102_444_800u64);
+            let order = cache.borrow().orders(None, None, None, None, None)[0].clone();
+            assert_eq!(
+                order.time_in_force(),
+                nautilus_model::enums::TimeInForce::Gtd
+            );
+            let expiry = order.expire_time().unwrap().as_u64();
+            let initialized = journal
+                .borrow()
+                .iter()
+                .find(|row| row["callback"] == "local_deadline")
+                .unwrap()["expiry_ns"]
+                .as_u64()
+                .unwrap();
+            assert_eq!(
+                expiry, initialized,
+                "venue signing must preserve Native local intent"
+            );
+            assert_ne!(
+                expiry % 1_000_000_000,
+                0,
+                "local nanosecond deadline must survive signing"
+            );
+        }
         let mut row = live_node::rest_row(&body, if filled == 100 { "FILLED" } else { "OPEN" });
         if filled > 0 {
             let amount =
@@ -313,7 +369,10 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
             private.state.open_orders.lock().unwrap().push(row);
         }
         gate.notify_one();
-        if mode == "wallet" || mode == "cancel_all" {
+        if let Some(release) = private.state.order_gate.lock().unwrap().take() {
+            release.notify_one();
+        }
+        if mode == "wallet" || mode == "cancel_all" || mode == "gtd" {
             let mut accepted = exit_orders::wire_event(&body, "orderAccepted", 1, Decimal::ZERO);
             if let Some(saved) = saved {
                 let mut replay = saved["wallet"][0].clone();
@@ -351,6 +410,19 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
     .1
     .unwrap();
     let events = journal.borrow().clone();
+    if managed_gtd {
+        for kind in ["PendingCancel", "Canceled"] {
+            assert_eq!(events.iter().filter(|row| row["type"] == kind).count(), 1);
+        }
+        assert_eq!(
+            events
+                .iter()
+                .filter(|row| row["callback"] == "gtd_timer")
+                .count(),
+            1
+        );
+        assert!(!events.iter().any(|row| row["type"] == "Expired"));
+    }
     assert_eq!(private.state.creations.lock().unwrap().len(), 1);
     assert_eq!(
         private.state.removals.lock().unwrap().len(),
@@ -437,6 +509,13 @@ async fn run(mode: &str, saved: Option<&Value>) -> Value {
     live.dispose();
     public_task.abort();
     result
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_managed_gtd_expiry_cancels_pending_submit_and_unknown_submit_once() {
+    run("gtd", None).await;
+    run("query_gtd", None).await;
+    run("query_partial_gtd", None).await;
 }
 
 #[tokio::test(flavor = "current_thread")]

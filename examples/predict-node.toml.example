@@ -10,6 +10,9 @@ rpc_url = "https://bsc-dataseed.bnbchain.org"
 # Submission and REST removal are independent opt-ins.
 submission_enabled = false
 orderbook_removal_enabled = false
+# false uses Native StrategyConfig.manage_gtd_expiry=true for local GTD deadlines.
+# Submission then also requires orderbook_removal_enabled=true.
+use_gtd = true
 # Cash and OPEN reservations; order/position recovery is configured under node.exec_engine.
 account_refresh_interval_secs = 30
 
