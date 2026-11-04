@@ -110,7 +110,7 @@ impl Drop for SubmissionGuard {
 
 impl PredictExecutionClient {
     /// Predict's public API and official SDK expose no atomic amend operation.
-    /// No modification request is sent to the venue. Publish a native rejection so callers
+    /// No modification request is sent to the venue. Publish a native denial so callers
     /// can resolve PendingUpdate before explicitly cancelling and replacing an order.
     pub(in crate::execution) fn modify_order_command(
         &self,
@@ -144,10 +144,10 @@ impl PredictExecutionClient {
             self.core.base_currency,
         );
         let now = self.clock.get_time_ns();
-        let event = factory.generate_order_modify_rejected(
+        let event = factory.generate_order_modify_denied(
             &order,
-            order.venue_order_id(),
             "Predict atomic order modification is unsupported; cancel then replace explicitly",
+            Some(cmd.command_id),
             now,
             now,
         );

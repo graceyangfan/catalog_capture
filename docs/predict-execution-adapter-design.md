@@ -60,8 +60,8 @@ execution fact; actual routing still rejects conflicting ownership.
 | MARKET BUY, quote quantity | Native quote budget; GTC/FOK; zero resolved extra slippage |
 | CancelOrder | One remove POST with a cached route; one hash GET first only if the numeric route is absent |
 | BatchCancelOrders / CancelAllOrders | Select owned orders, group routes and interpret individual removal results |
-| ModifyOrder | ModifyRejected; strategy explicitly cancels then submits a new order |
-| BatchModifyOrders | Native default fanout to ModifyOrder; each child receives ModifyRejected, with no venue amendment |
+| ModifyOrder | ModifyDenied; strategy explicitly cancels then submits a new order |
+| BatchModifyOrders | Native default fanout to ModifyOrder; each child receives ModifyDenied, with no venue amendment |
 | OrderList, reduce-only, IOC, LIMIT FOK, quote SELL | Unsupported; no silent intent conversion |
 
 Warm submit performs local preparation and one create POST. It performs no book,
@@ -168,6 +168,9 @@ metadata is transient and not reconstructed after restart. Its delivery failure
 does not change execution outcome. See the [maker contract](reference/predict-validation.md).
 
 ### Cancellation
+
+Commands proven not sent publish CancelDenied. Denials and venue rejections carry
+the initiating command ID as causation_id.
 
 A definitive `removed` partition or wallet cancellation publishes Canceled without
 waiting for fills or account refresh. A lock-window `rejected` partition publishes

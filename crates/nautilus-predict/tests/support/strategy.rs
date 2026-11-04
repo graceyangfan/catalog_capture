@@ -18,7 +18,7 @@ use nautilus_model::{
     enums::{OrderSide, TimeInForce},
     events::{
         AccountState, OrderAccepted, OrderCancelRejected, OrderCanceled, OrderEventAny,
-        OrderFilled, OrderModifyRejected, PositionEvent,
+        OrderFilled, OrderModifyDenied, PositionEvent,
     },
     identifiers::{AccountId, ClientId, ClientOrderId, InstrumentId, StrategyId},
     instruments::Instrument,
@@ -74,7 +74,7 @@ pub struct Observations {
     pub rejected: usize,
     pub denied: usize,
     pub cancel_rejected: usize,
-    pub modify_rejected: usize,
+    pub modify_denied: usize,
     pub modify_terms_preserved: usize,
     pub canceled: usize,
     pub fills: usize,
@@ -627,8 +627,9 @@ nautilus_strategy!(CalibrationStrategy, {
         let rejection_reason = match &event {
             OrderEventAny::Rejected(value) => Some(value.reason.as_str()),
             OrderEventAny::Denied(value) => Some(value.reason.as_str()),
+            OrderEventAny::CancelDenied(value) => Some(value.reason.as_str()),
             OrderEventAny::CancelRejected(value) => Some(value.reason.as_str()),
-            OrderEventAny::ModifyRejected(value) => Some(value.reason.as_str()),
+            OrderEventAny::ModifyDenied(value) => Some(value.reason.as_str()),
             _ => None,
         };
         let cached = self.cache().order(&event.client_order_id()).map(|order| serde_json::json!({
@@ -698,8 +699,8 @@ nautilus_strategy!(CalibrationStrategy, {
             }
         }
     }
-    fn on_order_modify_rejected(&mut self, event: OrderModifyRejected) {
-        self.observations.borrow_mut().modify_rejected += 1;
+    fn on_order_modify_denied(&mut self, event: OrderModifyDenied) {
+        self.observations.borrow_mut().modify_denied += 1;
         if let Some(order) = self.cache().order(&event.client_order_id)
             && order.price() == order.init_event().price
             && order.quantity() == order.init_event().quantity

@@ -725,7 +725,7 @@ async fn run_scenario(scenario: Scenario, saved: Option<&Value>) -> Value {
                     strategy_callbacks
                         .borrow()
                         .iter()
-                        .filter(|e| e["callback"] == "on_order_modify_rejected")
+                        .filter(|e| e["callback"] == "on_order_modify_denied")
                         .count(),
                     1,
                     "strategy must receive exactly one standard modify rejection"
@@ -941,7 +941,13 @@ async fn run_scenario(scenario: Scenario, saved: Option<&Value>) -> Value {
             .any(|r| r["kind"] == "authenticate")
     );
     if let Some(saved) = saved {
-        assert_eq!(saved["feedback"], json!(events.borrow().clone()));
+        let mut expected = saved["feedback"].clone();
+        for event in expected.as_array_mut().unwrap() {
+            if event["type"] == "ModifyRejected" {
+                event["type"] = json!("ModifyDenied");
+            }
+        }
+        assert_eq!(expected, json!(events.borrow().clone()));
     }
     let mut out = json!({"source":"synthetic loopback actual product Rust host + Native LiveNode; not mainnet","writesEnabledInFixture":writes,"nativeRiskBypassed":false,"discoveredMarket":42,"marketDefinition":def,"trace":trace.lock().unwrap().clone(),"books":frames,"wallet":wallet,"quotes":quotes.borrow().clone(),"requests":backing.state.creations.lock().unwrap().clone(),"feedback":events.borrow().clone(),"removalResponses":backing.state.removal_responses.lock().unwrap().clone(),"hostPreloadedInstruments":false,"nativeBootstrapLoadedBothInstruments":true,"finalOpen":0,"finalInflight":0,"finalPositions":0,"finalLocked":"0","finalCash":"1000"});
     if custom {
@@ -970,8 +976,9 @@ async fn run_scenario(scenario: Scenario, saved: Option<&Value>) -> Value {
         assert!(
             !callbacks
                 .iter()
-                .any(|e| (e["callback"].as_str().unwrap().contains("rejected")
-                    && !(replace && e["callback"] == "on_order_modify_rejected"))
+                .any(|e| ((e["callback"].as_str().unwrap().contains("rejected")
+                    || e["callback"].as_str().unwrap().contains("denied"))
+                    && !(replace && e["callback"] == "on_order_modify_denied"))
                     || e["callback"] == "on_order_denied")
         );
         if let Some(saved) = saved {
@@ -981,6 +988,9 @@ async fn run_scenario(scenario: Scenario, saved: Option<&Value>) -> Value {
                     .iter()
                     .cloned()
                     .map(|mut row| {
+                        if row["callback"] == "on_order_modify_rejected" {
+                            row["callback"] = json!("on_order_modify_denied");
+                        }
                         // Cash may update before or after the cancellation callback;
                         // the explicit replacement/account checkpoints above remain exact.
                         if row["callback"] == "query_account" {
@@ -1010,7 +1020,7 @@ async fn run_scenario(scenario: Scenario, saved: Option<&Value>) -> Value {
         out["signalInput"] = json!("custom_snapshot");
         out["canceledBeforeNodeStop"] = json!(true);
         if replace {
-            out["scenario"] = json!("custom_snapshot_modify_rejected_cancel_replace");
+            out["scenario"] = json!("custom_snapshot_modify_denied_cancel_replace");
             out["accountRefreshHeldBeforeReplacement"] = json!(true);
             out["nativeAccountAtEnd"] = json!({"total":"1000","locked":"0","block":backing.state.rpc_frame.lock().unwrap().1});
             let cache = cache.borrow();

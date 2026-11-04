@@ -141,7 +141,7 @@ snapshot cannot reopen a terminal order or discard its late real fills.
 
 | Concern | API or retained adapter responsibility |
 | --- | --- |
-| Batch modification | ExecutionClient's default fanout delivers each child to Predict's explicit ModifyRejected path |
+| Batch modification | ExecutionClient's default fanout delivers each child to Predict's explicit ModifyDenied path |
 | Submitted/rejected events | ExecutionEventEmitter supplies standard events and account identity |
 | Checked event dispatch | OrderEventFactory plus try_send_order_event where no equivalent checked emitter API exists |
 | Owned order lookup | ExecutionClientCore::get_order; scoped cache borrows for related fields |

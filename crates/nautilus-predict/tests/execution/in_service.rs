@@ -479,7 +479,10 @@ async fn run_pause_case_with_evidence(
         }
         let start_ns = get_atomic_clock_realtime().get_time_ns().as_u64();
         let started = Instant::now();
-        cache.borrow_mut().purge_closed_orders(as_of, 3600);
+        cache
+            .borrow_mut()
+            .purge_closed_orders(as_of, 3600, false)
+            .unwrap();
         operations.push(json!({"stage":"native_purge","start_ns":start_ns,"end_ns":get_atomic_clock_realtime().get_time_ns().as_u64(),"elapsed_ns":started.elapsed().as_nanos() as u64}));
         assert_eq!(
             cache
@@ -514,7 +517,10 @@ async fn run_pause_case_with_evidence(
             );
             let start_ns = get_atomic_clock_realtime().get_time_ns().as_u64();
             let started = Instant::now();
-            cache.borrow_mut().purge_closed_positions(as_of, 3600);
+            cache
+                .borrow_mut()
+                .purge_closed_positions(as_of, 3600, false)
+                .unwrap();
             operations.push(json!({"stage":"native_position_purge","start_ns":start_ns,"end_ns":get_atomic_clock_realtime().get_time_ns().as_u64(),"elapsed_ns":started.elapsed().as_nanos() as u64}));
             assert!(
                 cache

@@ -988,10 +988,15 @@ async fn run_market_data(
             .borrow()
             .orders_total_count(None, None, None, None, None);
         let purge_started = Instant::now();
-        cache.borrow_mut().purge_closed_orders(
-            get_atomic_clock_realtime().get_time_ns() + nautilus_core::DurationNanos::from_secs(1),
-            0,
-        );
+        cache
+            .borrow_mut()
+            .purge_closed_orders(
+                get_atomic_clock_realtime().get_time_ns()
+                    + nautilus_core::DurationNanos::from_secs(1),
+                0,
+                false,
+            )
+            .unwrap();
         assert_eq!(
             cache
                 .borrow()
@@ -1002,10 +1007,15 @@ async fn run_market_data(
         let order_purge_ns = purge_started.elapsed().as_nanos() as u64;
         assert!(before > rounds);
         let position_purge_started = Instant::now();
-        cache.borrow_mut().purge_closed_positions(
-            get_atomic_clock_realtime().get_time_ns() + nautilus_core::DurationNanos::from_secs(1),
-            0,
-        );
+        cache
+            .borrow_mut()
+            .purge_closed_positions(
+                get_atomic_clock_realtime().get_time_ns()
+                    + nautilus_core::DurationNanos::from_secs(1),
+                0,
+                false,
+            )
+            .unwrap();
         assert_eq!(
             cache
                 .borrow()

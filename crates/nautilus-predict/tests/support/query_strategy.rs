@@ -14,8 +14,8 @@ use nautilus_model::{
     data::{CustomData, Data, QuoteTick},
     enums::{OmsType, OrderSide, TimeInForce},
     events::{
-        AccountState, OrderAccepted, OrderCanceled, OrderEventAny, OrderFilled,
-        OrderModifyRejected, PositionEvent,
+        AccountState, OrderAccepted, OrderCanceled, OrderEventAny, OrderFilled, OrderModifyDenied,
+        PositionEvent,
     },
     identifiers::{AccountId, ClientId, ClientOrderId, InstrumentId, StrategyId},
     orders::Order,
@@ -244,8 +244,8 @@ nautilus_strategy!(QueryStrategy, {
         )
         .unwrap();
     }
-    fn on_order_modify_rejected(&mut self, event: OrderModifyRejected) {
-        self.journal.borrow_mut().push(json!({"callback":"on_order_modify_rejected","price":self.cache().order(&event.client_order_id).unwrap().price().unwrap().to_string()}));
+    fn on_order_modify_denied(&mut self, event: OrderModifyDenied) {
+        self.journal.borrow_mut().push(json!({"callback":"on_order_modify_denied","price":self.cache().order(&event.client_order_id).unwrap().price().unwrap().to_string()}));
         self.cancel_order(event.client_order_id, Some(ClientId::new("PREDICT")), None)
             .unwrap();
     }

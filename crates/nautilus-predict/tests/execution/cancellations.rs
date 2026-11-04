@@ -282,7 +282,9 @@ async fn only_definitive_rejection_emits_cancel_rejected_and_ambiguous_writes_st
         };
         removal(&server, status, reply, delay);
         let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
-        client.cancel_order(cancel(&order)).unwrap();
+        let command = cancel(&order);
+        let command_id = command.command_id;
+        client.cancel_order(command).unwrap();
         wait_for_post(&server).await;
         if case == 0 {
             let ExecutionEvent::Order(event @ OrderEventAny::CancelRejected(_)) =
@@ -290,6 +292,9 @@ async fn only_definitive_rejection_emits_cancel_rejected_and_ambiguous_writes_st
             else {
                 panic!("native cancel rejected");
             };
+            assert!(
+                matches!(&event, OrderEventAny::CancelRejected(e) if e.causation_id == Some(command_id))
+            );
             engine(&cache).process(&event);
         } else {
             assert!(
@@ -341,11 +346,13 @@ async fn command_identity_and_signed_preflight_terms_are_checked_before_writing(
     let mut invalid = server.state.orders.lock().unwrap().pop_front().unwrap();
     invalid["data"]["order"]["makerAmount"] = json!("63000000000000000000");
     server.state.orders.lock().unwrap().push_back(invalid);
-    client.cancel_order(cancel(&order)).unwrap();
-    let ExecutionEvent::Order(event @ OrderEventAny::CancelRejected(_)) = next(&mut rx).await
-    else {
-        panic!("invalid preflight rejection");
+    let command = cancel(&order);
+    let command_id = command.command_id;
+    client.cancel_order(command).unwrap();
+    let ExecutionEvent::Order(event @ OrderEventAny::CancelDenied(_)) = next(&mut rx).await else {
+        panic!("invalid preflight denial");
     };
+    assert!(matches!(&event, OrderEventAny::CancelDenied(e) if e.causation_id == Some(command_id)));
     engine(&cache).process(&event);
     assert_eq!(
         cache
@@ -484,8 +491,8 @@ async fn rest_removal_is_disabled_by_default() {
         .unwrap();
     connect_reported(&mut client, &mut rx).await;
     client.cancel_order(cancel(&order)).unwrap();
-    let ExecutionEvent::Order(OrderEventAny::CancelRejected(event)) = next(&mut rx).await else {
-        panic!("disabled removal must publish native rejection");
+    let ExecutionEvent::Order(OrderEventAny::CancelDenied(event)) = next(&mut rx).await else {
+        panic!("disabled removal must publish native denial");
     };
     assert!(event.reason.contains("not enabled"));
     assert!(server.state.removals.lock().unwrap().is_empty());
@@ -560,16 +567,18 @@ async fn settlement_after_removed_ack_updates_position_without_reopening_cancell
 }
 
 #[tokio::test]
-async fn disconnected_owned_commands_publish_rejections_without_writes() {
+async fn disconnected_owned_commands_publish_denials_without_writes() {
     use nautilus_common::messages::execution::ModifyOrder;
     let server = server(vec![]).await;
     let (mut client, mut rx, cache, _portfolio, order) = setup(&server).await;
     client.stop().unwrap();
-    client.cancel_order(cancel(&order)).unwrap();
-    let ExecutionEvent::Order(event @ OrderEventAny::CancelRejected(_)) = next(&mut rx).await
-    else {
-        panic!("disconnected cancel rejection");
+    let command = cancel(&order);
+    let command_id = command.command_id;
+    client.cancel_order(command).unwrap();
+    let ExecutionEvent::Order(event @ OrderEventAny::CancelDenied(_)) = next(&mut rx).await else {
+        panic!("disconnected cancel denial");
     };
+    assert!(matches!(&event, OrderEventAny::CancelDenied(e) if e.causation_id == Some(command_id)));
     let mut engine = engine(&cache);
     engine.process(&event);
     client
@@ -589,9 +598,8 @@ async fn disconnected_owned_commands_publish_rejections_without_writes() {
             None,
         ))
         .unwrap();
-    let ExecutionEvent::Order(event @ OrderEventAny::ModifyRejected(_)) = next(&mut rx).await
-    else {
-        panic!("disconnected modify rejection");
+    let ExecutionEvent::Order(event @ OrderEventAny::ModifyDenied(_)) = next(&mut rx).await else {
+        panic!("disconnected modify denial");
     };
     engine.process(&event);
     assert_eq!(
@@ -1047,20 +1055,21 @@ async fn native_batch_modify_fanout_resolves_each_pending_update_without_writes(
         order
             .apply(factory.generate_order_accepted(&order, venue_id, 100.into(), 100.into()))
             .unwrap();
-        order
-            .apply(OrderEventAny::PendingUpdate(OrderPendingUpdate::new(
-                trader_id(),
-                order.strategy_id(),
-                order.instrument_id(),
-                order.client_order_id(),
-                Some(account_id()),
-                UUID4::new(),
-                OBSERVED.into(),
-                OBSERVED.into(),
-                false,
-                Some(venue_id),
-            )))
-            .unwrap();
+        let command_id = UUID4::new();
+        let mut pending = OrderPendingUpdate::new(
+            trader_id(),
+            order.strategy_id(),
+            order.instrument_id(),
+            order.client_order_id(),
+            Some(account_id()),
+            UUID4::new(),
+            OBSERVED.into(),
+            OBSERVED.into(),
+            false,
+            Some(venue_id),
+        );
+        pending.causation_id = Some(command_id);
+        order.apply(OrderEventAny::PendingUpdate(pending)).unwrap();
         cache
             .borrow_mut()
             .add_order(order.clone(), None, None, false)
@@ -1075,18 +1084,26 @@ async fn native_batch_modify_fanout_resolves_each_pending_update_without_writes(
             None,
             Some(Price::from("0.610")),
             None,
-            UUID4::new(),
+            command_id,
             OBSERVED.into(),
             None,
             None,
         ));
         orders.push(order);
     }
+    let command_ids = modifies
+        .iter()
+        .map(|cmd| (cmd.client_order_id, cmd.command_id))
+        .collect::<HashMap<_, _>>();
     let callbacks = Rc::new(RefCell::new(Vec::new()));
     let callback_ids = Rc::clone(&callbacks);
     let callback_cache = Rc::clone(&cache);
     let handler = msgbus::TypedHandler::from(move |event: &OrderEventAny| {
-        if let OrderEventAny::ModifyRejected(event) = event {
+        if let OrderEventAny::ModifyDenied(event) = event {
+            assert_eq!(
+                event.causation_id,
+                Some(command_ids[&event.client_order_id])
+            );
             let cache = callback_cache.borrow();
             let order = cache.order(&event.client_order_id).unwrap();
             assert_eq!(order.status(), OrderStatus::Accepted);
@@ -1111,9 +1128,9 @@ async fn native_batch_modify_fanout_resolves_each_pending_update_without_writes(
         .unwrap();
     let mut engine = engine(&cache);
     for _ in 0..orders.len() {
-        let ExecutionEvent::Order(event @ OrderEventAny::ModifyRejected(_)) = next(&mut rx).await
+        let ExecutionEvent::Order(event @ OrderEventAny::ModifyDenied(_)) = next(&mut rx).await
         else {
-            panic!("each Native batch child must receive ModifyRejected");
+            panic!("each Native batch child must receive ModifyDenied");
         };
         engine.process(&event);
     }

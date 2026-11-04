@@ -242,7 +242,7 @@ async fn run_case(denied: bool, saved: Option<&Value>, local: bool) -> Value {
                 && open_reads(&backing) > before_query_reads
         })
         .await;
-        assert_eq!(count(&target, "on_order_modify_rejected"), 1);
+        assert_eq!(count(&target, "on_order_modify_denied"), 1);
         assert_eq!(count(&companion, "on_order_canceled"), 0);
         wallet.push(old_ack.clone());
         backing.wallet(old_ack);
@@ -459,6 +459,9 @@ async fn run_case(denied: bool, saved: Option<&Value>, local: bool) -> Value {
                 .filter(|row| row["callback"] != "AccountAtAccepted")
                 .cloned()
                 .map(|mut row| {
+                    if row["callback"] == "on_order_modify_rejected" {
+                        row["callback"] = json!("on_order_modify_denied");
+                    }
                     if row["callback"] == "ReplacementDeferred" {
                         row.as_object_mut().unwrap().remove("account");
                     }

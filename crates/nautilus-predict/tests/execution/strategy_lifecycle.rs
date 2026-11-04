@@ -723,7 +723,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
                     saved.as_ref(),
                 );
                 barrier("modify rejection callback", || {
-                    callback(&journal, "on_order_modify_rejected")
+                    callback(&journal, "on_order_modify_denied")
                 })
                 .await;
                 if case == Case::NativeQuotes {
@@ -1661,7 +1661,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
         for name in [
             "on_order_submitted",
             "on_order_accepted",
-            "on_order_modify_rejected",
+            "on_order_modify_denied",
             "on_order_pending_update",
             "on_order_pending_cancel",
             "on_order_canceled",
@@ -1692,7 +1692,7 @@ async fn run(case: Case, from_saved: bool) -> Value {
         assert_eq!(entry_fills[1]["cachedStatus"], "PENDING_CANCEL");
         let modified = callbacks
             .iter()
-            .find(|r| r["callback"] == "on_order_modify_rejected")
+            .find(|r| r["callback"] == "on_order_modify_denied")
             .unwrap();
         assert_eq!(
             Decimal::from_str_exact(modified["price"].as_str().unwrap()).unwrap(),

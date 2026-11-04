@@ -52,7 +52,7 @@ pub fn strategy_failed(events: &[Value], entry_id: &str) -> bool {
             | "EntryQueryFailed",
         ) => true,
         // Entry cancellation can race a fill; the strategy queries Native for resolution.
-        Some("CancelRejected") => event["clientOrderId"] != entry_id,
+        Some("CancelDenied" | "CancelRejected") => event["clientOrderId"] != entry_id,
         _ => false,
     })
 }
@@ -176,11 +176,14 @@ mod tests {
 
     #[test]
     fn exit_failure_stops_the_test_but_entry_cancel_race_remains_native_owned() {
-        assert!(!strategy_failed(
-            &[json!({"type":"CancelRejected","clientOrderId":"entry"})],
-            "entry"
-        ));
+        for kind in ["CancelDenied", "CancelRejected"] {
+            assert!(!strategy_failed(
+                &[json!({"type":kind,"clientOrderId":"entry"})],
+                "entry"
+            ));
+        }
         for event in [
+            json!({"type":"CancelDenied","clientOrderId":"profit"}),
             json!({"type":"CancelRejected","clientOrderId":"profit"}),
             json!({"type":"StrategyDriveFailed"}),
             json!({"type":"EntryQueryFailed"}),

@@ -379,7 +379,7 @@ async fn run(scenario: Scenario) {
     }
     if duplicates {
         assert_eq!(observed.accepted, 2);
-        assert_eq!(observed.modify_rejected, 2);
+        assert_eq!(observed.modify_denied, 2);
         assert_eq!(observed.modify_terms_preserved, 2);
         assert_eq!(observed.canceled, 2);
         assert_eq!(observed.rejected, 0);

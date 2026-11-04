@@ -19,7 +19,7 @@ use nautilus_live::node::LiveNodeHandle;
 use nautilus_model::{
     data::CustomData,
     enums::TimeInForce,
-    events::{OrderEventAny, OrderModifyRejected},
+    events::{OrderEventAny, OrderModifyDenied},
     identifiers::{ClientOrderId, StrategyId},
 };
 use nautilus_predict::{PredictDataClientConfig, predict_orderbook_data_type};
@@ -235,8 +235,9 @@ nautilus_strategy!(CommandStrategy, {
         let cache = self.cache();
         let order = cache.order(&event.client_order_id()).unwrap();
         let reason = match &event {
+            OrderEventAny::CancelDenied(e) => Some(e.reason.as_str()),
             OrderEventAny::CancelRejected(e) => Some(e.reason.as_str()),
-            OrderEventAny::ModifyRejected(e) => Some(e.reason.as_str()),
+            OrderEventAny::ModifyDenied(e) => Some(e.reason.as_str()),
             OrderEventAny::Denied(e) => Some(e.reason.as_str()),
             OrderEventAny::Rejected(e) => Some(e.reason.as_str()),
             _ => None,
@@ -245,8 +246,8 @@ nautilus_strategy!(CommandStrategy, {
             "id":event.client_order_id().to_string(),"reason":reason,"status":order.status().to_string(),
             "price":order.price().map(|p|p.to_string()),"filled":order.filled_qty().to_string()}));
     }
-    fn on_order_modify_rejected(&mut self, event: OrderModifyRejected) {
-        self.journal.borrow_mut().push(json!({"type":"ModifyRejectedCallback","status":self.cache().order(&event.client_order_id).unwrap().status().to_string()}));
+    fn on_order_modify_denied(&mut self, event: OrderModifyDenied) {
+        self.journal.borrow_mut().push(json!({"type":"ModifyDeniedCallback","status":self.cache().order(&event.client_order_id).unwrap().status().to_string()}));
         self.cancel_after_modify = Some(event.client_order_id);
     }
 });
@@ -569,11 +570,11 @@ async fn run_with_saved(case: Case, saved: Option<&Value>) -> Value {
             }
         }
         if case.is_preflight() {
-            exit_orders::barrier("strategy cancellation rejection", || {
+            exit_orders::barrier("strategy cancellation denial", || {
                 journal
                     .borrow()
                     .iter()
-                    .any(|row| row["type"] == "CancelRejected")
+                    .any(|row| row["type"] == "CancelDenied")
             })
             .await;
             assert!(private.state.removals.lock().unwrap().is_empty());
@@ -650,7 +651,14 @@ async fn run_with_saved(case: Case, saved: Option<&Value>) -> Value {
     }
     let rejects = events
         .iter()
-        .filter(|row| row["type"] == "CancelRejected")
+        .filter(|row| {
+            row["type"]
+                == if case.is_preflight() {
+                    "CancelDenied"
+                } else {
+                    "CancelRejected"
+                }
+        })
         .collect::<Vec<_>>();
     assert_eq!(
         rejects.len(),
@@ -666,7 +674,7 @@ async fn run_with_saved(case: Case, saved: Option<&Value>) -> Value {
     if case.is_preflight() {
         let reject = events
             .iter()
-            .find(|row| row["type"] == "ModifyRejected")
+            .find(|row| row["type"] == "ModifyDenied")
             .unwrap();
         assert_eq!(reject["status"], "ACCEPTED");
         assert_eq!(reject["price"], "0.010");
@@ -786,20 +794,31 @@ async fn saved_command_json_replays_native_strategy_outcomes() {
         ] {
             assert_eq!(actual[key], session[key], "{key}");
         }
-        for kind in ["ModifyRejected", "CancelRejected", "Canceled"] {
-            let count = |value: &Value| {
+        for (kind, historical_kind) in [
+            ("ModifyDenied", "ModifyRejected"),
+            (
+                if case.is_preflight() {
+                    "CancelDenied"
+                } else {
+                    "CancelRejected"
+                },
+                "CancelRejected",
+            ),
+            ("Canceled", "Canceled"),
+        ] {
+            let count = |value: &Value, event_kind: &str| {
                 value["feedback"]
                     .as_array()
                     .unwrap()
                     .iter()
-                    .filter(|event| event["type"] == kind)
+                    .filter(|event| event["type"] == event_kind)
                     .count()
             };
             // Historical fixtures used two independent removal requests. The same HTTP400
             // now rejects both children of one batch; preserve the old file as evidence.
-            let expected =
-                count(session) + usize::from(case == Case::BatchMixed && kind == "CancelRejected");
-            assert_eq!(count(&actual), expected, "{kind}");
+            let expected = count(session, historical_kind)
+                + usize::from(case == Case::BatchMixed && kind == "CancelRejected");
+            assert_eq!(count(&actual, kind), expected, "{kind}");
         }
         assert_eq!(
             actual["removals"].as_array().unwrap().len(),
@@ -916,7 +935,7 @@ async fn native_cancel_all_filters_side_instrument_and_client_and_batch_checks_s
     assert!(rx.try_recv().is_err());
     command.cancels = vec![super::cancellations::cancel(&owned[0]); 2];
     client.batch_cancel_orders(command).unwrap();
-    let ExecutionEvent::Order(OrderEventAny::CancelRejected(rejected)) = next(&mut rx).await else {
+    let ExecutionEvent::Order(OrderEventAny::CancelDenied(rejected)) = next(&mut rx).await else {
         panic!("one rejection for duplicate child")
     };
     assert_eq!(rejected.client_order_id, owned[0].client_order_id());
@@ -936,8 +955,7 @@ async fn native_cancel_all_filters_side_instrument_and_client_and_batch_checks_s
         .unwrap();
     let mut ids = vec![];
     for _ in 0..2 {
-        let ExecutionEvent::Order(OrderEventAny::CancelRejected(event)) = next(&mut rx).await
-        else {
+        let ExecutionEvent::Order(OrderEventAny::CancelDenied(event)) = next(&mut rx).await else {
             panic!("scoped rejection")
         };
         ids.push(event.client_order_id);

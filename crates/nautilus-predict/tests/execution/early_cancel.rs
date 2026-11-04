@@ -590,7 +590,7 @@ async fn untracked_submitted_order_is_rejected_instead_of_retaining_foreign_canc
         .unwrap();
     let event = timeout(Duration::from_secs(2), async {
         loop {
-            if let ExecutionEvent::Order(OrderEventAny::CancelRejected(event)) =
+            if let ExecutionEvent::Order(OrderEventAny::CancelDenied(event)) =
                 rx.recv().await.unwrap()
             {
                 break event;

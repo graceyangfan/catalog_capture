@@ -147,7 +147,9 @@ fn event_id(event: &OrderEventAny) -> nautilus_core::UUID4 {
         OrderEventAny::Triggered(event) => event.event_id,
         OrderEventAny::PendingUpdate(event) => event.event_id,
         OrderEventAny::PendingCancel(event) => event.event_id,
+        OrderEventAny::ModifyDenied(event) => event.event_id,
         OrderEventAny::ModifyRejected(event) => event.event_id,
+        OrderEventAny::CancelDenied(event) => event.event_id,
         OrderEventAny::CancelRejected(event) => event.event_id,
         OrderEventAny::Updated(event) => event.event_id,
         OrderEventAny::Filled(event) => event.event_id,
@@ -403,15 +405,38 @@ impl WorkerOrder {
             due_post_only,
         ))
     }
-    pub fn cancel_rejected(
+    pub fn cancel_denied(
         &self,
         factory: &nautilus_common::factories::OrderEventFactory,
-        id: Option<VenueOrderId>,
         reason: &str,
+        causation_id: nautilus_core::UUID4,
         ts_event: UnixNanos,
         ts_init: UnixNanos,
     ) -> OrderEventAny {
-        OrderEventAny::CancelRejected(nautilus_model::events::OrderCancelRejected::new(
+        let mut event = nautilus_model::events::OrderCancelDenied::new(
+            factory.trader_id(),
+            self.strategy_id(),
+            self.instrument_id(),
+            self.client_order_id(),
+            reason.into(),
+            nautilus_core::UUID4::new(),
+            ts_event,
+            ts_init,
+            self.venue_order_id(),
+            Some(factory.account_id()),
+        );
+        event.causation_id = Some(causation_id);
+        OrderEventAny::CancelDenied(event)
+    }
+    pub fn cancel_rejected(
+        &self,
+        factory: &nautilus_common::factories::OrderEventFactory,
+        reason: &str,
+        causation_id: nautilus_core::UUID4,
+        ts_event: UnixNanos,
+        ts_init: UnixNanos,
+    ) -> OrderEventAny {
+        let mut event = nautilus_model::events::OrderCancelRejected::new(
             factory.trader_id(),
             self.strategy_id(),
             self.instrument_id(),
@@ -421,9 +446,11 @@ impl WorkerOrder {
             ts_event,
             ts_init,
             false,
-            id,
+            self.venue_order_id(),
             Some(factory.account_id()),
-        ))
+        );
+        event.causation_id = Some(causation_id);
+        OrderEventAny::CancelRejected(event)
     }
     pub fn queued_acceptance(&self) -> Option<UnixNanos> {
         self.acceptance.get().copied()

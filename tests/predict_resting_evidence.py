@@ -58,7 +58,7 @@ def validate_evidence(output, *, write=True):
                 "submitted",
                 "accepted",
                 "canceled",
-                "modifyRejected",
+                "modifyDenied",
                 "modifyTermsPreserved",
             )
         )
@@ -101,7 +101,7 @@ def validate_evidence(output, *, write=True):
                     raise EvidenceError(
                         "GTD expiration differs from bounded future timestamp"
                     )
-        for kind in ("Accepted", "ModifyRejected", "Canceled"):
+        for kind in ("Accepted", "ModifyDenied", "Canceled"):
             events = [row for row in feedback if row["type"] == kind]
             if len(events) != 2 or {row["venueOrderId"] for row in events} != hashes:
                 raise EvidenceError(

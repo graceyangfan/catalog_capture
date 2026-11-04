@@ -596,7 +596,7 @@ async fn run_replay_with_latency(
     assert!(observed.account_events > 0);
     assert!(observed.account_reports_observed >= 2);
     if phase == Phase::Resting {
-        for kind in ["Accepted", "ModifyRejected", "Canceled"] {
+        for kind in ["Accepted", "ModifyDenied", "Canceled"] {
             assert_eq!(
                 observed
                     .recorded_feedback
@@ -613,7 +613,7 @@ async fn run_replay_with_latency(
                 .any(|row| row["type"] == "AccountStateApplied")
         );
         assert!(!observed.feedback_write_failed);
-        assert_eq!(observed.modify_rejected, 2);
+        assert_eq!(observed.modify_denied, 2);
         assert_eq!(observed.modify_terms_preserved, 2);
         assert_eq!(observed.canceled, 2);
         assert_eq!(observed.fills, 0);

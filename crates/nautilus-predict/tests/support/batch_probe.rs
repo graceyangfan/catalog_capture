@@ -12,7 +12,7 @@ use nautilus_live::node::LiveNodeHandle;
 use nautilus_model::{
     data::{CustomData, QuoteTick},
     enums::{OrderSide, OrderStatus, TimeInForce},
-    events::{OrderEventAny, OrderModifyRejected},
+    events::{OrderEventAny, OrderModifyDenied},
     identifiers::{AccountId, ClientId, ClientOrderId, InstrumentId},
     instruments::Instrument,
     orders::Order,
@@ -294,7 +294,7 @@ nautilus_strategy!(BatchProbe, {
     fn external_order_instrument_ids(&self) -> Option<Vec<InstrumentId>> {
         self.core.config.external_order_instrument_ids.clone()
     }
-    fn on_order_modify_rejected(&mut self, event: OrderModifyRejected) {
+    fn on_order_modify_denied(&mut self, event: OrderModifyDenied) {
         assert!(
             event
                 .reason
@@ -312,6 +312,6 @@ nautilus_strategy!(BatchProbe, {
         self.record(json!({"type":"ModifyTermsPreserved","clientOrderId":event.client_order_id.to_string(),"price":expected.to_string()}));
     }
     fn on_order_event(&mut self, event: OrderEventAny) {
-        self.record(json!({"type":"StrategyOrderCallback","kind":format!("{:?}",event.event_type()),"clientOrderId":event.client_order_id().to_string(),"venueOrderId":event.venue_order_id().map(|v|v.to_string()),"cachedStatus":self.cache().order(&event.client_order_id()).map(|o|o.status().to_string()),"reconciliation":if let OrderEventAny::Canceled(e) = &event {Some(e.reconciliation)} else {None},"reason":if let OrderEventAny::CancelRejected(e) = &event {Some(e.reason.as_str())} else {None}}));
+        self.record(json!({"type":"StrategyOrderCallback","kind":format!("{:?}",event.event_type()),"clientOrderId":event.client_order_id().to_string(),"venueOrderId":event.venue_order_id().map(|v|v.to_string()),"cachedStatus":self.cache().order(&event.client_order_id()).map(|o|o.status().to_string()),"reconciliation":if let OrderEventAny::Canceled(e) = &event {Some(e.reconciliation)} else {None},"reason":match &event {OrderEventAny::CancelDenied(e)=>Some(e.reason.as_str()),OrderEventAny::CancelRejected(e)=>Some(e.reason.as_str()),_=>None}}));
     }
 });

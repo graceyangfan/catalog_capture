@@ -199,6 +199,17 @@ class CleanupTests(unittest.TestCase):
 
 
 class RetainedLiveEvidenceTests(unittest.TestCase):
+    @staticmethod
+    def copy_current_validation_input(source, destination):
+        # Revalidate historical venue facts using the current local denial vocabulary.
+        # The original recordings and their integrity manifests remain unchanged.
+        content = source.read_text()
+        if source.name in {"result.json", "native_feedback.json"}:
+            content = content.replace('"modifyRejected"', '"modifyDenied"').replace(
+                '"ModifyRejected"', '"ModifyDenied"'
+            )
+        destination.write_text(content)
+
     def test_retained_four_case_mainnet_matrix_and_gtd_precision(self):
         import hashlib
         import json
@@ -228,8 +239,8 @@ class RetainedLiveEvidenceTests(unittest.TestCase):
                     "http_responses.json",
                     "native_feedback.json",
                 ):
-                    (output / name).write_bytes(
-                        (base / case["directory"] / name).read_bytes()
+                    self.copy_current_validation_input(
+                        base / case["directory"] / name, output / name
                     )
                 self.assertEqual(validate_evidence(output)["finalOpenOrders"], 0)
                 if case["case"].endswith("gtd"):
@@ -279,7 +290,7 @@ class RetainedLiveEvidenceTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             output = Path(directory)
             for name in ("result.json", "calibration.json", "http_responses.json"):
-                (output / name).write_bytes((original / name).read_bytes())
+                self.copy_current_validation_input(original / name, output / name)
             self.assertEqual(validate_evidence(output)["newMatches"], 0)
             recorded = json.loads((output / "calibration.json").read_text())
             for mutation in ("cash", "wallet", "matches", "orders"):

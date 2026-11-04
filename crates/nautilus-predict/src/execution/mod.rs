@@ -73,7 +73,7 @@ pub use reports::scope::reconciliation_market_ids;
 /// Predict execution client with Native order, position and account ownership.
 ///
 /// Connectivity reflects authenticated wallet transport. Signing readiness is checked
-/// per command. ModifyOrder emits OrderModifyRejected; strategies own cancellation
+/// per command. ModifyOrder emits OrderModifyDenied; strategies own cancellation
 /// and replacement. Orders are submitted individually through SubmitOrder.
 #[derive(Debug)]
 pub struct PredictExecutionClient {

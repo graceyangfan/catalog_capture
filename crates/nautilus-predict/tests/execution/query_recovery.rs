@@ -248,7 +248,7 @@ async fn run_node(from_saved: bool) -> Value {
         assert!(orders[0].filled_qty().is_zero());
         for name in [
             "on_order_accepted",
-            "on_order_modify_rejected",
+            "on_order_modify_denied",
             "on_order_canceled",
         ] {
             assert_eq!(

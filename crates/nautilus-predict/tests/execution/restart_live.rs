@@ -264,7 +264,7 @@ async fn run(case: Case) -> Value {
             wire_event(&entry, "orderAccepted", 1, Decimal::ZERO),
         );
         barrier("entry accepted and modify rejected", || {
-            callback(&first_journal, "on_order_modify_rejected")
+            callback(&first_journal, "on_order_modify_denied")
         })
         .await;
         let gate = Arc::new(tokio::sync::Notify::new());

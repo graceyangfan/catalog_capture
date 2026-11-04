@@ -22,8 +22,8 @@ use nautilus_model::{
     data::CustomData,
     enums::{OrderSide, OrderStatus, TimeInForce},
     events::{
-        OrderAccepted, OrderCancelRejected, OrderCanceled, OrderDenied, OrderModifyRejected,
-        OrderRejected, OrderSubmitted,
+        OrderAccepted, OrderCancelDenied, OrderCancelRejected, OrderCanceled, OrderDenied,
+        OrderModifyDenied, OrderRejected, OrderSubmitted,
     },
     identifiers::{AccountId, ClientId, ClientOrderId, InstrumentId, StrategyId},
     instruments::Instrument,
@@ -303,7 +303,7 @@ nautilus_strategy!(SnapshotMaker, {
                 .unwrap();
         }
     }
-    fn on_order_modify_rejected(&mut self, event: OrderModifyRejected) {
+    fn on_order_modify_denied(&mut self, event: OrderModifyDenied) {
         assert!(self.replace && self.round == 0);
         assert_eq!(Some(event.client_order_id), self.submitted);
         let cache = self.cache();
@@ -324,7 +324,7 @@ nautilus_strategy!(SnapshotMaker, {
             "unexpected modification rejection: {}",
             event.reason
         );
-        self.journal.borrow_mut().push(json!({"callback":"on_order_modify_rejected",
+        self.journal.borrow_mut().push(json!({"callback":"on_order_modify_denied",
             "reason":event.reason.to_string(),"cachedPrice":order.price().unwrap().to_string(),
             "cachedQuantity":order.quantity().to_string(),"cachedStatus":format!("{:?}",order.status())}));
         drop(cache);
@@ -372,6 +372,11 @@ nautilus_strategy!(SnapshotMaker, {
         self.journal
             .borrow_mut()
             .push(json!({"callback":"on_order_denied","reason":event.reason.to_string()}));
+    }
+    fn on_order_cancel_denied(&mut self, event: OrderCancelDenied) {
+        self.journal
+            .borrow_mut()
+            .push(json!({"callback":"on_order_cancel_denied","reason":event.reason.to_string()}));
     }
     fn on_order_cancel_rejected(&mut self, event: OrderCancelRejected) {
         self.journal

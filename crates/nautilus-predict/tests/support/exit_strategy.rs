@@ -16,10 +16,10 @@ use nautilus_model::{
     data::{CustomData, Data, QuoteTick},
     enums::{OmsType, OrderSide, TimeInForce},
     events::{
-        AccountState, OrderAccepted, OrderCancelRejected, OrderCanceled, OrderDenied,
-        OrderEventAny, OrderFilled, OrderModifyRejected, OrderPendingCancel, OrderPendingUpdate,
-        OrderRejected, OrderSubmitted, OrderUpdated, PositionChanged, PositionClosed,
-        PositionEvent, PositionOpened,
+        AccountState, OrderAccepted, OrderCancelDenied, OrderCancelRejected, OrderCanceled,
+        OrderDenied, OrderEventAny, OrderFilled, OrderModifyDenied, OrderPendingCancel,
+        OrderPendingUpdate, OrderRejected, OrderSubmitted, OrderUpdated, PositionChanged,
+        PositionClosed, PositionEvent, PositionOpened,
     },
     identifiers::{AccountId, ClientId, ClientOrderId, InstrumentId, StrategyId},
     instruments::Instrument,
@@ -1010,8 +1010,11 @@ nautilus_strategy!(ExitStrategy, {
     fn on_order_denied(&mut self, event: OrderDenied) {
         self.record_order_callback("on_order_denied", event.client_order_id);
     }
-    fn on_order_modify_rejected(&mut self, event: OrderModifyRejected) {
-        self.record_order_callback("on_order_modify_rejected", event.client_order_id);
+    fn on_order_modify_denied(&mut self, event: OrderModifyDenied) {
+        self.record_order_callback("on_order_modify_denied", event.client_order_id);
+    }
+    fn on_order_cancel_denied(&mut self, event: OrderCancelDenied) {
+        self.record_order_callback("on_order_cancel_denied", event.client_order_id);
     }
     fn on_order_cancel_rejected(&mut self, event: OrderCancelRejected) {
         self.record_order_callback("on_order_cancel_rejected", event.client_order_id);
@@ -1027,7 +1030,7 @@ nautilus_strategy!(ExitStrategy, {
     }
     fn on_order_event(&mut self, event: OrderEventAny) {
         let id = event.client_order_id();
-        self.journal.borrow_mut().push(json!({"type":format!("{:?}",event.event_type()),"nativeEvent":&event,"clientOrderId":id.to_string(),"quantity":self.quantity().to_string(),"reason":match &event {OrderEventAny::Denied(e)=>Some(e.reason.as_str()),OrderEventAny::Rejected(e)=>Some(e.reason.as_str()),OrderEventAny::CancelRejected(e)=>Some(e.reason.as_str()),_=>None},
+        self.journal.borrow_mut().push(json!({"type":format!("{:?}",event.event_type()),"nativeEvent":&event,"clientOrderId":id.to_string(),"quantity":self.quantity().to_string(),"reason":match &event {OrderEventAny::Denied(e)=>Some(e.reason.as_str()),OrderEventAny::Rejected(e)=>Some(e.reason.as_str()),OrderEventAny::CancelDenied(e)=>Some(e.reason.as_str()),OrderEventAny::CancelRejected(e)=>Some(e.reason.as_str()),_=>None},
             "fill":if let OrderEventAny::Filled(e)=&event {Some(json!({"side":self.cache().order(&id).map(|o|o.order_side().to_string()),"quantity":e.last_qty.to_string(),"price":e.last_px.to_string(),"commission":e.commission.map(|v|v.to_string()),"quantityCommission":e.quantity_commission.map(|v|v.to_string()),"liquidity":e.liquidity_side.to_string()}))}else{None},
             "cachedStatus":self.cache().order(&id).map(|o|o.status().to_string())}));
         if let OrderEventAny::Filled(fill) = &event
@@ -1050,8 +1053,10 @@ nautilus_strategy!(ExitStrategy, {
             self.realized_proceeds += fill.last_qty.as_decimal() * fill.last_px.as_decimal()
                 - fill.commission.map_or(Decimal::ZERO, |v| v.as_decimal());
         }
-        if matches!(event, OrderEventAny::CancelRejected(_))
-            && id == self.entry
+        if matches!(
+            event,
+            OrderEventAny::CancelDenied(_) | OrderEventAny::CancelRejected(_)
+        ) && id == self.entry
             && self.entry_cancel_sent
         {
             // Cancellation can lose to the remaining entry fill. Ask Native to query the
@@ -1077,6 +1082,7 @@ nautilus_strategy!(ExitStrategy, {
             event,
             OrderEventAny::Denied(_)
                 | OrderEventAny::Rejected(_)
+                | OrderEventAny::CancelDenied(_)
                 | OrderEventAny::CancelRejected(_)
         ) {
             if self.market_entry

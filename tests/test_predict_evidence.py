@@ -10,6 +10,15 @@ from predict_resting_evidence import EvidenceError
 
 
 class EvidenceTests(unittest.TestCase):
+    @staticmethod
+    def use_current_lifecycle_vocabulary(directory):
+        # Adapt only disposable validation inputs; frozen recordings are verified separately.
+        for name in ("result.json", "native_feedback.json"):
+            path = directory / name
+            path.write_text(path.read_text().replace('"modifyRejected"', '"modifyDenied"').replace(
+                '"ModifyRejected"', '"ModifyDenied"'
+            ))
+
     def test_retained_recordings_match_the_frozen_manifest(self):
         report = json.loads(MANIFEST.read_text())
         verify(report)
@@ -57,6 +66,7 @@ class EvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "capture"
             shutil.copytree(original, output)
+            self.use_current_lifecycle_vocabulary(output)
             before = {p.name: p.read_bytes() for p in output.iterdir() if p.is_file()}
             result = review_resting_run(output)
             self.assertTrue(result["passed"])
@@ -73,6 +83,7 @@ class EvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "capture"
             shutil.copytree(original, output)
+            self.use_current_lifecycle_vocabulary(output)
             final = output / "final_open_orders_check.json"
             final.unlink()
             with self.assertRaises(FileNotFoundError):

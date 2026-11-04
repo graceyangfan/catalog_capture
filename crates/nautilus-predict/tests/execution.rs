@@ -1503,7 +1503,8 @@ async fn unchanged_command_feedback_does_not_restart_an_inflight_account_collect
     .await
     .unwrap();
     // Collection is causally held at RPC while the engine applies real command feedback.
-    let pending = OrderEventAny::PendingUpdate(OrderPendingUpdate::new(
+    let command_id = UUID4::new();
+    let mut pending = OrderPendingUpdate::new(
         order.trader_id(),
         order.strategy_id(),
         order.instrument_id(),
@@ -1514,13 +1515,30 @@ async fn unchanged_command_feedback_does_not_restart_an_inflight_account_collect
         UnixNanos::from(300),
         false,
         order.venue_order_id(),
-    ));
-    engine.process(&pending);
+    );
+    pending.causation_id = Some(command_id);
+    engine.process(&OrderEventAny::PendingUpdate(pending));
     let factory = OrderEventFactory::new(trader_id(), account_id(), AccountType::Cash, None);
-    let rejection = factory.generate_order_modify_rejected(
+    let unrelated = factory.generate_order_modify_denied(
         &cache.borrow().order(&order.client_order_id()).unwrap(),
-        order.venue_order_id(),
+        "unrelated command denial",
+        Some(UUID4::new()),
+        UnixNanos::from(350),
+        UnixNanos::from(350),
+    );
+    engine.process(&unrelated);
+    assert_eq!(
+        cache
+            .borrow()
+            .order(&order.client_order_id())
+            .unwrap()
+            .status(),
+        OrderStatus::PendingUpdate
+    );
+    let rejection = factory.generate_order_modify_denied(
+        &cache.borrow().order(&order.client_order_id()).unwrap(),
         "unsupported modification",
+        Some(command_id),
         UnixNanos::from(400),
         UnixNanos::from(400),
     );

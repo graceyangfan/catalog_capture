@@ -133,12 +133,14 @@ fn native_buffer_and_purge_own_full_snapshot_retention() {
     );
     cache
         .borrow_mut()
-        .purge_closed_orders(UnixNanos::from(1_000_000_000), 2);
+        .purge_closed_orders(UnixNanos::from(1_000_000_000), 2, false)
+        .unwrap();
     client.prune_mirrors();
     assert!(weak.upgrade().is_some(), "Native buffer has not elapsed");
     cache
         .borrow_mut()
-        .purge_closed_orders(UnixNanos::from(3_000_000_000), 2);
+        .purge_closed_orders(UnixNanos::from(3_000_000_000), 2, false)
+        .unwrap();
     assert!(client.core.cache().order(&id).is_none());
     client.prune_mirrors();
     assert!(
@@ -659,7 +661,8 @@ fn native_command_feedback_updates_views_without_redundant_resource_refresh() {
         .add_order(order.clone(), None, None, false)
         .unwrap();
     client.prepare_lookup().unwrap();
-    let pending = OrderEventAny::PendingUpdate(OrderPendingUpdate::new(
+    let command_id = UUID4::new();
+    let mut pending = OrderPendingUpdate::new(
         order.trader_id(),
         order.strategy_id(),
         order.instrument_id(),
@@ -670,7 +673,9 @@ fn native_command_feedback_updates_views_without_redundant_resource_refresh() {
         UnixNanos::from(3),
         false,
         Some(hash),
-    ));
+    );
+    pending.causation_id = Some(command_id);
+    let pending = OrderEventAny::PendingUpdate(pending);
     cache.borrow_mut().update_order(&pending).unwrap();
     msgbus::publish_order_event("events.order.TESTER".into(), &pending);
     assert_eq!(
@@ -690,10 +695,10 @@ fn native_command_feedback_updates_views_without_redundant_resource_refresh() {
             .is_none()
     );
 
-    let rejection = factory.generate_order_modify_rejected(
+    let rejection = factory.generate_order_modify_denied(
         &cache.borrow().order(&id).unwrap(),
-        Some(hash),
         "unsupported modification",
+        Some(command_id),
         UnixNanos::from(4),
         UnixNanos::from(4),
     );
@@ -861,7 +866,10 @@ fn native_timer_retires_purged_snapshots_without_a_trading_command() {
         1,
         "Native still owns this snapshot"
     );
-    cache.borrow_mut().purge_order(retained.client_order_id());
+    cache
+        .borrow_mut()
+        .purge_order(retained.client_order_id(), false)
+        .unwrap();
     drop(retained);
     fire(31_000_000_000);
     assert!(client.orders.lock().unwrap().is_empty());
@@ -1112,7 +1120,7 @@ fn cleanup_resumes_bounded_batches_and_reclaims_over_ten_thousand_lifecycles() {
         .copied()
         .collect::<Vec<_>>();
     for id in ids {
-        retained_cache.borrow_mut().purge_order(id);
+        retained_cache.borrow_mut().purge_order(id, false).unwrap();
     }
     checks = 0;
     while retained_lookups.prune() {
@@ -1706,7 +1714,8 @@ fn history_retention_fixture(
     if purge {
         cache
             .borrow_mut()
-            .purge_closed_orders(1_000_000_000_000u64.into(), 0);
+            .purge_closed_orders(1_000_000_000_000u64.into(), 0, false)
+            .unwrap();
     }
     client.account_sync.state.lock().unwrap().latest_fill = (fills as u64 + 2).into();
     (client, cache)
@@ -1989,7 +1998,8 @@ fn benchmark_native_purge_and_adapter_retirement() {
             let start = Instant::now();
             cache
                 .borrow_mut()
-                .purge_closed_orders(1_000_000_000_000u64.into(), 0);
+                .purge_closed_orders(1_000_000_000_000u64.into(), 0, false)
+                .unwrap();
             let native_purge_ns = start.elapsed().as_nanos() as u64;
             assert_eq!(
                 cache
@@ -2034,7 +2044,10 @@ fn benchmark_steady_native_purge_cadence() {
             let (client, cache) = history_retention_fixture(owners, 1, false, close_step_ns);
             let now = owners as u64 * close_step_ns + 5;
             let start = Instant::now();
-            cache.borrow_mut().purge_closed_orders(now.into(), 3600);
+            cache
+                .borrow_mut()
+                .purge_closed_orders(now.into(), 3600, false)
+                .unwrap();
             let native_ns = start.elapsed().as_nanos() as u64;
             assert_eq!(
                 cache
@@ -2292,7 +2305,7 @@ fn benchmark_native_position_purge_history() {
                 }
                 drop(position);
                 let start = Instant::now();
-                cache.purge_position(position_id);
+                cache.purge_position(position_id, false).unwrap();
                 let elapsed = start.elapsed().as_nanos() as u64;
                 assert_eq!(cache.position_exists(&position_id), !closed);
                 if closed {

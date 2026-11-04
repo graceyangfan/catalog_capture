@@ -179,7 +179,8 @@ async fn run(case: &str, saved: Option<&Value>) -> Value {
             let reason = match e {
                 OrderEventAny::Denied(e) => Some(e.reason.as_str()),
                 OrderEventAny::Rejected(e) => Some(e.reason.as_str()),
-                OrderEventAny::ModifyRejected(e) => Some(e.reason.as_str()),
+                OrderEventAny::ModifyDenied(e) => Some(e.reason.as_str()),
+                OrderEventAny::CancelDenied(e) => Some(e.reason.as_str()),
                 OrderEventAny::CancelRejected(e) => Some(e.reason.as_str()),
                 _ => None,
             };
@@ -293,10 +294,7 @@ async fn run(case: &str, saved: Option<&Value>) -> Value {
                     .unwrap();
                 if case == "modify_rejected" {
                     barrier("ExecTester native modify rejection", || {
-                        events
-                            .borrow()
-                            .iter()
-                            .any(|e| e["type"] == "ModifyRejected")
+                        events.borrow().iter().any(|e| e["type"] == "ModifyDenied")
                     })
                     .await;
                     assert_eq!(
@@ -345,7 +343,7 @@ async fn run(case: &str, saved: Option<&Value>) -> Value {
     assert_eq!(
         observed
             .iter()
-            .filter(|e| e["type"] == "ModifyRejected")
+            .filter(|e| e["type"] == "ModifyDenied")
             .count(),
         usize::from(case == "modify_rejected")
     );
@@ -374,7 +372,7 @@ async fn run(case: &str, saved: Option<&Value>) -> Value {
         assert!(
             observed
                 .iter()
-                .find(|e| e["type"] == "ModifyRejected")
+                .find(|e| e["type"] == "ModifyDenied")
                 .unwrap()["reason"]
                 .as_str()
                 .unwrap()
@@ -435,7 +433,10 @@ async fn run(case: &str, saved: Option<&Value>) -> Value {
                 .as_array()
                 .unwrap()
                 .iter()
-                .map(|e| e["type"].clone())
+                .map(|e| match e["type"].as_str() {
+                    Some("ModifyRejected") => json!("ModifyDenied"),
+                    _ => e["type"].clone(),
+                })
                 .collect::<Vec<_>>(),
             observed
                 .iter()

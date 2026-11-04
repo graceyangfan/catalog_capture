@@ -311,7 +311,7 @@ async fn mainnet_rust_strategy_batch_restart() -> anyhow::Result<()> {
             })
             .count()
     };
-    let report = json!({"source":"actual Rust strategy + Native LiveNode cold startup and batch cancel","case":manifest["case"],"marketId":candidate.market.id,"outcome":candidate.outcome,"submitted":2,"accepted":callbacks("place","Accepted"),"canceled":callbacks("recover","Canceled"),"modifyRejected":callbacks("recover","ModifyRejected"),"modifyTermsPreserved":journal.iter().filter(|r|r["type"]=="ModifyTermsPreserved").count(),"rejected":callbacks("place","Rejected")+callbacks("recover","Rejected"),"denied":callbacks("place","Denied")+callbacks("recover","Denied"),"fills":callbacks("place","Filled")+callbacks("recover","Filled"),"nodeFailed":result.is_err(),"cleanup":cleanup.as_ref().ok(),"cleanupFailed":cleanup.is_err(),"originalError":result.as_ref().err().map(ToString::to_string)});
+    let report = json!({"source":"actual Rust strategy + Native LiveNode cold startup and batch cancel","case":manifest["case"],"marketId":candidate.market.id,"outcome":candidate.outcome,"submitted":2,"accepted":callbacks("place","Accepted"),"canceled":callbacks("recover","Canceled"),"modifyDenied":callbacks("recover","ModifyDenied"),"modifyTermsPreserved":journal.iter().filter(|r|r["type"]=="ModifyTermsPreserved").count(),"rejected":callbacks("place","Rejected")+callbacks("recover","Rejected"),"denied":callbacks("place","Denied")+callbacks("recover","Denied"),"fills":callbacks("place","Filled")+callbacks("recover","Filled"),"nodeFailed":result.is_err(),"cleanup":cleanup.as_ref().ok(),"cleanupFailed":cleanup.is_err(),"originalError":result.as_ref().err().map(ToString::to_string)});
     std::fs::write(
         output.join("result.json"),
         serde_json::to_vec_pretty(&report)?,
@@ -321,7 +321,7 @@ async fn mainnet_rust_strategy_batch_restart() -> anyhow::Result<()> {
     anyhow::ensure!(
         report["accepted"] == 2
             && report["canceled"] == 2
-            && report["modifyRejected"] == 2
+            && report["modifyDenied"] == 2
             && report["fills"] == 0,
         "unexpected lifecycle totals"
     );

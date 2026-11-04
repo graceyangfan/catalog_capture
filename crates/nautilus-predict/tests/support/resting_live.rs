@@ -397,7 +397,7 @@ async fn mainnet_rust_strategy_quiet_resting_cancel_replace() -> anyhow::Result<
         "timeInForce":time_in_force.to_string(),"postOnly":true,"marketId":candidate.market.id,
         "outcome":candidate.outcome,"price":candidate.price.to_string(),"quantity":candidate.quantity.to_string(),
         "snapshots":observed.snapshots,"submitted":observed.submitted,"accepted":observed.accepted,
-        "rejected":observed.rejected,"denied":observed.denied,"modifyRejected":observed.modify_rejected,
+        "rejected":observed.rejected,"denied":observed.denied,"modifyDenied":observed.modify_denied,
         "cancelRejected":observed.cancel_rejected,"accountReportsObserved":observed.account_reports_observed,
         "positionEvents":observed.position_events,
         "modifyTermsPreserved":observed.modify_terms_preserved,"canceled":observed.canceled,"fills":observed.fills,
@@ -415,7 +415,7 @@ async fn mainnet_rust_strategy_quiet_resting_cancel_replace() -> anyhow::Result<
         observed.submitted == 2
             && observed.accepted == 2
             && observed.canceled == 2
-            && observed.modify_rejected == 2
+            && observed.modify_denied == 2
             && observed.modify_terms_preserved == 2,
         "live lifecycle incomplete; see sanitized result.json; cleanup was attempted first"
     );

@@ -29,7 +29,7 @@ use nautilus_common::{
     factories::OrderEventFactory,
     messages::execution::{BatchCancelOrders, CancelAllOrders, CancelOrder},
 };
-use nautilus_core::time::AtomicTime;
+use nautilus_core::{UUID4, time::AtomicTime};
 use nautilus_live::{ExecutionEventEmitter, execution::failure::CommandFailure};
 use nautilus_model::{
     identifiers::{ClientOrderId, VenueOrderId},
@@ -250,10 +250,10 @@ impl PredictExecutionClient {
                     self.core.base_currency,
                 );
                 self.emitter
-                    .try_send_order_event(factory.generate_order_cancel_rejected(
+                    .try_send_order_event(factory.generate_order_cancel_denied(
                         &order,
-                        order.venue_order_id(),
                         &error.to_string(),
+                        Some(cmd.command_id),
                         now,
                         now,
                     ))?;
@@ -350,6 +350,7 @@ impl PredictExecutionClient {
             session: self.config.session.clone(),
             orders: Arc::clone(&self.orders),
             client_order_id: cmd.client_order_id,
+            command_id: cmd.command_id,
             instrument,
             venue_id,
             hash,
@@ -378,6 +379,7 @@ struct CancelWorker {
     session: PredictAuthenticatedHttpClient,
     orders: context::OrderSnapshots<VenueOrderId>,
     client_order_id: ClientOrderId,
+    command_id: UUID4,
     instrument: BinaryOption,
     venue_id: VenueOrderId,
     hash: B256,
@@ -406,7 +408,7 @@ impl CancelWorker {
     fn session_active(&self) -> bool {
         !self.cancellation.is_cancelled()
     }
-    fn reject(&self, reason: &str) {
+    fn reject(&self, failure: CommandFailure) {
         // A proven not-sent/definitively rejected command can resolve PendingCancel
         // during a wallet gap. Only shutdown of its owning generation suppresses it.
         if !self.cancellation.is_cancelled()
@@ -414,7 +416,15 @@ impl CancelWorker {
             && !order.is_closed()
         {
             let now = self.clock.get_time_ns();
-            let event = order.cancel_rejected(&self.factory, Some(self.venue_id), reason, now, now);
+            let event = match failure {
+                CommandFailure::NotSent(reason) => {
+                    order.cancel_denied(&self.factory, &reason, self.command_id, now, now)
+                }
+                CommandFailure::VenueRejected(reason) => {
+                    order.cancel_rejected(&self.factory, &reason, self.command_id, now, now)
+                }
+                CommandFailure::Ambiguous(_) => return,
+            };
             if self.emitter.try_send_order_event(event).is_err() {
                 self.healthy.store(false, Ordering::Release);
             }
@@ -435,9 +445,9 @@ impl CancelWorker {
     ) {
         match result {
             Ok(Ok(())) => {}
-            Ok(Err(CommandFailure::NotSent(reason) | CommandFailure::VenueRejected(reason))) => {
+            Ok(Err(failure @ (CommandFailure::NotSent(_) | CommandFailure::VenueRejected(_)))) => {
                 guard.retain = false;
-                self.reject(&reason);
+                self.reject(failure);
             }
             Ok(Err(CommandFailure::Ambiguous(reason))) => {
                 log::warn!(
@@ -451,7 +461,9 @@ impl CancelWorker {
 
     fn resolve_timeout(&self, guard: &CancelGuard) {
         if !guard.retain {
-            self.reject("Predict cancel preflight timed out");
+            self.reject(CommandFailure::not_sent(
+                "Predict cancel preflight timed out",
+            ));
         }
         log::warn!(
             "Predict cancel timed out for {} (transmitted: {})",
@@ -633,16 +645,18 @@ async fn execute_batch(entries: Vec<(CancelWorker, CancelGuard)>) {
             let mut active = Vec::new();
             for (worker, guard, id) in chunk {
                 let Some(order) = worker.current_order() else {
-                    worker.reject("Predict batch cancel lost native context before transmission");
+                    worker.reject(CommandFailure::not_sent(
+                        "Predict batch cancel lost native context before transmission",
+                    ));
                     continue;
                 };
                 if order.is_closed() {
                     continue;
                 }
                 if !worker.session_active() {
-                    worker.reject(
+                    worker.reject(CommandFailure::not_sent(
                         "Predict batch cancellation generation stopped before transmission",
-                    );
+                    ));
                     continue;
                 }
                 active.push((worker, guard, id));

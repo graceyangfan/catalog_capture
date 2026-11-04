@@ -560,7 +560,8 @@ async fn run_lifecycle(
                 // retained entry OrderAny in the adapter.
                 cache
                     .borrow_mut()
-                    .purge_closed_orders(get_atomic_clock_realtime().get_time_ns(), 0);
+                    .purge_closed_orders(get_atomic_clock_realtime().get_time_ns(), 0, false)
+                    .unwrap();
                 assert_eq!(
                     cache
                         .borrow()
@@ -675,7 +676,8 @@ async fn run_lifecycle(
                 let before = cache.borrow().orders(None, None, None, None, None).len();
                 cache
                     .borrow_mut()
-                    .purge_closed_orders(get_atomic_clock_realtime().get_time_ns(), 0);
+                    .purge_closed_orders(get_atomic_clock_realtime().get_time_ns(), 0, false)
+                    .unwrap();
                 assert!(
                     cache
                         .borrow()
