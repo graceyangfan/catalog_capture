@@ -166,7 +166,11 @@ pub async fn run_capture_with_plan_and_reports(
         hip4_resolved,
     )?;
 
-    if plan.is_empty() && config.lighter_updown.is_empty() && config.matched_sports.is_none() {
+    if plan.is_empty()
+        && config.lighter_updown.is_empty()
+        && config.hip4_rolling.is_none()
+        && config.matched_sports.is_none()
+    {
         bail!("capture plan is empty after universe expansion");
     }
 
@@ -920,6 +924,7 @@ fn build_capture_actor_config(
             hip4_reports,
             hip4_resolved,
         )?,
+        hip4_rolling: config.hip4_rolling.clone(),
         lighter_updown: config.lighter_updown.clone(),
         matched_sports_config: config.matched_sports.clone(),
         matched_sports_inbox: None,
@@ -1121,6 +1126,18 @@ fn validate_runtime_dependencies(config: &EffectiveConfig) -> Result<()> {
         );
     }
     validate_option_universes(&config.option_universes, &config.venues)?;
+    if let Some(c) = &config.hip4_rolling {
+        #[cfg(not(feature = "venue-hyperliquid"))]
+        anyhow::bail!("HIP-4 rolling requires venue-hyperliquid");
+        #[cfg(feature = "venue-hyperliquid")]
+        anyhow::ensure!(config.venues.iter().any(|v| matches!(v,
+            VenueRuntimeConfig::Hyperliquid { id, environment: nautilus_hyperliquid::common::enums::HyperliquidEnvironment::Mainnet }
+            if id == &c.venue_id)), "HIP-4 rolling requires its configured mainnet Hyperliquid venue");
+        anyhow::ensure!(
+            config.capture.lifecycle.is_segment_mode(),
+            "HIP-4 rolling requires segment mode"
+        );
+    }
     validate_hip4_universes(&config.hip4_universes, &config.venues)?;
     if config.runtime.hip4_universe_refresh.enabled && config.hip4_universes.is_empty() {
         bail!("runtime.hip4_universe_refresh.enabled requires capture.hip4_universe entries");
@@ -1729,6 +1746,7 @@ mod tests {
             plan: plan.clone(),
             option_universes: Vec::new(),
             hip4_universes: Vec::new(),
+            hip4_rolling: None,
             lighter_updown: Vec::new(),
             matched_sports: None,
             venues: vec![

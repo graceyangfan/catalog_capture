@@ -42,3 +42,5 @@ pub use online_option_metrics::{
 };
 
 pub use lighter_updown::LighterUpDownCaptureConfig;
+
+mod hip4_rolling;

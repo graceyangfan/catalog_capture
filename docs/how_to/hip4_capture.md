@@ -103,6 +103,87 @@ subscribes the new outcomes and retires the old pair. Keep `market_class = "pric
 the semantic selector (`BTC`, `1d`) unless the live preflight reports that Hyperliquid has
 changed its published metadata fields.
 
+### BTC/ETH 15-minute rolling capture
+
+Use [`capture.hyperliquid-hip4-15m.toml`](../../examples/capture.hyperliquid-hip4-15m.toml)
+for Outcome.xyz (`venue:out`) mainnet markets and continuous Binance BTC/ETH
+USD-M perpetual L2/trades. Requires `venue-hyperliquid,venue-binance`.
+The profile also records Hyperliquid BTC/ETH perpetual mark and index prices.
+No outcome IDs are configured:
+
+```bash
+cargo run -p catalog-capture-cli -- run \
+  --config examples/capture.hyperliquid-hip4-15m.toml
+```
+
+`[capture.hip4_rolling]` selects BTC/ETH `template:binaryPrice` outcomes for the
+current UTC quarter hour. It requires USDC, the matching underlying's USDC perp
+mark, a 60-second settlement TWAP, and the expected YES/NO side labels. Expired,
+future, other-provider and ambiguous markets cannot replace the current market.
+The 15-minute schedule is explicit capture policy for this provider; `seconds:60`
+is the settlement TWAP length, not the market's duration. The strike remains the
+venue's `threshold`, without assuming equality to Predict's opening reference.
+
+Settlement compares the 60-second TWAP of Hyperliquid's **perpetual mark price**
+ending at expiry strictly above the supplied threshold. Record native mark and
+oracle streams to preserve their external inputs and smoothing. Binance USD-M
+L2/trades provide the external reference market.
+Spot can be joined from the independent Predict/Spot catalog when available.
+See [Hyperliquid mark construction](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/robust-price-indices)
+and [spot oracle construction](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/oracle).
+
+The lifecycle follows the Predict recorder's current-window handover:
+
+1. Discover the current market through public REST `outcomeMeta`.
+2. Load its instruments through the existing Native Hyperliquid adapter, then
+   subscribe to YES and NO books/trades.
+3. At the quarter-hour boundary, discover the new current ID. Missing markets
+   and failed discovery retry every `retry_secs` (default 2); BTC and ETH share
+   one in-flight HTTP request. HTTP runs outside the actor and is cancelled on stop.
+4. Keep the predecessor during the brief handover. Once both new initial snapshot
+   batches have reached the recorder and its writers have flushed, retire the old
+   subscriptions and seal their partitions. Duplicate discovery never resubscribes.
+5. Keep a pending market's subscriptions until ready or until that market expires.
+   Metadata re-requests use the existing 1/2/4/.../60-second daily-profile backoff;
+   one tagged Native full-registry request covers both sides/assets. A 90-second
+   response watchdog permits retry if the correlated response is lost. The Native
+   adapter owns HTTP and initial-book recovery deadlines. Keep the predecessor
+   until both successor books are ready, including delayed provider publication.
+   Retention stays bounded to one current and one in-flight handover per asset.
+
+Only the current market is normally subscribed. A handover temporarily overlaps
+old and new markets; the new ID is already in its current window. Initial empty
+books are valid snapshots; readiness never waits for a trade or a liquidity score.
+The native adapter handles WebSocket reconnect and subscription recovery. This
+profile uses REST boundary discovery; it does not add a separate metadata socket.
+
+The pinned Native adapter constructs the instruments and maintains its own wire
+registry. Catalog Capture enriches their recording/cache definitions with template
+`time` expiration, the configured window start, and an unmodified `hip4_raw` copy
+that retains deployer and fee metadata. Existing instrument IDs, quote tokens and
+precision remain authoritative from the adapter. Duplicate definition callbacks
+are recorded once per activation. This enrichment is local to the recorder.
+
+Record **both sides' instruments, book snapshots and trade ticks**. Hyperliquid
+merges YES/NO liquidity, but that does not establish strict symmetry of their
+trade streams or delivery coverage. Keep both tapes until all fields and recovery
+paths are proven losslessly reconstructible. Never add their depth as independent
+liquidity. Hyperliquid `l2Book` messages are full snapshots; Native maps them to
+`CLEAR + ADD` batches with `F_SNAPSHOT` / `F_LAST`, not exchange incremental deltas.
+
+Reuse UTC hourly file sealing. Retirement or shutdown seals a partial-hour file;
+Binance reference instruments stay subscribed and retain their hourly files.
+At a coincident hourly boundary, the predecessor can have a final short file
+between the hourly seal and completed handover; files are not fixed 15-minute
+event-time buckets. Existing managed-book checkpoints initialize new segments at
+an hourly seal. Preserve `ts_event` and
+`ts_init`; concurrent recorder receipt times do not make HIP-4's mark TWAP and
+Predict's independently specified settlement feed equivalent.
+
+References: [outcome metadata and templates](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/spot),
+[merged outcome books](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-4-outcome-markets),
+and [the provider's SDK](https://github.com/Outcome-xyz/hip4).
+
 ### Option universe (Deribit / Bybit / OKX)
 
 Same memory policy as HIP-4 after expiry / ATM / OI rolls:

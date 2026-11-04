@@ -13,7 +13,7 @@
 // -------------------------------------------------------------------------------------------------
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -29,6 +29,7 @@ use nautilus_model::{
         close::InstrumentClose,
     },
     enums::RecordFlag,
+    identifiers::Venue,
     instruments::InstrumentAny,
 };
 use nautilus_persistence::{
@@ -289,6 +290,7 @@ pub enum BookDeltaCatalogSink {
     Segment {
         sink: SegmentCaptureSink<OrderBookDelta>,
         boundary: HashMap<String, BookDeltaBoundaryState>,
+        continuous_snapshot_venues: BTreeSet<Venue>,
     },
 }
 
@@ -310,6 +312,7 @@ impl BookDeltaCatalogSink {
             Ok(Self::Segment {
                 sink: SegmentCaptureSink::from_config(config)?,
                 boundary: HashMap::new(),
+                continuous_snapshot_venues: BTreeSet::new(),
             })
         } else {
             Ok(Self::Chunked(NautilusCatalogSink::from_config(config)?))
@@ -319,6 +322,20 @@ impl BookDeltaCatalogSink {
     #[must_use]
     pub fn is_segment_mode(&self) -> bool {
         matches!(self, Self::Segment { .. })
+    }
+
+    /// Keep periodic full-book source messages in the same scheduled segment.
+    /// Snapshot flags and CLEAR/ADD rows remain untouched; explicit gaps still break continuity.
+    #[must_use]
+    pub fn with_continuous_snapshots_for_venue(mut self, venue: Venue) -> Self {
+        if let Self::Segment {
+            continuous_snapshot_venues,
+            ..
+        } = &mut self
+        {
+            continuous_snapshot_venues.insert(venue);
+        }
+        self
     }
 
     fn prepare_segment_batch(
@@ -365,7 +382,12 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
                 for grouped in batch {
                     let is_snapshot = RecordFlag::F_SNAPSHOT.matches(grouped.flags);
                     if is_snapshot
-                        && let Self::Segment { sink, boundary } = self
+                        && let Self::Segment {
+                            sink,
+                            boundary,
+                            continuous_snapshot_venues,
+                        } = self
+                        && !continuous_snapshot_venues.contains(&grouped.instrument_id.venue)
                         && boundary
                             .get(partition_key)
                             .is_some_and(|state| state.has_source)
@@ -417,7 +439,7 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
                     bytes: 0,
                 })
             }
-            Self::Segment { sink, boundary } => {
+            Self::Segment { sink, boundary, .. } => {
                 if boundary.get(key).is_some_and(|state| state.needs_snapshot) {
                     return Ok(FlushResult::default());
                 }
@@ -450,7 +472,7 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
     fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
         match self {
             Self::Chunked(_) => Ok(FlushResult::default()),
-            Self::Segment { sink, boundary } => {
+            Self::Segment { sink, boundary, .. } => {
                 let result = sink.seal_partition(key)?;
                 boundary.remove(key);
                 Ok(result)
@@ -468,7 +490,7 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
     fn break_continuity(&mut self, key: Option<&str>) -> Result<FlushResult> {
         match self {
             Self::Chunked(_) => Ok(FlushResult::default()),
-            Self::Segment { sink, boundary } => {
+            Self::Segment { sink, boundary, .. } => {
                 let result = sink.break_continuity(key);
                 match key {
                     Some(key) => boundary.entry(key.to_owned()).or_default().needs_snapshot = true,

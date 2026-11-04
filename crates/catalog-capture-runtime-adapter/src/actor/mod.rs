@@ -12,6 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+mod hip4_rolling;
 mod lifecycle;
 mod lighter;
 mod matched_sports;
@@ -94,6 +95,7 @@ pub struct CatalogCaptureActorConfig {
     pub matched_sports_config:
         Option<catalog_capture_core::paired_markets::MatchedSportsCaptureConfig>,
     pub matched_sports_inbox: Option<Arc<crate::matched_sports::MatchedSportsDiscoveryInbox>>,
+    pub hip4_rolling: Option<catalog_capture_core::hip4::rolling::Hip4RollingConfig>,
     pub lighter_updown: Vec<crate::LighterUpDownCaptureConfig>,
     /// Explicit routes needed when Binance products share venue `BINANCE`.
     ///
@@ -117,6 +119,7 @@ impl CatalogCaptureActorConfig {
             online_option_metrics: None,
             dynamic_option_universe: None,
             dynamic_hip4_universe: None,
+            hip4_rolling: None,
             lighter_updown: Vec::new(),
             matched_sports_config: None,
             matched_sports_inbox: None,
@@ -131,6 +134,7 @@ impl CatalogCaptureActorConfig {
 pub struct CatalogCaptureActor {
     core: DataActorCore,
     lighter: crate::lighter_updown::LighterCaptureState,
+    hip4_rolling: crate::hip4_rolling::Hip4RollingState,
     matched_sports: crate::matched_sports::MatchedSportsState,
     matched_sports_config: Option<catalog_capture_core::paired_markets::MatchedSportsCaptureConfig>,
     matched_sports_inbox: Option<Arc<crate::matched_sports::MatchedSportsDiscoveryInbox>>,
@@ -244,6 +248,14 @@ impl CatalogCaptureActor {
                 "matched sports capture requires segment mode"
             );
         }
+        if let Some(c) = &config.hip4_rolling {
+            c.validate()?;
+            anyhow::ensure!(
+                config.capture.lifecycle.is_segment_mode(),
+                "HIP-4 rolling requires segment mode"
+            );
+        }
+        let rolling_hip4 = config.hip4_rolling.is_some();
         let paired_matched_sports = config.matched_sports_config.is_some();
         let rolling_lighter = !config.lighter_updown.is_empty();
         let flags = config.plan.family_runtime_flags();
@@ -254,11 +266,18 @@ impl CatalogCaptureActor {
         let captures_dynamic_predict_instruments = !predict_selectors.is_empty();
         let worker_count = config.plan.enabled_background_worker_count()
             + usize::from(
-                (captures_dynamic_predict_instruments || rolling_lighter || paired_matched_sports)
+                (captures_dynamic_predict_instruments
+                    || rolling_lighter
+                    || rolling_hip4
+                    || paired_matched_sports)
                     && !flags.instruments,
             )
-            + usize::from((rolling_lighter || paired_matched_sports) && !flags.trades)
-            + usize::from((rolling_lighter || paired_matched_sports) && !flags.book_deltas)
+            + usize::from(
+                (rolling_lighter || rolling_hip4 || paired_matched_sports) && !flags.trades,
+            )
+            + usize::from(
+                (rolling_lighter || rolling_hip4 || paired_matched_sports) && !flags.book_deltas,
+            )
             + usize::from(paired_matched_sports && !flags.book_depth)
             + usize::from(rolling_lighter && !flags.index_prices)
             + usize::from(rolling_lighter && !flags.custom_data && !flags.custom_data_requests);
@@ -272,6 +291,7 @@ impl CatalogCaptureActor {
             flags.instruments
                 || captures_dynamic_predict_instruments
                 || rolling_lighter
+                || rolling_hip4
                 || paired_matched_sports,
             CaptureFlushFamily::Instruments,
             &capture,
@@ -357,7 +377,7 @@ impl CatalogCaptureActor {
             CatalogSink::<QuoteTick>::from_config,
         )?;
         let trade_runtime = maybe_family_runtime(
-            flags.trades || rolling_lighter || paired_matched_sports,
+            flags.trades || rolling_lighter || rolling_hip4 || paired_matched_sports,
             CaptureFlushFamily::Trades,
             &capture,
             CatalogSink::<TradeTick>::from_config,
@@ -375,10 +395,19 @@ impl CatalogCaptureActor {
             CatalogSink::<OrderBookDepth>::from_config,
         )?;
         let book_delta_runtime = maybe_family_runtime(
-            flags.book_deltas || rolling_lighter || paired_matched_sports,
+            flags.book_deltas || rolling_lighter || rolling_hip4 || paired_matched_sports,
             CaptureFlushFamily::BookDeltas,
             &capture,
-            BookDeltaCatalogSink::from_config,
+            |cfg| {
+                let sink = BookDeltaCatalogSink::from_config(cfg)?;
+                Ok(if rolling_hip4 {
+                    sink.with_continuous_snapshots_for_venue(
+                        nautilus_model::identifiers::Venue::from("HYPERLIQUID"),
+                    )
+                } else {
+                    sink
+                })
+            },
         )?;
         let catalog_root = catalog_root_from_uri(&config.capture.catalog_uri)?;
         let initial_materialized_plan = config.plan.clone();
@@ -395,6 +424,10 @@ impl CatalogCaptureActor {
 
         Ok(Self {
             core: DataActorCore::new(actor_config),
+            hip4_rolling: crate::hip4_rolling::Hip4RollingState {
+                config: config.hip4_rolling,
+                ..Default::default()
+            },
             matched_sports: Default::default(),
             matched_sports_config: config.matched_sports_config,
             matched_sports_inbox: config.matched_sports_inbox,
@@ -617,6 +650,7 @@ impl CatalogCaptureActor {
             self.dynamic_option_universe.as_ref(),
             self.dynamic_hip4_universe.as_ref(),
         );
+        let base = catalog_capture_core::merge_capture_plans(&base, &self.hip4_rolling.plan());
         catalog_capture_core::merge_capture_plans(
             &catalog_capture_core::merge_capture_plans(&base, &self.lighter.plan()),
             &self.matched_sports.plan(),

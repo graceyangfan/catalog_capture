@@ -67,6 +67,7 @@ CAPTURE_FEATURES=venue-binance,venue-predict make build-release-capture
 | Deribit DVOL (subscribe custom) | `capture.deribit-dvol.toml` |
 | Binance perp WS | `capture.binance-perp.ws.toml` |
 | Hyperliquid OI | `capture.hyperliquid-open-interest.toml` |
+| HIP-4 BTC/ETH 15m + Binance USD-M reference feeds | [`capture.hyperliquid-hip4-15m.toml`](capture.hyperliquid-hip4-15m.toml); see [rotation and file boundaries](../docs/how_to/hip4_capture.md#btceth-15-minute-rolling-capture) |
 | Minimal Predict BTC 5m depth/trades | `capture.predict-native.toml` |
 | Matched Predict / Polymarket sports and esports winners | [`capture.matched-sports.toml`](capture.matched-sports.toml); see [operation and limits](../docs/how_to/matched-sports-capture.md) |
 | Operator / unattended option universe | `operator/*.toml` |

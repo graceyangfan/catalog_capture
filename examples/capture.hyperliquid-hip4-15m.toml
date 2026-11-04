@@ -1,0 +1,76 @@
+# Public Outcome.xyz BTC/ETH 15-minute markets; Native Hyperliquid books/trades.
+# No market IDs or credentials. Required features: venue-hyperliquid,venue-binance.
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CAPTURE-HIP4-15M"
+
+[output]
+catalog_uri = "file://./data/hyperliquid-hip4-15m"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 1000
+flush_interval_ms = 1000
+max_buffer_bytes = 8388608
+max_total_buffer_bytes = 67108864
+queue_capacity = 10000
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "hyperliquid_main"
+kind = "hyperliquid"
+environment = "mainnet"
+
+[capture.hip4_rolling]
+venue_id = "hyperliquid_main"
+underlyings = ["BTC", "ETH"]
+retry_secs = 2
+
+# Continuous reference feeds keep hourly files across HIP-4 market changes.
+[[venues]]
+id = "binance_futures_main"
+kind = "binance_futures"
+environment = "live"
+product_type = "usd_m"
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+[[capture.trades]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+depth = 50
+
+[[capture.instruments]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+[[capture.trades]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+[[capture.book_deltas]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+depth = 50
+
+# Direct settlement reference; mark/index are distinct from last trade prices.
+[[capture.instruments]]
+instrument_id = "BTC-USD-PERP.HYPERLIQUID"
+[[capture.mark_prices]]
+instrument_id = "BTC-USD-PERP.HYPERLIQUID"
+[[capture.index_prices]]
+instrument_id = "BTC-USD-PERP.HYPERLIQUID"
+
+[[capture.instruments]]
+instrument_id = "ETH-USD-PERP.HYPERLIQUID"
+[[capture.mark_prices]]
+instrument_id = "ETH-USD-PERP.HYPERLIQUID"
+[[capture.index_prices]]
+instrument_id = "ETH-USD-PERP.HYPERLIQUID"

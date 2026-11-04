@@ -27,7 +27,23 @@ use crate::actor_runtime::{
 
 impl CatalogCaptureActor {
     pub(super) fn submit_instrument(&mut self, instrument: InstrumentAny) -> Result<()> {
+        let instrument = self
+            .hip4_rolling
+            .definition(instrument.id())
+            .unwrap_or(instrument);
         let id = instrument.id();
+        let rolling_hip4 = self.hip4_rolling.definition(id).is_some();
+        if rolling_hip4 {
+            self.cache_rc()
+                .borrow_mut()
+                .add_instrument(instrument.clone())?;
+        }
+        if rolling_hip4
+            && self.hip4_rolling.definitions_recorded.contains(&id)
+            && !self.pending_instrument_definitions.contains(&id)
+        {
+            return Ok(());
+        }
         let ts_init = Instrument::ts_init(&instrument).as_u64();
         if self.matched_sports.retiring.contains_key(&id)
             && !self.plan.planned_instrument_ids().contains(&id)
@@ -69,6 +85,9 @@ impl CatalogCaptureActor {
             self.pending_instrument_definitions.insert(id);
         } else {
             self.pending_instrument_definitions.remove(&id);
+            if rolling_hip4 {
+                self.hip4_rolling.definitions_recorded.insert(id);
+            }
             if matched {
                 self.matched_sports.instrument_versions.insert(id, ts_init);
             }

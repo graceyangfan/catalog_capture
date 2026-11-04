@@ -90,15 +90,19 @@ impl CatalogCaptureActor {
             }
             Ok(())
         } else {
+            if self.hip4_rolling.definition(instrument_id).is_some() {
+                return self.request_hip4_instruments();
+            }
             let client_id = self.market_data_client_id(instrument_id);
             self.request_instrument(instrument_id, None, None, client_id, None)?;
             // Matched ad-hoc requests use the correlated response callback. Predict's
             // synchronous subscribe-instrument path cannot publish a not-yet-loaded ID.
-            if !self
-                .matched_sports
-                .markets
-                .values()
-                .any(|m| m.instrument_ids().any(|id| id == instrument_id))
+            if self.hip4_rolling.definition(instrument_id).is_none()
+                && !self
+                    .matched_sports
+                    .markets
+                    .values()
+                    .any(|m| m.instrument_ids().any(|id| id == instrument_id))
             {
                 self.subscribe_instrument(instrument_id, client_id, None);
             }
@@ -288,11 +292,12 @@ impl CatalogCaptureActor {
                 log::info!(
                     "catalog-capture: instrument {instrument_id} ready in cache; subscribing market data"
                 );
-                if self
-                    .matched_sports
-                    .markets
-                    .values()
-                    .any(|m| m.instrument_ids().any(|id| id == instrument_id))
+                if self.hip4_rolling.definition(instrument_id).is_some()
+                    || self
+                        .matched_sports
+                        .markets
+                        .values()
+                        .any(|m| m.instrument_ids().any(|id| id == instrument_id))
                 {
                     self.bootstrap_instrument(instrument_id)?;
                 }
@@ -517,7 +522,7 @@ impl CatalogCaptureActor {
         if self.lighter.enabled() && instrument_id.venue.as_str() == "LIGHTER" {
             return self.market_data_live.contains(&instrument_id) && configured();
         }
-        self.dynamic_hip4_universe.is_none()
+        (self.dynamic_hip4_universe.is_none() && self.hip4_rolling.config.is_none())
             || !is_hip4_outcome(instrument_id)
             || (self.market_data_live.contains(&instrument_id) && configured())
     }
@@ -1108,6 +1113,7 @@ impl DataActor for CatalogCaptureActor {
         self.refresh_lighter()?;
         self.schedule_lighter()?;
         self.start_matched_sports()?;
+        self.start_hip4_rolling()?;
         self.schedule_segment_seal()?;
         self.publish_metrics_snapshot();
         self.schedule_metrics_export()?;
@@ -1116,6 +1122,7 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_stop(&mut self) -> Result<()> {
+        let hip4_stop = self.stop_hip4_rolling();
         let matched_stop = self.stop_matched_sports();
         self.stop_predict_native();
         self.clock().cancel_timer(super::lighter::LIGHTER_TIMER);
@@ -1125,7 +1132,7 @@ impl DataActor for CatalogCaptureActor {
         self.clock().cancel_timer(SEGMENT_SEAL_TIMER);
         self.clock().cancel_timer(METRICS_EXPORT_TIMER);
         self.cancel_custom_data_request_timers();
-        let result = self.shutdown_all().and(matched_stop);
+        let result = self.shutdown_all().and(matched_stop).and(hip4_stop);
         if let Err(error) = &result {
             self.failure.get_or_insert_with(|| format!("{error:#}"));
         }
@@ -1135,6 +1142,10 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_time_event(&mut self, event: &TimeEvent) -> Result<()> {
+        if event.name == super::hip4_rolling::TIMER {
+            let result = self.refresh_hip4_rolling();
+            self.record_capture_result(result)?;
+        }
         if event.name == super::matched_sports::TIMER {
             let result = self.refresh_matched_sports();
             self.record_capture_result(result)?;
@@ -1191,6 +1202,31 @@ impl DataActor for CatalogCaptureActor {
         &mut self,
         response: &nautilus_common::messages::data::InstrumentsResponse,
     ) {
+        if response
+            .params
+            .as_ref()
+            .is_some_and(|p| p.get("hip4_rolling_capture") == Some(&serde_json::json!(true)))
+        {
+            if self.shutdown_completed {
+                return;
+            }
+            if self
+                .hip4_rolling
+                .instrument_request
+                .is_some_and(|(id, _)| id == response.correlation_id)
+            {
+                self.hip4_rolling.instrument_request = None;
+            }
+            let selected = self.plan.planned_instrument_ids();
+            for instrument in &response.data {
+                if selected.contains(&instrument.id())
+                    && let Err(error) = self.on_instrument(instrument)
+                {
+                    log::error!("HIP-4 instrument response failed: {error:#}");
+                }
+            }
+            return;
+        }
         if self.lighter.pending == Some(response.correlation_id) {
             if let Err(error) = self.apply_lighter_response(response) {
                 log::error!("Lighter universe response failed: {error:#}");
@@ -1209,6 +1245,13 @@ impl DataActor for CatalogCaptureActor {
     }
 
     fn on_instrument(&mut self, instrument: &InstrumentAny) -> Result<()> {
+        let id = instrument.id();
+        if self.hip4_rolling.config.is_some()
+            && is_hip4_outcome(id)
+            && !self.plan.planned_instrument_ids().contains(&id)
+        {
+            return Ok(());
+        }
         let result = self.submit_instrument(instrument.clone());
         self.record_capture_result(result)?;
         let instrument_id = instrument.id();
@@ -1350,6 +1393,8 @@ impl DataActor for CatalogCaptureActor {
     fn on_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
         let result = self.submit_book_deltas(deltas);
         self.record_capture_result(result)?;
+        let observed = self.observe_hip4_rolling(deltas);
+        self.record_capture_result(observed)?;
         let usable = self
             .cache()
             .order_book(&deltas.instrument_id)

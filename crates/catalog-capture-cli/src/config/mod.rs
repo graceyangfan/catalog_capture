@@ -80,6 +80,7 @@ pub struct EffectiveConfig {
     pub option_universes: Vec<OptionUniverseSpec>,
     pub hip4_universes: Vec<Hip4UniverseSpec>,
     pub matched_sports: Option<catalog_capture_core::paired_markets::MatchedSportsCaptureConfig>,
+    pub hip4_rolling: Option<catalog_capture_core::hip4::rolling::Hip4RollingConfig>,
     pub lighter_updown: Vec<catalog_capture_runtime_adapter::LighterUpDownCaptureConfig>,
     pub venues: Vec<VenueRuntimeConfig>,
 }
@@ -140,6 +141,9 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         )?,
     };
     let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
+    if let Some(c) = &config.capture.hip4_rolling {
+        c.validate()?;
+    }
     let hip4_universes = parse_hip4_universe_specs(&config.capture.hip4_universe)?;
 
     for selector in &config.capture.lighter_updown {
@@ -158,6 +162,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
     if plan.is_empty()
         && option_universes.is_empty()
         && hip4_universes.is_empty()
+        && config.capture.hip4_rolling.is_none()
         && config.capture.lighter_updown.is_empty()
         && config.capture.matched_sports.is_none()
     {
@@ -189,6 +194,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         plan,
         option_universes,
         hip4_universes,
+        hip4_rolling: config.capture.hip4_rolling,
         lighter_updown: config.capture.lighter_updown,
         matched_sports: config.capture.matched_sports,
         venues,

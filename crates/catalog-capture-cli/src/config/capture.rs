@@ -63,6 +63,8 @@ pub struct CaptureConfigFile {
     #[serde(default)]
     pub matched_sports: Option<catalog_capture_core::paired_markets::MatchedSportsCaptureConfig>,
     #[serde(default)]
+    pub hip4_rolling: Option<catalog_capture_core::hip4::rolling::Hip4RollingConfig>,
+    #[serde(default)]
     pub lighter_updown: Vec<catalog_capture_runtime_adapter::LighterUpDownCaptureConfig>,
 }
 
