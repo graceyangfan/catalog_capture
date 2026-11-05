@@ -62,6 +62,7 @@ pub(super) struct WalletReportContext {
     pub rest_ids: orders::RestOrderIds,
     pub sync: Arc<account::AccountSync>,
     pub fill_evidence: fills::SharedFillEvidence,
+    pub settlement_recovery: super::recovery::SharedRecovery,
     pub account_refresh_required: Arc<AtomicBool>,
     pub allow_share_fees: bool,
     pub emitter: ExecutionEventEmitter,
@@ -72,6 +73,45 @@ pub(super) struct WalletReportContext {
 }
 
 impl WalletReportContext {
+    // A cash refresh cannot recover a rejected execution. Queue the known Native
+    // owner even when cancellation has already closed it locally.
+    fn request_recovery(&self, event: &crate::websocket::private_messages::PredictWalletEvent) {
+        let id = VenueOrderId::new(format!("{:#x}", event.order.order_hash));
+        let order = self
+            .orders
+            .lock()
+            .expect("order snapshots poisoned")
+            .get(&id)
+            .cloned();
+        if let Some(order) = order
+            && order.account_id() == Some(self.account)
+        {
+            match &event.kind {
+                PredictWalletEventKind::OrderTransactionSubmitted { settlement_id, .. }
+                | PredictWalletEventKind::OrderTransactionSuccess { settlement_id, .. }
+                | PredictWalletEventKind::OrderTransactionFailed { settlement_id, .. } => {
+                    let trade = parse::settlement_trade_id(settlement_id, event.order.order_hash);
+                    if !order.has_applied_fill(trade) {
+                        self.settlement_recovery
+                            .lock()
+                            .expect("settlement recovery poisoned")
+                            .request(order.client_order_id(), trade);
+                    }
+                }
+                _ => {
+                    self.pending
+                        .lock()
+                        .expect("order requests poisoned")
+                        .order_status_requests
+                        .insert(order.client_order_id());
+                }
+            }
+        }
+        let mut state = self.sync.state.lock().expect("account sync poisoned");
+        state.resource_revision = state.resource_revision.wrapping_add(1);
+        self.account_refresh_required.store(true, Ordering::Release);
+    }
+
     fn process_wallet(
         &self,
         event: &crate::websocket::private_messages::PredictWalletEvent,
@@ -340,6 +380,14 @@ impl WalletReportContext {
             .expect("fill evidence poisoned")
             .notifications
             .update(event, order, self.account, epoch, self.clock.get_time_ns())?;
+        if let Some(update) = &update
+            && update.status == observations::PredictSettlementStatus::Failed
+        {
+            self.settlement_recovery
+                .lock()
+                .expect("settlement recovery poisoned")
+                .resolved(order.client_order_id(), update.trade_id);
+        }
         if let (Some(sender), Some(update)) = (&self.data_sender, update) {
             if let Some((probe, received)) = self.latency.as_ref().zip(received) {
                 probe.match_feedback(&update, received, std::time::Instant::now());
@@ -570,11 +618,7 @@ async fn consume(
                 if let Err(error) = result {
                     // Missing external context and contradictory evidence request a refresh,
                     // but never kill the consumer needed to reconcile subsequent own events.
-                    let mut state = context.sync.state.lock().expect("account sync poisoned");
-                    state.resource_revision = state.resource_revision.wrapping_add(1);
-                    context
-                        .account_refresh_required
-                        .store(true, Ordering::Release);
+                    context.request_recovery(&event);
                     log::warn!("Predict wallet event requires reconciliation: {error}");
                 }
             }

@@ -79,6 +79,13 @@ PredictSettlementUpdate CustomData. Only confirmed fills update Native economic
 state. See the [execution contract](../../docs/predict-execution-adapter-design.md#wallet-feedback-and-settlement)
 for callback identity, fee accounting and cancel/fill ordering.
 
+Rejected wallet settlements recover through standard `QueryOrder` reports, including
+locally canceled orders. Recovery runs asynchronously with bounded concurrency and
+retries; it does not delay wallet feedback or ordinary queries. Automatic recovery
+requires the Native clock supplied by the standard factory. See the
+[settlement recovery contract](../../docs/predict-execution-adapter-design.md#wallet-feedback-and-settlement)
+for limits and custom-host requirements.
+
 ## Public data and retention
 
 PredictOrderbookSnapshot preserves the complete venue YES book for recording and

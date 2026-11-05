@@ -267,6 +267,24 @@ strategy hedging, but has no final fee and creates no position. Confirmed metada
 is not a second fill. Cross-channel ordering is not guaranteed. Optional metadata
 receiver failure is logged and cannot suppress execution delivery.
 
+A rejected settlement records a recovery intent keyed by the Native client order
+and settlement trade ID. A single Native clock callback dispatches `QueryOrder`;
+wallet processing does not await recovery IO. The existing query/report path reads
+REST order status and match history, including locally canceled owners and zero
+REST cumulative counters. A stale zero counter defers publication until a
+consistent observation is available. Account refresh cannot resolve this intent;
+a Native applied fill or a validated Failed notification can. Normal strategy and
+Native queries retain independent feedback. Automatic recovery has at most four
+concurrent queries and five attempts per order, with delays capped at 30 seconds.
+Permanent evidence errors retain the intent and stop automatic retry. Explicit
+queries or a drained reconnect can retry; reset cannot discard unresolved intents.
+The standard factory installs the Native clock, including when automatic cash
+refresh is disabled. Custom hosts without a clock require explicit order queries.
+
+Submitted/confirmed field equality remains enforced until venue evidence establishes
+which cross-stage changes are legal. Confirmed duplicate execution, ownership,
+quantity and fee checks remain strict.
+
 ### Quantity commissions and precision
 
 Gross shares advance orders. Actual SHARES fees reduce received BUY inventory;

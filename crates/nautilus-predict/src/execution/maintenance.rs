@@ -44,6 +44,7 @@ struct MirrorCleanup {
     orders: context::OrderSnapshots<nautilus_model::identifiers::VenueOrderId>,
     account_sync: Arc<account::AccountSync>,
     fill_evidence: fills::SharedFillEvidence,
+    settlement_recovery: super::recovery::SharedRecovery,
     instruments: Arc<
         nautilus_core::AtomicMap<
             nautilus_model::identifiers::InstrumentId,
@@ -60,21 +61,37 @@ fn dispatch_order_queries(
     core: &nautilus_live::ExecutionClientCore,
     pending: &orders::PendingSubmissions,
     clock: &'static nautilus_core::time::AtomicTime,
+    recovery: &super::recovery::SharedRecovery,
+    now: u64,
 ) {
-    let requests = std::mem::take(
+    let mut requests = std::mem::take(
         &mut pending
             .lock()
             .expect("order requests poisoned")
             .order_status_requests,
+    );
+    requests.extend(
+        recovery
+            .lock()
+            .expect("settlement recovery poisoned")
+            .due(now),
     );
     let commands = {
         let cache = core.cache();
         requests
             .into_iter()
             .filter_map(|id| {
-                let order = cache.order(&id)?;
-                (!order.is_closed() && order.account_id() == Some(core.account_id)).then(|| {
-                    QueryOrder::new(
+                let Some(order) = cache.order(&id) else {
+                    recovery.lock().expect("settlement recovery poisoned").block(id);
+                    log::error!("Predict recovery owner {id} is absent from Native cache; explicit reconciliation required");
+                    return None;
+                };
+                if order.account_id() != Some(core.account_id) {
+                    recovery.lock().expect("settlement recovery poisoned").block(id);
+                    log::error!("Predict recovery owner {id} belongs to another account; query suppressed");
+                    return None;
+                }
+                Some(QueryOrder::new(
                         core.trader_id,
                         Some(core.client_id),
                         order.strategy_id(),
@@ -85,8 +102,7 @@ fn dispatch_order_queries(
                         clock.get_time_ns(),
                         None,
                         None,
-                    )
-                })
+                    ))
             })
             .collect::<Vec<_>>()
     };
@@ -109,6 +125,7 @@ impl PredictExecutionClient {
             orders: self.orders.clone(),
             account_sync: self.account_sync.clone(),
             fill_evidence: self.fill_evidence.clone(),
+            settlement_recovery: self.settlement_recovery.clone(),
             instruments: self.metadata.instruments.clone(),
             rest_order_ids: self.rest_order_ids.clone(),
             account_refresh_required: self.account_refresh_required.clone(),
@@ -134,12 +151,20 @@ impl PredictExecutionClient {
     }
 
     pub(super) fn start_maintenance_timer(&mut self) -> anyhow::Result<()> {
-        let Some(secs) = self.config.reconnect_reconciliation_interval_secs else {
-            return Ok(());
-        };
-        if self.config.account_state_mode != crate::config::PredictAccountStateMode::Reported {
+        // Event-triggered settlement recovery remains active when cash refresh is
+        // disabled. Custom hosts without a Native clock must query explicitly.
+        let automatic_account = self.config.reconnect_reconciliation_interval_secs.is_some()
+            && self.config.account_state_mode == crate::config::PredictAccountStateMode::Reported;
+        if self.maintenance_clock.is_none() && !automatic_account {
+            log::warn!(
+                "Predict automatic settlement recovery requires with_reconciliation_clock; use explicit QueryOrder in this host"
+            );
             return Ok(());
         }
+        let secs = self
+            .config
+            .reconnect_reconciliation_interval_secs
+            .unwrap_or(1);
         let auth = self
             .wallet_auth
             .clone()
@@ -152,6 +177,7 @@ impl PredictExecutionClient {
         let required = self.account_refresh_required.clone();
         let checking = self.account_query_active.clone();
         let pending = self.pending_submissions.clone();
+        let recovery = self.settlement_recovery.clone();
         let core = self.core.clone();
         let healthy = self.healthy.clone();
         let cancellation = self.tasks.cancellation_token();
@@ -192,9 +218,16 @@ impl PredictExecutionClient {
                     required.store(true, Ordering::Release);
                 }
                 if auth.is_authenticated() {
-                    dispatch_order_queries(&core, &pending, clock);
+                    dispatch_order_queries(
+                        &core,
+                        &pending,
+                        clock,
+                        &recovery,
+                        event.ts_event.as_u64(),
+                    );
                 }
-                if !required.load(Ordering::Acquire)
+                if !automatic_account
+                    || !required.load(Ordering::Acquire)
                     || !auth.is_authenticated()
                     || checking.load(Ordering::Acquire)
                 {
@@ -277,7 +310,14 @@ impl MirrorCleanup {
         let mut retirement_work = 0usize;
         let mut deferred = false;
         for (hash, order) in views {
-            if !order.is_closed() || cache.order(&order.client_order_id()).is_some() {
+            if !order.is_closed()
+                || cache.order(&order.client_order_id()).is_some()
+                || self
+                    .settlement_recovery
+                    .lock()
+                    .expect("settlement recovery poisoned")
+                    .contains(order.client_order_id())
+            {
                 continue;
             }
             let work = {

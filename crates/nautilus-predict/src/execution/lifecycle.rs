@@ -93,6 +93,13 @@ impl PredictExecutionClient {
             self.tasks.is_empty(),
             "Predict tasks must be drained before reset"
         );
+        anyhow::ensure!(
+            self.settlement_recovery
+                .lock()
+                .expect("settlement recovery poisoned")
+                .is_empty(),
+            "Predict settlements must be reconciled before reset"
+        );
         self.stop()?;
         self.metadata.instruments.store(Default::default());
         self.metadata.reset_nonces();
@@ -239,6 +246,7 @@ impl PredictExecutionClient {
             let account_orders = Arc::clone(&self.account_orders);
             let account_sync = Arc::clone(&self.account_sync);
             let fill_evidence = Arc::clone(&self.fill_evidence);
+            let settlement_recovery = Arc::clone(&self.settlement_recovery);
             let pending_cancels = Arc::clone(&self.pending_cancels);
             let deferred_cancels = Arc::clone(&self.deferred_cancels);
             let pending_submissions = Arc::clone(&self.pending_submissions);
@@ -298,6 +306,10 @@ impl PredictExecutionClient {
                                 .lock()
                                 .expect("fill evidence poisoned")
                                 .applied(fill.trade_id);
+                            settlement_recovery
+                                .lock()
+                                .expect("settlement recovery poisoned")
+                                .resolved(order.client_order_id(), fill.trade_id);
                         }
                         let order = Arc::new(context::WorkerOrder::observe(
                             &order,
@@ -579,6 +591,10 @@ impl PredictExecutionClient {
             .clear_connection();
         self.metadata.reset_nonces();
         self.prepare_lookup()?;
+        self.settlement_recovery
+            .lock()
+            .expect("settlement recovery poisoned")
+            .reconnect();
         self.start_maintenance_timer()?;
         // Signing inputs are optional readiness, not execution connectivity.
         // Prepare signing inputs independently of account setup and wallet delivery.
@@ -639,6 +655,7 @@ impl PredictExecutionClient {
                     sync: Arc::clone(&self.account_sync),
                     pending: Arc::clone(&self.pending_submissions),
                     fill_evidence: Arc::clone(&self.fill_evidence),
+                    settlement_recovery: Arc::clone(&self.settlement_recovery),
                     metadata_notify: Arc::clone(&self.metadata.notify),
                     account_refresh_required: Arc::clone(&self.account_refresh_required),
                     allow_share_fees: self.config.account_state_mode

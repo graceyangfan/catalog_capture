@@ -556,6 +556,7 @@ fn wallet_snapshot_cannot_mix_old_order_with_new_native_pending_markers() {
         rest_ids: client.rest_order_ids.clone(),
         sync: client.account_sync.clone(),
         fill_evidence: client.fill_evidence.clone(),
+        settlement_recovery: client.settlement_recovery.clone(),
         account_refresh_required: client.account_refresh_required.clone(),
         allow_share_fees: true,
         emitter: client.emitter.clone(),
@@ -2505,4 +2506,57 @@ fn changed_worker_view_between_proof_and_retirement_is_retained() {
     );
     client.prune_mirrors();
     assert!(client.orders.lock().unwrap().is_empty());
+}
+
+#[test]
+fn settlement_recovery_dispatches_closed_owner_with_cash_maintenance_disabled() {
+    use nautilus_common::{
+        clock::VirtualClock,
+        msgbus::{MessageBus, TypedIntoHandler},
+    };
+    use nautilus_network::websocket::AuthTracker;
+    let (mut client, cache) = client();
+    client.config.account_state_mode = crate::config::PredictAccountStateMode::Disabled;
+    client.config.reconnect_reconciliation_interval_secs = None;
+    let clock = Rc::new(RefCell::new(VirtualClock::new()));
+    client.maintenance_clock = Some(clock.clone());
+    let auth = AuthTracker::new();
+    auth.succeed();
+    client.wallet_auth = Some(auth);
+    client.wallet_epoch = Some(Arc::new(std::sync::atomic::AtomicU64::new(0)));
+    client.healthy.store(true, Ordering::Release);
+    let own = order(true);
+    cache
+        .borrow_mut()
+        .add_order(own.clone(), None, None, false)
+        .unwrap();
+    client
+        .settlement_recovery
+        .lock()
+        .unwrap()
+        .request(own.client_order_id(), "MISSING-FILL".into());
+    msgbus::set_message_bus(Rc::new(RefCell::new(MessageBus::new(
+        client.core.trader_id,
+        UUID4::new(),
+        None,
+        None,
+    ))));
+    let commands = Rc::new(RefCell::new(Vec::new()));
+    msgbus::register_trading_command_endpoint(
+        MessagingSwitchboard::exec_engine_queue_execute(),
+        TypedIntoHandler::from({
+            let commands = commands.clone();
+            move |command: TradingCommand| commands.borrow_mut().push(command)
+        }),
+    );
+    client.start_maintenance_timer().unwrap();
+    let events = clock.borrow_mut().advance_time(1_000_000_000.into(), true);
+    let handlers = clock.borrow().match_handlers(events);
+    for handler in handlers {
+        handler.run();
+    }
+    assert!(
+        matches!(commands.borrow().as_slice(), [TradingCommand::QueryOrder(query)] if query.client_order_id == own.client_order_id())
+    );
+    client.stop_maintenance_timer();
 }

@@ -6,6 +6,9 @@
 
 #![cfg(feature = "execution")]
 
+#[path = "execution/settlement_recovery.rs"]
+mod settlement_recovery;
+
 #[path = "execution/quantity_commission.rs"]
 mod quantity_commission;
 

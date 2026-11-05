@@ -2523,6 +2523,12 @@
       "sha256": "c8e74017efe0b099a7ef88bff8ce67635ddd8d9e2f065371ae56b8c60685abeb"
     },
     {
+      "path": "tests/fixtures/private_api/settlement_recovery_review_20261105.json",
+      "tier": "review",
+      "bytes": 1063,
+      "sha256": "79a5776a56d051bb838880a3f5b3d9889a5e89ad02002381f3abb3525d28f447"
+    },
+    {
       "path": "tests/fixtures/private_api/share_fee_settlement.json",
       "tier": "reference",
       "bytes": 625,

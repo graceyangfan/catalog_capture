@@ -23,6 +23,7 @@ mod metadata;
 pub mod observations;
 mod orders;
 pub mod parse;
+mod recovery;
 mod reports;
 mod wallet;
 
@@ -106,6 +107,7 @@ pub struct PredictExecutionClient {
     deferred_cancels: orders::cancel::DeferredCancels,
     pending_submissions: orders::PendingSubmissions,
     fill_evidence: fills::SharedFillEvidence,
+    settlement_recovery: recovery::SharedRecovery,
     rest_order_ids: orders::RestOrderIds,
 }
 
@@ -210,6 +212,7 @@ impl PredictExecutionClient {
             deferred_cancels: Default::default(),
             pending_submissions: Default::default(),
             fill_evidence: Default::default(),
+            settlement_recovery: Default::default(),
             rest_order_ids: Default::default(),
         })
     }

@@ -65,6 +65,7 @@ use crate::{
 async fn collect_target_order(
     config: &PredictExecutionClientConfig,
     hash: B256,
+    force_history: bool,
     on_order: impl Fn(&PredictOrderData) -> anyhow::Result<()>,
 ) -> anyhow::Result<(PredictOrderData, Vec<PredictMatchData>)> {
     config.session.ensure_account_identity().await?;
@@ -72,7 +73,7 @@ async fn collect_target_order(
     on_order(&row)?;
     let matched = Decimal::from_str_exact(&row.amount_filled)?;
     anyhow::ensure!(matched >= Decimal::ZERO, "Predict negative filled amount");
-    if matched.is_zero() {
+    if matched.is_zero() && !force_history {
         return Ok((row, Vec::new()));
     }
     let history = config
@@ -83,6 +84,9 @@ async fn collect_target_order(
             config.max_report_pages,
         )
         .await?;
+    if force_history && matched.is_zero() {
+        return Err(super::recovery::HistoryPending.into());
+    }
     Ok((row, history))
 }
 
@@ -222,6 +226,15 @@ fn prepare_target_report(
             fills.push(fill.clone());
         }
     }
+    if fills.is_empty()
+        && Decimal::from_str_exact(&row.amount_filled)? > Decimal::ZERO
+        && !matches!(
+            row.status,
+            PredictOrderStatus::Cancelled | PredictOrderStatus::Expired
+        )
+    {
+        return Err(super::recovery::HistoryPending.into());
+    }
     let report = parse::parse_order_status_report(
         row,
         order.as_ref(),
@@ -285,7 +298,7 @@ pub(in crate::execution) fn order_report_task(
             let (client_id, venue_id, hash) = target?;
             let (row, matches) = tokio::time::timeout(
                 Duration::from_secs(config.request_timeout_secs),
-                collect_target_order(&config, hash, |row| {
+                collect_target_order(&config, hash, false, |row| {
                     anyhow::ensure!(
                         !collection_cancellation.is_cancelled(),
                         "Predict order report generation stopped"
@@ -499,11 +512,24 @@ impl PredictExecutionClient {
         let rest_ids = Arc::clone(&self.rest_order_ids);
         let hasher = self.order_hasher.clone();
         let instruments = Arc::clone(&self.metadata.instruments);
-        let recovery_read =
-            self.account_refresh_required.load(Ordering::Acquire) || !self.is_connected();
-        if recovery_read {
+        if !self.is_connected() {
             self.account_refresh_required.store(true, Ordering::Release);
         }
+        let recovery = Arc::clone(&self.settlement_recovery);
+        let recovery_read = recovery
+            .lock()
+            .expect("settlement recovery poisoned")
+            .contains(client_id);
+        let query_guard = if recovery_read {
+            let Some(guard) =
+                super::recovery::QueryGuard::acquire(Arc::clone(&recovery), client_id, self.clock)
+            else {
+                return Ok(());
+            };
+            Some(guard)
+        } else {
+            None
+        };
         let evidence = Arc::clone(&self.fill_evidence);
         let shares_allowed = self.config.account_state_mode == PredictAccountStateMode::Reported
             && self
@@ -517,7 +543,8 @@ impl PredictExecutionClient {
         let clock = self.clock;
         let cancellation = self.tasks.cancellation_token();
         self.tasks.spawn_named("predict-query-order", async move {
-            let collection = collect_target_order(&config, hash, |row| {
+            let _query_guard = query_guard;
+            let collection = collect_target_order(&config, hash, recovery_read, |row| {
                 anyhow::ensure!(
                     !cancellation.is_cancelled(),
                     "Predict order query generation stopped"
@@ -644,7 +671,12 @@ impl PredictExecutionClient {
                 }
                 Ok(None) => {}
                 Err(error) => {
-                    log::warn!("Predict targeted query did not resolve the order: {error}")
+                    if recovery_read && !super::recovery::retryable(&error) {
+                        recovery.lock().expect("settlement recovery poisoned").block(client_id);
+                        log::error!("Predict settlement recovery blocked for {client_id}; evidence retained for explicit query: {error}");
+                    } else {
+                        log::warn!("Predict targeted query did not resolve {client_id}: {error}");
+                    }
                 }
             }
         })?;

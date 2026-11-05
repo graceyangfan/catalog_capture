@@ -1,0 +1,32 @@
+{
+  "source": "Review summary transcribed from b8_strategy/logs/account-readonly-20261105T0113.jsonl. Raw WS payloads were not recorded; this summary does not establish submitted-message semantics.",
+  "orderHash": "0x7d06e54ee70eb8c173ed277cd9a79ba2811625b1de92ad47b0f603de39fd89a4",
+  "order": {
+    "amount": "4910000000000000000",
+    "amount_filled": "4910000000000000000",
+    "kind": "venue_order",
+    "market_id": 4240042,
+    "side": "Buy",
+    "status": "Filled"
+  },
+  "match": {
+    "amount": "4910000000000000000",
+    "executed_at": "2026-11-05T01:12:07.000Z",
+    "fee_type": "Shares",
+    "fee_wei": "83651851851851851",
+    "kind": "venue_match",
+    "outcome": "Up",
+    "price": "540000000000000000",
+    "transaction_hash": "0x5880c64eee1b132358d226b0a1d132d6b91f082ad2762e319660c210e2d67723"
+  },
+  "position": {
+    "amount_wei": "4826348148148148149",
+    "average_buy_price_usd": "0.54",
+    "kind": "venue_position",
+    "market": 4240042,
+    "outcome": "Up",
+    "pnl_usd": "-2.03",
+    "status": "None",
+    "value_usd": "0.58"
+  }
+}

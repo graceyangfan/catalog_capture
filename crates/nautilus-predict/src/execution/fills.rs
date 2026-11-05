@@ -861,7 +861,9 @@ impl SettlementNotifications {
                     && previous.settlement_id == *settlement_id
                     && previous.fill == *fill
                     && previous.terminal != Some(PredictSettlementStatus::Failed),
-                "Predict confirmed settlement contradicts prior matching facts"
+                "Predict confirmed settlement contradicts prior matching facts: trade={trade_id}, order={venue_order_id}, prior_status={:?}, prior_fill={:?}, incoming_fill={fill:?}",
+                previous.terminal,
+                previous.fill
             );
         }
         Ok(())
@@ -970,7 +972,9 @@ impl SettlementNotifications {
         });
         anyhow::ensure!(
             entry.order == hash && entry.settlement_id == *settlement_id && entry.fill == *fill,
-            "Predict settlement notification raw facts changed"
+            "Predict settlement notification raw facts changed: trade={id}, order={hash}, status={status:?}, prior_status={:?}, prior_fill={:?}, incoming_fill={fill:?}",
+            entry.terminal,
+            entry.fill
         );
         self.by_order.entry(hash).or_default().insert(id);
         let publish = match status {

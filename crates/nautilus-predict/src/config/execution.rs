@@ -62,8 +62,10 @@ pub struct PredictExecutionClientConfig {
     pub account_refresh_interval_secs: u64,
     /// Maintenance interval after wallet transport changes; default one second.
     /// Refreshes cash and retires purged contexts. Native owns order/fill/position recovery.
-    /// None requires explicit QueryAccount after a transport change; cleanup then runs
-    /// at instrument, report and account-query boundaries.
+    /// None requires explicit QueryAccount after a transport change. With a Native
+    /// clock installed, event-triggered settlement recovery still runs every second
+    /// in either account mode, with five attempts and capped exponential backoff.
+    /// Custom hosts without a Native clock must explicitly QueryOrder for recovery.
     pub reconnect_reconciliation_interval_secs: Option<u64>,
     /// Market signing-metadata TTL in seconds, 1..=300; default 30.
     /// YES/NO share preparation at connection, definition changes and before expiry.
