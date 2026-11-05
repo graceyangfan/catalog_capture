@@ -62,8 +62,8 @@ assumed to be that account without ownership verification.
 Select one named probe; do not run the entire ignored-test set:
 
 ```bash
-cargo test -p nautilus-predict --features execution --locked --test private_api_live mainnet_privy_private_api_and_native_account_read_only -- --ignored --nocapture
-cargo test -p nautilus-predict --features execution --locked --test private_api_live mainnet_resting_preflight_and_sdk_signing_read_only -- --ignored --nocapture
+./scripts/cargo.sh test -p nautilus-predict --features execution --locked --test private_api_live mainnet_privy_private_api_and_native_account_read_only -- --ignored --nocapture
+./scripts/cargo.sh test -p nautilus-predict --features execution --locked --test private_api_live mainnet_resting_preflight_and_sdk_signing_read_only -- --ignored --nocapture
 ```
 
 The first probe authenticates, checks account identity, reads private orders and

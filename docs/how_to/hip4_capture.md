@@ -92,7 +92,7 @@ short-lived. The preflight below calls Hyperliquid `outcomeMeta`, resolves the c
 instrument IDs without opening a recorder or requiring credentials:
 
 ```bash
-cargo run -p catalog-capture-cli --features venue-hyperliquid -- run \
+./scripts/cargo.sh run -p catalog-capture-cli --features venue-hyperliquid -- run \
   --config examples/capture.hyperliquid-hip4-btc-daily.toml \
   --dry-run-resolve --print-option-universe
 ```
@@ -112,7 +112,7 @@ The profile also records Hyperliquid BTC/ETH perpetual mark and index prices.
 No outcome IDs are configured:
 
 ```bash
-cargo run -p catalog-capture-cli -- run \
+./scripts/cargo.sh run -p catalog-capture-cli -- run \
   --config examples/capture.hyperliquid-hip4-15m.toml
 ```
 
@@ -256,15 +256,15 @@ Monitor (when metrics enabled): `http://127.0.0.1:9108/metrics` — watch
 
 ```bash
 # Combined multi-venue
-cargo run -p catalog-capture-cli -- run \
+./scripts/cargo.sh run -p catalog-capture-cli -- run \
   --config examples/capture.multi-venue-mainnet.toml
 
 # Hyperliquid universe only
-cargo run -p catalog-capture-cli -- run \
+./scripts/cargo.sh run -p catalog-capture-cli -- run \
   --config examples/capture.hyperliquid-hip4-btc-daily.toml
 
 # Deribit book summary only (1s poll)
-cargo run -p catalog-capture-cli -- run \
+./scripts/cargo.sh run -p catalog-capture-cli -- run \
   --config examples/capture.deribit-btc-book-summary.toml
 ```
 

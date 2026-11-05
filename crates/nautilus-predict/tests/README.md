@@ -9,10 +9,10 @@ links sources, real JSON and known limits. Use the matching
 ## Run offline tests
 
 ```bash
-cargo test -p nautilus-predict --features execution --locked -- --test-threads=1
-cargo clippy -p nautilus-predict --features execution --all-targets --locked -- -D warnings
-cargo check -p nautilus-predict --no-default-features --features execution --locked --lib
-cargo check --workspace --all-targets --features catalog-capture-cli/predict-execution --locked
+./scripts/cargo.sh test -p nautilus-predict --features execution --locked -- --test-threads=1
+./scripts/cargo.sh clippy -p nautilus-predict --features execution --all-targets --locked -- -D warnings
+./scripts/cargo.sh check -p nautilus-predict --no-default-features --features execution --locked --lib
+./scripts/cargo.sh check --workspace --all-targets --features catalog-capture-cli/predict-execution --locked
 python3 tests/predict_evidence.py
 ```
 
@@ -39,13 +39,13 @@ LiveNode scenarios separately exercise Native risk and strategy flow. Neither
 layer substitutes for the other. Select focused replay without exporting new JSON:
 
 ```bash
-cargo test -p nautilus-predict --features execution --lib custom_subscription_tests --locked -- --test-threads=1
-cargo test -p nautilus-predict --features execution --test market_recorded_fill --locked
-cargo test -p nautilus-predict --features execution --test execution recorded_startup:: --locked
-cargo test -p nautilus-predict --features execution --test execution batch_recorded:: --locked
-cargo test -p nautilus-predict --features execution --test execution terminal_recovery:: --locked
-cargo test -p nautilus-predict --features execution --test execution expiry_scope:: --locked
-cargo test -p nautilus-predict --features execution --test execution feedback_delivery:: --locked
+./scripts/cargo.sh test -p nautilus-predict --features execution --lib custom_subscription_tests --locked -- --test-threads=1
+./scripts/cargo.sh test -p nautilus-predict --features execution --test market_recorded_fill --locked
+./scripts/cargo.sh test -p nautilus-predict --features execution --test execution recorded_startup:: --locked
+./scripts/cargo.sh test -p nautilus-predict --features execution --test execution batch_recorded:: --locked
+./scripts/cargo.sh test -p nautilus-predict --features execution --test execution terminal_recovery:: --locked
+./scripts/cargo.sh test -p nautilus-predict --features execution --test execution expiry_scope:: --locked
+./scripts/cargo.sh test -p nautilus-predict --features execution --test execution feedback_delivery:: --locked
 ```
 
 | Focused area | Assertions |
@@ -70,8 +70,8 @@ Pending-command retention and terminal quantity normalization require its
 Run the ordinary suite first, then select these additional offline integrations:
 
 ```bash
-cargo test -p nautilus-predict --features execution --locked --test execution restart_live::native_restart_ -- --ignored --test-threads=1
-cargo test -p nautilus-predict --features execution --locked --test private_ws repeated_reconnects_deliver_each_epoch_once_and_close_the_session -- --ignored --exact --test-threads=1
+./scripts/cargo.sh test -p nautilus-predict --features execution --locked --test execution restart_live::native_restart_ -- --ignored --test-threads=1
+./scripts/cargo.sh test -p nautilus-predict --features execution --locked --test private_ws repeated_reconnects_deliver_each_epoch_once_and_close_the_session -- --ignored --exact --test-threads=1
 ```
 
 Restart tests launch an isolated loopback Redis and use new LiveNode/Cache/strategy
@@ -129,7 +129,7 @@ output path. Run the prebuilt optimized binary without other builds/tests on the
 host when interpreting timings:
 
 ```bash
-PREDICT_REGISTRATION_PATH=data/registration.json cargo test --release -p nautilus-predict --features execution --locked --test execution entry_benchmark::benchmark_submission_registration -- --ignored --exact --test-threads=1
+PREDICT_REGISTRATION_PATH=data/registration.json ./scripts/cargo.sh test --release -p nautilus-predict --features execution --locked --test execution entry_benchmark::benchmark_submission_registration -- --ignored --exact --test-threads=1
 ```
 
 The exporter uses eight-command batches, 0/1,000 retained Native orders and normal
@@ -146,7 +146,7 @@ disposal separately, using a fresh output file:
 
 ```bash
 mkdir -p data
-PREDICT_REPORT_STAGES_PATH=data/report-stages.json cargo test --release -p nautilus-predict --features execution --locked --test execution matches::benchmark_report_collection_finish_and_drop -- --ignored --exact --test-threads=1
+PREDICT_REPORT_STAGES_PATH=data/report-stages.json ./scripts/cargo.sh test --release -p nautilus-predict --features execution --locked --test execution matches::benchmark_report_collection_finish_and_drop -- --ignored --exact --test-threads=1
 ```
 
 This replay covers 1 through 100,000 fills, first collection and duplicate replay,

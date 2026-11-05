@@ -52,6 +52,24 @@ rustup toolchain install 1.99.1
 rustup component add rustfmt clippy --toolchain 1.99.1
 ```
 
+## Project Cargo
+
+This project uses **huacnlee/cargo**, pinned with release checksums in
+`scripts/cargo.sh`. All Make targets, build/service scripts, hooks, and CI use
+this entry point. From the repository root, run direct commands as
+`./scripts/cargo.sh <command>`. When invoked by its absolute path from elsewhere,
+the wrapper still operates from the workspace root.
+
+```bash
+make install-cargo
+./scripts/cargo.sh --version
+```
+
+Bootstrap also installs it. The binary lives under `.tools/cargo/`; automatic
+updates are disabled. Cache policy is in `.cargo/config.toml`. rustup supplies
+the compiler, rustfmt, and Clippy; its system installation can remain available
+to other repositories.
+
 ## Build
 
 ```bash
@@ -84,11 +102,12 @@ CAPTURE_FEATURES=venue-binance,venue-predict make build-release-capture
 
 ### Disk / clean
 
-Path deps make `target/` large (see [build size](../how_to/build_size.md)).
+Build intermediates live in `~/.cargo/targets`; binaries remain in `target/`.
+See [cache management](../how_to/build_size.md).
 
 ```bash
-make clean                 # this repo target/
-make clean-all-targets     # + ../nautilus_trader_quantity_commission/target
+make cache-size            # local target + all central caches
+make clean                 # this project's local and central build cache
 ```
 
 ## Python (optional)

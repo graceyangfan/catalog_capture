@@ -8,7 +8,7 @@ Set `runtime.capture_seconds = 0` so the recorder runs until `SIGTERM` or
 `Ctrl+C`. Build once, validate once, then run the binary directly.
 
 ```bash
-cargo build --release -p catalog-capture-cli \
+./scripts/cargo.sh build --release -p catalog-capture-cli \
   --no-default-features \
   --features venue-binance,venue-lighter,venue-extended
 

@@ -5,7 +5,7 @@ Binary: `catalog-capture-cli`.
 ## Capture
 
 ```bash
-cargo run -p catalog-capture-cli -- run --config <path.toml>
+./scripts/cargo.sh run -p catalog-capture-cli -- run --config <path.toml>
 ```
 
 Useful preflight flags:
@@ -19,8 +19,8 @@ Useful preflight flags:
 ## Config
 
 ```bash
-cargo run -p catalog-capture-cli -- validate --config <path.toml>
-cargo run -p catalog-capture-cli -- print-effective-config --config <path.toml>
+./scripts/cargo.sh run -p catalog-capture-cli -- validate --config <path.toml>
+./scripts/cargo.sh run -p catalog-capture-cli -- print-effective-config --config <path.toml>
 ```
 
 Capture families include native `[[capture.book_depth]]` (instrument ID, L2 book
@@ -45,7 +45,7 @@ configuration only; it does not discover a live paired universe.
 | `validate-option-universe` | Full suite |
 
 ```bash
-cargo run -p catalog-capture-cli -- validate-option-universe \
+./scripts/cargo.sh run -p catalog-capture-cli -- validate-option-universe \
   --catalog-uri file://./data/deribit-btc-universe-autorefresh \
   --config examples/capture.deribit-btc-universe-autorefresh.toml \
   --option-universe-format text

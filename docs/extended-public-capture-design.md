@@ -525,7 +525,7 @@ Python binding surface in the current adapter. The CLI links the crate behind
 select it explicitly:
 
 ```bash
-cargo build --release -p catalog-capture-cli \
+./scripts/cargo.sh build --release -p catalog-capture-cli \
   --no-default-features --features venue-extended
 ```
 

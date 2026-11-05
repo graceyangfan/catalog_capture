@@ -22,7 +22,7 @@ PREBUILT=0
 VALIDATE=0
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
 BIN_DIR="${CATALOG_CAPTURE_BIN_DIR:-$ROOT/bin}"
-CARGO="${CARGO:-cargo}"
+CARGO="$ROOT/scripts/cargo.sh"
 TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.1}"
 # Builds have a different memory budget from the recorder. Honor explicit Cargo policy.
 export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
@@ -44,7 +44,6 @@ Options:
 
 Environment:
   CAPTURE_FEATURES    Comma features for slim release (default multi-venue set)
-  CARGO               Cargo executable
   RUSTUP_TOOLCHAIN    Rust toolchain (default 1.99.1)
   CARGO_BUILD_JOBS    Concurrent build jobs (default 2; prebuilt avoids compilation)
   NAUTILUS_WORKER_THREADS / TOKIO_WORKER_THREADS

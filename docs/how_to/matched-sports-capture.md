@@ -15,7 +15,7 @@ tools such as Polars read sealed files and the associated metadata separately.
 From the repository root:
 
 ```bash
-cargo build -p catalog-capture-cli --no-default-features --features venue-polymarket
+./scripts/cargo.sh build -p catalog-capture-cli --no-default-features --features venue-polymarket
 ./target/debug/catalog-capture-cli validate --config examples/capture.matched-sports.toml
 ./target/debug/catalog-capture-cli run --config examples/capture.matched-sports.toml
 ```
@@ -237,9 +237,9 @@ noncrossed, executable books, upstream losslessness or venue clock alignment.
 Offline checks require only fixed fixtures and temporary catalogs:
 
 ```bash
-cargo test -p catalog-capture-cli
-cargo test -p catalog-capture-runtime-adapter matched_sports
-cargo test -p nautilus-predict http::sports
+./scripts/cargo.sh test -p catalog-capture-cli
+./scripts/cargo.sh test -p catalog-capture-runtime-adapter matched_sports
+./scripts/cargo.sh test -p nautilus-predict http::sports
 ```
 
 For a recorded PM instrument, use the existing `validate-order-book` command.

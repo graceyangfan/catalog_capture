@@ -27,7 +27,7 @@ make pre-commit
 
 Before a PR: `make test`, `make clippy`, `make cargo-deny`.
 
-Disk: `make clean` or `make clean-all-targets` — see [build size](../how_to/build_size.md).
+Disk: `make cache-size` and `make clean` — see [build size](../how_to/build_size.md).
 
 ## Dependency pin
 

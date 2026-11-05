@@ -57,10 +57,12 @@ stays in the CLI.
 
 ## Tests
 
+Run these commands from the repository root:
+
 ```bash
-cargo test -p catalog-capture-core --lib
+./scripts/cargo.sh test -p catalog-capture-core --lib
 # layout write + Rust readback
-cargo test -p catalog-capture-core --lib catalog_layout
+./scripts/cargo.sh test -p catalog-capture-core --lib catalog_layout
 ```
 
 ## Related

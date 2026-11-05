@@ -64,6 +64,6 @@ quantities, and order-book data.
 ## Verify
 
 ```bash
-cargo test -p catalog-capture-core --lib catalog_layout
+./scripts/cargo.sh test -p catalog-capture-core --lib catalog_layout
 # roundtrip: write quotes → ParquetDataCatalog::quote_ticks
 ```

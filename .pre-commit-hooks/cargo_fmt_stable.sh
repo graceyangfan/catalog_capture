@@ -8,11 +8,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-if ! command -v cargo > /dev/null 2>&1; then
-  echo "cargo not found; skipping fmt"
-  exit 0
-fi
-
 export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.1}"
 
 tmpdir="$(mktemp -d)"
@@ -30,7 +25,7 @@ for arg in "$@"; do
 done
 
 if $has_dd; then
-  cargo fmt "$@" --config-path "$tmpdir"
+  "$ROOT/scripts/cargo.sh" fmt "$@" --config-path "$tmpdir"
 else
-  cargo fmt "$@" -- --config-path "$tmpdir"
+  "$ROOT/scripts/cargo.sh" fmt "$@" -- --config-path "$tmpdir"
 fi

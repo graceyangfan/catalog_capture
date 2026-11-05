@@ -78,8 +78,8 @@ chunked smoke writing retains Native catalog timestamp preconditions.
 ## Validation
 
 ```bash
-cargo test -p catalog-capture-core --lib replay::tests
-cargo test -p catalog-capture-runtime-adapter --test replay_windows
+./scripts/cargo.sh test -p catalog-capture-core --lib replay::tests
+./scripts/cargo.sh test -p catalog-capture-runtime-adapter --test replay_windows
 ```
 
 The integration tests compare callbacks and decisions of the same Rust strategy
@@ -96,7 +96,7 @@ An opt-in check can read a completed public BTC/ETH/BNB Futures depth=50 capture
 ```bash
 FUTURES_RECOVERY_CATALOG=/absolute/path/to/catalog \
 FUTURES_RECOVERY_START_NS=<start-nanoseconds> \
-  cargo test --workspace --test replay_windows \
+  ./scripts/cargo.sh test --workspace --test replay_windows \
   recorded_futures_recovery_matches_native_backtest_after_explicit_start -- --ignored
 ```
 

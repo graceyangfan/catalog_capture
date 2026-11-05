@@ -28,6 +28,8 @@ make install-tools
 pip install pre-commit && pre-commit install
 ```
 
+Use `make` or `./scripts/cargo.sh` for all Cargo commands. The project pins
+huacnlee/cargo; `make install-cargo` installs it without changing other projects.
 Rust **1.99.1** (`rust-toolchain.toml`). Details:
 [docs/getting_started/installation.md](docs/getting_started/installation.md).
 
@@ -59,7 +61,7 @@ python3 tests/probe_option_universe_smoke.py --venue deribit-autorefresh --secon
 
 - Venue adapters are optional cargo features (`venue-*` / `all-venues`).
 - Slim build: `make build-slim` or
-  `cargo build -p catalog-capture-cli --no-default-features --features venue-deribit`
+  `./scripts/cargo.sh build -p catalog-capture-cli --no-default-features --features venue-deribit`
 - CI pins Nautilus Trader — see [docs/getting_started/installation.md](docs/getting_started/installation.md).
 
 ## Source headers

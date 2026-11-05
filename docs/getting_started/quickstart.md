@@ -13,7 +13,7 @@ make build-release-capture
 Offline layout proof (no network):
 
 ```bash
-cargo test -p catalog-capture-core --lib catalog_layout
+./scripts/cargo.sh test -p catalog-capture-core --lib catalog_layout
 ```
 
 ## First live run (mainnet)

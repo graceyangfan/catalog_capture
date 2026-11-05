@@ -49,7 +49,7 @@ class CaptureServiceTests(unittest.TestCase):
         )
         recorder.chmod(0o755)
         shutil.copy2(recorder, self.root / "bin" / "catalog-capture-cli")
-        cargo = self.root / "fake-cargo"
+        cargo = self.root / "scripts" / "cargo.sh"
         cargo.write_text(
             "#!/usr/bin/env python3\n"
             "import json, os, shutil, sys\n"
@@ -66,7 +66,7 @@ class CaptureServiceTests(unittest.TestCase):
         self.env = dict(os.environ)
         self.env.pop("CARGO_BUILD_JOBS", None)
         self.env.pop("CAPTURE_SECONDS", None)
-        self.env.update(CAPTURE_TEST_TRACE=str(self.trace), CARGO=str(cargo))
+        self.env.update(CAPTURE_TEST_TRACE=str(self.trace))
 
     def run_script(self, name, *args, **env):
         return subprocess.run(
@@ -100,7 +100,8 @@ class CaptureServiceTests(unittest.TestCase):
 
     def test_mainnet_reuses_runner_and_removes_finite_config(self):
         result = self.run_script(
-            "run-mainnet-capture.sh", self.config, CAPTURE_SECONDS="9"
+            "run-mainnet-capture.sh", self.config, CAPTURE_SECONDS="9",
+            CARGO="/unused-global-cargo",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         rows = self.rows()

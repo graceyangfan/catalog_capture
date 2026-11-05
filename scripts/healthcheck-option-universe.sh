@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG=""
 CATALOG_URI=""
-CARGO="${CARGO:-cargo}"
+CARGO="$ROOT/scripts/cargo.sh"
 TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.1}"
 
 usage() {

@@ -3,3 +3,11 @@ rustdocflags = ["-D", "warnings"]
 
 [target.'cfg(all())']
 rustflags = ["-Aclippy::drop_non_drop"]
+
+[build.gc]
+enabled = true
+max-size = "auto"
+shared-max-size = "20 GiB"
+max-unused = "1 day"
+shared-max-unused = "7 days"
+frequency = "1 hour"

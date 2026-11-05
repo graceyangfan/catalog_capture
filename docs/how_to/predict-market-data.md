@@ -5,11 +5,11 @@ Use `examples/capture.predict-native.toml` for BTC 5m, or
 Binance Spot SBE L2 and trades. Run from the repository root:
 
 ```bash
-cargo run -p catalog-capture-cli --no-default-features \
+./scripts/cargo.sh run -p catalog-capture-cli --no-default-features \
   --features venue-predict,venue-binance -- \
   validate --config examples/capture.predict-crypto-updown.toml
 
-cargo run -p catalog-capture-cli --no-default-features \
+./scripts/cargo.sh run -p catalog-capture-cli --no-default-features \
   --features venue-predict,venue-binance -- \
   run --config examples/capture.predict-crypto-updown.toml
 ```
@@ -155,7 +155,7 @@ be checked offline with the Native catalog reader:
 
 ```bash
 PREDICT_PROBE_CATALOG=/absolute/path/to/catalog \
-  cargo test -p nautilus-predict --test catalog_readback \
+  ./scripts/cargo.sh test -p nautilus-predict --test catalog_readback \
   native_six_selectors_roll_and_read_back -- --ignored --nocapture
 ```
 

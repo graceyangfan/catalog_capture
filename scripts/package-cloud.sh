@@ -8,7 +8,7 @@ cd "$ROOT"
 CONFIG="${CONFIG:-examples/capture.multi-venue-mainnet.toml}"
 OUTPUT_DIR="${CATALOG_CAPTURE_PACKAGE_DIR:-$ROOT/dist}"
 CAPTURE_FEATURES="${CAPTURE_FEATURES:-venue-binance,venue-deribit,venue-hyperliquid,venue-lighter}"
-CARGO="${CARGO:-cargo}"
+CARGO="$ROOT/scripts/cargo.sh"
 TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.1}"
 SKIP_BUILD=0
 PACKAGE_NAME=""

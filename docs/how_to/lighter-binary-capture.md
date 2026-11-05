@@ -14,7 +14,7 @@ Follow the [dependency setup](../getting_started/installation.md) first. The
 Nautilus revision is pinned in the repository's CI workflow.
 
 ```sh
-cargo build -p catalog-capture-cli --no-default-features --features venue-lighter-ext
+./scripts/cargo.sh build -p catalog-capture-cli --no-default-features --features venue-lighter-ext
 ./target/debug/catalog-capture-cli run --config examples/capture.lighter-updown-15m.toml
 ```
 
@@ -120,8 +120,8 @@ seals `.parquet.part` files.
 Offline tests require no keys or network access:
 
 ```sh
-cargo test -p nautilus-lighter-ext --locked
-cargo test -p catalog-capture-runtime-adapter --lib --locked
+./scripts/cargo.sh test -p nautilus-lighter-ext --locked
+./scripts/cargo.sh test -p catalog-capture-runtime-adapter --lib --locked
 ```
 
 Fixtures cover five-family catalog round trips, Decimal precision, missing/zero
@@ -136,7 +136,7 @@ seconds, then reads the catalog and replays the book. It removes its temporary
 catalog on success. Set `LIGHTER_TEST_CATALOG` to a new directory to retain it:
 
 ```sh
-cargo test -p nautilus-lighter-ext --test live_capture mainnet_fixed_market_catalog_readback -- --ignored --nocapture
+./scripts/cargo.sh test -p nautilus-lighter-ext --test live_capture mainnet_fixed_market_catalog_readback -- --ignored --nocapture
 ```
 
 For a same-process two-boundary run, use the rolling CLI profile, stop gracefully
@@ -145,7 +145,7 @@ after the second rotation, and read back the three generations of BTC/ETH:
 ```sh
 LIGHTER_TEST_CATALOG=/absolute/path/to/catalog \
 LIGHTER_TEST_GENERATIONS=3 \
-cargo test -p nautilus-lighter-ext --test live_capture rolling_catalog_readback -- --ignored --nocapture
+./scripts/cargo.sh test -p nautilus-lighter-ext --test live_capture rolling_catalog_readback -- --ignored --nocapture
 ```
 
 The readback test checks every family's presence, start prices, canonical OI

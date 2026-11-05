@@ -21,7 +21,7 @@ They do not expose adapter APIs.
 ## Offline checks
 
 ```bash
-cargo test --workspace --lib --bins
+./scripts/cargo.sh test --workspace --lib --bins
 uv run --python 3.12 --with predict-sdk==0.0.22 --with websocket-client --with python-dotenv --with requests --with websockets python -m unittest discover -s tests -p 'test_predict*.py'
 uv run --python 3.12 python tests/predict_evidence.py
 ```

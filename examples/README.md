@@ -88,7 +88,7 @@ load them directly. They are regression assets, not additional product entrypoin
 ## Offline layout proof
 
 ```bash
-cargo test -p catalog-capture-core --lib catalog_layout
+./scripts/cargo.sh test -p catalog-capture-core --lib catalog_layout
 ```
 
 ## Cleanup

@@ -184,14 +184,11 @@ verify_core() {
     log "skipping cargo verify (--skip-verify)"
     return 0
   fi
-  if ! command -v cargo > /dev/null 2>&1; then
-    warn "cargo not found; skip verify. Install Rust 1.99.1 then: cargo test -p catalog-capture-core --lib"
-    return 0
-  fi
+
   log "verifying: cargo check -p catalog-capture-core --lib"
   (
     cd "${REPO_ROOT}"
-    cargo check -p catalog-capture-core --lib
+    "$REPO_ROOT/scripts/cargo.sh" check -p catalog-capture-core --lib
   )
   log "verify ok"
 }
@@ -215,7 +212,7 @@ main() {
   maybe_pin "${source}"
   print_status "${source}"
   verify_core
-  log "done. Next: make build   # or cargo build -p catalog-capture-cli"
+  log "done. Next: make build"
 }
 
 main

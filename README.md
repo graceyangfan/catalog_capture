@@ -84,13 +84,17 @@ More: [examples/README.md](examples/README.md).
 
 ## Build options
 
+All builds use the pinned [huacnlee/cargo](https://github.com/huacnlee/cargo)
+through `scripts/cargo.sh`. Run `make install-cargo` once; `make bootstrap-deps`
+also installs it. Rust 1.99.1 remains the compiler.
+
 | Command | When |
 |---------|------|
 | `make build-release-capture` | Standard mainnet feature set; override `CAPTURE_FEATURES` for another profile |
 | `make build-release` | All venues (`all-venues`) |
 | `make build-slim FEATURES=venue-deribit` | Single-venue debug |
 | `make build-release-small` | Smaller binary, slower compile |
-| `make clean` / `make clean-all-targets` | Free disk (`clean-all` also clears `../nautilus_trader_quantity_commission/target`) |
+| `make cache-size` / `make clean` | Inspect caches / clear this project's local and central build cache |
 
 Build size notes: [docs/how_to/build_size.md](docs/how_to/build_size.md).
 

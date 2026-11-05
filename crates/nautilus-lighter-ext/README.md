@@ -12,9 +12,11 @@ Fixed mainnet markets and automatic BTC/ETH 15m recording are supported through
 See the [operator guide](../../docs/how_to/lighter-binary-capture.md),
 [automatic recording profile](../../examples/capture.lighter-updown-15m.toml).
 
+Run these commands from the repository root:
+
 ```sh
-cargo test -p nautilus-lighter-ext --locked
-cargo build -p catalog-capture-cli --no-default-features --features venue-lighter-ext
+./scripts/cargo.sh test -p nautilus-lighter-ext --locked
+./scripts/cargo.sh build -p catalog-capture-cli --no-default-features --features venue-lighter-ext
 ```
 
 Offline tests exercise protocol fixtures through the real LiveNode, capture

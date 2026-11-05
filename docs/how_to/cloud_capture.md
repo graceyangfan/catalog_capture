@@ -38,8 +38,9 @@ make bootstrap-deps
 # Default cloud feature set; override CAPTURE_FEATURES for a smaller venue set.
 make build-release-capture
 
-# Free disk if needed (this repo + sibling NT target/)
-# make clean-all-targets
+# Inspect or clear this project's local and central build cache
+# make cache-size
+# make clean
 ```
 
 See [build size](build_size.md).

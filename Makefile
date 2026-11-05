@@ -1,4 +1,4 @@
-CARGO ?= cargo
+CARGO := $(CURDIR)/scripts/cargo.sh
 # Keep in sync with rust-toolchain.toml
 TOOLCHAIN ?= 1.99.1
 CARGO_TOOL := $(CARGO) +$(TOOLCHAIN)
@@ -16,7 +16,9 @@ CAPTURE_FEATURES ?= venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
 	build-release-capture build-release-small \
 	package-cloud \
 	test test-lib fmt clippy pre-commit cargo-deny install-tools \
-	smoke-soak cleanup-tmp run-service clean clean-debug clean-all-targets help
+	smoke-soak cleanup-tmp run-service clean help
+
+.PHONY: install-cargo cache-size
 
 help:
 	@echo "Product binary: $(CLI_PKG) only."
@@ -29,17 +31,24 @@ help:
 	@echo "  build-release-small    --profile release-small (slower, smaller binary)"
 	@echo "  package-cloud          build a self-contained cloud deployment tarball"
 	@echo "  build-slim             debug slim: FEATURES=venue-deribit (override FEATURES=...)"
-	@echo "  clean / clean-debug    wipe this repo target/ (not ../nautilus_trader_quantity_commission/target)"
-	@echo "  clean-all-targets      also wipe sibling nautilus_trader_quantity_commission/target (frees tens of GB)"
+	@echo "  clean                  clear this project's local and central build cache"
+	@echo "  cache-size             inspect target/ and the central Cargo cache"
 	@echo ""
 	@echo "Other: bootstrap-deps (--pin-ci), bootstrap-deps-local, test, clippy, run-service..."
+	@echo "Tool setup: make install-cargo (pinned huacnlee/cargo; shared cache with automatic GC)"
+
+install-cargo:
+	./scripts/cargo.sh --install
+
+cache-size:
+	./scripts/cargo.sh --cache-size
 
 # First-time / reproducible: match CI Nautilus pin.
-bootstrap-deps:
+bootstrap-deps: install-cargo
 	./scripts/bootstrap-deps.sh --pin-ci
 
 # Existing editable sibling tree — do not force-checkout the CI pin.
-bootstrap-deps-local:
+bootstrap-deps-local: install-cargo
 	./scripts/bootstrap-deps.sh
 
 build:
@@ -85,25 +94,13 @@ clippy:
 clean:
 	$(CARGO_TOOL) clean
 
-clean-debug:
-	rm -rf target/debug target/tmp
-
-# Frees the usual multi-10GB piles: this target/ + sibling NT target used when
-# developing nautilus_trader itself (nextest/incremental/doc).
-clean-all-targets:
-	$(CARGO_TOOL) clean
-	@if [ -d ../nautilus_trader_quantity_commission/target ]; then \
-		echo "Removing ../nautilus_trader_quantity_commission/target ..."; \
-		rm -rf ../nautilus_trader_quantity_commission/target; \
-	fi
-
-install-tools:
-	@if ! cargo deny --version 2>/dev/null | grep -q "$(CARGO_DENY_VERSION)"; then \
-		cargo install cargo-deny --version $(CARGO_DENY_VERSION) --locked; \
+install-tools: install-cargo
+	@if ! $(CARGO_TOOL) deny --version 2>/dev/null | grep -q "$(CARGO_DENY_VERSION)"; then \
+		$(CARGO_TOOL) install cargo-deny --version $(CARGO_DENY_VERSION) --locked; \
 	fi
 
 cargo-deny: install-tools
-	cargo deny check licenses
+	$(CARGO_TOOL) deny check licenses
 
 pre-commit:
 	pre-commit run --all-files
