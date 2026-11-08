@@ -17,6 +17,8 @@ pub use data::{BitfinexDataClientConfig, BitfinexDataClientFactory};
 pub use instruments::{BITFINEX, supported_instrument};
 
 pub const DEFAULT_DEPTH: usize = 250;
+/// Conservative public WebSocket channel limit from Bitfinex's rate-limit guide.
+pub const MAX_BOOK_SUBSCRIPTIONS: usize = 25;
 
 pub fn validate_depth(depth: usize) -> anyhow::Result<()> {
     // CRC32 covers the top 25 orders per side. Use checksum-capable profiles.

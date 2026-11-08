@@ -1,0 +1,87 @@
+# Predict BTC 5m/15m YES depth and trades, Binance BTC/USDT Spot SBE L2 and
+# trades, and Bitfinex BTC/USDT Spot R0 L3.
+# Required features: venue-predict,venue-binance,venue-bitfinex.
+# Credentials: env/predictfun.toml and env/binance-spot-sbe.toml (Ed25519).
+# See docs/how_to/credentials.md. Bitfinex market data is public.
+# Run from the repository root with catalog-capture-cli run --config <this file>.
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 30
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-PREDICT-BINANCE-BITFINEX-BTC"
+
+[output]
+catalog_uri = "file://./data/predict-binance-bitfinex-btc"
+layout_compatibility = "rust_canonical_only"
+compression = "snappy"
+flush_rows = 1000
+flush_interval_ms = 2000
+max_buffer_bytes = 8388608
+max_total_buffer_bytes = 67108864
+queue_capacity = 32768
+queue_max_bytes = 67108864
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+# Continuous spot streams seal hourly. Predict seals each market on rollover.
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "predict_main"
+kind = "predict"
+
+[[venues]]
+id = "binance_spot_sbe"
+kind = "binance_spot"
+environment = "live"
+
+[[venues]]
+id = "bitfinex_main"
+kind = "bitfinex"
+environment = "mainnet"
+
+[[capture.custom_data]]
+type_name = "PredictCryptoUpDown"
+[capture.custom_data.metadata]
+price_feed_symbol = "BTCUSDT"
+title_asset = "Bitcoin"
+interval_secs = "300"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
+
+[[capture.custom_data]]
+type_name = "PredictCryptoUpDown"
+[capture.custom_data.metadata]
+price_feed_symbol = "BTCUSDT"
+title_asset = "Bitcoin"
+interval_secs = "900"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT.BINANCE"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT.BINANCE"
+
+# Omit depth to subscribe to the SBE diff-depth stream.
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT.BINANCE"
+book_type = "L2_MBP"
+
+[[capture.instruments]]
+instrument_id = "BTCUST.BITFINEX"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUST.BITFINEX"
+book_type = "L3_MBO"
+depth = 250

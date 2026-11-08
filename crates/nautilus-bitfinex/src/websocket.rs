@@ -63,7 +63,7 @@ struct Channel {
     depth: usize,
     book: RawBook,
     has_snapshot: bool,
-    deadline: Option<Instant>,
+    snapshot_deadline: Instant,
     last_seen: Instant,
     unverified: Vec<OrderBookDeltas>,
 }
@@ -76,10 +76,26 @@ impl Channel {
             depth,
             book: RawBook::default(),
             has_snapshot: false,
-            deadline: Some(now + TIMEOUT),
+            snapshot_deadline: now + TIMEOUT,
             last_seen: now,
             unverified: Vec::new(),
         }
+    }
+
+    fn check_health(&self, now: Instant) -> anyhow::Result<()> {
+        ensure!(
+            now.duration_since(self.last_seen) < CHANNEL_IDLE_TIMEOUT,
+            "Bitfinex R0 channel stopped responding for {}",
+            self.instrument
+        );
+        // An idle book can send heartbeats long before its first checksum.
+        // Bound unverified updates by frame count without expiring a live snapshot.
+        ensure!(
+            self.has_snapshot || now < self.snapshot_deadline,
+            "Bitfinex R0 snapshot timed out for {}",
+            self.instrument
+        );
+        Ok(())
     }
 
     fn handle(
@@ -99,7 +115,6 @@ impl Channel {
                 "R0 checksum mismatch for {}: expected {expected}, calculated {actual}",
                 self.instrument,
             );
-            self.deadline = None;
             return Ok(Some(std::mem::take(&mut self.unverified)));
         }
         if payload.get() == r#""hb""# {
@@ -131,8 +146,6 @@ impl Channel {
             self.unverified.len() < MAX_UNVERIFIED_FRAMES,
             "R0 checksum backlog exceeded capacity"
         );
-        self.deadline
-            .get_or_insert_with(|| Instant::now() + TIMEOUT);
         self.unverified.push(deltas);
         Ok(None)
     }
@@ -282,16 +295,7 @@ impl Session {
             "Bitfinex control response timed out"
         );
         for channel in self.channels.values() {
-            ensure!(
-                now.duration_since(channel.last_seen) < CHANNEL_IDLE_TIMEOUT,
-                "Bitfinex R0 channel stopped responding for {}",
-                channel.instrument,
-            );
-            ensure!(
-                !channel.deadline.is_some_and(|deadline| deadline <= now),
-                "Bitfinex R0 snapshot/checksum timed out for {}",
-                channel.instrument
-            );
+            channel.check_health(now)?;
         }
         Ok(())
     }
@@ -423,10 +427,15 @@ impl Session {
         let timestamp = serde_json::from_str::<u64>(timestamp.get())?
             .checked_mul(1_000_000)
             .context("invalid Bitfinex timestamp")?;
-        let channel = self
-            .channels
-            .get_mut(&channel_id)
-            .context("unknown Bitfinex channel")?;
+        let Some(channel) = self.channels.get_mut(&channel_id) else {
+            // Bitfinex can emit a heartbeat before acknowledging a subscription.
+            // Its sequence was checked above, but there is no book to update yet.
+            ensure!(
+                payload.get() == r#""hb""#,
+                "unknown Bitfinex channel {channel_id}"
+            );
+            return Ok(());
+        };
         if self.desired.get(&channel.instrument) != Some(&channel.depth) {
             return Ok(());
         }
@@ -534,6 +543,34 @@ mod tests {
             .then(|| serde_json::from_str(parts[2].get()))
             .transpose()?;
         channel.handle(parts[1], checksum, sequence, now, now)
+    }
+
+    #[test]
+    fn a_heartbeat_keeps_a_quiet_snapshot_pending_until_checksum() {
+        let id = InstrumentId::from("ETHBTC.BITFINEX");
+        let mut channel = Channel::new(id, 25);
+        let now = UnixNanos::from(1);
+        let delayed = channel.snapshot_deadline + Duration::from_secs(1);
+        assert!(channel.check_health(delayed).is_err());
+        let snapshot = json!([1, [[7, 0.03, 2], [8, 0.031, -4]], 1, 0]);
+        assert!(
+            handle_test(&mut channel, snapshot, 1, now)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            handle_test(&mut channel, json!([1, "hb", 2, 0]), 2, now)
+                .unwrap()
+                .is_none()
+        );
+        assert!(channel.check_health(delayed).is_ok());
+        let checksum = json!([1, "cs", crc32fast::hash(b"7:2:8:-4") as i32, 3, 0]);
+        let frames = handle_test(&mut channel, checksum, 3, now)
+            .unwrap()
+            .unwrap();
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].instrument_id, id);
+        assert!(RecordFlag::F_SNAPSHOT.matches(frames[0].flags));
     }
 
     #[test]

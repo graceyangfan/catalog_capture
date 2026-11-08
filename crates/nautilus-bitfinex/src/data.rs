@@ -33,7 +33,7 @@ use nautilus_model::{
 use tokio::sync::mpsc;
 
 use crate::{
-    DEFAULT_DEPTH,
+    DEFAULT_DEPTH, MAX_BOOK_SUBSCRIPTIONS,
     instruments::{BITFINEX, load_instruments},
     validate_depth,
     websocket::{Command, Session},
@@ -176,7 +176,8 @@ impl DataClient for BitfinexDataClient {
             &self.config.instruments,
             get_atomic_clock_realtime().get_time_ns(),
         )
-        .await?;
+        .await
+        .inspect_err(|error| log::error!("Failed to load Bitfinex spot instruments: {error:#}"))?;
         self.instruments = instruments
             .into_iter()
             .map(|instrument| (instrument.id(), instrument))
@@ -237,6 +238,10 @@ impl DataClient for BitfinexDataClient {
                 ensure!(*existing == depth, "conflicting Bitfinex R0 depth for {id}");
                 return Ok(());
             }
+            ensure!(
+                self.subscriptions.len() < MAX_BOOK_SUBSCRIPTIONS,
+                "Bitfinex supports at most {MAX_BOOK_SUBSCRIPTIONS} R0 books per connection"
+            );
             self.command(Command::Subscribe(id, depth))?;
             self.subscriptions.insert(id, depth);
             Ok(())

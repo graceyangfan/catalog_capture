@@ -1126,7 +1126,9 @@ fn lighter_binary_market_ids(plan: &CapturePlan) -> Result<Vec<u64>> {
 fn validate_bitfinex(config: &EffectiveConfig) -> Result<()> {
     use std::collections::BTreeSet;
 
-    use nautilus_bitfinex::{DEFAULT_DEPTH, supported_instrument, validate_depth};
+    use nautilus_bitfinex::{
+        DEFAULT_DEPTH, MAX_BOOK_SUBSCRIPTIONS, supported_instrument, validate_depth,
+    };
     use nautilus_model::{enums::BookType, identifiers::InstrumentId};
 
     let is_bitfinex = |id: InstrumentId| id.venue.as_str() == BITFINEX;
@@ -1149,7 +1151,7 @@ fn validate_bitfinex(config: &EffectiveConfig) -> Result<()> {
     );
     anyhow::ensure!(
         !ids.is_empty() && ids.iter().copied().all(supported_instrument),
-        "Bitfinex capture supports BTCUSD.BITFINEX and ETHUSD.BITFINEX"
+        "Bitfinex capture requires configured spot pair symbols such as BTCUSD.BITFINEX or AVAX:USD.BITFINEX"
     );
     anyhow::ensure!(
         config.capture.lifecycle.is_segment_mode(),
@@ -1223,6 +1225,10 @@ fn validate_bitfinex(config: &EffectiveConfig) -> Result<()> {
     anyhow::ensure!(
         !book_ids.is_empty(),
         "Bitfinex capture requires at least one L3_MBO book_deltas selector"
+    );
+    anyhow::ensure!(
+        book_ids.len() <= MAX_BOOK_SUBSCRIPTIONS,
+        "Bitfinex supports at most {MAX_BOOK_SUBSCRIPTIONS} R0 books per connection"
     );
     Ok(())
 }

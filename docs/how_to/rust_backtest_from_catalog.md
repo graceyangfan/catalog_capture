@@ -50,9 +50,16 @@ window reader. Inspect quality history and venue coverage before selecting data.
 
 Build the recorder with `--no-default-features --features venue-bitfinex` and run
 `examples/capture.bitfinex-spot-l3.toml`. The example records BTC/USD and ETH/USD
-R0 depth 250. The profile records instrument definitions and book deltas. Each
-market shares the standard `order_book_deltas/<instrument_id>` catalog layout
-with other venues and retains its original order IDs, frame sequence and venue timestamps.
+R0 depth 250. Use the same selectors with any listed mainnet spot pair symbol,
+such as `ETHBTC.BITFINEX`, `BTCUST.BITFINEX` or `AVAX:USD.BITFINEX`. The adapter
+checks the official spot catalogue at connection time and keeps the venue symbol
+in the instrument ID. Currency aliases in the definition follow the venue
+metadata, so `BTCUST` has quote currency `USDT`. A recorder connection supports
+up to 25 configured R0 books.
+
+The profile records instrument definitions and book deltas. Each market uses the
+standard `order_book_deltas/<instrument_id>` catalog layout and retains its
+original order IDs, frame sequence and venue timestamps.
 
 Both book replay readers and `validate-order-book` use `L3_MBO` for this venue.
 Configure the backtest venue with `BookType::L3_MBO`. Validation reports the number
