@@ -126,7 +126,8 @@ pub use plan::{
 };
 pub use replay::{
     ReplayWindow, common_replay_ranges, group_book_deltas, read_book_replay_windows,
-    read_book_replay_windows_in_range, read_replay_windows,
+    read_book_replay_windows_in_range, read_book_replay_windows_in_range_with_book_type,
+    read_replay_windows,
 };
 pub use runtime::{CaptureRuntime, FlushResult};
 pub use sink::{

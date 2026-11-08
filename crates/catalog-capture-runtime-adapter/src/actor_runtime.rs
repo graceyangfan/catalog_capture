@@ -26,6 +26,33 @@ use catalog_capture_core::{
 };
 use nautilus_model::data::DataType;
 
+#[derive(Debug)]
+pub(crate) struct DefinitionWrite {
+    pub since_generation: u64,
+    pub flush: Option<catalog_capture_core::background::PendingFlush>,
+}
+
+#[derive(Debug)]
+pub(crate) struct AuditSink(pub std::path::PathBuf);
+
+impl CaptureSink<(&'static str, serde_json::Value)> for AuditSink {
+    fn write_batch(
+        &mut self,
+        _: &str,
+        batch: Vec<(&'static str, serde_json::Value)>,
+    ) -> Result<Vec<std::path::PathBuf>> {
+        if let Some((file, _)) = batch.first() {
+            let path = self.0.join(file);
+            let records: Vec<_> = batch.into_iter().map(|(_, record)| record).collect();
+            catalog_capture_core::jsonl::append_jsonl_records(&path, &records, "capture audit")?;
+        }
+        Ok(Vec::new())
+    }
+}
+
+pub(crate) type AuditWriter =
+    BackgroundCaptureRuntime<(&'static str, serde_json::Value), AuditSink>;
+
 /// Start a family worker with per-family flush thresholds, or `None` if disabled.
 pub fn maybe_family_runtime<T, S, F>(
     enabled: bool,
@@ -99,6 +126,18 @@ where
     }
 }
 
+pub(crate) fn writer_failure_generation<T, S>(
+    runtime: &Option<BackgroundCaptureRuntime<T, S>>,
+) -> u64
+where
+    T: Send + 'static,
+    S: CaptureSink<T> + Send + 'static,
+{
+    runtime
+        .as_ref()
+        .map_or(0, |writer| writer.failure_snapshot().generation)
+}
+
 pub fn optional_enqueue_seal_all<T, S>(
     runtime: &Option<BackgroundCaptureRuntime<T, S>>,
 ) -> Result<()>
@@ -118,20 +157,6 @@ where
     S: CaptureSink<T> + Send + 'static,
 {
     runtime.enqueue_seal_all()
-}
-
-pub fn optional_shutdown<T, S>(
-    runtime: &mut Option<BackgroundCaptureRuntime<T, S>>,
-) -> Result<FlushResult>
-where
-    T: Send + 'static,
-    S: CaptureSink<T> + Send + 'static,
-{
-    // Retain the drained worker's counters for the actor's final metrics publication.
-    match runtime.as_mut() {
-        Some(runtime) => runtime.shutdown(),
-        None => Ok(FlushResult::default()),
-    }
 }
 
 pub fn collect_family_metrics<T, S>(

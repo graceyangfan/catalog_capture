@@ -145,7 +145,12 @@ pub struct CatalogCaptureActor {
     supplemental_plan: CapturePlan,
     plan: CapturePlan,
     instrument_runtime: Option<BackgroundCaptureRuntime<InstrumentAny, ChunkedCatalogSink>>,
+    audit_runtime: Option<crate::actor_runtime::AuditWriter>,
     pending_instrument_definitions: BTreeSet<InstrumentId>,
+    hip4_definition_writes: BTreeMap<InstrumentId, crate::actor_runtime::DefinitionWrite>,
+    matched_definition_requests: BTreeMap<InstrumentId, nautilus_core::UUID4>,
+    pending_predict_depth_seals: BTreeSet<InstrumentId>,
+    pending_predict_trade_seals: BTreeSet<InstrumentId>,
     instrument_failure_cursor: u64,
     /// Subscribe + request custom payloads share one writer. Segment mode uses
     /// `*.parquet.part` + wall-clock seal (same as market data); chunked mode keeps
@@ -182,6 +187,7 @@ pub struct CatalogCaptureActor {
         BTreeMap<CryptoUpDownSelectorKey, predict::PredictNativeSubscription>,
     book_delta_runtime: Option<BackgroundCaptureRuntime<OrderBookDeltas, BookDeltaCatalogSink>>,
     book_delta_recovery: BTreeSet<InstrumentId>,
+    book_delta_baselines: BTreeSet<InstrumentId>,
     book_delta_failure_cursor: u64,
     binance_client_routes: BTreeMap<InstrumentId, ClientId>,
     binance_futures_client_id: Option<ClientId>,
@@ -258,6 +264,8 @@ impl CatalogCaptureActor {
         let rolling_hip4 = config.hip4_rolling.is_some();
         let paired_matched_sports = config.matched_sports_config.is_some();
         let rolling_lighter = !config.lighter_updown.is_empty();
+        let capture_audit =
+            rolling_hip4 || paired_matched_sports || config.dynamic_hip4_universe.is_some();
         let flags = config.plan.family_runtime_flags();
         let predict_selectors = predict_selector_keys(&config.plan)?;
         // A rolling Predict selector discovers both BinaryOption definitions at runtime.
@@ -265,6 +273,7 @@ impl CatalogCaptureActor {
         // for replay before the first orderbook snapshot is written.
         let captures_dynamic_predict_instruments = !predict_selectors.is_empty();
         let worker_count = config.plan.enabled_background_worker_count()
+            + usize::from(capture_audit)
             + usize::from(
                 (captures_dynamic_predict_instruments
                     || rolling_lighter
@@ -410,6 +419,14 @@ impl CatalogCaptureActor {
             },
         )?;
         let catalog_root = catalog_root_from_uri(&config.capture.catalog_uri)?;
+        let audit_runtime = capture_audit
+            .then(|| {
+                BackgroundCaptureRuntime::new(
+                    capture.clone(),
+                    crate::actor_runtime::AuditSink(catalog_root.clone()),
+                )
+            })
+            .transpose()?;
         let initial_materialized_plan = config.plan.clone();
         let supplemental_plan = supplemental_capture_plan(
             &initial_materialized_plan,
@@ -440,7 +457,12 @@ impl CatalogCaptureActor {
             supplemental_plan,
             plan: config.plan,
             instrument_runtime,
+            audit_runtime,
             pending_instrument_definitions: BTreeSet::new(),
+            hip4_definition_writes: BTreeMap::new(),
+            matched_definition_requests: BTreeMap::new(),
+            pending_predict_depth_seals: BTreeSet::new(),
+            pending_predict_trade_seals: BTreeSet::new(),
             instrument_failure_cursor: 0,
             custom_data_runtime,
             predict_custom_data_runtimes,
@@ -458,6 +480,7 @@ impl CatalogCaptureActor {
             bar_runtime,
             book_delta_runtime,
             book_delta_recovery: BTreeSet::new(),
+            book_delta_baselines: BTreeSet::new(),
             book_delta_failure_cursor: 0,
             book_depth_runtime,
             predict_native_subscriptions: BTreeMap::new(),
@@ -504,6 +527,7 @@ impl CatalogCaptureActor {
             self.bar_runtime.is_some(),
             self.book_delta_runtime.is_some(),
         ]) + usize::from(self.book_depth_runtime.is_some())
+            + usize::from(self.audit_runtime.is_some())
             + self.predict_custom_data_runtimes.len()
     }
 
@@ -527,6 +551,7 @@ impl CatalogCaptureActor {
             &mut families,
             &mut aggregated,
         );
+        collect_family_metrics("audit", &self.audit_runtime, &mut families, &mut aggregated);
         for (selector_key, runtime) in &self.predict_custom_data_runtimes {
             let metrics = runtime.metrics();
             aggregated.merge(&metrics);
@@ -1124,6 +1149,58 @@ mod tests {
         assert_eq!(rows.len(), initial.deltas.len() + 1);
         assert_eq!(rows.last().unwrap(), &row);
         drop(actor);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn bitfinex_invalidation_is_a_gap_and_replacement_remains_a_source_frame() {
+        use catalog_capture_core::{plan::BookDeltasCaptureSpec, read_book_replay_windows};
+        use nautilus_model::enums::{BookType, RecordFlag};
+
+        let root = std::env::temp_dir().join(format!(
+            "capture-l3-source-gap-{}",
+            nautilus_core::UUID4::new()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let id = InstrumentId::from("BTCUSD.BITFINEX");
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan {
+                book_deltas: vec![BookDeltasCaptureSpec {
+                    instrument_id: id,
+                    book_type: BookType::L3_MBO,
+                    depth: Some(250),
+                }],
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        let book = OrderBook::new(id, BookType::L3_MBO);
+        let first = book.to_deltas(100.into(), 100.into());
+        actor.submit_book_deltas(&first).unwrap();
+        let mut invalidation = OrderBookDelta::clear(id, 0, 110.into(), 110.into());
+        invalidation.flags = RecordFlag::F_LAST as u8;
+        actor
+            .submit_book_deltas(&OrderBookDeltas::new(id, vec![invalidation]))
+            .unwrap();
+        let next = book.to_deltas(120.into(), 120.into());
+        actor.submit_book_deltas(&next).unwrap();
+        assert!(actor.metrics_snapshot_data().has_recording_failure());
+        actor.shutdown_all().unwrap();
+        let windows = read_book_replay_windows(&root, id).unwrap();
+        assert_eq!(windows.len(), 2);
+        assert_eq!(windows[0].data[0].deltas, first.deltas);
+        assert_eq!(windows[1].data[0].deltas, next.deltas);
+        assert_eq!(
+            windows
+                .iter()
+                .map(|window| window.data.len())
+                .sum::<usize>(),
+            2
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1875,6 +1952,24 @@ mod tests {
             .on_instrument(&InstrumentAny::CurrencyPair(new_inst))
             .expect("on_instrument");
 
+        assert!(actor.pending_market_data.contains(&new_id));
+        assert!(!actor.market_data_live.contains(&new_id));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while !actor.market_data_live.contains(&new_id) {
+            actor
+                .on_time_event(&nautilus_common::timer::TimeEvent::new(
+                    METRICS_EXPORT_TIMER.into(),
+                    nautilus_core::UUID4::new(),
+                    0.into(),
+                    0.into(),
+                ))
+                .unwrap();
+            assert!(
+                std::time::Instant::now() < deadline,
+                "definition writer acknowledgement"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
         assert!(
             !actor.pending_market_data.contains(&new_id),
             "pending cleared once instrument is ready"

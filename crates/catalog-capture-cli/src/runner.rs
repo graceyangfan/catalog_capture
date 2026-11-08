@@ -16,21 +16,21 @@ use std::{
     collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
+    sync::{Arc, OnceLock, RwLock},
     time::Duration,
 };
 
 use anyhow::{Context, Result, bail};
-use catalog_capture_core::capture_run::RunStatus;
 #[cfg(feature = "venue-hyperliquid")]
 use catalog_capture_core::expand_hip4_universe;
 use catalog_capture_core::{
     CaptureMetricsSnapshot, CapturePlan, CaptureRunInput, CaptureRunVenueRecord,
     LayoutCompatibility, OptionUniverseVenueKind, ResolvedHip4Universe, ResolvedOptionUniverse,
     append_hip4_universe_resolution_records, append_option_universe_resolution_records,
-    catalog_root_from_uri, derive_perp_instrument_id, estimate_peak_buffered_bytes,
-    expand_option_universe, format_budget_warning, format_buffer_estimate, merge_capture_plans,
-    new_capture_run_record, plan_instrument_ids, write_capture_run_record,
+    capture_run::RunStatus, catalog_root_from_uri, derive_perp_instrument_id,
+    estimate_peak_buffered_bytes, expand_option_universe, format_budget_warning,
+    format_buffer_estimate, merge_capture_plans, new_capture_run_record, plan_instrument_ids,
+    write_capture_run_record,
 };
 use catalog_capture_runtime_adapter::{
     CatalogCaptureActor, CatalogCaptureActorConfig, DynamicHip4UniverseConfig,
@@ -47,6 +47,8 @@ use nautilus_binance::{
     config::BinanceDataClientConfig,
     factories::BinanceDataClientFactory,
 };
+#[cfg(feature = "venue-bitfinex")]
+use nautilus_bitfinex::{BITFINEX, BitfinexDataClientConfig, BitfinexDataClientFactory};
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::{cache::CacheConfig, enums::Environment};
@@ -440,6 +442,21 @@ pub async fn run_capture_with_plan_and_reports(
                     }),
                 )?;
             }
+            #[cfg(feature = "venue-bitfinex")]
+            VenueRuntimeConfig::Bitfinex { id } => {
+                let instruments = plan_instrument_ids(&plan)
+                    .into_iter()
+                    .filter(|id| id.venue.as_str() == BITFINEX)
+                    .collect();
+                builder = builder.add_data_client(
+                    Some(id.clone()),
+                    Box::new(BitfinexDataClientFactory),
+                    Box::new(BitfinexDataClientConfig {
+                        instruments,
+                        ..Default::default()
+                    }),
+                )?;
+            }
             #[cfg(feature = "venue-extended")]
             VenueRuntimeConfig::Extended { id, environment } => {
                 let load_ids = plan_instrument_ids(&plan)
@@ -590,6 +607,8 @@ pub async fn run_capture_with_plan_and_reports(
     let quality_store = Arc::clone(&metrics_snapshot);
     let quality_root = catalog_dir.clone();
     let quality_run_id = run_id.clone();
+    let pressure_failure = Arc::new(OnceLock::<String>::new());
+    let quality_pressure = Arc::clone(&pressure_failure);
     let quality_task = tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
         let mut previous = (0, 0, 0, None, Vec::new());
@@ -603,24 +622,52 @@ pub async fn run_capture_with_plan_and_reports(
                     };
                     let generations = snapshot.families.iter().filter(|family| family.failures.generation > 0)
                         .map(|family| (family.family.clone(), family.failures.generation)).collect::<Vec<_>>();
-                    let faults = (snapshot.aggregated.dropped_items, snapshot.aggregated.write_errors, snapshot.aggregated.failed_workers, snapshot.failure.clone(), generations);
+                    let pressure = quality_pressure.get();
+                    let reason = pressure.or(snapshot.failure.as_ref());
+                    let faults = (snapshot.aggregated.dropped_items, snapshot.aggregated.write_errors, snapshot.aggregated.failed_workers, reason.cloned(), generations);
                     if faults == previous { continue; }
-                    match append_capture_quality_record(&quality_root, &quality_run_id, RunStatus::InProgress, &snapshot, snapshot.failure.as_deref()) {
-                        Ok(()) => previous = faults,
-                        Err(error) => log::error!("capture quality journal failed (will retry): {error:#}"),
+                    let status = if pressure.is_some() { RunStatus::Failed } else { RunStatus::InProgress };
+                    let root = quality_root.clone();
+                    let run_id = quality_run_id.clone();
+                    let reason = reason.cloned();
+                    let recorded = tokio::task::spawn_blocking(move || {
+                        append_capture_quality_record(&root, &run_id, status, &snapshot, reason.as_deref())
+                    }).await;
+                    match recorded {
+                        Ok(Ok(())) => previous = faults,
+                        Ok(Err(error)) => log::error!("capture quality journal failed (will retry): {error:#}"),
+                        Err(error) => log::error!("capture quality journal worker failed: {error}"),
                     }
                 }
             }
         }
     });
     let capture_seconds = config.runtime.capture_seconds;
+    let pressure_config = config.runtime.pressure.clone();
+    let pressure_metrics = Arc::clone(&metrics_snapshot);
+    let stop_pressure = Arc::clone(&pressure_failure);
+    let stop_run_id = run_id.clone();
     let stop_task = tokio::spawn(async move {
-        wait_for_capture_shutdown(capture_seconds).await;
+        tokio::select! {
+            () = wait_for_capture_shutdown(capture_seconds) => {}
+            reason = crate::pressure::monitor(&pressure_config, &stop_handle, &pressure_metrics) => {
+                log::error!("capture run {stop_run_id}: {reason}");
+                let _ = stop_pressure.set(reason);
+            }
+        }
+        if let Some(unit) = std::env::var_os("CATALOG_CAPTURE_SYSTEMD_UNIT")
+            && let Err(error) = crate::pressure::request_service_stop(&unit).await
+        {
+            log::error!(
+                "capture run {stop_run_id}: could not start service stop deadline: {error:#}"
+            );
+        }
         stop_handle.stop();
     });
 
     let node_result = node.run().await;
     stop_task.abort();
+    let _ = stop_task.await;
     let _ = quality_stop.send(());
     quality_task
         .await
@@ -635,7 +682,14 @@ pub async fn run_capture_with_plan_and_reports(
         .read()
         .map_err(|error| anyhow::anyhow!("capture quality lock poisoned: {error}"))?
         .clone();
-    let result = validate_capture_outcome(&snapshot, node_result);
+    let result = match (
+        pressure_failure.get().cloned(),
+        validate_capture_outcome(&snapshot, node_result),
+    ) {
+        (Some(reason), Err(error)) => Err(error.context(reason)),
+        (Some(reason), Ok(())) => Err(anyhow::anyhow!(reason)),
+        (None, result) => result,
+    };
     let error = result.as_ref().err().map(|error| format!("{error:#}"));
     let status = if result.is_ok() {
         RunStatus::Completed
@@ -804,6 +858,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
         VenueRuntimeConfig::LighterBinary { .. } => "lighter_binary",
         #[cfg(feature = "venue-extended")]
         VenueRuntimeConfig::Extended { .. } => "extended",
+        #[cfg(feature = "venue-bitfinex")]
+        VenueRuntimeConfig::Bitfinex { .. } => "bitfinex",
         #[cfg(feature = "venue-okx")]
         VenueRuntimeConfig::Okx { .. } => "okx",
         #[cfg(feature = "venue-predict")]
@@ -831,6 +887,8 @@ fn compiled_venue_features() -> Vec<String> {
         "venue-lighter-ext",
         #[cfg(feature = "venue-extended")]
         "venue-extended",
+        #[cfg(feature = "venue-bitfinex")]
+        "venue-bitfinex",
         #[cfg(feature = "venue-predict")]
         "venue-predict",
         #[cfg(feature = "venue-polymarket")]
@@ -984,6 +1042,14 @@ pub fn emit_capture_advisories(config: &EffectiveConfig) {
 }
 
 fn validate_runtime_switches(config: &EffectiveConfig) -> Result<()> {
+    anyhow::ensure!(
+        config.runtime.pressure.max_rss_bytes != Some(0),
+        "runtime.pressure.max_rss_bytes must be > 0"
+    );
+    anyhow::ensure!(
+        config.runtime.pressure.max_data_queue_depth != Some(0),
+        "runtime.pressure.max_data_queue_depth must be > 0"
+    );
     ensure_positive_u64(
         config.runtime.shutdown_timeout_secs,
         "runtime.shutdown_timeout_secs must be > 0",
@@ -1056,10 +1122,117 @@ fn lighter_binary_market_ids(plan: &CapturePlan) -> Result<Vec<u64>> {
     Ok(market_ids)
 }
 
+#[cfg(feature = "venue-bitfinex")]
+fn validate_bitfinex(config: &EffectiveConfig) -> Result<()> {
+    use std::collections::BTreeSet;
+
+    use nautilus_bitfinex::{DEFAULT_DEPTH, supported_instrument, validate_depth};
+    use nautilus_model::{enums::BookType, identifiers::InstrumentId};
+
+    let is_bitfinex = |id: InstrumentId| id.venue.as_str() == BITFINEX;
+    let count = config
+        .venues
+        .iter()
+        .filter(|venue| matches!(venue, VenueRuntimeConfig::Bitfinex { .. }))
+        .count();
+    let plan = &config.plan;
+    let ids: BTreeSet<_> = plan_instrument_ids(plan)
+        .into_iter()
+        .filter(|id| is_bitfinex(*id))
+        .collect();
+    if count == 0 && ids.is_empty() {
+        return Ok(());
+    }
+    anyhow::ensure!(
+        count == 1,
+        "Bitfinex capture requires exactly one bitfinex venue"
+    );
+    anyhow::ensure!(
+        !ids.is_empty() && ids.iter().copied().all(supported_instrument),
+        "Bitfinex capture supports BTCUSD.BITFINEX and ETHUSD.BITFINEX"
+    );
+    anyhow::ensure!(
+        config.capture.lifecycle.is_segment_mode(),
+        "Bitfinex R0 capture requires segment mode"
+    );
+    let unsupported = plan
+        .book_depth
+        .iter()
+        .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .quotes
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .trades
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .bars
+            .iter()
+            .any(|spec| is_bitfinex(spec.bar_type.instrument_id()))
+        || plan
+            .mark_prices
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .index_prices
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .funding_rates
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .instrument_statuses
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .instrument_closes
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .option_greeks
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id))
+        || plan
+            .forward_prices
+            .iter()
+            .any(|spec| is_bitfinex(spec.instrument_id));
+    anyhow::ensure!(
+        !unsupported,
+        "Bitfinex capture supports instruments and L3_MBO book_deltas"
+    );
+    let mut book_ids = BTreeSet::new();
+    for spec in plan
+        .book_deltas
+        .iter()
+        .filter(|spec| is_bitfinex(spec.instrument_id))
+    {
+        anyhow::ensure!(
+            spec.book_type == BookType::L3_MBO,
+            "Bitfinex R0 requires L3_MBO"
+        );
+        validate_depth(spec.depth.unwrap_or(DEFAULT_DEPTH))?;
+        anyhow::ensure!(
+            book_ids.insert(spec.instrument_id),
+            "duplicate Bitfinex R0 profile for {}",
+            spec.instrument_id
+        );
+    }
+    anyhow::ensure!(
+        !book_ids.is_empty(),
+        "Bitfinex capture requires at least one L3_MBO book_deltas selector"
+    );
+    Ok(())
+}
+
 fn validate_runtime_dependencies(config: &EffectiveConfig) -> Result<()> {
     if config.venues.is_empty() {
         bail!("at least one venue is required");
     }
+    #[cfg(feature = "venue-bitfinex")]
+    validate_bitfinex(config)?;
     #[cfg(feature = "venue-lighter-ext")]
     if config
         .venues
@@ -1807,8 +1980,62 @@ mod predict_tests {
 
 #[cfg(test)]
 mod capture_quality_tests {
-    use super::*;
     use catalog_capture_core::capture_run::RunStatus;
+
+    use super::*;
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[tokio::test]
+    async fn pressure_stop_is_persisted_as_a_failed_run() {
+        let root = std::env::temp_dir().join(format!("capture-pressure-{}", UUID4::new()));
+        let plan = CapturePlan {
+            instruments: vec![catalog_capture_core::InstrumentCaptureSpec {
+                instrument_id: "AUD/USD.SIM".into(),
+            }],
+            ..Default::default()
+        };
+        let mut runtime = crate::config::RuntimeConfig {
+            capture_seconds: 0,
+            shutdown_timeout_secs: 1,
+            delay_post_stop_secs: 1,
+            ..Default::default()
+        };
+        runtime.pressure.max_rss_bytes = Some(1);
+        let config = EffectiveConfig {
+            runtime,
+            capture: catalog_capture_core::CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            plan: plan.clone(),
+            option_universes: Vec::new(),
+            hip4_universes: Vec::new(),
+            hip4_rolling: None,
+            lighter_updown: Vec::new(),
+            matched_sports: None,
+            venues: Vec::new(),
+        };
+        let result = tokio::time::timeout(
+            Duration::from_secs(15),
+            run_capture_with_plan_and_reports(
+                config,
+                plan,
+                &[],
+                &[],
+                &[],
+                PostRunReportOptions::default(),
+            ),
+        )
+        .await;
+        let journal = fs::read_to_string(root.join("metadata/capture_quality.jsonl"));
+        fs::remove_dir_all(root).unwrap();
+        assert!(result.unwrap().unwrap_err().to_string().contains("RSS"));
+        let journal = journal.unwrap();
+        let last: serde_json::Value =
+            serde_json::from_str(journal.lines().last().unwrap()).unwrap();
+        assert_eq!(last["status"], "failed");
+        assert!(last["error"].as_str().unwrap().contains("RSS"));
+    }
 
     #[test]
     fn outcome_rejects_admission_write_and_finalization_failures() {

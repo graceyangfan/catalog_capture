@@ -13,11 +13,11 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Complete-refresh reconciliation; independent events never wait for a predecessor to close.
-use super::*;
-use crate::actor_runtime::optional_flush_all;
-use crate::matched_sports::Preparation;
+
+use anyhow::Context;
 use catalog_capture_core::{
-    capture_plan_difference,
+    background::PendingFlush,
+    capture_plan_difference, merge_capture_plans,
     paired_markets::{MatchedMarket, MatchedUniverse},
 };
 use nautilus_common::{
@@ -25,7 +25,12 @@ use nautilus_common::{
     msgbus::{self, switchboard},
 };
 use serde_json::json;
-use std::io::Write;
+
+use super::*;
+use crate::{
+    actor_runtime::{DefinitionWrite, writer_failure_generation},
+    matched_sports::{Preparation, WriterGenerations},
+};
 pub(super) const TIMER: &str = "matched_sports_capture_refresh";
 
 impl CatalogCaptureActor {
@@ -54,14 +59,15 @@ impl CatalogCaptureActor {
             .matched_sports_inbox
             .as_ref()
             .and_then(|i| i.take(self.matched_sports.generation));
-        if let Some(update) = update {
-            match update {
-                Ok(universe) => self.apply_matched_sports_universe(universe)?,
-                Err(reason) => self
-                    .matched_sports_audit("discovery_failed_retained", json!({"reason":reason}))?,
+        match update {
+            Some(Ok(universe)) => self.apply_matched_sports_universe(universe)?,
+            Some(Err(reason)) => {
+                self.matched_sports_audit("discovery_failed_retained", json!({"reason":reason}))?;
+                self.reconcile_matched_sports()?;
             }
+            None => self.reconcile_matched_sports()?,
         }
-        self.reconcile_matched_sports()?;
+        self.refresh_matched_sports_definitions();
         let retired: Vec<_> = self
             .matched_sports
             .retiring
@@ -122,14 +128,19 @@ impl CatalogCaptureActor {
     }
 
     fn matched_sports_ready(&self, market: &MatchedMarket) -> bool {
-        market.instrument_ids().all(|id| {
-            self.matched_sports.instrument_versions.contains_key(&id)
-                && !self.pending_instrument_definitions.contains(&id)
-        }) && market.recording_instrument_ids().all(|id| {
-            self.market_data_live.contains(&id)
-                && self.matched_sports.observed.contains_key(&id)
-                && self.matched_sports.usable_books.contains(&id)
-        })
+        !self
+            .matched_sports
+            .definition_writes
+            .contains_key(&market.predict_market_id)
+            && market.instrument_ids().all(|id| {
+                self.matched_sports.instrument_versions.contains_key(&id)
+                    && !self.pending_instrument_definitions.contains(&id)
+            })
+            && market.recording_instrument_ids().all(|id| {
+                self.market_data_live.contains(&id)
+                    && self.matched_sports.observed.contains_key(&id)
+                    && self.matched_sports.usable_books.contains(&id)
+            })
     }
 
     fn reconcile_matched_sports(&mut self) -> Result<()> {
@@ -156,7 +167,8 @@ impl CatalogCaptureActor {
             .retry_after
             .retain(|id, deadline| candidates.contains_key(id) && *deadline > now);
         let mut events = Vec::new();
-        let mut preparing = self.matched_sports.preparing.clone().filter(|p| {
+        let mut failed_preparation = None;
+        let mut preparing = self.matched_sports.preparing.take().filter(|p| {
             config.preload_next
                 && candidates.get(&p.market_id) == self.matched_sports.markets.get(&p.market_id)
         });
@@ -167,10 +179,11 @@ impl CatalogCaptureActor {
                     events.push(("prepared", json!({"predict_market_id":p.market_id})));
                 } else {
                     p.started_ns = now;
+                    p.flushes = None;
                 }
                 p.ready = ready;
             }
-            if !p.ready
+            if (!p.ready || p.flushes.is_some())
                 && now.saturating_sub(p.started_ns)
                     >= config.preparation_timeout_secs * 1_000_000_000
             {
@@ -198,26 +211,43 @@ impl CatalogCaptureActor {
                             .iter()
                             .any(|candidate| !self.matched_sports.active.contains(candidate))))
         });
-        if let Some(p) = &preparing {
+        if let Some(p) = &mut preparing {
             let ended = active
                 .iter()
                 .find(|id| candidates.get(id) != self.matched_sports.markets.get(id))
                 .copied();
             if p.ready && (active.len() < config.max_markets || ended.is_some()) {
-                // The initial book and definitions must have reached their sinks before old subscriptions exit.
-                optional_flush_all(&self.instrument_runtime)?;
-                optional_flush_all(&self.book_depth_runtime)?;
-                optional_flush_all(&self.book_delta_runtime)?;
-                optional_flush_all(&self.trade_runtime)?;
-                if let Some(id) = ended {
-                    active.remove(&id);
+                match self.poll_preparation_writes(p, now) {
+                    Ok(true) => {
+                        if let Some(id) = ended {
+                            active.remove(&id);
+                        }
+                        active.insert(p.market_id);
+                        events.push((
+                            "promoted",
+                            json!({"predict_market_id":p.market_id,"replaced_market_id":ended}),
+                        ));
+                        preparing = None;
+                    }
+                    Ok(false) => {}
+                    Err(error) => {
+                        let deadline =
+                            now.saturating_add(config.preparation_retry_secs * 1_000_000_000);
+                        self.matched_sports
+                            .retry_after
+                            .insert(p.market_id, deadline);
+                        events.push((
+                            "preparation_write_failed",
+                            json!({"predict_market_id":p.market_id,"retry_after_ns":deadline,"reason":format!("{error:#}")}),
+                        ));
+                        failed_preparation = Some(p.market_id);
+                        let _ = self.record_capture_result::<()>(Err(error.context(format!(
+                            "matched sports handover failed for market {}",
+                            p.market_id
+                        ))));
+                        preparing = None;
+                    }
                 }
-                active.insert(p.market_id);
-                events.push((
-                    "promoted",
-                    json!({"predict_market_id":p.market_id,"replaced_market_id":ended}),
-                ));
-                preparing = None;
             }
         }
         for id in &admissions {
@@ -241,6 +271,13 @@ impl CatalogCaptureActor {
                 market_id: *id,
                 started_ns: now,
                 ready: false,
+                writer_generations: WriterGenerations {
+                    instruments: writer_failure_generation(&self.instrument_runtime),
+                    depth: writer_failure_generation(&self.book_depth_runtime),
+                    deltas: writer_failure_generation(&self.book_delta_runtime),
+                    trades: writer_failure_generation(&self.trade_runtime),
+                },
+                flushes: None,
             });
         }
         let mut next = BTreeMap::new();
@@ -255,34 +292,128 @@ impl CatalogCaptureActor {
         if let Some(p) = &preparing {
             next.insert(p.market_id, candidates[&p.market_id].clone());
         }
-        anyhow::ensure!(
-            next.len() <= config.max_markets + usize::from(config.preload_next),
-            "preparation resource budget exceeded"
-        );
         let unique: BTreeSet<_> = next.values().map(|m| &m.polymarket_condition_id).collect();
-        anyhow::ensure!(
-            unique.len() == next.len(),
-            "overlapping Polymarket preparation identity"
-        );
+        let within_budget = next.len() <= config.max_markets + usize::from(config.preload_next);
+        if !within_budget || unique.len() != next.len() {
+            // The old plan still owns its streams. Keep only a preparation that
+            // already belonged to that plan and has the same validated identity.
+            self.matched_sports.preparing = preparing.filter(|p| {
+                self.matched_sports.markets.get(&p.market_id) == candidates.get(&p.market_id)
+                    && self.matched_sports.markets.contains_key(&p.market_id)
+                    && !self.matched_sports.active.contains(&p.market_id)
+            });
+            anyhow::ensure!(within_budget, "preparation resource budget exceeded");
+            anyhow::bail!("overlapping Polymarket preparation identity");
+        }
         self.matched_sports.active = active;
         self.matched_sports.preparing = preparing;
-        self.apply_matched_sports_owned(next, &universe)?;
+        self.apply_matched_sports_owned(next, &universe, failed_preparation)?;
         for (kind, detail) in events {
             self.matched_sports_audit(kind, detail)?;
         }
         Ok(())
     }
 
+    fn poll_preparation_writes(&self, preparation: &mut Preparation, now: u64) -> Result<bool> {
+        if let Some(flushes) = &mut preparation.flushes {
+            // Each reply is single-use. Keep only writers that have yet to respond.
+            let mut index = 0;
+            while index < flushes.len() {
+                if flushes[index].try_complete()? {
+                    flushes.swap_remove(index);
+                } else {
+                    index += 1;
+                }
+            }
+            return Ok(flushes.is_empty());
+        }
+
+        let market = &self.matched_sports.markets[&preparation.market_id];
+        preparation.flushes =
+            Some(self.enqueue_preparation_writes(market, &preparation.writer_generations)?);
+        preparation.started_ns = now;
+        Ok(false)
+    }
+
+    fn enqueue_preparation_writes(
+        &self,
+        market: &MatchedMarket,
+        generations: &WriterGenerations,
+    ) -> Result<Vec<PendingFlush>> {
+        let definitions = market
+            .instrument_ids()
+            .map(|id| PartitionKey::market_data("instruments", id).stable_key());
+        let (predict, polymarket): (Vec<_>, Vec<_>) = market
+            .recording_instrument_ids()
+            .partition(|id| id.venue.as_str() == "PREDICT");
+        Ok(vec![
+            self.instrument_runtime
+                .as_ref()
+                .context("matched sports instrument writer unavailable")?
+                .enqueue_partition_flush(definitions.collect(), generations.instruments)?,
+            self.book_depth_runtime
+                .as_ref()
+                .context("matched sports depth writer unavailable")?
+                .enqueue_partition_flush(
+                    predict
+                        .iter()
+                        .map(|id| PartitionKey::catalog_data::<OrderBookDepth>(*id).stable_key())
+                        .collect(),
+                    generations.depth,
+                )?,
+            self.book_delta_runtime
+                .as_ref()
+                .context("matched sports delta writer unavailable")?
+                .enqueue_partition_flush(
+                    polymarket
+                        .iter()
+                        .map(|id| PartitionKey::catalog_data::<OrderBookDelta>(*id).stable_key())
+                        .collect(),
+                    generations.deltas,
+                )?,
+            self.trade_runtime
+                .as_ref()
+                .context("matched sports trade writer unavailable")?
+                .enqueue_partition_flush(
+                    predict
+                        .into_iter()
+                        .chain(polymarket)
+                        .map(|id| PartitionKey::catalog_data::<TradeTick>(id).stable_key())
+                        .collect(),
+                    generations.trades,
+                )?,
+        ])
+    }
+
     fn apply_matched_sports_owned(
         &mut self,
         next: BTreeMap<u64, MatchedMarket>,
         universe: &MatchedUniverse,
+        failed_preparation: Option<u64>,
     ) -> Result<()> {
         if self.matched_sports.markets == next {
             return Ok(());
         }
         let old_plan = self.plan.clone();
+        let mut result = Ok(());
         let previous = std::mem::replace(&mut self.matched_sports.markets, next);
+        self.matched_sports
+            .definition_writes
+            .retain(|id, _| previous.get(id) == self.matched_sports.markets.get(id));
+        let mut bootstrap = BTreeSet::new();
+        let since_generation = writer_failure_generation(&self.instrument_runtime);
+        for (id, market) in &self.matched_sports.markets {
+            if previous.get(id) != Some(market) {
+                self.matched_sports.definition_writes.insert(
+                    *id,
+                    DefinitionWrite {
+                        since_generation,
+                        flush: None,
+                    },
+                );
+                bootstrap.extend(market.instrument_ids());
+            }
+        }
         for (id, market) in &previous {
             if self.matched_sports.markets.get(id) != Some(market) {
                 self.matched_sports.intervals.remove(id);
@@ -296,7 +427,9 @@ impl CatalogCaptureActor {
                     .find(|r| r.predict_market_id == *id)
                     .map_or_else(
                         || {
-                            if self.matched_sports.retry_after.contains_key(id) {
+                            if failed_preparation == Some(*id) {
+                                "preparation_write_failed"
+                            } else if self.matched_sports.retry_after.contains_key(id) {
                                 "preparation_timeout"
                             } else if universe.markets.iter().any(|m| m.predict_market_id == *id) {
                                 "market_identity_or_rules_changed"
@@ -306,16 +439,28 @@ impl CatalogCaptureActor {
                         },
                         |r| r.reason.as_str(),
                     );
-                self.matched_sports_audit(
+                result = result.and(self.matched_sports_audit(
                     "retired",
                     json!({"market":market,"observed_ns":universe.observed_ns,"reason":reason}),
-                )?;
+                ));
             }
         }
         self.sync_plan_state();
         let removed = capture_plan_difference(&old_plan, &self.plan);
         let added = capture_plan_difference(&self.plan, &old_plan);
-        let mut subscribed = removed.clone();
+        let mut subscribed =
+            capture_plan_difference(&removed, &self.matched_sports.deferred_subscriptions);
+        self.matched_sports.deferred_subscriptions =
+            capture_plan_difference(&self.matched_sports.deferred_subscriptions, &removed);
+        self.matched_sports.deferred_subscriptions = merge_capture_plans(
+            &self.matched_sports.deferred_subscriptions,
+            &CapturePlan {
+                trades: added.trades.clone(),
+                book_depth: added.book_depth.clone(),
+                book_deltas: added.book_deltas.clone(),
+                ..Default::default()
+            },
+        );
         subscribed
             .trades
             .retain(|s| self.market_data_live.contains(&s.instrument_id));
@@ -328,23 +473,23 @@ impl CatalogCaptureActor {
         self.unsubscribe_plan(&subscribed);
         for spec in &removed.trades {
             if let Some(runtime) = &self.trade_runtime {
-                runtime.enqueue_seal_partition(
+                result = result.and(runtime.enqueue_seal_partition(
                     &PartitionKey::catalog_data::<TradeTick>(spec.instrument_id).stable_key(),
-                )?;
+                ));
             }
         }
         for spec in &removed.book_depth {
             if let Some(runtime) = &self.book_depth_runtime {
-                runtime.enqueue_seal_partition(
+                result = result.and(runtime.enqueue_seal_partition(
                     &PartitionKey::catalog_data::<OrderBookDepth>(spec.instrument_id).stable_key(),
-                )?;
+                ));
             }
         }
         for spec in &removed.book_deltas {
             if let Some(runtime) = &self.book_delta_runtime {
-                runtime.enqueue_seal_partition(
+                result = result.and(runtime.enqueue_seal_partition(
                     &PartitionKey::catalog_data::<OrderBookDelta>(spec.instrument_id).stable_key(),
-                )?;
+                ));
             }
         }
         let now = self.clock().timestamp_ns().as_u64();
@@ -359,10 +504,133 @@ impl CatalogCaptureActor {
             }
         }
         // A stale same-venue callback must not be accepted after the plan changes.
-        for id in added.planned_instrument_ids() {
-            self.matched_sports.retiring.remove(&id);
-            self.bootstrap_instrument(id)?;
+        bootstrap.extend(added.planned_instrument_ids());
+        let missing: Vec<_> = bootstrap
+            .iter()
+            .copied()
+            .filter(|id| self.cache().instrument(id).is_none())
+            .collect();
+        if !missing.is_empty() {
+            self.pending_market_data.extend(missing);
+            self.schedule_pending_market_data_retry();
         }
+        for id in bootstrap {
+            self.matched_sports.retiring.remove(&id);
+            result = result.and(self.bootstrap_instrument(id));
+        }
+        result = result.and(self.subscribe_plan(&added));
+        for (id, market) in &self.matched_sports.markets {
+            if previous.get(id) != Some(market) {
+                result = result.and(
+                    self.matched_sports_audit(
+                        if self
+                            .matched_sports
+                            .preparing
+                            .as_ref()
+                            .is_some_and(|p| p.market_id == *id)
+                        {
+                            "preparing"
+                        } else {
+                            "admitted"
+                        },
+                        json!({"market":market,
+                    "predict_recorded_outcomes":[1],"polymarket_recorded_outcomes":"both",
+                    "observed_ns":universe.observed_ns}),
+                    ),
+                );
+            }
+        }
+        result
+    }
+
+    fn refresh_matched_sports_definitions(&mut self) {
+        if self.matched_sports.definition_writes.is_empty() {
+            return;
+        }
+        // A static owner may have submitted its definition before discovery.
+        // Re-admit any known losses before enqueueing a new confirmation.
+        if writer_failure_generation(&self.instrument_runtime) != self.instrument_failure_cursor
+            || self.matched_sports.definition_writes.keys().any(|id| {
+                self.matched_sports.markets[id]
+                    .instrument_ids()
+                    .any(|id| self.pending_instrument_definitions.contains(&id))
+            })
+        {
+            let result = self.retry_instrument_definitions();
+            let _ = self.record_capture_result(result);
+        }
+        let mut confirmed = Vec::new();
+        for (&id, write) in &mut self.matched_sports.definition_writes {
+            let market = &self.matched_sports.markets[&id];
+            let result = if let Some(flush) = &write.flush {
+                flush.try_complete()
+            } else if market.instrument_ids().all(|id| {
+                self.matched_sports.instrument_versions.contains_key(&id)
+                    && !self.pending_instrument_definitions.contains(&id)
+            }) {
+                let partitions = market
+                    .instrument_ids()
+                    .map(|id| PartitionKey::market_data("instruments", id).stable_key())
+                    .collect();
+                self.instrument_runtime
+                    .as_ref()
+                    .context("matched sports instrument writer unavailable")
+                    .and_then(|runtime| {
+                        runtime.enqueue_partition_flush(partitions, write.since_generation)
+                    })
+                    .map(|flush| {
+                        write.flush = Some(flush);
+                        false
+                    })
+            } else {
+                continue;
+            };
+            match result {
+                Ok(true) => confirmed.push(id),
+                Ok(false) => {}
+                Err(error) => {
+                    log::debug!(
+                        "matched sports market {id} definition flush will retry: {error:#}"
+                    );
+                    write.since_generation = writer_failure_generation(&self.instrument_runtime);
+                    write.flush = None;
+                }
+            }
+        }
+        for id in confirmed {
+            self.matched_sports.definition_writes.remove(&id);
+            if let Some(preparation) = self.matched_sports.preparing.as_mut()
+                && preparation.market_id == id
+            {
+                preparation.writer_generations.instruments =
+                    writer_failure_generation(&self.instrument_runtime);
+            }
+            let ids: BTreeSet<_> = self.matched_sports.markets[&id].instrument_ids().collect();
+            let pending = &mut self.matched_sports.deferred_subscriptions;
+            let subscriptions = CapturePlan {
+                trades: pending
+                    .trades
+                    .extract_if(.., |s| ids.contains(&s.instrument_id))
+                    .collect(),
+                book_depth: pending
+                    .book_depth
+                    .extract_if(.., |s| ids.contains(&s.instrument_id))
+                    .collect(),
+                book_deltas: pending
+                    .book_deltas
+                    .extract_if(.., |s| ids.contains(&s.instrument_id))
+                    .collect(),
+                ..Default::default()
+            };
+            self.subscribe_matched_sports_confirmed(&subscriptions, ids);
+        }
+    }
+
+    fn subscribe_matched_sports_confirmed(
+        &mut self,
+        added: &CapturePlan,
+        ids: BTreeSet<InstrumentId>,
+    ) {
         // An instrument can already be live for a static trade selector. Its new book
         // family still needs a command even though the per-instrument gate is already set.
         for spec in &added.trades {
@@ -398,27 +666,9 @@ impl CatalogCaptureActor {
                 );
             }
         }
-        self.subscribe_plan(&added)?;
-        for (id, market) in &self.matched_sports.markets {
-            if previous.get(id) != Some(market) {
-                self.matched_sports_audit(
-                    if self
-                        .matched_sports
-                        .preparing
-                        .as_ref()
-                        .is_some_and(|p| p.market_id == *id)
-                    {
-                        "preparing"
-                    } else {
-                        "admitted"
-                    },
-                    json!({"market":market,
-                    "predict_recorded_outcomes":[1],"polymarket_recorded_outcomes":"both",
-                    "observed_ns":universe.observed_ns}),
-                )?;
-            }
+        for id in ids {
+            self.subscribe_market_data_for_instrument(id);
         }
-        Ok(())
     }
     pub(super) fn observe_matched_sports(
         &mut self,
@@ -482,18 +732,22 @@ impl CatalogCaptureActor {
     }
     pub(super) fn stop_matched_sports(&mut self) -> Result<()> {
         self.clock().cancel_timer(TIMER);
-        if let Some(inbox) = &self.matched_sports_inbox {
+        let audit = if let Some(inbox) = &self.matched_sports_inbox {
             inbox.stop();
             self.matched_sports_audit(
                 "stopped",
                 json!({"open_intervals":self.matched_sports.intervals,
                 "local_ns":self.clock().timestamp_ns().as_u64()}),
-            )?;
-        }
+            )
+        } else {
+            Ok(())
+        };
         let old_plan = self.plan.clone();
+        let deferred = std::mem::take(&mut self.matched_sports.deferred_subscriptions);
         self.matched_sports = Default::default();
         self.sync_plan_state();
-        let mut removed = capture_plan_difference(&old_plan, &self.plan);
+        let mut removed =
+            capture_plan_difference(&capture_plan_difference(&old_plan, &self.plan), &deferred);
         removed
             .trades
             .retain(|s| self.market_data_live.contains(&s.instrument_id));
@@ -509,36 +763,30 @@ impl CatalogCaptureActor {
                 self.forget_instrument_runtime_state(id);
             }
         }
-        optional_flush_all(&self.instrument_runtime)?;
-        Ok(())
+        audit
     }
     fn matched_sports_audit(&self, kind: &str, detail: serde_json::Value) -> Result<()> {
-        std::fs::create_dir_all(&self.catalog_root)?;
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(self.catalog_root.join("matched_sports_capture.jsonl"))?;
-        serde_json::to_writer(
-            &mut file,
-            &json!({"kind":kind,"detail":detail,
-            "generation":self.matched_sports.generation,"local_ns":self.clock().timestamp_ns().as_u64()}),
-        )?;
-        file.write_all(b"\n")?;
-        Ok(())
+        self.submit_audit(
+            "matched_sports_capture.jsonl",
+            json!({"kind":kind,"detail":detail,
+                "generation":self.matched_sports.generation,"local_ns":self.clock().timestamp_ns().as_u64()}),
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::matched_sports::MatchedSportsDiscoveryInbox;
+    use std::{cell::RefCell, rc::Rc};
+
     use catalog_capture_core::{
         CaptureConfig,
         paired_markets::{MatchedMarket, MatchedOutcome, MatchedSportsCaptureConfig},
     };
     use nautilus_common::{actor::Component, cache::Cache, clock::VirtualClock};
     use nautilus_model::{identifiers::TraderId, stubs::TestDefault};
-    use std::{cell::RefCell, rc::Rc};
+
+    use super::*;
+    use crate::{actor_runtime::optional_flush_all, matched_sports::MatchedSportsDiscoveryInbox};
     fn pair(id: u64) -> MatchedMarket {
         let condition = format!("0x{id:064x}");
         MatchedMarket {
@@ -613,6 +861,72 @@ mod tests {
         }
         counts
     }
+    #[test]
+    fn sports_definition_retries_only_after_native_terminal_response() {
+        use nautilus_common::{
+            actor::registry::{deregister_actor, get_actor_unchecked, register_actor},
+            messages::data::{DataCommand, DataResponseEnvelope, RequestCommand},
+            msgbus::{MessagingSwitchboard, typed_handler::TypedIntoHandler},
+        };
+        let root =
+            std::env::temp_dir().join(format!("sports-terminal-{}", nautilus_core::UUID4::new()));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut config = CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan::default(),
+        );
+        config.matched_sports_config = Some(MatchedSportsCaptureConfig::default());
+        config.matched_sports_inbox = Some(Arc::new(MatchedSportsDiscoveryInbox::default()));
+        let market = pair(57);
+        let id = market.outcomes[0].polymarket_instrument;
+        let commands = Rc::new(RefCell::new(Vec::new()));
+        let received = commands.clone();
+        let endpoint = MessagingSwitchboard::data_engine_queue_execute();
+        msgbus::register_data_command_endpoint(
+            endpoint,
+            TypedIntoHandler::from(move |command: DataCommand| {
+                if let DataCommand::Request(RequestCommand::Instrument(request)) = command {
+                    received.borrow_mut().push(request.request_id);
+                }
+            }),
+        );
+        let mut actor = CatalogCaptureActor::new(config).unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                Rc::new(RefCell::new(Cache::new(None, None))),
+            )
+            .unwrap();
+        actor
+            .matched_sports
+            .markets
+            .insert(market.predict_market_id, market);
+        let actor_id = actor.core.actor_id().inner();
+        register_actor(actor);
+        let actor = || get_actor_unchecked::<CatalogCaptureActor>(&actor_id);
+        for attempt in 1..=4 {
+            for _ in 0..3 {
+                actor().bootstrap_instrument(id).unwrap();
+            }
+            assert_eq!(commands.borrow().len(), attempt);
+            let request_id = actor().matched_definition_requests[&id];
+            assert_eq!(actor().core.pending_requests(), [request_id]);
+            msgbus::send_response_envelope(&DataResponseEnvelope::terminal(
+                request_id,
+                Some("injected Gamma failure".into()),
+            ));
+            assert!(actor().core.pending_requests().is_empty());
+            assert!(actor().matched_definition_requests.is_empty());
+        }
+        actor().shutdown_all().unwrap();
+        deregister_actor(&actor_id);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn discovery_reconciles_parallel_events_retains_on_failure_and_preserves_static_owner() {
         let root =
@@ -825,6 +1139,7 @@ mod tests {
                 ..Default::default()
             })
             .unwrap();
+        await_definitions(&mut actor, 501);
         emit_recording_batch(&mut actor, &cache, &first, 1_000_000_000, true);
         assert_eq!(actor.matched_sports.active, BTreeSet::from([501]));
         assert!(actor.matched_sports.preparing.is_none());
@@ -974,6 +1289,7 @@ mod tests {
                 .planned_instrument_ids()
                 .contains(&next.outcomes[0].polymarket_instrument)
         );
+        optional_flush_all(&actor.audit_runtime).unwrap();
         let audit = std::fs::read_to_string(root.join("matched_sports_capture.jsonl")).unwrap();
         assert!(
             audit
@@ -1042,6 +1358,8 @@ mod tests {
         };
         inbox.publish(generation, Ok(universe.clone()));
         actor.refresh_matched_sports().unwrap();
+        assert!(md_counts(&commands.borrow()).is_empty());
+        await_definitions(&mut actor, 201);
         assert_eq!(md_counts(&commands.borrow()).values().sum::<usize>(), 6);
         emit_recording_batch(&mut actor, &cache, &first, HOUR - 1_500_000_000, true);
         assert_eq!(
@@ -1056,6 +1374,8 @@ mod tests {
             actor.on_instrument(&definition).unwrap();
             actor.on_instrument(&definition).unwrap();
         }
+        assert_eq!(md_counts(&commands.borrow()).values().sum::<usize>(), 6);
+        await_definitions(&mut actor, 202);
         clock
             .borrow_mut()
             .advance_time((HOUR - 1_000_000_000).into(), true);
@@ -1101,6 +1421,21 @@ mod tests {
             }),
         );
         actor.refresh_matched_sports().unwrap();
+        assert_eq!(actor.matched_sports.active, BTreeSet::from([201]));
+        assert_eq!(commands.borrow().len(), before_promotion);
+        let candidate_id = next.outcomes[0].polymarket_instrument;
+        actor
+            .observe_matched_sports(candidate_id, false, false)
+            .unwrap();
+        let preparing = actor.matched_sports.preparing.as_ref().unwrap();
+        assert!(!preparing.ready);
+        assert!(preparing.flushes.is_none());
+        actor
+            .observe_matched_sports(candidate_id, false, true)
+            .unwrap();
+        assert_eq!(actor.matched_sports.active, BTreeSet::from([201]));
+        assert_eq!(commands.borrow().len(), before_promotion);
+        await_promotion(&mut actor, 202);
         assert_eq!(
             actor
                 .matched_sports
@@ -1271,6 +1606,7 @@ mod tests {
             }),
         );
         actor.refresh_matched_sports().unwrap();
+        await_definitions(&mut actor, 301);
         emit_recording_batch(&mut actor, &cache, &first, 1_000_000_000, true);
         assert_eq!(actor.matched_sports.markets.len(), 2);
         assert_eq!(
@@ -1327,6 +1663,7 @@ mod tests {
             302
         );
         assert!(!actor.matched_sports.preparing.as_ref().unwrap().ready);
+        await_definitions(&mut actor, 302);
         assert!(
             next.recording_instrument_ids()
                 .all(|id| actor.market_data_live.contains(&id))
@@ -1363,6 +1700,8 @@ mod tests {
         );
         clock.borrow_mut().advance_time(10_500_000_000.into(), true);
         emit_recording_batch(&mut actor, &cache, &next, 10_500_000_000, true);
+        assert_eq!(actor.matched_sports.active, BTreeSet::from([301]));
+        await_promotion(&mut actor, 302);
         assert_eq!(actor.matched_sports.active, BTreeSet::from([302]));
         assert_eq!(actor.matched_sports.markets.len(), 1);
         assert!(actor.matched_sports.preparing.is_none());
@@ -1405,6 +1744,331 @@ mod tests {
             endpoint,
             TypedIntoHandler::from(|_: DataCommand| {}),
         );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    fn await_promotion(actor: &mut CatalogCaptureActor, id: u64) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while !actor.matched_sports.active.contains(&id) {
+            actor.refresh_matched_sports().unwrap();
+            assert!(
+                std::time::Instant::now() < deadline,
+                "writer reply timed out"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
+    fn await_definitions(actor: &mut CatalogCaptureActor, id: u64) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while actor.matched_sports.definition_writes.contains_key(&id) {
+            actor.refresh_matched_sports().unwrap();
+            assert!(
+                std::time::Instant::now() < deadline,
+                "definition reply timed out"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
+    #[test]
+    fn failed_first_definition_admission_keeps_all_initialization_work() {
+        use nautilus_common::{
+            messages::data::DataCommand,
+            msgbus::{MessagingSwitchboard, typed_handler::TypedIntoHandler},
+        };
+        let root = std::env::temp_dir().join(format!(
+            "matched-admission-retry-{}",
+            nautilus_core::UUID4::new()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut config = CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan::default(),
+        );
+        config.matched_sports_config = Some(MatchedSportsCaptureConfig::default());
+        config.matched_sports_inbox = Some(Arc::new(MatchedSportsDiscoveryInbox::default()));
+        let mut replacement = CatalogCaptureActor::new(config.clone()).unwrap();
+        let mut actor = CatalogCaptureActor::new(config).unwrap();
+        let market = pair(604);
+        let instruments = definitions(&market);
+        let first = instruments.iter().min_by_key(|i| i.id()).unwrap();
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        cache.borrow_mut().add_instrument(first.clone()).unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                cache.clone(),
+            )
+            .unwrap();
+        let commands = Rc::new(RefCell::new(Vec::new()));
+        let received = commands.clone();
+        let endpoint = MessagingSwitchboard::data_engine_queue_execute();
+        msgbus::register_data_command_endpoint(
+            endpoint,
+            TypedIntoHandler::from(move |c: DataCommand| received.borrow_mut().push(c)),
+        );
+        DataActor::on_start(&mut actor).unwrap();
+        actor
+            .instrument_runtime
+            .as_mut()
+            .unwrap()
+            .shutdown()
+            .unwrap();
+        let universe = MatchedUniverse {
+            markets: vec![market.clone()],
+            ..Default::default()
+        };
+        assert!(
+            actor
+                .apply_matched_sports_universe(universe.clone())
+                .is_err()
+        );
+        assert!(actor.pending_instrument_definitions.contains(&first.id()));
+        for id in market.instrument_ids().filter(|id| *id != first.id()) {
+            assert!(
+                actor.pending_market_data.contains(&id),
+                "cold definition {id} was skipped"
+            );
+        }
+        assert!(md_counts(&commands.borrow()).is_empty());
+        actor.instrument_runtime = replacement.instrument_runtime.take();
+        for instrument in &instruments {
+            cache
+                .borrow_mut()
+                .add_instrument(instrument.clone())
+                .unwrap();
+        }
+        actor
+            .on_time_event(&nautilus_common::timer::TimeEvent::new(
+                super::super::PENDING_MARKET_DATA_TIMER.into(),
+                nautilus_core::UUID4::new(),
+                1.into(),
+                1.into(),
+            ))
+            .unwrap();
+        await_definitions(&mut actor, 604);
+        actor.apply_matched_sports_universe(universe).unwrap();
+        let counts = md_counts(&commands.borrow());
+        assert_eq!(counts.len(), 6);
+        assert!(counts.values().all(|count| *count == 1));
+        DataActor::on_stop(&mut actor).unwrap();
+        replacement.shutdown_all().unwrap();
+        let catalog = nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog::new(
+            &root, None, None, None, None,
+        );
+        assert_eq!(catalog.instruments(None, None, None).unwrap().len(), 4);
+        msgbus::register_data_command_endpoint(
+            endpoint,
+            TypedIntoHandler::from(|_: DataCommand| {}),
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn definition_write_failure_retries_before_subscribing_and_keeps_static_owner() {
+        use nautilus_common::{
+            messages::data::DataCommand,
+            msgbus::{MessagingSwitchboard, typed_handler::TypedIntoHandler},
+        };
+        let root = std::env::temp_dir().join(format!(
+            "matched-definition-retry-{}",
+            nautilus_core::UUID4::new()
+        ));
+        let market = pair(603);
+        let static_id = market.outcomes[0].predict_instrument;
+        let obstructed_id = market.outcomes[0].polymarket_instrument;
+        let parent = root.join("data/binary_option");
+        std::fs::create_dir_all(&parent).unwrap();
+        let obstruction = parent.join(obstructed_id.to_string());
+        std::fs::write(&obstruction, b"temporary obstruction").unwrap();
+        let mut config = CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan {
+                trades: vec![catalog_capture_core::TradeCaptureSpec {
+                    instrument_id: static_id,
+                }],
+                ..Default::default()
+            },
+        );
+        config.matched_sports_config = Some(MatchedSportsCaptureConfig::default());
+        config.matched_sports_inbox = Some(Arc::new(MatchedSportsDiscoveryInbox::default()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        for definition in definitions(&market) {
+            cache.borrow_mut().add_instrument(definition).unwrap();
+        }
+        let commands = Rc::new(RefCell::new(Vec::<DataCommand>::new()));
+        let received = commands.clone();
+        let endpoint = MessagingSwitchboard::data_engine_queue_execute();
+        msgbus::register_data_command_endpoint(
+            endpoint,
+            TypedIntoHandler::from(move |command: DataCommand| received.borrow_mut().push(command)),
+        );
+        let mut actor = CatalogCaptureActor::new(config).unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                cache,
+            )
+            .unwrap();
+        DataActor::on_start(&mut actor).unwrap();
+        let static_commands = md_counts(&commands.borrow());
+        assert_eq!(static_commands.len(), 1);
+        assert_eq!(
+            static_commands.get(&("subscribe", "trades", static_id)),
+            Some(&1)
+        );
+        let universe = MatchedUniverse {
+            markets: vec![market.clone()],
+            ..Default::default()
+        };
+        actor
+            .apply_matched_sports_universe(universe.clone())
+            .unwrap();
+        let since = actor.matched_sports.definition_writes[&603].since_generation;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while actor.matched_sports.definition_writes[&603].since_generation == since {
+            actor.refresh_matched_sports().unwrap();
+            assert_eq!(md_counts(&commands.borrow()), static_commands);
+            assert!(
+                std::time::Instant::now() < deadline,
+                "definition failure was not observed"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        std::fs::remove_file(obstruction).unwrap();
+        await_definitions(&mut actor, 603);
+        actor.apply_matched_sports_universe(universe).unwrap();
+        for definition in definitions(&market) {
+            actor.on_instrument(&definition).unwrap();
+        }
+        actor.refresh_matched_sports().unwrap();
+        let counts = md_counts(&commands.borrow());
+        assert_eq!(counts.len(), 6);
+        assert!(counts.values().all(|count| *count == 1));
+        assert_eq!(counts.get(&("subscribe", "depth", static_id)), Some(&1));
+        // The original write error remains visible at shutdown after recovery.
+        assert!(DataActor::on_stop(&mut actor).is_err());
+        let catalog = nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog::new(
+            &root, None, None, None, None,
+        );
+        assert_eq!(catalog.instruments(None, None, None).unwrap().len(), 4);
+        msgbus::register_data_command_endpoint(
+            endpoint,
+            TypedIntoHandler::from(|_: DataCommand| {}),
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failed_candidate_write_confirmation_keeps_incumbent_and_retries() {
+        let root = std::env::temp_dir().join(format!(
+            "matched-write-retry-{}",
+            nautilus_core::UUID4::new()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut config = CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan::default(),
+        );
+        let sports = MatchedSportsCaptureConfig::default();
+        let retry_ns = sports.preparation_retry_secs * 1_000_000_000;
+        config.matched_sports_config = Some(sports);
+        config.matched_sports_inbox = Some(Arc::new(MatchedSportsDiscoveryInbox::default()));
+        let incumbent = pair(601);
+        let candidate = pair(602);
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        for instrument in definitions(&incumbent)
+            .into_iter()
+            .chain(definitions(&candidate))
+        {
+            cache.borrow_mut().add_instrument(instrument).unwrap();
+        }
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
+        let mut actor = CatalogCaptureActor::new(config).unwrap();
+        actor
+            .register(TraderId::test_default(), clock.clone(), cache.clone())
+            .unwrap();
+        DataActor::on_start(&mut actor).unwrap();
+        actor
+            .apply_matched_sports_universe(MatchedUniverse {
+                markets: vec![incumbent.clone(), candidate.clone()],
+                ..Default::default()
+            })
+            .unwrap();
+        await_definitions(&mut actor, 601);
+        await_definitions(&mut actor, 602);
+        emit_recording_batch(&mut actor, &cache, &candidate, 1, true);
+        assert!(actor.matched_sports.preparing.as_ref().unwrap().ready);
+        actor
+            .book_delta_runtime
+            .as_ref()
+            .unwrap()
+            .mark_source_gap(&PartitionKey::catalog_data::<OrderBookDelta>(
+                candidate.outcomes[0].polymarket_instrument,
+            ))
+            .unwrap();
+        actor
+            .apply_matched_sports_universe(MatchedUniverse {
+                markets: vec![candidate.clone()],
+                ..Default::default()
+            })
+            .unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while !actor.matched_sports.retry_after.contains_key(&602) {
+            actor.refresh_matched_sports().unwrap();
+            assert!(
+                std::time::Instant::now() < deadline,
+                "writer reply timed out"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert_eq!(actor.matched_sports.active, BTreeSet::from([601]));
+        assert!(actor.matched_sports.preparing.is_none());
+        assert!(
+            incumbent
+                .recording_instrument_ids()
+                .all(|id| actor.market_data_live.contains(&id))
+        );
+        assert!(
+            candidate
+                .recording_instrument_ids()
+                .all(|id| !actor.market_data_live.contains(&id))
+        );
+        assert!(
+            actor
+                .failure
+                .as_deref()
+                .unwrap()
+                .contains("handover failed")
+        );
+        optional_flush_all(&actor.audit_runtime).unwrap();
+        let audit = std::fs::read_to_string(root.join("matched_sports_capture.jsonl")).unwrap();
+        assert!(
+            audit
+                .lines()
+                .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                .any(|entry| entry["kind"] == "retired"
+                    && entry["detail"]["reason"] == "preparation_write_failed")
+        );
+        clock.borrow_mut().advance_time(retry_ns.into(), true);
+        actor.refresh_matched_sports().unwrap();
+        let preparing = actor.matched_sports.preparing.as_ref().unwrap();
+        assert_eq!(preparing.market_id, 602);
+        assert!(!preparing.ready);
+        assert!(preparing.flushes.is_none());
+        DataActor::on_stop(&mut actor).unwrap();
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -1459,8 +2123,19 @@ mod tests {
         };
         inbox.publish(old, Ok(universe.clone()));
         actor.refresh_matched_sports().unwrap();
+        await_definitions(&mut actor, 401);
         emit_recording_batch(&mut actor, &cache, &first, 1_000_000_000, true);
         assert!(actor.matched_sports.preparing.is_some());
+        for definition in definitions(&universe.markets[1]) {
+            cache
+                .borrow_mut()
+                .add_instrument(definition.clone())
+                .unwrap();
+            actor.on_instrument(&definition).unwrap();
+        }
+        actor.refresh_matched_sports().unwrap();
+        assert!(actor.matched_sports.definition_writes[&402].flush.is_some());
+        assert_eq!(md_counts(&commands.borrow()).values().sum::<usize>(), 6);
         actor.stop_matched_sports().unwrap();
         assert!(actor.matched_sports.markets.is_empty());
         assert!(actor.matched_sports.preparing.is_none());
@@ -1626,6 +2301,89 @@ mod tests {
                 ts.into(),
             ))
             .unwrap();
+    }
+
+    #[test]
+    fn hourly_seal_skips_cached_book_from_a_retired_subscription() {
+        const HOUR: u64 = 3_600_000_000_000;
+        let root = std::env::temp_dir().join(format!(
+            "matched-stale-hourly-{}",
+            nautilus_core::UUID4::new()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut capture = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..Default::default()
+        };
+        capture.lifecycle.seal = catalog_capture_core::lifecycle::SealConfigFile {
+            enabled: true,
+            schedule: "00:00".into(),
+            timezone: "UTC".into(),
+            interval_secs: 3600,
+        };
+        let mut config = CatalogCaptureActorConfig::new(capture, CapturePlan::default());
+        config.matched_sports_config = Some(MatchedSportsCaptureConfig::default());
+        config.matched_sports_inbox = Some(Arc::new(MatchedSportsDiscoveryInbox::default()));
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
+        clock
+            .borrow_mut()
+            .advance_time((HOUR - 1_000_000_000).into(), true);
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        let market = pair(605);
+        for definition in definitions(&market) {
+            cache.borrow_mut().add_instrument(definition).unwrap();
+        }
+        let mut actor = CatalogCaptureActor::new(config).unwrap();
+        actor
+            .register(TraderId::test_default(), clock.clone(), cache.clone())
+            .unwrap();
+        DataActor::on_start(&mut actor).unwrap();
+        let universe = MatchedUniverse {
+            markets: vec![market.clone()],
+            ..Default::default()
+        };
+        actor
+            .apply_matched_sports_universe(universe.clone())
+            .unwrap();
+        await_definitions(&mut actor, 605);
+        emit_recording_batch(&mut actor, &cache, &market, HOUR - 500_000_000, true);
+        actor
+            .apply_matched_sports_universe(MatchedUniverse::default())
+            .unwrap();
+        let id = market.outcomes[0].polymarket_instrument;
+        assert!(
+            cache
+                .borrow()
+                .order_book(&id)
+                .is_some_and(|book| book.update_count > 0)
+        );
+        actor.apply_matched_sports_universe(universe).unwrap();
+        assert!(actor.matched_sports.definition_writes.contains_key(&605));
+        let seal_without_new_baseline = |actor: &mut CatalogCaptureActor, ts: u64| {
+            let events = clock.borrow_mut().advance_time(ts.into(), true);
+            actor
+                .on_time_event(
+                    events
+                        .iter()
+                        .find(|e| e.name == super::super::SEGMENT_SEAL_TIMER)
+                        .unwrap(),
+                )
+                .unwrap();
+            let writer = actor.book_delta_runtime.as_ref().unwrap();
+            writer.flush_all().unwrap();
+            assert_eq!(writer.metrics().active_writers, 0);
+            assert_eq!(sealed_files(&root, "order_book_deltas", id), 1);
+        };
+        seal_without_new_baseline(&mut actor, HOUR);
+        await_definitions(&mut actor, 605);
+        assert!(actor.market_data_live.contains(&id));
+        seal_without_new_baseline(&mut actor, 2 * HOUR);
+        emit_recording_batch(&mut actor, &cache, &market, 2 * HOUR + 1, true);
+        DataActor::on_stop(&mut actor).unwrap();
+        let report = catalog_capture_core::validate_order_book_replay(&root, id, true).unwrap();
+        assert_eq!(report.segment_count, 2);
+        assert_eq!(report.snapshot_segment_count, 2);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

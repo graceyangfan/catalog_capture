@@ -63,7 +63,9 @@ updates outside the first 50 levels, and the managed Nautilus book may grow.
 When `[runtime.hip4_universe_refresh]` is enabled:
 
 1. Poll Hyperliquid `outcomeMeta` on an adaptive schedule
-   (idle far from expiry, faster near expiry).
+   (idle far from expiry, faster near expiry). One request per environment
+   serves its configured Daily selectors. The actor checks for completed
+   results while continuing to consume market data.
 2. Resolve the next matching market (e.g. BTC `priceBinary` `1d`).
 3. **Unsubscribe** the previous plan, **bootstrap** new instruments.
 4. **Ready-then-subscribe** for quotes/trades/…: only after the new instrument is in
@@ -135,20 +137,27 @@ and [spot oracle construction](https://hyperliquid.gitbook.io/hyperliquid-docs/h
 The lifecycle follows the Predict recorder's current-window handover:
 
 1. Discover the current market through public REST `outcomeMeta`.
-2. Load its instruments through the existing Native Hyperliquid adapter, then
-   subscribe to YES and NO books/trades.
+2. Load its instruments through the existing Native Hyperliquid adapter. Once
+   the writer confirms both instrument definitions, subscribe to YES and NO
+   books/trades.
 3. At the quarter-hour boundary, discover the new current ID. Missing markets
    and failed discovery retry every `retry_secs` (default 2); BTC and ETH share
    one in-flight HTTP request. HTTP runs outside the actor and is cancelled on stop.
-4. Keep the predecessor during the brief handover. Once both new initial snapshot
-   batches have reached the recorder and its writers have flushed, retire the old
-   subscriptions and seal their partitions. Duplicate discovery never resubscribes.
+4. Keep the predecessor during the brief handover. After both new initial
+   snapshots arrive, enqueue a flush for their book partitions. The actor
+   continues processing events while the writer flushes. Retire the old
+   subscriptions and seal their partitions only after successful confirmation.
+   The confirmation covers delivery to the sink. The Parquet footer is written
+   at seal time. A writer failure affecting the candidate disqualifies that handover.
 5. Keep a pending market's subscriptions until ready or until that market expires.
-   Metadata re-requests use the existing 1/2/4/.../60-second daily-profile backoff;
-   one tagged Native full-registry request covers both sides/assets. A 90-second
-   response watchdog permits retry if the correlated response is lost. The Native
-   adapter owns HTTP and initial-book recovery deadlines. Keep the predecessor
-   until both successor books are ready, including delayed provider publication.
+   Discovery of a new market with missing definitions triggers one Native
+   refresh. BTC and ETH share the request, and the adapter's periodic refresh
+   provides the fallback. The rolling timer submits the selected definitions
+   when they appear in the cache. If the successor
+   has not reached readiness by `handover_grace_secs` after expiry (default 60),
+   seal and unsubscribe the predecessor and record the missing handover in
+   `metadata/hip4_rolling_gaps.jsonl`. Discovery continues. A value of 0
+   retires the predecessor immediately at expiry when no successor is ready.
    Retention stays bounded to one current and one in-flight handover per asset.
 
 Only the current market is normally subscribed. A handover temporarily overlaps
@@ -156,6 +165,21 @@ old and new markets; the new ID is already in its current window. Initial empty
 books are valid snapshots; readiness never waits for a trade or a liquidity score.
 The native adapter handles WebSocket reconnect and subscription recovery. This
 profile uses REST boundary discovery; it does not add a separate metadata socket.
+
+For a long run on a 7.4 GiB host, the following example leaves headroom for
+graceful shutdown. Set the RSS threshold for the host or container budget.
+
+```toml
+[runtime.pressure]
+max_rss_bytes = 4294967296
+max_data_queue_depth = 100000
+```
+
+The process logs its RSS (peak RSS on macOS), Native data-event queue depth, and
+the writer queue's bytes and oldest item age every 30 seconds. Configured
+limits stop the run at the RSS threshold or after
+10 seconds at or above the queue threshold. The run is then recorded as failed
+in `metadata/capture_quality.jsonl`. Both limits are optional.
 
 The pinned Native adapter constructs the instruments and maintains its own wire
 registry. Catalog Capture enriches their recording/cache definitions with template
@@ -171,12 +195,10 @@ paths are proven losslessly reconstructible. Never add their depth as independen
 liquidity. Hyperliquid `l2Book` messages are full snapshots; Native maps them to
 `CLEAR + ADD` batches with `F_SNAPSHOT` / `F_LAST`, not exchange incremental deltas.
 
-Reuse UTC hourly file sealing. Retirement or shutdown seals a partial-hour file;
-Binance reference instruments stay subscribed and retain their hourly files.
-At a coincident hourly boundary, the predecessor can have a final short file
-between the hourly seal and completed handover; files are not fixed 15-minute
-event-time buckets. Existing managed-book checkpoints initialize new segments at
-an hourly seal. Preserve `ts_event` and
+The 15-minute outcome partitions seal at retirement or shutdown. An hourly
+boundary leaves them open. Binance reference instruments stay subscribed and
+seal hourly, with managed-book checkpoints initializing new L2 segments.
+Preserve `ts_event` and
 `ts_init`; concurrent recorder receipt times do not make HIP-4's mark TWAP and
 Predict's independently specified settlement feed equivalent.
 

@@ -17,7 +17,7 @@
 use anyhow::Context;
 use nautilus_common::messages::{
     DataEvent, DataResponse,
-    data::{InstrumentResponse, RequestInstrument},
+    data::{DataRequestFailed, InstrumentResponse, RequestInstrument},
 };
 use nautilus_core::datetime::datetime_to_unix_nanos;
 use nautilus_model::{data::Data, instruments::Instrument};
@@ -46,6 +46,7 @@ impl PredictDataClient {
         let client_id = self.client_id;
         let clock = self.clock;
         let cancellation = self.tasks.cancellation_token();
+        let request_id = request.request_id;
         let registry = std::sync::Arc::clone(&self.dynamic_registry);
         let generation = registry
             .read()
@@ -62,7 +63,7 @@ impl PredictDataClient {
                         .expect("Predict registry lock poisoned")
                         .register(generation, context, &instruments)
                     {
-                        return Ok(());
+                        anyhow::bail!("Predict instrument request belongs to a retired generation");
                     }
                     let instrument = instruments
                         .into_iter()
@@ -87,14 +88,19 @@ impl PredictDataClient {
                     ))))?;
                     Ok::<_, anyhow::Error>(())
                 };
-                tokio::select! {
+                let result = tokio::select! {
                     biased;
-                    _ = cancellation.cancelled() => {},
-                    result = result => {
-                        if let Err(error) = result {
-                            log::error!("Predict instrument request failed: {error:#}");
-                        }
-                    },
+                    () = cancellation.cancelled() => Err(anyhow::anyhow!("Predict instrument request cancelled")),
+                    result = result => result,
+                };
+                if let Err(error) = result
+                    && let Err(send_error) = sender.send(DataEvent::RequestFailed(DataRequestFailed {
+                        request_id,
+                        reason: format!("{error:#}"),
+                        response: None,
+                    }))
+                {
+                    log::error!("Failed to complete Predict instrument request {request_id}: {send_error}");
                 }
             })?;
         Ok(())

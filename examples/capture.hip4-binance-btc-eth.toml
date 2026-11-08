@@ -1,0 +1,69 @@
+# HIP-4 BTC/ETH 15m YES/NO L2/trades and Binance USD-M BTC/ETH perpetual L2/trades.
+# Required features: venue-hyperliquid,venue-binance. Public feeds; no credentials.
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 10
+delay_post_stop_secs = 2
+node_name = "CAPTURE-HIP4-BINANCE-BTC-ETH"
+
+[output]
+catalog_uri = "file://./data/hip4-binance-btc-eth"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 1000
+flush_interval_ms = 1000
+max_buffer_bytes = 8388608
+max_total_buffer_bytes = 67108864
+queue_capacity = 10000
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+# Hour-aligned files for continuous Binance instruments. HIP-4 predecessors
+# are independently sealed when each 15m successor's books are ready.
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "hyperliquid_main"
+kind = "hyperliquid"
+environment = "mainnet"
+
+# Automatic market discovery and YES/NO L2/trade subscriptions at each UTC quarter hour.
+[capture.hip4_rolling]
+venue_id = "hyperliquid_main"
+underlyings = ["BTC", "ETH"]
+retry_secs = 2
+
+[[venues]]
+id = "binance_futures_main"
+kind = "binance_futures"
+environment = "live"
+product_type = "usd_m"
+
+[[capture.instruments]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.trades]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+# depth=50 selects @depth@0ms full diffs; it is not a fixed 50-level stream.
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+depth = 50
+
+[[capture.instruments]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.trades]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "ETHUSDT-PERP.BINANCE"
+book_type = "L2_MBP"
+depth = 50

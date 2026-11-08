@@ -275,9 +275,21 @@ where
     }
 
     pub fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
+        self.seal_partition_with(key, |sink| sink.seal_partition(key))
+    }
+
+    pub(crate) fn rotate_partition(&mut self, key: &str) -> Result<FlushResult> {
+        self.seal_partition_with(key, |sink| sink.rotate_partition(key))
+    }
+
+    fn seal_partition_with(
+        &mut self,
+        key: &str,
+        seal: impl FnOnce(&mut S) -> Result<FlushResult>,
+    ) -> Result<FlushResult> {
         let flushed = self.flush_partition_with_reason(key, FlushReason::Seal);
         let started = Instant::now();
-        let sealed = self.sink.seal_partition(key);
+        let sealed = seal(&mut self.sink);
         self.metrics.sink_seal.record(started.elapsed());
         if sealed.is_err() {
             self.failures

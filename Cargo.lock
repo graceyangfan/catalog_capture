@@ -1514,6 +1514,7 @@ dependencies = [
  "dotenvy",
  "log",
  "nautilus-binance",
+ "nautilus-bitfinex",
  "nautilus-bybit",
  "nautilus-common",
  "nautilus-core",
@@ -4309,6 +4310,25 @@ dependencies = [
  "tokio-util",
  "ustr",
  "zeroize",
+]
+
+[[package]]
+name = "nautilus-bitfinex"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "crc32fast",
+ "log",
+ "nautilus-common",
+ "nautilus-core",
+ "nautilus-live",
+ "nautilus-model",
+ "nautilus-network",
+ "rust_decimal",
+ "serde_json",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

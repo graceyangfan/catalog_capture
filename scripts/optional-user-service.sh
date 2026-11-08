@@ -133,6 +133,9 @@ Type=simple
 WorkingDirectory=${ROOT}
 Environment=RUSTUP_TOOLCHAIN=1.99.1
 Environment=CATALOG_CAPTURE_LOG_DIR=${LOG_DIR}
+Environment=CATALOG_CAPTURE_SYSTEMD_UNIT=%n
+StandardOutput=journal
+StandardError=journal
 ExecStart=${RUNNER} ${RUNNER_ARGS}
 Restart=on-failure
 RestartSec=30

@@ -21,7 +21,7 @@ use anyhow::{Context, Result, bail};
 use nautilus_core::UnixNanos;
 use nautilus_model::{
     data::{HasTsInit, OrderBookDelta, OrderBookDeltas},
-    enums::{BookType, RecordFlag},
+    enums::{BookAction, BookType, RecordFlag},
     identifiers::InstrumentId,
     orderbook::OrderBook,
 };
@@ -151,10 +151,10 @@ pub fn read_book_replay_windows(
     root: &Path,
     instrument: InstrumentId,
 ) -> Result<Vec<ReplayWindow<OrderBookDeltas>>> {
-    read_book_windows(root, instrument, None)
+    read_book_windows(root, instrument, recorded_book_type(instrument), None)
 }
 
-/// Build a new L2 experiment from an explicit start, using preceding source frames
+/// Build a new order-book experiment from an explicit start, using preceding source frames
 /// only for book initialization. Does not restore historical strategy state.
 /// The caller must select a start after venue recovery and establish feed coverage.
 /// Later independent recovery windows outside the requested range are excluded.
@@ -164,19 +164,61 @@ pub fn read_book_replay_windows_in_range(
     start: UnixNanos,
     end: UnixNanos,
 ) -> Result<Vec<ReplayWindow<OrderBookDeltas>>> {
+    read_book_replay_windows_in_range_with_book_type(
+        root,
+        instrument,
+        recorded_book_type(instrument),
+        start,
+        end,
+    )
+}
+
+/// Build an order-book experiment for a caller-supplied native book type.
+pub fn read_book_replay_windows_in_range_with_book_type(
+    root: &Path,
+    instrument: InstrumentId,
+    book_type: BookType,
+    start: UnixNanos,
+    end: UnixNanos,
+) -> Result<Vec<ReplayWindow<OrderBookDeltas>>> {
     anyhow::ensure!(start <= end, "research start must not exceed end");
-    read_book_windows(root, instrument, Some((start, end)))
+    anyhow::ensure!(
+        instrument.venue.as_str() != "BITFINEX" || book_type == BookType::L3_MBO,
+        "Bitfinex recordings require L3_MBO replay",
+    );
+    read_book_windows(root, instrument, book_type, Some((start, end)))
+}
+
+pub(crate) fn recorded_book_type(instrument: InstrumentId) -> BookType {
+    // The capture CLI reserves the Bitfinex delta partition for R0.
+    if instrument.venue.as_str() == "BITFINEX" {
+        BookType::L3_MBO
+    } else {
+        BookType::L2_MBP
+    }
 }
 
 fn read_book_windows(
     root: &Path,
     instrument: InstrumentId,
+    book_type: BookType,
     range: Option<(UnixNanos, UnixNanos)>,
 ) -> Result<Vec<ReplayWindow<OrderBookDeltas>>> {
     read_replay_windows::<OrderBookDelta>(root, instrument)?
         .into_iter()
         .filter(|window| range.is_none_or(|(start, end)| window.end >= start && window.start <= end))
         .map(|window| {
+            if book_type == BookType::L3_MBO {
+                for row in window.data.iter().chain(&window.initialization) {
+                    anyhow::ensure!(
+                        row.action == BookAction::Clear
+                            || (row.order.order_id != 0
+                                && !RecordFlag::F_MBP.matches(row.flags)
+                                && !RecordFlag::F_TOB.matches(row.flags)),
+                        "non-MBO row in L3 replay for {instrument}",
+                    );
+                }
+            }
             let mut data = group_book_deltas(instrument, window.data)?;
             let mut initialization = group_book_deltas(instrument, window.initialization)?;
             let source_baseline = data.first().is_some_and(|frame| {
@@ -219,7 +261,7 @@ fn read_book_windows(
                 data.truncate(through);
                 anyhow::ensure!(data.iter().all(|frame| frame.ts_init <= end),
                     "book publication prefix contains data newer than research end {end} for {instrument}");
-                initialize_book_at(&mut data, instrument, start)?;
+                initialize_book_at(&mut data, instrument, book_type, start)?;
             }
             anyhow::ensure!(
                 data.windows(2).all(|pair| pair[0].ts_init <= pair[1].ts_init),
@@ -243,6 +285,7 @@ fn read_book_windows(
 fn initialize_book_at(
     data: &mut Vec<OrderBookDeltas>,
     instrument: InstrumentId,
+    book_type: BookType,
     start: UnixNanos,
 ) -> Result<()> {
     // The last earlier timestamp may follow a later REST snapshot physically.
@@ -259,7 +302,7 @@ fn initialize_book_at(
             .is_some_and(|frame| RecordFlag::F_SNAPSHOT.matches(frame.flags)),
         "cannot initialize {instrument} without a preceding snapshot"
     );
-    let mut book = OrderBook::new(instrument, BookType::L2_MBP);
+    let mut book = OrderBook::new(instrument, book_type);
     for frame in &data[..covered] {
         anyhow::ensure!(
             frame.ts_init <= start,
@@ -306,7 +349,7 @@ pub fn group_book_deltas(
 }
 
 impl ReplayWindow<OrderBookDeltas> {
-    /// A partial initial window is inspectable but cannot initialize a fresh L2 book.
+    /// A partial initial window is inspectable but cannot initialize a fresh managed book.
     #[must_use]
     pub fn has_book_baseline(&self) -> bool {
         self.data.first().is_some_and(|frame| {
@@ -344,12 +387,8 @@ pub fn common_replay_ranges(feeds: &[Vec<(UnixNanos, UnixNanos)>]) -> Vec<(UnixN
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        BackgroundCaptureRuntime, CaptureConfig, CaptureItem, OverflowPolicy, PartitionKey,
-        runtime::FlushResult,
-        sink::{BookDeltaCatalogSink, CaptureSink, CatalogSink},
-    };
+    use std::{fs, sync::mpsc, time::Duration};
+
     use nautilus_model::{
         data::{BookOrder, TradeTick},
         enums::{AggressorSide, BookAction, BookType, OrderSide},
@@ -357,7 +396,13 @@ mod tests {
         orderbook::OrderBook,
         types::{Price, Quantity},
     };
-    use std::{fs, sync::mpsc, time::Duration};
+
+    use super::*;
+    use crate::{
+        BackgroundCaptureRuntime, CaptureConfig, CaptureItem, OverflowPolicy, PartitionKey,
+        runtime::FlushResult,
+        sink::{BookDeltaCatalogSink, CaptureSink, CatalogSink},
+    };
 
     struct Paused<S> {
         inner: S,
@@ -437,6 +482,125 @@ mod tests {
             estimated_bytes: bytes,
             payload: data,
         }
+    }
+
+    #[test]
+    fn rotating_one_book_partition_preserves_its_replay_window() {
+        let root = root();
+        let id = InstrumentId::from("BTCUSDT.BINANCE");
+        let other = InstrumentId::from("ETHUSDT.BINANCE");
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..Default::default()
+        };
+        let mut writer = BackgroundCaptureRuntime::new(
+            config.clone(),
+            BookDeltaCatalogSink::from_config(&config).unwrap(),
+        )
+        .unwrap();
+        let key = PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key();
+        writer.submit(item(snapshot(id, 100, "2"), 512)).unwrap();
+        writer.submit(item(snapshot(other, 100, "2"), 512)).unwrap();
+        writer.enqueue_partition_rotation(&key).unwrap();
+        writer.submit(item(update(id, 200, "3"), 256)).unwrap();
+        writer.submit(item(update(other, 200, "3"), 256)).unwrap();
+        writer.shutdown().unwrap();
+        for (instrument, expected) in [(id, 2), (other, 1)] {
+            let path = root
+                .join("data/order_book_deltas")
+                .join(instrument.to_string());
+            assert_eq!(fs::read_dir(path).unwrap().count(), expected);
+        }
+        let windows = read_book_replay_windows(&root, id).unwrap();
+        assert_eq!(windows.len(), 1);
+        assert!(windows[0].has_book_baseline());
+        assert_eq!(windows[0].data.len(), 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn bitfinex_catalog_replays_same_price_orders_and_starts_a_new_window_after_gap() {
+        let root = root();
+        let id = InstrumentId::from("BTCUSD.BITFINEX");
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..Default::default()
+        };
+        let mut runtime = BackgroundCaptureRuntime::new(
+            config.clone(),
+            BookDeltaCatalogSink::from_config(&config).unwrap(),
+        )
+        .unwrap();
+        let key = PartitionKey::catalog_data::<OrderBookDelta>(id);
+        let mut book = OrderBook::new(id, BookType::L3_MBO);
+        let order = |order_id, size| {
+            BookOrder::new(
+                OrderSide::Buy,
+                Price::from("100"),
+                Quantity::from(size),
+                order_id,
+            )
+        };
+        book.add(order(91, "2"), 0, 1, 100.into());
+        book.add(order(92, "3"), 0, 1, 100.into());
+        runtime
+            .submit(item(book.to_deltas(100.into(), 100.into()), 512))
+            .unwrap();
+        runtime.seal_all().unwrap();
+        runtime
+            .submit_initialization(item(book.to_deltas(100.into(), 110.into()), 512))
+            .unwrap();
+        let update = OrderBookDelta::new(
+            id,
+            BookAction::Update,
+            order(91, "4"),
+            RecordFlag::F_LAST as u8,
+            2,
+            120.into(),
+            120.into(),
+        );
+        runtime
+            .submit(item(OrderBookDeltas::new(id, vec![update]), 256))
+            .unwrap();
+        runtime.mark_source_gap(&key).unwrap();
+        // A stale checkpoint during the invalid epoch must not become a baseline.
+        runtime
+            .submit_initialization(item(book.to_deltas(100.into(), 150.into()), 512))
+            .unwrap();
+        let replacement = OrderBook::new(id, BookType::L3_MBO).to_deltas(200.into(), 200.into());
+        runtime.submit(item(replacement, 256)).unwrap();
+        runtime.seal_all().unwrap();
+
+        let windows = read_book_replay_windows(&root, id).unwrap();
+        assert_eq!(windows.len(), 2);
+        assert_eq!(windows[0].data.len(), 2);
+        assert_eq!(windows[1].data.len(), 1);
+        assert_eq!(windows[1].data[0].deltas.len(), 1);
+        let ranged = read_book_replay_windows_in_range(&root, id, 115.into(), 120.into()).unwrap();
+        let frames = &ranged[0].data;
+        assert_eq!(frames.len(), 2);
+        let ids = frames[0]
+            .deltas
+            .iter()
+            .skip(1)
+            .map(|d| d.order.order_id)
+            .collect::<Vec<_>>();
+        assert_eq!(ids, [91, 92]);
+        let mut reconstructed = OrderBook::new(id, BookType::L3_MBO);
+        for frame in frames {
+            reconstructed.apply_deltas(frame).unwrap();
+        }
+        let level = reconstructed.bids(None).next().unwrap();
+        assert_eq!(
+            level.iter().copied().collect::<Vec<_>>(),
+            [order(91, "4"), order(92, "3")]
+        );
+        assert_eq!(
+            runtime.failure_snapshot().records[0].operation,
+            crate::failures::FailureOperation::SourceGap
+        );
+        runtime.shutdown().unwrap();
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn recovery_source(id: InstrumentId) -> Vec<OrderBookDeltas> {

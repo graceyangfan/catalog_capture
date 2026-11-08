@@ -13,8 +13,6 @@
 // -------------------------------------------------------------------------------------------------
 
 use anyhow::{Result, bail};
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "venue-binance")]
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
 #[cfg(feature = "venue-bybit")]
@@ -29,6 +27,7 @@ use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
 use nautilus_lighter::common::enums::{LighterDeployment, LighterEnvironment};
 #[cfg(feature = "venue-okx")]
 use nautilus_okx::common::enums::{OKXEnvironment, OKXInstrumentType};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VenueConfig {
@@ -91,6 +90,8 @@ pub enum VenueRuntimeConfig {
         environment: LighterEnvironment,
         deployment: LighterDeployment,
     },
+    #[cfg(feature = "venue-bitfinex")]
+    Bitfinex { id: String },
     #[cfg(feature = "venue-extended")]
     Extended {
         id: String,
@@ -128,6 +129,8 @@ impl VenueRuntimeConfig {
             Self::Lighter { id, .. } => id,
             #[cfg(feature = "venue-extended")]
             Self::Extended { id, .. } => id,
+            #[cfg(feature = "venue-bitfinex")]
+            Self::Bitfinex { id } => id,
             #[cfg(feature = "venue-okx")]
             Self::Okx { id, .. } => id,
             #[cfg(feature = "venue-predict")]
@@ -260,6 +263,20 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             #[cfg(not(feature = "venue-lighter"))]
             {
                 venue_feature_required("lighter", "venue-lighter")
+            }
+        }
+        "bitfinex" => {
+            #[cfg(feature = "venue-bitfinex")]
+            {
+                anyhow::ensure!(
+                    matches!(venue.environment.as_str(), "mainnet" | "live"),
+                    "Bitfinex R0 capture requires mainnet",
+                );
+                Ok(VenueRuntimeConfig::Bitfinex { id: venue.id })
+            }
+            #[cfg(not(feature = "venue-bitfinex"))]
+            {
+                venue_feature_required("bitfinex", "venue-bitfinex")
             }
         }
         "extended" => {

@@ -55,6 +55,7 @@ use plan::{
     parse_instrument_specs, parse_instrument_status_specs, parse_mark_price_specs,
     parse_option_greeks_specs, parse_quote_specs, parse_trade_specs,
 };
+pub(crate) use runtime::CapturePressureConfig;
 pub use runtime::{MetricsExportRuntimeConfig, RuntimeConfig};
 use serde::{Deserialize, Serialize};
 pub use venues::{VenueConfig, VenueRuntimeConfig};

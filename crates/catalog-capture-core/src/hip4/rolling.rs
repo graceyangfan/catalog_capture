@@ -32,12 +32,18 @@ pub struct Hip4RollingConfig {
     pub underlyings: Vec<String>,
     #[serde(default = "refresh")]
     pub retry_secs: u64,
+    /// Maximum time an expired predecessor may wait for a successor baseline.
+    #[serde(default = "default_handover_grace_secs")]
+    pub handover_grace_secs: u64,
 }
 fn assets() -> Vec<String> {
     vec!["BTC".into(), "ETH".into()]
 }
 const fn refresh() -> u64 {
     2
+}
+const fn default_handover_grace_secs() -> u64 {
+    60
 }
 impl Hip4RollingConfig {
     pub fn validate(&self) -> Result<()> {
@@ -58,6 +64,10 @@ impl Hip4RollingConfig {
         ensure!(
             (1..=60).contains(&self.retry_secs),
             "invalid HIP-4 discovery retry interval"
+        );
+        ensure!(
+            self.handover_grace_secs < ROLLING_INTERVAL_NS / 1_000_000_000,
+            "HIP-4 handover grace must be shorter than one market window"
         );
         Ok(())
     }
@@ -171,8 +181,9 @@ pub fn select_rolling_market(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
     fn row(id: u32, asset: &str, end: &str) -> Value {
         json!({"outcome":id,"venue":"out","name":"template:binaryPrice","quoteToken":"USDC",
             "description":format!("perp:{asset}|priceDescription:{asset}-USDC perp mark|seconds:60|threshold:100|time:{end}"),

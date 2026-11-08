@@ -15,8 +15,8 @@
 use std::{any::Any, collections::BTreeSet};
 
 use catalog_capture_core::{
-    append_hip4_universe_resolution_records, append_option_universe_resolution_records,
-    forward_price_from_option_greeks, next_seal_boundary_ns,
+    append_option_universe_resolution_records, forward_price_from_option_greeks,
+    next_seal_boundary_ns,
 };
 use nautilus_common::{actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent};
 use nautilus_core::{DurationNanos, Params, UnixNanos};
@@ -28,7 +28,7 @@ use nautilus_predict::common::{
 
 use super::*;
 use crate::{
-    actor_runtime::{custom_data_client_id, optional_enqueue_seal_all, optional_flush_all},
+    actor_runtime::{custom_data_client_id, optional_enqueue_seal_all, writer_failure_generation},
     custom_data_requests::{CUSTOM_DATA_REQUEST_TIMER_PREFIX, parse_request_timer_index},
 };
 
@@ -74,39 +74,87 @@ impl CatalogCaptureActor {
     }
 
     pub(super) fn bootstrap_instrument(&mut self, instrument_id: InstrumentId) -> Result<()> {
+        if self.hip4_rolling.definition(instrument_id).is_some() {
+            return Ok(());
+        }
         let instrument = { self.cache().instrument(&instrument_id) };
         if let Some(instrument) = instrument {
-            // Capture instrument snapshot only; market-data is gated separately so HIP-4
-            // rolls do not race SubscribeQuotes/Trades against a cold adapter cache.
-            self.submit_instrument(instrument)?;
-            if is_hip4_outcome(instrument_id)
-                || self
-                    .matched_sports
-                    .markets
-                    .values()
-                    .any(|m| m.instrument_ids().any(|id| id == instrument_id))
-            {
-                optional_flush_all(&self.instrument_runtime)?;
-            }
-            Ok(())
+            self.track_hip4_definition_write(instrument_id);
+            self.submit_instrument(instrument)
         } else {
-            if self.hip4_rolling.definition(instrument_id).is_some() {
-                return self.request_hip4_instruments();
-            }
             let client_id = self.market_data_client_id(instrument_id);
-            self.request_instrument(instrument_id, None, None, client_id, None)?;
-            // Matched ad-hoc requests use the correlated response callback. Predict's
-            // synchronous subscribe-instrument path cannot publish a not-yet-loaded ID.
-            if self.hip4_rolling.definition(instrument_id).is_none()
-                && !self
-                    .matched_sports
-                    .markets
-                    .values()
-                    .any(|m| m.instrument_ids().any(|id| id == instrument_id))
+            let matched = self
+                .matched_sports
+                .markets
+                .values()
+                .any(|market| market.instrument_ids().any(|id| id == instrument_id));
+            if matched
+                && self
+                    .matched_definition_requests
+                    .contains_key(&instrument_id)
             {
+                return Ok(());
+            }
+            let request_id = self.request_instrument(instrument_id, None, None, client_id, None)?;
+            if matched {
+                self.matched_definition_requests
+                    .insert(instrument_id, request_id);
+            } else {
                 self.subscribe_instrument(instrument_id, client_id, None);
             }
             Ok(())
+        }
+    }
+
+    fn track_hip4_definition_write(&mut self, id: InstrumentId) {
+        if is_hip4_outcome(id) && !self.market_data_live.contains(&id) {
+            self.hip4_definition_writes.entry(id).or_insert_with(|| {
+                crate::actor_runtime::DefinitionWrite {
+                    since_generation: writer_failure_generation(&self.instrument_runtime),
+                    flush: None,
+                }
+            });
+        }
+    }
+
+    fn poll_hip4_definition_writes(&mut self) {
+        let Some(writer) = &self.instrument_runtime else {
+            return;
+        };
+        let mut ready = Vec::new();
+        for (&id, write) in &mut self.hip4_definition_writes {
+            if self.pending_instrument_definitions.contains(&id) {
+                continue;
+            }
+            let result = if let Some(flush) = &write.flush {
+                flush.try_complete()
+            } else {
+                writer
+                    .enqueue_partition_flush(
+                        vec![PartitionKey::market_data("instruments", id).stable_key()],
+                        write.since_generation,
+                    )
+                    .map(|flush| {
+                        write.flush = Some(flush);
+                        false
+                    })
+            };
+            match result {
+                Ok(true) => ready.push(id),
+                Ok(false) => {}
+                Err(error) => {
+                    log::debug!("HIP-4 {id} definition confirmation will retry: {error:#}");
+                    if write.flush.take().is_some() {
+                        write.since_generation = writer.failure_snapshot().generation;
+                    }
+                }
+            }
+        }
+        for id in ready {
+            self.hip4_definition_writes.remove(&id);
+            if self.plan.planned_instrument_ids().contains(&id) {
+                self.subscribe_market_data_for_instrument(id);
+            }
         }
     }
 
@@ -150,6 +198,9 @@ impl CatalogCaptureActor {
 
         let mut deferred_any = false;
         for instrument_id in plan.planned_instrument_ids() {
+            if self.hip4_rolling.definition(instrument_id).is_some() {
+                continue;
+            }
             if self.cache().instrument(&instrument_id).is_some() {
                 self.subscribe_market_data_for_instrument(instrument_id);
             } else {
@@ -170,8 +221,16 @@ impl CatalogCaptureActor {
     }
 
     /// Subscribe quotes/trades/… for one instrument (idempotent).
-    fn subscribe_market_data_for_instrument(&mut self, instrument_id: InstrumentId) {
-        if !self.market_data_live.insert(instrument_id) {
+    pub(super) fn subscribe_market_data_for_instrument(&mut self, instrument_id: InstrumentId) {
+        if self
+            .hip4_rolling
+            .blocks_market_data_subscription(instrument_id)
+            || self
+                .matched_sports
+                .blocks_market_data_subscription(instrument_id)
+            || self.hip4_definition_writes.contains_key(&instrument_id)
+            || !self.market_data_live.insert(instrument_id)
+        {
             return;
         }
         self.pending_market_data.remove(&instrument_id);
@@ -256,7 +315,7 @@ impl CatalogCaptureActor {
 
     /// Schedule a **one-shot** re-request only while post-roll pending is non-empty.
     /// Wait time is unbounded: we keep rescheduling until cache-ready or the id is rolled off.
-    fn schedule_pending_market_data_retry(&mut self) {
+    pub(super) fn schedule_pending_market_data_retry(&mut self) {
         self.clock().cancel_timer(PENDING_MARKET_DATA_TIMER);
         if self.pending_market_data.is_empty() {
             self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
@@ -287,26 +346,33 @@ impl CatalogCaptureActor {
 
         let pending: Vec<InstrumentId> = self.pending_market_data.iter().copied().collect();
         let mut still_waiting = false;
+        let mut result = Ok(());
         for instrument_id in pending {
+            if self.hip4_rolling.definition(instrument_id).is_some() {
+                self.pending_market_data.remove(&instrument_id);
+                continue;
+            }
             if self.cache().instrument(&instrument_id).is_some() {
-                log::info!(
-                    "catalog-capture: instrument {instrument_id} ready in cache; subscribing market data"
-                );
-                if self.hip4_rolling.definition(instrument_id).is_some()
+                let hip4_needs_confirmation = is_hip4_outcome(instrument_id)
+                    && !self.hip4_definition_writes.contains_key(&instrument_id)
+                    && !self.market_data_live.contains(&instrument_id);
+                if hip4_needs_confirmation
                     || self
                         .matched_sports
                         .markets
                         .values()
                         .any(|m| m.instrument_ids().any(|id| id == instrument_id))
                 {
-                    self.bootstrap_instrument(instrument_id)?;
+                    if let Err(error) = self.bootstrap_instrument(instrument_id) {
+                        result = result.and(Err(error));
+                        still_waiting = true;
+                        continue;
+                    }
                 }
                 self.subscribe_market_data_for_instrument(instrument_id);
             } else {
                 still_waiting = true;
-                log::info!(
-                    "catalog-capture: instrument {instrument_id} not in cache yet; re-requesting (unbounded wait until ready or next roll)"
-                );
+                log::debug!("catalog-capture: waiting for definition {instrument_id}");
                 // Use the same cold-metadata path as first admission. Matched Predict
                 // requests complete by correlated response, not synchronous publication.
                 let _ = self.bootstrap_instrument(instrument_id);
@@ -324,7 +390,7 @@ impl CatalogCaptureActor {
             self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;
             self.clock().cancel_timer(PENDING_MARKET_DATA_TIMER);
         }
-        Ok(())
+        result
     }
 
     pub(super) fn unsubscribe_plan(&mut self, plan: &CapturePlan) {
@@ -423,6 +489,7 @@ impl CatalogCaptureActor {
             );
         }
         for spec in &plan.book_deltas {
+            self.book_delta_baselines.remove(&spec.instrument_id);
             self.unsubscribe_book_deltas(
                 spec.instrument_id,
                 self.market_data_client_id(spec.instrument_id),
@@ -439,7 +506,7 @@ impl CatalogCaptureActor {
         // Drop stale streams first (HIP-4 / option universe day-roll), then
         // bootstrap and attach the new plan. Keeps one coherent subscription set.
         self.unsubscribe_plan(remove);
-        self.seal_removed_hip4_partitions(remove)?;
+        let mut result = self.seal_removed_hip4_partitions(remove);
         let next_plan =
             if self.dynamic_hip4_universe.is_some() || self.dynamic_option_universe.is_some() {
                 self.effective_capture_plan()
@@ -458,12 +525,11 @@ impl CatalogCaptureActor {
             }
         }
         for instrument_id in add.planned_instrument_ids() {
-            self.bootstrap_instrument(instrument_id)?;
+            result = result.and(self.bootstrap_instrument(instrument_id));
         }
         // Plan must reflect the post-roll universe before market-data subscribe / on_instrument.
         self.sync_plan_state();
-        self.subscribe_plan(add)?;
-        Ok(())
+        result.and(self.subscribe_plan(add))
     }
 
     /// Retire only removed outcome partitions; shared Binance/perp files keep their hour.
@@ -530,7 +596,9 @@ impl CatalogCaptureActor {
     /// Drop actor-side market-data bookkeeping for an instrument (pending + live + timer).
     pub(super) fn forget_instrument_runtime_state(&mut self, instrument_id: InstrumentId) {
         self.book_delta_recovery.remove(&instrument_id);
+        self.book_delta_baselines.remove(&instrument_id);
         self.pending_instrument_definitions.remove(&instrument_id);
+        self.hip4_definition_writes.remove(&instrument_id);
         self.pending_market_data.remove(&instrument_id);
         self.market_data_live.remove(&instrument_id);
         if self.pending_market_data.is_empty() {
@@ -680,31 +748,32 @@ impl CatalogCaptureActor {
 
         let previous_plan = self.plan.clone();
         let now = self.clock().timestamp_ns();
-        let delta = self
+        let Some(delta) = self
             .dynamic_hip4_universe
             .as_mut()
             .expect("checked above")
-            .refresh(now.as_u64())?;
+            .poll_refresh(now.as_u64())?
+        else {
+            return self.schedule_hip4_universe_refresh();
+        };
         for change in &delta.changes {
             self.log_hip4_universe_refresh(change);
         }
+        let mut result = Ok(());
         if !delta.is_empty() {
-            if !delta.resolution_records.is_empty() {
-                append_hip4_universe_resolution_records(
-                    &self.catalog_root,
-                    &delta.resolution_records,
-                )?;
-            }
-            // Diff the complete capture intent so a static or other-universe
-            // owner can keep the same outcome stream and partition alive.
+            // Diff the full plan so another owner can keep a stream alive.
             let next_plan = self.effective_capture_plan();
             let add = catalog_capture_core::capture_plan_difference(&next_plan, &previous_plan);
             let remove = catalog_capture_core::capture_plan_difference(&previous_plan, &next_plan);
-            self.apply_subscription_delta(&add, &remove)?;
+            result = self.apply_subscription_delta(&add, &remove);
             self.purge_removed_hip4_instruments(&delta.changes);
+            for record in delta.resolution_records {
+                result = result.and(serde_json::to_value(record).map_err(Into::into).and_then(
+                    |record| self.submit_audit("metadata/hip4_universe_resolutions.jsonl", record),
+                ));
+            }
         }
-        self.schedule_hip4_universe_refresh()?;
-        Ok(())
+        result.and(self.schedule_hip4_universe_refresh())
     }
 
     /// Purge rolled-off HIP-4 outcome instruments from the shared Nautilus cache.
@@ -796,7 +865,7 @@ impl CatalogCaptureActor {
 
     fn schedule_metrics_export(&mut self) -> Result<()> {
         // Writer health must be checked even when HTTP metrics are disabled.
-        let interval_secs = self.metrics_refresh_interval_secs.unwrap_or(1);
+        let interval_secs = self.metrics_refresh_interval_secs.unwrap_or(1).min(5);
 
         let interval_ns = interval_secs.saturating_mul(1_000_000_000);
         self.clock().cancel_timer(METRICS_EXPORT_TIMER);
@@ -835,6 +904,22 @@ impl CatalogCaptureActor {
             return Ok(());
         }
 
+        let mut expiry_only: BTreeSet<_> = self
+            .hip4_rolling
+            .markets
+            .values()
+            .flat_map(crate::hip4_rolling::Recording::ids)
+            .collect();
+        let mut predict_hourly = Vec::new();
+        for (selector, market) in &self.active_predict_market_ids {
+            let id = predict_outcome_instrument_id(*market, 1)?;
+            if selector.interval_secs() <= 3600 {
+                expiry_only.insert(id);
+            } else {
+                predict_hourly.push(id);
+            }
+        }
+
         // Evaluate every family before propagating any error. Healthy families keep rotating.
         let mut results = vec![
             optional_enqueue_seal_all(&self.custom_data_runtime),
@@ -845,28 +930,97 @@ impl CatalogCaptureActor {
             optional_enqueue_seal_all(&self.instrument_close_runtime),
             optional_enqueue_seal_all(&self.option_greeks_runtime),
             optional_enqueue_seal_all(&self.quote_runtime),
-            optional_enqueue_seal_all(&self.trade_runtime),
             optional_enqueue_seal_all(&self.bar_runtime),
-            optional_enqueue_seal_all(&self.book_depth_runtime),
         ];
-        let book_seal = optional_enqueue_seal_all(&self.book_delta_runtime);
-        if book_seal.is_ok() {
-            results.push(self.submit_book_initializations());
+        for (selector, runtime) in &self.predict_custom_data_runtimes {
+            if selector.interval_secs() > 3600 {
+                results.push(runtime.enqueue_seal_all());
+            }
         }
-        results.push(book_seal);
+        macro_rules! seal_hourly {
+            ($runtime:ident, $ty:ty, $ids:expr) => {
+                if let Some(runtime) = &self.$runtime {
+                    if expiry_only.is_empty() {
+                        results.push(runtime.enqueue_seal_all());
+                    } else {
+                        let ids: BTreeSet<_> = ($ids).collect();
+                        for id in ids.difference(&expiry_only) {
+                            results.push(runtime.enqueue_partition_rotation(
+                                &PartitionKey::catalog_data::<$ty>(*id).stable_key(),
+                            ));
+                        }
+                    }
+                }
+            };
+        }
+        seal_hourly!(
+            trade_runtime,
+            TradeTick,
+            self.plan.trades.iter().map(|s| s.instrument_id).chain(
+                predict_hourly
+                    .iter()
+                    .copied()
+                    .filter(|id| self.predict_native_accepts(*id, "record_trades"))
+            )
+        );
+        seal_hourly!(
+            book_depth_runtime,
+            OrderBookDepth,
+            self.plan.book_depth.iter().map(|s| s.instrument_id).chain(
+                predict_hourly
+                    .iter()
+                    .copied()
+                    .filter(|id| self.predict_native_accepts(*id, "record_depth"))
+            )
+        );
+
+        if let Some(runtime) = &self.book_delta_runtime {
+            let mut skip_initialization = expiry_only.clone();
+            if expiry_only.is_empty() {
+                let seal = runtime.enqueue_seal_all();
+                if seal.is_ok() {
+                    results.push(self.submit_book_initializations(&skip_initialization));
+                }
+                results.push(seal);
+            } else {
+                let ids: BTreeSet<_> = self
+                    .plan
+                    .book_deltas
+                    .iter()
+                    .map(|s| s.instrument_id)
+                    .collect();
+                for id in ids.difference(&expiry_only) {
+                    let seal = runtime.enqueue_partition_rotation(
+                        &PartitionKey::catalog_data::<OrderBookDelta>(*id).stable_key(),
+                    );
+                    if seal.is_err() {
+                        skip_initialization.insert(*id);
+                    }
+                    results.push(seal);
+                }
+                results.push(self.submit_book_initializations(&skip_initialization));
+            }
+        }
         results.into_iter().collect::<Result<Vec<_>>>().map(|_| ())
     }
 
     /// Same-file bootstrap rows are marked in Parquet metadata, not source events.
-    fn submit_book_initializations(&self) -> Result<()> {
+    fn submit_book_initializations(&mut self, skip: &BTreeSet<InstrumentId>) -> Result<()> {
+        self.observe_book_delta_failures();
         let Some(runtime) = &self.book_delta_runtime else {
             return Ok(());
         };
+        let mut result = Ok(());
         for id in self
             .plan
             .book_deltas
             .iter()
             .map(|spec| spec.instrument_id)
+            .filter(|id| {
+                !skip.contains(id)
+                    && self.market_data_live.contains(id)
+                    && self.book_delta_baselines.contains(id)
+            })
             .collect::<BTreeSet<_>>()
         {
             let Some(book) = self
@@ -878,7 +1032,7 @@ impl CatalogCaptureActor {
             };
             let data = book.to_deltas(book.ts_last, self.clock().timestamp_ns());
             let rows = data.deltas.len();
-            runtime.submit_initialization(catalog_capture_core::CaptureItem {
+            let submitted = runtime.submit_initialization(catalog_capture_core::CaptureItem {
                 partition_key: PartitionKey::catalog_data::<OrderBookDelta>(id),
                 event_ts_ns: data.ts_event.as_u64(),
                 init_ts_ns: Some(data.ts_init.as_u64()),
@@ -886,9 +1040,10 @@ impl CatalogCaptureActor {
                 estimated_bytes: std::mem::size_of::<OrderBookDeltas>()
                     + rows * std::mem::size_of::<OrderBookDelta>(),
                 payload: data,
-            })?;
+            });
+            result = result.and(submitted);
         }
-        Ok(())
+        result
     }
 
     /// Start request-style custom data polling (`request_data` only).
@@ -1045,6 +1200,67 @@ mod tests {
     use super::predict_dynamic_output_data_type;
 
     #[test]
+    fn static_hip4_definition_is_confirmed_before_subscribing() {
+        use std::{
+            cell::RefCell,
+            rc::Rc,
+            time::{Duration, Instant},
+        };
+
+        use catalog_capture_core::{CaptureConfig, InstrumentCaptureSpec, TradeCaptureSpec};
+        use nautilus_common::{actor::Component, cache::Cache, clock::VirtualClock};
+        use nautilus_model::{identifiers::TraderId, stubs::TestDefault};
+
+        use super::*;
+
+        let root =
+            std::env::temp_dir().join(format!("hip4-definition-{}", nautilus_core::UUID4::new()));
+        std::fs::create_dir_all(&root).unwrap();
+        let id = InstrumentId::from("100000001-OUTCOME.HYPERLIQUID");
+        let mut definition = super::super::tests::test_predict_outcome(1, 1);
+        if let InstrumentAny::BinaryOption(option) = &mut definition {
+            option.id = id;
+        }
+        let plan = CapturePlan {
+            instruments: vec![InstrumentCaptureSpec { instrument_id: id }],
+            trades: vec![TradeCaptureSpec { instrument_id: id }],
+            ..Default::default()
+        };
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        cache.borrow_mut().add_instrument(definition).unwrap();
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            plan,
+        ))
+        .unwrap();
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                cache,
+            )
+            .unwrap();
+        actor.bootstrap_instrument(id).unwrap();
+        actor.subscribe_market_data_for_instrument(id);
+        assert!(!actor.market_data_live.contains(&id));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !actor.market_data_live.contains(&id) {
+            actor.poll_hip4_definition_writes();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let catalog = nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog::new(
+            &root, None, None, None, None,
+        );
+        assert_eq!(catalog.instruments(None, None, None).unwrap().len(), 1);
+        actor.shutdown_all().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn dynamic_predict_output_type_wildcards_only_its_selector_market_ids() {
         let selector = CryptoUpDownSelectorKey::new("BTC/USDT", "Bitcoin", 300).unwrap();
         let output = predict_dynamic_output_data_type(&selector);
@@ -1129,6 +1345,9 @@ impl DataActor for CatalogCaptureActor {
         self.lighter.pending = None;
         self.clock().cancel_timer(OPTION_UNIVERSE_REFRESH_TIMER);
         self.clock().cancel_timer(HIP4_UNIVERSE_REFRESH_TIMER);
+        if let Some(manager) = &mut self.dynamic_hip4_universe {
+            manager.cancel_refresh();
+        }
         self.clock().cancel_timer(SEGMENT_SEAL_TIMER);
         self.clock().cancel_timer(METRICS_EXPORT_TIMER);
         self.cancel_custom_data_request_timers();
@@ -1187,6 +1406,8 @@ impl DataActor for CatalogCaptureActor {
                 }
             }
             let retry = self.retry_instrument_definitions();
+            self.poll_hip4_definition_writes();
+            self.retry_predict_retirement_seals();
             self.publish_metrics_snapshot();
             self.record_capture_result(retry)?;
         }
@@ -1202,27 +1423,19 @@ impl DataActor for CatalogCaptureActor {
         &mut self,
         response: &nautilus_common::messages::data::InstrumentsResponse,
     ) {
-        if response
-            .params
-            .as_ref()
-            .is_some_and(|p| p.get("hip4_rolling_capture") == Some(&serde_json::json!(true)))
-        {
-            if self.shutdown_completed {
-                return;
-            }
-            if self
-                .hip4_rolling
-                .instrument_request
-                .is_some_and(|(id, _)| id == response.correlation_id)
-            {
-                self.hip4_rolling.instrument_request = None;
-            }
-            let selected = self.plan.planned_instrument_ids();
+        if self.hip4_rolling.instrument_request == Some(response.correlation_id) {
+            // DataEngine caches the response after Native publishes changes.
+            // Restore the enriched cache rows that the rolling timer already saw.
             for instrument in &response.data {
-                if selected.contains(&instrument.id())
-                    && let Err(error) = self.on_instrument(instrument)
+                if self
+                    .hip4_rolling
+                    .definitions_recorded
+                    .contains(&instrument.id())
                 {
-                    log::error!("HIP-4 instrument response failed: {error:#}");
+                    let result = self.submit_instrument(instrument.clone());
+                    if let Err(error) = self.record_capture_result(result) {
+                        log::error!("HIP-4 instrument response failed: {error:#}");
+                    }
                 }
             }
             return;
@@ -1244,6 +1457,21 @@ impl DataActor for CatalogCaptureActor {
         }
     }
 
+    fn on_data_response(
+        &mut self,
+        response: &nautilus_common::messages::data::DataResponseEnvelope,
+    ) -> Result<()> {
+        if response.completed() {
+            let request_id = response.correlation_id();
+            if self.hip4_rolling.instrument_request.as_ref() == Some(request_id) {
+                self.hip4_rolling.instrument_request = None;
+            }
+            self.matched_definition_requests
+                .retain(|_, pending| pending != request_id);
+        }
+        Ok(())
+    }
+
     fn on_instrument(&mut self, instrument: &InstrumentAny) -> Result<()> {
         let id = instrument.id();
         if self.hip4_rolling.config.is_some()
@@ -1251,6 +1479,12 @@ impl DataActor for CatalogCaptureActor {
             && !self.plan.planned_instrument_ids().contains(&id)
         {
             return Ok(());
+        }
+        if self.hip4_rolling.definition(id).is_some() {
+            return Ok(());
+        }
+        if self.plan.planned_instrument_ids().contains(&id) {
+            self.track_hip4_definition_write(id);
         }
         let result = self.submit_instrument(instrument.clone());
         self.record_capture_result(result)?;
@@ -1260,15 +1494,6 @@ impl DataActor for CatalogCaptureActor {
             || (self.plan.planned_instrument_ids().contains(&instrument_id)
                 && !self.market_data_live.contains(&instrument_id));
         if needs_md {
-            if is_hip4_outcome(instrument_id)
-                || self
-                    .matched_sports
-                    .markets
-                    .values()
-                    .any(|m| m.instrument_ids().any(|id| id == instrument_id))
-            {
-                optional_flush_all(&self.instrument_runtime)?;
-            }
             self.subscribe_market_data_for_instrument(instrument_id);
             if self.pending_market_data.is_empty() {
                 self.pending_market_data_backoff_secs = PENDING_MD_BACKOFF_START_SECS;

@@ -21,6 +21,7 @@ use std::{
 use anyhow::{Context, Result};
 use catalog_capture_core::{
     BookDeltasCaptureSpec, CapturePlan, InstrumentCaptureSpec, TradeCaptureSpec,
+    background::PendingFlush,
     hip4::rolling::{Hip4RollingConfig, Hip4RollingMarket},
 };
 use nautilus_core::{Params, UnixNanos};
@@ -42,8 +43,31 @@ use serde_json::{Value, json};
 
 #[derive(Debug)]
 pub(crate) struct PendingDiscovery {
-    pub receiver: mpsc::Receiver<std::result::Result<Value, String>>,
+    receiver: mpsc::Receiver<std::result::Result<Value, String>>,
     cancel: Option<tokio::sync::oneshot::Sender<()>>,
+}
+impl PendingDiscovery {
+    pub fn try_complete(&self) -> Option<std::result::Result<Value, String>> {
+        match self.receiver.try_recv() {
+            Ok(result) => Some(result),
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                Some(Err("discovery worker disconnected".into()))
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub fn test_channel() -> (Self, mpsc::SyncSender<std::result::Result<Value, String>>) {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        (
+            Self {
+                receiver,
+                cancel: None,
+            },
+            sender,
+        )
+    }
 }
 impl Drop for PendingDiscovery {
     fn drop(&mut self) {
@@ -53,17 +77,20 @@ impl Drop for PendingDiscovery {
     }
 }
 /// Dropping the receiver cancels the request and isolates a stopped actor from late results.
-pub(crate) fn discover() -> Result<PendingDiscovery> {
+pub(crate) fn discover(
+    environment: HyperliquidEnvironment,
+    timeout_secs: u64,
+) -> Result<PendingDiscovery> {
     let (sender, receiver) = mpsc::sync_channel(1);
     let (cancel, cancelled) = tokio::sync::oneshot::channel();
     std::thread::Builder::new().name("hip4-discovery".into()).spawn(move || {
         let result = (|| -> Result<Value> {
             let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
             runtime.block_on(async move {
-                let client = HyperliquidRawHttpClient::new(HyperliquidEnvironment::Mainnet, 10, None)?;
+                let client = HyperliquidRawHttpClient::new(environment, timeout_secs, None)?;
                 let request = InfoRequest::outcome_meta();
                 tokio::select! {
-                    result = tokio::time::timeout(std::time::Duration::from_secs(10), client.send_info_request_raw(&request)) =>
+                    result = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), client.send_info_request_raw(&request)) =>
                         result.context("HIP-4 discovery request timed out")?.map_err(Into::into),
                     _ = cancelled => anyhow::bail!("HIP-4 discovery cancelled"),
                 }
@@ -87,12 +114,23 @@ pub(crate) struct Series {
 pub(crate) struct Recording {
     pub market: Hip4RollingMarket,
     pub definitions: Vec<InstrumentAny>,
+    pub handover: Handover,
+    pub failure_cursor: u64,
 }
 impl Recording {
     pub fn ids(&self) -> impl Iterator<Item = InstrumentId> + '_ {
         self.definitions.iter().map(Instrument::id)
     }
 }
+
+#[derive(Debug)]
+pub(crate) enum Handover {
+    LoadingDefinitions,
+    WritingDefinitions(PendingFlush),
+    Subscribed,
+    WritingBooks(PendingFlush),
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct Hip4RollingState {
     pub config: Option<Hip4RollingConfig>,
@@ -103,7 +141,7 @@ pub(crate) struct Hip4RollingState {
     pub definitions_recorded: BTreeSet<InstrumentId>,
     pub discovery: Option<PendingDiscovery>,
     pub next_discovery_ns: u64,
-    pub instrument_request: Option<(nautilus_core::UUID4, u64)>,
+    pub instrument_request: Option<nautilus_core::UUID4>,
 }
 impl Hip4RollingState {
     pub fn plan(&self) -> CapturePlan {
@@ -129,7 +167,20 @@ impl Hip4RollingState {
             .find(|i| i.id() == id)
             .cloned()
     }
-    pub fn recording(market: Hip4RollingMarket, now: UnixNanos) -> Result<Recording> {
+
+    pub fn blocks_market_data_subscription(&self, id: InstrumentId) -> bool {
+        self.markets.values().any(|market| {
+            matches!(
+                market.handover,
+                Handover::LoadingDefinitions | Handover::WritingDefinitions(_)
+            ) && market.ids().any(|candidate| candidate == id)
+        })
+    }
+    pub fn recording(
+        market: Hip4RollingMarket,
+        now: UnixNanos,
+        failure_cursor: u64,
+    ) -> Result<Recording> {
         let meta: OutcomeMeta =
             serde_json::from_value(json!({"outcomes":[market.raw.clone()],"questions":[]}))?;
         let defs = parse_outcome_instruments(&meta).map_err(anyhow::Error::msg)?;
@@ -161,6 +212,8 @@ impl Hip4RollingState {
         Ok(Recording {
             market,
             definitions,
+            handover: Handover::LoadingDefinitions,
+            failure_cursor,
         })
     }
 }

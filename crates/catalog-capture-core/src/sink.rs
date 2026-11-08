@@ -19,7 +19,6 @@ use std::{
 };
 
 // Path is used for catalog URI roots.
-
 use anyhow::{Context, Result};
 use nautilus_core::UnixNanos;
 use nautilus_model::{
@@ -68,6 +67,10 @@ pub trait CaptureSink<T> {
 
     fn seal_partition(&mut self, _key: &str) -> Result<FlushResult> {
         Ok(FlushResult::default())
+    }
+
+    fn rotate_partition(&mut self, key: &str) -> Result<FlushResult> {
+        self.seal_partition(key)
     }
 
     fn seal_all_for_shutdown(&mut self) -> Result<FlushResult> {
@@ -157,6 +160,13 @@ where
         match self {
             Self::Chunked(_) => Ok(FlushResult::default()),
             Self::Segment(sink) => sink.seal_partition(key),
+        }
+    }
+
+    fn rotate_partition(&mut self, key: &str) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment(sink) => sink.rotate_partition(key),
         }
     }
 
@@ -477,6 +487,13 @@ impl CaptureSink<OrderBookDeltas> for BookDeltaCatalogSink {
                 boundary.remove(key);
                 Ok(result)
             }
+        }
+    }
+
+    fn rotate_partition(&mut self, key: &str) -> Result<FlushResult> {
+        match self {
+            Self::Chunked(_) => Ok(FlushResult::default()),
+            Self::Segment { sink, .. } => sink.rotate_partition(key),
         }
     }
 

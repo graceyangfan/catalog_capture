@@ -162,7 +162,7 @@ async fn venue_request_preserves_correlation_and_does_not_require_preloading() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn invalid_identity_and_stopped_generation_cannot_publish_a_response() {
+async fn invalid_identity_is_rejected_and_stopped_generation_completes_as_failed() {
     let state = Venue {
         release: Some(Arc::new(Notify::new())),
         ..Default::default()
@@ -194,17 +194,21 @@ async fn invalid_identity_and_stopped_generation_cannot_publish_a_response() {
     let mut wrong_client = request(instrument(1));
     wrong_client.client_id = Some(ClientId::new("OTHER"));
     assert!(client.request_instrument(wrong_client).is_err());
-    client.request_instrument(request(instrument(1))).unwrap();
+    let command = request(instrument(1));
+    let request_id = command.request_id;
+    client.request_instrument(command).unwrap();
     tokio::time::timeout(Duration::from_secs(3), state.requested.notified())
         .await
         .unwrap();
     client.reset().unwrap();
     state.release.unwrap().notify_one();
     client.disconnect().await.unwrap();
-    assert!(
-        rx.try_recv().is_err(),
-        "retired requests must not publish definitions or responses"
-    );
+    let DataEvent::RequestFailed(failure) = rx.try_recv().unwrap() else {
+        panic!("retired request must fail without publishing a definition");
+    };
+    assert_eq!(failure.request_id, request_id);
+    assert!(failure.response.is_none());
+    assert!(rx.try_recv().is_err());
     assert!(client.request_instrument(request(instrument(1))).is_err());
     server.abort();
 }

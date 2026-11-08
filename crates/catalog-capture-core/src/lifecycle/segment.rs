@@ -17,8 +17,9 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use anyhow::{Result, anyhow};
 use arrow::datatypes::Schema;
 use nautilus_model::data::HasTsInit;
-use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
-use nautilus_persistence::common::paths::CatalogPathPrefix;
+use nautilus_persistence::{
+    backend::parquet::catalog::ParquetDataCatalog, common::paths::CatalogPathPrefix,
+};
 use nautilus_serialization::arrow::EncodeToRecordBatch;
 use parquet::basic::Compression;
 use serde::Serialize;
@@ -151,6 +152,10 @@ where
 
     pub fn seal_partition(&mut self, key: &str) -> Result<FlushResult> {
         self.window_ids.remove(key);
+        self.seal_segment(key, false)
+    }
+
+    pub fn rotate_partition(&mut self, key: &str) -> Result<FlushResult> {
         self.seal_segment(key, false)
     }
 
@@ -342,8 +347,10 @@ mod tests {
     };
 
     use super::*;
-    use crate::config::CaptureConfig;
-    use crate::lifecycle::{LifecycleConfig, LifecycleMode, SealConfigFile};
+    use crate::{
+        config::CaptureConfig,
+        lifecycle::{LifecycleConfig, LifecycleMode, SealConfigFile},
+    };
 
     fn quote(instrument_id: InstrumentId, ts: u64) -> QuoteTick {
         QuoteTick::new(

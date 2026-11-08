@@ -28,7 +28,7 @@ venues → catalog-capture-cli + TOML
 - **One product binary** — `catalog-capture-cli` (TOML configs only)
 - **Rust catalog layout only** — `rust_canonical_only` (Nautilus `ParquetDataCatalog`)
 - **Venue adapters** — Binance Futures/Spot SBE, Bybit, Deribit, OKX,
-  Hyperliquid, Lighter/Robinhood Chain, Extended, and Predict (`venue-*` features)
+  Hyperliquid, Lighter/Robinhood Chain, Extended, Bitfinex Spot L3, and Predict (`venue-*` features)
 - **Lighter binary options** — fixed markets and automatic 15m capture via
   [nautilus-lighter-ext](crates/nautilus-lighter-ext/README.md) (`venue-lighter-ext`);
   [operator guide](docs/how_to/lighter-binary-capture.md) and
@@ -77,6 +77,7 @@ Data: `./data/…` (gitignored). Catalog layout: [docs/concepts/catalog_layout.m
 | `examples/capture.predict-native.toml` | Predict BTC 5m native YES depth and trades |
 | `examples/capture.predict-crypto-updown.toml` | BTC/ETH/BNB 5m/15m Predict depth/trades plus Binance Spot SBE |
 | `examples/capture.extended-btc-perp.toml` | Extended BTC perpetual public market data |
+| `examples/capture.bitfinex-spot-l3.toml` | Bitfinex BTC/USD and ETH/USD public R0 order books |
 | `examples/capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid rolling-universe example |
 | `examples/capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (1s poll) |
 

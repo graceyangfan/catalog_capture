@@ -13,12 +13,6 @@
 // -------------------------------------------------------------------------------------------------
 
 //! Bounded discovery mailbox and actor-owned recording subscriptions.
-use catalog_capture_core::{
-    CapturePlan, InstrumentCaptureSpec, TradeCaptureSpec,
-    paired_markets::{MatchedMarket, MatchedUniverse},
-    plan::{BookDeltasCaptureSpec, BookDepthCaptureSpec},
-};
-use nautilus_model::{enums::BookType, identifiers::InstrumentId};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{
@@ -26,6 +20,16 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
+
+use catalog_capture_core::{
+    CapturePlan, InstrumentCaptureSpec, TradeCaptureSpec,
+    background::PendingFlush,
+    paired_markets::{MatchedMarket, MatchedUniverse},
+    plan::{BookDeltasCaptureSpec, BookDepthCaptureSpec},
+};
+use nautilus_model::{enums::BookType, identifiers::InstrumentId};
+
+use crate::actor_runtime::DefinitionWrite;
 
 #[derive(Debug, Default)]
 pub struct MatchedSportsDiscoveryInbox {
@@ -77,16 +81,37 @@ pub(crate) struct MatchedSportsState {
     pub usable_books: BTreeSet<InstrumentId>,
     pub observed: BTreeMap<InstrumentId, u64>,
     pub instrument_versions: BTreeMap<InstrumentId, u64>,
+    pub definition_writes: BTreeMap<u64, DefinitionWrite>,
+    pub deferred_subscriptions: CapturePlan,
     pub intervals: BTreeMap<u64, bool>,
     pub retiring: BTreeMap<InstrumentId, u64>,
 }
-#[derive(Debug, Clone)]
+
+#[derive(Debug)]
 pub(crate) struct Preparation {
     pub market_id: u64,
     pub started_ns: u64,
     pub ready: bool,
+    pub writer_generations: WriterGenerations,
+    pub flushes: Option<Vec<PendingFlush>>,
+}
+
+#[derive(Debug)]
+pub(crate) struct WriterGenerations {
+    pub instruments: u64,
+    pub depth: u64,
+    pub deltas: u64,
+    pub trades: u64,
 }
 impl MatchedSportsState {
+    pub fn blocks_market_data_subscription(&self, id: InstrumentId) -> bool {
+        self.definition_writes.keys().any(|market| {
+            self.markets[market]
+                .instrument_ids()
+                .any(|candidate| candidate == id)
+        })
+    }
+
     pub fn plan(&self) -> CapturePlan {
         let mut plan = CapturePlan::default();
         for market in self.markets.values() {

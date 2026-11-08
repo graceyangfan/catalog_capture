@@ -20,10 +20,11 @@ use std::{
 
 use serde::Serialize;
 
-/// Local persistence failures. These observations do not certify venue continuity.
+/// Observed capture failures, including explicitly signalled source discontinuities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FailureOperation {
+    SourceGap,
     Admission,
     Write,
     Sync,

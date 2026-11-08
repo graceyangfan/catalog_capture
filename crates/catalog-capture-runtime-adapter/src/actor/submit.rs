@@ -12,20 +12,34 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+use anyhow::Context;
 use catalog_capture_core::{
     ForwardPrice, append_forward_price_records, forward_price_record_from_model, item::CaptureItem,
     runtime::FlushResult,
 };
-
 use nautilus_common::actor::DataActor;
 
 use super::*;
 use crate::actor_runtime::{
-    enqueue_seal_runtime, optional_flush_all, optional_shutdown, optional_submit,
-    submit_capture_item,
+    enqueue_seal_runtime, optional_flush_all, optional_submit, submit_capture_item,
 };
 
 impl CatalogCaptureActor {
+    pub(super) fn submit_audit(&self, file: &'static str, record: serde_json::Value) -> Result<()> {
+        let now = self.clock().timestamp_ns().as_u64();
+        optional_submit(
+            &self.audit_runtime,
+            CaptureItem {
+                partition_key: PartitionKey::market_data("audit", file),
+                event_ts_ns: now,
+                init_ts_ns: Some(now),
+                row_count: 1,
+                estimated_bytes: record.to_string().len(),
+                payload: (file, record),
+            },
+        )
+    }
+
     pub(super) fn submit_instrument(&mut self, instrument: InstrumentAny) -> Result<()> {
         let instrument = self
             .hip4_rolling
@@ -50,11 +64,11 @@ impl CatalogCaptureActor {
         {
             return Ok(());
         }
-        let matched = self
-            .matched_sports
-            .markets
-            .values()
-            .any(|m| m.instrument_ids().any(|candidate| candidate == id));
+        // Static selectors may already have recorded a definition before a
+        // matched market takes ownership of an additional stream for the ID.
+        let matched = self.matched_sports_inbox.is_some()
+            && matches!(id.venue.as_str(), "PREDICT" | "POLYMARKET")
+            && self.plan.planned_instrument_ids().contains(&id);
         // Native publishes a definition and a correlated response; PM may publish both
         // outcomes for either request. Late/duplicate versions cannot overlap a sealed file.
         if matched
@@ -209,7 +223,7 @@ impl CatalogCaptureActor {
             })?;
         }
 
-        self.sync_predict_native(&data_type, retired_predict_market_id)?;
+        self.sync_predict_native(&data_type)?;
 
         // Native successor subscriptions are admitted before retiring the old definitions.
         // Keep them cached while another strategy still owns an old-market subscription.
@@ -376,6 +390,21 @@ impl CatalogCaptureActor {
         self.submit_book_delta_batch(deltas.clone())
     }
 
+    pub(super) fn observe_book_delta_failures(&mut self) {
+        if let Some(runtime) = &self.book_delta_runtime
+            && let Some(affected) = runtime.failures_since(&mut self.book_delta_failure_cursor)
+        {
+            for spec in &self.plan.book_deltas {
+                let id = spec.instrument_id;
+                if affected.contains(&PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key())
+                {
+                    self.book_delta_baselines.remove(&id);
+                    self.book_delta_recovery.insert(id);
+                }
+            }
+        }
+    }
+
     pub(super) fn submit_book_delta_batch(&mut self, mut deltas: OrderBookDeltas) -> Result<()> {
         if !self.accepts_market_data(deltas.instrument_id, || {
             self.plan
@@ -389,31 +418,31 @@ impl CatalogCaptureActor {
             return Ok(());
         }
         let id = deltas.instrument_id;
-        if let Some(runtime) = &self.book_delta_runtime
-            && let Some(affected) = runtime.failures_since(&mut self.book_delta_failure_cursor)
+        if id.venue.as_str() == "BITFINEX"
+            && let [clear] = deltas.deltas.as_slice()
+            && clear.action == nautilus_model::enums::BookAction::Clear
+            && !nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(clear.flags)
         {
-            self.book_delta_recovery.extend(
-                self.plan
-                    .book_deltas
-                    .iter()
-                    .map(|spec| spec.instrument_id)
-                    .chain(std::iter::once(id))
-                    .filter(|id| {
-                        affected.contains(
-                            &PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key(),
-                        )
-                    }),
-            );
+            self.book_delta_baselines.remove(&id);
+            // Bitfinex sends a CLEAR without F_SNAPSHOT when a connection loses its baseline.
+            // Native clears the managed book; the writer records a boundary only.
+            let runtime = self
+                .book_delta_runtime
+                .as_ref()
+                .context("book-delta writer unavailable")?;
+            return runtime.mark_source_gap(&PartitionKey::catalog_data::<OrderBookDelta>(id));
         }
+        self.observe_book_delta_failures();
         let recovery = self.book_delta_recovery.contains(&id);
-        if recovery && !nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(deltas.flags) {
+        let source_snapshot = nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(deltas.flags);
+        if recovery && !source_snapshot {
             let book = self
                 .cache()
                 .order_book(&id)
                 .filter(|book| book.update_count > 0)
                 .ok_or_else(|| {
                     anyhow::anyhow!(
-                        "L2 recovery waits for a managed book or source snapshot for {id}"
+                        "Book recovery waits for a managed book or source snapshot for {id}"
                     )
                 })?;
             // Native has applied this source message before dispatching the callback.
@@ -431,7 +460,9 @@ impl CatalogCaptureActor {
             estimated_bytes,
             payload: deltas,
         };
-        let result = if recovery {
+        // A Bitfinex source cut is queued before the replacement snapshot. Keep
+        // the verified venue frame as source data, even if it is an empty book.
+        let result = if recovery && !(id.venue.as_str() == "BITFINEX" && source_snapshot) {
             self.book_delta_runtime
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("book-delta writer unavailable"))?
@@ -440,9 +471,11 @@ impl CatalogCaptureActor {
             optional_submit(&self.book_delta_runtime, item)
         };
         if result.is_err() {
+            self.book_delta_baselines.remove(&id);
             self.book_delta_recovery.insert(id);
-        } else if recovery {
+        } else if recovery || source_snapshot {
             self.book_delta_recovery.remove(&id);
+            self.book_delta_baselines.insert(id);
         }
         result
     }
@@ -450,6 +483,7 @@ impl CatalogCaptureActor {
     pub fn flush_all(&mut self) -> Result<Vec<FlushResult>> {
         Ok(vec![
             optional_flush_all(&self.instrument_runtime)?,
+            optional_flush_all(&self.audit_runtime)?,
             optional_flush_all(&self.custom_data_runtime)?,
             self.predict_custom_data_runtimes.values().try_fold(
                 FlushResult::default(),
@@ -480,26 +514,43 @@ impl CatalogCaptureActor {
             return Ok(Vec::new());
         }
 
-        // Every family must drain even if another writer reports a failure.
-        let mut results = vec![
-            optional_shutdown(&mut self.instrument_runtime),
-            optional_shutdown(&mut self.custom_data_runtime),
-            optional_shutdown(&mut self.mark_price_runtime),
-            optional_shutdown(&mut self.index_price_runtime),
-            optional_shutdown(&mut self.funding_rate_runtime),
-            optional_shutdown(&mut self.instrument_status_runtime),
-            optional_shutdown(&mut self.instrument_close_runtime),
-            optional_shutdown(&mut self.option_greeks_runtime),
-            optional_shutdown(&mut self.quote_runtime),
-            optional_shutdown(&mut self.trade_runtime),
-            optional_shutdown(&mut self.bar_runtime),
-            optional_shutdown(&mut self.book_delta_runtime),
-            optional_shutdown(&mut self.book_depth_runtime),
-        ];
-        for runtime in self.predict_custom_data_runtimes.values_mut() {
-            results.push(runtime.shutdown());
+        // Signal every writer before waiting on any one sink.
+        let mut admission = Vec::new();
+        let mut results = Vec::new();
+        macro_rules! drain_writers {
+            ($($field:ident),+ $(,)?) => {
+                $(if let Some(writer) = &mut self.$field {
+                    admission.push(writer.begin_shutdown());
+                })+
+                for writer in self.predict_custom_data_runtimes.values_mut() {
+                    admission.push(writer.begin_shutdown());
+                }
+                $(if let Some(writer) = &mut self.$field {
+                    results.push(writer.shutdown());
+                })+
+                for writer in self.predict_custom_data_runtimes.values_mut() {
+                    results.push(writer.shutdown());
+                }
+            };
         }
+        drain_writers!(
+            instrument_runtime,
+            audit_runtime,
+            custom_data_runtime,
+            mark_price_runtime,
+            index_price_runtime,
+            funding_rate_runtime,
+            instrument_status_runtime,
+            instrument_close_runtime,
+            option_greeks_runtime,
+            quote_runtime,
+            trade_runtime,
+            bar_runtime,
+            book_delta_runtime,
+            book_depth_runtime,
+        );
         self.shutdown_completed = true;
+        admission.into_iter().collect::<Result<()>>()?;
         results.into_iter().collect()
     }
 }

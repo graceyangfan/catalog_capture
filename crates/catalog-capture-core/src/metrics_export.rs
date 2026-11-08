@@ -52,7 +52,7 @@ pub struct CaptureMetricsSnapshot {
 }
 
 impl CaptureMetricsSnapshot {
-    /// Local recorder health only; this does not certify venue replay or continuity.
+    /// Observed recording faults, including explicit source-gap notifications.
     #[must_use]
     pub fn has_recording_failure(&self) -> bool {
         self.failure.is_some()

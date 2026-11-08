@@ -23,15 +23,15 @@ mod option_universe;
 mod order_book;
 #[cfg(feature = "predict-execution")]
 mod predict_node;
+mod pressure;
 mod runner;
 mod universe_materialize;
 
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use catalog_capture_core::catalog_root_from_uri;
 use catalog_capture_core::{
-    OptionUniverseReadbackReport, OptionUniverseResolutionValidationReport,
+    OptionUniverseReadbackReport, OptionUniverseResolutionValidationReport, catalog_root_from_uri,
 };
 use clap::{Parser, Subcommand, ValueEnum};
 use config::{EffectiveConfig, load_config, render_effective_config, resolve_config};

@@ -46,8 +46,9 @@ pub fn validate_order_books(
 
 fn print_order_book_report(report: &OrderBookReplayReport) {
     println!(
-        "instrument={} rows={} segments={} snapshot_segments={} snapshot_batches={} ts_init={}..{} final_levels={} bids/{} asks",
+        "instrument={} book_type={} rows={} segments={} snapshot_segments={} snapshot_batches={} ts_init={}..{} final_levels={} bids/{} asks final_orders={} bids/{} asks",
         report.instrument_id,
+        report.book_type,
         report.row_count,
         report.segment_count,
         report.snapshot_segment_count,
@@ -56,5 +57,7 @@ fn print_order_book_report(report: &OrderBookReplayReport) {
         report.last_ts_init_ns,
         report.final_bid_level_count,
         report.final_ask_level_count,
+        report.final_bid_order_count,
+        report.final_ask_order_count,
     );
 }

@@ -65,7 +65,8 @@ row_group_rows = 5000
 sync_interval_ms = 10000
 
 # Predict YES depth/trades rotate when the successor first publishes a snapshot.
-# Hourly seals also bound native segments; internal control snapshots are not recorded.
+# Hourly seals apply to continuous reference streams; short outcomes seal on rollover.
+# Internal control snapshots are not recorded.
 [output.lifecycle.seal]
 enabled = true
 schedule = "00:00"

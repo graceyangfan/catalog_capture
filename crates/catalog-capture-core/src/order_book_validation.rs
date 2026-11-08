@@ -7,14 +7,17 @@ use nautilus_model::{
     data::OrderBookDeltas,
     enums::{BookType, RecordFlag},
     identifiers::InstrumentId,
-    orderbook::OrderBook,
+    orderbook::{BookLevel, OrderBook},
 };
 use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
 use serde::Serialize;
 
+use crate::replay::{read_book_replay_windows, recorded_book_type};
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct OrderBookReplayReport {
     pub instrument_id: String,
+    pub book_type: BookType,
     pub row_count: usize,
     pub segment_count: usize,
     pub snapshot_segment_count: usize,
@@ -23,6 +26,8 @@ pub struct OrderBookReplayReport {
     pub last_ts_init_ns: u64,
     pub final_bid_level_count: usize,
     pub final_ask_level_count: usize,
+    pub final_bid_order_count: usize,
+    pub final_ask_order_count: usize,
 }
 
 /// Reads canonical order-book deltas, checks snapshot framing and applies the full stream to a
@@ -95,12 +100,30 @@ pub fn validate_order_book_replay(
         }
     }
 
-    let mut book = OrderBook::new(instrument_id, BookType::L2_MBP);
-    book.apply_deltas(&OrderBookDeltas::new(instrument_id, rows.clone()))
-        .with_context(|| format!("failed to apply order_book_deltas for {instrument}"))?;
+    let book_type = recorded_book_type(instrument_id);
+    let mut book = OrderBook::new(instrument_id, book_type);
+    if book_type == BookType::L3_MBO {
+        let windows = read_book_replay_windows(catalog_root, instrument_id)?;
+        anyhow::ensure!(!windows.is_empty(), "no L3 replay windows for {instrument}");
+        for window in windows {
+            anyhow::ensure!(
+                window.has_book_baseline(),
+                "missing L3 baseline in {}",
+                window.id
+            );
+            book = OrderBook::new(instrument_id, book_type);
+            for frame in &window.data {
+                book.apply_deltas(frame)?;
+            }
+        }
+    } else {
+        book.apply_deltas(&OrderBookDeltas::new(instrument_id, rows.clone()))
+            .with_context(|| format!("failed to apply order_book_deltas for {instrument}"))?;
+    }
 
     Ok(OrderBookReplayReport {
         instrument_id: instrument,
+        book_type,
         row_count: rows.len(),
         segment_count: intervals.len(),
         snapshot_segment_count,
@@ -117,6 +140,8 @@ pub fn validate_order_book_replay(
             .as_u64(),
         final_bid_level_count: book.bids(None).count(),
         final_ask_level_count: book.asks(None).count(),
+        final_bid_order_count: book.bids(None).map(BookLevel::len).sum(),
+        final_ask_order_count: book.asks(None).map(BookLevel::len).sum(),
     })
 }
 

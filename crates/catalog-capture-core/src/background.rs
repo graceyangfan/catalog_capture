@@ -24,7 +24,7 @@ use anyhow::{Context, Result, anyhow};
 use crate::{
     config::{CaptureConfig, OverflowPolicy},
     failures::{AffectedPartitions, FailureOperation, FailureSnapshot, FailureTracker},
-    item::CaptureItem,
+    item::{CaptureItem, PartitionKey},
     metrics::{CaptureMetrics, FlushReason},
     runtime::{CaptureRuntime, FlushResult},
     sink::CaptureSink,
@@ -32,12 +32,33 @@ use crate::{
 
 type WorkerReply = std::result::Result<FlushResult, String>;
 
+/// Completion of an ordered partition flush submitted to the writer.
+#[derive(Debug)]
+pub struct PendingFlush(mpsc::Receiver<std::result::Result<(), String>>);
+
+impl PendingFlush {
+    /// Poll once without blocking. Discard the handle after completion or failure.
+    pub fn try_complete(&self) -> Result<bool> {
+        match self.0.try_recv() {
+            Ok(result) => result.map(|_| true).map_err(anyhow::Error::msg),
+            Err(mpsc::TryRecvError::Empty) => Ok(false),
+            Err(error) => Err(anyhow!("background capture flush reply failed: {error}")),
+        }
+    }
+}
+
 #[derive(Debug)]
 enum QueueEntry<T> {
     Data(CaptureItem<T>),
     Recovery(CaptureItem<T>),
     Initialization(CaptureItem<T>),
     Gap(Option<String>),
+    Flush {
+        partitions: Vec<String>,
+        since_generation: u64,
+        reply: mpsc::Sender<std::result::Result<(), String>>,
+    },
+    Rotate(String),
     Seal {
         partition: Option<String>,
         reply: Option<mpsc::Sender<WorkerReply>>,
@@ -120,6 +141,7 @@ pub struct BackgroundCaptureRuntime<T, S> {
     failures: FailureTracker,
     state: Arc<(Mutex<QueueState<T>>, Condvar)>,
     worker: Option<JoinHandle<()>>,
+    shutdown_reply: Option<mpsc::Receiver<WorkerReply>>,
     _marker: std::marker::PhantomData<S>,
 }
 
@@ -143,6 +165,7 @@ where
             failures,
             state,
             worker: Some(worker),
+            shutdown_reply: None,
             _marker: std::marker::PhantomData,
         })
     }
@@ -265,7 +288,26 @@ where
             FailureOperation::Admission,
             Some((item.event_ts_ns, item.event_ts_ns)),
         );
-        let requested = Some(item.partition_key.stable_key());
+        self.enqueue_gap(state, item.partition_key.stable_key(), at_front);
+    }
+
+    /// Record a source gap in publication order without consuming data queue capacity.
+    pub fn mark_source_gap(&self, partition: &PartitionKey) -> Result<()> {
+        self.ensure_worker_running()?;
+        let (lock, _) = &*self.state;
+        let mut state = lock_queue_state(lock)?;
+        if state.shutdown_requested {
+            return Err(anyhow!("capture runtime is shutting down"));
+        }
+        let key = partition.stable_key();
+        self.failures
+            .record(Some(&key), FailureOperation::SourceGap, None);
+        self.enqueue_gap(&mut state, key, false);
+        Ok(())
+    }
+
+    fn enqueue_gap(&self, state: &mut QueueState<T>, key: String, at_front: bool) {
+        let requested = Some(key);
         let key = if state.pending_gaps.contains(&None)
             || (state.pending_gaps.len() >= self.config.max_active_partitions.max(1)
                 && !state.pending_gaps.contains(&requested))
@@ -296,7 +338,7 @@ where
                     pending.remove(&None);
                     true
                 }
-                QueueEntry::Seal { .. } => true,
+                QueueEntry::Flush { .. } | QueueEntry::Rotate(_) | QueueEntry::Seal { .. } => true,
             });
             state.pending_gaps = pending;
             state.queued_gap_count = count;
@@ -318,7 +360,7 @@ where
     }
 
     pub fn flush_all(&self) -> Result<FlushResult> {
-        self.request_flush(false)
+        self.receive_reply(self.enqueue_flush(false)?)
     }
 
     pub fn seal_all(&self) -> Result<FlushResult> {
@@ -340,11 +382,47 @@ where
         self.enqueue_seal(Some(key), None)
     }
 
+    /// Cuts a file while preserving the partition replay window.
+    pub fn enqueue_partition_rotation(&self, key: &str) -> Result<()> {
+        self.enqueue_control(QueueEntry::Rotate(key.to_owned()))
+    }
+
+    /// Flushes the selected partitions into the sink without sealing or fsync.
+    /// A segment sink can still buffer rows in an open Parquet row group.
+    /// A failure affecting these partitions after `since_generation` invalidates the reply.
+    pub fn enqueue_partition_flush(
+        &self,
+        partitions: Vec<String>,
+        since_generation: u64,
+    ) -> Result<PendingFlush> {
+        let (reply, receiver) = mpsc::channel();
+        self.enqueue_control(QueueEntry::Flush {
+            partitions,
+            since_generation,
+            reply,
+        })?;
+        Ok(PendingFlush(receiver))
+    }
+
+    /// Signal the worker to drain independently of other family writers.
+    pub fn begin_shutdown(&mut self) -> Result<()> {
+        if self.worker.is_some() && self.shutdown_reply.is_none() {
+            self.shutdown_reply = Some(self.enqueue_flush(true)?);
+        }
+        Ok(())
+    }
+
     pub fn shutdown(&mut self) -> Result<FlushResult> {
         if self.worker.is_none() {
             return Ok(FlushResult::default());
         }
-        let result = self.request_flush(true);
+        let result = self.begin_shutdown().and_then(|()| {
+            let reply = self
+                .shutdown_reply
+                .take()
+                .expect("shutdown reply registered");
+            self.receive_reply(reply)
+        });
         if let Some(worker) = self.worker.take() {
             worker
                 .join()
@@ -417,7 +495,7 @@ where
         Ok(())
     }
 
-    fn request_flush(&self, shutdown: bool) -> Result<FlushResult> {
+    fn enqueue_flush(&self, shutdown: bool) -> Result<mpsc::Receiver<WorkerReply>> {
         self.ensure_worker_running()?;
         let (tx, rx) = mpsc::channel();
         let (lock, cvar) = &*self.state;
@@ -434,7 +512,7 @@ where
         }
         cvar.notify_one();
 
-        self.receive_reply(rx)
+        Ok(rx)
     }
 
     fn request_seal(&self, partition: Option<&str>) -> Result<FlushResult> {
@@ -460,6 +538,13 @@ where
         partition: Option<&str>,
         reply: Option<mpsc::Sender<WorkerReply>>,
     ) -> Result<()> {
+        self.enqueue_control(QueueEntry::Seal {
+            partition: partition.map(str::to_owned),
+            reply,
+        })
+    }
+
+    fn enqueue_control(&self, entry: QueueEntry<T>) -> Result<()> {
         self.ensure_worker_running()?;
         let (lock, cvar) = &*self.state;
         {
@@ -467,7 +552,7 @@ where
             if state.shutdown_requested {
                 return Err(anyhow!("capture runtime is shutting down"));
             }
-            // Reserve bounded control headroom so full data admission cannot starve seals.
+            // Reserve bounded headroom so full data admission cannot starve control requests.
             if state.queue.len().saturating_sub(state.queued_gap_count)
                 >= self
                     .config
@@ -475,15 +560,11 @@ where
                     .max(1)
                     .saturating_add(self.config.max_active_partitions.max(1))
             {
-                return Err(anyhow!("capture queue full while enqueueing seal"));
+                return Err(anyhow!(
+                    "capture queue full while enqueueing writer control"
+                ));
             }
-            state.queue.push_back(
-                QueueEntry::Seal {
-                    partition: partition.map(str::to_owned),
-                    reply,
-                }
-                .into(),
-            );
+            state.queue.push_back(entry.into());
             record_queue_peak(&mut state);
         }
         cvar.notify_one();
@@ -773,6 +854,43 @@ where
                 );
                 continue;
             }
+            QueueEntry::Flush {
+                partitions,
+                mut since_generation,
+                reply,
+            } => {
+                let mut error = None;
+                for key in &partitions {
+                    merge_runtime_step(runtime, &mut aggregated, &mut error, "flush", |runtime| {
+                        runtime.flush_partition(key)
+                    });
+                }
+                let result = if let Some(error) = error {
+                    let message = error.to_string();
+                    last_error = Some(error);
+                    Err(message)
+                } else if runtime
+                    .failures
+                    .changed_partitions(&mut since_generation)
+                    .is_some_and(|affected| partitions.iter().any(|key| affected.contains(key)))
+                {
+                    Err("capture partition lost data before flush confirmation".into())
+                } else {
+                    Ok(())
+                };
+                let _ = reply.send(result);
+                continue;
+            }
+            QueueEntry::Rotate(key) => {
+                merge_runtime_step(
+                    runtime,
+                    &mut aggregated,
+                    &mut last_error,
+                    "rotate",
+                    |runtime| runtime.rotate_partition(&key),
+                );
+                continue;
+            }
             QueueEntry::Seal { partition, reply } => {
                 let result = match partition {
                     Some(key) => runtime.seal_partition(&key),
@@ -875,24 +993,25 @@ fn merge_flush_reason(current: Option<FlushReason>, next: FlushReason) -> Option
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, Instant};
     use std::{
         path::PathBuf,
-        sync::{Arc, Condvar, Mutex},
+        sync::{Arc, Condvar, Mutex, mpsc},
+        thread,
+        time::{Duration, Instant},
     };
 
     use anyhow::Result;
 
     use super::{
-        BackgroundCaptureRuntime, QueueEntry, QueueState, WorkerSchedule, collect_worker_batch,
-        process_batch,
+        BackgroundCaptureRuntime, QueueEntry, QueueState, QueuedEntry, WorkerSchedule,
+        collect_worker_batch, process_batch,
     };
-    use crate::runtime::{CaptureRuntime, FlushResult};
     use crate::{
         config::{CaptureConfig, OverflowPolicy},
         item::{CaptureItem, PartitionKey},
         lifecycle::{LifecycleConfig, LifecycleMode},
         metrics::FlushReason,
+        runtime::{CaptureRuntime, FlushResult},
         sink::CaptureSink,
     };
 
@@ -1560,6 +1679,125 @@ mod tests {
             row_count: 1,
             estimated_bytes: bytes,
             payload,
+        }
+    }
+
+    #[test]
+    fn healthy_writer_drains_while_another_sink_is_blocked() {
+        let (entered, waiting) = mpsc::channel();
+        let (release, proceed) = mpsc::channel();
+        let config = CaptureConfig {
+            flush_rows: 1,
+            ..Default::default()
+        };
+        let mut blocked = BackgroundCaptureRuntime::new(
+            config.clone(),
+            PausedSink {
+                entered: Some(entered),
+                release: proceed,
+                rows: Arc::default(),
+            },
+        )
+        .unwrap();
+        let sink = TestSink::default();
+        let rows = Arc::clone(&sink.batches);
+        let mut healthy = BackgroundCaptureRuntime::new(
+            CaptureConfig {
+                flush_rows: 100,
+                flush_interval_ms: 60_000,
+                ..config
+            },
+            sink,
+        )
+        .unwrap();
+        blocked.submit(queued_item(1, 8)).unwrap();
+        waiting.recv_timeout(Duration::from_secs(2)).unwrap();
+        healthy.submit(queued_item(2, 8)).unwrap();
+        blocked.begin_shutdown().unwrap();
+        healthy.begin_shutdown().unwrap();
+        let healthy_result = healthy.shutdown();
+        let recorded = rows.lock().unwrap().clone();
+        release.send(()).unwrap();
+        blocked.shutdown().unwrap();
+        healthy_result.unwrap();
+        assert_eq!(recorded, [vec![2]]);
+    }
+
+    #[test]
+    fn partition_flush_waits_for_the_sink_without_blocking_admission() {
+        let (entered, waiting) = mpsc::channel();
+        let (release, proceed) = mpsc::channel();
+        let rows = Arc::new(Mutex::new(Vec::new()));
+        let mut runtime = BackgroundCaptureRuntime::new(
+            CaptureConfig {
+                flush_rows: 10_000,
+                flush_interval_ms: 60_000,
+                ..Default::default()
+            },
+            PausedSink {
+                entered: Some(entered),
+                release: proceed,
+                rows: Arc::clone(&rows),
+            },
+        )
+        .unwrap();
+        let mut unrelated = queued_item(1, 8);
+        unrelated.partition_key = PartitionKey::market_data("test", "OTHER");
+        let baseline = queued_item(2, 8);
+        let key = baseline.partition_key.stable_key();
+        runtime.submit(unrelated).unwrap();
+        runtime.submit(baseline).unwrap();
+        let pending = runtime.enqueue_partition_flush(vec![key], 0).unwrap();
+        let entered = waiting.recv_timeout(Duration::from_secs(2));
+        let while_paused = pending.try_complete();
+        let admitted = runtime.submit(queued_item(3, 8));
+        let _ = release.send(());
+        entered.unwrap();
+        assert!(!while_paused.unwrap());
+        admitted.unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !pending.try_complete().unwrap() {
+            assert!(Instant::now() < deadline, "writer reply timed out");
+            thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(*rows.lock().unwrap(), [2]);
+        runtime.shutdown().unwrap();
+        let mut rows = rows.lock().unwrap();
+        rows.sort_unstable();
+        assert_eq!(*rows, [1, 2, 3]);
+    }
+
+    #[test]
+    fn partition_flush_does_not_acknowledge_an_earlier_failed_baseline() {
+        let item = queued_item(9, 8);
+        let key = item.partition_key.stable_key();
+        let mut runtime = CaptureRuntime::new(
+            CaptureConfig::default(),
+            TestSink {
+                fail_on_payload: Some(9),
+                ..Default::default()
+            },
+        );
+        runtime.submit(item).unwrap();
+        assert!(runtime.flush_partition(&key).is_err());
+        for (partition, expected) in [
+            (
+                PartitionKey::market_data("test", "OTHER").stable_key(),
+                true,
+            ),
+            (key, false),
+        ] {
+            let (reply, receiver) = mpsc::channel();
+            let mut batch = [QueueEntry::Flush {
+                partitions: vec![partition],
+                since_generation: 0,
+                reply,
+            }]
+            .into_iter()
+            .map(QueuedEntry::from)
+            .collect();
+            process_batch(&mut runtime, &mut batch, None, false, false).unwrap();
+            assert_eq!(receiver.try_recv().unwrap().is_ok(), expected);
         }
     }
 

@@ -12,9 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{sync::mpsc, thread};
-
-use anyhow::{Context, Result};
+use anyhow::Result;
 use catalog_capture_core::{
     CapturePlan, Hip4UniverseResolutionRecord, Hip4UniverseSpec, ResolveHip4MarketOptions,
     ResolvedHip4Universe, build_resolved_hip4_universe, compute_hip4_refresh_rollover_reason,
@@ -24,10 +22,12 @@ use catalog_capture_core::{
 };
 use nautilus_core::UnixNanos;
 use nautilus_hyperliquid::common::enums::HyperliquidEnvironment;
-use nautilus_hyperliquid::http::{client::HyperliquidRawHttpClient, models::OutcomeMeta};
 use nautilus_model::identifiers::InstrumentId;
 
-use crate::dynamic_plan::{DynamicPlanDelta, build_dynamic_plan_delta};
+use crate::{
+    dynamic_plan::{DynamicPlanDelta, build_dynamic_plan_delta},
+    hip4_rolling::{PendingDiscovery, discover},
+};
 
 #[derive(Debug, Clone)]
 pub struct DynamicHip4UniverseConfig {
@@ -78,7 +78,7 @@ struct DynamicHip4UniverseState {
     last_expiration_ns: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DynamicHip4UniverseManager {
     idle_poll_secs: u64,
     active_poll_secs: u64,
@@ -89,6 +89,7 @@ pub struct DynamicHip4UniverseManager {
     current_dynamic_plan: CapturePlan,
     universes: Vec<DynamicHip4UniverseState>,
     last_refresh_failed: bool,
+    pending: Vec<(HyperliquidEnvironment, PendingDiscovery)>,
 }
 
 impl DynamicHip4UniverseManager {
@@ -116,6 +117,7 @@ impl DynamicHip4UniverseManager {
             current_dynamic_plan: config.initial_dynamic_plan,
             universes,
             last_refresh_failed: false,
+            pending: Vec::new(),
         }
     }
 
@@ -161,6 +163,9 @@ impl DynamicHip4UniverseManager {
     /// Align the one-shot actor timer to expiration, including fractional seconds.
     #[must_use]
     pub fn next_rotation_check_ns(&self, now_ns: u64) -> u64 {
+        if !self.pending.is_empty() {
+            return now_ns.saturating_add(1_000_000_000);
+        }
         let scheduled = now_ns.saturating_add(
             self.next_rotation_check_delay_secs(now_ns)
                 .saturating_mul(1_000_000_000),
@@ -172,20 +177,63 @@ impl DynamicHip4UniverseManager {
             .fold(scheduled, u64::min)
     }
 
-    pub fn refresh(&mut self, now_ns: u64) -> Result<DynamicHip4UniverseDelta> {
+    pub(crate) fn cancel_refresh(&mut self) {
+        self.pending.clear();
+    }
+
+    pub(crate) fn poll_refresh(&mut self, now_ns: u64) -> Result<Option<DynamicHip4UniverseDelta>> {
+        if self.pending.is_empty() {
+            self.last_refresh_failed = false;
+            let mut environments = Vec::new();
+            for state in &self.universes {
+                let environment = state.environment;
+                if !environments.contains(&environment) {
+                    environments.push(environment);
+                }
+            }
+            for environment in environments {
+                match discover(environment, self.http_timeout_secs) {
+                    Ok(request) => self.pending.push((environment, request)),
+                    Err(error) => {
+                        self.last_refresh_failed = true;
+                        log::warn!(
+                            "HIP-4 universe discovery failed for {environment:?}: {error:#}"
+                        );
+                    }
+                }
+            }
+            return Ok(None);
+        }
+
+        let mut completed = Vec::new();
+        self.pending.retain(|(environment, request)| {
+            if let Some(result) = request.try_complete() {
+                completed.push((*environment, result));
+                false
+            } else {
+                true
+            }
+        });
+        if completed.is_empty() {
+            return Ok(None);
+        }
+
         let previous_dynamic_plan = self.current_dynamic_plan.clone();
         let mut next_dynamic_plan = CapturePlan::default();
         let mut changes = Vec::new();
         let mut resolution_records = Vec::new();
-        let mut refresh_failed = false;
 
         for state in &mut self.universes {
-            match resolve_runtime_hip4_universe(
-                state.environment,
-                &state.spec,
-                now_ns,
-                self.http_timeout_secs,
-            ) {
+            let Some((_, payload)) = completed.iter().find(|(env, _)| *env == state.environment)
+            else {
+                next_dynamic_plan = merge_capture_plans(&next_dynamic_plan, &state.current_plan);
+                continue;
+            };
+            let resolved = payload
+                .as_ref()
+                .map_err(|error| anyhow::Error::msg(error.clone()))
+                .and_then(|payload| resolve_runtime_hip4_universe(payload, &state.spec, now_ns));
+            match resolved {
                 Ok(resolved) => {
                     let next_plan = expand_hip4_universe(&state.spec, &resolved);
                     if let Some((change, record)) =
@@ -201,7 +249,7 @@ impl DynamicHip4UniverseManager {
                     next_dynamic_plan = merge_capture_plans(&next_dynamic_plan, &next_plan);
                 }
                 Err(error) => {
-                    refresh_failed = true;
+                    self.last_refresh_failed = true;
                     log::warn!(
                         "HIP-4 universe refresh failed for venue_id={} underlying={}: {}",
                         state.spec.venue_id,
@@ -221,8 +269,7 @@ impl DynamicHip4UniverseManager {
             resolution_records,
         );
         self.current_dynamic_plan = next_dynamic_plan;
-        self.last_refresh_failed = refresh_failed;
-        Ok(delta)
+        Ok(Some(delta))
     }
 }
 
@@ -280,17 +327,12 @@ fn apply_resolved_state_transition(
 }
 
 fn resolve_runtime_hip4_universe(
-    environment: HyperliquidEnvironment,
+    payload: &serde_json::Value,
     spec: &Hip4UniverseSpec,
     now_ns: u64,
-    http_timeout_secs: u64,
 ) -> Result<ResolvedHip4Universe> {
-    let outcome_meta = fetch_outcome_meta_blocking(environment, http_timeout_secs)
-        .context("failed to fetch Hyperliquid outcomeMeta")?;
-    let payload = serde_json::to_value(outcome_meta)
-        .context("failed to serialize Hyperliquid outcomeMeta payload")?;
     let market = resolve_hip4_market(
-        &payload,
+        payload,
         &ResolveHip4MarketOptions {
             underlying: &spec.underlying,
             period: &spec.period,
@@ -300,29 +342,6 @@ fn resolve_runtime_hip4_universe(
         },
     )?;
     Ok(build_resolved_hip4_universe(spec, market, now_ns))
-}
-
-fn fetch_outcome_meta_blocking(
-    environment: HyperliquidEnvironment,
-    http_timeout_secs: u64,
-) -> Result<OutcomeMeta> {
-    let (tx, rx) = mpsc::channel();
-    thread::spawn(move || {
-        let result = (|| {
-            let client = HyperliquidRawHttpClient::new(environment, http_timeout_secs, None)
-                .map_err(anyhow::Error::from)?;
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(anyhow::Error::from)?;
-            runtime
-                .block_on(client.get_outcome_meta())
-                .map_err(anyhow::Error::from)
-        })();
-        let _ = tx.send(result);
-    });
-    rx.recv()
-        .map_err(|_| anyhow::anyhow!("HIP-4 HTTP worker exited before returning outcomeMeta"))?
 }
 
 #[cfg(test)]
@@ -335,12 +354,12 @@ mod tests {
         compute_hip4_refresh_rollover_reason, expand_hip4_universe, hip4_refresh_resolution_record,
         plan_instrument_ids, validate_hip4_refresh_resolution_record,
     };
+    use nautilus_model::identifiers::InstrumentId;
 
     use super::{
         DynamicHip4UniverseConfig, DynamicHip4UniverseEntryConfig, DynamicHip4UniverseManager,
         DynamicHip4UniverseState, apply_resolved_state_transition,
     };
-    use nautilus_model::identifiers::InstrumentId;
 
     fn spec() -> Hip4UniverseSpec {
         Hip4UniverseSpec {
@@ -481,6 +500,37 @@ mod tests {
             manager.next_rotation_check_delay_secs(0),
             1800,
             "successful refresh far from expiry should use idle poll"
+        );
+
+        let (request, sender) = crate::hip4_rolling::PendingDiscovery::test_channel();
+        manager
+            .pending
+            .push((manager.universes[0].environment, request));
+        let before = manager.active_capture_plan();
+        assert!(manager.poll_refresh(expiration).unwrap().is_none());
+        assert_eq!(
+            manager.next_rotation_check_ns(expiration),
+            expiration + 1_000_000_000
+        );
+        assert_eq!(
+            plan_instrument_ids(&manager.active_capture_plan()),
+            plan_instrument_ids(&before)
+        );
+        sender.send(Err("injected REST timeout".into())).unwrap();
+        assert!(
+            manager
+                .poll_refresh(expiration)
+                .unwrap()
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            manager.next_rotation_check_ns(expiration),
+            expiration + 10_000_000_000
+        );
+        assert_eq!(
+            plan_instrument_ids(&manager.active_capture_plan()),
+            plan_instrument_ids(&before)
         );
     }
 

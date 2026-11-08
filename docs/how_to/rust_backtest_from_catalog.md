@@ -46,6 +46,25 @@ Reads currently materialize an instrument's windows in memory. Legacy files
 without continuity metadata remain Native-readable but are rejected by this
 window reader. Inspect quality history and venue coverage before selecting data.
 
+## Bitfinex Spot L3
+
+Build the recorder with `--no-default-features --features venue-bitfinex` and run
+`examples/capture.bitfinex-spot-l3.toml`. The example records BTC/USD and ETH/USD
+R0 depth 250. The profile records instrument definitions and book deltas. Each
+market shares the standard `order_book_deltas/<instrument_id>` catalog layout
+with other venues and retains its original order IDs, frame sequence and venue timestamps.
+
+Both book replay readers and `validate-order-book` use `L3_MBO` for this venue.
+Configure the backtest venue with `BookType::L3_MBO`. Validation reports the number
+of live orders separately from the number of price levels. A source gap ends the
+current window and a fresh R0 snapshot starts the next one.
+
+The adapter publishes batches after the next matching Bitfinex checksum.
+`ts_init` is the local time when the checksum makes those frames available to
+Nautilus. Each instrument retains its original frame order. The checksum covers the best 25 orders per side.
+At shutdown the recorded window ends at the latest verified frame. R0 represents
+the visible depth, and a removal does not carry an execution or cancellation reason.
+
 ## Recovery with earlier received diffs
 
 Binance can publish a REST snapshot followed by buffered diffs whose `ts_init`

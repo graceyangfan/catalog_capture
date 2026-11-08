@@ -38,8 +38,8 @@ capture is started by these documentation or test changes.
 | `include_map_winners` | `false` | Include explicitly matched map/game winners when enabled |
 | `max_markets` | `1` | Active slots; valid incumbents retain their slots |
 | `preload_next` | `true` | Record at most one extra qualified candidate before handover |
-| `preparation_timeout_secs` | `30` | Bound a preparation attempt without all definitions/usable initial books |
-| `preparation_retry_secs` | `30` | Cooldown before a timed-out candidate can be retried |
+| `preparation_timeout_secs` | `30` | Bound the wait for definitions and usable books, and separately the wait for writer confirmation |
+| `preparation_retry_secs` | `30` | Cooldown before retrying a candidate after a timeout or write failure |
 | `refresh_secs` | `30` | Sleep after a discovery attempt, in addition to request duration |
 | `max_pages` | `100` | Per-tag page cap; reaching an unfinished cap fails the refresh |
 | `max_activity_candidates` | `256` | Cap statistics enrichment, independently of complete binding facts; at most eight concurrent requests |
@@ -135,9 +135,10 @@ aliases. Missing or ambiguous direction is rejected: array position, first
 result and fuzzy team-name guesses are not fallbacks. A supplied PM parent-event
 identity must also agree.
 
-The actor requests missing instrument definitions and persists ready definitions
-before starting their market-data subscriptions. This happens per instrument;
-there is no atomic four-instrument subscription barrier.
+The actor requests missing definitions through the Native adapters. After the
+writer confirms all four definition partitions asynchronously, the actor sends
+the new market-data subscriptions. Failed writes use the existing definition
+retry path. Shared static subscriptions continue without being sent again.
 
 ## Recorded data
 
@@ -192,11 +193,16 @@ PM outcome streams subscribe through the maintained adapters. Preparation data
 is recorded immediately to the normal Native Parquet partitions, including
 trades, rather than buffered for replay at promotion.
 
-Readiness requires all four accepted definitions, subscribed recording streams,
+Readiness requires all four confirmed definitions, subscribed recording streams,
 an initial snapshot for each of the three books, and usable two-sided noncrossed
 books. PM book usability comes from the managed Native cache; the actor does not
-build a parallel order book. Before promotion, sink flush barriers process the
-prepared data. An ended incumbent then exits and its partial files seal; the
+build a parallel order book. Before promotion, the writer confirms the candidate's
+definition, book and trade partitions asynchronously. The actor keeps recording
+while it waits and rechecks candidate identity and usable books before promotion.
+Confirmation covers sink delivery. Sealed files become available after the
+writer closes their Parquet footer. A failed or timed-out confirmation follows
+the preparation retry cooldown.
+An ended incumbent then exits and its partial files seal; the
 prepared market keeps its subscriptions, book state and open files. The next
 ordinary increment is recorded without a reset or history replay. Hourly seals
 apply to active and prepared markets alike, with PM checkpoint baselines.

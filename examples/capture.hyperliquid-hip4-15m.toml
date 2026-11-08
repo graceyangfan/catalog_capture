@@ -6,6 +6,11 @@ shutdown_timeout_secs = 10
 delay_post_stop_secs = 2
 node_name = "CAPTURE-HIP4-15M"
 
+# Example limits for a 7.4 GiB capture host.
+[runtime.pressure]
+max_rss_bytes = 4294967296
+max_data_queue_depth = 100000
+
 [output]
 catalog_uri = "file://./data/hyperliquid-hip4-15m"
 compression = "snappy"
@@ -34,6 +39,7 @@ environment = "mainnet"
 venue_id = "hyperliquid_main"
 underlyings = ["BTC", "ETH"]
 retry_secs = 2
+handover_grace_secs = 60
 
 # Continuous reference feeds keep hourly files across HIP-4 market changes.
 [[venues]]

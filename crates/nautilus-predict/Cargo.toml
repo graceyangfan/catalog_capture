@@ -9,6 +9,8 @@ description = "NautilusTrader Predict market-data adapter and private API primit
 
 [features]
 default = ["high-precision", "live"]
+# Fee estimates can be used by Sandbox without enabling private execution.
+fee-model = ["dep:nautilus-execution"]
 # Private authentication is opt-in; capture builds retain their existing feature graph.
 execution = [
   "live",

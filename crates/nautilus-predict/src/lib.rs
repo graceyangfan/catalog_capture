@@ -36,7 +36,7 @@ pub mod data_types;
 pub mod execution;
 #[cfg(feature = "live")]
 pub mod factories;
-#[cfg(feature = "execution")]
+#[cfg(any(feature = "execution", feature = "fee-model"))]
 pub mod fees;
 pub mod http;
 #[cfg(feature = "execution")]

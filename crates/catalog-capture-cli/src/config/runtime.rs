@@ -36,6 +36,8 @@ pub struct RuntimeConfig {
     /// Optional process memory budget for startup warnings (capture buffers only).
     #[serde(default)]
     pub resource_budget_bytes: Option<u64>,
+    #[serde(default)]
+    pub pressure: CapturePressureConfig,
 }
 
 impl Default for RuntimeConfig {
@@ -50,8 +52,18 @@ impl Default for RuntimeConfig {
             hip4_universe_refresh: Hip4UniverseRefreshRuntimeConfig::default(),
             metrics: MetricsExportRuntimeConfig::default(),
             resource_budget_bytes: None,
+            pressure: CapturePressureConfig::default(),
         }
     }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CapturePressureConfig {
+    /// Stop if process RSS reaches this threshold (peak RSS on macOS).
+    pub max_rss_bytes: Option<u64>,
+    /// Stop after ten consecutive seconds at or above this Native data-event backlog.
+    pub max_data_queue_depth: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

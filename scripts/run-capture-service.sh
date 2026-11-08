@@ -143,8 +143,14 @@ fi
 
 echo "Starting capture: config=$CONFIG log=$LOG_FILE" | tee -a "$LOG_FILE"
 set +e
-"$BIN" run --config "$CONFIG" 2>&1 | tee -a "$LOG_FILE"
-EXIT_CODE=${PIPESTATUS[0]}
+if [[ -n "${CATALOG_CAPTURE_SYSTEMD_UNIT:-}" ]]; then
+  # Let journald receive shutdown evidence even when the capture disk stalls.
+  "$BIN" run --config "$CONFIG"
+  EXIT_CODE=$?
+else
+  "$BIN" run --config "$CONFIG" 2>&1 | tee -a "$LOG_FILE"
+  EXIT_CODE=${PIPESTATUS[0]}
+fi
 set -e
 
 if [[ $EXIT_CODE -ne 0 ]]; then

@@ -1,0 +1,37 @@
+[runtime]
+capture_seconds = 120
+node_name = "CATALOG-CAPTURE-BITFINEX-L3"
+
+[output]
+catalog_uri = "file://./data/bitfinex-spot-l3"
+layout_compatibility = "rust_canonical_only"
+compression = "zstd"
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.seal]
+enabled = true
+interval_secs = 3600
+
+[[venues]]
+id = "bitfinex_main"
+kind = "bitfinex"
+environment = "mainnet"
+
+[[capture.instruments]]
+instrument_id = "BTCUSD.BITFINEX"
+
+[[capture.instruments]]
+instrument_id = "ETHUSD.BITFINEX"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSD.BITFINEX"
+book_type = "L3_MBO"
+depth = 250
+
+[[capture.book_deltas]]
+instrument_id = "ETHUSD.BITFINEX"
+book_type = "L3_MBO"
+depth = 250

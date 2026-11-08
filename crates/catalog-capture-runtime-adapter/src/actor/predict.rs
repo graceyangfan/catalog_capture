@@ -96,11 +96,7 @@ impl CatalogCaptureActor {
         })
     }
 
-    pub(super) fn sync_predict_native(
-        &mut self,
-        data_type: &DataType,
-        retired: Option<u64>,
-    ) -> Result<()> {
+    pub(super) fn sync_predict_native(&mut self, data_type: &DataType) -> Result<()> {
         let Some(key) = predict_output_selector_key(data_type)? else {
             return Ok(());
         };
@@ -132,7 +128,7 @@ impl CatalogCaptureActor {
         if trades {
             self.subscribe_trades(id, client, None);
         }
-        self.predict_native_subscriptions.insert(
+        let previous = self.predict_native_subscriptions.insert(
             key,
             PredictNativeSubscription {
                 instrument_id: id,
@@ -140,38 +136,53 @@ impl CatalogCaptureActor {
                 trades,
             },
         );
-        if let Some(old) = retired {
-            let old_id = predict_outcome_instrument_id(old, 1)?;
-            if !self
-                .predict_native_subscriptions
-                .values()
-                .any(|active| active.instrument_id == old_id)
+        if let Some(old) = previous {
+            let old_id = old.instrument_id;
+            if old.depth
+                && !self.predict_native_accepts(old_id, "record_depth")
+                && !self
+                    .plan
+                    .book_depth
+                    .iter()
+                    .any(|s| s.instrument_id == old_id)
             {
-                if depth
-                    && !self
-                        .plan
-                        .book_depth
-                        .iter()
-                        .any(|s| s.instrument_id == old_id)
-                {
-                    self.unsubscribe_book_depth(old_id, client, None);
-                    if let Some(runtime) = &self.book_depth_runtime {
-                        runtime.enqueue_seal_partition(
-                            &PartitionKey::catalog_data::<OrderBookDepth>(old_id).stable_key(),
-                        )?;
-                    }
-                }
-                if trades && !self.plan.trades.iter().any(|s| s.instrument_id == old_id) {
-                    self.unsubscribe_trades(old_id, client, None);
-                    if let Some(runtime) = &self.trade_runtime {
-                        runtime.enqueue_seal_partition(
-                            &PartitionKey::catalog_data::<TradeTick>(old_id).stable_key(),
-                        )?;
-                    }
-                }
+                self.unsubscribe_book_depth(old_id, client, None);
+                self.pending_predict_depth_seals.insert(old_id);
+            }
+            if old.trades
+                && !self.predict_native_accepts(old_id, "record_trades")
+                && !self.plan.trades.iter().any(|s| s.instrument_id == old_id)
+            {
+                self.unsubscribe_trades(old_id, client, None);
+                self.pending_predict_trade_seals.insert(old_id);
             }
         }
+        self.retry_predict_retirement_seals();
         Ok(())
+    }
+
+    pub(super) fn retry_predict_retirement_seals(&mut self) {
+        macro_rules! retry {
+            ($runtime:ident, $pending:ident, $ty:ty) => {
+                if let Some(writer) = &self.$runtime {
+                    self.$pending.retain(|id| {
+                        let key = PartitionKey::catalog_data::<$ty>(*id).stable_key();
+                        if let Err(error) = writer.enqueue_seal_partition(&key) {
+                            log::debug!("Predict {id} retirement seal will retry: {error:#}");
+                            true
+                        } else {
+                            false
+                        }
+                    });
+                }
+            };
+        }
+        retry!(
+            book_depth_runtime,
+            pending_predict_depth_seals,
+            OrderBookDepth
+        );
+        retry!(trade_runtime, pending_predict_trade_seals, TradeTick);
     }
 
     pub(super) fn stop_predict_native(&mut self) {
@@ -325,5 +336,117 @@ mod tests {
             !owns_market,
             "a venue-wide definition listener must not retain every expired market"
         );
+    }
+}
+
+#[cfg(test)]
+mod retirement_tests {
+    use std::{cell::RefCell, rc::Rc};
+
+    use catalog_capture_core::CustomDataCaptureSpec;
+    use nautilus_common::{
+        actor::Component,
+        cache::Cache,
+        clock::VirtualClock,
+        messages::data::{DataCommand, UnsubscribeCommand},
+        msgbus::{MessagingSwitchboard, typed_handler::TypedIntoHandler},
+    };
+    use nautilus_core::Params;
+    use nautilus_model::{identifiers::TraderId, stubs::TestDefault};
+
+    use super::*;
+
+    #[test]
+    fn failed_depth_seal_does_not_skip_predict_trade_retirement() {
+        let root =
+            std::env::temp_dir().join(format!("predict-retire-{}", nautilus_core::UUID4::new()));
+        std::fs::create_dir_all(&root).unwrap();
+        let metadata = Params::new(
+            [
+                ("price_feed_symbol".to_string(), "BTC/USDT".into()),
+                ("title_asset".to_string(), "Bitcoin".into()),
+                ("interval_secs".to_string(), "300".into()),
+                ("record_depth".to_string(), "true".into()),
+                ("record_trades".to_string(), "true".into()),
+            ]
+            .into(),
+        );
+        let plan = CapturePlan {
+            custom_data: vec![CustomDataCaptureSpec {
+                data_type: DataType::new("PredictCryptoUpDown", Some(metadata.clone()), None),
+            }],
+            ..Default::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            plan,
+        ))
+        .unwrap();
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        for market in [1, 2] {
+            cache
+                .borrow_mut()
+                .add_instrument(super::super::tests::test_predict_outcome(market, 1))
+                .unwrap();
+        }
+        actor
+            .register(
+                TraderId::test_default(),
+                Rc::new(RefCell::new(VirtualClock::new())),
+                cache,
+            )
+            .unwrap();
+        let commands = Rc::new(RefCell::new(Vec::new()));
+        let received = commands.clone();
+        msgbus::register_data_command_endpoint(
+            MessagingSwitchboard::data_engine_queue_execute(),
+            TypedIntoHandler::from(move |command: DataCommand| received.borrow_mut().push(command)),
+        );
+        let old_id = predict_outcome_instrument_id(1, 1).unwrap();
+        use nautilus_predict::common::{
+            PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
+            PREDICT_SELECTOR_TITLE_ASSET,
+        };
+        let provenance = Params::new(
+            [
+                (
+                    PREDICT_SELECTOR_PRICE_FEED_SYMBOL.to_string(),
+                    "BTC/USDT".into(),
+                ),
+                (PREDICT_SELECTOR_TITLE_ASSET.to_string(), "Bitcoin".into()),
+                (PREDICT_SELECTOR_INTERVAL_SECS.to_string(), "300".into()),
+            ]
+            .into(),
+        );
+        actor
+            .sync_predict_native(&DataType::new(
+                "PredictOrderbookSnapshot",
+                Some(provenance.clone()),
+                Some("1".into()),
+            ))
+            .unwrap();
+        actor
+            .book_depth_runtime
+            .as_mut()
+            .unwrap()
+            .shutdown()
+            .unwrap();
+        let snapshot = DataType::new(
+            "PredictOrderbookSnapshot",
+            Some(provenance),
+            Some("2".into()),
+        );
+        actor.sync_predict_native(&snapshot).unwrap();
+        actor.sync_predict_native(&snapshot).unwrap();
+        assert_eq!(actor.pending_predict_depth_seals, BTreeSet::from([old_id]));
+        assert!(actor.pending_predict_trade_seals.is_empty());
+        assert_eq!(commands.borrow().iter().filter(|command|
+            matches!(command, DataCommand::Unsubscribe(UnsubscribeCommand::Trades(c))
+                if c.instrument_ids.contains(&old_id))).count(), 1);
+        actor.shutdown_all().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
