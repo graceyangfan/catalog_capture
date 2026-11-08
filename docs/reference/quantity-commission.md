@@ -143,7 +143,7 @@ Only complete raw quantitative evidence authorizes terminal working-quantity
 normalization via Native OrderUpdated. An unknown-unit one-wei remainder alone is
 insufficient. Actual fills, share fees and net inventory remain exact; missing
 history never becomes a fictional fill or a different venue status. See the
-[recorded incident and replay](predict-validation.md)
+[validation guide](predict-validation.md)
 and terminal_recovery integration tests for pending-command, base/quote-sizing,
 ordering, replay and incomplete-history controls.
 

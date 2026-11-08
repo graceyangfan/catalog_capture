@@ -243,30 +243,6 @@
       "sha256": "e8bf97f440007c3b0c044817e15419b8f8d84c5cf77416c137e76f16708dc07f"
     },
     {
-      "path": "tests/fixtures/private_api/diagnostics_20261017/predict-current-fill-preflight.log",
-      "tier": "reference",
-      "bytes": 248,
-      "sha256": "5f120c7cfcef31bc41358558bf610c0092a5937b645c4c12906c4ab60a7a661b"
-    },
-    {
-      "path": "tests/fixtures/private_api/diagnostics_20261017/predict-readonly-market-preflight-20261017.log",
-      "tier": "reference",
-      "bytes": 102,
-      "sha256": "455fda48a35f18d17df5983867c462824174b15faa80e1f859f157bef109edfe"
-    },
-    {
-      "path": "tests/fixtures/private_api/diagnostics_20261017/predict-readonly-market-preflight-verified-20261017.log",
-      "tier": "reference",
-      "bytes": 307,
-      "sha256": "aa6f0df3ca82b2c87a1f783dbe30de8b6ab0b9b89fa816e0261a44f9850c87f9"
-    },
-    {
-      "path": "tests/fixtures/private_api/diagnostics_20261017/predict-readonly-preflight-validation-20261017.log",
-      "tier": "review",
-      "bytes": 7700,
-      "sha256": "d352a8c5e170ed96bfcc7fb8aaec79a601c43d8871a431a3344877e4be503428"
-    },
-    {
       "path": "tests/fixtures/private_api/different_price_partial_share_fees_native_synthetic_20261017_v2.json",
       "tier": "synthetic",
       "bytes": 147002,
@@ -675,12 +651,6 @@
       "sha256": "092044010006a474e3b3ba7945620318a440c998f989557456e4689e7911f2d3"
     },
     {
-      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/collector.log",
-      "tier": "primary_capture",
-      "bytes": 302,
-      "sha256": "ddc3e119c72188201045b2bf6fa3be87b376c81440fac47d20b8be371c446c25"
-    },
-    {
       "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/http_responses.json",
       "tier": "synthetic",
       "bytes": 342917,
@@ -699,22 +669,10 @@
       "sha256": "a9db153c668f5cbba3dabc9dbd764d49c28e01806eef41648230214aafda40e9"
     },
     {
-      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/node.log",
-      "tier": "primary_capture",
-      "bytes": 39781,
-      "sha256": "f9b6540204547269403ba0755b811cb3c745666790001719c6054c0583d67401"
-    },
-    {
       "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/previous_manifest.json",
       "tier": "primary_capture",
       "bytes": 5824,
       "sha256": "de6a91db57944e8c61d3b18bdbd28a4377b56a3601da7d169f46c72685990758"
-    },
-    {
-      "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z/supervisor.log",
-      "tier": "primary_capture",
-      "bytes": 271,
-      "sha256": "4bf0f3fe27826eabb1a687fc48d3c4b5abdd97a934d6700e60e4874c5fdb1df0"
     },
     {
       "path": "tests/fixtures/private_api/exit_only_restart_20261017T052850Z_independent/calibration.json",
@@ -741,12 +699,6 @@
       "sha256": "cb7b045b76002d10181635abf5187c0730ed305f7876641f909425f05dd3e413"
     },
     {
-      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/collector.log",
-      "tier": "primary_capture",
-      "bytes": 303,
-      "sha256": "2569dad10309361ab30e4f82157c6d8e782509080bde2b66d889593a084438bb"
-    },
-    {
       "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/finished_manifest.json",
       "tier": "primary_capture",
       "bytes": 5879,
@@ -771,22 +723,10 @@
       "sha256": "311ce0dc8f8db1ae99373e358c7573a6dd32347c0cb8ce7ebbc618981bc58ab1"
     },
     {
-      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/node.log",
-      "tier": "primary_capture",
-      "bytes": 33027,
-      "sha256": "ed84c3142a053fa20cccf823aa46460896c5c75475eaca5d2cbbe767002ecc44"
-    },
-    {
       "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/previous_manifest.json",
       "tier": "primary_capture",
       "bytes": 5852,
       "sha256": "06bbb75c6085130d5bacc73502060854f175fc9eed69d2a4a99d268cfbcff182"
-    },
-    {
-      "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z/supervisor.log",
-      "tier": "primary_capture",
-      "bytes": 210,
-      "sha256": "249574f421c2aa2c2a566cfecb7f8afe211e4932415392f27c694e1802cbdf1d"
     },
     {
       "path": "tests/fixtures/private_api/exit_only_restart_20261017T053156Z_independent/calibration.json",
@@ -1041,12 +981,6 @@
       "sha256": "eb95951797224c4ca19d198437bfd00cb24cbcddec45cf3e0eb7e8b95e8664e9"
     },
     {
-      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/collector.log",
-      "tier": "primary_capture",
-      "bytes": 304,
-      "sha256": "cba07ff6ee68de5d28c4d82d5de0febea9d66cda08e15e6d57e1a02aabb34c91"
-    },
-    {
       "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/entry_native_observation.json",
       "tier": "primary_capture",
       "bytes": 42458,
@@ -1081,18 +1015,6 @@
       "tier": "primary_capture",
       "bytes": 95947,
       "sha256": "5847f3736f59ed3b95fbbdc5fcd85a142c96c910b90f24fadead93fc6c4c2c5c"
-    },
-    {
-      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/node.log",
-      "tier": "primary_capture",
-      "bytes": 116289,
-      "sha256": "cd31e3fd9eebcefe17f67b97cf160e2653052664cf7be1586182118044a4d98d"
-    },
-    {
-      "path": "tests/fixtures/private_api/live_fill_20261017T051620Z/supervisor.log",
-      "tier": "primary_capture",
-      "bytes": 278,
-      "sha256": "07c3e9ca0caa98fce3940da57f2f77cae65ae811c79afa4c378ec530ce9efec8"
     },
     {
       "path": "tests/fixtures/private_api/live_fill_20261017T051620Z_independent/calibration.json",
@@ -1189,12 +1111,6 @@
       "tier": "primary_capture",
       "bytes": 423398,
       "sha256": "d3c623efde9498ca7f4e6c6d88d96ee8fd693f8892f6adc573a15a1017ce1be5"
-    },
-    {
-      "path": "tests/fixtures/private_api/live_queries_readonly_20261017/node.log",
-      "tier": "primary_capture",
-      "bytes": 22157,
-      "sha256": "92a38b87adbb793351d5b0d7e276f4abb8fa97073c8e006fe816f7cd9ab81732"
     },
     {
       "path": "tests/fixtures/private_api/live_readonly_resources_20261017T100325Z/query_commands_readonly_20261017T100503Z_11303.json",
@@ -1831,12 +1747,6 @@
       "tier": "primary_capture",
       "bytes": 58,
       "sha256": "b2f2c5a487c6291df51ecdaaac87ee4a9090e8097d3def50819f5e659a612e67"
-    },
-    {
-      "path": "tests/fixtures/private_api/live_session_readonly_20261017/node.log",
-      "tier": "primary_capture",
-      "bytes": 20309,
-      "sha256": "dccb8fdb7d7ad355ba3d4054f758e7dbfda6f1aca80c24893def2ef79dfc2a0a"
     },
     {
       "path": "tests/fixtures/private_api/live_unexecutable_rejections_20261025.json",

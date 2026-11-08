@@ -2,7 +2,7 @@
 
 Primary captures have priority over replay and synthetic outputs. The crate-level
 `../evidence_manifest.json` records exact bytes, SHA-256 and evidence tiers; it
-includes completed raw node/collector logs as well as JSON/JSONL. This is an index,
+includes retained structured capture and regression inputs. This is an index,
 not permission to overwrite a capture or upgrade an inferred shape to venue fact.
 
 - **primary_capture**: sanitized actual REST/wallet/chain/Native observations or
@@ -17,10 +17,10 @@ not permission to overwrite a capture or upgrade an inferred shape to venue fact
 The tags are conservative. The source's own metadata and retained response shape
 remain authoritative; a filename containing "actual" is not sufficient proof.
 
-Important complete runs:
+Primary fixture groups:
 
 - `live_resting_fixed_20261015/` and maker/batch captures: accepts, cancellations,
-  standard rejections and no-fill controls, plus original failure diagnostics.
+  standard rejections and no-fill controls.
 - `live_fill_20261016T123240Z/` and its independent directory: original funded
   order economics used by Native replay.
 - `live_fill_20261017T051620Z/`: actual BUY32, SHARES fee .64, net31.36, TP and
@@ -34,7 +34,7 @@ Important complete runs:
 
 Normalized Native journals are not unmodified venue envelopes. Preserve each
 run's raw wallet JSONL, HTTP responses, independent chain/matches, Native callback
-journal and original log together. Identities/signatures are sanitized; never
+journal together. Identities/signatures are sanitized; never
 store credentials or JWTs. Public snapshot captures and schema/SDK vectors retain
 their own provenance. Missing venue snapshots do not prove an empty account.
 

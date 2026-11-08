@@ -40,7 +40,7 @@ def inventory(crate=CRATE):
             if (not path.is_file() or path.name == "evidence_manifest.json"
                     or path.is_relative_to(staging)):
                 continue
-            if path.suffix not in {".json", ".jsonl", ".log"}:
+            if path.suffix not in {".json", ".jsonl"}:
                 continue
             raw = path.read_bytes()
             source = ""

@@ -57,6 +57,7 @@ class EvidenceTests(unittest.TestCase):
             retained.mkdir()
             (staging / "result.json").write_text('{"source":"mainnet"}')
             (retained / "result.json").write_text('{"source":"mainnet"}')
+            (retained / "node.log").write_text("diagnostic output\n")
             entries = inventory(crate)["entries"]
             self.assertEqual(len(entries), 1)
             self.assertEqual(entries[0]["path"], "tests/fixtures/private_api/live_resting_retained/result.json")
