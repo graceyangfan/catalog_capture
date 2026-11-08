@@ -219,9 +219,10 @@ impl CatalogCaptureActor {
             self.hip4_rolling.series.insert(asset.clone(), series);
         }
         let retired = self.retire_hip4_rolling(&retire);
-        let recorded = gaps.into_iter().fold(Ok(()), |result, gap| {
-            result.and(self.submit_audit("metadata/hip4_rolling_gaps.jsonl", gap))
-        });
+        let mut recorded = Ok(());
+        for gap in gaps {
+            recorded = recorded.and(self.submit_audit("metadata/hip4_rolling_gaps.jsonl", gap));
+        }
         failure.map_or(Ok(()), Err).and(retired).and(recorded)
     }
 

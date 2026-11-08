@@ -356,18 +356,17 @@ impl CatalogCaptureActor {
                 let hip4_needs_confirmation = is_hip4_outcome(instrument_id)
                     && !self.hip4_definition_writes.contains_key(&instrument_id)
                     && !self.market_data_live.contains(&instrument_id);
-                if hip4_needs_confirmation
+                if (hip4_needs_confirmation
                     || self
                         .matched_sports
                         .markets
                         .values()
-                        .any(|m| m.instrument_ids().any(|id| id == instrument_id))
+                        .any(|m| m.instrument_ids().any(|id| id == instrument_id)))
+                    && let Err(error) = self.bootstrap_instrument(instrument_id)
                 {
-                    if let Err(error) = self.bootstrap_instrument(instrument_id) {
-                        result = result.and(Err(error));
-                        still_waiting = true;
-                        continue;
-                    }
+                    result = result.and(Err(error));
+                    still_waiting = true;
+                    continue;
                 }
                 self.subscribe_market_data_for_instrument(instrument_id);
             } else {
