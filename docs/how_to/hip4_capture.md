@@ -31,6 +31,7 @@ into the new segment.
 | Hyperliquid | Instruments for active outcomes | `[[capture.hip4_universe]]` → `instruments` |
 | Hyperliquid | BBO (YES/NO) | `quotes` → QuoteTick |
 | Hyperliquid | Trade ticks (YES/NO) | `trades` → TradeTick |
+| Hyperliquid | L2 snapshots (rolling YES/NO) | `[capture.hip4_rolling]` → `book_deltas` |
 | Binance Futures | Trade ticks | `[[capture.trades]]` |
 | Binance Futures | fastest L2 deltas | `[[capture.book_deltas]]` `L2_MBP` **`depth = 50`** |
 | Deribit | Book summary | `[[capture.custom_data_requests]]` `DeribitBookSummary` |
@@ -80,9 +81,9 @@ When `[runtime.hip4_universe_refresh]` is enabled:
 
 ### Inspect the live binary-option universe before capture
 
-The HIP4 profile is `examples/capture.hyperliquid-hip4-btc-daily.toml`;
-it writes HIP4 quotes/trades and Binance BTC USD-M perpetual L2/trades to
-`./data/hyperliquid-hip4-btc-daily/`, with hourly UTC sealing. The perpetual
+The daily profile is `examples/capture.hyperliquid-hip4-btc-daily.toml`.
+It writes HIP-4 quotes and trades plus Binance BTC USD-M perpetual L2 and trades
+to `./data/hyperliquid-hip4-btc-daily/`, with hourly UTC sealing. The perpetual
 `depth = 50` selects the `@depth@0ms` diff stream, not fixed-depth snapshots.
 This profile does not use Spot SBE. Run Predict in a separate
 process and catalog using `examples/capture.predict-crypto-updown.toml`.
@@ -111,7 +112,8 @@ Use [`capture.hyperliquid-hip4-15m.toml`](../../examples/capture.hyperliquid-hip
 for Outcome.xyz (`venue:out`) mainnet markets and continuous Binance BTC/ETH
 USD-M perpetual L2/trades. Requires `venue-hyperliquid,venue-binance`.
 The profile also records Hyperliquid BTC/ETH perpetual mark and index prices.
-No outcome IDs are configured:
+Rolling capture subscribes to both outcome sides automatically and stores native
+BBO quotes under `data/quotes/<instrument_id>/` in the catalog.
 
 ```bash
 ./scripts/cargo.sh run -p catalog-capture-cli -- run \
@@ -139,7 +141,7 @@ The lifecycle follows the Predict recorder's current-window handover:
 1. Discover the current market through public REST `outcomeMeta`.
 2. Load its instruments through the existing Native Hyperliquid adapter. Once
    the writer confirms both instrument definitions, subscribe to YES and NO
-   books/trades.
+   book deltas, BBO quotes (`QuoteTick`), and trades.
 3. At the quarter-hour boundary, discover the new current ID. Missing markets
    and failed discovery retry every `retry_secs` (default 2); BTC and ETH share
    one in-flight HTTP request. HTTP runs outside the actor and is cancelled on stop.
@@ -162,7 +164,9 @@ The lifecycle follows the Predict recorder's current-window handover:
 
 Only the current market is normally subscribed. A handover temporarily overlaps
 old and new markets; the new ID is already in its current window. Initial empty
-books are valid snapshots; readiness never waits for a trade or a liquidity score.
+books are valid snapshots. Readiness depends on book snapshots alone, so markets
+can activate before their first two-sided BBO or trade arrives.
+The adapter emits a `QuoteTick` when the BBO contains both a bid and an ask.
 The native adapter handles WebSocket reconnect and subscription recovery. This
 profile uses REST boundary discovery; it does not add a separate metadata socket.
 
@@ -188,16 +192,16 @@ that retains deployer and fee metadata. Existing instrument IDs, quote tokens an
 precision remain authoritative from the adapter. Duplicate definition callbacks
 are recorded once per activation. This enrichment is local to the recorder.
 
-Record **both sides' instruments, book snapshots and trade ticks**. Hyperliquid
-merges YES/NO liquidity, but that does not establish strict symmetry of their
-trade streams or delivery coverage. Keep both tapes until all fields and recovery
-paths are proven losslessly reconstructible. Never add their depth as independent
-liquidity. Hyperliquid `l2Book` messages are full snapshots; Native maps them to
-`CLEAR + ADD` batches with `F_SNAPSHOT` / `F_LAST`, not exchange incremental deltas.
+Record **both sides' instruments, book snapshots, BBO quotes and trade ticks**.
+Hyperliquid merges YES/NO liquidity. Each side still has its own trade stream and
+delivery coverage. Keep both tapes until all fields and recovery paths are proven
+losslessly reconstructible. Treat the two books as views of shared liquidity.
+Native encodes each Hyperliquid `l2Book` snapshot as a `CLEAR + ADD` batch with
+`F_SNAPSHOT` and `F_LAST` flags.
 
-The 15-minute outcome partitions seal at retirement or shutdown. An hourly
-boundary leaves them open. Binance reference instruments stay subscribed and
-seal hourly, with managed-book checkpoints initializing new L2 segments.
+The 15-minute outcome book, quote, and trade partitions stay open across UTC hour
+boundaries and seal at retirement or shutdown. Fixed reference feeds stay
+subscribed and seal hourly, with managed-book checkpoints initializing new L2 segments.
 Preserve `ts_event` and
 `ts_init`; concurrent recorder receipt times do not make HIP-4's mark TWAP and
 Predict's independently specified settlement feed equivalent.
@@ -221,10 +225,6 @@ selection/adaptive delay; live smoke still needs network.
 ## Deribit book summary rate
 
 `get_book_summary_by_currency` is **one public HTTP call per currency** (not per strike).
-
-The HIP-4 baseline intentionally records instruments, quotes, and trades only;
-it does not subscribe to Hyperliquid perp mark prices. Mark-price capture remains
-available in the separate fixed-instrument examples.
 
 | Setting | Recommendation |
 |---------|----------------|

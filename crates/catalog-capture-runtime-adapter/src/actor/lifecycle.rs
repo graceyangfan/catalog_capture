@@ -903,12 +903,13 @@ impl CatalogCaptureActor {
             return Ok(());
         }
 
-        let mut expiry_only: BTreeSet<_> = self
+        let hip4_expiry_only: BTreeSet<_> = self
             .hip4_rolling
             .markets
             .values()
             .flat_map(crate::hip4_rolling::Recording::ids)
             .collect();
+        let mut expiry_only = hip4_expiry_only.clone();
         let mut predict_hourly = Vec::new();
         for (selector, market) in &self.active_predict_market_ids {
             let id = predict_outcome_instrument_id(*market, 1)?;
@@ -928,7 +929,6 @@ impl CatalogCaptureActor {
             optional_enqueue_seal_all(&self.instrument_status_runtime),
             optional_enqueue_seal_all(&self.instrument_close_runtime),
             optional_enqueue_seal_all(&self.option_greeks_runtime),
-            optional_enqueue_seal_all(&self.quote_runtime),
             optional_enqueue_seal_all(&self.bar_runtime),
         ];
         for (selector, runtime) in &self.predict_custom_data_runtimes {
@@ -937,13 +937,13 @@ impl CatalogCaptureActor {
             }
         }
         macro_rules! seal_hourly {
-            ($runtime:ident, $ty:ty, $ids:expr) => {
+            ($runtime:ident, $ty:ty, $expiry_only:ident, $ids:expr) => {
                 if let Some(runtime) = &self.$runtime {
-                    if expiry_only.is_empty() {
+                    if $expiry_only.is_empty() {
                         results.push(runtime.enqueue_seal_all());
                     } else {
                         let ids: BTreeSet<_> = ($ids).collect();
-                        for id in ids.difference(&expiry_only) {
+                        for id in ids.difference(&$expiry_only) {
                             results.push(runtime.enqueue_partition_rotation(
                                 &PartitionKey::catalog_data::<$ty>(*id).stable_key(),
                             ));
@@ -953,8 +953,15 @@ impl CatalogCaptureActor {
             };
         }
         seal_hourly!(
+            quote_runtime,
+            QuoteTick,
+            hip4_expiry_only,
+            self.plan.quotes.iter().map(|s| s.instrument_id)
+        );
+        seal_hourly!(
             trade_runtime,
             TradeTick,
+            expiry_only,
             self.plan.trades.iter().map(|s| s.instrument_id).chain(
                 predict_hourly
                     .iter()
@@ -965,6 +972,7 @@ impl CatalogCaptureActor {
         seal_hourly!(
             book_depth_runtime,
             OrderBookDepth,
+            expiry_only,
             self.plan.book_depth.iter().map(|s| s.instrument_id).chain(
                 predict_hourly
                     .iter()

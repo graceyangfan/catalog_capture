@@ -281,6 +281,7 @@ impl CatalogCaptureActor {
                     || paired_matched_sports)
                     && !flags.instruments,
             )
+            + usize::from(rolling_hip4 && !flags.quotes)
             + usize::from(
                 (rolling_lighter || rolling_hip4 || paired_matched_sports) && !flags.trades,
             )
@@ -380,7 +381,7 @@ impl CatalogCaptureActor {
             CatalogSink::<OptionGreeks>::from_config,
         )?;
         let quote_runtime = maybe_family_runtime(
-            flags.quotes,
+            flags.quotes || rolling_hip4,
             CaptureFlushFamily::Quotes,
             &capture,
             CatalogSink::<QuoteTick>::from_config,

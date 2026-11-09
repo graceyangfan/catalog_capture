@@ -20,7 +20,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use catalog_capture_core::{
-    BookDeltasCaptureSpec, CapturePlan, InstrumentCaptureSpec, TradeCaptureSpec,
+    BookDeltasCaptureSpec, CapturePlan, InstrumentCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
     background::PendingFlush,
     hip4::rolling::{Hip4RollingConfig, Hip4RollingMarket},
 };
@@ -150,6 +150,7 @@ impl Hip4RollingState {
             for id in market.ids() {
                 plan.instruments
                     .push(InstrumentCaptureSpec { instrument_id: id });
+                plan.quotes.push(QuoteCaptureSpec { instrument_id: id });
                 plan.trades.push(TradeCaptureSpec { instrument_id: id });
                 plan.book_deltas.push(BookDeltasCaptureSpec {
                     instrument_id: id,

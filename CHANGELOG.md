@@ -51,6 +51,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **HIP-4 rolling capture** records native BBO quotes for both outcome sides.
+  Quote partitions seal when the market retires, alongside its books and trades.
 - Offline catalog layout proofs and capture → `ParquetDataCatalog` readback tests.
 - Examples policy: TOML configs only for the single product binary.
 - Community hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,

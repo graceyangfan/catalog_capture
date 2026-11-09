@@ -1,4 +1,4 @@
-# Public Outcome.xyz BTC/ETH 15-minute markets; Native Hyperliquid books/trades.
+# Public Outcome.xyz BTC/ETH 15-minute markets; Native Hyperliquid books/BBO/trades.
 # No market IDs or credentials. Required features: venue-hyperliquid,venue-binance.
 [runtime]
 capture_seconds = 0

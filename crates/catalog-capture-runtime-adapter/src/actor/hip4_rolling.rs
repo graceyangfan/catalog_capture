@@ -53,6 +53,7 @@ impl CatalogCaptureActor {
         for id in std::mem::take(&mut self.hip4_rolling.retiring) {
             if !self.plan.planned_instrument_ids().contains(&id)
                 && msgbus::subscriber_count_deltas(switchboard::get_book_deltas_topic(id)) == 0
+                && msgbus::exact_subscriber_count_quotes(switchboard::get_quotes_topic(id)) == 0
                 && msgbus::exact_subscriber_count_trades(switchboard::get_trades_topic(id)) == 0
                 && msgbus::subscriptions_count_any(switchboard::get_instrument_topic(id).as_str())?
                     == 0
@@ -357,6 +358,9 @@ impl CatalogCaptureActor {
         let remove = capture_plan_difference(&previous, &self.plan);
         let mut live_remove = remove.clone();
         live_remove
+            .quotes
+            .retain(|s| self.market_data_live.contains(&s.instrument_id));
+        live_remove
             .trades
             .retain(|s| self.market_data_live.contains(&s.instrument_id));
         live_remove
@@ -370,6 +374,13 @@ impl CatalogCaptureActor {
             }
         }
         let mut seals = Vec::new();
+        if let Some(runtime) = &self.quote_runtime {
+            for spec in &remove.quotes {
+                seals.push(runtime.enqueue_seal_partition(
+                    &PartitionKey::catalog_data::<QuoteTick>(spec.instrument_id).stable_key(),
+                ));
+            }
+        }
         if let Some(runtime) = &self.book_delta_runtime {
             for spec in &remove.book_deltas {
                 seals.push(runtime.enqueue_seal_partition(
@@ -445,7 +456,8 @@ mod tests {
         msgbus::{MessagingSwitchboard, typed_handler::TypedIntoHandler},
     };
     use nautilus_hyperliquid::websocket::{
-        messages::WsBookData, parse::parse_ws_order_book_deltas,
+        messages::{WsBboData, WsBookData},
+        parse::{parse_ws_order_book_deltas, parse_ws_quote_tick},
     };
     use nautilus_model::{
         identifiers::{TradeId, TraderId},
@@ -475,6 +487,22 @@ mod tests {
         book.apply_deltas(&deltas).unwrap();
         cache.borrow_mut().add_order_book(book).unwrap();
         actor.on_book_deltas(&deltas).unwrap();
+    }
+    fn quote(
+        actor: &mut CatalogCaptureActor,
+        cache: &Rc<RefCell<Cache>>,
+        id: InstrumentId,
+        ts: u64,
+    ) {
+        let instrument = cache.borrow().instrument(&id).unwrap().clone();
+        let bbo: WsBboData = serde_json::from_value(json!({
+            "coin": instrument.raw_symbol().as_str(),
+            "time": ts / 1_000_000,
+            "bbo": [{"px":"0.4","sz":"100","n":1}, {"px":"0.6","sz":"80","n":1}],
+        }))
+        .unwrap();
+        let tick = parse_ws_quote_tick(&bbo, &instrument, ts.into()).unwrap();
+        actor.on_quote(&tick).unwrap();
     }
     fn trade(actor: &mut CatalogCaptureActor, id: InstrumentId, ts: u64) {
         actor
@@ -563,6 +591,10 @@ mod tests {
             TypedIntoHandler::from(move |c: DataCommand| received.borrow_mut().push(c)),
         );
         let mut actor = CatalogCaptureActor::new(config(&root)).unwrap();
+        assert!(
+            actor.quote_runtime.is_some(),
+            "rolling-only plan needs a quote writer"
+        );
         actor
             .register(TraderId::test_default(), clock, cache.clone())
             .unwrap();
@@ -621,7 +653,7 @@ mod tests {
         actor.shutdown_all().unwrap();
         unavailable.shutdown_all().unwrap();
         let counts = md_counts(&commands.borrow());
-        assert_eq!(counts.len(), 8);
+        assert_eq!(counts.len(), 12);
         assert!(counts.values().all(|count| *count == 1));
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -631,11 +663,17 @@ mod tests {
         let mut counts = BTreeMap::new();
         for command in commands {
             let entry = match command {
+                DataCommand::Subscribe(SubscribeCommand::Quotes(c)) => {
+                    Some(("subscribe", "quotes", &c.instrument_ids))
+                }
                 DataCommand::Subscribe(SubscribeCommand::Trades(c)) => {
                     Some(("subscribe", "trades", &c.instrument_ids))
                 }
                 DataCommand::Subscribe(SubscribeCommand::BookDeltas(c)) => {
                     Some(("subscribe", "books", &c.instrument_ids))
+                }
+                DataCommand::Unsubscribe(UnsubscribeCommand::Quotes(c)) => {
+                    Some(("unsubscribe", "quotes", &c.instrument_ids))
                 }
                 DataCommand::Unsubscribe(UnsubscribeCommand::Trades(c)) => {
                     Some(("unsubscribe", "trades", &c.instrument_ids))
@@ -679,6 +717,12 @@ mod tests {
         let mut config = config(&root);
         config
             .plan
+            .quotes
+            .push(catalog_capture_core::QuoteCaptureSpec {
+                instrument_id: reference_id,
+            });
+        config
+            .plan
             .book_deltas
             .push(catalog_capture_core::BookDeltasCaptureSpec {
                 instrument_id: reference_id,
@@ -692,6 +736,7 @@ mod tests {
             .unwrap();
         actor.subscribe_plan(&reference_plan).unwrap();
         snapshot(&mut actor, &cache, reference_id, hour - 300_000_000);
+        quote(&mut actor, &cache, reference_id, hour - 300_000_000);
         let first = payload(101, "20261104-0800");
         let next = payload(102, "20261104-0815");
         actor.apply_hip4_rolling_payload(&first).unwrap();
@@ -700,6 +745,7 @@ mod tests {
             snapshot(&mut actor, &cache, *id, hour - 500_000_000);
             snapshot(&mut actor, &cache, *id, hour - 450_000_000);
             trade(&mut actor, *id, hour - 400_000_000);
+            quote(&mut actor, &cache, *id, hour - 400_000_000);
         }
         await_current(&mut actor, 101);
         actor.apply_hip4_rolling_payload(&first).unwrap();
@@ -737,6 +783,10 @@ mod tests {
         actor
             .on_book_deltas(&OrderBookDeltas::new(reference_id, vec![update]))
             .unwrap();
+        quote(&mut actor, &cache, reference_id, hour + 1_000_000);
+        for id in &old_ids {
+            quote(&mut actor, &cache, *id, hour + 1_000_000);
+        }
         actor
             .apply_hip4_rolling_payload(&json!({"outcomes":[]}))
             .unwrap();
@@ -772,11 +822,30 @@ mod tests {
         snapshot(&mut actor, &cache, old_ids[0], hour + 45_210_000_000);
         await_current(&mut actor, 102);
         assert!(!actor.hip4_rolling.markets.contains_key(&101));
+        actor.quote_runtime.as_ref().unwrap().flush_all().unwrap();
+        for id in &old_ids {
+            let files: Vec<_> = std::fs::read_dir(root.join("data/quotes").join(id.to_string()))
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .collect();
+            assert_eq!(
+                files.len(),
+                1,
+                "rolling quotes stay in one segment across the hour"
+            );
+            assert_eq!(
+                files[0].extension().unwrap(),
+                "parquet",
+                "retirement seals quotes"
+            );
+        }
         for id in &new_ids {
             trade(&mut actor, *id, hour + 45_300_000_000);
+            quote(&mut actor, &cache, *id, hour + 45_300_000_000);
         }
         for id in &old_ids {
             trade(&mut actor, *id, hour + 45_400_000_000);
+            quote(&mut actor, &cache, *id, hour + 45_400_000_000);
             assert!(!actor.accepts_market_data(*id, || true));
         }
         actor.stop_hip4_rolling().unwrap();
@@ -786,7 +855,11 @@ mod tests {
             counts.remove(&("subscribe", "books", reference_id)),
             Some(1)
         );
-        assert_eq!(counts.len(), 16);
+        assert_eq!(
+            counts.remove(&("subscribe", "quotes", reference_id)),
+            Some(1)
+        );
+        assert_eq!(counts.len(), 24);
         assert!(
             counts.values().all(|n| *n == 1),
             "exactly one subscription and unsubscription per side/family"
@@ -810,6 +883,23 @@ mod tests {
             catalog.trade_ticks(None, None, None).unwrap().len(),
             4,
             "late old-side trades are rejected"
+        );
+        for (id, count) in old_ids
+            .iter()
+            .map(|id| (id, 2))
+            .chain(new_ids.iter().map(|id| (id, 1)))
+        {
+            let ticks = catalog
+                .quote_ticks(Some(vec![id.to_string()]), None, None)
+                .unwrap();
+            assert_eq!(ticks.len(), count, "recorded quotes for {id}");
+        }
+        assert_eq!(
+            std::fs::read_dir(root.join("data/quotes").join(reference_id.to_string()))
+                .unwrap()
+                .count(),
+            2,
+            "reference quotes still seal hourly"
         );
         for id in old_ids.into_iter().chain(new_ids) {
             let replay = catalog_capture_core::validate_order_book_replay(&root, id, true).unwrap();
@@ -899,7 +989,7 @@ mod tests {
         actor.stop_hip4_rolling().unwrap();
         actor.shutdown_all().unwrap();
         let counts = md_counts(&commands.borrow());
-        assert_eq!(counts.len(), 16);
+        assert_eq!(counts.len(), 24);
         assert!(counts.values().all(|count| *count == 1));
         for id in old.into_iter().chain(next) {
             let replay = catalog_capture_core::validate_order_book_replay(&root, id, true).unwrap();
@@ -1074,7 +1164,7 @@ mod tests {
             actor.hip4_rolling.series["ETH"].current == Some(104)
         });
         let counts = md_counts(&commands.borrow());
-        assert_eq!(counts.len(), 8);
+        assert_eq!(counts.len(), 12);
         assert!(counts.values().all(|count| *count == 1));
         actor.stop_hip4_rolling().unwrap();
         actor.shutdown_all().unwrap();
