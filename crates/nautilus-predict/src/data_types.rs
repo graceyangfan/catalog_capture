@@ -19,7 +19,7 @@ use std::sync::Arc;
 use nautilus_core::UnixNanos;
 use nautilus_model::{
     custom_data,
-    data::CustomData,
+    data::{CustomData, DataType},
     identifiers::InstrumentId,
     types::{Price, Quantity},
 };
@@ -63,6 +63,21 @@ pub struct PredictSettlementPendingLevel {
 pub struct PredictSettlementsPending {
     pub asks: Vec<PredictSettlementPendingLevel>,
     pub bids: Vec<PredictSettlementPendingLevel>,
+}
+
+/// Local lifecycle event emitted when a discovered market loses its last adapter owner.
+#[custom_data]
+pub struct PredictDynamicMarketRetired {
+    pub market_id: u64,
+    pub ts_event: UnixNanos,
+    pub ts_init: UnixNanos,
+}
+
+impl PredictDynamicMarketRetired {
+    #[must_use]
+    pub fn data_type() -> DataType {
+        DataType::new("PredictDynamicMarketRetired", None, None)
+    }
 }
 
 /// One accepted complete native YES orderbook snapshot.

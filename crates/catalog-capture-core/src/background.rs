@@ -265,10 +265,12 @@ where
             }
         }
 
-        state
-            .pending_gaps
-            .remove(&Some(item.partition_key.stable_key()));
-        state.pending_gaps.remove(&None);
+        if !state.pending_gaps.is_empty() {
+            state
+                .pending_gaps
+                .remove(&Some(item.partition_key.stable_key()));
+            state.pending_gaps.remove(&None);
+        }
         state.queued_bytes += item.estimated_bytes;
         state.queue.push_back(entry(item).into());
         state.admitted_items += 1;
@@ -907,7 +909,7 @@ where
             }
         };
         let partition = item.partition_key.stable_key();
-        match runtime.submit(item) {
+        match runtime.submit_to_partition(item, &partition) {
             Ok(partial) => merge_flush_into(&mut aggregated, partial),
             Err(err) => {
                 runtime.metrics.dropped_items += 1;

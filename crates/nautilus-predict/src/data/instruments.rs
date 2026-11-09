@@ -89,10 +89,8 @@ impl PredictDynamicMarketRegistry {
             .cloned()
     }
 
-    pub(super) fn remove(&mut self, generation: u64, market_id: u64) {
-        if self.generation == generation {
-            self.markets.remove(&market_id);
-        }
+    pub(super) fn remove(&mut self, generation: u64, market_id: u64) -> bool {
+        self.generation == generation && self.markets.remove(&market_id).is_some()
     }
 }
 
@@ -130,9 +128,10 @@ mod tests {
         let mut registry = PredictDynamicMarketRegistry::default();
         let generation = registry.begin_generation();
         assert!(registry.register(generation, context(42), &[]));
-        registry.remove(generation.wrapping_add(1), 42);
+        assert!(!registry.remove(generation.wrapping_add(1), 42));
         assert!(registry.context(42).is_some());
-        registry.remove(generation, 42);
+        assert!(registry.remove(generation, 42));
+        assert!(!registry.remove(generation, 42));
         assert!(registry.context(42).is_none());
     }
 }

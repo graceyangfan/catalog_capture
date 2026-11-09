@@ -673,22 +673,19 @@ impl CatalogCaptureActor {
     pub(super) fn observe_matched_sports(
         &mut self,
         id: InstrumentId,
-        snapshot: bool,
-        usable: bool,
+        inspect: impl FnOnce(&Self) -> (bool, bool),
     ) -> Result<()> {
-        if self.matched_sports_inbox.is_none() {
+        if self.matched_sports_inbox.is_none()
+            || !self.market_data_live.contains(&id)
+            || !self.matched_sports.records_book(id)
+        {
             return Ok(());
         }
-        let configured = if id.venue.as_str() == "PREDICT" {
-            self.plan.book_depth.iter().any(|s| s.instrument_id == id)
-        } else {
-            self.plan.book_deltas.iter().any(|s| s.instrument_id == id)
-        };
-        if !self.accepts_market_data(id, || configured) {
-            return Ok(());
+        let (snapshot, usable) = inspect(self);
+        if snapshot || self.matched_sports.observed.contains_key(&id) {
+            let now = self.clock().timestamp_ns().as_u64();
+            self.matched_sports.observed.insert(id, now);
         }
-        let now = self.clock().timestamp_ns().as_u64();
-        self.matched_sports.observe(id, now, snapshot);
         if usable && self.matched_sports.observed.contains_key(&id) {
             self.matched_sports.usable_books.insert(id);
         } else {
@@ -1047,7 +1044,9 @@ mod tests {
         assert_eq!(actor.matched_sports.markets.len(), 2);
         // A delta before an initial snapshot cannot create a comparable sample.
         let id = next.outcomes[0].polymarket_instrument;
-        actor.matched_sports.observe(id, 1, false);
+        actor
+            .observe_matched_sports(id, |_| (false, false))
+            .unwrap();
         assert!(!actor.matched_sports.observed.contains_key(&id));
         actor
             .apply_matched_sports_universe(MatchedUniverse {
@@ -1222,7 +1221,7 @@ mod tests {
             })
             .unwrap();
         for id in first.recording_instrument_ids() {
-            actor.matched_sports.observe(id, 1, true);
+            actor.matched_sports.observed.insert(id, 1);
         }
         let observations = actor.matched_sports.observed.clone();
         actor
@@ -1425,13 +1424,13 @@ mod tests {
         assert_eq!(commands.borrow().len(), before_promotion);
         let candidate_id = next.outcomes[0].polymarket_instrument;
         actor
-            .observe_matched_sports(candidate_id, false, false)
+            .observe_matched_sports(candidate_id, |_| (false, false))
             .unwrap();
         let preparing = actor.matched_sports.preparing.as_ref().unwrap();
         assert!(!preparing.ready);
         assert!(preparing.flushes.is_none());
         actor
-            .observe_matched_sports(candidate_id, false, true)
+            .observe_matched_sports(candidate_id, |_| (false, true))
             .unwrap();
         assert_eq!(actor.matched_sports.active, BTreeSet::from([201]));
         assert_eq!(commands.borrow().len(), before_promotion);
@@ -2301,6 +2300,115 @@ mod tests {
                 ts.into(),
             ))
             .unwrap();
+    }
+
+    #[test]
+    fn repeated_sports_retirement_reclaims_books_and_keeps_shared_capture() {
+        let root = std::env::temp_dir().join(format!(
+            "matched-retirement-{}",
+            nautilus_core::UUID4::new()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let shared = pair(701).outcomes[0].predict_instrument;
+        let mut config = CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan {
+                trades: vec![catalog_capture_core::TradeCaptureSpec {
+                    instrument_id: shared,
+                }],
+                ..Default::default()
+            },
+        );
+        config.matched_sports_config = Some(MatchedSportsCaptureConfig::default());
+        config.matched_sports_inbox = Some(Arc::new(MatchedSportsDiscoveryInbox::default()));
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        cache
+            .borrow_mut()
+            .add_instrument(super::super::tests::test_predict_outcome(701, 1))
+            .unwrap();
+        let mut actor = CatalogCaptureActor::new(config).unwrap();
+        actor
+            .register(TraderId::test_default(), clock.clone(), cache.clone())
+            .unwrap();
+        DataActor::on_start(&mut actor).unwrap();
+
+        for (index, market_id) in (701..=703).enumerate() {
+            let now = 1 + index as u64 * 32_000_000_000;
+            clock.borrow_mut().advance_time(now.into(), true);
+            let market = pair(market_id);
+            for definition in definitions(&market) {
+                cache.borrow_mut().add_instrument(definition).unwrap();
+            }
+            actor
+                .apply_matched_sports_universe(MatchedUniverse {
+                    markets: vec![market.clone()],
+                    ..Default::default()
+                })
+                .unwrap();
+            await_definitions(&mut actor, market_id);
+            emit_recording_batch(&mut actor, &cache, &market, now, true);
+            assert_eq!(actor.matched_sports.intervals.get(&market_id), Some(&true));
+            if market_id != 701 {
+                actor
+                    .observe_matched_sports(shared, |_| {
+                        panic!("static trade capture no longer owns a sports book")
+                    })
+                    .unwrap();
+            }
+
+            actor
+                .apply_matched_sports_universe(MatchedUniverse::default())
+                .unwrap();
+            let book_id = market.outcomes[0].polymarket_instrument;
+            let late_book = cache
+                .borrow()
+                .order_book(&book_id)
+                .unwrap()
+                .to_deltas(now.into(), now.into());
+            actor.on_book_deltas(&late_book).unwrap();
+            clock
+                .borrow_mut()
+                .advance_time((now + 31_000_000_000).into(), true);
+            actor.refresh_matched_sports().unwrap();
+            let writer = actor.book_delta_runtime.as_ref().unwrap();
+            writer.flush_all().unwrap();
+            assert_eq!(writer.metrics().active_writers, 0);
+            assert!(actor.matched_sports.retiring.is_empty());
+            assert!(actor.matched_sports.observed.is_empty());
+            assert!(actor.matched_sports.usable_books.is_empty());
+            assert!(actor.matched_sports.intervals.is_empty());
+            assert!(actor.market_data_live.contains(&shared));
+            assert_eq!(
+                msgbus::exact_subscriber_count_trades(switchboard::get_trades_topic(shared)),
+                1
+            );
+            assert_eq!(
+                msgbus::subscriber_count_depth(switchboard::get_book_depth_topic(shared)),
+                0
+            );
+            let cache = cache.borrow();
+            assert!(cache.instrument(&shared).is_some());
+            for id in market.instrument_ids().filter(|id| *id != shared) {
+                assert!(cache.instrument(&id).is_none());
+                assert!(cache.order_book(&id).is_none());
+                assert!(!actor.market_data_live.contains(&id));
+                assert!(!actor.matched_sports.instrument_versions.contains_key(&id));
+                assert_eq!(
+                    msgbus::subscriber_count_deltas(switchboard::get_book_deltas_topic(id)),
+                    0
+                );
+            }
+            let report =
+                catalog_capture_core::validate_order_book_replay(&root, book_id, true).unwrap();
+            assert_eq!(report.segment_count, 1);
+            assert_eq!(report.snapshot_segment_count, 1);
+        }
+        DataActor::on_stop(&mut actor).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

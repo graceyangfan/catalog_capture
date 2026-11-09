@@ -142,15 +142,10 @@ impl MatchedSportsState {
         }
         plan
     }
-    pub fn observe(&mut self, id: InstrumentId, now: u64, snapshot: bool) {
-        if self
-            .markets
+    pub fn records_book(&self, id: InstrumentId) -> bool {
+        self.markets
             .values()
             .any(|m| m.recording_instrument_ids().any(|i| i == id))
-            && (snapshot || self.observed.contains_key(&id))
-        {
-            self.observed.insert(id, now);
-        }
     }
 }
 #[cfg(test)]

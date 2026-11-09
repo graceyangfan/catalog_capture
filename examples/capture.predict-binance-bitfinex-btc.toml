@@ -11,6 +11,11 @@ shutdown_timeout_secs = 30
 delay_post_stop_secs = 2
 node_name = "CATALOG-CAPTURE-PREDICT-BINANCE-BITFINEX-BTC"
 
+# Stop before a sustained Native backlog or RSS growth reaches the service memory limit.
+[runtime.pressure]
+max_rss_bytes = 2147483648
+max_data_queue_depth = 10000
+
 [output]
 catalog_uri = "file://./data/predict-binance-bitfinex-btc"
 layout_compatibility = "rust_canonical_only"

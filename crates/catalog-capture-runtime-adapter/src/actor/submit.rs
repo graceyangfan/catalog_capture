@@ -390,6 +390,13 @@ impl CatalogCaptureActor {
         self.submit_book_delta_batch(deltas.clone())
     }
 
+    pub(super) fn managed_book_checkpoint(&self, id: InstrumentId) -> Option<OrderBookDeltas> {
+        self.cache_ref()
+            .order_book(&id)
+            .filter(|book| book.update_count > 0)
+            .map(|book| book.to_deltas(book.ts_last, self.clock().timestamp_ns()))
+    }
+
     pub(super) fn observe_book_delta_failures(&mut self) {
         if let Some(runtime) = &self.book_delta_runtime
             && let Some(affected) = runtime.failures_since(&mut self.book_delta_failure_cursor)
@@ -436,18 +443,13 @@ impl CatalogCaptureActor {
         let recovery = self.book_delta_recovery.contains(&id);
         let source_snapshot = nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(deltas.flags);
         if recovery && !source_snapshot {
-            let book = self
-                .cache()
-                .order_book(&id)
-                .filter(|book| book.update_count > 0)
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Book recovery waits for a managed book or source snapshot for {id}"
-                    )
-                })?;
             // Native has applied this source message before dispatching the callback.
             // The checkpoint already represents it; do not append that delta again.
-            deltas = book.to_deltas(book.ts_last, self.clock().timestamp_ns());
+            deltas = self.managed_book_checkpoint(id).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Book recovery waits for a managed book or source snapshot for {id}"
+                )
+            })?;
         }
         let row_count = deltas.deltas.len();
         let estimated_bytes = std::mem::size_of::<OrderBookDeltas>()

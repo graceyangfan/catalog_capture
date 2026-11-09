@@ -14,20 +14,20 @@
 
 //! Bounded, cancellable rolling-market discovery and first-snapshot handover.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use ahash::AHashMap;
 use anyhow::Context;
 use nautilus_common::messages::DataEvent;
-use nautilus_model::data::Data;
+use nautilus_model::data::{CustomData, Data};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use super::runtime::PredictDataSession;
 use crate::{
     PredictCryptoUpDownSelector, SelectedCryptoUpDownMarket, common::CryptoUpDownSelectorKey,
-    discover_crypto_up_down_market, http::models::PredictMarket,
-    providers::instruments_from_market_with_window,
+    data_types::PredictDynamicMarketRetired, discover_crypto_up_down_market,
+    http::models::PredictMarket, providers::instruments_from_market_with_window,
 };
 
 pub(super) const MAX_DISCOVERY_REQUESTS: usize = 4;
@@ -303,11 +303,25 @@ impl PredictDataSession {
                 .trades
                 .values()
                 .any(|context| context.market_id == market_id);
-        if !still_referenced {
-            self.dynamic_registry
+        if !still_referenced
+            && self
+                .dynamic_registry
                 .write()
                 .expect("Predict dynamic registry lock poisoned")
-                .remove(self.dynamic_generation, market_id);
+                .remove(self.dynamic_generation, market_id)
+        {
+            // Use the same event channel as definitions and snapshots so the consumer
+            // sees retirement after all previously emitted data for this market.
+            let now = self.clock.get_time_ns();
+            let event = PredictDynamicMarketRetired {
+                market_id,
+                ts_event: now,
+                ts_init: now,
+            };
+            let data = CustomData::new(Arc::new(event), PredictDynamicMarketRetired::data_type());
+            if let Err(error) = self.data_sender.send(DataEvent::Data(Data::Custom(data))) {
+                log::debug!("Could not publish Predict market {market_id} retirement: {error}");
+            }
         }
     }
 }

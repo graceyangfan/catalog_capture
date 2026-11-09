@@ -36,7 +36,7 @@ use nautilus_model::{
 use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
 use nautilus_predict::{
     PredictDataClientConfig, PredictDataClientFactory, PredictOrderbookSnapshot,
-    register_predict_custom_data,
+    instrument_id_from_outcome, register_predict_custom_data,
 };
 use serde_json::{Value, json};
 
@@ -50,7 +50,8 @@ mod output {
 
 const NATIVE_PROFILE: &str = include_str!("../../../examples/capture.predict-native.toml");
 const OLD: u64 = 2_859_346;
-const NEW: u64 = OLD + 1;
+const ABANDONED: u64 = OLD + 1;
+const NEW: u64 = OLD + 2;
 
 #[derive(Clone)]
 struct Venue {
@@ -64,8 +65,10 @@ fn market(id: u64) -> Value {
     market["data"]["tradingStatus"] = json!("OPEN");
     market["data"]["status"] = json!("OPEN");
     market["data"]["variantData"]["priceFeedSymbol"] = json!("BTC/USDT");
-    if id == NEW {
+    if id == ABANDONED {
         market["data"]["title"] = json!("Bitcoin Up or Down - October 3, 6:05PM-6:10PM ET");
+    } else if id == NEW {
+        market["data"]["title"] = json!("Bitcoin Up or Down - October 3, 6:10PM-6:15PM ET");
     }
     market
 }
@@ -74,6 +77,8 @@ async fn category(RoutePath(slug): RoutePath<String>, State(venue): State<Venue>
     let markets = if slug == format!("btc-updown-5m-{}", venue.start_secs) {
         vec![market(OLD)["data"].clone()]
     } else if slug == format!("btc-updown-5m-{}", venue.start_secs + 300) {
+        vec![market(ABANDONED)["data"].clone()]
+    } else if slug == format!("btc-updown-5m-{}", venue.start_secs + 600) {
         vec![market(NEW)["data"].clone()]
     } else {
         vec![]
@@ -82,7 +87,7 @@ async fn category(RoutePath(slug): RoutePath<String>, State(venue): State<Venue>
 }
 
 async fn definition(RoutePath(id): RoutePath<u64>) -> String {
-    assert!([OLD, NEW].contains(&id));
+    assert!([OLD, ABANDONED, NEW].contains(&id));
     market(id).to_string()
 }
 
@@ -102,17 +107,20 @@ async fn websocket(ws: WebSocketUpgrade, State(venue): State<Venue>) -> Response
 
 async fn serve_socket(socket: WebSocket, venue: Venue) {
     let (mut sink, mut stream) = socket.split();
-    let boundary_ms = (venue.start_secs + 300) * 1000;
+    let boundary_ms = (venue.start_secs + 600) * 1000;
     while let Some(Ok(Message::Text(text))) = stream.next().await {
         let command: Value = serde_json::from_str(&text).unwrap();
         match command["method"].as_str().unwrap() {
             "subscribe" if command["params"][0] == format!("predictOrderbook/{OLD}") => {
                 sink.send(Message::Text(
-                    snapshot(OLD, boundary_ms - 1000, 41).to_string().into(),
+                    snapshot(OLD, (venue.start_secs + 299) * 1000, 41)
+                        .to_string()
+                        .into(),
                 ))
                 .await
                 .unwrap();
             }
+            "subscribe" if command["params"][0] == format!("predictOrderbook/{ABANDONED}") => {}
             "subscribe" if command["params"][0] == format!("predictOrderbook/{NEW}") => {
                 // A late old update before the successor is valid and stays in the old segment.
                 // An old update after the successor's first frame must be filtered.
@@ -278,6 +286,9 @@ async fn snapshot_compatibility_rolls_seals_reads_back_and_removes_recordings() 
         .build()
         .unwrap();
     node.add_actor(actor).unwrap();
+    let cache = node.kernel().cache();
+    let abandoned_ids =
+        [1, 2].map(|outcome| instrument_id_from_outcome(ABANDONED, outcome).unwrap());
     let stop = node.handle();
     let old_folder = directory
         .0
@@ -293,8 +304,28 @@ async fn snapshot_compatibility_rolls_seals_reads_back_and_removes_recordings() 
                 .any(|p| p.extension().is_some_and(|e| e == "parquet"))
         );
         clock.set_time(UnixNanos::from((start_secs + 300) * 1_000_000_000));
+        tokio::time::timeout(Duration::from_secs(15), async {
+            while !abandoned_ids
+                .iter()
+                .all(|id| cache.borrow().instrument(id).is_some())
+            {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("candidate definitions must reach Cache before replacement");
+        clock.set_time(UnixNanos::from((start_secs + 600) * 1_000_000_000));
         wait_for_file(&old_folder, ".parquet").await;
         wait_for_file(&new_folder, ".parquet.part").await;
+        assert!(
+            abandoned_ids
+                .iter()
+                .all(|id| cache.borrow().instrument(id).is_none())
+        );
+        for outcome in [1, 2] {
+            let id = instrument_id_from_outcome(NEW, outcome).unwrap();
+            assert!(cache.borrow().instrument(&id).is_some());
+        }
         // The retiring file must be readable while the successor is still recording.
         let mut catalog = ParquetDataCatalog::new(&directory.0, None, None, None, None);
         let ids = vec![OLD.to_string()];
@@ -336,8 +367,8 @@ async fn snapshot_compatibility_rolls_seals_reads_back_and_removes_recordings() 
     }
     let mut catalog = ParquetDataCatalog::new(&directory.0, None, None, None, None);
     let instruments = catalog.instruments(None, None, None).unwrap();
-    assert_eq!(instruments.len(), 4);
-    for id in [OLD, NEW] {
+    assert_eq!(instruments.len(), 6);
+    for id in [OLD, ABANDONED, NEW] {
         for outcome in [1, 2] {
             assert!(
                 instruments
@@ -404,13 +435,12 @@ async fn snapshot_compatibility_rolls_seals_reads_back_and_removes_recordings() 
             book.market_id
         );
         assert_eq!(book.settlements_pending.as_ref().unwrap().asks.len(), 1);
-        let event_ms = (start_secs + 300) * 1000
-            - match book.order_count {
-                41 => 1000,
-                42 => 1,
-                43 => 0,
-                _ => panic!("unexpected accepted snapshot"),
-            };
+        let event_ms = match book.order_count {
+            41 => (start_secs + 299) * 1000,
+            42 => (start_secs + 600) * 1000 - 1,
+            43 => (start_secs + 600) * 1000,
+            _ => panic!("unexpected accepted snapshot"),
+        };
         assert_eq!(book.ts_event, UnixNanos::from_millis(event_ms));
     }
     counts.get_mut(&OLD).unwrap().sort_unstable();
@@ -420,6 +450,6 @@ async fn snapshot_compatibility_rolls_seals_reads_back_and_removes_recordings() 
     fs::remove_dir_all(&directory.0).unwrap();
     assert!(!directory.0.exists());
     println!(
-        "PASS: 2 windows, 4 outcome definitions, 3 exact snapshots, old segment sealed before stop, no .part files, recording directory removed"
+        "PASS: 3 discovered windows, 1 abandoned candidate purged, 6 outcome definitions, 3 exact snapshots, no open segments, recording directory removed"
     );
 }

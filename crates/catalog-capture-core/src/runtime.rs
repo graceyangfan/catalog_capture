@@ -57,9 +57,17 @@ where
 
     pub fn submit(&mut self, item: CaptureItem<T>) -> Result<FlushResult> {
         let key = item.partition_key.stable_key();
+        self.submit_to_partition(item, &key)
+    }
+
+    pub(crate) fn submit_to_partition(
+        &mut self,
+        item: CaptureItem<T>,
+        key: &str,
+    ) -> Result<FlushResult> {
         let mut result = FlushResult::default();
 
-        if !self.partitions.contains_key(&key)
+        if !self.partitions.contains_key(key)
             && self.partitions.len() >= self.config.max_active_partitions
         {
             let flushed = self.flush_oldest_partition();
@@ -67,7 +75,7 @@ where
                 // This item has not entered a partition yet. The oldest partition's
                 // write failure and this rejected input are distinct affected scopes.
                 self.failures.record(
-                    Some(&key),
+                    Some(key),
                     FailureOperation::Admission,
                     Some((item.event_ts_ns, item.event_ts_ns)),
                 );
@@ -80,7 +88,7 @@ where
             .lifecycle
             .batch_row_threshold(self.config.flush_rows);
         let flush_reason = {
-            let partition = self.partitions.entry(key.clone()).or_default();
+            let partition = self.partitions.entry(key.to_owned()).or_default();
             partition.push(
                 item.payload,
                 item.event_ts_ns,
@@ -93,7 +101,7 @@ where
         self.metrics.accepted_items += 1;
 
         if let Some(reason) = flush_reason {
-            result = merge_flush_results(result, self.flush_partition_with_reason(&key, reason)?);
+            result = merge_flush_results(result, self.flush_partition_with_reason(key, reason)?);
         }
 
         while self.total_pending_bytes() > self.config.max_total_buffer_bytes {

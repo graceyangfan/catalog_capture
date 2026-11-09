@@ -21,9 +21,13 @@ use catalog_capture_core::{
 use nautilus_common::{actor::DataActor, messages::data::CustomDataResponse, timer::TimeEvent};
 use nautilus_core::{DurationNanos, Params, UnixNanos};
 use nautilus_model::{data::DataType, identifiers::Venue, instruments::Instrument};
-use nautilus_predict::common::{
-    CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS, PREDICT_SELECTOR_PRICE_FEED_SYMBOL,
-    PREDICT_SELECTOR_TITLE_ASSET, predict_outcome_instrument_id,
+use nautilus_predict::{
+    common::{
+        CryptoUpDownSelectorKey, PREDICT_SELECTOR_INTERVAL_SECS,
+        PREDICT_SELECTOR_PRICE_FEED_SYMBOL, PREDICT_SELECTOR_TITLE_ASSET,
+        predict_outcome_instrument_id,
+    },
+    data_types::PredictDynamicMarketRetired,
 };
 
 use super::*;
@@ -186,6 +190,7 @@ impl CatalogCaptureActor {
             self.subscribe_data(predict_dynamic_output_data_type(selector_key), None, None);
         }
         if !predict_selectors.is_empty() {
+            self.subscribe_data(PredictDynamicMarketRetired::data_type(), None, None);
             // Dynamic markets do not have an instrument ID at configuration time. Subscribe to
             // the venue-level instrument stream so the two outcome definitions emitted during
             // discovery reach `on_instrument` and are persisted before their snapshots.
@@ -410,6 +415,7 @@ impl CatalogCaptureActor {
             self.unsubscribe_data(predict_dynamic_output_data_type(selector_key), None, None);
         }
         if !predict_selectors.is_empty() {
+            self.unsubscribe_data(PredictDynamicMarketRetired::data_type(), None, None);
             self.unsubscribe_instruments(
                 Venue::from("PREDICT"),
                 Some(ClientId::from("PREDICT")),
@@ -655,7 +661,9 @@ impl CatalogCaptureActor {
                 );
                 continue;
             }
-            self.purge_instrument_from_cache(instrument_id);
+            if self.cache().instrument(&instrument_id).is_some() {
+                self.purge_instrument_from_cache(instrument_id);
+            }
         }
         Ok(())
     }
@@ -1030,14 +1038,9 @@ impl CatalogCaptureActor {
             })
             .collect::<BTreeSet<_>>()
         {
-            let Some(book) = self
-                .cache()
-                .order_book(&id)
-                .filter(|book| book.update_count > 0)
-            else {
+            let Some(data) = self.managed_book_checkpoint(id) else {
                 continue;
             };
-            let data = book.to_deltas(book.ts_last, self.clock().timestamp_ns());
             let rows = data.deltas.len();
             let submitted = runtime.submit_initialization(catalog_capture_core::CaptureItem {
                 partition_key: PartitionKey::catalog_data::<OrderBookDelta>(id),
@@ -1415,8 +1418,9 @@ impl DataActor for CatalogCaptureActor {
             let retry = self.retry_instrument_definitions();
             self.poll_hip4_definition_writes();
             self.retry_predict_retirement_seals();
+            let reap = self.reap_retired_predict_markets();
             self.publish_metrics_snapshot();
-            self.record_capture_result(retry)?;
+            self.record_capture_result(retry.and(reap))?;
         }
         if event.name.starts_with(CUSTOM_DATA_REQUEST_TIMER_PREFIX)
             && let Some(index) = parse_request_timer_index(event.name.as_str())
@@ -1515,7 +1519,15 @@ impl DataActor for CatalogCaptureActor {
     /// Request/poll responses must not use this callback; they arrive via
     /// `handle_data_response` / `on_historical_data`.
     fn on_data(&mut self, data: &CustomData) -> Result<()> {
-        let result = self.submit_custom_data(data.clone());
+        let result = if let Some(retired) = data
+            .data
+            .as_any()
+            .downcast_ref::<PredictDynamicMarketRetired>()
+        {
+            self.purge_retired_predict_market_from_cache(retired.market_id)
+        } else {
+            self.submit_custom_data(data.clone())
+        };
         self.record_capture_result(result)
     }
 
@@ -1606,20 +1618,24 @@ impl DataActor for CatalogCaptureActor {
     fn on_book_depth(&mut self, depth: &OrderBookDepth) -> Result<()> {
         let result = self.submit_book_depth(depth.clone());
         self.record_capture_result(result)?;
-        let best_bid = depth
-            .bids
-            .iter()
-            .filter(|o| !o.size.is_zero())
-            .map(|o| o.price)
-            .max();
-        let best_ask = depth
-            .asks
-            .iter()
-            .filter(|o| !o.size.is_zero())
-            .map(|o| o.price)
-            .min();
-        let usable = best_bid.zip(best_ask).is_some_and(|(bid, ask)| bid < ask);
-        self.observe_matched_sports(depth.instrument_id, true, usable)
+        self.observe_matched_sports(depth.instrument_id, |_| {
+            let best_bid = depth
+                .bids
+                .iter()
+                .filter(|o| !o.size.is_zero())
+                .map(|o| o.price)
+                .max();
+            let best_ask = depth
+                .asks
+                .iter()
+                .filter(|o| !o.size.is_zero())
+                .map(|o| o.price)
+                .min();
+            (
+                true,
+                best_bid.zip(best_ask).is_some_and(|(bid, ask)| bid < ask),
+            )
+        })
     }
 
     fn on_book_deltas(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
@@ -1627,18 +1643,17 @@ impl DataActor for CatalogCaptureActor {
         self.record_capture_result(result)?;
         let observed = self.observe_hip4_rolling(deltas);
         self.record_capture_result(observed)?;
-        let usable = self
-            .cache()
-            .order_book(&deltas.instrument_id)
-            .and_then(|book| book.best_bid_price().zip(book.best_ask_price()))
-            .is_some_and(|(bid, ask)| bid < ask);
-        self.observe_matched_sports(
-            deltas.instrument_id,
-            deltas
+        self.observe_matched_sports(deltas.instrument_id, |actor| {
+            let usable = actor
+                .cache_ref()
+                .order_book(&deltas.instrument_id)
+                .and_then(|book| book.best_bid_price().zip(book.best_ask_price()))
+                .is_some_and(|(bid, ask)| bid < ask);
+            let snapshot = deltas
                 .deltas
                 .iter()
-                .any(|d| d.flags & nautilus_model::enums::RecordFlag::F_SNAPSHOT as u8 != 0),
-            usable,
-        )
+                .any(|d| d.flags & nautilus_model::enums::RecordFlag::F_SNAPSHOT as u8 != 0);
+            (snapshot, usable)
+        })
     }
 }

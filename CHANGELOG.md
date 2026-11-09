@@ -15,6 +15,9 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Release retired Predict market definitions and recorder state once the last
+  capture owner leaves. Borrow managed books for sports readiness, hourly
+  checkpoints, and write recovery.
 - **Predict rolling capture:** resolve repeated New York clock times using the
   category's UTC epoch and configured interval. Infer the year before clock-time
   conversion, preserve the resolved window in instrument definitions, and bound
@@ -51,6 +54,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Report writer in-flight and buffered bytes alongside Native queue pressure.
+  Document the heap-profiling workflow for long-running captures.
 - **HIP-4 rolling capture** records native BBO quotes for both outcome sides.
   Quote partitions seal when the market retires, alongside its books and trades.
 - Offline catalog layout proofs and capture → `ParquetDataCatalog` readback tests.

@@ -1,6 +1,7 @@
 # Smoke and soak
 
-Optional network validation. Product CI is Rust unit tests + clippy.
+Smoke tests check connectivity and readable output. Soak tests check that the
+recorder can keep up across market and file boundaries.
 
 ## Smoke (~30–120s)
 
@@ -40,7 +41,9 @@ make smoke-soak   # 180s daily-live preset
 | RSS | under VM budget |
 | request metrics | polls/rows grow; timeouts ≈ 0 |
 
-Enable metrics in TOML (`runtime.metrics.enabled`). See [tests/README.md](../../tests/README.md).
+Enable metrics with `runtime.metrics.enabled`. See the [test guide](../../tests/README.md)
+for probe options and the [memory profiling guide](memory_profiling.md) for
+investigating sustained backlog or RSS growth.
 
 ## Multi-venue segment checklist (`capture.multi-venue-mainnet.toml`)
 

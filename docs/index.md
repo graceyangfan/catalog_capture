@@ -27,6 +27,7 @@ how-to / reference); protocol design records are listed separately.
 | [Credentials](how_to/credentials.md) | Public vs env keys |
 | [Rust backtest from catalog](how_to/rust_backtest_from_catalog.md) | Read independent replay windows with Native codecs |
 | [Smoke and soak](how_to/smoke_and_soak.md) | Live probes |
+| [Profile recorder memory](how_to/memory_profiling.md) | Queue pressure, heap snapshots, and rollover validation |
 
 ## Concepts
 

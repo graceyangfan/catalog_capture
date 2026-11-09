@@ -44,7 +44,8 @@ use serde_json::{Value, json};
 use super::*;
 use crate::{
     PredictOrderbookSnapshot, SelectedCryptoUpDownMarket, common::CryptoUpDownMarketWindow,
-    predict_crypto_up_down_orderbook_data_type, predict_orderbook_data_type,
+    data_types::PredictDynamicMarketRetired, predict_crypto_up_down_orderbook_data_type,
+    predict_orderbook_data_type,
 };
 
 const ID: u64 = 2_859_346;
@@ -240,6 +241,11 @@ fn discovery(
 }
 
 fn definitions(events: &mut mpsc::UnboundedReceiver<DataEvent>, market: u64) {
+    expect_definitions(events, market);
+    assert!(events.try_recv().is_err());
+}
+
+fn expect_definitions(events: &mut mpsc::UnboundedReceiver<DataEvent>, market: u64) {
     for outcome in [1, 2] {
         let DataEvent::Data(Data::Instrument(instrument)) = events.try_recv().unwrap() else {
             panic!("definitions precede snapshots");
@@ -249,7 +255,21 @@ fn definitions(events: &mut mpsc::UnboundedReceiver<DataEvent>, market: u64) {
             crate::instrument_id_from_outcome(market, outcome).unwrap()
         );
     }
-    assert!(events.try_recv().is_err());
+}
+
+fn retired_market(data: &nautilus_model::data::CustomData) -> Option<u64> {
+    data.data
+        .as_any()
+        .downcast_ref::<PredictDynamicMarketRetired>()
+        .map(|event| event.market_id)
+}
+
+fn expect_retirement(events: &mut mpsc::UnboundedReceiver<DataEvent>, market: u64) {
+    let DataEvent::Data(Data::Custom(data)) = events.try_recv().unwrap() else {
+        panic!("expected market retirement");
+    };
+    assert_eq!(data.data_type, PredictDynamicMarketRetired::data_type());
+    assert_eq!(retired_market(&data), Some(market));
 }
 
 fn frame(market: u64, count: u64) -> String {
@@ -284,6 +304,10 @@ fn outputs(
     let (mut custom, mut quotes, mut depths) = (0, 0, 0);
     while let Ok(event) = events.try_recv() {
         match event {
+            DataEvent::Data(Data::Custom(ref data)) if retired_market(data).is_some() => {
+                assert_eq!(custom, 1, "retirement must follow the successor snapshot");
+                assert_ne!(retired_market(data), Some(market));
+            }
             DataEvent::Data(Data::Custom(data)) => {
                 assert_eq!(&data.data_type, expected.expect("custom interest required"));
                 let book = data
@@ -459,6 +483,7 @@ async fn indexed_lookup_preserves_identity_precedence_and_retirement() {
     venue.command("unsubscribe", ID + 1).await;
     assert!(client.instrument_context(id).is_err());
     assert!(client.publish_instrument(id).is_err());
+    expect_retirement(&mut events, ID + 1);
     publish(&mut session, &venue, ID + 1, 2).await;
     assert!(events.try_recv().is_err());
     client.reset().unwrap();
@@ -676,6 +701,7 @@ async fn colliding_selector_preserves_pending_handover_and_retries_after_release
             .await
             .unwrap();
         venue.command("unsubscribe", ID + 2).await;
+        expect_retirement(&mut events, ID + 2);
         let result = discovery(&mut session, &first, ID + 2);
         session.apply_discovery(result).await.unwrap();
         definitions(&mut events, ID + 2);
@@ -694,6 +720,29 @@ async fn colliding_selector_preserves_pending_handover_and_retries_after_release
         venue.command("unsubscribe", ID + 1).await;
         shutdown(session, tasks).await;
     }
+}
+
+#[tokio::test]
+async fn replacing_a_candidate_without_a_snapshot_retires_it_once() {
+    let (mut venue, mut session, tasks, mut events) = setup(TransportBackend::Tungstenite).await;
+    let selector = selector("BTCUSDT");
+    let result = discovery(&mut session, &selector, ID);
+    session.apply_discovery(result).await.unwrap();
+    definitions(&mut events, ID);
+    venue.command("subscribe", ID).await;
+
+    let result = discovery(&mut session, &selector, ID + 1);
+    session.apply_discovery(result).await.unwrap();
+    venue.command("unsubscribe", ID).await;
+    venue.command("subscribe", ID + 1).await;
+    expect_definitions(&mut events, ID + 1);
+    expect_retirement(&mut events, ID);
+    assert!(events.try_recv().is_err());
+
+    // A frame already in transit for the abandoned subscription cannot reopen the market.
+    publish(&mut session, &venue, ID, 1).await;
+    assert!(events.try_recv().is_err());
+    shutdown(session, tasks).await;
 }
 
 #[tokio::test]
@@ -789,6 +838,7 @@ async fn retired_rejected_custom_interest_clears_native_dedup_and_can_retry() {
             .await
             .unwrap();
         venue.command("unsubscribe", ID + 1).await;
+        expect_retirement(&mut events, ID + 1);
         engine
             .borrow_mut()
             .execute_unsubscribe(&nautilus_common::messages::UnsubscribeCommand::Data(
@@ -1137,6 +1187,7 @@ async fn independent_selector_identities_release_only_their_own_discovery_intere
     venue.command("unsubscribe", ID).await;
     assert!(!session.dynamic_subscriptions.contains_key(&key));
     assert!(!session.subscriptions.contains_key(&ID));
+    expect_retirement(&mut events, ID);
     publish(&mut session, &venue, ID, 2).await;
     assert!(events.try_recv().is_err());
     shutdown(session, tasks).await;

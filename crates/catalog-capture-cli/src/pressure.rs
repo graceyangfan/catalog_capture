@@ -71,20 +71,32 @@ pub async fn monitor(
             return "capture pressure stop: recording actor heartbeat stalled".into();
         }
         if now >= next_report {
-            let (writer_bytes, writer_oldest_ms, writer_sample_age_ms) = writer_metrics
+            let (
+                writer_bytes,
+                writer_oldest_ms,
+                writer_sample_age_ms,
+                active_writers,
+                writer_in_flight_bytes,
+                writer_buffered_bytes,
+            ) = writer_metrics
                 .try_read()
                 .ok()
                 .filter(|snapshot| snapshot.captured_at_unix_ms > 0)
-                .map_or((None, None, None), |snapshot| {
+                .map_or((None, None, None, None, None, None), |snapshot| {
+                    let metrics = &snapshot.aggregated;
                     (
-                        Some(snapshot.aggregated.queued_bytes),
-                        Some(snapshot.aggregated.oldest_queued_ns / 1_000_000),
+                        Some(metrics.queued_bytes),
+                        Some(metrics.oldest_queued_ns / 1_000_000),
                         Some(unix_time_ms().saturating_sub(snapshot.captured_at_unix_ms)),
+                        Some(metrics.active_writers),
+                        Some(metrics.in_flight_bytes),
+                        Some(metrics.buffered_bytes),
                     )
                 });
             log::info!(
-                "capture pressure: rss_bytes={rss:?} native_data_queue_depth={depth} native_data_dispatched={} writer_queued_bytes={writer_bytes:?} writer_oldest_ms={writer_oldest_ms:?} writer_sample_age_ms={writer_sample_age_ms:?}",
+                "capture pressure: rss_bytes={rss:?} native_data_queue_depth={depth} native_data_dispatched={} writer_queued_bytes={writer_bytes:?} writer_oldest_ms={writer_oldest_ms:?} writer_sample_age_ms={writer_sample_age_ms:?} native_data_busy_ns={} active_writers={active_writers:?} writer_in_flight_bytes={writer_in_flight_bytes:?} writer_buffered_bytes={writer_buffered_bytes:?}",
                 native.data_events.dispatched,
+                native.data_events.dispatch_busy_ns,
             );
             next_report = now + REPORT_INTERVAL;
         }
