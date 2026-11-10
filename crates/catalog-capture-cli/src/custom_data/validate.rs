@@ -71,6 +71,16 @@ pub fn validate_request_data_type(
 impl KnownCustomDataType {
     fn validate_payload(self, data_type: &DataType, venues: &[VenueRuntimeConfig]) -> Result<()> {
         match self {
+            #[cfg(feature = "venue-prophet")]
+            Self::ProphetLastTradePrice => {
+                require_venue(
+                    venues,
+                    self.venue(),
+                    "ProphetLastTradePrice requires a prophet venue",
+                )?;
+                nautilus_binance_prediction::last_price_market(data_type)?;
+                Ok(())
+            }
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => {
                 require_venue(

@@ -33,6 +33,9 @@ venues → catalog-capture-cli + TOML
   [nautilus-lighter-ext](crates/nautilus-lighter-ext/README.md) (`venue-lighter-ext`);
   [operator guide](docs/how_to/lighter-binary-capture.md) and
   [rolling profile](examples/capture.lighter-updown-15m.toml)
+- **Binance Prophet** — anonymous campaign depth and latest-price recording
+  for fixed markets with `venue-prophet`. See the
+  [Prophet guide](docs/how_to/prophet-capture.md).
 - **Dynamic products** — option universes, Hyperliquid HIP-4, and Predict
   crypto Up/Down selectors discover and rotate instruments without restarting
 - **Order book checkpoints** — managed Nautilus books checkpointed hourly and at
@@ -74,6 +77,7 @@ Data: `./data/…` (gitignored). Catalog layout: [docs/concepts/catalog_layout.m
 | Config | Use |
 |--------|-----|
 | **`examples/capture.multi-venue-mainnet.toml`** | Multi-venue instruments, quotes, trades and order-book data |
+| [`examples/capture.prophet.toml`](examples/capture.prophet.toml) | Binance Prophet campaign depth and latest price |
 | `examples/capture.predict-native.toml` | Predict BTC 5m native YES depth and trades |
 | `examples/capture.predict-crypto-updown.toml` | BTC/ETH/BNB 5m/15m Predict depth/trades plus Binance Spot SBE |
 | `examples/capture.extended-btc-perp.toml` | Extended BTC perpetual public market data |

@@ -47,6 +47,8 @@ use nautilus_binance::{
     config::BinanceDataClientConfig,
     factories::BinanceDataClientFactory,
 };
+#[cfg(feature = "venue-prophet")]
+use nautilus_binance_prediction::{ProphetDataClientConfig, ProphetDataClientFactory};
 #[cfg(feature = "venue-bitfinex")]
 use nautilus_bitfinex::{BITFINEX, BitfinexDataClientConfig, BitfinexDataClientFactory};
 #[cfg(feature = "venue-bybit")]
@@ -405,6 +407,14 @@ pub async fn run_capture_with_plan_and_reports(
                         stream_health_check_interval_secs: 15,
                         ..Default::default()
                     }),
+                )?;
+            }
+            #[cfg(feature = "venue-prophet")]
+            VenueRuntimeConfig::Prophet { id } => {
+                builder = builder.add_data_client(
+                    Some(id.clone()),
+                    Box::new(ProphetDataClientFactory),
+                    Box::new(prophet_data_config(&plan)?),
                 )?;
             }
             #[cfg(feature = "venue-lighter-ext")]
@@ -842,6 +852,8 @@ fn layout_compatibility_label(value: &LayoutCompatibility) -> &'static str {
 
 fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
     match venue {
+        #[cfg(feature = "venue-prophet")]
+        VenueRuntimeConfig::Prophet { .. } => "prophet",
         #[cfg(feature = "venue-binance")]
         VenueRuntimeConfig::BinanceFutures { .. } => "binance_futures",
         #[cfg(feature = "venue-binance")]
@@ -871,6 +883,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
 
 fn compiled_venue_features() -> Vec<String> {
     [
+        #[cfg(feature = "venue-prophet")]
+        "venue-prophet",
         #[cfg(feature = "venue-binance")]
         "venue-binance",
         #[cfg(feature = "venue-bybit")]
@@ -1093,6 +1107,76 @@ fn validate_runtime_switches(config: &EffectiveConfig) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "venue-prophet")]
+fn prophet_data_config(plan: &CapturePlan) -> Result<ProphetDataClientConfig> {
+    use nautilus_binance_prediction::{PROPHET, instrument_id, last_price_market, market_id};
+    use nautilus_model::enums::BookType;
+
+    let is_prophet = |id: nautilus_model::identifiers::InstrumentId| id.venue.as_str() == PROPHET;
+    let planned = plan.planned_instrument_ids();
+    let ids = planned
+        .iter()
+        .copied()
+        .filter(|id| is_prophet(*id))
+        .map(market_id)
+        .collect::<Result<Vec<_>>>()?;
+    for spec in &plan.custom_data {
+        if spec.data_type.type_name() == "ProphetLastTradePrice" {
+            let id = last_price_market(&spec.data_type)?;
+            anyhow::ensure!(
+                planned.contains(&instrument_id(id)?),
+                "ProphetLastTradePrice requires a capture selector for {id}-0.PROPHET"
+            );
+        }
+    }
+    let unsupported = plan.quotes.iter().any(|s| is_prophet(s.instrument_id))
+        || plan.trades.iter().any(|s| is_prophet(s.instrument_id))
+        || plan.book_deltas.iter().any(|s| is_prophet(s.instrument_id))
+        || plan.mark_prices.iter().any(|s| is_prophet(s.instrument_id))
+        || plan
+            .index_prices
+            .iter()
+            .any(|s| is_prophet(s.instrument_id))
+        || plan
+            .funding_rates
+            .iter()
+            .any(|s| is_prophet(s.instrument_id))
+        || plan
+            .instrument_statuses
+            .iter()
+            .any(|s| is_prophet(s.instrument_id))
+        || plan
+            .instrument_closes
+            .iter()
+            .any(|s| is_prophet(s.instrument_id))
+        || plan
+            .option_greeks
+            .iter()
+            .any(|s| is_prophet(s.instrument_id))
+        || plan
+            .forward_prices
+            .iter()
+            .any(|s| is_prophet(s.instrument_id))
+        || plan
+            .bars
+            .iter()
+            .any(|s| is_prophet(s.bar_type.instrument_id()));
+    anyhow::ensure!(
+        !unsupported,
+        "Prophet supports instruments, book_depth and ProphetLastTradePrice only"
+    );
+    anyhow::ensure!(
+        plan.book_depth
+            .iter()
+            .filter(|s| is_prophet(s.instrument_id))
+            .all(|s| s.book_type == BookType::L2_MBP && s.depth.is_none()),
+        "Prophet requires full L2_MBP book_depth with no depth limit"
+    );
+    let config = ProphetDataClientConfig::new(ids);
+    config.validate()?;
+    Ok(config)
+}
+
 #[cfg(feature = "venue-lighter-ext")]
 fn lighter_binary_market_ids(plan: &CapturePlan) -> Result<Vec<u64>> {
     let instrument_ids = plan_instrument_ids(plan);
@@ -1236,6 +1320,31 @@ fn validate_bitfinex(config: &EffectiveConfig) -> Result<()> {
 fn validate_runtime_dependencies(config: &EffectiveConfig) -> Result<()> {
     if config.venues.is_empty() {
         bail!("at least one venue is required");
+    }
+    let prophet_ids = config.plan.planned_instrument_ids();
+    if prophet_ids.iter().any(|id| id.venue.as_str() == "PROPHET") {
+        #[cfg(not(feature = "venue-prophet"))]
+        anyhow::bail!("Prophet instruments require venue-prophet");
+        #[cfg(feature = "venue-prophet")]
+        anyhow::ensure!(
+            config
+                .venues
+                .iter()
+                .any(|v| matches!(v, VenueRuntimeConfig::Prophet { .. })),
+            "Prophet instruments require a prophet venue"
+        );
+    }
+    #[cfg(feature = "venue-prophet")]
+    if config
+        .venues
+        .iter()
+        .any(|v| matches!(v, VenueRuntimeConfig::Prophet { .. }))
+    {
+        prophet_data_config(&config.plan)?;
+        anyhow::ensure!(
+            config.capture.lifecycle.is_segment_mode(),
+            "Prophet requires segment mode"
+        );
     }
     #[cfg(feature = "venue-bitfinex")]
     validate_bitfinex(config)?;

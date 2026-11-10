@@ -190,6 +190,7 @@ pub fn custom_data_client_id(data_type: &DataType) -> Option<&'static str> {
         "DeribitVolatilityIndex" => Some("DERIBIT"),
         "HyperliquidOpenInterest" => Some("HYPERLIQUID"),
         "LighterOpenInterest" => Some("LIGHTER"),
+        "ProphetLastTradePrice" => Some("PROPHET"),
         "PredictOrderbookSnapshot" | "PredictCryptoUpDown" => Some("PREDICT"),
         _ => None,
     }

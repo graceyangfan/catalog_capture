@@ -28,6 +28,12 @@ type and optional depth) and `[[capture.trades]]`. Rolling Predict profiles sele
 these through `record_depth` and `record_trades` metadata; `record_snapshot="false"`
 suppresses custom snapshot files. See [Predict capture](../how_to/predict-market-data.md).
 
+Prophet profiles use `kind = "prophet"` and `id = "PROPHET"`. Select
+`<marketId>-0.PROPHET` in `[[capture.book_depth]]` with `book_type = "L2_MBP"`
+and omit the depth limit. Use `ProphetLastTradePrice` in
+`[[capture.custom_data]]` with the decimal market ID as its identifier.
+See [Prophet capture](../how_to/prophet-capture.md).
+
 Matched sports profiles configure `[capture.matched_sports]` instead of fixed
 instrument IDs. See [matched sports capture](../how_to/matched-sports-capture.md)
 for matching, bilateral activity selection and event retirement. `validate` checks

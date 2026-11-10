@@ -19,6 +19,7 @@ how-to / reference); protocol design records are listed separately.
 | [Cloud capture](how_to/cloud_capture.md) | Clone, build, unattended mainnet, monitor |
 | [Multi-venue / HIP-4 style](how_to/hip4_capture.md) | Streams, rotation clocks, BookSummary rate |
 | [Lighter XEMM capture](how_to/lighter_xemm_capture.md) | Lighter and Robinhood Chain L2, trades and funding |
+| [Binance Prophet capture](how_to/prophet-capture.md) | Public campaign books and latest price |
 | [Predict market-data capture](how_to/predict-market-data.md) | Native YES depth/trades, rotation and optional Binance SBE L2 |
 | [Matched sports capture](how_to/matched-sports-capture.md) | Predict / Polymarket matching, recording selection and event rotation |
 | [Predict private API calibration](how_to/predict-private-api-tests.md) | Local TOML, automatic discovery, SDK parity, and native read-only calibration |

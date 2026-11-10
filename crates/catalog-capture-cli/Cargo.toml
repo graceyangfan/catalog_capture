@@ -12,6 +12,7 @@ publish.workspace = true
 default = ["all-venues"]
 all-venues = [
   "venue-binance",
+  "venue-prophet",
   "venue-bybit",
   "venue-deribit",
   "venue-okx",
@@ -24,6 +25,7 @@ all-venues = [
   "venue-polymarket",
 ]
 venue-binance = ["dep:nautilus-binance"]
+venue-prophet = ["dep:nautilus-binance-prediction"]
 venue-bybit = ["dep:nautilus-bybit"]
 venue-deribit = ["dep:nautilus-deribit"]
 venue-okx = ["dep:nautilus-okx"]
@@ -51,6 +53,7 @@ catalog-capture-core = { path = "../catalog-capture-core" }
 catalog-capture-runtime-adapter = { path = "../catalog-capture-runtime-adapter" }
 dotenvy.workspace = true
 nautilus-binance = { workspace = true, optional = true }
+nautilus-binance-prediction = { workspace = true, optional = true }
 nautilus-bybit = { workspace = true, optional = true }
 nautilus-deribit = { workspace = true, optional = true }
 nautilus-hyperliquid = { workspace = true, optional = true }

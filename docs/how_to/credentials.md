@@ -13,7 +13,9 @@ permission-checked TOML files described below.
 
 ## Public (usual case)
 
-Do nothing. Leave API env vars unset.
+Do nothing. Leave API env vars unset. The
+[Prophet capture profile](prophet-capture.md) uses anonymous Binance Pick
+market data.
 
 ```bash
 ./scripts/cargo.sh run -p catalog-capture-cli -- run --config examples/capture.deribit-dvol.toml

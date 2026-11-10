@@ -54,6 +54,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Record Binance Prophet campaign depth and latest-price observations for
+  fixed markets with the optional `venue-prophet` feature.
 - Report writer in-flight and buffered bytes alongside Native queue pressure.
   Document the heap-profiling workflow for long-running captures.
 - **HIP-4 rolling capture** records native BBO quotes for both outcome sides.

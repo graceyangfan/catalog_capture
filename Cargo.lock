@@ -1210,6 +1210,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "serde_core",
+ "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
  "sha1 0.10.6",
@@ -1514,6 +1515,7 @@ dependencies = [
  "dotenvy",
  "log",
  "nautilus-binance",
+ "nautilus-binance-prediction",
  "nautilus-bitfinex",
  "nautilus-bybit",
  "nautilus-common",
@@ -4310,6 +4312,30 @@ dependencies = [
  "tokio-util",
  "ustr",
  "zeroize",
+]
+
+[[package]]
+name = "nautilus-binance-prediction"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arrow",
+ "async-trait",
+ "axum",
+ "indexmap 2.14.2",
+ "log",
+ "nautilus-common",
+ "nautilus-core",
+ "nautilus-live",
+ "nautilus-model",
+ "nautilus-network",
+ "nautilus-serialization",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "ustr",
 ]
 
 [[package]]

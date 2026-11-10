@@ -53,6 +53,8 @@ pub struct VenueConfig {
 
 #[derive(Debug, Clone)]
 pub enum VenueRuntimeConfig {
+    #[cfg(feature = "venue-prophet")]
+    Prophet { id: String },
     #[cfg(feature = "venue-lighter-ext")]
     LighterBinary { id: String },
     #[cfg(feature = "venue-binance")]
@@ -113,6 +115,8 @@ pub enum VenueRuntimeConfig {
 impl VenueRuntimeConfig {
     pub fn id(&self) -> &str {
         match self {
+            #[cfg(feature = "venue-prophet")]
+            Self::Prophet { id } => id,
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterBinary { id } => id,
             #[cfg(feature = "venue-binance")]
@@ -329,6 +333,21 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
                 venue_feature_required("polymarket", "venue-polymarket")
             }
         }
+        "prophet" => {
+            #[cfg(feature = "venue-prophet")]
+            {
+                anyhow::ensure!(
+                    venue.id == nautilus_binance_prediction::PROPHET
+                        && matches!(venue.environment.as_str(), "live" | "mainnet"),
+                    "prophet requires id = \"PROPHET\" and the live environment"
+                );
+                Ok(VenueRuntimeConfig::Prophet { id: venue.id })
+            }
+            #[cfg(not(feature = "venue-prophet"))]
+            {
+                venue_feature_required("prophet", "venue-prophet")
+            }
+        }
         "predict" => {
             #[cfg(feature = "venue-predict")]
             {
@@ -340,7 +359,7 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             }
         }
         other => bail!(
-            "unsupported venue kind {other}; known kinds: binance_futures, binance_spot, deribit, bybit, hyperliquid, lighter, lighter_binary, extended, okx, predict \
+            "unsupported venue kind {other}; known kinds: binance_futures, binance_spot, deribit, bybit, hyperliquid, lighter, lighter_binary, extended, okx, predict, prophet \
              (enabled at build time via cargo features venue-* / all-venues)"
         ),
     }

@@ -44,6 +44,7 @@ make build-release-capture
 | Config | Required features | Content |
 |--------|-------------------|---------|
 | **`capture.multi-venue-mainnet.toml`** | standard `make build-release-capture` set | Public multi-venue instruments, quotes, trades, L2 and BookSummary |
+| [`capture.prophet.toml`](capture.prophet.toml) | `venue-prophet` | Binance Prophet fixed-market depth and latest price without credentials |
 | **`capture.predict-crypto-updown.toml`** | `venue-binance,venue-predict` | BTC/ETH/BNB 5m/15m Predict YES depth/trades plus matching hourly Spot SBE L2/trades; separate from HIP4, no Futures |
 | **`capture.binance-lighter-btc-sol-perp-books.toml`** | `venue-binance,venue-lighter` | High-rate BTC/SOL L2 and trades; replayable hourly segments |
 | **`capture.binance-spot-sbe-btc.toml`** | `venue-binance` | Binance Spot SBE BTC/USDT full L2 + trades; credentials required |

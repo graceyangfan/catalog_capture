@@ -8,6 +8,7 @@ members = [
   "crates/nautilus-bitfinex",
   "crates/nautilus-lighter-ext",
   "crates/nautilus-predict",
+  "crates/nautilus-binance-prediction",
 ]
 resolver = "2"
 
@@ -91,6 +92,7 @@ nautilus-serialization = { path = "../nautilus_trader_quantity_commission/crates
 nautilus-lighter-ext = { path = "crates/nautilus-lighter-ext" }
 nautilus-extended = { path = "crates/nautilus-extended" }
 nautilus-bitfinex = { path = "crates/nautilus-bitfinex" }
+nautilus-binance-prediction = { path = "crates/nautilus-binance-prediction" }
 nautilus-polymarket = { path = "../nautilus_trader_quantity_commission/crates/adapters/polymarket", default-features = false, features = [
   "high-precision",
 ] }

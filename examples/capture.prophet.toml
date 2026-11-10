@@ -1,0 +1,25 @@
+# Binance Pick campaign data. No API key or login required.
+# The fixed market IDs must be present in the current Prophet event list.
+[runtime]
+capture_seconds = 0
+node_name = "CATALOG-CAPTURE-PROPHET"
+
+[output]
+catalog_uri = "file://./data/prophet"
+compression = "snappy"
+
+[output.lifecycle]
+mode = "segment"
+
+[[venues]]
+id = "PROPHET"
+kind = "prophet"
+
+# Knight, Worlds 2026 Finals MVP. The suffix -0 selects the venue's first outcome.
+[[capture.book_depth]]
+instrument_id = "17949854-0.PROPHET"
+book_type = "L2_MBP"
+
+[[capture.custom_data]]
+type_name = "ProphetLastTradePrice"
+identifier = "17949854"

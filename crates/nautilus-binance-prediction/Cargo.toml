@@ -1,0 +1,30 @@
+[package]
+name = "nautilus-binance-prediction"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Read-only Binance Prophet market data for NautilusTrader"
+
+[dependencies]
+anyhow.workspace = true
+arrow = "59.3.0"
+async-trait.workspace = true
+indexmap = "2"
+log.workspace = true
+nautilus-common.workspace = true
+nautilus-core.workspace = true
+nautilus-live.workspace = true
+nautilus-model = { workspace = true, features = ["high-precision"] }
+nautilus-network.workspace = true
+nautilus-serialization = { workspace = true, features = ["high-precision"] }
+rust_decimal = { workspace = true, features = ["serde-arbitrary-precision"] }
+serde.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
+tokio.workspace = true
+tokio-util.workspace = true
+ustr.workspace = true
+
+[dev-dependencies]
+axum = { workspace = true, features = ["json"] }
