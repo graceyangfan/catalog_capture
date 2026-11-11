@@ -45,6 +45,7 @@ pub(crate) fn parse_instrument_specs(
 pub(crate) fn parse_quote_specs(items: &[InstrumentSelector]) -> Result<Vec<QuoteCaptureSpec>> {
     items
         .iter()
+        .filter(|item| !item.hip4_rolling)
         .map(|item| {
             Ok(QuoteCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
@@ -56,6 +57,7 @@ pub(crate) fn parse_quote_specs(items: &[InstrumentSelector]) -> Result<Vec<Quot
 pub(crate) fn parse_trade_specs(items: &[InstrumentSelector]) -> Result<Vec<TradeCaptureSpec>> {
     items
         .iter()
+        .filter(|item| !item.hip4_rolling)
         .map(|item| {
             Ok(TradeCaptureSpec {
                 instrument_id: parse_instrument_id(&item.instrument_id)?,
@@ -171,6 +173,7 @@ pub(crate) fn parse_book_delta_specs(
 ) -> Result<Vec<BookDeltasCaptureSpec>> {
     items
         .iter()
+        .filter(|item| !item.hip4_rolling)
         .map(|item| {
             let book_type = BookType::from_str(&item.book_type)
                 .with_context(|| format!("invalid book_type {}", item.book_type))?;

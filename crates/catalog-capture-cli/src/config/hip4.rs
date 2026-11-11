@@ -100,3 +100,63 @@ pub(crate) fn validate_hip4_universe_family_shape(spec: &Hip4UniverseSpec) -> Re
     }
     Ok(())
 }
+
+/// Dynamic selectors share the ordinary capture family tables.
+pub(crate) fn resolve_rolling_capture(
+    capture: &super::capture::CaptureConfigFile,
+) -> Result<Option<catalog_capture_core::hip4::rolling::Hip4RollingConfig>> {
+    use catalog_capture_core::hip4::rolling::Hip4RollingFamily;
+    let mut families = Vec::new();
+    for (items, family) in [
+        (&capture.quotes, Hip4RollingFamily::Quotes),
+        (&capture.trades, Hip4RollingFamily::Trades),
+    ] {
+        for item in items.iter().filter(|item| item.hip4_rolling) {
+            anyhow::ensure!(
+                item.instrument_id.is_empty(),
+                "hip4_rolling and instrument_id are mutually exclusive"
+            );
+            families.push(family);
+        }
+    }
+    for item in capture.book_deltas.iter().filter(|item| item.hip4_rolling) {
+        anyhow::ensure!(
+            item.instrument_id.is_empty(),
+            "hip4_rolling and instrument_id are mutually exclusive"
+        );
+        anyhow::ensure!(
+            item.book_type == "L2_MBP" && item.depth.is_none(),
+            "HIP-4 rolling book_deltas requires L2_MBP with default depth"
+        );
+        families.push(Hip4RollingFamily::BookDeltas);
+    }
+    for items in [
+        &capture.instruments,
+        &capture.mark_prices,
+        &capture.index_prices,
+        &capture.funding_rates,
+        &capture.instrument_statuses,
+        &capture.instrument_closes,
+        &capture.option_greeks,
+        &capture.forward_prices,
+    ] {
+        anyhow::ensure!(
+            !items.iter().any(|item| item.hip4_rolling),
+            "hip4_rolling selectors support quotes, trades and book_deltas"
+        );
+    }
+    anyhow::ensure!(
+        !capture.book_depth.iter().any(|item| item.hip4_rolling),
+        "HIP-4 rolling uses book_deltas for L2 snapshots"
+    );
+    let Some(mut config) = capture.hip4_rolling.clone() else {
+        anyhow::ensure!(
+            families.is_empty(),
+            "hip4_rolling selector requires [capture.hip4_rolling]"
+        );
+        return Ok(None);
+    };
+    config.families = families;
+    config.validate()?;
+    Ok(Some(config))
+}

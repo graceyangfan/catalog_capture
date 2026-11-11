@@ -22,7 +22,7 @@ use anyhow::{Context, Result};
 use catalog_capture_core::{
     BookDeltasCaptureSpec, CapturePlan, InstrumentCaptureSpec, QuoteCaptureSpec, TradeCaptureSpec,
     background::PendingFlush,
-    hip4::rolling::{Hip4RollingConfig, Hip4RollingMarket},
+    hip4::rolling::{Hip4RollingConfig, Hip4RollingFamily, Hip4RollingMarket},
 };
 use nautilus_core::{Params, UnixNanos};
 use nautilus_hyperliquid::{
@@ -128,7 +128,7 @@ pub(crate) enum Handover {
     LoadingDefinitions,
     WritingDefinitions(PendingFlush),
     Subscribed,
-    WritingBooks(PendingFlush),
+    WritingBaseline(PendingFlush),
 }
 
 #[derive(Debug, Default)]
@@ -146,17 +146,26 @@ pub(crate) struct Hip4RollingState {
 impl Hip4RollingState {
     pub fn plan(&self) -> CapturePlan {
         let mut plan = CapturePlan::default();
+        let Some(config) = &self.config else {
+            return plan;
+        };
         for market in self.markets.values() {
             for id in market.ids() {
                 plan.instruments
                     .push(InstrumentCaptureSpec { instrument_id: id });
-                plan.quotes.push(QuoteCaptureSpec { instrument_id: id });
-                plan.trades.push(TradeCaptureSpec { instrument_id: id });
-                plan.book_deltas.push(BookDeltasCaptureSpec {
-                    instrument_id: id,
-                    book_type: BookType::L2_MBP,
-                    depth: None,
-                });
+                if config.captures(Hip4RollingFamily::Quotes) {
+                    plan.quotes.push(QuoteCaptureSpec { instrument_id: id });
+                }
+                if config.captures(Hip4RollingFamily::Trades) {
+                    plan.trades.push(TradeCaptureSpec { instrument_id: id });
+                }
+                if config.captures(Hip4RollingFamily::BookDeltas) {
+                    plan.book_deltas.push(BookDeltasCaptureSpec {
+                        instrument_id: id,
+                        book_type: BookType::L2_MBP,
+                        depth: None,
+                    });
+                }
             }
         }
         plan

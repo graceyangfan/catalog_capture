@@ -12,9 +12,12 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Predict-style handover: discover current ID, subscribe, confirm both books, retire old ID.
+//! Current-window handover confirms the selected stream on both sides before retirement.
 use anyhow::Context;
-use catalog_capture_core::{capture_plan_difference, hip4::rolling::select_rolling_market};
+use catalog_capture_core::{
+    capture_plan_difference,
+    hip4::rolling::{Hip4RollingFamily, select_rolling_market},
+};
 use nautilus_common::{
     actor::DataActor,
     msgbus::{self, switchboard},
@@ -27,6 +30,43 @@ use crate::{
 };
 
 pub(super) const TIMER: &str = "HIP4_ROLLING";
+
+/// Handover controls are independent of the selected writer's payload type.
+trait RollingBaselineWriter {
+    fn failure_generation(&self) -> u64;
+    fn failures_since(
+        &self,
+        cursor: &mut u64,
+    ) -> Option<catalog_capture_core::failures::AffectedPartitions>;
+    fn enqueue_partition_flush(
+        &self,
+        partitions: Vec<String>,
+        generation: u64,
+    ) -> Result<catalog_capture_core::background::PendingFlush>;
+}
+impl<T, S> RollingBaselineWriter
+    for catalog_capture_core::background::BackgroundCaptureRuntime<T, S>
+where
+    T: Send + 'static,
+    S: catalog_capture_core::sink::CaptureSink<T> + Send + 'static,
+{
+    fn failure_generation(&self) -> u64 {
+        self.failure_snapshot().generation
+    }
+    fn failures_since(
+        &self,
+        cursor: &mut u64,
+    ) -> Option<catalog_capture_core::failures::AffectedPartitions> {
+        self.failures_since(cursor)
+    }
+    fn enqueue_partition_flush(
+        &self,
+        partitions: Vec<String>,
+        generation: u64,
+    ) -> Result<catalog_capture_core::background::PendingFlush> {
+        self.enqueue_partition_flush(partitions, generation)
+    }
+}
 
 impl CatalogCaptureActor {
     pub(super) fn start_hip4_rolling(&mut self) -> Result<()> {
@@ -184,7 +224,9 @@ impl CatalogCaptureActor {
                                 retire.insert(old);
                             }
                             series.pending = None;
-                            log::info!("HIP-4 {asset}: active outcome={id}, YES/NO books recorded");
+                            log::info!(
+                                "HIP-4 {asset}: active outcome={id}, YES/NO selected baseline recorded"
+                            );
                         }
                         Ok(false) => {}
                         Err(error) => {
@@ -242,6 +284,27 @@ impl CatalogCaptureActor {
                 log::debug!("HIP-4 definition ready outcome={outcome} instrument={id}");
             }
         }
+        let family = self
+            .hip4_rolling
+            .config
+            .as_ref()
+            .expect("rolling configuration")
+            .baseline_family();
+        let writer: &dyn RollingBaselineWriter = match family {
+            Hip4RollingFamily::BookDeltas => self
+                .book_delta_runtime
+                .as_ref()
+                .map(|w| w as &dyn RollingBaselineWriter),
+            Hip4RollingFamily::Quotes => self
+                .quote_runtime
+                .as_ref()
+                .map(|w| w as &dyn RollingBaselineWriter),
+            Hip4RollingFamily::Trades => self
+                .trade_runtime
+                .as_ref()
+                .map(|w| w as &dyn RollingBaselineWriter),
+        }
+        .context("HIP-4 selected baseline writer unavailable")?;
         let market = self
             .hip4_rolling
             .markets
@@ -281,12 +344,7 @@ impl CatalogCaptureActor {
                     }
                 };
                 if complete {
-                    market.failure_cursor = self
-                        .book_delta_runtime
-                        .as_ref()
-                        .context("HIP-4 book writer unavailable")?
-                        .failure_snapshot()
-                        .generation;
+                    market.failure_cursor = writer.failure_generation();
                     market.handover = Handover::Subscribed;
                     let ids: Vec<_> = market.ids().collect();
                     for id in ids {
@@ -298,36 +356,31 @@ impl CatalogCaptureActor {
                 if market.ids().all(|id| self.hip4_rolling.ready.contains(&id)) {
                     let partitions = market
                         .ids()
-                        .map(|id| PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key())
+                        .map(|id| {
+                            PartitionKey::market_data(family.catalog_prefix(), id).stable_key()
+                        })
                         .collect();
-                    let writer = self
-                        .book_delta_runtime
-                        .as_ref()
-                        .context("HIP-4 book writer unavailable")?;
                     match writer.enqueue_partition_flush(partitions, market.failure_cursor) {
-                        Ok(flush) => market.handover = Handover::WritingBooks(flush),
+                        Ok(flush) => market.handover = Handover::WritingBaseline(flush),
                         Err(error) => log::debug!(
-                            "HIP-4 outcome={outcome} will retry book flush admission: {error:#}"
+                            "HIP-4 outcome={outcome} will retry baseline flush admission: {error:#}"
                         ),
                     }
                 }
             }
-            Handover::WritingBooks(flush) => match flush.try_complete() {
+            Handover::WritingBaseline(flush) => match flush.try_complete() {
                 Ok(true) => {
                     market.handover = Handover::Subscribed;
                     return Ok(true);
                 }
                 Ok(false) => {}
                 Err(error) => {
-                    let writer = self
-                        .book_delta_runtime
-                        .as_ref()
-                        .context("HIP-4 book writer unavailable")?;
                     let affected = writer.failures_since(&mut market.failure_cursor);
                     for id in market.ids() {
                         if affected.as_ref().is_none_or(|scope| {
                             scope.contains(
-                                &PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key(),
+                                &PartitionKey::market_data(family.catalog_prefix(), id)
+                                    .stable_key(),
                             )
                         }) {
                             self.hip4_rolling.ready.remove(&id);
@@ -373,59 +426,59 @@ impl CatalogCaptureActor {
                 self.hip4_rolling.retiring.insert(id);
             }
         }
-        let mut seals = Vec::new();
-        if let Some(runtime) = &self.quote_runtime {
-            for spec in &remove.quotes {
-                seals.push(runtime.enqueue_seal_partition(
-                    &PartitionKey::catalog_data::<QuoteTick>(spec.instrument_id).stable_key(),
-                ));
-            }
-        }
-        if let Some(runtime) = &self.book_delta_runtime {
-            for spec in &remove.book_deltas {
-                seals.push(runtime.enqueue_seal_partition(
-                    &PartitionKey::catalog_data::<OrderBookDelta>(spec.instrument_id).stable_key(),
-                ));
-            }
-        }
-        if let Some(runtime) = &self.trade_runtime {
-            for spec in &remove.trades {
-                seals.push(runtime.enqueue_seal_partition(
-                    &PartitionKey::catalog_data::<TradeTick>(spec.instrument_id).stable_key(),
-                ));
-            }
-        }
-        seals.into_iter().collect::<Result<()>>()
+        self.seal_removed_hip4_partitions(&remove)
     }
+
     pub(super) fn observe_hip4_rolling(&mut self, deltas: &OrderBookDeltas) -> Result<()> {
-        if deltas.instrument_id.venue.as_str() != "HYPERLIQUID"
-            || !nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(deltas.flags)
-            || !self.market_data_live.contains(&deltas.instrument_id)
+        use nautilus_model::enums::{BookAction, RecordFlag};
+
+        if RecordFlag::F_SNAPSHOT.matches(deltas.flags)
+            && deltas
+                .deltas
+                .first()
+                .is_some_and(|d| d.action == BookAction::Clear)
+            && deltas
+                .deltas
+                .last()
+                .is_some_and(|d| RecordFlag::F_LAST.matches(d.flags))
+        {
+            self.observe_hip4_baseline(
+                deltas.instrument_id,
+                Hip4RollingFamily::BookDeltas,
+                deltas.ts_init,
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn observe_hip4_baseline(
+        &mut self,
+        id: InstrumentId,
+        family: Hip4RollingFamily,
+        ts_init: nautilus_core::UnixNanos,
+    ) -> Result<()> {
+        if !self.market_data_live.contains(&id)
+            || self
+                .hip4_rolling
+                .config
+                .as_ref()
+                .is_none_or(|config| config.baseline_family() != family)
         {
             return Ok(());
         }
         let now = self.clock().timestamp_ns().as_u64();
-        if self.hip4_rolling.series.values().any(|series| {
-            series.pending.is_some_and(|id| {
-                let pending = &self.hip4_rolling.markets[&id];
-                pending.market.end_ns > now
-                    && matches!(pending.handover, Handover::Subscribed)
-                    && pending.ids().any(|id| id == deltas.instrument_id)
+        let pending = self.hip4_rolling.series.values().any(|series| {
+            series.pending.is_some_and(|outcome| {
+                let market = &self.hip4_rolling.markets[&outcome];
+                market.market.end_ns > now
+                    && matches!(market.handover, Handover::Subscribed)
+                    && market.ids().any(|candidate| candidate == id)
             })
-        }) && deltas
-            .deltas
-            .first()
-            .is_some_and(|d| d.action == nautilus_model::enums::BookAction::Clear)
-            && deltas
-                .deltas
-                .last()
-                .is_some_and(|d| nautilus_model::enums::RecordFlag::F_LAST.matches(d.flags))
-            && self.hip4_rolling.ready.insert(deltas.instrument_id)
-        {
+        });
+        if pending && self.hip4_rolling.ready.insert(id) {
             log::info!(
-                "HIP-4 first snapshot instrument={} local_delivery_age_ms={}",
-                deltas.instrument_id,
-                now.saturating_sub(deltas.ts_init.as_u64()) / 1_000_000,
+                "HIP-4 first baseline instrument={id} family={family:?} local_delivery_age_ms={}",
+                now.saturating_sub(ts_init.as_u64()) / 1_000_000,
             );
             self.reconcile_hip4_rolling()?;
         }
@@ -528,6 +581,11 @@ mod tests {
         );
         config.hip4_rolling = Some(Hip4RollingConfig {
             venue_id: "hyperliquid_main".into(),
+            families: vec![
+                Hip4RollingFamily::BookDeltas,
+                Hip4RollingFamily::Quotes,
+                Hip4RollingFamily::Trades,
+            ],
             underlyings: vec!["BTC".into()],
             retry_secs: 2,
             handover_grace_secs: 60,
@@ -692,6 +750,134 @@ mod tests {
         counts
     }
     #[test]
+    fn selected_family_alone_records_and_hands_over_without_other_streams() {
+        for family in [
+            Hip4RollingFamily::Quotes,
+            Hip4RollingFamily::Trades,
+            Hip4RollingFamily::BookDeltas,
+        ] {
+            let root =
+                std::env::temp_dir().join(format!("hip4-selected-{}", nautilus_core::UUID4::new()));
+            let hour = parse_expiry_to_ns("20261104-0800").unwrap();
+            let clock = Rc::new(RefCell::new(VirtualClock::new()));
+            clock
+                .borrow_mut()
+                .advance_time((hour - 1_000_000_000).into(), true);
+            let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+            let commands = Rc::new(RefCell::new(Vec::new()));
+            let received = commands.clone();
+            msgbus::register_data_command_endpoint(
+                MessagingSwitchboard::data_engine_queue_execute(),
+                TypedIntoHandler::from(move |c: DataCommand| received.borrow_mut().push(c)),
+            );
+            let mut config = config(&root);
+            config.hip4_rolling.as_mut().unwrap().families = vec![family];
+            let mut actor = CatalogCaptureActor::new(config).unwrap();
+            actor
+                .register(TraderId::test_default(), clock.clone(), cache.clone())
+                .unwrap();
+            assert_eq!(
+                actor.quote_runtime.is_some(),
+                family == Hip4RollingFamily::Quotes
+            );
+            assert_eq!(
+                actor.trade_runtime.is_some(),
+                family == Hip4RollingFamily::Trades
+            );
+            assert_eq!(
+                actor.book_delta_runtime.is_some(),
+                family == Hip4RollingFamily::BookDeltas
+            );
+            let mut all_ids = Vec::new();
+            for (outcome, end, ts) in [
+                (101, "20261104-0800", hour - 500_000_000),
+                (102, "20261104-0815", hour + 100_000_000),
+            ] {
+                if outcome == 102 {
+                    clock.borrow_mut().advance_time(hour.into(), true);
+                }
+                actor
+                    .apply_hip4_rolling_payload(&payload(outcome, end))
+                    .unwrap();
+                let ids = cache_definitions(&mut actor, &cache, outcome);
+                for (index, id) in ids.iter().enumerate() {
+                    match family {
+                        Hip4RollingFamily::Quotes => quote(&mut actor, &cache, *id, ts),
+                        Hip4RollingFamily::Trades => trade(&mut actor, *id, ts),
+                        Hip4RollingFamily::BookDeltas => snapshot(&mut actor, &cache, *id, ts),
+                    }
+                    if index == 0 {
+                        assert_ne!(actor.hip4_rolling.series["BTC"].current, Some(outcome));
+                    }
+                }
+                await_current(&mut actor, outcome);
+                all_ids.extend(ids);
+            }
+            // Late events for the retired predecessor cannot reopen its partitions.
+            quote(&mut actor, &cache, all_ids[0], hour + 200_000_000);
+            trade(&mut actor, all_ids[0], hour + 200_000_000);
+            actor.stop_hip4_rolling().unwrap();
+            actor.shutdown_all().unwrap();
+            let expected = match family {
+                Hip4RollingFamily::Quotes => "quotes",
+                Hip4RollingFamily::Trades => "trades",
+                Hip4RollingFamily::BookDeltas => "books",
+            };
+            let counts = md_counts(&commands.borrow());
+            assert_eq!(counts.len(), 8);
+            assert!(
+                counts
+                    .iter()
+                    .all(|((_, selected, _), count)| *selected == expected && *count == 1)
+            );
+            let mut catalog =
+                nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog::new(
+                    &root, None, None, None, None,
+                );
+            for id in all_ids {
+                match family {
+                    Hip4RollingFamily::Quotes => {
+                        let ticks = catalog
+                            .quote_ticks(Some(vec![id.to_string()]), None, None)
+                            .unwrap();
+                        assert_eq!(ticks.len(), 1);
+                        assert_eq!(ticks[0].bid_price.to_string(), "0.40000");
+                        assert_eq!(ticks[0].ask_price.to_string(), "0.60000");
+                    }
+                    Hip4RollingFamily::Trades => assert_eq!(
+                        catalog
+                            .trade_ticks(Some(vec![id.to_string()]), None, None)
+                            .unwrap()
+                            .len(),
+                        1
+                    ),
+                    Hip4RollingFamily::BookDeltas => assert!(
+                        root.join("data/order_book_deltas")
+                            .join(id.to_string())
+                            .exists()
+                    ),
+                }
+                for excluded in [
+                    Hip4RollingFamily::Quotes,
+                    Hip4RollingFamily::Trades,
+                    Hip4RollingFamily::BookDeltas,
+                ] {
+                    if excluded != family {
+                        assert!(
+                            !root
+                                .join("data")
+                                .join(excluded.catalog_prefix())
+                                .join(id.to_string())
+                                .exists()
+                        );
+                    }
+                }
+            }
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
     fn current_window_handover_waits_for_both_snapshots_across_hourly_seal() {
         let root = std::env::temp_dir().join(format!(
             "hip4-rolling-handover-{}",
@@ -817,7 +1003,7 @@ mod tests {
         assert_eq!(actor.hip4_rolling.series["BTC"].current, Some(101));
         assert!(matches!(
             actor.hip4_rolling.markets[&102].handover,
-            Handover::WritingBooks(_)
+            Handover::WritingBaseline(_)
         ));
         snapshot(&mut actor, &cache, old_ids[0], hour + 45_210_000_000);
         await_current(&mut actor, 102);

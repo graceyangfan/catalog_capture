@@ -24,10 +24,29 @@ use super::parse_expiry_to_ns;
 
 pub const ROLLING_INTERVAL_NS: u64 = 900_000_000_000;
 
+/// Market-data families recorded for each rolling YES/NO pair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Hip4RollingFamily {
+    BookDeltas,
+    Quotes,
+    Trades,
+}
+impl Hip4RollingFamily {
+    pub const fn catalog_prefix(self) -> &'static str {
+        match self {
+            Self::BookDeltas => "order_book_deltas",
+            Self::Quotes => "quotes",
+            Self::Trades => "trades",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Hip4RollingConfig {
     pub venue_id: String,
+    #[serde(skip)]
+    pub families: Vec<Hip4RollingFamily>,
     #[serde(default = "assets")]
     pub underlyings: Vec<String>,
     #[serde(default = "refresh")]
@@ -46,7 +65,25 @@ const fn default_handover_grace_secs() -> u64 {
     60
 }
 impl Hip4RollingConfig {
+    pub fn captures(&self, family: Hip4RollingFamily) -> bool {
+        self.families.contains(&family)
+    }
+
+    /// Prefer snapshots, then quotes, then trades for the durable handover baseline.
+    pub fn baseline_family(&self) -> Hip4RollingFamily {
+        *self
+            .families
+            .iter()
+            .min()
+            .expect("validated rolling families")
+    }
+
     pub fn validate(&self) -> Result<()> {
+        ensure!(
+            !self.families.is_empty()
+                && self.families.iter().collect::<BTreeSet<_>>().len() == self.families.len(),
+            "HIP-4 rolling requires distinct selectors under capture.quotes, capture.trades or capture.book_deltas"
+        );
         ensure!(
             !self.venue_id.trim().is_empty(),
             "HIP-4 rolling venue_id is required"

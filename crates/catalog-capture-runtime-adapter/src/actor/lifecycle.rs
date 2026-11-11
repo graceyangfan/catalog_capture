@@ -539,17 +539,18 @@ impl CatalogCaptureActor {
 
     /// Retire only removed outcome partitions; shared Binance/perp files keep their hour.
     pub(crate) fn seal_removed_hip4_partitions(&self, remove: &CapturePlan) -> Result<()> {
-        if self.dynamic_hip4_universe.is_none() {
+        if self.dynamic_hip4_universe.is_none() && self.hip4_rolling.config.is_none() {
             return Ok(());
         }
+        let mut result = Ok(());
         macro_rules! seal_removed {
             ($field:ident, $runtime:ident, $ty:ty) => {
                 if let Some(runtime) = &self.$runtime {
                     for spec in &remove.$field {
                         if is_hip4_outcome(spec.instrument_id) {
-                            runtime.enqueue_seal_partition(
+                            result = result.and(runtime.enqueue_seal_partition(
                                 &PartitionKey::catalog_data::<$ty>(spec.instrument_id).stable_key(),
-                            )?;
+                            ));
                         }
                     }
                 }
@@ -571,13 +572,13 @@ impl CatalogCaptureActor {
         if let Some(runtime) = &self.bar_runtime {
             for spec in &remove.bars {
                 if is_hip4_outcome(spec.bar_type.instrument_id()) {
-                    runtime.enqueue_seal_partition(
+                    result = result.and(runtime.enqueue_seal_partition(
                         &PartitionKey::catalog_data::<Bar>(spec.bar_type).stable_key(),
-                    )?;
+                    ));
                 }
             }
         }
-        Ok(())
+        result
     }
 
     pub(super) fn accepts_market_data(
@@ -1602,12 +1603,24 @@ impl DataActor for CatalogCaptureActor {
             }
         }
         let result = self.submit_quote(*quote);
-        self.record_capture_result(result)
+        self.record_capture_result(result)?;
+        let observed = self.observe_hip4_baseline(
+            quote.instrument_id,
+            catalog_capture_core::hip4::rolling::Hip4RollingFamily::Quotes,
+            quote.ts_init,
+        );
+        self.record_capture_result(observed)
     }
 
     fn on_trade(&mut self, trade: &TradeTick) -> Result<()> {
         let result = self.submit_trade(*trade);
-        self.record_capture_result(result)
+        self.record_capture_result(result)?;
+        let observed = self.observe_hip4_baseline(
+            trade.instrument_id,
+            catalog_capture_core::hip4::rolling::Hip4RollingFamily::Trades,
+            trade.ts_init,
+        );
+        self.record_capture_result(observed)
     }
 
     fn on_bar(&mut self, bar: &Bar) -> Result<()> {

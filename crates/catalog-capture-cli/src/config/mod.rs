@@ -122,6 +122,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
     };
     validate_capture_config(&capture)?;
 
+    let hip4_rolling = hip4::resolve_rolling_capture(&config.capture)?;
     let plan = CapturePlan {
         instruments: parse_instrument_specs(&config.capture.instruments)?,
         quotes: parse_quote_specs(&config.capture.quotes)?,
@@ -142,9 +143,6 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         )?,
     };
     let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
-    if let Some(c) = &config.capture.hip4_rolling {
-        c.validate()?;
-    }
     let hip4_universes = parse_hip4_universe_specs(&config.capture.hip4_universe)?;
 
     for selector in &config.capture.lighter_updown {
@@ -195,7 +193,7 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
         plan,
         option_universes,
         hip4_universes,
-        hip4_rolling: config.capture.hip4_rolling,
+        hip4_rolling,
         lighter_updown: config.capture.lighter_updown,
         matched_sports: config.capture.matched_sports,
         venues,

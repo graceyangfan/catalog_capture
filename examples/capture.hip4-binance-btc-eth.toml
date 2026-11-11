@@ -1,5 +1,9 @@
-# HIP-4 BTC/ETH 15m YES/NO L2/trades and Binance USD-M BTC/ETH perpetual L2/trades.
-# Required features: venue-hyperliquid,venue-binance. Public feeds; no credentials.
+# HIP-4 BTC/ETH current YES/NO BBO + trades.
+# Hyperliquid BTC/ETH perpetual mark prices.
+# Predict BTC/ETH 15m YES depth + trades and both outcome definitions.
+# Binance BTC/ETH Spot SBE L2 deltas + trades.
+# Required features: venue-hyperliquid,venue-predict,venue-binance.
+# Credentials: env/predictfun.toml and env/binance-spot-sbe.toml (Ed25519).
 [runtime]
 capture_seconds = 0
 shutdown_timeout_secs = 10
@@ -20,8 +24,7 @@ overflow_policy = "fail_fast"
 [output.lifecycle]
 mode = "segment"
 
-# Hour-aligned files for continuous Binance instruments. HIP-4 predecessors
-# are independently sealed when each 15m successor's books are ready.
+# Continuous reference streams seal hourly. Rolling outcomes seal on handover.
 [output.lifecycle.seal]
 enabled = true
 schedule = "00:00"
@@ -33,37 +36,81 @@ id = "hyperliquid_main"
 kind = "hyperliquid"
 environment = "mainnet"
 
-# Automatic market discovery and YES/NO L2/trade subscriptions at each UTC quarter hour.
+# Automatic market discovery at each UTC quarter hour.
 [capture.hip4_rolling]
 venue_id = "hyperliquid_main"
 underlyings = ["BTC", "ETH"]
 retry_secs = 2
 
+[[capture.quotes]]
+hip4_rolling = true
+
+[[capture.trades]]
+hip4_rolling = true
+
+# Native settlement reference marks.
+
+[[capture.instruments]]
+instrument_id = "BTC-USD-PERP.HYPERLIQUID"
+
+[[capture.mark_prices]]
+instrument_id = "BTC-USD-PERP.HYPERLIQUID"
+
+[[capture.instruments]]
+instrument_id = "ETH-USD-PERP.HYPERLIQUID"
+
+[[capture.mark_prices]]
+instrument_id = "ETH-USD-PERP.HYPERLIQUID"
+
 [[venues]]
-id = "binance_futures_main"
-kind = "binance_futures"
+id = "predict_main"
+kind = "predict"
+
+# Discovery records both definitions. Native depth/trades follow the current YES.
+
+[[capture.custom_data]]
+type_name = "PredictCryptoUpDown"
+[capture.custom_data.metadata]
+price_feed_symbol = "BTCUSDT"
+title_asset = "Bitcoin"
+interval_secs = "900"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
+
+[[capture.custom_data]]
+type_name = "PredictCryptoUpDown"
+[capture.custom_data.metadata]
+price_feed_symbol = "ETHUSDT"
+title_asset = "Ethereum"
+interval_secs = "900"
+record_snapshot = "false"
+record_depth = "true"
+record_trades = "true"
+
+[[venues]]
+id = "binance_spot_sbe"
+kind = "binance_spot"
 environment = "live"
-product_type = "usd_m"
+
+# Omit depth for full SBE diff-depth with the adapter's snapshot/sequence handoff.
 
 [[capture.instruments]]
-instrument_id = "BTCUSDT-PERP.BINANCE"
+instrument_id = "BTCUSDT.BINANCE"
+
+[[capture.book_deltas]]
+instrument_id = "BTCUSDT.BINANCE"
+book_type = "L2_MBP"
 
 [[capture.trades]]
-instrument_id = "BTCUSDT-PERP.BINANCE"
-
-# depth=50 selects @depth@0ms full diffs; it is not a fixed 50-level stream.
-[[capture.book_deltas]]
-instrument_id = "BTCUSDT-PERP.BINANCE"
-book_type = "L2_MBP"
-depth = 50
+instrument_id = "BTCUSDT.BINANCE"
 
 [[capture.instruments]]
-instrument_id = "ETHUSDT-PERP.BINANCE"
-
-[[capture.trades]]
-instrument_id = "ETHUSDT-PERP.BINANCE"
+instrument_id = "ETHUSDT.BINANCE"
 
 [[capture.book_deltas]]
-instrument_id = "ETHUSDT-PERP.BINANCE"
+instrument_id = "ETHUSDT.BINANCE"
 book_type = "L2_MBP"
-depth = 50
+
+[[capture.trades]]
+instrument_id = "ETHUSDT.BINANCE"

@@ -70,7 +70,10 @@ pub struct CaptureConfigFile {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstrumentSelector {
+    #[serde(default)]
     pub instrument_id: String,
+    #[serde(default)]
+    pub hip4_rolling: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +83,10 @@ pub struct BarSelector {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookDeltasSelector {
+    #[serde(default)]
     pub instrument_id: String,
+    #[serde(default)]
+    pub hip4_rolling: bool,
     pub book_type: String,
     /// Optional venue book depth. Binance Futures uses 5/10/20 for 100ms partial
     /// depth and 50/100/500/1000 for the unthrottled diff stream.

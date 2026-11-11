@@ -262,6 +262,16 @@ impl CatalogCaptureActor {
             );
         }
         let rolling_hip4 = config.hip4_rolling.is_some();
+        let hip4_captures = |family| {
+            config
+                .hip4_rolling
+                .as_ref()
+                .is_some_and(|c| c.captures(family))
+        };
+        use catalog_capture_core::hip4::rolling::Hip4RollingFamily;
+        let hip4_quotes = hip4_captures(Hip4RollingFamily::Quotes);
+        let hip4_trades = hip4_captures(Hip4RollingFamily::Trades);
+        let hip4_books = hip4_captures(Hip4RollingFamily::BookDeltas);
         let paired_matched_sports = config.matched_sports_config.is_some();
         let rolling_lighter = !config.lighter_updown.is_empty();
         let capture_audit =
@@ -381,13 +391,13 @@ impl CatalogCaptureActor {
             CatalogSink::<OptionGreeks>::from_config,
         )?;
         let quote_runtime = maybe_family_runtime(
-            flags.quotes || rolling_hip4,
+            flags.quotes || hip4_quotes,
             CaptureFlushFamily::Quotes,
             &capture,
             CatalogSink::<QuoteTick>::from_config,
         )?;
         let trade_runtime = maybe_family_runtime(
-            flags.trades || rolling_lighter || rolling_hip4 || paired_matched_sports,
+            flags.trades || rolling_lighter || hip4_trades || paired_matched_sports,
             CaptureFlushFamily::Trades,
             &capture,
             CatalogSink::<TradeTick>::from_config,
@@ -405,7 +415,7 @@ impl CatalogCaptureActor {
             CatalogSink::<OrderBookDepth>::from_config,
         )?;
         let book_delta_runtime = maybe_family_runtime(
-            flags.book_deltas || rolling_lighter || rolling_hip4 || paired_matched_sports,
+            flags.book_deltas || rolling_lighter || hip4_books || paired_matched_sports,
             CaptureFlushFamily::BookDeltas,
             &capture,
             |cfg| {

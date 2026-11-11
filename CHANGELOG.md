@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Breaking
 
+- HIP-4 rolling streams now require explicit `[[capture.quotes]]`,
+  `[[capture.trades]]` or `[[capture.book_deltas]]` entries with
+  `hip4_rolling = true`. Omitted streams have no subscription or writer.
+  BBO-only and trade-only handovers use their selected stream's durable baseline.
+
 - Removed the pass-through Predict exports from `catalog-capture-core`; import
   venue rules from `nautilus_predict::common`.
 - Removed Predict's `data_client` and root `models` compatibility modules; use

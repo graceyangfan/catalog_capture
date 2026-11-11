@@ -412,9 +412,11 @@ fn validate_runtime_accepts_binance_perp_trades_profile() {
         capture: CaptureConfigFile {
             trades: vec![InstrumentSelector {
                 instrument_id: "ETHUSDT-PERP.BINANCE".to_string(),
+                hip4_rolling: false,
             }],
             quotes: vec![InstrumentSelector {
                 instrument_id: "ETHUSDT-PERP.BINANCE".to_string(),
+                hip4_rolling: false,
             }],
             ..Default::default()
         },
@@ -447,12 +449,15 @@ fn validate_runtime_accepts_binance_spot_sbe_l2_and_trades_profile() {
         capture: CaptureConfigFile {
             instruments: vec![InstrumentSelector {
                 instrument_id: "BTCUSDT.BINANCE".to_string(),
+                hip4_rolling: false,
             }],
             trades: vec![InstrumentSelector {
                 instrument_id: "BTCUSDT.BINANCE".to_string(),
+                hip4_rolling: false,
             }],
             book_deltas: vec![super::capture::BookDeltasSelector {
                 instrument_id: "BTCUSDT.BINANCE".to_string(),
+                hip4_rolling: false,
                 book_type: "L2_MBP".to_string(),
                 depth: None,
             }],
@@ -488,6 +493,7 @@ fn resolve_config_accepts_spot_and_futures_binance_clients_together() {
         capture: CaptureConfigFile {
             trades: vec![InstrumentSelector {
                 instrument_id: "BTCUSDT.BINANCE".to_string(),
+                hip4_rolling: false,
             }],
             ..Default::default()
         },
@@ -1907,6 +1913,7 @@ fn lighter_binary_fixed_fixture_resolves_all_five_families() {
     let mut invalid = load_config(&path).unwrap();
     invalid.capture.quotes.push(InstrumentSelector {
         instrument_id: "4255-BINARY.LIGHTER".into(),
+        hip4_rolling: false,
     });
     assert!(validate_runtime(&resolve_config(invalid).unwrap()).is_err());
 }
@@ -1959,4 +1966,147 @@ fn predict_native_example_enables_native_writers_without_changing_selector_ident
         .replace("record_depth = \"true\"", "record_depth = \"false\"")
         .replace("record_trades = \"true\"", "record_trades = \"false\"");
     assert!(validate_runtime(&resolve_config(toml::from_str(&invalid).unwrap()).unwrap()).is_err());
+}
+
+#[cfg(feature = "venue-hyperliquid")]
+#[test]
+fn hip4_rolling_uses_explicit_capture_tables() {
+    use catalog_capture_core::hip4::rolling::Hip4RollingFamily;
+    let base = "[[venues]]\nid = 'hyperliquid_main'\nkind = 'hyperliquid'\nenvironment = 'mainnet'\n[capture.hip4_rolling]\nvenue_id = 'hyperliquid_main'\n";
+    for (tables, expected) in [
+        (
+            "[[capture.quotes]]\nhip4_rolling = true\n",
+            vec![Hip4RollingFamily::Quotes],
+        ),
+        (
+            "[[capture.trades]]\nhip4_rolling = true\n",
+            vec![Hip4RollingFamily::Trades],
+        ),
+        (
+            "[[capture.book_deltas]]\nhip4_rolling = true\nbook_type = 'L2_MBP'\n",
+            vec![Hip4RollingFamily::BookDeltas],
+        ),
+    ] {
+        let config: CliConfigFile = toml::from_str(&format!("{base}{tables}")).unwrap();
+        let resolved = resolve_config(config).unwrap();
+        assert_eq!(resolved.hip4_rolling.unwrap().families, expected);
+        assert!(resolved.plan.quotes.is_empty());
+        assert!(resolved.plan.trades.is_empty());
+        assert!(resolved.plan.book_deltas.is_empty());
+    }
+    for text in [
+        base.to_string(),
+        format!(
+            "{base}[[capture.quotes]]\nhip4_rolling = true\ninstrument_id = 'BTC-USD-PERP.HYPERLIQUID'\n"
+        ),
+        format!(
+            "{base}[[capture.quotes]]\nhip4_rolling = true\n[[capture.quotes]]\nhip4_rolling = true\n"
+        ),
+        format!(
+            "{}[[capture.quotes]]\nhip4_rolling = true\n",
+            base.split("[capture.hip4_rolling]").next().unwrap()
+        ),
+        format!("{base}[[capture.mark_prices]]\nhip4_rolling = true\n"),
+    ] {
+        let config: CliConfigFile = toml::from_str(&text).unwrap();
+        assert!(
+            resolve_config(config).is_err(),
+            "accepted invalid configuration {text}"
+        );
+    }
+}
+
+#[cfg(all(
+    feature = "venue-hyperliquid",
+    feature = "venue-predict",
+    feature = "venue-binance"
+))]
+#[test]
+fn hip4_reference_profile_records_the_requested_streams() {
+    use catalog_capture_core::hip4::rolling::Hip4RollingFamily;
+
+    let path = repo_root().join("examples/capture.hip4-binance-btc-eth.toml");
+    let effective = resolve_config(load_config(&path).unwrap()).unwrap();
+    validate_runtime(&effective).unwrap();
+    let rolling = effective.hip4_rolling.as_ref().unwrap();
+    assert_eq!(rolling.underlyings, ["BTC", "ETH"]);
+    assert_eq!(
+        rolling.families,
+        [Hip4RollingFamily::Quotes, Hip4RollingFamily::Trades]
+    );
+    assert_eq!(rolling.baseline_family(), Hip4RollingFamily::Quotes);
+    assert_eq!(effective.venues.len(), 3);
+    assert!(effective.venues.iter().any(|venue| matches!(venue, VenueRuntimeConfig::BinanceSpot { id, .. } if id == "binance_spot_sbe")));
+    assert!(
+        !effective
+            .venues
+            .iter()
+            .any(|venue| matches!(venue, VenueRuntimeConfig::BinanceFutures { .. }))
+    );
+    let plan = &effective.plan;
+    for (asset, title) in [("BTC", "Bitcoin"), ("ETH", "Ethereum")] {
+        let spot = format!("{asset}USDT.BINANCE");
+        let mark = format!("{asset}-USD-PERP.HYPERLIQUID");
+        assert!(
+            plan.instruments
+                .iter()
+                .any(|spec| spec.instrument_id.to_string() == spot)
+        );
+        assert!(
+            plan.instruments
+                .iter()
+                .any(|spec| spec.instrument_id.to_string() == mark)
+        );
+        assert!(
+            plan.book_deltas
+                .iter()
+                .any(|spec| spec.instrument_id.to_string() == spot
+                    && spec.book_type == nautilus_model::enums::BookType::L2_MBP
+                    && spec.depth.is_none())
+        );
+        assert!(
+            plan.trades
+                .iter()
+                .any(|spec| spec.instrument_id.to_string() == spot)
+        );
+        assert!(
+            plan.mark_prices
+                .iter()
+                .any(|spec| spec.instrument_id.to_string() == mark)
+        );
+        let predict = plan
+            .custom_data
+            .iter()
+            .find(|spec| {
+                spec.data_type.metadata().is_some_and(|metadata| {
+                    metadata
+                        .get("title_asset")
+                        .and_then(serde_json::Value::as_str)
+                        == Some(title)
+                })
+            })
+            .unwrap();
+        assert_eq!(predict.data_type.type_name(), "PredictCryptoUpDown");
+        let metadata = predict.data_type.metadata().unwrap();
+        for (key, value) in [
+            ("price_feed_symbol", format!("{asset}USDT")),
+            ("interval_secs", "900".into()),
+            ("record_depth", "true".into()),
+            ("record_trades", "true".into()),
+        ] {
+            assert_eq!(
+                metadata.get(key).and_then(serde_json::Value::as_str),
+                Some(value.as_str())
+            );
+        }
+        assert!(!predict.records_payload());
+    }
+    assert_eq!(plan.instruments.len(), 4);
+    assert_eq!(plan.book_deltas.len(), 2);
+    assert_eq!(plan.trades.len(), 2);
+    assert_eq!(plan.mark_prices.len(), 2);
+    assert_eq!(plan.custom_data.len(), 2);
+    assert!(plan.quotes.is_empty());
+    assert!(plan.book_depth.is_empty());
+    assert!(plan.index_prices.is_empty());
 }

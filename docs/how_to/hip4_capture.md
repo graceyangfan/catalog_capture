@@ -112,13 +112,41 @@ Use [`capture.hyperliquid-hip4-15m.toml`](../../examples/capture.hyperliquid-hip
 for Outcome.xyz (`venue:out`) mainnet markets and continuous Binance BTC/ETH
 USD-M perpetual L2/trades. Requires `venue-hyperliquid,venue-binance`.
 The profile also records Hyperliquid BTC/ETH perpetual mark and index prices.
-Rolling capture subscribes to both outcome sides automatically and stores native
-BBO quotes under `data/quotes/<instrument_id>/` in the catalog.
+Rolling capture subscribes to the explicitly selected streams on both outcome sides
+and stores native BBO quotes under `data/quotes/<instrument_id>/` in the catalog.
 
 ```bash
 ./scripts/cargo.sh run -p catalog-capture-cli -- run \
   --config examples/capture.hyperliquid-hip4-15m.toml
 ```
+
+Select rolling streams through the ordinary capture tables. For BBO-only capture,
+use the following selection with the profile's runtime, output and venue settings.
+
+```toml
+[capture.hip4_rolling]
+venue_id = "hyperliquid_main"
+underlyings = ["BTC", "ETH"]
+
+[[capture.quotes]]
+hip4_rolling = true
+```
+
+Add `[[capture.trades]]` with `hip4_rolling = true` to record trades.
+Add `[[capture.book_deltas]]` with `hip4_rolling = true` and
+`book_type = "L2_MBP"` to record L2. Each table enables its own subscription
+and writer. At least one rolling market-data table is required. Instrument
+definitions are recorded for every selected YES/NO pair. Static `instrument_id`
+entries can coexist with rolling selectors, in separate table entries.
+Existing configurations must add these explicit tables to retain their selected
+streams. The standalone rolling profile includes all three.
+
+[`capture.hip4-binance-btc-eth.toml`](../../examples/capture.hip4-binance-btc-eth.toml)
+combines HIP-4 BTC/ETH current YES/NO BBO and trades, Hyperliquid BTC/ETH perpetual
+mark prices, Predict BTC/ETH 15m YES depth and trades with both instrument
+definitions, and Binance BTC/ETH Spot SBE L2 deltas and trades. It requires
+`venue-hyperliquid,venue-predict,venue-binance`. Configure Predict and Spot SBE
+credentials through the ignored files described in [credentials](credentials.md).
 
 `[capture.hip4_rolling]` selects BTC/ETH `template:binaryPrice` outcomes for the
 current UTC quarter hour. It requires USDC, the matching underlying's USDC perp
@@ -141,12 +169,14 @@ The lifecycle follows the Predict recorder's current-window handover:
 1. Discover the current market through public REST `outcomeMeta`.
 2. Load its instruments through the existing Native Hyperliquid adapter. Once
    the writer confirms both instrument definitions, subscribe to YES and NO
-   book deltas, BBO quotes (`QuoteTick`), and trades.
+   streams selected by the capture tables.
 3. At the quarter-hour boundary, discover the new current ID. Missing markets
    and failed discovery retry every `retry_secs` (default 2); BTC and ETH share
    one in-flight HTTP request. HTTP runs outside the actor and is cancelled on stop.
-4. Keep the predecessor during the brief handover. After both new initial
-   snapshots arrive, enqueue a flush for their book partitions. The actor
+4. Keep the predecessor during the brief handover. Use the first enabled family
+   in priority order L2, BBO, trades as the readiness baseline. Wait for an initial
+   snapshot or tick for both new sides, then enqueue a flush for those partitions.
+   The actor
    continues processing events while the writer flushes. Retire the old
    subscriptions and seal their partitions only after successful confirmation.
    The confirmation covers delivery to the sink. The Parquet footer is written
@@ -164,9 +194,13 @@ The lifecycle follows the Predict recorder's current-window handover:
 
 Only the current market is normally subscribed. A handover temporarily overlaps
 old and new markets; the new ID is already in its current window. Initial empty
-books are valid snapshots. Readiness depends on book snapshots alone, so markets
-can activate before their first two-sided BBO or trade arrives.
-The adapter emits a `QuoteTick` when the BBO contains both a bid and an ask.
+books are valid snapshots. With L2 enabled, readiness depends on book snapshots
+alone. BBO-only capture waits for a two-sided quote on each side and trade-only
+capture waits for a trade on each side. A quiet or one-sided market may remain
+pending until expiry while its enabled streams continue recording.
+The adapter emits a `QuoteTick` when the native BBO contains both a bid and an ask.
+A single-sided BBO message is skipped. Its stream can therefore have fewer files
+and rows than L2, even when subscription acknowledgements succeed.
 The native adapter handles WebSocket reconnect and subscription recovery. This
 profile uses REST boundary discovery; it does not add a separate metadata socket.
 

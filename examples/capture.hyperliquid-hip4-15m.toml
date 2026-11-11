@@ -41,6 +41,15 @@ underlyings = ["BTC", "ETH"]
 retry_secs = 2
 handover_grace_secs = 60
 
+# Select each rolling family explicitly. Remove a table to disable that stream.
+[[capture.quotes]]
+hip4_rolling = true
+[[capture.trades]]
+hip4_rolling = true
+[[capture.book_deltas]]
+hip4_rolling = true
+book_type = "L2_MBP"
+
 # Continuous reference feeds keep hourly files across HIP-4 market changes.
 [[venues]]
 id = "binance_futures_main"
