@@ -6,7 +6,6 @@ from pathlib import Path
 from catalog_probe_common import load_catalog  # noqa: E402
 from catalog_probe_common import print_probe_header  # noqa: E402
 from catalog_probe_common import require_instrument  # noqa: E402
-from nautilus_trader.model.data import QuoteTick  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,7 +23,7 @@ def main() -> int:
 
     catalog = load_catalog(args.catalog_dir)
     instruments = require_instrument(catalog, args.instrument_id)
-    quotes = catalog.query(QuoteTick, identifiers=[args.instrument_id])
+    quotes = catalog.query_quote_ticks(identifiers=[args.instrument_id])
 
     assert len(quotes) >= args.min_quotes, (
         f"expected at least {args.min_quotes} quotes for {args.instrument_id}, got {len(quotes)}"

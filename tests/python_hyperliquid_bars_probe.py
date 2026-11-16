@@ -13,7 +13,8 @@ assert _spec.loader is not None
 _spec.loader.exec_module(_mod)
 _mod.ensure_nautilus_trader_path()
 
-from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog  # noqa: E402
+from nautilus_trader.model import NautilusDataType  # noqa: E402
+from nautilus_trader.persistence import ParquetDataCatalog  # noqa: E402
 
 DEFAULT_INSTRUMENT_ID = "ETH-USD-PERP.HYPERLIQUID"
 DEFAULT_BAR_TYPE = "ETH-USD-PERP.HYPERLIQUID-1-MINUTE-LAST-EXTERNAL"
@@ -83,10 +84,8 @@ def main() -> int:
     )
     assert_monotonic_ts_init(bars, f"bars[{args.bar_type}]")
 
-    bar_dir = args.catalog_dir / "data" / "bar" / args.bar_type
-    bars_alias_dir = args.catalog_dir / "data" / "bars" / args.bar_type
-    assert bar_dir.exists() or bars_alias_dir.exists(), (
-        f"expected bar parquet under data/bar or data/bars for {args.bar_type}"
+    assert catalog.list_parquet_files(NautilusDataType.Bar, args.bar_type), (
+        f"expected bar parquet for {args.bar_type}"
     )
 
     print("Python Hyperliquid bars catalog probe succeeded")

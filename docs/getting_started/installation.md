@@ -28,7 +28,10 @@ when you intentionally develop against a different Nautilus checkout.
 
 | Catalog Capture | Nautilus Trader ref |
 |-----------------|---------------------|
-| 0.1.x / main | `c4377894cf7a46a6643f084a1188cd425a73034f` |
+| 0.1.x / main | `1f3d1b8e079c1a50c7a93a8e97862f1f348d7670` |
+
+Fork repository: [graceyangfan/nautilus_trader](https://github.com/graceyangfan/nautilus_trader),
+branch `codex/quantity-commission-live`. CI checks out the immutable commit above.
 
 ## Dependency contract
 
@@ -37,19 +40,22 @@ select the same immutable project-fork commit. It merges official develop with
 inventory-unit commissions, exact gross execution quantities, unresolved command
 retention and terminal quantity normalization. Predict uses these Native APIs
 directly; an unmodified upstream checkout is not interchangeable.
-The current pin includes official develop `288990482b312d18cf17b9c80b0d5159d3b591c6`
-(NautilusTrader 0.68.0).
+The current pin includes official develop `83529d1cd11d8a23179cf52d70b013b831923a32`
+(NautilusTrader 0.69.0).
+Hyperliquid instrument-request completion and partial metadata refreshes use the
+official implementation; the fork no longer carries separate patches for them.
+Binance book replay timestamp ordering also follows official develop.
 
 See [quantity commissions](../reference/quantity-commission.md) for supported
 account/fee semantics and [validation](../reference/predict-validation.md) for checks.
 
 ## Toolchain
 
-Rust **1.99.1** (`rust-toolchain.toml`):
+Rust **1.100.0** (`rust-toolchain.toml`):
 
 ```bash
-rustup toolchain install 1.99.1
-rustup component add rustfmt clippy --toolchain 1.99.1
+rustup toolchain install 1.100.0
+rustup component add rustfmt clippy llvm-tools --toolchain 1.100.0
 ```
 
 ## Project Cargo
@@ -112,5 +118,18 @@ make clean                 # this project's local and central build cache
 
 ## Python (optional)
 
-Live probes under `tests/` may need PyO3 from the same Nautilus revision.
-Not required for the Rust product path.
+Catalog readback probes under `tests/` use the Python extension from the same
+pinned quantity-commission checkout. Build it with the fork's Python 3.13+ project
+environment, then run probes with that environment's interpreter:
+
+```bash
+(cd ../nautilus_trader_quantity_commission && \
+  PYO3_PYTHON="$PWD/python/.venv/bin/python" make build-debug)
+../nautilus_trader_quantity_commission/python/.venv/bin/python \
+  tests/python_catalog_probe.py <catalog-dir> <instrument-id>
+```
+
+The shared import helper selects `../nautilus_trader_quantity_commission/python`.
+`NAUTILUS_TRADER_ROOT` can explicitly select another checkout or its `python/`
+directory. Rebuild the extension after updating the fork; changing the Python
+sources alone does not update compiled APIs. Rust capture does not require Python.

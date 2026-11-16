@@ -74,9 +74,9 @@ the visible depth, and a removal does not carry an execution or cancellation rea
 
 ## Recovery with earlier received diffs
 
-Binance can publish a REST snapshot followed by buffered diffs whose `ts_init`
-precedes that snapshot. Segment recording preserves all source rows in that
-publication order. `read_replay_windows::<OrderBookDelta>` is the raw reader;
+The pinned Binance adapter raises earlier buffered diff `ts_init` to the accepted
+REST snapshot time. Older captures can contain diffs timestamped before that
+snapshot. Segment recording preserves Native publication order. `read_replay_windows::<OrderBookDelta>` is the raw reader;
 it does not promise that timestamp sorting is a valid replay.
 
 For a research interval starting after known recovery and required warmup, use:
@@ -126,7 +126,7 @@ FUTURES_RECOVERY_START_NS=<start-nanoseconds> \
   recorded_futures_recovery_matches_native_backtest_after_explicit_start -- --ignored
 ```
 
-This check requires an observed recovery time decrease, runs the actual Native
+This legacy-capture check requires an observed recovery time decrease, runs the actual Native
 BacktestEngine, and compares its delivered-frame final book with publication-order
 raw reconstruction. It sends no orders. It is not a live strategy journal or a
 multi-feed latency/availability benchmark.

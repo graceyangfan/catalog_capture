@@ -7,11 +7,6 @@ import importlib.util
 from pathlib import Path
 from typing import Sequence
 
-try:
-    import pyarrow.parquet as pq
-except ImportError:  # pragma: no cover - optional row-count validation.
-    pq = None
-
 _IMPORT = Path(__file__).resolve().parent / "nautilus_import.py"
 _spec = importlib.util.spec_from_file_location("nautilus_import", _IMPORT)
 _mod = importlib.util.module_from_spec(_spec)
@@ -19,7 +14,8 @@ assert _spec.loader is not None
 _spec.loader.exec_module(_mod)
 _mod.ensure_nautilus_trader_path()
 
-from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog  # noqa: E402
+from nautilus_trader.model import NautilusDataType  # noqa: E402
+from nautilus_trader.persistence import ParquetDataCatalog  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -173,17 +169,15 @@ def assert_option_greeks(
     return len(greeks)
 
 
-def assert_funding_files(catalog_dir: Path, instrument_id: str) -> tuple[int, int | None]:
-    funding_dir = catalog_dir / "data" / "funding_rate_update" / instrument_id
-    assert funding_dir.exists(), f"expected funding parquet directory at {funding_dir}"
-    files = sorted(funding_dir.glob("*.parquet"))
-    assert files, f"expected funding parquet files under {funding_dir}"
-
-    if pq is None:
-        return len(files), None
-    rows = sum(pq.ParquetFile(path).metadata.num_rows for path in files)
-    assert rows > 0, f"expected funding parquet rows under {funding_dir}"
-    return len(files), rows
+def assert_funding_files(catalog_dir: Path, instrument_id: str) -> tuple[int, int]:
+    catalog = ParquetDataCatalog(str(catalog_dir))
+    files = catalog.list_parquet_files(NautilusDataType.FundingRateUpdate, instrument_id)
+    assert files, f"expected funding parquet files for {instrument_id}"
+    rows = catalog.query_funding_rate_updates([instrument_id])
+    assert rows, f"expected funding rows for {instrument_id}"
+    assert all(str(item.instrument_id) == instrument_id for item in rows)
+    assert_monotonic_ts_init(rows, "funding")
+    return len(files), len(rows)
 
 
 def assert_bars(
@@ -209,31 +203,12 @@ def probe_contract_state(
     *,
     require: bool,
 ) -> tuple[int, int]:
-    status_dir = catalog_dir / "data" / "instrument_status" / instrument_id
-    close_dir = catalog_dir / "data" / "instrument_closes" / instrument_id
-
     statuses = []
     closes = []
-    if status_dir.exists() and any(status_dir.glob("*.parquet")):
-        statuses = catalog.query(
-            "instrument_status",
-            [instrument_id],
-            None,
-            None,
-            None,
-            None,
-            True,
-        )
-    if close_dir.exists() and any(close_dir.glob("*.parquet")):
-        closes = catalog.query(
-            "instrument_closes",
-            [instrument_id],
-            None,
-            None,
-            None,
-            None,
-            True,
-        )
+    if catalog.list_parquet_files(NautilusDataType.InstrumentStatus, instrument_id):
+        statuses = catalog.query_instrument_statuses([instrument_id])
+    if catalog.list_parquet_files(NautilusDataType.InstrumentClose, instrument_id):
+        closes = catalog.query_instrument_closes([instrument_id])
 
     if require:
         assert statuses, f"expected instrument_status rows for {instrument_id}"

@@ -29,6 +29,23 @@ uv run --python 3.12 python tests/predict_evidence.py
 Predict Rust test layers, feature combinations, fixture provenance and regression
 commands are maintained in the [crate test guide](../crates/nautilus-predict/tests/README.md).
 
+## Native Python readback
+
+Build the pinned fork's extension as described in [installation](../docs/getting_started/installation.md#python-optional),
+then run the path-selection and populated-catalog regression checks:
+
+```bash
+python3 -m unittest discover -s tests -p 'test_nautilus_import.py'
+NAUTILUS_PYTHON_READBACK_TESTS=1 \
+  ../nautilus_trader_quantity_commission/python/.venv/bin/python \
+  -m unittest discover -s tests -p 'test_native_catalog_readback.py'
+```
+
+The Native checks use temporary Parquet catalogs and subprocess probe entrypoints.
+They verify quote/segment readback, typed custom-data envelopes and derivative
+inventory without contacting an exchange. They are opt-in because ordinary Python
+control tests do not require a compiled Native extension.
+
 ## Network tools
 
 Use the [smoke/soak guide](../docs/how_to/smoke_and_soak.md) for generic probes and

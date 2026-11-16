@@ -11,7 +11,8 @@ from catalog_probe_common import print_probe_header  # noqa: E402
 from catalog_probe_common import require_instrument  # noqa: E402
 from nautilus_trader.adapters.binance import BinanceFuturesLiquidation  # noqa: E402
 from nautilus_trader.adapters.binance import BinanceFuturesTicker  # noqa: E402
-from nautilus_trader.model.data import QuoteTick  # noqa: E402
+from nautilus_trader.model import NautilusDataType  # noqa: E402
+from nautilus_trader.model import register_custom_data_class  # noqa: E402
 
 
 SUPPORTED_TYPES = {
@@ -62,7 +63,7 @@ def main() -> int:
 
     instruments = require_instrument(catalog, instrument_id)
 
-    quotes = catalog.query(QuoteTick, identifiers=[instrument_id])
+    quotes = catalog.query_quote_ticks(identifiers=[instrument_id])
     assert len(quotes) >= args.min_quotes, (
         f"expected at least {args.min_quotes} quotes for {instrument_id}, got {len(quotes)}"
     )
@@ -71,15 +72,18 @@ def main() -> int:
         assert_monotonic_ts_init(quotes, f"quotes[{instrument_id}]")
 
     identifiers = None if all_market else [instrument_id]
-    custom = catalog.query(custom_cls, identifiers=identifiers)
+    register_custom_data_class(custom_cls)
+    custom = catalog.query_custom_data(
+        NautilusDataType.Custom(args.type_name), identifiers=identifiers,
+    )
     assert len(custom) >= min_rows, (
         f"expected at least {min_rows} {args.type_name} rows, got {len(custom)}"
     )
 
     for item in custom:
-        assert isinstance(item, custom_cls)
+        assert isinstance(item.data, custom_cls)
         if not all_market:
-            assert str(item.instrument_id) == instrument_id
+            assert str(item.data.instrument_id) == instrument_id
 
     if custom:
         label = "all-market" if all_market else instrument_id
@@ -101,7 +105,7 @@ def main() -> int:
         print(f"Quote ts_init range: {quotes[0].ts_init} .. {quotes[-1].ts_init}")
     if custom:
         print(f"Custom ts_init range: {custom[0].ts_init} .. {custom[-1].ts_init}")
-        print(f"Custom instruments seen: {len({str(item.instrument_id) for item in custom})}")
+        print(f"Custom instruments seen: {len({str(item.data.instrument_id) for item in custom})}")
     return 0
 
 

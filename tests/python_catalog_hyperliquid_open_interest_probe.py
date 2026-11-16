@@ -13,9 +13,10 @@ assert _spec.loader is not None
 _spec.loader.exec_module(_mod)
 _mod.ensure_nautilus_trader_path()
 
-from nautilus_trader.core.nautilus_pyo3 import HyperliquidOpenInterest  # noqa: E402
-from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog  # noqa: E402
-from nautilus_trader.core.nautilus_pyo3.model import register_custom_data_class  # noqa: E402
+from nautilus_trader.adapters.hyperliquid import HyperliquidOpenInterest  # noqa: E402
+from nautilus_trader.model import NautilusDataType  # noqa: E402
+from nautilus_trader.model import register_custom_data_class  # noqa: E402
+from nautilus_trader.persistence import ParquetDataCatalog  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -61,14 +62,9 @@ def main() -> int:
     if quotes:
         assert_monotonic_ts_init(quotes, f"quotes[{args.instrument_id}]")
 
-    custom = catalog.query(
-        "HyperliquidOpenInterest",
-        [args.instrument_id],
-        None,
-        None,
-        None,
-        None,
-        True,
+    custom = catalog.query_custom_data(
+        NautilusDataType.Custom("HyperliquidOpenInterest"),
+        identifiers=[args.instrument_id],
     )
     assert len(custom) >= args.min_rows, (
         f"expected at least {args.min_rows} HyperliquidOpenInterest rows, got {len(custom)}"

@@ -13,7 +13,7 @@ def resolve_nautilus_trader_root() -> Path:
         return Path(env_root)
 
     project_root = Path(__file__).resolve().parents[1]
-    return project_root.parent / "nautilus_trader"
+    return project_root.parent / "nautilus_trader_quantity_commission"
 
 
 def ensure_nautilus_trader_path() -> Path:
@@ -25,10 +25,17 @@ def ensure_nautilus_trader_path() -> Path:
             "set NAUTILUS_TRADER_ROOT to your checkout"
         )
 
-    root_str = str(root)
-    if root_str in sys.path:
-        sys.path.remove(root_str)
-    sys.path.insert(0, root_str)
+    package_root = root / "python" if (root / "python" / "nautilus_trader").is_dir() else root
+    if not (package_root / "nautilus_trader" / "__init__.py").is_file():
+        raise SystemExit(
+            f"nautilus_trader Python package not found under {root}; "
+            "set NAUTILUS_TRADER_ROOT to the checkout or its python directory"
+        )
+
+    package_root_str = str(package_root)
+    if package_root_str in sys.path:
+        sys.path.remove(package_root_str)
+    sys.path.insert(0, package_root_str)
 
     for name in list(sys.modules):
         if name == "nautilus_trader" or name.startswith("nautilus_trader."):

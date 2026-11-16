@@ -7,7 +7,8 @@ from pathlib import Path
 
 from catalog_probe_common import assert_monotonic_ts_init  # noqa: E402
 from catalog_probe_common import print_probe_header  # noqa: E402
-from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog  # noqa: E402
+from nautilus_trader.model import NautilusDataType  # noqa: E402
+from nautilus_trader.persistence import ParquetDataCatalog  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,31 +54,12 @@ def probe_contract_state(
     *,
     require: bool,
 ) -> tuple[int, int]:
-    status_dir = catalog_dir / "data" / "instrument_status" / instrument_id
-    close_dir = catalog_dir / "data" / "instrument_closes" / instrument_id
-
     statuses = []
     closes = []
-    if status_dir.exists() and any(status_dir.glob("*.parquet")):
-        statuses = catalog.query(
-            "instrument_status",
-            [instrument_id],
-            None,
-            None,
-            None,
-            None,
-            True,
-        )
-    if close_dir.exists() and any(close_dir.glob("*.parquet")):
-        closes = catalog.query(
-            "instrument_closes",
-            [instrument_id],
-            None,
-            None,
-            None,
-            None,
-            True,
-        )
+    if catalog.list_parquet_files(NautilusDataType.InstrumentStatus, instrument_id):
+        statuses = catalog.query_instrument_statuses([instrument_id])
+    if catalog.list_parquet_files(NautilusDataType.InstrumentClose, instrument_id):
+        closes = catalog.query_instrument_closes([instrument_id])
 
     if require:
         assert statuses, f"expected instrument_status rows for {instrument_id}"
@@ -132,14 +114,16 @@ def main() -> int:
     assert all(str(item.instrument_id) == instrument_id for item in index_prices)
     assert_monotonic_ts_init(index_prices, "index_prices")
 
-    assert "funding_rate_update" in data_types, (
+    assert NautilusDataType.FundingRateUpdate in data_types, (
         "expected funding_rate_update in list_data_types; "
         f"got {data_types}"
     )
-    funding_dir = args.catalog_dir / "data" / "funding_rate_update" / instrument_id
-    assert funding_dir.exists(), f"expected funding parquet directory at {funding_dir}"
-    funding_files = list(funding_dir.glob("*.parquet"))
-    assert funding_files, f"expected funding parquet files under {funding_dir}"
+    funding_files = catalog.list_parquet_files(NautilusDataType.FundingRateUpdate, instrument_id)
+    assert funding_files, f"expected funding parquet files for {instrument_id}"
+    funding = catalog.query_funding_rate_updates([instrument_id])
+    assert funding, f"expected funding rows for {instrument_id}"
+    assert all(str(item.instrument_id) == instrument_id for item in funding)
+    assert_monotonic_ts_init(funding, "funding")
 
     status_count, close_count = probe_contract_state(
         catalog,

@@ -13,9 +13,10 @@ assert _spec.loader is not None
 _spec.loader.exec_module(_mod)
 _mod.ensure_nautilus_trader_path()
 
-from nautilus_trader.core.nautilus_pyo3 import DeribitVolatilityIndex  # noqa: E402
-from nautilus_trader.core.nautilus_pyo3 import ParquetDataCatalog  # noqa: E402
-from nautilus_trader.core.nautilus_pyo3.model import register_custom_data_class  # noqa: E402
+from nautilus_trader.adapters.deribit import DeribitVolatilityIndex  # noqa: E402
+from nautilus_trader.model import NautilusDataType  # noqa: E402
+from nautilus_trader.model import register_custom_data_class  # noqa: E402
+from nautilus_trader.persistence import ParquetDataCatalog  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,7 +43,9 @@ def main() -> int:
 
     catalog = ParquetDataCatalog(str(args.catalog_dir))
     data_types = catalog.list_data_types()
-    custom = catalog.query("DeribitVolatilityIndex", None, None, None, None, None, True)
+    custom = catalog.query_custom_data(
+        NautilusDataType.Custom("DeribitVolatilityIndex"), identifiers=[args.index_name],
+    )
 
     assert len(custom) >= args.min_rows, (
         f"expected at least {args.min_rows} DeribitVolatilityIndex rows, got {len(custom)}"

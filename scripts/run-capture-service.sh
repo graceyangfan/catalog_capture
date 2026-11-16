@@ -8,7 +8,7 @@
 #   CAPTURE_FEATURES  --no-default-features --features … (release only)
 #                     default when --release:
 #                     venue-binance,venue-deribit,venue-hyperliquid,venue-lighter
-#   RUSTUP_TOOLCHAIN  default 1.99.1
+#   RUSTUP_TOOLCHAIN  default 1.100.0
 #   CATALOG_CAPTURE_LOG_DIR  default <repo>/logs
 #   CATALOG_CAPTURE_BIN_DIR  default <repo>/bin
 set -euo pipefail
@@ -23,7 +23,7 @@ VALIDATE=0
 LOG_DIR="${CATALOG_CAPTURE_LOG_DIR:-$ROOT/logs}"
 BIN_DIR="${CATALOG_CAPTURE_BIN_DIR:-$ROOT/bin}"
 CARGO="$ROOT/scripts/cargo.sh"
-TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.1}"
+TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.100.0}"
 # Builds have a different memory budget from the recorder. Honor explicit Cargo policy.
 export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
 export NAUTILUS_LOG="${NAUTILUS_LOG:-stdout=Info;is_colored=false}"
@@ -44,7 +44,7 @@ Options:
 
 Environment:
   CAPTURE_FEATURES    Comma features for slim release (default multi-venue set)
-  RUSTUP_TOOLCHAIN    Rust toolchain (default 1.99.1)
+  RUSTUP_TOOLCHAIN    Rust toolchain (default 1.100.0)
   CARGO_BUILD_JOBS    Concurrent build jobs (default 2; prebuilt avoids compilation)
   NAUTILUS_WORKER_THREADS / TOKIO_WORKER_THREADS
                      Native and CLI runtime thread counts (Native defaults unless set)

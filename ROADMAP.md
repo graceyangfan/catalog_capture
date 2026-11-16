@@ -1,38 +1,19 @@
 # Roadmap
 
-## Direction
+Catalog Capture records live market data into Rust-native Nautilus Parquet
+catalogs. Current behavior and supported venues are documented in the
+[operator guides](docs/index.md); implementation history remains in Git.
 
-Write-focused capture for research-grade derivatives data:
+## Planned work
 
-- sibling `../nautilus_trader` adapters
-- Rust-canonical Parquet (`rust_canonical_only`)
-- consumers: Rust backtest and research loaders
+- Scheduled live smoke checks against the pinned Nautilus revision.
+- A separate HIP-4 feature for slimmer deployment graphs.
+- Per-family flush overrides where operational measurements justify them.
+- An explicit configuration schema version for the next incompatible TOML change.
 
-Independent product (**Catalog Capture**). Nautilus names are compatibility only —
-see [TRADEMARK.md](TRADEMARK.md).
+## Dependency updates
 
-## Status (0.1.x)
-
-| Area | Status |
-|------|--------|
-| Single CLI + TOML | done |
-| Venue features | done |
-| Bootstrap + CI pin | done |
-| Custom subscribe / request | done |
-| Metrics + capture_run metadata | done |
-| Segment lifecycle / unattended | done |
-| Catalog write + ParquetDataCatalog readback | done |
-| Independent branding / docs | done |
-| Row-group capacity (BookSummary long parts) | done |
-| Multi-day mainnet unattended soak | done (operator-validated) |
-
-## Next
-
-1. Minimal BacktestNode (or load) smoke beyond catalog query
-2. Nightly live smoke against pinned Nautilus rev (when CI minutes available)
-3. Optional: HIP-4 as a true optional feature
-4. Optional: per-family flush overrides in TOML
-5. Config `schema_version` when TOML next breaks
-
-When changing `NAUTILUS_TRADER_REF`, update `.github/workflows/ci.yml` and
-[installation](docs/getting_started/installation.md).
+Use the sibling `../nautilus_trader_quantity_commission` fork. Keep the immutable
+revision in `.github/workflows/ci.yml`, `scripts/bootstrap-deps.sh` and
+[installation](docs/getting_started/installation.md) synchronized. Push the fork
+revision before using it in CI, and validate affected Rust feature combinations.

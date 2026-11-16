@@ -30,7 +30,7 @@ pip install pre-commit && pre-commit install
 
 Use `make` or `./scripts/cargo.sh` for all Cargo commands. The project pins
 huacnlee/cargo; `make install-cargo` installs it without changing other projects.
-Rust **1.99.1** (`rust-toolchain.toml`). Details:
+Rust **1.100.0** (`rust-toolchain.toml`). Details:
 [docs/getting_started/installation.md](docs/getting_started/installation.md).
 
 ## Workflow

@@ -298,8 +298,8 @@ Capture node defaults (in code, inspired by lean live nodes):
 
 | Knob | Value | Why |
 |------|-------|-----|
-| `CacheConfig.save_market_data` | `false` | Do not retain ticks in cache; parquet actor is the sink |
-| `tick_capacity` / `bar_capacity` | 2000 / 64 | Bounded if anything is cached |
+| `CacheConfig.save_market_data` | `false` | Disable database persistence; in-memory histories remain separately bounded |
+| `data_capacity` / `bar_capacity` | 1 / 1 | Retain the latest data/bar while the capture actor records every callback |
 | Binance `instrument_provider` | `load_all=false` + plan `load_ids` | Avoid loading entire futures universe |
 | HL `update_instruments_interval_mins` | 1 | Prefer fresh instrument defs while rolling |
 | `flush_rows` / `max_buffer_*` | tight in multi-venue example | Bound capture queues under L2 load |

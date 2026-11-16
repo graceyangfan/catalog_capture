@@ -40,11 +40,10 @@ admitted depth observation already contains a baseline for that view.
 The recording contract uses standard Native Parquet rows plus schema metadata for
 local continuity and initialization. It introduces no staging format or conversion.
 
-- Source fields and publication FIFO order are preserved. The L2 writer no
-  longer filters covered source sequences or advances source `ts_init`. A
-  `ts_init` decrease is not itself a capture fault: a REST baseline may be
-  published before buffered diffs received earlier. Raw rows preserve publication
-  order and original timestamps (segment mode).
+- Preserve Native callback fields and publication FIFO order. The recorder does
+  not filter covered source sequences or rewrite `ts_init`. The pinned Binance
+  adapter raises buffered diff `ts_init` to the accepted snapshot time when
+  necessary; recorded timestamps therefore reflect that upstream normalization.
 - Hourly managed-book snapshots are retained as marked initialization prefixes in
   the next physical file. This keeps retained hours usable after daily cleanup.
   The window reader skips intermediate prefixes; a full continuous replay sees
@@ -258,9 +257,10 @@ initialization boundary. A plain Native catalog query does not apply this policy
 ### Buffered recovery and explicit research start
 
 Native Binance synchronization publishes the accepted REST snapshot before its
-buffered bridging diffs. Snapshot acquisition can finish after those diffs were
-received, so their original `ts_init` values need not increase in publication
-order. This is not evidence of a venue sequence gap or clock failure.
+buffered bridging diffs. The pinned adapter raises each earlier diff's `ts_init`
+to the snapshot time. The recorder preserves the resulting Native events.
+Historical captures from older revisions can still contain earlier diff timestamps;
+the raw and ranged readers retain support for those publication orders.
 
 Raw capture and `read_replay_windows` preserve that order, across physical seals,
 without timestamp rewriting, source sorting, or a synthetic continuity break.
@@ -452,26 +452,6 @@ reconciles current desired state; it does not blindly replay an old unsubscribe 
 an uncertain same-connection write. Data-subscription recovery is independent of
 execution-command recovery and does not authorize resubmitting unknown orders.
 
-## Implementation and evidence
-
-| Boundary | Implementation | Regression coverage |
-| --- | --- | --- |
-| Native batch acceptance | Predict `data/lifecycle.rs`; Extended and Lighter Binary `data.rs` | Full/closed queues, invalid middle members, Native subscription-set retry and global rejection |
-| Predict desired ownership and source lifetime | `data/runtime.rs`, `data/dispatch.rs` | Accepted release followed by real terminal write failure; shared and last owner; empty/equal/older books; late outcomes and real reconnect |
-| Public send scheduling | Each venue's WS session | Native Lighter quota exhaustion while data, heartbeat and cancellation progress, bounded ingress, both transport backends |
-| Strategy and recording | Predict `quote_rollover` and opt-in `catalog_readback` tests | Rust Strategy depth/trade callbacks, shared physical streams, capture rotation and Native catalog readback |
-| Capture worker schedule and load | Core `background.rs`, `metrics.rs`, `metrics_export.rs` | Independent real-worker flush/sync deadlines, disabled sync, stalled writer load/age, monotonic wait timings, JSON and Prometheus observations |
-| Partition failure notifications | Core `failures.rs`, `runtime.rs`; capture actor | Rejected and evicted scopes, bounded history and conservative eviction, write/control faults, and unrelated L2 deltas preserved through Native catalog readback |
-| Replay continuity and initialization | Core `replay.rs`, segment metadata, FIFO gap controls | Repeated admission gaps, bounded eviction controls, equal-time frames, missing files, retention and cache-ahead initialization |
-| Native strategy parity | Runtime adapter `tests/replay_windows.rs` | LiveNode vs BacktestEngine callback/decision and iteration parity for L2/trades and full depth/trades; independent engines across a gap |
-
-Tests step private sessions through a test-only driver of the production send lane;
-public integration tests run the real session loop. Historical synthetic captures
-remain immutable; assertions explicitly migrate the former cancelled-owner policy.
-The quota-wait test fails with the original blocking receive loop. Its deadlines
-are correctness checks, not a mainnet latency benchmark or a claim that venue update
-cadence changed.
-
 ## Capture resource ownership
 
 Recording admission and rotation must preserve these additional invariants:
@@ -548,7 +528,7 @@ For the six-selector Predict plus three-symbol Binance SBE profile on 4 CPU / 8 
   removes that registry entry; Native cache retirement is a separate consumer step.
   Venue-wide definition observers are not exact instrument owners and must not
   prevent retirement of every expired market.
-- The standalone capture host needs only the latest cached tick/bar. Native
+- The standalone capture host needs only the latest cached data/bar. Native
   `save_market_data=false` disables database persistence, not memory history.
   Managed L2 books remain available for boundary checkpoints. Strategy hosts retain
   their independently configured Native cache policy.

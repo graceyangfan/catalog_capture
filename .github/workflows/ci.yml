@@ -17,10 +17,10 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_FORK_AUTO_UPDATE: "0"
   # Keep in sync with rust-toolchain.toml / workspace.package.rust-version
-  RUSTUP_TOOLCHAIN: 1.99.1
+  RUSTUP_TOOLCHAIN: 1.100.0
   # Immutable project fork baseline, shared with bootstrap-deps.sh.
   NAUTILUS_TRADER_REPOSITORY: graceyangfan/nautilus_trader
-  NAUTILUS_TRADER_REF: a288a5c9a5a4aeb288515ad0cd445e30977dcca1
+  NAUTILUS_TRADER_REF: 1f3d1b8e079c1a50c7a93a8e97862f1f348d7670
 
 jobs:
   pre-commit:
@@ -42,7 +42,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.99.1
+          toolchain: 1.100.0
           components: rustfmt, clippy
 
       - name: Install project Cargo
@@ -67,6 +67,10 @@ jobs:
 
       - name: Install offline validation tools
         run: pip install pre-commit predict-sdk==0.0.22 requests websocket-client websockets python-dotenv
+
+      - name: Verify Native Python checkout selection
+        working-directory: catalog_capture
+        run: python -m unittest discover -s tests -p 'test_nautilus_import.py'
 
       - name: Verify Predict Python controls
         working-directory: catalog_capture
@@ -100,7 +104,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.99.1
+          toolchain: 1.100.0
           components: rustfmt, clippy
 
       - name: Install project Cargo
@@ -118,7 +122,7 @@ jobs:
           restore-keys: |
             cargo-${{ runner.os }}-${{ runner.arch }}-${{ env.RUSTUP_TOOLCHAIN }}-${{ hashFiles('catalog_capture/scripts/cargo.sh') }}-${{ env.NAUTILUS_TRADER_REF }}-
 
-      # Default features = all-venues (operator-friendly full CLI).
+      # Default features = active venues.
       - name: Run unit tests (default features)
         working-directory: catalog_capture
         run: ./scripts/cargo.sh test --workspace --lib --bins --locked
@@ -175,7 +179,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.99.1
+          toolchain: 1.100.0
 
       - name: Install project Cargo
         working-directory: catalog_capture

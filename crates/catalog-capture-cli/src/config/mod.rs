@@ -14,7 +14,7 @@
 
 //! CLI TOML configuration: load, resolve, and typed runtime views.
 //!
-//! Split by concern (Track C1): runtime/output, capture plan, custom data,
+//! Split by concern: runtime/output, capture plan, custom data,
 //! option/hip4 universe, and venues.
 
 mod capture;

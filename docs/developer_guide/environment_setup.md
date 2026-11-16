@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- Sibling `../nautilus_trader` — [installation](../getting_started/installation.md)
-- Rust 1.99.1 with rustfmt + clippy
+- Sibling `../nautilus_trader_quantity_commission` — [installation](../getting_started/installation.md)
+- Rust 1.100.0 with rustfmt + clippy
 - Optional network for live probes
 
 ## One-time

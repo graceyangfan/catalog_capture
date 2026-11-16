@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Startup capture-run metadata (`metadata/capture_run.json`) — Track L7.
+//! Startup capture-run metadata (`metadata/capture_run.json`).
 
 use std::{fs, path::Path};
 

@@ -11,7 +11,7 @@ assert _spec.loader is not None
 _spec.loader.exec_module(_mod)
 _mod.ensure_nautilus_trader_path()
 
-from nautilus_trader.persistence.catalog import ParquetDataCatalog  # noqa: E402
+from nautilus_trader.persistence import ParquetDataCatalog  # noqa: E402
 
 
 def load_catalog(catalog_dir: Path) -> ParquetDataCatalog:

@@ -1,6 +1,6 @@
 CARGO := $(CURDIR)/scripts/cargo.sh
 # Keep in sync with rust-toolchain.toml
-TOOLCHAIN ?= 1.99.1
+TOOLCHAIN ?= 1.100.0
 CARGO_TOOL := $(CARGO) +$(TOOLCHAIN)
 CARGO_DENY_VERSION ?= 0.19.9
 

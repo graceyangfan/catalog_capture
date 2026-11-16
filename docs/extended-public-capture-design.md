@@ -1,9 +1,8 @@
-# Extended Public Capture Design
+# Extended public capture contract
 
 The `nautilus-extended` crate provides public market data through Nautilus
 interfaces. This document defines wire semantics, state ownership and lifecycle
-requirements. The legacy Extended workspace supplies protocol references only;
-it is not a linked dependency.
+requirements.
 
 ## Goal
 
@@ -21,7 +20,7 @@ The supported scope is read-only market data. It does not include
 order signing, account streams, execution, RFQ trading, private data, BBO, or
 candles.
 
-## Protocol Facts
+## Protocol facts
 
 The public API documentation defines the payload semantics through the v1
 streams. The official Python SDK exposes the same families through the RPC v2
@@ -43,81 +42,18 @@ generation.
 
 Source: [Extended API documentation](https://api.docs.extended.exchange/).
 
-## SDK And Documentation Authority
+## Transport and protocol authority
 
-The implementation uses each source at its actual scope rather than treating
-all SDKs as interchangeable:
+The adapter uses one multiplexed RPC v2 connection per data client. The official
+Python SDK defines the endpoint, selectors and envelopes; the public API
+reference defines payload fields. Parse wire payloads directly, including
+absolute delta quantity `c`, and retain fixtures for these contracts.
 
-| Source | Use in this project | Boundary |
-|---|---|---|
-| Official API documentation | v1 URLs, message types, payload field semantics, cadence and book reconnect rules | Authoritative payload contract |
-| Official Python SDK (`x10xchange/python_sdk`) | RPC v2 endpoint, selectors, envelopes, lifecycle intent and REST models | Authoritative v2 wire reference; its lifecycle implementation and convenience order-book helper are not copied |
-| Official TypeScript examples (`x10xchange/examples`) | REST market schemas, order construction and signing examples | No complete public market-data WebSocket client; not a streaming adapter dependency |
-| Legacy local Rust Extended workspace | Cross-check REST naming and old protocol assumptions | REST-only reference; never a crate dependency |
+A connection sequence failure recovers the entire generation and gates every
+book until its next snapshot. Book recovery cannot backfill missed trades or
+prices; report that interval as a health discontinuity.
 
-The official Python SDK is useful for comparing lifecycle behavior. Its v1
-client opens one connection per topic and leaves reconnect ownership to the
-caller. Its RPC v2 client multiplexes topics, retains subscription intent and
-resubscribes after reconnect. The SDK does not declare either client deprecated
-or recommended over the other.
-
-The SDK's `OrderbookQuantityModel` only exposes `p/q`, and its convenience
-helper adds `q` for a delta. That is insufficient for lossless capture because
-the official wire contract also exposes `c`; the Rust adapter therefore parses
-the wire envelope directly and records the documented absolute level quantity.
-This discrepancy is covered by fixtures before live capture is enabled.
-
-The latest inspected official branch reports SDK version 2.6.0. Its RPC test
-surface covers a basic candle subscribe/message/unsubscribe flow, but not
-reconnect, sequence gaps, multi-topic ordering, replacement failure or stale
-responses. The SDK is therefore authoritative for endpoint, selector and
-envelope shape, but it is not the reliability implementation to copy verbatim.
-In particular, the Rust adapter must not copy these SDK behaviors:
-
-- dispatching every frame in an independent asynchronous task before global
-  sequence state is serialized;
-- awaiting resubscribe RPC results before the receive loop that resolves those
-  results is running;
-- continuing to dispatch the current frame after a sequence-break callback;
-- removing desired subscriptions when one resubscribe attempt fails;
-- dropping local unsubscribe intent before the venue acknowledgement;
-- logging a parse/handler failure and continuing the same generation.
-
-## Transport Decision: RPC v2 Only
-
-The adapter implements the official SDK's RPC v2 public stream only. It does
-not implement v1 fallback or expose a user-selectable transport switch.
-Extended does not currently state that one public transport is recommended or
-that v1 is deprecated; the adapter selects RPC v2 based on the SDK and
-mainnet evidence:
-
-- one connection covers all five required families and reduces socket/task
-  count for a long-running multi-market recorder;
-- the official Python client confirms that RPC v2 is designed around retained
-  subscription intent and reconnect reconciliation, while Nautilus supplies
-  the stronger implementation primitives used here;
-- the connection-level sequence provides one completeness signal across book,
-  trade, price and funding events;
-- mainnet RPC v2 payloads match v1 payload semantics and rebuilt the same
-  BTC-USD book in the comparison probe;
-- one maintained transport gives the adapter one subscription registry, one
-  reconnect model and one fixture set. No fallback can silently switch sequence
-  semantics during recording.
-
-The tradeoff is a larger recovery scope: one connection gap may have dropped
-any multiplexed topic, so the adapter must restart the connection generation
-and gate every subscribed book until its new snapshot arrives. Trades and
-price events cannot be backfilled by that snapshot; the gap is recorded as a
-health discontinuity for downstream exclusion.
-
-RPC v2 is not yet described in the public API reference. The official Python
-SDK is therefore the authority for endpoint, selectors and envelope shape,
-while the public v1 documentation remains the authority for payload fields and
-book semantics. The SDK's reconnect code is evidence of intended behavior, not
-the reliability implementation. Live fixtures and contract tests protect this
-boundary.
-
-## RPC v2 Wire Contract
+## RPC v2 wire contract
 
 The physical endpoint is:
 
@@ -170,7 +106,7 @@ response for an invalid order-book depth during the bounded test window. Every
 control request also has an epoch-bound timeout; timeout or ambiguous write
 completion never commits a new live state.
 
-## Nautilus Adapter Alignment
+## Native integration
 
 The implementation uses maintained Nautilus networking and subscription
 primitives directly, while borrowing the Binance book-recovery invariants at
@@ -193,21 +129,6 @@ WebSocket snapshots. The Extended equivalent is therefore one connection
 recovery state plus per-book snapshot gates, not one independent recovery task
 per book.
 
-The implementation should be reviewed against these upstream source areas at
-the Nautilus revision pinned by this repository:
-
-| Upstream source | Contract reused or adapted |
-|---|---|
-| `crates/network/src/websocket/client.rs` | Connection epochs, reconnect handle and epoch-bound control writes |
-| `crates/network/src/websocket/subscription.rs` | Desired/confirmed/pending subscription ownership and reference counting |
-| `crates/live/src/book/snapshot.rs` | Snapshot gate and pending-snapshot timeout semantics |
-| `crates/live/src/book/recovery.rs` | Single recovery owner, bounded recovery and stale-work rejection |
-| `crates/adapters/binance/src/book/sync.rs` | Serialized validation, synchronization and publication |
-| `crates/adapters/binance/src/book/recovery.rs` | Recovery attempt ownership; not Binance's REST snapshot algorithm |
-
-This is a semantic comparison, not a source copy. Extended selectors, global
-sequence, replay behavior and snapshot rules remain venue-specific.
-
 Canonical data follows the same parser conventions as Binance:
 
 - snapshots emit one checked `OrderBookDeltas` batch containing `CLEAR + ADD`
@@ -222,7 +143,7 @@ Canonical data follows the same parser conventions as Binance:
 - the adapter emits canonical Nautilus data only. `CatalogCaptureActor` owns
   Parquet policy and never participates in venue recovery.
 
-## State Ownership
+## State ownership
 
 | State | Complete identity | Lifetime and reset |
 |---|---|---|
@@ -244,7 +165,7 @@ The adapter processes connection state on one owning task. Parser work may use
 helpers, but state mutation and event publication stay ordered on that task;
 there is no per-frame task spawning around sequence validation.
 
-## Fastest-Channel Policy
+## Subscription scope
 
 The recorder uses one RPC connection and subscribes per requested market, not
 to all-market selectors in the first version. This keeps venue identity,
@@ -264,7 +185,7 @@ instrument_id = "BTC-USD-PERP.EXTENDED"
 book_type = "L2_MBP"
 ```
 
-## Subscription And Generation Lifecycle
+## Subscription lifecycle
 
 One handler task owns RPC request correlation, global sequence validation,
 subscription state and routing. The lifecycle is:
@@ -311,7 +232,7 @@ Profile changes are competing semantics, not widening. The first adapter slice
 supports only full L2, so requesting another depth while a book is owned is
 rejected rather than silently replacing the live topic.
 
-## Order-Book Semantics
+## Order-book semantics
 
 The RPC socket owns connection sequence state and each requested book owns a
 snapshot gate:
@@ -381,7 +302,7 @@ The adapter must not request a REST snapshot and then stitch it into a live
 sequence. REST order book data is a probe/bootstrap tool only; the WebSocket
 snapshot is authoritative for a live sequence generation.
 
-## Instrument Identity
+## Instrument identity
 
 The initial scope is active non-RFQ perpetual markets from
 `GET /api/v1/info/markets`:
@@ -413,7 +334,7 @@ Instrument refresh may replace metadata for an existing ID and emit an
 `Instrument` event. It must not silently add spot or RFQ instruments to a
 perpetual capture plan.
 
-## Data-Fidelity Decisions
+## Data mapping
 
 | Family | `ts_event` source | `ts_init` source |
 |---|---|---|
@@ -484,59 +405,18 @@ families for this integration. Market statistics and open-interest history are
 REST data and are intentionally out of scope, not invented as fake ticker
 channels.
 
-## Repository Shape
+## Integration
 
-Add a small feature-gated adapter crate rather than placing venue protocol code
-in the CLI:
-
-```text
-crates/nautilus-extended/
-├── Cargo.toml
-└── src/
-    ├── lib.rs
-    ├── common.rs
-    ├── config.rs
-    ├── data.rs
-    ├── factories.rs
-    ├── http.rs
-    └── websocket/
-        ├── mod.rs
-        ├── messages.rs
-        └── parse.rs
-```
-
-`websocket/mod.rs` owns the connection epoch, global sequence, RPC request
-correlation, subscription lifecycle, snapshot gates and reconnect handling.
-`messages.rs` owns only the wire envelope and typed topic/request identities;
-`parse.rs` converts venue payloads into canonical Nautilus data. The adapter is
-kept in these three lifecycle-oriented modules until their behavior is large
-enough to justify a further split.
-
-Public names follow maintained adapter conventions:
-`ExtendedInstrumentProviderConfig`, `ExtendedDataClientConfig`,
-`ExtendedHttpClient`, `ExtendedDataClient`, and
-`ExtendedDataClientFactory`. `lib.rs` re-exports the public construction
-surface used by the runner. Venue protocol code never depends on
-`catalog-capture-*`; the recorder is only one consumer of the adapter.
-
-There is intentionally no execution, signing, account, candles, BBO, or
-Python binding surface in the current adapter. The CLI links the crate behind
-`venue-extended`; `all-venues` includes it, while a lean production build may
-select it explicitly:
+Venue protocol and lifecycle state belong to `crates/nautilus-extended`.
+The CLI registers `ExtendedDataClientFactory` behind `venue-extended` and owns
+capture configuration. The adapter has no dependency on `catalog-capture-*`.
 
 ```bash
 ./scripts/cargo.sh build --release -p catalog-capture-cli \
   --no-default-features --features venue-extended
 ```
 
-The CLI additions are limited to:
-
-- `VenueRuntimeConfig::Extended { id, environment }`;
-- `kind = "extended"` parsing and validation;
-- `ExtendedDataClientFactory` registration in the `LiveNode` builder;
-- Extended examples and a public-only feature-gated integration test.
-
-## Failure, Reconnection And Shutdown
+## Failure, reconnect and shutdown
 
 The implementation uses one RPC v2 connection for each configured Extended
 data client. There is no v1 fallback. The Nautilus WebSocket epoch is the only
@@ -594,61 +474,18 @@ levels and deltas retain their distinct wire shapes. Venue timestamps may lead
 local ingestion time and must not be clamped. Short protocol probes establish
 wire semantics; unattended stability requires separate soak and recovery checks.
 
-## Verification Contract
+## Validation
 
-The regression and live-validation contract remains:
+Offline tests cover exact selectors and ACK identities, reference counting,
+stale epochs, reconnect, connection-global sequencing, book initialization and
+replacement, absolute quantities, trade replay deduplication, timestamp mapping
+and bounded-queue failures. Use the [test guide](../tests/README.md) for execution.
 
-- market-to-instrument identity and precision;
-- exact RPC selectors, canonical topic IDs and ACK/error correlation;
-- protocol Ping/Pong excluded from RPC sequence and application-data routing;
-- dead-peer timeout and per-book staleness configuration;
-- two local owners producing one physical subscribe and only the final release
-  producing unsubscribe;
-- stale ACKs and old-epoch data unable to mutate the current generation;
-- stream data arriving before its matching subscribe ACK rejected closed;
-- reconnect starting the receive owner before resubscribe ACKs are awaited;
-- failed resubscribe retaining desired intent for bounded retry;
-- subscribe/unsubscribe ACK topic mismatch failing reconciliation;
-- snapshot flags and `CLEAR + levels` reconstruction;
-- snapshot absolute `q` and delta absolute `c` versus signed change `q`;
-- delete at zero quantity;
-- empty delta ignored without clearing the book;
-- second periodic snapshot resetting the managed book;
-- initial `seq = 0` accepted from a non-book topic;
-- interleaved global sequence accepted across several markets and families;
-- per-topic sequence gaps accepted while global `seq + 1` is continuous;
-- global duplicate, gap, and out-of-order sequences rejected;
-- unknown topic, topic/payload market mismatch and parser failure requesting
-  reconnect before later old-generation events can publish;
-- reconnect generation requiring a fresh snapshot for every desired book;
-- duplicate physical subscribe causing a replacement snapshot in the mock, so
-  reference-count tests cannot pass vacuously;
-- cold trade replay suppressed, reconnect replay deduplicated and unseen trades
-  emitted in event order;
-- trade IDs above `2^53` retained exactly;
-- mark `data.ts = 0` falling back to envelope `ts` without clamping to
-  `ts_init`;
-- funding timestamp/rate mapping;
-- bounded raw queue overflow becoming a health/reconnect failure.
-
-The live probe should record one selected perpetual for a short bounded run and
-then use the existing Rust `validate-order-book` command to prove:
-
-```text
-snapshot batches > 0
-source sequence strictly increases per instrument
-connection-level sequence gap metric remains zero
-every desired subscription receives its matching ACK
-forced reconnect yields one fresh snapshot per desired book
-trade replay creates no duplicate TradeTick IDs
-ParquetCatalog read succeeds
-OrderBook::apply_deltas succeeds
-final book is non-empty when the venue stream supplied levels
-```
-
-The funding path additionally needs a run long enough to observe at least one
-real hourly event. Multi-market validation must preserve these same subscription and replay
-invariants.
+A public smoke must verify accepted subscriptions, fresh snapshots after forced
+reconnect, strictly increasing canonical book sequences, unique trade IDs,
+Native catalog readback and a populated managed book. Funding validation needs
+an observation window containing an actual funding event. Short protocol probes
+do not establish unattended stability or completeness across an outage.
 
 ## Supported scope
 

@@ -4,7 +4,7 @@ Core **library** for catalog capture: plans, buffers, sinks, layout helpers, and
 metadata. No live-node wiring (that lives in `catalog-capture-runtime-adapter` +
 `catalog-capture-cli`).
 
-## Stable surface (Track C5)
+## Stable surface
 
 Prefer these types/functions as the supported integration surface. Other `pub`
 items may tighten toward `pub(crate)` later.

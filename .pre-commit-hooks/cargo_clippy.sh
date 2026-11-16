@@ -9,7 +9,7 @@ if [[ ! -d ../nautilus_trader_quantity_commission ]]; then
   exit 0
 fi
 
-export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.99.1}"
+export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.100.0}"
 
 # Product crates and local adapters (matches Makefile / CI).
 "$ROOT/scripts/cargo.sh" clippy \

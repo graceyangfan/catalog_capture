@@ -17,7 +17,7 @@ make test
 ./scripts/cargo.sh check -p catalog-capture-core --lib
 ```
 
-Rust 1.99.1, rustfmt, and Clippy are supplied by rustup as specified in
+Rust 1.100.0, rustfmt, and Clippy are supplied by rustup as specified in
 `rust-toolchain.toml`. Installing project Cargo does not change another
 repository's toolchain.
 

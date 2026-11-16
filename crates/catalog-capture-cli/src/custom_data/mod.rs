@@ -12,7 +12,7 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Single registry for known custom-data type names (Track C2).
+//! Single registry for known custom-data type names.
 //!
 //! **Subscribe** types (`[[capture.custom_data]]`) and **request** types
 //! (`[[capture.custom_data_requests]]`) are declared once here. Parse, validate,
@@ -45,8 +45,6 @@ pub enum CustomDataChannel {
 /// Venue class required in `[[venues]]` for a known custom type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CustomDataVenue {
-    #[cfg(feature = "venue-prophet")]
-    Prophet,
     #[cfg(feature = "venue-lighter-ext")]
     LighterBinary,
     #[cfg(feature = "venue-binance")]
@@ -65,8 +63,6 @@ pub enum CustomDataVenue {
 /// variant, with a fixed channel and venue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KnownCustomDataType {
-    #[cfg(feature = "venue-prophet")]
-    ProphetLastTradePrice,
     #[cfg(feature = "venue-lighter-ext")]
     LighterOpenInterest,
     #[cfg(feature = "venue-binance")]
@@ -88,8 +84,6 @@ pub enum KnownCustomDataType {
 impl KnownCustomDataType {
     pub const fn type_name(self) -> &'static str {
         match self {
-            #[cfg(feature = "venue-prophet")]
-            Self::ProphetLastTradePrice => "ProphetLastTradePrice",
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => "LighterOpenInterest",
             #[cfg(feature = "venue-binance")]
@@ -111,8 +105,6 @@ impl KnownCustomDataType {
 
     pub const fn channel(self) -> CustomDataChannel {
         match self {
-            #[cfg(feature = "venue-prophet")]
-            Self::ProphetLastTradePrice => CustomDataChannel::Subscribe,
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => CustomDataChannel::Subscribe,
             #[cfg(feature = "venue-binance")]
@@ -134,8 +126,6 @@ impl KnownCustomDataType {
 
     pub const fn venue(self) -> CustomDataVenue {
         match self {
-            #[cfg(feature = "venue-prophet")]
-            Self::ProphetLastTradePrice => CustomDataVenue::Prophet,
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => CustomDataVenue::LighterBinary,
             #[cfg(feature = "venue-binance")]
@@ -168,8 +158,6 @@ impl KnownCustomDataType {
 
 /// All known types enabled in this build (order is stable for error messages).
 pub const ALL: &[KnownCustomDataType] = &[
-    #[cfg(feature = "venue-prophet")]
-    KnownCustomDataType::ProphetLastTradePrice,
     #[cfg(feature = "venue-lighter-ext")]
     KnownCustomDataType::LighterOpenInterest,
     #[cfg(feature = "venue-binance")]
@@ -224,8 +212,6 @@ pub(crate) fn require_venue(
 
 fn venue_matches(venue: &VenueRuntimeConfig, requirement: CustomDataVenue) -> bool {
     match (requirement, venue) {
-        #[cfg(feature = "venue-prophet")]
-        (CustomDataVenue::Prophet, VenueRuntimeConfig::Prophet { .. }) => true,
         #[cfg(feature = "venue-lighter-ext")]
         (CustomDataVenue::LighterBinary, VenueRuntimeConfig::LighterBinary { .. }) => true,
         #[cfg(feature = "venue-binance")]
