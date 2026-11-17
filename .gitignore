@@ -31,3 +31,12 @@ env/
 # Completed operational runs are archived under data/predict-validation/.
 /crates/nautilus-predict/tests/fixtures/private_api/live_resting/
 .direnv/
+
+# Local credentials and private-key material. Commit only sanitized templates.
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.credentials.toml
+secrets/

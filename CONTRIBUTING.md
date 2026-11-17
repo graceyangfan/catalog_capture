@@ -64,6 +64,18 @@ python3 tests/probe_option_universe_smoke.py --venue deribit-autorefresh --secon
   `./scripts/cargo.sh build -p catalog-capture-cli --no-default-features --features venue-deribit`
 - CI pins Nautilus Trader — see [docs/getting_started/installation.md](docs/getting_started/installation.md).
 
+## Documentation and local artifacts
+
+- Maintain documentation in English and describe the current supported behavior.
+- Keep setup, configuration, contracts and reproducible validation commands;
+  summarize decisions instead of retaining session logs or step-by-step work diaries.
+- Remove retired experiments together with their scripts, templates and links.
+- Keep probe outputs, benchmark reports and local credentials outside versioned
+  documentation. Use ignored `data/` for operational outputs and `env/` for secrets.
+  Retain versioned regression fixtures when tests depend on them.
+- Review staged paths and run the [secret scan](docs/developer_guide/pre_commit.md#secret-scan-before-publishing)
+  before committing. Never force-add a local credential file.
+
 ## Source headers
 
 New Rust files must include the LGPL header block used in existing `crates/**/*.rs`.
