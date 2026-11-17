@@ -23,7 +23,7 @@ all-venues = [
   "venue-predict",
   "venue-polymarket",
 ]
-venue-binance = ["dep:nautilus-binance"]
+venue-binance = ["dep:nautilus-binance", "nautilus-binance/arrow"]
 venue-bybit = ["dep:nautilus-bybit"]
 venue-deribit = ["dep:nautilus-deribit"]
 venue-okx = ["dep:nautilus-okx"]
@@ -77,4 +77,6 @@ toml.workspace = true
 ustr.workspace = true
 
 [dev-dependencies]
+nautilus-persistence.workspace = true
+nautilus-model = { workspace = true, features = ["test-support"] }
 axum.workspace = true

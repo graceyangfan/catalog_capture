@@ -29,6 +29,8 @@ use nautilus_model::data::DataType;
 use crate::config::VenueRuntimeConfig;
 
 pub use build::build_request_data_type;
+#[cfg(feature = "venue-binance")]
+pub use build::resolve_open_interest_requests;
 pub use register::{register_request_types, register_subscribe_types};
 pub use validate::{validate_request_data_type, validate_subscribe_data_type};
 
@@ -69,6 +71,8 @@ pub enum KnownCustomDataType {
     BinanceFuturesLiquidation,
     #[cfg(feature = "venue-binance")]
     BinanceFuturesTicker,
+    #[cfg(feature = "venue-binance")]
+    BinanceFuturesOpenInterest,
     #[cfg(feature = "venue-deribit")]
     DeribitVolatilityIndex,
     #[cfg(feature = "venue-hyperliquid")]
@@ -90,6 +94,8 @@ impl KnownCustomDataType {
             Self::BinanceFuturesLiquidation => "BinanceFuturesLiquidation",
             #[cfg(feature = "venue-binance")]
             Self::BinanceFuturesTicker => "BinanceFuturesTicker",
+            #[cfg(feature = "venue-binance")]
+            Self::BinanceFuturesOpenInterest => "BinanceFuturesOpenInterest",
             #[cfg(feature = "venue-deribit")]
             Self::DeribitVolatilityIndex => "DeribitVolatilityIndex",
             #[cfg(feature = "venue-hyperliquid")]
@@ -117,6 +123,8 @@ impl KnownCustomDataType {
             Self::HyperliquidOpenInterest => CustomDataChannel::Subscribe,
             #[cfg(feature = "venue-deribit")]
             Self::DeribitBookSummary => CustomDataChannel::Request,
+            #[cfg(feature = "venue-binance")]
+            Self::BinanceFuturesOpenInterest => CustomDataChannel::Request,
             #[cfg(feature = "venue-predict")]
             Self::PredictOrderbookSnapshot => CustomDataChannel::Subscribe,
             #[cfg(feature = "venue-predict")]
@@ -126,6 +134,8 @@ impl KnownCustomDataType {
 
     pub const fn venue(self) -> CustomDataVenue {
         match self {
+            #[cfg(feature = "venue-binance")]
+            Self::BinanceFuturesOpenInterest => CustomDataVenue::BinanceFutures,
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => CustomDataVenue::LighterBinary,
             #[cfg(feature = "venue-binance")]
@@ -164,6 +174,8 @@ pub const ALL: &[KnownCustomDataType] = &[
     KnownCustomDataType::BinanceFuturesLiquidation,
     #[cfg(feature = "venue-binance")]
     KnownCustomDataType::BinanceFuturesTicker,
+    #[cfg(feature = "venue-binance")]
+    KnownCustomDataType::BinanceFuturesOpenInterest,
     #[cfg(feature = "venue-deribit")]
     KnownCustomDataType::DeribitVolatilityIndex,
     #[cfg(feature = "venue-hyperliquid")]

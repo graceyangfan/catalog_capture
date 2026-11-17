@@ -1,0 +1,40 @@
+# Current OI only; Native Binance REST request + Native CustomData Parquet codecs.
+# Public market data. OI is polled every 5s per symbol (a recorder choice, not a venue SLA).
+# Use capture_seconds=0 for unattended capture.
+[runtime]
+capture_seconds = 120
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BINANCE-OI"
+
+[output]
+catalog_uri = "file://./data/binance-futures-open-interest"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[[venues]]
+id = "binance_usdm"
+kind = "binance_futures"
+environment = "live"
+product_type = "usd_m"
+
+# Client and instrument definition are resolved from metadata.instrument_id.
+[[capture.custom_data_requests]]
+type_name = "BinanceFuturesOpenInterest"
+interval_secs = 5
+request_timeout_secs = 15
+
+[capture.custom_data_requests.metadata]
+instrument_id = "BTCUSDT-PERP.BINANCE"
+
+[[capture.custom_data_requests]]
+type_name = "BinanceFuturesOpenInterest"
+interval_secs = 5
+request_timeout_secs = 15
+
+[capture.custom_data_requests.metadata]
+instrument_id = "ETHUSDT-PERP.BINANCE"

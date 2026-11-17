@@ -76,6 +76,13 @@ Finite Binance/Hyperliquid bar, trade, custom-data, and HIP-4 smoke profiles
 remain at the top level because the corresponding `tests/probe_*.py` programs
 load them directly. They are regression assets, not additional product entrypoints.
 
+## Current open interest
+
+`capture.binance-futures-open-interest.toml` (`venue-binance`) is a finite BTC/ETH
+current-OI reference profile using Native REST requests and CustomData Parquet.
+It records instrument definitions automatically and adds no trade/book streams.
+See [current OI](../docs/concepts/custom_data.md#binance-current-open-interest).
+
 ## Option universe (Deribit / Bybit / OKX)
 
 | Intent | Naming |

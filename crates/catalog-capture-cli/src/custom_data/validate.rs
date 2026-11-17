@@ -71,6 +71,27 @@ pub fn validate_request_data_type(
 impl KnownCustomDataType {
     fn validate_payload(self, data_type: &DataType, venues: &[VenueRuntimeConfig]) -> Result<()> {
         match self {
+            #[cfg(feature = "venue-binance")]
+            Self::BinanceFuturesOpenInterest => {
+                use std::str::FromStr;
+                let id = string_metadata(data_type, "instrument_id").ok_or_else(|| {
+                    anyhow::anyhow!("BinanceFuturesOpenInterest requires metadata.instrument_id")
+                })?;
+                super::build::ensure_binance_futures_instrument(
+                    nautilus_model::identifiers::InstrumentId::from_str(id)?,
+                )?;
+                ensure_identifier_matches(
+                    data_type.identifier(),
+                    id,
+                    "BinanceFuturesOpenInterest",
+                )?;
+                require_venue(
+                    venues,
+                    self.venue(),
+                    "BinanceFuturesOpenInterest requires binance_futures venue",
+                )
+            }
+
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => {
                 require_venue(

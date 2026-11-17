@@ -14,13 +14,13 @@
 
 //! Build `DataType` values for request-style custom data from TOML metadata.
 
-#[cfg(feature = "venue-deribit")]
+#[cfg(any(feature = "venue-deribit", feature = "venue-binance"))]
 use anyhow::anyhow;
 use anyhow::{Result, bail};
-#[cfg(feature = "venue-deribit")]
+#[cfg(any(feature = "venue-deribit", feature = "venue-binance"))]
 use nautilus_core::Params;
 use nautilus_model::data::DataType;
-#[cfg(feature = "venue-deribit")]
+#[cfg(any(feature = "venue-deribit", feature = "venue-binance"))]
 use serde_json::Value as JsonValue;
 
 use super::{KnownCustomDataType, supported_request_csv};
@@ -48,6 +48,10 @@ pub fn build_request_data_type(
     }
 
     match entry {
+        #[cfg(feature = "venue-binance")]
+        KnownCustomDataType::BinanceFuturesOpenInterest => {
+            build_binance_open_interest(_metadata, _identifier)
+        }
         #[cfg(feature = "venue-deribit")]
         KnownCustomDataType::DeribitBookSummary => {
             build_deribit_book_summary(_metadata, _identifier)
@@ -103,4 +107,115 @@ fn build_deribit_book_summary(
         DataType::new("DeribitBookSummary", Some(params), Some(expected_id)),
         Some("DERIBIT".to_string()),
     ))
+}
+
+#[cfg(feature = "venue-binance")]
+fn build_binance_open_interest(
+    metadata: &std::collections::BTreeMap<String, String>,
+    identifier: Option<&str>,
+) -> Result<(DataType, Option<String>)> {
+    use nautilus_model::identifiers::InstrumentId;
+    use std::str::FromStr;
+
+    let raw = metadata
+        .get("instrument_id")
+        .map(|v| v.trim())
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| anyhow!("BinanceFuturesOpenInterest requires metadata.instrument_id"))?;
+    let id = InstrumentId::from_str(raw)?;
+    ensure_binance_futures_instrument(id)?;
+    super::ensure_identifier_matches(identifier, &id.to_string(), "BinanceFuturesOpenInterest")?;
+    let params = Params::new(
+        [(
+            "instrument_id".to_string(),
+            JsonValue::String(id.to_string()),
+        )]
+        .into(),
+    );
+    Ok((
+        DataType::new(
+            "BinanceFuturesOpenInterest",
+            Some(params),
+            Some(id.to_string()),
+        ),
+        None,
+    ))
+}
+
+#[cfg(feature = "venue-binance")]
+pub(super) fn ensure_binance_futures_instrument(
+    id: nautilus_model::identifiers::InstrumentId,
+) -> Result<()> {
+    use nautilus_binance::common::{
+        enums::BinanceProductType,
+        symbol::{format_binance_symbol, format_instrument_id},
+    };
+    let symbol = ustr::Ustr::from(format_binance_symbol(&id).as_str());
+    anyhow::ensure!(
+        [BinanceProductType::UsdM, BinanceProductType::CoinM]
+            .into_iter()
+            .any(|product| format_instrument_id(&symbol, product) == id),
+        "BinanceFuturesOpenInterest requires a canonical Binance Futures instrument, received {id}"
+    );
+    Ok(())
+}
+
+/// Resolve OI's instrument-scoped request through the configured Native product client.
+#[cfg(feature = "venue-binance")]
+pub fn resolve_open_interest_requests(
+    plan: &mut catalog_capture_core::CapturePlan,
+    venues: &[crate::config::VenueRuntimeConfig],
+) -> Result<()> {
+    use crate::config::VenueRuntimeConfig;
+    use catalog_capture_core::plan::InstrumentCaptureSpec;
+    use nautilus_binance::common::symbol::{format_binance_symbol, format_instrument_id};
+    use nautilus_model::identifiers::InstrumentId;
+    use std::str::FromStr;
+
+    for spec in &mut plan.custom_data_requests {
+        if spec.data_type.type_name() != "BinanceFuturesOpenInterest" {
+            continue;
+        }
+        let id = InstrumentId::from_str(
+            super::string_metadata(&spec.data_type, "instrument_id").ok_or_else(|| {
+                anyhow!("BinanceFuturesOpenInterest requires metadata.instrument_id")
+            })?,
+        )?;
+        let symbol = ustr::Ustr::from(format_binance_symbol(&id).as_str());
+        let candidates = venues
+            .iter()
+            .filter_map(|venue| match venue {
+                VenueRuntimeConfig::BinanceFutures {
+                    id: client,
+                    product_type,
+                    ..
+                } if format_instrument_id(&symbol, *product_type) == id
+                    && spec
+                        .client_id
+                        .as_ref()
+                        .is_none_or(|selected| selected == client) =>
+                {
+                    Some(client)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        anyhow::ensure!(
+            candidates.len() == 1,
+            "BinanceFuturesOpenInterest {id} must match exactly one configured Binance Futures client (client_id={:?}); found {}",
+            spec.client_id,
+            candidates.len()
+        );
+        spec.client_id = Some(candidates[0].clone());
+        // Like other instrument-scoped families, record the definition needed for replay.
+        if !plan
+            .instruments
+            .iter()
+            .any(|entry| entry.instrument_id == id)
+        {
+            plan.instruments
+                .push(InstrumentCaptureSpec { instrument_id: id });
+        }
+    }
+    Ok(())
 }

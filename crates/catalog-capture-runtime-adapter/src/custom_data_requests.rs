@@ -27,6 +27,7 @@
 use catalog_capture_core::{
     CustomDataRequestCaptureSpec, DEFAULT_CUSTOM_DATA_REQUEST_TIMEOUT_SECS, RequestOverlapPolicy,
 };
+use nautilus_core::UUID4;
 use nautilus_model::data::DataType;
 
 pub const CUSTOM_DATA_REQUEST_TIMER_PREFIX: &str = "CUSTOM_DATA_REQUEST:";
@@ -36,6 +37,7 @@ pub struct CustomDataRequestJob {
     pub index: usize,
     pub spec: CustomDataRequestCaptureSpec,
     pub in_flight: bool,
+    pub request_id: Option<UUID4>,
     pub last_fire_ns: u64,
     pub polls: u64,
     pub rows: u64,
@@ -50,6 +52,7 @@ impl CustomDataRequestJob {
             index,
             spec,
             in_flight: false,
+            request_id: None,
             last_fire_ns: 0,
             polls: 0,
             rows: 0,
@@ -93,6 +96,7 @@ impl CustomDataRequestJob {
         if self.in_flight {
             if now_ns.saturating_sub(self.last_fire_ns) >= self.request_timeout_ns() {
                 self.in_flight = false;
+                self.request_id = None;
                 self.timeouts = self.timeouts.saturating_add(1);
                 log::warn!(
                     "custom_data_request timeout type={} id={:?} after {}s; allowing re-fire",
@@ -116,15 +120,16 @@ impl CustomDataRequestJob {
         true
     }
 
-    pub fn complete_response(&mut self, rows: u64) {
-        self.in_flight = false;
-        self.rows = self.rows.saturating_add(rows);
+    pub fn finish_request(&mut self, request_id: UUID4) {
+        if self.request_id == Some(request_id) {
+            self.in_flight = false;
+            self.request_id = None;
+        }
     }
 
     #[must_use]
     pub fn matches_data_type(&self, data_type: &DataType) -> bool {
-        self.spec.data_type.type_name() == data_type.type_name()
-            && self.spec.data_type.identifier() == data_type.identifier()
+        self.spec.data_type == *data_type
     }
 }
 
@@ -165,7 +170,9 @@ mod tests {
         assert!(job.prepare_fire(1_000));
         assert!(!job.prepare_fire(2_000));
         assert_eq!(job.skipped_inflight, 1);
-        job.complete_response(10);
+        let request_id = UUID4::new();
+        job.request_id = Some(request_id);
+        job.finish_request(request_id);
         assert!(job.prepare_fire(3_000));
     }
 

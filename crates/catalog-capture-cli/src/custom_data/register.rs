@@ -51,7 +51,9 @@ impl KnownCustomDataType {
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => nautilus_lighter_ext::register_lighter_ext_custom_data(),
             #[cfg(feature = "venue-binance")]
-            Self::BinanceFuturesLiquidation | Self::BinanceFuturesTicker => {
+            Self::BinanceFuturesLiquidation
+            | Self::BinanceFuturesTicker
+            | Self::BinanceFuturesOpenInterest => {
                 register_binance_custom_data();
             }
             #[cfg(feature = "venue-deribit")]

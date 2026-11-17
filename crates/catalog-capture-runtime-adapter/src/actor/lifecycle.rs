@@ -1121,7 +1121,13 @@ impl CatalogCaptureActor {
         );
 
         // HTTP is owned by the venue DataClient (e.g. DeribitDataClient.http_client).
-        DataActor::request_data(self, data_type, client_id, None, None, None, None)?;
+        match DataActor::request_data(self, data_type, client_id, None, None, None, None) {
+            Ok(request_id) => self.custom_data_request_jobs[index].request_id = Some(request_id),
+            Err(error) => {
+                self.custom_data_request_jobs[index].in_flight = false;
+                return Err(error);
+            }
+        }
         Ok(())
     }
 
@@ -1129,40 +1135,40 @@ impl CatalogCaptureActor {
     ///
     /// This is the request path only. Live subscribe traffic uses `on_data`.
     fn apply_custom_data_request_response(&mut self, resp: &CustomDataResponse) -> Result<()> {
-        let items = resp
-            .data
-            .downcast_ref::<Vec<CustomData>>()
-            .map(Vec::as_slice)
-            .unwrap_or(&[]);
-
+        let Some(index) = self
+            .custom_data_request_jobs
+            .iter()
+            .position(|job| job.request_id == Some(resp.correlation_id))
+            .or_else(|| {
+                self.custom_data_request_jobs.iter().position(|job| {
+                    job.client_id_str() == resp.client_id.as_str()
+                        && job.matches_data_type(&resp.data_type)
+                })
+            })
+        else {
+            anyhow::bail!("custom data response has no matching capture request");
+        };
+        // Retain late observations with their Native timestamps. Only the matching
+        // request ID may clear in-flight state in on_data_response.
+        let job = &self.custom_data_request_jobs[index];
+        anyhow::ensure!(
+            job.client_id_str() == resp.client_id.as_str()
+                && job.matches_data_type(&resp.data_type),
+            "custom data response identity does not match its request"
+        );
+        let items = custom_response_items(resp.data.as_ref())?;
+        for item in items {
+            anyhow::ensure!(
+                item.data_type == resp.data_type
+                    && item.data.type_name() == resp.data_type.type_name(),
+                "custom data response payload identity does not match its envelope"
+            );
+        }
         for item in items {
             self.submit_custom_data(item.clone())?;
         }
-
-        let rows = items.len() as u64;
-        let mut matched = false;
-        for job in &mut self.custom_data_request_jobs {
-            if job.matches_data_type(&resp.data_type) {
-                job.complete_response(rows);
-                matched = true;
-                log::info!(
-                    "custom_data_request response type={} id={:?} rows={rows} polls={} total_rows={}",
-                    resp.data_type.type_name(),
-                    resp.data_type.identifier(),
-                    job.polls,
-                    job.rows
-                );
-            }
-        }
-
-        if !matched && !items.is_empty() {
-            log::debug!(
-                "custom_data_request response type={} id={:?} rows={rows} had no matching poll job",
-                resp.data_type.type_name(),
-                resp.data_type.identifier()
-            );
-        }
-
+        let job = &mut self.custom_data_request_jobs[index];
+        job.rows = job.rows.saturating_add(items.len() as u64);
         Ok(())
     }
 }
@@ -1209,6 +1215,13 @@ mod tests {
     };
 
     use super::predict_dynamic_output_data_type;
+
+    #[test]
+    fn custom_response_rejects_unknown_payload_instead_of_silent_empty_success() {
+        assert!(super::custom_response_items(&42_u64).is_err());
+        let empty = Vec::<super::CustomData>::new();
+        assert!(super::custom_response_items(&empty).unwrap().is_empty());
+    }
 
     #[test]
     fn static_hip4_definition_is_confirmed_before_subscribing() {
@@ -1474,6 +1487,9 @@ impl DataActor for CatalogCaptureActor {
         response: &nautilus_common::messages::data::DataResponseEnvelope,
     ) -> Result<()> {
         if response.completed() {
+            for job in &mut self.custom_data_request_jobs {
+                job.finish_request(*response.correlation_id());
+            }
             let request_id = response.correlation_id();
             if self.hip4_rolling.instrument_request.as_ref() == Some(request_id) {
                 self.hip4_rolling.instrument_request = None;
@@ -1545,11 +1561,9 @@ impl DataActor for CatalogCaptureActor {
 
     /// Fallback request-path sink if a response arrives without our override path.
     fn on_historical_data(&mut self, data: &dyn Any) -> Result<()> {
-        if let Some(items) = data.downcast_ref::<Vec<CustomData>>() {
-            for item in items {
-                let result = self.submit_custom_data(item.clone());
-                self.record_capture_result(result)?;
-            }
+        for item in custom_response_items(data)? {
+            let result = self.submit_custom_data(item.clone());
+            self.record_capture_result(result)?;
         }
         Ok(())
     }
@@ -1668,5 +1682,18 @@ impl DataActor for CatalogCaptureActor {
                 .any(|d| d.flags & nautilus_model::enums::RecordFlag::F_SNAPSHOT as u8 != 0);
             (snapshot, usable)
         })
+    }
+}
+
+/// Native request adapters can return either one CustomData or a batch.
+fn custom_response_items(data: &dyn Any) -> Result<&[CustomData]> {
+    if let Some(items) = data.downcast_ref::<Vec<CustomData>>() {
+        Ok(items.as_slice())
+    } else if let Some(item) = data.downcast_ref::<CustomData>() {
+        Ok(std::slice::from_ref(item))
+    } else {
+        anyhow::bail!(
+            "unsupported custom data response payload; expected CustomData or Vec<CustomData>"
+        )
     }
 }

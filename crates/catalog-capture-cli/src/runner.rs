@@ -2104,3 +2104,6 @@ mod polymarket_recording_tests {
         assert!(!super::polymarket_data_config(&config).compute_effective_deltas);
     }
 }
+
+#[cfg(all(test, feature = "venue-binance"))]
+mod open_interest_tests;

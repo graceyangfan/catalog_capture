@@ -123,7 +123,8 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
     validate_capture_config(&capture)?;
 
     let hip4_rolling = hip4::resolve_rolling_capture(&config.capture)?;
-    let plan = CapturePlan {
+    #[allow(unused_mut)]
+    let mut plan = CapturePlan {
         instruments: parse_instrument_specs(&config.capture.instruments)?,
         quotes: parse_quote_specs(&config.capture.quotes)?,
         trades: parse_trade_specs(&config.capture.trades)?,
@@ -142,6 +143,8 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
             &config.capture.custom_data_requests,
         )?,
     };
+    #[cfg(feature = "venue-binance")]
+    crate::custom_data::resolve_open_interest_requests(&mut plan, &venues)?;
     let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
     let hip4_universes = parse_hip4_universe_specs(&config.capture.hip4_universe)?;
 
