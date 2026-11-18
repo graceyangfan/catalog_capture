@@ -1,0 +1,69 @@
+# Bullet BTC public capture: explicit top-20 L2, trades, mark, index and funding.
+# No credentials. Oracle prices are half-even rounded to metadata pricePrecision.
+# Build: ./scripts/cargo.sh build -p catalog-capture-cli --no-default-features --features venue-bullet
+# Run: ./target/debug/catalog-capture-cli run --config examples/capture.bullet-btc-perp.toml
+# funding_rates records settled hourly gross funding; estimates use a separate custom family.
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BULLET-BTC-PERP"
+
+[output]
+catalog_uri = "file://./data/bullet-btc-perp"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+max_total_buffer_bytes = 134217728
+queue_capacity = 10000
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 20000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "bullet_main"
+kind = "bullet"
+environment = "mainnet"
+
+[[capture.instruments]]
+instrument_id = "BTC-USD-PERP.BULLET"
+
+[[capture.book_deltas]]
+instrument_id = "BTC-USD-PERP.BULLET"
+book_type = "L2_MBP"
+depth = 20
+
+[[capture.trades]]
+instrument_id = "BTC-USD-PERP.BULLET"
+
+[[capture.mark_prices]]
+instrument_id = "BTC-USD-PERP.BULLET"
+
+[[capture.index_prices]]
+instrument_id = "BTC-USD-PERP.BULLET"
+
+[[capture.funding_rates]]
+instrument_id = "BTC-USD-PERP.BULLET"
+
+[[capture.custom_data_requests]]
+type_name = "BulletFundingEstimate"
+interval_secs = 5
+request_timeout_secs = 10
+[capture.custom_data_requests.metadata]
+instrument_id = "BTC-USD-PERP.BULLET"

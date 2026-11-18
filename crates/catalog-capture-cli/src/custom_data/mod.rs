@@ -29,6 +29,8 @@ use nautilus_model::data::DataType;
 use crate::config::VenueRuntimeConfig;
 
 pub use build::build_request_data_type;
+#[cfg(feature = "venue-bullet")]
+pub use build::resolve_bullet_funding_requests;
 #[cfg(feature = "venue-binance")]
 pub use build::resolve_open_interest_requests;
 pub use register::{register_request_types, register_subscribe_types};
@@ -47,6 +49,8 @@ pub enum CustomDataChannel {
 /// Venue class required in `[[venues]]` for a known custom type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CustomDataVenue {
+    #[cfg(feature = "venue-bullet")]
+    Bullet,
     #[cfg(feature = "venue-lighter-ext")]
     LighterBinary,
     #[cfg(feature = "venue-binance")]
@@ -65,6 +69,8 @@ pub enum CustomDataVenue {
 /// variant, with a fixed channel and venue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KnownCustomDataType {
+    #[cfg(feature = "venue-bullet")]
+    BulletFundingEstimate,
     #[cfg(feature = "venue-lighter-ext")]
     LighterOpenInterest,
     #[cfg(feature = "venue-binance")]
@@ -88,6 +94,8 @@ pub enum KnownCustomDataType {
 impl KnownCustomDataType {
     pub const fn type_name(self) -> &'static str {
         match self {
+            #[cfg(feature = "venue-bullet")]
+            Self::BulletFundingEstimate => "BulletFundingEstimate",
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => "LighterOpenInterest",
             #[cfg(feature = "venue-binance")]
@@ -111,6 +119,8 @@ impl KnownCustomDataType {
 
     pub const fn channel(self) -> CustomDataChannel {
         match self {
+            #[cfg(feature = "venue-bullet")]
+            Self::BulletFundingEstimate => CustomDataChannel::Request,
             #[cfg(feature = "venue-lighter-ext")]
             Self::LighterOpenInterest => CustomDataChannel::Subscribe,
             #[cfg(feature = "venue-binance")]
@@ -134,6 +144,8 @@ impl KnownCustomDataType {
 
     pub const fn venue(self) -> CustomDataVenue {
         match self {
+            #[cfg(feature = "venue-bullet")]
+            Self::BulletFundingEstimate => CustomDataVenue::Bullet,
             #[cfg(feature = "venue-binance")]
             Self::BinanceFuturesOpenInterest => CustomDataVenue::BinanceFutures,
             #[cfg(feature = "venue-lighter-ext")]
@@ -168,6 +180,8 @@ impl KnownCustomDataType {
 
 /// All known types enabled in this build (order is stable for error messages).
 pub const ALL: &[KnownCustomDataType] = &[
+    #[cfg(feature = "venue-bullet")]
+    KnownCustomDataType::BulletFundingEstimate,
     #[cfg(feature = "venue-lighter-ext")]
     KnownCustomDataType::LighterOpenInterest,
     #[cfg(feature = "venue-binance")]
@@ -224,6 +238,8 @@ pub(crate) fn require_venue(
 
 fn venue_matches(venue: &VenueRuntimeConfig, requirement: CustomDataVenue) -> bool {
     match (requirement, venue) {
+        #[cfg(feature = "venue-bullet")]
+        (CustomDataVenue::Bullet, VenueRuntimeConfig::Bullet { .. }) => true,
         #[cfg(feature = "venue-lighter-ext")]
         (CustomDataVenue::LighterBinary, VenueRuntimeConfig::LighterBinary { .. }) => true,
         #[cfg(feature = "venue-binance")]

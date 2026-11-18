@@ -1,0 +1,12 @@
+[
+  {
+    "symbol": "BTC-USD",
+    "markPrice": "64296.777719184524090786542909",
+    "indexPrice": "64313.61444796161648239056815",
+    "lastFundingRate": "0.0001000000000000000000000000",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "0.0001000000000000000000000000",
+    "nextFundingTime": 1795003200000,
+    "time": 1794999866339
+  }
+]

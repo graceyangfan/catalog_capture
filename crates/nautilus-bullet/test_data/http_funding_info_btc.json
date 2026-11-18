@@ -1,0 +1,10 @@
+[
+  {
+    "symbol": "BTC-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1,
+    "fundingMultiplier": "1",
+    "fundingSpreadRate": "0.05"
+  }
+]

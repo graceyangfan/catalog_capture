@@ -13,6 +13,7 @@ export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.100.0}"
 
 # Product crates and local adapters (matches Makefile / CI).
 "$ROOT/scripts/cargo.sh" clippy \
+  -p nautilus-bullet \
   -p nautilus-lighter-ext \
   -p nautilus-predict \
   -p catalog-capture-core \

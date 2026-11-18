@@ -2110,3 +2110,71 @@ fn hip4_reference_profile_records_the_requested_streams() {
     assert!(plan.book_depth.is_empty());
     assert!(plan.index_prices.is_empty());
 }
+
+#[cfg(feature = "venue-bullet")]
+#[test]
+fn example_bullet_btc_config_validates_explicit_depth_and_settled_funding() {
+    let path = repo_root().join("examples/capture.bullet-btc-perp.toml");
+    let mut effective = resolve_config(load_config(&path).unwrap()).unwrap();
+    validate_runtime(&effective).unwrap();
+    assert_eq!(effective.plan.book_deltas.len(), 1);
+    assert_eq!(effective.plan.book_deltas[0].depth, Some(20));
+    assert_eq!(effective.plan.trades.len(), 1);
+    assert_eq!(effective.plan.mark_prices.len(), 1);
+    assert_eq!(effective.plan.index_prices.len(), 1);
+    assert_eq!(effective.plan.custom_data_requests.len(), 1);
+    assert_eq!(
+        effective.plan.custom_data_requests[0].client_id.as_deref(),
+        Some("bullet_main")
+    );
+    for depth in [None, Some(5), Some(10), Some(100)] {
+        effective.plan.book_deltas[0].depth = depth;
+        assert!(validate_runtime(&effective).is_err());
+    }
+    effective.plan.book_deltas[0].depth = Some(20);
+    assert_eq!(effective.plan.funding_rates.len(), 1);
+    validate_runtime(&effective).unwrap();
+}
+
+#[cfg(feature = "venue-bullet")]
+#[test]
+fn example_bullet_funding_profile_resolves_exact_request_and_metadata_owner() {
+    let path = repo_root().join("examples/capture.bullet-btc-funding.toml");
+    let mut loaded = load_config(&path).unwrap();
+    loaded.capture.instruments.clear();
+    let effective = resolve_config(loaded).unwrap();
+    validate_runtime(&effective).unwrap();
+    assert_eq!(effective.plan.funding_rates.len(), 1);
+    assert_eq!(effective.plan.instruments.len(), 1);
+    let request = &effective.plan.custom_data_requests[0];
+    assert_eq!(request.interval_secs, 5);
+    assert_eq!(request.client_id.as_deref(), Some("bullet_main"));
+    assert_eq!(
+        nautilus_bullet::funding::estimate_instrument(&request.data_type)
+            .unwrap()
+            .to_string(),
+        "BTC-USD-PERP.BULLET"
+    );
+    for kind in [
+        "foreign_client",
+        "foreign_instrument",
+        "conflicting_id",
+        "unknown_metadata",
+    ] {
+        let mut loaded = load_config(&path).unwrap();
+        let request = &mut loaded.capture.custom_data_requests[0];
+        match kind {
+            "foreign_client" => request.client_id = Some("other".into()),
+            "foreign_instrument" => {
+                request
+                    .metadata
+                    .insert("instrument_id".into(), "BTC-USD-PERP.EXTENDED".into());
+            }
+            "conflicting_id" => request.identifier = Some("ETH-USD-PERP.BULLET".into()),
+            _ => {
+                request.metadata.insert("unhandled".into(), "value".into());
+            }
+        }
+        assert!(resolve_config(loaded).is_err(), "{kind}");
+    }
+}

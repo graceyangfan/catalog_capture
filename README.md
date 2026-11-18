@@ -77,6 +77,7 @@ Data: `./data/…` (gitignored). Catalog layout: [docs/concepts/catalog_layout.m
 | `examples/capture.predict-native.toml` | Predict BTC 5m native YES depth and trades |
 | `examples/capture.predict-crypto-updown.toml` | BTC/ETH/BNB 5m/15m Predict depth/trades plus Binance Spot SBE |
 | `examples/capture.extended-btc-perp.toml` | Extended BTC perpetual public market data |
+| `examples/capture.bullet-btc-perp.toml` | Bullet top-20 L2, trades, mark/index and funding; [capture guide](docs/how_to/bullet-capture.md) |
 | `examples/capture.bitfinex-spot-l3.toml` | Bitfinex BTC/USD and ETH/USD public R0 order books |
 | `examples/capture.hyperliquid-hip4-btc-daily.toml` | Hyperliquid rolling-universe example |
 | `examples/capture.deribit-btc-book-summary.toml` | Deribit BookSummary only (1s poll) |

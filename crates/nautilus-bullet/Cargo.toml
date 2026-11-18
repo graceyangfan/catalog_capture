@@ -1,0 +1,33 @@
+[package]
+name = "nautilus-bullet"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "NautilusTrader adapter for Bullet public market data"
+
+[dependencies]
+ahash.workspace = true
+anyhow.workspace = true
+arrow = "59.3.0"
+async-trait.workspace = true
+bon.workspace = true
+log.workspace = true
+nautilus-common.workspace = true
+nautilus-live.workspace = true
+nautilus-network.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+ustr.workspace = true
+nautilus-core.workspace = true
+nautilus-model.workspace = true
+nautilus-serialization.workspace = true
+rust_decimal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+nautilus-persistence.workspace = true
+axum = { workspace = true, features = ["query"] }
+futures-util.workspace = true

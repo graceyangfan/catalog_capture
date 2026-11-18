@@ -71,6 +71,16 @@ pub fn validate_request_data_type(
 impl KnownCustomDataType {
     fn validate_payload(self, data_type: &DataType, venues: &[VenueRuntimeConfig]) -> Result<()> {
         match self {
+            #[cfg(feature = "venue-bullet")]
+            Self::BulletFundingEstimate => {
+                nautilus_bullet::funding::estimate_instrument(data_type)?;
+                require_venue(
+                    venues,
+                    self.venue(),
+                    "BulletFundingEstimate requires a Bullet venue",
+                )
+            }
+
             #[cfg(feature = "venue-binance")]
             Self::BinanceFuturesOpenInterest => {
                 use std::str::FromStr;

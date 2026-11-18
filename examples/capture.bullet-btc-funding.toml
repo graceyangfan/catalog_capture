@@ -1,0 +1,54 @@
+# Settled hourly gross funding plus independent five-second estimated-rate snapshots.
+# Source rates are eight-hour rates. Standard funding_rates stores rate / 8 at settlement time.
+# Estimates preserve source eight-hour rates, metadata and funding spread.
+# No account payments, order submission or signing.
+
+[runtime]
+capture_seconds = 0
+shutdown_timeout_secs = 15
+delay_post_stop_secs = 2
+node_name = "CATALOG-CAPTURE-BULLET-BTC-FUNDING"
+
+[output]
+catalog_uri = "file://./data/bullet-btc-funding"
+compression = "snappy"
+layout_compatibility = "rust_canonical_only"
+flush_rows = 5000
+flush_interval_ms = 1000
+max_buffer_bytes = 33554432
+max_total_buffer_bytes = 134217728
+queue_capacity = 10000
+overflow_policy = "fail_fast"
+
+[output.lifecycle]
+mode = "segment"
+
+[output.lifecycle.segment]
+row_group_rows = 20000
+
+[output.lifecycle.durability]
+sync_interval_ms = 1000
+
+[output.lifecycle.seal]
+enabled = true
+schedule = "00:00"
+timezone = "UTC"
+interval_secs = 3600
+
+[[venues]]
+id = "bullet_main"
+kind = "bullet"
+environment = "mainnet"
+
+[[capture.instruments]]
+instrument_id = "BTC-USD-PERP.BULLET"
+
+[[capture.funding_rates]]
+instrument_id = "BTC-USD-PERP.BULLET"
+
+[[capture.custom_data_requests]]
+type_name = "BulletFundingEstimate"
+interval_secs = 5
+request_timeout_secs = 10
+[capture.custom_data_requests.metadata]
+instrument_id = "BTC-USD-PERP.BULLET"

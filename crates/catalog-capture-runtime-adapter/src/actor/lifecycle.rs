@@ -601,6 +601,7 @@ impl CatalogCaptureActor {
 
     /// Drop actor-side market-data bookkeeping for an instrument (pending + live + timer).
     pub(super) fn forget_instrument_runtime_state(&mut self, instrument_id: InstrumentId) {
+        self.book_delta_source_gaps.remove(&instrument_id);
         self.book_delta_recovery.remove(&instrument_id);
         self.book_delta_baselines.remove(&instrument_id);
         self.pending_instrument_definitions.remove(&instrument_id);
@@ -1098,10 +1099,17 @@ impl CatalogCaptureActor {
         for timer_name in timer_names {
             self.clock().cancel_timer(&timer_name);
         }
+        for job in &mut self.custom_data_request_jobs {
+            job.in_flight = false;
+            job.request_id = None;
+        }
     }
 
     /// Fire one Nautilus `request_data` for a request job (never `subscribe_data`).
     fn fire_custom_data_request(&mut self, index: usize) -> Result<()> {
+        if self.shutdown_completed {
+            return Ok(());
+        }
         let now_ns = self.clock().timestamp_ns().as_u64();
         let Some(job) = self.custom_data_request_jobs.get_mut(index) else {
             return Ok(());
@@ -1135,6 +1143,11 @@ impl CatalogCaptureActor {
     ///
     /// This is the request path only. Live subscribe traffic uses `on_data`.
     fn apply_custom_data_request_response(&mut self, resp: &CustomDataResponse) -> Result<()> {
+        // Native request callbacks can already be queued when on_stop drains the writers.
+        // A retired capture must not publish into a closed sink or change its final verdict.
+        if self.shutdown_completed {
+            return Ok(());
+        }
         let Some(index) = self
             .custom_data_request_jobs
             .iter()
@@ -1217,10 +1230,249 @@ mod tests {
     use super::predict_dynamic_output_data_type;
 
     #[test]
+    fn bullet_continuous_snapshots_and_hourly_rotation_preserve_windows_until_gap() {
+        use super::*;
+        use catalog_capture_core::{
+            CaptureConfig, CapturePlan, plan::BookDeltasCaptureSpec, read_book_replay_windows,
+        };
+        use nautilus_common::{actor::Component, cache::Cache, clock::VirtualClock};
+        use nautilus_model::{
+            data::BookOrder,
+            enums::{BookType, OrderSide, RecordFlag},
+            identifiers::TraderId,
+            stubs::TestDefault,
+            types::{Price, Quantity},
+        };
+        use std::{cell::RefCell, rc::Rc};
+        const HOUR: u64 = 3_600_000_000_000;
+        let root =
+            std::env::temp_dir().join(format!("bullet-gap-seal-{}", nautilus_core::UUID4::new()));
+        std::fs::create_dir_all(&root).unwrap();
+        let id = InstrumentId::from("BTC-USD-PERP.BULLET");
+        let mut book = OrderBook::new(id, BookType::L2_MBP);
+        book.add(
+            BookOrder::new(OrderSide::Buy, Price::from("100"), Quantity::from("1"), 0),
+            0,
+            42_550_033,
+            (HOUR - 8).into(),
+        );
+        let first = book.to_deltas((HOUR - 8).into(), (HOUR - 8).into());
+        let cache = Rc::new(RefCell::new(Cache::new(None, None)));
+        cache.borrow_mut().add_order_book(book).unwrap();
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
+        clock.borrow_mut().advance_time((HOUR - 8).into(), true);
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            CapturePlan {
+                book_deltas: vec![BookDeltasCaptureSpec {
+                    instrument_id: id,
+                    book_type: BookType::L2_MBP,
+                    depth: Some(20),
+                }],
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        actor
+            .register(TraderId::test_default(), clock.clone(), cache.clone())
+            .unwrap();
+        actor.market_data_live.insert(id);
+        actor.on_book_deltas(&first).unwrap();
+
+        let mut periodic = first.clone();
+        for row in &mut periodic.deltas {
+            row.sequence += 1;
+            row.ts_event = (HOUR - 3).into();
+            row.ts_init = (HOUR - 3).into();
+        }
+        let periodic = OrderBookDeltas::new(id, periodic.deltas);
+        cache
+            .borrow_mut()
+            .order_book_mut(&id)
+            .unwrap()
+            .apply_deltas(&periodic)
+            .unwrap();
+        actor.on_book_deltas(&periodic).unwrap();
+        clock.borrow_mut().advance_time(HOUR.into(), true);
+        actor.seal_segment_runtimes().unwrap();
+        // Continue after the same callback used by the hourly scheduler.
+        let mut update = periodic.deltas.last().copied().unwrap();
+        update.action = nautilus_model::enums::BookAction::Update;
+        update.flags = RecordFlag::F_LAST as u8;
+        update.sequence += 1;
+        update.ts_event = (HOUR + 1).into();
+        update.ts_init = (HOUR + 1).into();
+        let update = OrderBookDeltas::new(id, vec![update]);
+        cache
+            .borrow_mut()
+            .order_book_mut(&id)
+            .unwrap()
+            .apply_deltas(&update)
+            .unwrap();
+        actor.on_book_deltas(&update).unwrap();
+        let mut clear = OrderBookDelta::clear(id, 0, (HOUR + 1).into(), (HOUR + 2).into());
+        clear.flags = RecordFlag::F_LAST as u8;
+        let cut = OrderBookDeltas::new(id, vec![clear]);
+        cache
+            .borrow_mut()
+            .order_book_mut(&id)
+            .unwrap()
+            .apply_deltas(&cut)
+            .unwrap();
+        actor.on_book_deltas(&cut).unwrap();
+        assert!(!actor.book_delta_baselines.contains(&id));
+        let before = actor.capture_metrics().accepted_items;
+        let mut unverified = first.deltas.last().copied().unwrap();
+        unverified.action = nautilus_model::enums::BookAction::Update;
+        unverified.flags = RecordFlag::F_LAST as u8;
+        unverified.sequence = 1;
+        actor
+            .on_book_deltas(&OrderBookDeltas::new(id, vec![unverified]))
+            .unwrap();
+        clock.borrow_mut().advance_time((HOUR + 7).into(), true);
+        actor.seal_segment_runtimes().unwrap();
+        assert_eq!(
+            actor.capture_metrics().accepted_items,
+            before,
+            "unready increments/checkpoints must not be admitted"
+        );
+        let mut next = OrderBook::new(id, BookType::L2_MBP);
+        next.add(
+            BookOrder::new(OrderSide::Buy, Price::from("101"), Quantity::from("2"), 0),
+            0,
+            2_744_357,
+            (HOUR + 12).into(),
+        );
+        let replacement = next.to_deltas((HOUR + 12).into(), (HOUR + 12).into());
+        cache
+            .borrow_mut()
+            .order_book_mut(&id)
+            .unwrap()
+            .apply_deltas(&replacement)
+            .unwrap();
+        actor.on_book_deltas(&replacement).unwrap();
+        assert_eq!(cache.borrow().order_book(&id).unwrap().sequence, 2_744_357);
+        assert!(actor.book_delta_baselines.contains(&id));
+        assert!(!actor.book_delta_source_gaps.contains(&id));
+        actor.shutdown_all().unwrap();
+        let mut catalog = nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog::new(
+            &root, None, None, None, None,
+        );
+        let physical = catalog
+            .query::<OrderBookDelta>(Some(vec![id.to_string()]), None, None, None, None, true)
+            .unwrap();
+        let checkpoint_rows = physical
+            .iter()
+            .filter(|row| row.ts_init.as_u64() == HOUR)
+            .collect::<Vec<_>>();
+        assert_eq!(checkpoint_rows.len(), periodic.deltas.len());
+        assert_eq!(
+            checkpoint_rows[0].sequence, 42_550_034,
+            "hourly initialization retains the last applied u"
+        );
+        assert_eq!(checkpoint_rows[0].ts_event.as_u64(), HOUR - 3);
+        assert_eq!(
+            checkpoint_rows[0].action,
+            nautilus_model::enums::BookAction::Clear
+        );
+        assert!(
+            checkpoint_rows
+                .iter()
+                .all(|row| RecordFlag::F_SNAPSHOT.matches(row.flags))
+        );
+        let windows = read_book_replay_windows(&root, id).unwrap();
+        assert_eq!(windows.len(), 2);
+        assert_eq!(windows[0].data[0].deltas, first.deltas);
+        assert_eq!(windows[0].data[1].deltas, periodic.deltas);
+        assert_eq!(windows[0].data[2].deltas, update.deltas);
+        assert_eq!(windows[0].data[3].sequence, 0);
+        assert_eq!(windows[0].data[3].flags, RecordFlag::F_LAST as u8);
+        assert_eq!(windows[1].data[0].deltas, replacement.deltas);
+        assert_eq!(
+            windows
+                .iter()
+                .map(|window| window.data.len())
+                .sum::<usize>(),
+            5
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn custom_response_rejects_unknown_payload_instead_of_silent_empty_success() {
         assert!(super::custom_response_items(&42_u64).is_err());
         let empty = Vec::<super::CustomData>::new();
         assert!(super::custom_response_items(&empty).unwrap().is_empty());
+    }
+
+    #[test]
+    fn queued_custom_request_response_after_writer_shutdown_cannot_fail_the_completed_capture() {
+        use super::*;
+        use catalog_capture_core::{CaptureConfig, CapturePlan, CustomDataRequestCaptureSpec};
+        use nautilus_core::UUID4;
+        use nautilus_model::data::{CustomData, stubs::StubCustomData};
+        use std::sync::Arc;
+
+        let root = std::env::temp_dir().join(format!("capture-late-response-{}", UUID4::new()));
+        std::fs::create_dir_all(&root).unwrap();
+        let data_type = DataType::new("StubCustomData", None, Some("BTC-USD-PERP.BULLET".into()));
+        let plan = CapturePlan {
+            custom_data_requests: vec![CustomDataRequestCaptureSpec {
+                data_type: data_type.clone(),
+                interval_secs: 5,
+                fire_immediately: true,
+                overlap_policy: Default::default(),
+                request_timeout_secs: 10,
+                client_id: Some("bullet_main".into()),
+            }],
+            ..Default::default()
+        };
+        let mut actor = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", root.display()),
+                ..Default::default()
+            },
+            plan,
+        ))
+        .unwrap();
+        let request_id = UUID4::new();
+        actor.custom_data_request_jobs[0].request_id = Some(request_id);
+        let response = |data: Vec<CustomData>| {
+            CustomDataResponse::new(
+                request_id,
+                ClientId::from("bullet_main"),
+                None,
+                data_type.clone(),
+                data,
+                None,
+                None,
+                UnixNanos::from(2),
+                None,
+            )
+        };
+        // A valid completion traverses the same callback while the capture is live.
+        DataActor::handle_data_response(&mut actor, &response(Vec::new()));
+        assert!(actor.failure.is_none());
+        actor.shutdown_all().unwrap();
+        let before = actor.capture_metrics().accepted_items;
+        let late = vec![CustomData::new(
+            Arc::new(StubCustomData {
+                ts_init: UnixNanos::from(1),
+                value: 7,
+            }),
+            data_type.clone(),
+        )];
+        DataActor::handle_data_response(&mut actor, &response(late.clone()));
+        DataActor::on_historical_data(&mut actor, &late).unwrap();
+        assert!(
+            actor.failure.is_none(),
+            "late response changed the completed capture verdict"
+        );
+        assert_eq!(actor.capture_metrics().accepted_items, before);
+        assert_eq!(actor.custom_data_request_jobs[0].rows, 0);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -1561,6 +1813,9 @@ impl DataActor for CatalogCaptureActor {
 
     /// Fallback request-path sink if a response arrives without our override path.
     fn on_historical_data(&mut self, data: &dyn Any) -> Result<()> {
+        if self.shutdown_completed {
+            return Ok(());
+        }
         for item in custom_response_items(data)? {
             let result = self.submit_custom_data(item.clone());
             self.record_capture_result(result)?;

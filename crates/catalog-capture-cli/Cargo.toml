@@ -19,6 +19,7 @@ all-venues = [
   "venue-lighter",
   "venue-lighter-ext",
   "venue-extended",
+  "venue-bullet",
   "venue-bitfinex",
   "venue-predict",
   "venue-polymarket",
@@ -31,6 +32,7 @@ venue-hyperliquid = ["dep:nautilus-hyperliquid"]
 venue-lighter = ["dep:nautilus-lighter"]
 venue-lighter-ext = ["venue-lighter", "dep:nautilus-lighter-ext"]
 venue-extended = ["dep:nautilus-extended"]
+venue-bullet = ["dep:nautilus-bullet"]
 venue-bitfinex = ["dep:nautilus-bitfinex"]
 venue-predict = ["dep:nautilus-predict"]
 venue-polymarket = [
@@ -57,6 +59,7 @@ nautilus-hyperliquid = { workspace = true, optional = true }
 nautilus-lighter = { workspace = true, optional = true }
 nautilus-lighter-ext = { workspace = true, optional = true }
 nautilus-extended = { workspace = true, optional = true }
+nautilus-bullet = { workspace = true, optional = true }
 nautilus-bitfinex = { workspace = true, optional = true }
 nautilus-okx = { workspace = true, optional = true }
 nautilus-predict = { workspace = true, optional = true, features = [
@@ -78,5 +81,6 @@ ustr.workspace = true
 
 [dev-dependencies]
 nautilus-persistence.workspace = true
+nautilus-serialization.workspace = true
 nautilus-model = { workspace = true, features = ["test-support"] }
 axum.workspace = true

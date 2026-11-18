@@ -13,6 +13,7 @@ the Rust `catalog-capture-cli`; test strategies and collectors are not adapter A
 | `run_predict*_readonly.py` | Explicit read-only venue checks through Rust strategy/LiveNode |
 | `run_predict*_live.py` | Separately authorized, supervised funded execution |
 | `predict_evidence.py` | Immutable capture manifest verification |
+| `bullet_soak_evidence.py` | Native reconnect/ACK evidence and optional exact public-source comparison |
 
 Shared helpers are source modules, not generated artifacts. Catalog helpers read
 an existing catalog; live-smoke helpers assemble/run an explicitly requested capture.
@@ -48,7 +49,9 @@ control tests do not require a compiled Native extension.
 
 ## Network tools
 
-Use the [smoke/soak guide](../docs/how_to/smoke_and_soak.md) for generic probes and
+Use the [smoke/soak guide](../docs/how_to/smoke_and_soak.md) for generic probes,
+the [Bullet capture guide](../docs/how_to/bullet-capture.md) for reconnect and
+plain-catalog backtest checks, and
 the [Predict private API guide](../docs/how_to/predict-private-api-tests.md) for
 explicit read-only checks. Funded tools require an agreed execution scope and
 budget; normal offline tests do not invoke their entry points.

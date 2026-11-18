@@ -1509,6 +1509,7 @@ dependencies = [
  "log",
  "nautilus-binance",
  "nautilus-bitfinex",
+ "nautilus-bullet",
  "nautilus-bybit",
  "nautilus-common",
  "nautilus-core",
@@ -1524,6 +1525,7 @@ dependencies = [
  "nautilus-persistence",
  "nautilus-polymarket",
  "nautilus-predict",
+ "nautilus-serialization",
  "parquet",
  "rust_decimal",
  "serde",
@@ -4293,6 +4295,33 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "nautilus-bullet"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "arrow",
+ "async-trait",
+ "axum",
+ "bon",
+ "futures-util",
+ "log",
+ "nautilus-common",
+ "nautilus-core",
+ "nautilus-live",
+ "nautilus-model",
+ "nautilus-network",
+ "nautilus-persistence",
+ "nautilus-serialization",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "ustr",
 ]
 
 [[package]]

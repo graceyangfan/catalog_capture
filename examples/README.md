@@ -63,6 +63,8 @@ CAPTURE_FEATURES=venue-binance,venue-predict make build-release-capture
 
 | Intent | Config |
 |--------|--------|
+| Bullet BTC hourly settled funding plus separate five-second estimates (`venue-bullet`) | [`capture.bullet-btc-funding.toml`](capture.bullet-btc-funding.toml) |
+| Bullet BTC public top-20 L2/trades/mark/index/settled and estimated funding (`venue-bullet`) | [`capture.bullet-btc-perp.toml`](capture.bullet-btc-perp.toml) |
 | Minimal validate | `capture.toml` |
 | Deribit DVOL (subscribe custom) | `capture.deribit-dvol.toml` |
 | Binance perp WS | `capture.binance-perp.ws.toml` |

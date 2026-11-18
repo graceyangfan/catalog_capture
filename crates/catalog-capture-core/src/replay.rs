@@ -12,8 +12,9 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-//! Replay windows retain Native models and Parquet codecs. A gap starts a new
-//! experiment; physical file rotation alone does not reset a strategy.
+//! Replay windows retain Native models, codecs and independent continuity identities.
+//! Raw catalog readers also retain recorded invalidation controls for intentional
+//! single-engine continuation; physical file rotation alone does not reset a strategy.
 
 use std::{collections::HashMap, fs::File, path::Path};
 

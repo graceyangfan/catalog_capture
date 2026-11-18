@@ -5,6 +5,7 @@ members = [
   "crates/catalog-capture-runtime-adapter",
   "crates/catalog-capture-cli",
   "crates/nautilus-extended",
+  "crates/nautilus-bullet",
   "crates/nautilus-bitfinex",
   "crates/nautilus-lighter-ext",
   "crates/nautilus-predict",
@@ -90,6 +91,7 @@ nautilus-serialization = { path = "../nautilus_trader_quantity_commission/crates
 ] }
 nautilus-lighter-ext = { path = "crates/nautilus-lighter-ext" }
 nautilus-extended = { path = "crates/nautilus-extended" }
+nautilus-bullet = { path = "crates/nautilus-bullet" }
 nautilus-bitfinex = { path = "crates/nautilus-bitfinex" }
 nautilus-polymarket = { path = "../nautilus_trader_quantity_commission/crates/adapters/polymarket", default-features = false, features = [
   "high-precision",

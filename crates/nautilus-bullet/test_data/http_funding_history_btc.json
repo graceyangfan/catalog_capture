@@ -1,0 +1,27 @@
+[
+  {
+    "symbol": "BTC-USD",
+    "fundingRate": "0.000100000000000000",
+    "fundingTime": 1794985200000000
+  },
+  {
+    "symbol": "BTC-USD",
+    "fundingRate": "0.000100000000000000",
+    "fundingTime": 1794988800000000
+  },
+  {
+    "symbol": "BTC-USD",
+    "fundingRate": "0.000100000000000000",
+    "fundingTime": 1794992400000000
+  },
+  {
+    "symbol": "BTC-USD",
+    "fundingRate": "0.000100000000000000",
+    "fundingTime": 1794996000000000
+  },
+  {
+    "symbol": "BTC-USD",
+    "fundingRate": "0.000100000000000000",
+    "fundingTime": 1794999600000000
+  }
+]

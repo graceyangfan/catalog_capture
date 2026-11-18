@@ -28,6 +28,7 @@ how-to / reference); protocol design records are listed separately.
 | [Credentials](how_to/credentials.md) | Public vs env keys |
 | [Rust backtest from catalog](how_to/rust_backtest_from_catalog.md) | Read independent replay windows with Native codecs |
 | [Smoke and soak](how_to/smoke_and_soak.md) | Live probes |
+| [Bullet capture](how_to/bullet-capture.md) | Public BTC recording, reconnect checks and direct Native backtesting |
 | [Profile recorder memory](how_to/memory_profiling.md) | Queue pressure, heap snapshots, and rollover validation |
 
 ## Concepts
@@ -49,6 +50,7 @@ boundaries. They are not operator runbooks.
 | Doc | Scope |
 |-----|-------|
 | [Extended public adapter](extended-public-capture-design.md) | RPC v2 protocol and realtime lifecycle |
+| [Bullet public adapter](bullet-public-capture-design.md) | SDK authority, sequence/recovery, Parquet controls and funding semantics |
 | [Predict execution adapter](predict-execution-adapter-design.md) | Orders, wallet events, reconciliation, and execution lifecycle |
 
 ## Developer guide

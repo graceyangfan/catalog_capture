@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::{Context, Result, bail};
 use nautilus_model::{
     data::OrderBookDeltas,
-    enums::{BookType, RecordFlag},
+    enums::{BookAction, BookType, RecordFlag},
     identifiers::InstrumentId,
     orderbook::{BookLevel, OrderBook},
 };
@@ -95,7 +95,11 @@ pub fn validate_order_book_replay(
             .any(|row| RecordFlag::F_SNAPSHOT.matches(row.flags));
         if has_snapshot {
             snapshot_segment_count += 1;
-        } else if require_segment_snapshots {
+        } else if require_segment_snapshots
+            && !segment_rows
+                .iter()
+                .all(|row| row.action == BookAction::Clear && row.flags == RecordFlag::F_LAST as u8)
+        {
             bail!("order-book segment {start}_{end} for {instrument} contains no F_SNAPSHOT reset");
         }
     }

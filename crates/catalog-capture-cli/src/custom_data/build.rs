@@ -48,6 +48,28 @@ pub fn build_request_data_type(
     }
 
     match entry {
+        #[cfg(feature = "venue-bullet")]
+        KnownCustomDataType::BulletFundingEstimate => {
+            let id: nautilus_model::identifiers::InstrumentId = _metadata
+                .get("instrument_id")
+                .ok_or_else(|| {
+                    anyhow::anyhow!("BulletFundingEstimate requires metadata.instrument_id")
+                })?
+                .parse()?;
+            anyhow::ensure!(
+                _metadata.len() == 1,
+                "BulletFundingEstimate only accepts instrument_id metadata"
+            );
+            super::ensure_identifier_matches(
+                _identifier,
+                &id.to_string(),
+                "BulletFundingEstimate",
+            )?;
+            let data_type = nautilus_bullet::funding::estimate_data_type(id);
+            nautilus_bullet::funding::estimate_instrument(&data_type)?;
+            Ok((data_type, None))
+        }
+
         #[cfg(feature = "venue-binance")]
         KnownCustomDataType::BinanceFuturesOpenInterest => {
             build_binance_open_interest(_metadata, _identifier)
@@ -215,6 +237,51 @@ pub fn resolve_open_interest_requests(
         {
             plan.instruments
                 .push(InstrumentCaptureSpec { instrument_id: id });
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "venue-bullet")]
+pub fn resolve_bullet_funding_requests(
+    plan: &mut catalog_capture_core::CapturePlan,
+    venues: &[crate::config::VenueRuntimeConfig],
+) -> Result<()> {
+    for spec in &mut plan.custom_data_requests {
+        if spec.data_type.type_name() != nautilus_bullet::funding::ESTIMATE_TYPE {
+            continue;
+        }
+        let id = nautilus_bullet::funding::estimate_instrument(&spec.data_type)?;
+        let candidates = venues
+            .iter()
+            .filter_map(|v| {
+                if let crate::config::VenueRuntimeConfig::Bullet { id, .. } = v {
+                    Some(id)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        let client = match &spec.client_id {
+            Some(id) => {
+                anyhow::ensure!(
+                    candidates.contains(&id),
+                    "BulletFundingEstimate client_id is not a configured Bullet client"
+                );
+                id.clone()
+            }
+            None => {
+                anyhow::ensure!(
+                    candidates.len() == 1,
+                    "BulletFundingEstimate requires an unambiguous configured Bullet client"
+                );
+                candidates[0].clone()
+            }
+        };
+        spec.client_id = Some(client);
+        if !plan.instruments.iter().any(|s| s.instrument_id == id) {
+            plan.instruments
+                .push(catalog_capture_core::InstrumentCaptureSpec { instrument_id: id });
         }
     }
     Ok(())

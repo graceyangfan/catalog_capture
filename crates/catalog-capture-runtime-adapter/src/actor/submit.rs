@@ -425,24 +425,22 @@ impl CatalogCaptureActor {
             return Ok(());
         }
         let id = deltas.instrument_id;
-        if id.venue.as_str() == "BITFINEX"
-            && let [clear] = deltas.deltas.as_slice()
-            && clear.action == nautilus_model::enums::BookAction::Clear
-            && !nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(clear.flags)
-        {
+        let native_invalidation = matches!(id.venue.as_str(), "BITFINEX" | "BULLET");
+        let invalidation = native_invalidation
+            && matches!(deltas.deltas.as_slice(), [clear]
+                if clear.action == nautilus_model::enums::BookAction::Clear
+                    && !nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(clear.flags));
+        if invalidation {
             self.book_delta_baselines.remove(&id);
-            // Bitfinex sends a CLEAR without F_SNAPSHOT when a connection loses its baseline.
-            // Native clears the managed book; the writer records a boundary only.
-            let runtime = self
-                .book_delta_runtime
-                .as_ref()
-                .context("book-delta writer unavailable")?;
-            return runtime.mark_source_gap(&PartitionKey::catalog_data::<OrderBookDelta>(id));
+            self.book_delta_source_gaps.insert(id);
         }
         self.observe_book_delta_failures();
         let recovery = self.book_delta_recovery.contains(&id);
         let source_snapshot = nautilus_model::enums::RecordFlag::F_SNAPSHOT.matches(deltas.flags);
-        if recovery && !source_snapshot {
+        if self.book_delta_source_gaps.contains(&id) && !source_snapshot && !invalidation {
+            return Ok(());
+        }
+        if recovery && !source_snapshot && !invalidation {
             // Native has applied this source message before dispatching the callback.
             // The checkpoint already represents it; do not append that delta again.
             deltas = self.managed_book_checkpoint(id).ok_or_else(|| {
@@ -462,9 +460,26 @@ impl CatalogCaptureActor {
             estimated_bytes,
             payload: deltas,
         };
-        // A Bitfinex source cut is queued before the replacement snapshot. Keep
+        if invalidation {
+            let runtime = self
+                .book_delta_runtime
+                .as_ref()
+                .context("book-delta writer unavailable")?;
+            let partition = item.partition_key.clone();
+            // Bullet persists its Native control before sealing the old continuity window.
+            // Plain catalog readers can then reset the book without a replay-side repair.
+            let recorded = if id.venue.as_str() == "BULLET" {
+                runtime.submit(item)
+            } else {
+                Ok(())
+            };
+            // Preserve the gap even if control admission failed; quality records both failures.
+            let boundary = runtime.mark_source_gap(&partition);
+            return recorded.and(boundary);
+        }
+        // A source cut is queued before the replacement snapshot. Keep
         // the verified venue frame as source data, even if it is an empty book.
-        let result = if recovery && !(id.venue.as_str() == "BITFINEX" && source_snapshot) {
+        let result = if recovery && !(native_invalidation && source_snapshot) {
             self.book_delta_runtime
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("book-delta writer unavailable"))?
@@ -478,6 +493,7 @@ impl CatalogCaptureActor {
         } else if recovery || source_snapshot {
             self.book_delta_recovery.remove(&id);
             self.book_delta_baselines.insert(id);
+            self.book_delta_source_gaps.remove(&id);
         }
         result
     }

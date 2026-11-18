@@ -15,6 +15,8 @@
 use anyhow::{Result, bail};
 #[cfg(feature = "venue-binance")]
 use nautilus_binance::common::enums::{BinanceEnvironment, BinanceProductType};
+#[cfg(feature = "venue-bullet")]
+use nautilus_bullet::common::BulletEnvironment;
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::common::enums::{BybitEnvironment, BybitProductType};
 #[cfg(feature = "venue-deribit")]
@@ -97,6 +99,11 @@ pub enum VenueRuntimeConfig {
         id: String,
         environment: ExtendedEnvironment,
     },
+    #[cfg(feature = "venue-bullet")]
+    Bullet {
+        id: String,
+        environment: BulletEnvironment,
+    },
     #[cfg(feature = "venue-okx")]
     Okx {
         id: String,
@@ -129,6 +136,8 @@ impl VenueRuntimeConfig {
             Self::Lighter { id, .. } => id,
             #[cfg(feature = "venue-extended")]
             Self::Extended { id, .. } => id,
+            #[cfg(feature = "venue-bullet")]
+            Self::Bullet { id, .. } => id,
             #[cfg(feature = "venue-bitfinex")]
             Self::Bitfinex { id } => id,
             #[cfg(feature = "venue-okx")]
@@ -292,6 +301,19 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
                 venue_feature_required("extended", "venue-extended")
             }
         }
+        "bullet" => {
+            #[cfg(feature = "venue-bullet")]
+            {
+                Ok(VenueRuntimeConfig::Bullet {
+                    id: venue.id,
+                    environment: parse_bullet_environment(&venue.environment)?,
+                })
+            }
+            #[cfg(not(feature = "venue-bullet"))]
+            {
+                venue_feature_required("bullet", "venue-bullet")
+            }
+        }
         "okx" => {
             #[cfg(feature = "venue-okx")]
             {
@@ -340,7 +362,7 @@ pub(crate) fn parse_venue(venue: VenueConfig) -> Result<VenueRuntimeConfig> {
             }
         }
         other => bail!(
-            "unsupported venue kind {other}; known kinds: binance_futures, binance_spot, deribit, bybit, hyperliquid, lighter, lighter_binary, extended, okx, predict \
+            "unsupported venue kind {other}; known kinds: binance_futures, binance_spot, deribit, bybit, hyperliquid, lighter, lighter_binary, extended, bullet, okx, predict \
              (enabled at build time via cargo features venue-* / all-venues)"
         ),
     }
@@ -352,6 +374,15 @@ pub(crate) fn parse_extended_environment(value: &str) -> Result<ExtendedEnvironm
         "mainnet" | "live" => Ok(ExtendedEnvironment::Mainnet),
         "testnet" => Ok(ExtendedEnvironment::Testnet),
         other => bail!("unsupported Extended environment {other}; expected mainnet|testnet"),
+    }
+}
+
+#[cfg(feature = "venue-bullet")]
+pub(crate) fn parse_bullet_environment(value: &str) -> Result<BulletEnvironment> {
+    match value.to_ascii_lowercase().as_str() {
+        "mainnet" | "live" => Ok(BulletEnvironment::Mainnet),
+        "testnet" => Ok(BulletEnvironment::Testnet),
+        other => bail!("unsupported Bullet environment {other}; expected mainnet|testnet"),
     }
 }
 

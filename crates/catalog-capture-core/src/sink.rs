@@ -27,7 +27,7 @@ use nautilus_model::{
         MarkPriceUpdate, OptionGreeks, OrderBookDelta, OrderBookDeltas, QuoteTick, TradeTick,
         close::InstrumentClose,
     },
-    enums::RecordFlag,
+    enums::{BookAction, RecordFlag},
     identifiers::Venue,
     instruments::InstrumentAny,
 };
@@ -358,10 +358,12 @@ impl BookDeltaCatalogSink {
         };
         let state = boundary.entry(partition_key.to_owned()).or_default();
         let is_snapshot = RecordFlag::F_SNAPSHOT.matches(grouped.flags);
-        if state.needs_snapshot && !is_snapshot {
+        let invalidation = !is_snapshot
+            && matches!(grouped.deltas.as_slice(), [clear] if clear.action == BookAction::Clear);
+        if state.needs_snapshot && !is_snapshot && !invalidation {
             return None;
         }
-        state.has_source = true;
+        state.has_source |= !invalidation;
         if is_snapshot {
             state.needs_snapshot = false;
         }
@@ -903,6 +905,43 @@ mod book_delta_batch_tests {
             .unwrap();
         assert_eq!(rows.len(), snapshot.deltas.len());
         assert_eq!(rows[0].action, BookAction::Clear);
+        drop(catalog);
+        drop(sink);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_invalidation_is_persisted_even_while_the_sink_waits_for_a_snapshot() {
+        let root = temp_catalog();
+        let config = CaptureConfig {
+            catalog_uri: format!("file://{}", root.display()),
+            ..Default::default()
+        };
+        let mut sink = BookDeltaCatalogSink::from_config(&config).unwrap();
+        let snapshot = stub_deltas();
+        let id = snapshot.instrument_id;
+        let key = PartitionKey::catalog_data::<OrderBookDelta>(id).stable_key();
+        sink.break_continuity(Some(&key)).unwrap();
+        let mut clear = OrderBookDelta::clear(id, 0, 1.into(), 2.into());
+        clear.flags = RecordFlag::F_LAST as u8;
+        sink.write_batch(&key, vec![OrderBookDeltas::new(id, vec![clear])])
+            .unwrap();
+        // Invalidation is durable but does not authorize later unverified increments.
+        let mut increment = snapshot.deltas[1];
+        increment.action = BookAction::Update;
+        increment.flags = RecordFlag::F_LAST as u8;
+        increment.ts_init = 3.into();
+        sink.write_batch(&key, vec![OrderBookDeltas::new(id, vec![increment])])
+            .unwrap();
+        sink.seal_all().unwrap();
+        let mut catalog = ParquetDataCatalog::new(&root, None, None, None, None);
+        let rows = catalog
+            .order_book_deltas(Some(vec![id.to_string()]), None, None)
+            .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].action, BookAction::Clear);
+        assert_eq!(rows[0].sequence, 0);
+        assert_eq!(rows[0].flags, RecordFlag::F_LAST as u8);
         drop(catalog);
         drop(sink);
         fs::remove_dir_all(root).unwrap();

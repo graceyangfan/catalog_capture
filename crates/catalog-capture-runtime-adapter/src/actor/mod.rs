@@ -188,6 +188,7 @@ pub struct CatalogCaptureActor {
     book_delta_runtime: Option<BackgroundCaptureRuntime<OrderBookDeltas, BookDeltaCatalogSink>>,
     book_delta_recovery: BTreeSet<InstrumentId>,
     book_delta_baselines: BTreeSet<InstrumentId>,
+    book_delta_source_gaps: BTreeSet<InstrumentId>,
     book_delta_failure_cursor: u64,
     binance_client_routes: BTreeMap<InstrumentId, ClientId>,
     binance_futures_client_id: Option<ClientId>,
@@ -419,7 +420,12 @@ impl CatalogCaptureActor {
             CaptureFlushFamily::BookDeltas,
             &capture,
             |cfg| {
-                let sink = BookDeltaCatalogSink::from_config(cfg)?;
+                // Bullet periodic snapshots replace state on the same verified chain.
+                // The adapter emits an explicit invalidation when continuity is lost.
+                let sink = BookDeltaCatalogSink::from_config(cfg)?
+                    .with_continuous_snapshots_for_venue(nautilus_model::identifiers::Venue::from(
+                        "BULLET",
+                    ));
                 Ok(if rolling_hip4 {
                     sink.with_continuous_snapshots_for_venue(
                         nautilus_model::identifiers::Venue::from("HYPERLIQUID"),
@@ -492,6 +498,7 @@ impl CatalogCaptureActor {
             book_delta_runtime,
             book_delta_recovery: BTreeSet::new(),
             book_delta_baselines: BTreeSet::new(),
+            book_delta_source_gaps: BTreeSet::new(),
             book_delta_failure_cursor: 0,
             book_depth_runtime,
             predict_native_subscriptions: BTreeMap::new(),

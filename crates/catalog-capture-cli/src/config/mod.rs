@@ -145,6 +145,8 @@ pub fn resolve_config(config: CliConfigFile) -> Result<EffectiveConfig> {
     };
     #[cfg(feature = "venue-binance")]
     crate::custom_data::resolve_open_interest_requests(&mut plan, &venues)?;
+    #[cfg(feature = "venue-bullet")]
+    crate::custom_data::resolve_bullet_funding_requests(&mut plan, &venues)?;
     let option_universes = parse_option_universe_specs(&config.capture.option_universe)?;
     let hip4_universes = parse_hip4_universe_specs(&config.capture.hip4_universe)?;
 

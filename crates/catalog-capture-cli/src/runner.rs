@@ -49,6 +49,11 @@ use nautilus_binance::{
 };
 #[cfg(feature = "venue-bitfinex")]
 use nautilus_bitfinex::{BITFINEX, BitfinexDataClientConfig, BitfinexDataClientFactory};
+#[cfg(feature = "venue-bullet")]
+use nautilus_bullet::{
+    config::{BulletDataClientConfig, BulletInstrumentProviderConfig},
+    factories::BulletDataClientFactory,
+};
 #[cfg(feature = "venue-bybit")]
 use nautilus_bybit::{config::BybitDataClientConfig, factories::BybitDataClientFactory};
 use nautilus_common::{cache::CacheConfig, enums::Environment};
@@ -126,6 +131,10 @@ pub async fn run_capture(config: EffectiveConfig, post_run: PostRunReportOptions
     )
     .await
 }
+
+#[cfg(all(test, feature = "venue-bullet"))]
+#[path = "bullet_soak_tests.rs"]
+mod bullet_soak_tests;
 
 #[derive(Debug, Clone)]
 pub struct MaterializedCapturePlan {
@@ -484,6 +493,39 @@ pub async fn run_capture_with_plan_and_reports(
                     Some(id.clone()),
                     Box::new(ExtendedDataClientFactory::new()),
                     Box::new(ExtendedDataClientConfig {
+                        environment: *environment,
+                        instrument_provider,
+                        ..Default::default()
+                    }),
+                )?;
+            }
+            #[cfg(feature = "venue-bullet")]
+            VenueRuntimeConfig::Bullet { id, environment } => {
+                let load_ids = plan_instrument_ids(&plan)
+                    .into_iter()
+                    .filter(|instrument_id| instrument_id.venue.as_str() == "BULLET")
+                    .collect::<Vec<_>>();
+                log::info!(
+                    "Configuring venue {} ({environment:?}, public, load_ids={})",
+                    id,
+                    if load_ids.is_empty() {
+                        "all".to_string()
+                    } else {
+                        load_ids.len().to_string()
+                    },
+                );
+                let instrument_provider = if load_ids.is_empty() {
+                    BulletInstrumentProviderConfig::default()
+                } else {
+                    BulletInstrumentProviderConfig {
+                        load_all: false,
+                        load_ids: Some(load_ids),
+                    }
+                };
+                builder = builder.add_data_client(
+                    Some(id.clone()),
+                    Box::new(BulletDataClientFactory::new()),
+                    Box::new(BulletDataClientConfig {
                         environment: *environment,
                         instrument_provider,
                         ..Default::default()
@@ -858,6 +900,8 @@ fn venue_kind_label(venue: &VenueRuntimeConfig) -> &'static str {
         VenueRuntimeConfig::LighterBinary { .. } => "lighter_binary",
         #[cfg(feature = "venue-extended")]
         VenueRuntimeConfig::Extended { .. } => "extended",
+        #[cfg(feature = "venue-bullet")]
+        VenueRuntimeConfig::Bullet { .. } => "bullet",
         #[cfg(feature = "venue-bitfinex")]
         VenueRuntimeConfig::Bitfinex { .. } => "bitfinex",
         #[cfg(feature = "venue-okx")]
@@ -887,6 +931,8 @@ fn compiled_venue_features() -> Vec<String> {
         "venue-lighter-ext",
         #[cfg(feature = "venue-extended")]
         "venue-extended",
+        #[cfg(feature = "venue-bullet")]
+        "venue-bullet",
         #[cfg(feature = "venue-bitfinex")]
         "venue-bitfinex",
         #[cfg(feature = "venue-predict")]
@@ -1025,6 +1071,19 @@ async fn wait_for_shutdown_signal() {
 }
 
 pub fn validate_runtime(config: &EffectiveConfig) -> Result<()> {
+    #[cfg(feature = "venue-bullet")]
+    {
+        for book in &config.plan.book_deltas {
+            if book.instrument_id.venue.as_str() == "BULLET" {
+                anyhow::ensure!(
+                    book.book_type == nautilus_model::enums::BookType::L2_MBP
+                        && book.depth == Some(20),
+                    "Bullet book capture requires L2_MBP with explicit depth=20"
+                );
+            }
+        }
+    }
+
     validate_runtime_switches(config)?;
     validate_runtime_dependencies(config)?;
     let _ = resolve_catalog_dir(&config.capture.catalog_uri)?;

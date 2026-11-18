@@ -26,7 +26,7 @@ use nautilus_backtest::{
 };
 use nautilus_common::{
     actor::{DataActor, drain_callbacks, registry::try_get_actor_unchecked},
-    clock::VirtualClock,
+    clock::{Clock, VirtualClock},
     enums::Environment,
     timer::TimeEvent,
 };
@@ -51,6 +51,7 @@ struct Observation {
     payload: Payload,
     decision: OrderSide,
     ordinal: usize,
+    book_sequence: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Payload {
@@ -93,6 +94,7 @@ impl Trace {
             payload,
             decision,
             ordinal: self.seen,
+            book_sequence: self.book.sequence,
         });
         self.seen += 1;
     }
@@ -567,6 +569,326 @@ fn gap_windows_start_fresh_backtest_engines_instead_of_carrying_strategy_state()
     }
     assert_eq!(first_decisions, vec![OrderSide::Sell, OrderSide::Buy]);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+#[ignore = "requires BULLET_BACKTEST_CATALOG with a recorded reconnect"]
+fn recorded_bullet_windows_run_in_native_backtest_engines() {
+    use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+    let root = std::path::PathBuf::from(std::env::var("BULLET_BACKTEST_CATALOG").unwrap());
+    let id = InstrumentId::from("BTC-USD-PERP.BULLET");
+    let windows = read_book_replay_windows(&root, id).unwrap();
+    assert!(
+        windows.len() >= 2,
+        "recording must exercise a recovered window"
+    );
+    let trades = read_replay_windows::<TradeTick>(&root, id).unwrap();
+    let instrument = ParquetDataCatalog::new(&root, None, None, None, None)
+        .query_instruments(Some(&[id.to_string()]))
+        .unwrap()
+        .into_iter()
+        .last()
+        .unwrap();
+    let mut reports = Vec::new();
+    for window in windows {
+        let instrument = instrument.clone();
+        let trades = trades
+            .iter()
+            .flat_map(|window| &window.data)
+            .filter(|trade| trade.ts_init >= window.start && trade.ts_init <= window.end)
+            .copied()
+            .collect::<Vec<_>>();
+        let report = std::thread::spawn(move || {
+            assert!(window.has_book_baseline());
+            let frames = window.data.len();
+            let first_u = window.data[0].sequence;
+            let mut expected = OrderBook::new(id, BookType::L2_MBP);
+            for frame in &window.data { expected.apply_deltas(frame).unwrap(); }
+            let mut data: Vec<Data> = window.data.into_iter().map(Data::from)
+                .chain(trades.into_iter().map(Data::from)).collect();
+            data.sort_by_key(HasTsInit::ts_init);
+            let count = data.len();
+            let journal = Rc::new(RefCell::new(Vec::new()));
+            let mut engine = BacktestEngine::new(BacktestEngineConfig::default()).unwrap();
+            engine.add_venue(SimulatedVenueConfig::builder()
+                .venue(id.venue).oms_type(OmsType::Netting).account_type(AccountType::Margin)
+                .book_type(BookType::L2_MBP).starting_balances(vec![Money::from("1_000_000 USD")])
+                .fee_model(FeeModelAny::MakerTaker(MakerTakerFeeModel::zero()).into()).build().unwrap()).unwrap();
+            engine.add_instrument(&instrument).unwrap();
+            engine.add_strategy(Trace::new(id, Rc::clone(&journal))).unwrap();
+            engine.add_data(data, None, true, true).unwrap();
+            engine.run(None, None, None, false).unwrap();
+            assert_eq!(engine.get_result().iterations, count);
+            let observations = journal.borrow();
+            assert_eq!(observations.len(), count);
+            assert_eq!(observations[0].ordinal, 0, "strategy must start fresh in each window");
+            let mut actual = OrderBook::new(id, BookType::L2_MBP);
+            let mut callbacks = 0;
+            for observation in observations.iter() {
+                if let Payload::Book(frame) = &observation.payload {
+                    actual.apply_deltas(frame).unwrap();
+                    assert_eq!(actual.sequence, frame.sequence);
+                    nautilus_model::orderbook::analysis::book_check_integrity(&actual).unwrap();
+                    callbacks += 1;
+                }
+            }
+            assert_eq!(callbacks, frames);
+            assert_eq!(actual.bids_as_map(None), expected.bids_as_map(None));
+            assert_eq!(actual.asks_as_map(None), expected.asks_as_map(None));
+            assert_eq!(actual.sequence, expected.sequence);
+            serde_json::json!({"window":window.id,"start_ns":window.start.as_u64(),"end_ns":window.end.as_u64(),"first_u":first_u,"last_u":actual.sequence,"book_frames":frames,"trade_callbacks":count-frames,"engine_iterations":count,"strategy_callbacks":observations.len(),"strategy_initial_ordinal":observations[0].ordinal,"final_book_matches_source":true})
+        }).join().unwrap();
+        reports.push(report);
+    }
+    let report = serde_json::to_string_pretty(&reports).unwrap();
+    if let Ok(path) = std::env::var("BULLET_BACKTEST_REPORT") {
+        std::fs::write(path, &report).unwrap();
+    }
+    println!("{report}");
+}
+
+/// Verify unmodified Native catalog output, including recorded controls and hourly initializers.
+fn plain_catalog_backtest(root: &std::path::Path, instrument: InstrumentAny) -> serde_json::Value {
+    use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+    let id = instrument.id();
+    let mut catalog = ParquetDataCatalog::new(root, None, None, None, None);
+    // Ordinary Native queries: no continuity reader, initializer filtering or inserted controls.
+    let rows = catalog
+        .query::<OrderBookDelta>(Some(vec![id.to_string()]), None, None, None, None, true)
+        .unwrap();
+    let trades = catalog
+        .query::<TradeTick>(Some(vec![id.to_string()]), None, None, None, None, true)
+        .unwrap();
+    let controls = rows
+        .iter()
+        .filter(|row| row.action == BookAction::Clear && !RecordFlag::F_SNAPSHOT.matches(row.flags))
+        .count();
+    let source_sequences = rows
+        .iter()
+        .filter(|row| row.action != BookAction::Clear || RecordFlag::F_SNAPSHOT.matches(row.flags))
+        .map(|row| row.sequence)
+        .collect::<Vec<_>>();
+    let source_sequence_decreases = source_sequences
+        .windows(2)
+        .filter(|pair| pair[1] < pair[0])
+        .count();
+    assert!(
+        controls > 0,
+        "recording must already contain the Native invalidation"
+    );
+    let row_count = rows.len();
+    let mut data: Vec<Data> = rows
+        .into_iter()
+        .map(Data::from)
+        .chain(trades.into_iter().map(Data::from))
+        .collect();
+    data.sort_by_key(HasTsInit::ts_init);
+    let count = data.len();
+    let journal = Rc::new(RefCell::new(Vec::new()));
+    let mut engine = BacktestEngine::new(BacktestEngineConfig::default()).unwrap();
+    engine
+        .add_venue(
+            SimulatedVenueConfig::builder()
+                .venue(id.venue)
+                .oms_type(OmsType::Netting)
+                .account_type(AccountType::Margin)
+                .book_type(BookType::L2_MBP)
+                .starting_balances(vec![Money::new(
+                    1_000_000.0,
+                    instrument.settlement_currency(),
+                )])
+                .fee_model(FeeModelAny::MakerTaker(MakerTakerFeeModel::zero()).into())
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
+    engine.add_instrument(&instrument).unwrap();
+    engine
+        .add_strategy(Trace::new(id, Rc::clone(&journal)))
+        .unwrap();
+    engine.add_data(data, None, true, true).unwrap();
+    engine.run(None, None, None, false).unwrap();
+    assert_eq!(engine.get_result().iterations, count);
+    let observations = journal.borrow();
+    assert_eq!(observations.len(), count);
+    let mut actual = OrderBook::new(id, BookType::L2_MBP);
+    let mut expected = OrderBook::new(id, BookType::L2_MBP);
+    for (index, observation) in observations.iter().enumerate() {
+        assert_eq!(observation.ordinal, index);
+        if let Payload::Book(frame) = &observation.payload {
+            if frame.deltas[0].action == BookAction::Clear
+                && RecordFlag::F_SNAPSHOT.matches(frame.flags)
+            {
+                expected.reset();
+            }
+            actual.apply_deltas(frame).unwrap();
+            expected.apply_deltas(frame).unwrap();
+            assert_eq!(
+                observation.book_sequence, frame.sequence,
+                "Native strategy book high-water differs from recorded sequence"
+            );
+            assert_eq!(actual.sequence, frame.sequence);
+            assert_eq!(actual.bids_as_map(None), expected.bids_as_map(None));
+            assert_eq!(actual.asks_as_map(None), expected.asks_as_map(None));
+            if RecordFlag::F_LAST.matches(frame.flags) {
+                nautilus_model::orderbook::analysis::book_check_integrity(&actual).unwrap();
+            }
+        }
+    }
+    serde_json::json!({"one_native_engine":true,"plain_native_catalog_query":true,"flat_native_delta_input":true,"window_reader_used":false,"replay_controls_inserted":0,"recorded_invalidation_rows":controls,"source_sequence_decreases":source_sequence_decreases,"book_rows":row_count,"engine_iterations":count,"strategy_callbacks":observations.len(),"strategy_counter_continued":true,"book_sequence_highwater_mismatches":0,"final_sequence":actual.sequence,"final_bid_levels":actual.bids(None).count(),"final_ask_levels":actual.asks(None).count()})
+}
+
+#[test]
+fn recorded_invalidation_roundtrips_through_plain_catalog_and_one_native_engine() {
+    let root = std::env::temp_dir().join(format!("native-control-roundtrip-{}", UUID4::new()));
+    std::fs::create_dir_all(&root).unwrap();
+    let mut definition = crypto_perpetual_ethusdt();
+    // Synthetic instrument: this test exercises recorder/engine behavior, not Bullet wire precision.
+    definition.id = InstrumentId::from("ETHUSDT-PERP.BULLET");
+    let instrument = InstrumentAny::CryptoPerpetual(definition);
+    let id = instrument.id();
+    let live_root = root.clone();
+    std::thread::spawn(move || {
+        let clock = Rc::new(RefCell::new(VirtualClock::new()));
+        // Set the replay epoch before registering recurring capture timers.
+        clock
+            .borrow_mut()
+            .advance_time(1_800_000_000_000_000_000_u64.into(), true);
+        let node_clock = Rc::clone(&clock);
+        let mut node = LiveNode::builder(TraderId::from("LIVE-001"), Environment::Live)
+            .unwrap()
+            .with_clock_factory(move || node_clock.clone())
+            .build()
+            .unwrap();
+        node.kernel()
+            .cache
+            .borrow_mut()
+            .add_instrument(instrument)
+            .unwrap();
+        node.kernel()
+            .cache
+            .borrow_mut()
+            .add_order_book(OrderBook::new(id, BookType::L2_MBP))
+            .unwrap();
+        let capture = CatalogCaptureActor::new(CatalogCaptureActorConfig::new(
+            CaptureConfig {
+                catalog_uri: format!("file://{}", live_root.display()),
+                ..Default::default()
+            },
+            CapturePlan {
+                book_deltas: vec![BookDeltasCaptureSpec {
+                    instrument_id: id,
+                    book_type: BookType::L2_MBP,
+                    depth: Some(20),
+                }],
+                trades: vec![TradeCaptureSpec { instrument_id: id }],
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        let capture_id = capture.actor_id();
+        node.add_actor(capture).unwrap();
+        node.kernel().trader.borrow_mut().initialize().unwrap();
+        node.kernel_mut().start_trader().unwrap();
+        let source = source(id);
+        let Data::BookDeltas(original) = &source[0] else {
+            unreachable!()
+        };
+        let start = original.ts_init.as_u64();
+        let make_snapshot = |u, time| {
+            let mut rows = original.deltas.clone();
+            for row in &mut rows {
+                row.sequence = u;
+                row.ts_init = UnixNanos::from(time);
+                row.ts_event = UnixNanos::from(time);
+            }
+            Data::from(OrderBookDeltas::new(id, rows))
+        };
+        let mut cut = OrderBookDelta::clear(id, 0, start.into(), (start + 10).into());
+        cut.flags = RecordFlag::F_LAST as u8;
+        let Data::Trade(mut trade) = source[3] else {
+            unreachable!()
+        };
+        trade.ts_init = (start + 30).into();
+        trade.ts_event = trade.ts_init;
+        let data = [
+            make_snapshot(42_550_033, start),
+            Data::from(OrderBookDeltas::new(id, vec![cut])),
+            make_snapshot(2_744_357, start + 20),
+            Data::from(trade),
+        ];
+        for (index, item) in data.iter().enumerate() {
+            clock.borrow_mut().advance_time(item.ts_init(), true);
+            if let Data::BookDeltas(frame) = item {
+                node.kernel()
+                    .cache
+                    .borrow_mut()
+                    .order_book_mut(&id)
+                    .unwrap()
+                    .apply_deltas(frame)
+                    .unwrap();
+            }
+            node.kernel()
+                .data_engine
+                .borrow_mut()
+                .process_data(item.clone());
+            drain_callbacks(10_000).unwrap();
+            // Exercise both a healthy scheduled rotation and one while the book is invalid.
+            if index < 3 {
+                clock
+                    .borrow_mut()
+                    .advance_time((item.ts_init().as_u64() + 1).into(), true);
+                let mut capture =
+                    try_get_actor_unchecked::<CatalogCaptureActor>(&capture_id.inner()).unwrap();
+                let now = clock.borrow().timestamp_ns();
+                capture
+                    .on_time_event(&TimeEvent::new(
+                        "SEGMENT_SEAL".into(),
+                        UUID4::new(),
+                        now,
+                        now,
+                    ))
+                    .unwrap();
+            }
+        }
+        node.kernel_mut().stop_trader();
+    })
+    .join()
+    .unwrap();
+    let mut definition = crypto_perpetual_ethusdt();
+    definition.id = id;
+    let replay_root = root.clone();
+    let result = std::thread::spawn(move || {
+        plain_catalog_backtest(&replay_root, InstrumentAny::CryptoPerpetual(definition))
+    })
+    .join()
+    .unwrap();
+    assert_eq!(result["recorded_invalidation_rows"], 1);
+    assert_eq!(result["source_sequence_decreases"], 1);
+    assert_eq!(result["final_sequence"], 2_744_357);
+    // The writer control is in the plain Parquet stream, not synthesized by this test's reader.
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+#[ignore = "requires BULLET_BACKTEST_CATALOG recorded with persisted invalidation controls"]
+fn recorded_bullet_plain_catalog_runs_in_one_native_engine() {
+    use nautilus_persistence::backend::parquet::catalog::ParquetDataCatalog;
+    let root = std::path::PathBuf::from(std::env::var("BULLET_BACKTEST_CATALOG").unwrap());
+    let instrument = ParquetDataCatalog::new(&root, None, None, None, None)
+        .query_instruments(Some(&["BTC-USD-PERP.BULLET".to_string()]))
+        .unwrap()
+        .into_iter()
+        .last()
+        .unwrap();
+    let report = std::thread::spawn(move || plain_catalog_backtest(&root, instrument))
+        .join()
+        .unwrap();
+    let report = serde_json::to_string_pretty(&report).unwrap();
+    if let Ok(path) = std::env::var("BULLET_PLAIN_CATALOG_REPORT") {
+        std::fs::write(path, &report).unwrap();
+    }
+    println!("{report}");
 }
 
 /// Opt-in readback of the public Futures capture; never opens a venue connection or sends orders.

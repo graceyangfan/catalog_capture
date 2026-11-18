@@ -4,6 +4,16 @@ Capture writes standard Native Parquet directly. No staging or format conversion
 is needed. For catalogs predating the v0.65 persistence refactor, migrate into a
 separate empty destination before using a current reader.
 
+Bullet recordings persist their explicit Native book invalidation
+CLEAR controls in Parquet before each source-gap boundary. An ordinary Native
+catalog query can therefore supply one BacktestEngine with the recorded reset,
+replacement snapshot and later deltas, without a continuity loader or synthesized
+reset. This keeps engine/strategy state while correctly resetting the book's
+sequence high-water; the source gap still exists and remains in quality metadata.
+The [Bullet acceptance test](bullet-capture.md#read-through-one-native-backtestengine)
+exercises flat Native Delta input directly. The window APIs below remain available
+for deliberately independent experiments and do not imply an engine restriction.
+
 ## Read independent replay windows
 
 Use the capture window reader for instrument-keyed market data. Ordinary Native
